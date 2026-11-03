@@ -21,6 +21,27 @@ function requirePersistedDiagnostic(listing, document, byteLength) {
   }
 }
 
+async function requireDiagnosticDownloads(files) {
+  const root = await files.list("/");
+  if (root?.path !== "/" || !Array.isArray(root.entries)) {
+    throw new TypeError("Diagnostic export requires a verified Files root");
+  }
+  const existing = root.entries.find((entry) => entry?.name === "Downloads");
+  if (existing) {
+    if (existing.kind !== "directory") {
+      throw new TypeError("Diagnostic Downloads path is not a directory");
+    }
+    return;
+  }
+  const created = await files.createDirectory("/", "Downloads");
+  const directory = created?.path === "/" && Array.isArray(created.entries)
+    ? created.entries.find((entry) => entry?.name === "Downloads")
+    : null;
+  if (directory?.kind !== "directory") {
+    throw new TypeError("Diagnostic Downloads creation not confirmed");
+  }
+}
+
 export function createNativeDiagnosticExport(
   fileSpace,
   { TextEncoderCtor = globalThis.TextEncoder } = {},
@@ -35,6 +56,7 @@ export function createNativeDiagnosticExport(
     schema: DIAGNOSTIC_EXPORT_SCHEMA,
     async save(value) {
       const document = validateDiagnosticExportDocument(value);
+      await requireDiagnosticDownloads(files);
       const bytes = encoder.encode(document.text);
       const listing = await files.importFile(
         NATIVE_DIAGNOSTIC_EXPORT_DIRECTORY,

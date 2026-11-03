@@ -8,6 +8,7 @@ import { mkdtempSync, mkdirSync, writeFileSync, rmSync, readFileSync } from "nod
 import { tmpdir } from "node:os";
 import { join, resolve } from "node:path";
 import { createDesktopNativeServer, createDesktopStaticMiddleware } from "./desktop-native-server.mjs";
+import { createSystemTermsAcceptance } from "../../system/contracts/system-terms.mjs";
 
 const tokens={
   ORDAX_DESKTOP_FILE_TOKEN:"a".repeat(64),
@@ -92,7 +93,49 @@ test("standalone installed Native host serves verified bundle and existing privi
   const first=await fetch(base+"/__ordax/native/first-run",{
     headers:{"x-ordax-desktop-state-token":tokens.ORDAX_DESKTOP_STATE_TOKEN}});
   assert.equal(first.status,200);
-  assert.equal(typeof(await first.json()).completed,"boolean");
+
+  // A Windows first-use receipt must survive a fresh Native HTTP host and
+  // remain immutable; a UI reload alone would not prove durable persistence.
+  const firstReceipt=await first.json();
+  assert.equal(firstReceipt.completed,false);
+  const completedReceipt={...firstReceipt,completed:true,accountMode:"local-only",
+    systemTerms:createSystemTermsAcceptance(true)};
+  const stateHeaders={
+    "x-ordax-desktop-state-token":tokens.ORDAX_DESKTOP_STATE_TOKEN,
+  };
+  const writeFirstRun=(url,snapshot)=>fetch(url+"/__ordax/native/first-run",{
+    method:"POST",
+    headers:{...stateHeaders,"Content-Type":"application/json",Origin:url},
+    body:JSON.stringify(snapshot),
+  });
+  for(const invalidTerms of [
+    {...completedReceipt.systemTerms,accepted:false},
+    {...completedReceipt.systemTerms,documentId:"account-terms"},
+    {...completedReceipt.systemTerms,status:"published"},
+  ]){
+    assert.equal((await writeFirstRun(base,{...completedReceipt,systemTerms:invalidTerms})).status,400,
+      "untrusted system-terms acknowledgement must not complete First Run");
+  }
+  assert.equal((await writeFirstRun(base,completedReceipt)).status,200);
+  assert.equal((await writeFirstRun(base,completedReceipt)).status,200,
+    "same completed receipt must be idempotent");
+  assert.equal((await writeFirstRun(base,{...completedReceipt,locale:"en-US"})).status,409,
+    "completed receipt cannot be replaced");
+  const firstRunReopened=createDesktopNativeServer({
+    root,stateDirectory:join(dir,"state"),
+    accountGatewayOrigin:"https://example.invalid/api",
+  });
+  await new Promise(resolve=>firstRunReopened.listen(0,"127.0.0.1",resolve));
+  t.after(()=>new Promise(resolve=>firstRunReopened.close(resolve)));
+  const reopenedBase="http://127.0.0.1:"+firstRunReopened.address().port;
+  const reopened=await fetch(reopenedBase+"/__ordax/native/first-run",{
+    headers:stateHeaders,
+  });
+  assert.equal(reopened.status,200);
+  assert.deepEqual(await reopened.json(),completedReceipt,
+    "independent installed Native host must load the exact completed receipt");
+  assert.equal((await writeFirstRun(reopenedBase,{...completedReceipt,timeZone:"America/Manaus"})).status,409,
+    "a fresh Native host must also reject mutation after completion");
   // A missing Linux service is not fabricated by the standalone host.
   assert.equal((await fetch(base+"/__ordax/native/keyboard-layout")).status,503);
   // Aura exists only behind the trusted Desktop Host and exact OS-pinned payload.

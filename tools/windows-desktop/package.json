@@ -33,7 +33,8 @@
       "browser-preload.cjs",
       "native-build.cjs",
       "surface-stage.cjs",
-      "toolchain-cache.cjs"
+      "toolchain-cache.cjs",
+      "git-toolchain-lock.json"
     ],
     "extraResources": [
       {
@@ -78,6 +79,14 @@
       {
         "from": "../../out/windows-desktop-toolchain/toolchain-receipt.json",
         "to": "runtime-template/toolchain/toolchain-receipt.json"
+      },
+      {
+        "from": "../../out/windows-desktop-toolchain/git",
+        "to": "runtime-template/toolchain/git"
+      },
+      {
+        "from": "../../out/windows-desktop-toolchain/git-receipt.json",
+        "to": "runtime-template/toolchain/git-receipt.json"
       },
       {
         "from": "../../out/windows-desktop-native",

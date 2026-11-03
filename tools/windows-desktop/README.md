@@ -336,6 +336,43 @@ cliente localhost sem o token recebe HTTP 401.
 
 Com a sessão bloqueada, as rotas de Conta/sync e Files recusam operações
 (HTTP 423); falha de integridade do registro impede abrir os dados (503).
+Com um PIN configurado, o arquivo `desktop-local-session.json` mantém apenas
+sal/verificador e `state=locked`: **desbloqueio é uma decisão volátil do Native
+Host atual**, nunca uma autorização persistida. Um novo processo volta bloqueado
+mesmo que o anterior tenha encerrado autenticado. Registros antigos de
+desenvolvimento com `state=unlocked` são migrados atomicamente para bloqueado,
+sem remover a credencial; falha na migração impede abrir os dados. O Primeiro
+Uso continua legível pela Surface autorizada durante o bloqueio, mas nenhuma
+escrita no seu recibo é permitida antes da autenticação.
+No Windows instalado, a leitura verificada de `ordax.local-session/1` é requisito
+de montagem: HTTP indisponível, arquivo PIN corrompido ou falha na migração
+interrompem a composição antes de expor a Surface ou declarar saúde.
+A leitura do recibo `ordax.first-run-state/1` também é obrigatória nesse
+modo: HTTP não autorizado/indisponível ou JSON inválido não pode ser
+interpretado como novo usuário, ocultando um primeiro uso já concluído.
+A composição falha fechada antes do mount; nenhuma rotina cria um
+segundo recibo ou apaga o anterior. O host de estado Windows exige o
+aceite versionado dos Termos do OS ao gravar uma **nova conclusão**; um
+POST sem aceite recebe HTTP 400 sem concluir o primeiro uso. Recibos
+antigos já concluídos permanecem legíveis e aceitam regravação idêntica,
+sem atribuir um consentimento que o usuário não deu. Além disso, o bloqueio visual do PIN
+é montado uma única vez **antes** de ocultar a tela de boot, declarar a
+Surface saudável ou iniciar o assistente de primeiro uso. Se o bloqueio
+visual falhar no Windows, o boot é recusado com diagnóstico sanitizado,
+sem mostrar temporariamente o workspace desprotegido. Quando o Primeiro Uso
+estiver incompleto, o boot screen permanece até o assistente estar montado;
+se houver PIN configurado e bloqueado, **somente o desbloqueio é exibido**,
+e o assistente é ativado após a confirmação do PIN, nunca por cima dela.
+A saúde do shell continua independente do carregamento opcional do perfil.
+O Device Profile e o cursor do assistente usam no Windows um prazo
+**compartilhado de 5 segundos para leitura**: requisições HTTP sem resposta
+são canceladas e tratadas como capacidades opcionais indisponíveis, não
+como dados inventados. A retomada continua possível pelo passo inicial
+canônico. Isso não se aplica à gravação do recibo, do cursor ou do nome:
+uma escrita exige resposta real e persistente do respectivo host.
+Uma falha do assistente no Windows deixa o boot em erro, sem exibir o
+workspace como se a configuração inicial já tivesse sido realizada. O
+emulador visual e o USB preservam seu bootstrap recuperável e sua sessão opcional.
 O bloqueio é **de Surface/sessão OrdaX**, e não substitui a segurança de disco,
 login do Windows, nem a revogação da Conta. Os demais brokers privilegiados
 ainda precisam de adaptadores Windows e controles próprios. O emulador visual

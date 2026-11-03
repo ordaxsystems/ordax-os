@@ -1,6 +1,6 @@
 import test from "node:test";
 import assert from "node:assert/strict";
-import { createServer } from "node:http";
+import { createServer, request as httpRequest } from "node:http";
 import { mkdtemp, readdir, readFile, rm, writeFile } from "node:fs/promises";
 import { join } from "node:path";
 import { tmpdir } from "node:os";
@@ -8,17 +8,20 @@ import { createDesktopLocalSessionMiddleware } from "../system/adapters/desktop/
 import { createDesktopFileSpaceMiddleware } from "../system/adapters/desktop/file-space-host.mjs";
 import { createEmulatorNativeHost } from "../tools/windows-emulator/native-host.mjs";
 import { createNativeLocalSession } from "../system/adapters/native/local-session.mjs";
+import { createSystemTermsAcceptance } from "../system/contracts/system-terms.mjs";
 
 const SESSION_TOKEN="a".repeat(64);
 const FILE_TOKEN="b".repeat(64);
+const STATE_TOKEN="c".repeat(64);
 const route="/__ordax/native/local-session";
 
-async function createHost(root,{account=false}={}){
+async function createHost(root,{account=false,withStateGrant=false}={}){
   const local=createDesktopLocalSessionMiddleware(root,{token:SESSION_TOKEN});
   const files=createDesktopFileSpaceMiddleware(join(root,"Files"),{token:FILE_TOKEN,sessionLocked:local.readLocked});
   const emulator=createEmulatorNativeHost({
     stateDirectory:join(root,"native-state"),
     sessionLocked:local.readLocked,
+    ...(withStateGrant?{stateToken:STATE_TOKEN,allowEmulatorReset:false}:{}),
     ...(account?{
       accountGatewayOrigin:"https://example.test/account",
       fetchImpl:async()=>Response.json({
@@ -43,7 +46,10 @@ async function createHost(root,{account=false}={}){
   const fetchFiles=(path,init={})=>fetch(origin+path,{
     ...init,headers:{"X-OrdaX-File-Token":FILE_TOKEN,Origin:origin,...init.headers},
   });
-  return {local,origin,fetchTrusted,fetchFiles,close:async()=>{
+  const fetchState=(path,init={})=>fetch(origin+path,{
+    ...init,headers:{"X-OrdaX-Desktop-State-Token":STATE_TOKEN,Origin:origin,...init.headers},
+  });
+  return {local,origin,fetchTrusted,fetchFiles,fetchState,close:async()=>{
     server.closeAllConnections();await new Promise(done=>server.close(done));
   }};
 }
@@ -102,6 +108,74 @@ test("Windows native local session is real, persistent, authenticated and does n
  }
 });
 
+test("Windows PIN stays disk-locked and First Run can only complete after active-process unlock",async()=>{
+  const dir=await mkdtemp(join(tmpdir(),"ordax-session-relock-"));
+  const stateRoute="/__ordax/native/first-run";
+  const secret="persistent-test-pin-2026";
+  let host=null;
+  try{
+    host=await createHost(dir,{account:true,withStateGrant:true});
+    const first=await createNativeLocalSession({
+      fetch:(path,options={})=>host.fetchTrusted(path,options),
+    });
+    assert.equal((await first.configureCredential(secret)).state,"unlocked");
+    const before=JSON.parse(await readFile(join(dir,"desktop-local-session.json"),"utf8"));
+    assert.equal(before.state,"locked","authenticated process must not persist its unlock decision");
+    assert.equal(typeof before.verifier,"string");
+    // Compatibility with the earlier development build that recorded unlocked.
+    await writeFile(join(dir,"desktop-local-session.json"),
+      JSON.stringify({...before,state:"unlocked"}),"utf8");
+    await host.close();host=null;
+
+    host=await createHost(dir,{account:true,withStateGrant:true});
+    // The Account request is intentionally the first operation after reboot:
+    // it must migrate the old receipt to locked before serving any data.
+    assert.equal((await host.fetchTrusted("/auth/session")).status,423);
+    const boot=await host.fetchTrusted(route);
+    assert.equal(boot.status,200);
+    assert.deepEqual(await boot.json(),{
+      schema:"ordax.local-session/1",state:"locked",credentialConfigured:true,canLock:true,
+      protectionScope:"surface-session-not-storage-encryption",
+    });
+    assert.equal((await host.fetchFiles("/__ordax/native/files?path=%2F")).status,423);
+    const after=JSON.parse(await readFile(join(dir,"desktop-local-session.json"),"utf8"));
+    assert.equal(after.state,"locked");
+    assert.equal(after.salt,before.salt);
+    assert.equal(after.verifier,before.verifier,"migration must preserve the existing PIN");
+
+    // The OS can read First Run to show the locked UI; completing it is denied.
+    const initialResponse=await host.fetchState(stateRoute);
+    assert.equal(initialResponse.status,200);
+    const initial=await initialResponse.json();
+    assert.equal(initial.completed,false);
+    const complete={...initial,completed:true,accountMode:"local-only",
+      systemTerms:createSystemTermsAcceptance(true)};
+    const save=()=>host.fetchState(stateRoute,{method:"POST",
+      headers:{"Content-Type":"application/json"},body:JSON.stringify(complete)});
+    assert.equal((await save()).status,423);
+    assert.equal((await (await host.fetchState(stateRoute)).json()).completed,false);
+
+    const native=await createNativeLocalSession({
+      fetch:(path,options={})=>host.fetchTrusted(path,options),
+    });
+    assert.equal((await native.unlock(secret)).state,"unlocked");
+    assert.equal((await host.fetchTrusted("/auth/session")).status,200);
+    assert.equal((await save()).status,200);
+    assert.equal((await (await host.fetchState(stateRoute)).json()).completed,true);
+    assert.equal(JSON.parse(await readFile(join(dir,"desktop-local-session.json"),"utf8")).state,
+      "locked","successful unlock must remain process-local");
+    await host.close();host=null;
+
+    host=await createHost(dir,{account:true,withStateGrant:true});
+    assert.equal((await host.fetchTrusted("/auth/session")).status,423);
+    assert.equal((await (await host.fetchTrusted(route)).json()).state,"locked",
+      "a second new host must require the PIN again");
+    assert.equal((await (await host.fetchState(stateRoute)).json()).completed,true,
+      "First Run receipt must survive a locked restart");
+    assert.equal((await save()).status,423,"locked process cannot rewrite completed receipt");
+  }finally{if(host)await host.close();await rm(dir,{recursive:true,force:true});}
+});
+
 test("Windows local session rejects corrupt state without silently unlocking",async()=>{
  const dir=await mkdtemp(join(tmpdir(),"ordax-session-corrupt-"));
  let host=null;
@@ -118,4 +192,71 @@ test("Windows local session rejects corrupt state without silently unlocking",as
   const preserved=await readFile(join(dir,"desktop-local-session.json"),"utf8");
   assert.equal(preserved,"{corrupt");
  } finally {if(host)await host.close();await rm(dir,{recursive:true,force:true});}
+});
+
+test("Windows partial authenticated PIN POST cannot block local-session GET or protected-route lock checks",async t=>{
+  const dir=await mkdtemp(join(tmpdir(),"ordax-session-partial-post-"));
+  let markPostAccepted;
+  const postAccepted=new Promise(resolve=>{markPostAccepted=resolve;});
+  const local=createDesktopLocalSessionMiddleware(dir,{token:SESSION_TOKEN});
+  const server=createServer((req,res)=>{
+    if(req.url===route && req.method==="POST" && req.headers["x-ordax-partial-test"]==="yes"){
+      markPostAccepted();
+    }
+    local.middleware(req,res,()=>{res.writeHead(404);res.end();});
+  });
+  await new Promise(done=>server.listen(0,"127.0.0.1",done));
+  const origin="http://127.0.0.1:"+server.address().port;
+  t.after(async()=>{
+    server.closeAllConnections();
+    await new Promise(done=>server.close(done));
+    await rm(dir,{recursive:true,force:true});
+  });
+  const headers={
+    Origin:origin,
+    "Content-Type":"application/json",
+    "X-OrdaX-Local-Session-Token":SESSION_TOKEN,
+  };
+  const configured=await fetch(origin+route,{
+    method:"POST",headers,
+    body:JSON.stringify({action:"configure-credential",secret:"session-partial-test-pin"}),
+  });
+  assert.equal(configured.status,200);
+  assert.equal((await configured.json()).state,"unlocked");
+  const body=JSON.stringify({action:"lock"});
+  let pendingPost;
+  const postResponse=new Promise((resolve,reject)=>{
+    pendingPost=httpRequest(origin+route,{method:"POST",headers:{
+      ...headers,
+      "X-OrdaX-Partial-Test":"yes",
+      "Content-Length":Buffer.byteLength(body),
+    }},response=>{
+      response.resume();
+      response.once("end",()=>resolve(response.statusCode));
+    });
+    pendingPost.once("error",reject);
+    pendingPost.write(body.slice(0,7));
+  });
+  await postAccepted;
+  await new Promise(done=>setTimeout(done,50));
+  const concurrentGet=fetch(origin+route,{headers}).then(async response=>({
+    status:response.status,payload:await response.json(),
+  }));
+  // Other Native host grants also call this same serialized lock reader.
+  const concurrentLockRead=local.readLocked();
+  let timeoutHandle;
+  const early=await Promise.race([
+    Promise.all([concurrentGet,concurrentLockRead]),
+    new Promise(resolve=>{timeoutHandle=setTimeout(()=>resolve(null),2000);}),
+  ]);
+  clearTimeout(timeoutHandle);
+  pendingPost.end(body.slice(7));
+  assert.equal(await postResponse,200);
+  assert.notEqual(early,null,
+    "an incomplete POST body must not hold the local-session authorization queue");
+  assert.equal(early[0].status,200);
+  assert.equal(early[0].payload.state,"unlocked");
+  assert.equal(early[1],false);
+  assert.equal((await (await fetch(origin+route,{headers})).json()).state,"locked",
+    "completed lock mutation must remain serialized and effective");
 });

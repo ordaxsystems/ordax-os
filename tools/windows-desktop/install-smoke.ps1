@@ -79,6 +79,9 @@ try {
     (Join-Path $resources "runtime-template\desktop-assets\system\composition\native\index.html"),
     (Join-Path $resources "runtime-template\toolchain\node_modules.tar.gz"),
     (Join-Path $resources "runtime-template\toolchain\toolchain-receipt.json"),
+    (Join-Path $resources "runtime-template\toolchain\git-receipt.json"),
+    (Join-Path $resources "runtime-template\toolchain\git\cmd\git.exe"),
+    (Join-Path $resources "runtime-template\toolchain\git\ucrt64\bin\git.exe"),
     (Join-Path $resources "runtime-template\\tools\\runtime-component-channel\\ordax-runtime-component-channel.exe"),
     (Join-Path $resources "runtime-template\\docs\\contracts\\runtime-component-trust-policy.json"),
     (Join-Path $resources "runtime-template\\docs\\contracts\\runtime-component-package.json"),
@@ -94,6 +97,30 @@ try {
       throw ("Packaged Native dependency missing: " + $entry)
     }
   }
+  # Private Git belongs to the installed Desktop; no machine Git or PATH required.
+  $privateGitRoot = Join-Path $resources 'runtime-template\toolchain\git'
+  $privateReceipt = Get-Content -LiteralPath (Join-Path $resources 'runtime-template\toolchain\git-receipt.json') -Raw | ConvertFrom-Json
+  $gitLock = Get-Content -LiteralPath (Join-Path $PSScriptRoot 'git-toolchain-lock.json') -Raw | ConvertFrom-Json
+  if ($privateReceipt.schema -ne 'ordax.windows-min-git-receipt/1' -or
+      $privateReceipt.archive_sha256 -cne $gitLock.sha256 -or
+      $privateReceipt.version -cne $gitLock.version -or
+      $privateReceipt.git_exe_sha256 -cne $gitLock.git_exe_sha256 -or
+      $privateReceipt.core_exe_sha256 -cne $gitLock.core_exe_sha256) {
+    throw 'Installed private Git has invalid canonical receipt'
+  }
+  $privateGit = Join-Path $privateGitRoot 'cmd\git.exe'
+  $coreGit = Join-Path $privateGitRoot 'ucrt64\bin\git.exe'
+  if ((Get-FileHash -LiteralPath $privateGit -Algorithm SHA256).Hash.ToLowerInvariant() -cne $gitLock.git_exe_sha256 -or
+      (Get-FileHash -LiteralPath $coreGit -Algorithm SHA256).Hash.ToLowerInvariant() -cne $gitLock.core_exe_sha256) {
+    throw 'Installed private Git differs from official pinned executables'
+  }
+  $parts = $gitLock.version.Split('.')
+  $expectedVersion = "git version $($parts[0]).$($parts[1]).$($parts[2]).windows.$($parts[3])"
+  $gitVersion = & $privateGit --version
+  if ($LASTEXITCODE -ne 0 -or $gitVersion -cne $expectedVersion) {
+    throw ('Installed private Git cannot run: ' + $gitVersion)
+  }
+  Write-Output 'PRIVATE_GIT_INSTALLED_SMOKE=PASS'
   $compiledRoot = Join-Path $resources "runtime-template\\desktop-assets"
   $compiledHtml = Get-Content (Join-Path $compiledRoot "system\\composition\\native\\index.html") -Raw
   if ($compiledHtml -notmatch "/__ordax/desktop-assets/assets/") {

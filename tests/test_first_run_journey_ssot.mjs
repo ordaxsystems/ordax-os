@@ -14,6 +14,7 @@ test("first-run contract consumes the canonical runtime journey order", () => {
 });
 
 test("first-run journey identities and labels are unique and complete", () => {
+  assert.deepEqual(FIRST_RUN_STEP_IDS, ["welcome", "network", "account", "security", "ready"]);
   assert.equal(new Set(FIRST_RUN_STEP_IDS).size, FIRST_RUN_STEP_IDS.length);
   assert.equal(new Set(FIRST_RUN_STEP_LABELS).size, FIRST_RUN_STEP_LABELS.length);
   assert.equal(FIRST_RUN_JOURNEY.length, FIRST_RUN_STEP_IDS.length);
@@ -51,6 +52,64 @@ test("emulator loads the Native composition without owning another UI or first-r
   }
 });
 
+test("installed Windows refuses to mount Surface without an authenticated Native local-session port", async () => {
+  const native = await readFile(new URL("../system/composition/native/main.mjs", import.meta.url), "utf8");
+  const durableBootstrap = native.indexOf("requireDurableRead: windowsDesktopHost");
+  const resolved = native.indexOf("const [preferenceStore, firstRunStateStore, localSession, bundledProfilePacks]");
+  const guard = native.indexOf("if (windowsDesktopHost && localSession === null)");
+  assert.ok(durableBootstrap > 0 && durableBootstrap < resolved,
+    "installed Windows must verify the durable first-run receipt before mounting Surface");
+  const mounted = native.indexOf("const surface = mountSurface(");
+  assert.ok(resolved > 0 && guard > resolved && mounted > guard,
+    "Windows must fail closed before rendering the Surface, not after a healthy mount");
+  assert.match(native.slice(guard, mounted),
+    /throw new Error\("Windows Native local session unavailable; Surface remains locked"\)/);
+  assert.match(native, /const localSessionPromise = optionalNativeProbe\(/,
+    "non-Windows devices must keep their existing optional local-session capability");
+});
+
+test("Windows lock screen mounts once before boot health can expose a configured PIN session", async () => {
+  const native = await readFile(new URL("../system/composition/native/main.mjs", import.meta.url), "utf8");
+  const rendered = native.indexOf("const surface = mountSurface(");
+  const lock = native.indexOf("localSessionLock = mountLocalSessionLock(root, localSession, surface)");
+  const bootReady = native.indexOf("bootScreen.ready()");
+  const health = native.indexOf('componentManager.setCurrentHealth("surface-shell", "healthy")');
+  const firstRun = native.indexOf("firstRun = mountFirstRunExperience(root, {");
+  assert.ok(rendered >= 0 && lock > rendered && bootReady > lock && health > bootReady,
+    "a locked Windows user must see the lock overlay before boot screen hides and health is acknowledged");
+  assert.ok(firstRun > bootReady,
+    "optional first-use UI must not delay already authenticated Desktop shell health");
+  assert.equal(native.split("mountLocalSessionLock(root, localSession, surface)").length - 1, 1,
+    "one canonical lock mount, not a second post-boot overlay");
+  const guard = native.slice(lock, bootReady);
+  assert.match(guard, /if \(windowsDesktopHost\) throw error;/,
+    "a failed Windows lock overlay must never be reported healthy");
+  assert.match(guard, /reportClientDiagnostic\("local-session-lock", error\)/,
+    "the existing sanitized diagnostic must remain available on mount failure");
+});
+
+test("incomplete Windows setup holds the boot curtain and never covers a locked PIN prompt", async () => {
+  const native = await readFile(new URL("../system/composition/native/main.mjs", import.meta.url), "utf8");
+  const lock = native.indexOf("mountLocalSessionLock(root, localSession, surface)");
+  const pending = native.indexOf("const firstRunPending = !firstRunStateStore.load().completed;");
+  const boot = native.indexOf("if (!firstRunPending) bootScreen.ready();");
+  const health = native.indexOf('componentManager.setCurrentHealth("surface-shell", "healthy")');
+  const mounting = native.indexOf("const mountFirstRunNow = () => {");
+  const subscription = native.indexOf("unsubscribeFirstRunUnlock = localSession.subscribe(snapshot => {");
+  assert.ok(lock >= 0 && pending > lock && boot > pending && health > boot && mounting > health,
+    "PIN must be mounted first, pending First Run keeps the boot curtain until the modal exists");
+  assert.ok(subscription > mounting);
+  assert.match(native.slice(mounting, subscription),
+    /if \(firstRunPending && windowsDesktopHost && firstRun\?\.shown !== true\)/,
+    "Windows first-use modal is mandatory, not a silently ignored optional app");
+  assert.match(native.slice(subscription), /if \(snapshot.state !== "unlocked" \|\| firstRun\) return;/,
+    "previously configured PIN must be verified before resuming incomplete First Run");
+  assert.match(native.slice(subscription), /unsubscribeFirstRunUnlock\?\.\(\);/,
+    "deferred session observer must be released after first-use activation");
+  assert.match(native, /if \(firstRunPending && windowsDesktopHost\) bootScreen.fail\(bootText\("surface.boot.failed"\)\);/,
+    "failed Windows first-use must leave the error curtain visible instead of showing the workspace");
+});
+
 test("First Run presentation consumes Meridian directly and adapts all canonical steps", async () => {
   const css=await readFile(new URL("../system/surface/ui/first-run.css",import.meta.url),"utf8");
   assert.doesNotMatch(css,/var\(--ordax-|repeat\(7,/);
@@ -58,6 +117,11 @@ test("First Run presentation consumes Meridian directly and adapts all canonical
   assert.ok(css.includes("var(--md-font)"));
   assert.match(css, /\.ordax-first-run-card\s*\{[^}]*grid-template-rows\s*:\s*minmax\(0,\s*1fr\)\s+auto/s);
   assert.match(css, /\.ordax-first-run-steps\s*\{[^}]*display\s*:\s*grid/s);
+  assert.match(css, /container-type:\s*inline-size/);
+  assert.match(css, /@container\s*\(max-width:\s*900px\)/);
+  assert.match(css, /@container\s*\(max-width:\s*600px\)/);
+  assert.match(css, /\.ordax-first-run-shell\s*\{[^}]*min-width:\s*0/s);
+  assert.doesNotMatch(css, /@media\s*\(max-width:/);
 });
 
 test("optional network work never blocks the first-run journey", async () => {

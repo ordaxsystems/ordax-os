@@ -1,7 +1,7 @@
 // Development host for Native contracts. Account authority stays in the HTTPS gateway.
-import { mkdir, readFile, writeFile, rename } from "node:fs/promises";
+import { mkdir, lstat, open, readFile, rename, unlink } from "node:fs/promises";
 import { join } from "node:path";
-import { timingSafeEqual } from "node:crypto";
+import { randomUUID, timingSafeEqual } from "node:crypto";
 import { readDesktopNetworkStatus } from "../../system/adapters/desktop/network-status.mjs";
 import { readDesktopSystemMetrics } from "../../system/adapters/desktop/system-metrics.mjs";
 import { readDesktopPowerStatus } from "../../system/adapters/desktop/power-status.mjs";
@@ -9,6 +9,7 @@ import { readDesktopUpdateStatus, readDesktopUpdateHistory } from "../../system/
 import { readDesktopRecovery } from "../../system/adapters/desktop/recovery-observation.mjs";
 import { createDesktopBuiltAssetsMiddleware } from "./desktop-built-assets.mjs";
 import { createDesktopFileSpaceMiddleware } from "../../system/adapters/desktop/file-space-host.mjs";
+import { createDesktopDiagnosticJournalMiddleware } from "../../system/adapters/desktop/diagnostic-journal-host.mjs";
 import { createDesktopAccountCookieVault } from "../../system/adapters/desktop/account-cookie-vault.mjs";
 import { createDesktopLocalSessionMiddleware } from "../../system/adapters/desktop/local-session-host.mjs";
 import { createDesktopClientDiagnosticsMiddleware } from "../../system/adapters/desktop/client-diagnostics-host.mjs";
@@ -39,25 +40,68 @@ export function createEmulatorNativeHost({
     origin: accountGatewayOrigin, fetchImpl, cookieVault,
   });
   const file = join(stateDirectory, "native-state.json");
+  // Three bounded Native state ports share this one record. Never follow a
+  // linked or oversized receipt into another path owned by the Windows user.
+  const MAX_STATE_FILE_BYTES = 256 * 1024;
+  const regularOrMissing = async () => {
+    try {
+      const entry = await lstat(file);
+      if (!entry.isFile() || entry.isSymbolicLink() ||
+          entry.size < 1 || entry.size > MAX_STATE_FILE_BYTES)
+        throw new Error("Untrusted Desktop Native state file");
+      return true;
+    } catch (error) {
+      if (error?.code === "ENOENT") return false;
+      throw error;
+    }
+  };
   const initialCursor = () => ({ schema: FIRST_RUN_CURSOR_SCHEMA, step: "welcome" });
   const defaults = () => ({ firstRun: createInitialFirstRunState(), preferences: validatePreferenceRecord({}), cursor: initialCursor() });
   const load = async () => {
     try {
+      if (!await regularOrMissing()) return defaults();
       const saved = JSON.parse(await readFile(file, "utf8"));
       return { firstRun: validateFirstRunState(saved.firstRun), preferences: validatePreferenceRecord(saved.preferences), cursor: validateFirstRunCursor(saved.cursor) };
     } catch (error) {
-      if (error.code === "ENOENT") return defaults();
       throw new Error("Saved development state is unreadable", { cause: error });
+    }
+  };
+  const persist = async state => {
+    await mkdir(stateDirectory, { recursive: true });
+    await regularOrMissing();
+    // A predictable ".tmp" name can be pre-created or linked by another
+    // process. Exclusive creation, file sync and rename avoid acknowledging
+    // incomplete First Run state and leave the prior receipt intact on error.
+    const temporary = join(stateDirectory, ".native-state.json." + randomUUID());
+    let handle = null;
+    try {
+      handle = await open(temporary, "wx", 0o600);
+      await handle.writeFile(JSON.stringify(state), "utf8");
+      await handle.sync();
+      await handle.close();
+      handle = null;
+      await regularOrMissing();
+      await rename(temporary, file);
+    } finally {
+      if (handle) await handle.close();
+      await unlink(temporary).catch(error => {
+        if (error?.code !== "ENOENT") throw error;
+      });
     }
   };
   let queue = Promise.resolve();
   const change = operation => {
     const result = queue.then(async () => {
       const state = await load();
+      // A POST can start unlocked, then finish receiving its body after PIN
+      // lock. Authorization must be checked again at the mutation boundary.
+      if (authorizedStateToken && sessionLocked && await sessionLocked()) {
+        const denied = new Error("Desktop Native state write denied after session lock");
+        denied.status = 423;
+        throw denied;
+      }
       operation(state);
-      await mkdir(stateDirectory, { recursive: true });
-      await writeFile(file + ".tmp", JSON.stringify(state), "utf8");
-      await rename(file + ".tmp", file);
+      await persist(state);
       return state;
     });
     queue = result.catch(() => {});
@@ -130,6 +174,13 @@ export function createEmulatorNativeHost({
       }
       const validated = route[1](JSON.parse(Buffer.concat(chunks).toString("utf8")));
       const state = await change(state => {
+        // Previously completed development receipts without a Terms field
+        // remain readable/idempotent. Every NEW completion must carry the
+        // versioned OS acknowledgement already required by First Run UI.
+        if (route[0] === "firstRun" && !state.firstRun.completed
+            && validated.completed && validated.systemTerms === undefined) {
+          throw new TypeError("New First Run completion requires OS terms acknowledgement");
+        }
         if (route[0] === "firstRun" && state.firstRun.completed
             && JSON.stringify(state.firstRun) !== JSON.stringify(validated)) {
           const conflict = new Error("Completed development receipt cannot be replaced");
@@ -140,7 +191,9 @@ export function createEmulatorNativeHost({
       });
       return reply(200, state[route[0]]);
     } catch (error) {
-      return reply(error.status === 409 ? 409 : error instanceof TypeError || error instanceof SyntaxError ? 400 : 503, { error: "Development state could not be read or saved" });
+      return reply(error.status === 423 ? 423 : error.status === 409 ? 409 :
+        error instanceof TypeError || error instanceof SyntaxError ? 400 : 503,
+        { error: "Development state could not be read or saved" });
     }
   };
 }
@@ -248,6 +301,16 @@ export function nativeEmulatorPlugin(stateDirectory, { desktopHost = false, acco
           join(process.env.ORDAX_DESKTOP_UPDATE_USER_DATA,"Files"),
           {token:process.env.ORDAX_DESKTOP_FILE_TOKEN,
            sessionLocked:localSession?.readLocked??null}
+        ));
+      }
+      if (desktopHost && process.platform==="win32" && userData) {
+        // One device-local diagnostic journal. Reuse the existing Electron
+        // state grant; never grant arbitrary loopback requests this capability.
+        server.middlewares.use(createDesktopDiagnosticJournalMiddleware(
+          stateDirectory,{
+            token:process.env.ORDAX_DESKTOP_STATE_TOKEN,
+            sessionLocked:localSession?.readLocked??null,
+          }
         ));
       }
       if (desktopHost) {
