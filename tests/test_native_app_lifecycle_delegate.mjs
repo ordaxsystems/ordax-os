@@ -295,3 +295,70 @@ test("probation bridge exception cannot change a platform-accepted staging recei
     console.warn = originalWarn;
   }
 });
+
+test("Go-accepted install, update and removal trigger one read-only Store observation without granting activation", async () => {
+  for (const operation of ["install", "update", "remove"]) {
+    const value = plan(operation);
+    const notifications = [];
+    const lifecycle = createNativeAppLifecycleDelegate({
+      async fetch() { return response(acceptedFor(value)); },
+    }, {
+      onAccepted(result) { notifications.push(result); },
+    });
+    const receipt = await lifecycle.executeLifecycle(value);
+    assert.deepEqual(receipt, acceptedFor(value));
+    assert.deepEqual(notifications, [receipt],
+      "only the validated Go receipt can trigger one native Store refresh");
+    assert.equal(lifecycle.authority, "platform-component-lifecycle");
+    assert.equal("refresh" in lifecycle, false);
+    assert.equal("activate" in lifecycle, false);
+  }
+
+  const value = plan("install");
+  let refreshes = 0;
+  const denied = createNativeAppLifecycleDelegate({
+    async fetch() {
+      return response({
+        ...acceptedFor(value),
+        state: "rejected", reason: "go-trust-unavailable",
+      });
+    },
+  }, { onAccepted() { refreshes++; } });
+  assert.equal((await denied.executeLifecycle(value)).state, "rejected");
+  const drifted = createNativeAppLifecycleDelegate({
+    async fetch() { return response({ ...acceptedFor(value), appId: "studio" }); },
+  }, { onAccepted() { refreshes++; } });
+  await assert.rejects(() => drifted.executeLifecycle(value), /identity mismatch/);
+  assert.equal(refreshes, 0, "rejected or forged receipts must not trigger Store refresh");
+  assert.throws(() => createNativeAppLifecycleDelegate({ fetch() {} }, {
+    onAccepted: true,
+  }), /must be a function/);
+});
+
+test("read-only Store refresh failure never changes a Go-accepted durable lifecycle receipt", async () => {
+  const value = plan("remove");
+  const initialWarn = console.warn;
+  const warnings = [];
+  try {
+    console.warn = (...args) => warnings.push(args);
+    const syncFailure = createNativeAppLifecycleDelegate({
+      async fetch() { return response(acceptedFor(value)); },
+    }, {
+      onAccepted() { throw new Error("CURRENT refresh transport unavailable"); },
+    });
+    assert.deepEqual(await syncFailure.executeLifecycle(value), acceptedFor(value));
+
+    const asyncFailure = createNativeAppLifecycleDelegate({
+      async fetch() { return response(acceptedFor(value)); },
+    }, {
+      async onAccepted() { throw new Error("CURRENT read rejected"); },
+    });
+    assert.deepEqual(await asyncFailure.executeLifecycle(value), acceptedFor(value));
+    await Promise.resolve();
+    await Promise.resolve();
+    assert.equal(warnings.length, 2,
+      "both observation failures are reported without rewriting the signed Go receipt");
+  } finally {
+    console.warn = initialWarn;
+  }
+});
