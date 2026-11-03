@@ -19,6 +19,8 @@ import { createApplicationIntelligenceAwareness } from
   "../system/services/intelligence/application-awareness.mjs";
 import { createApplicationActionCapabilityRegistry } from
   "../system/services/intelligence/application-action-capabilities.mjs";
+import { PERSONAL_ACTION_CATALOG_SCHEMA, PERSONAL_ACTION_ENTRY_SCHEMA } from
+  "../system/contracts/personal-action-catalog.mjs";
 
 function systemCapability(id,available=true){
   return {
@@ -574,4 +576,45 @@ test("unsubscribe triggered synchronously inside a source read suppresses that r
   actions = registry("3");
   fabric.refresh();
   assert.deepEqual(revisions, []);
+});
+
+const NATIVE_FIXTURE_ENTRY = Object.freeze({
+  schema: PERSONAL_ACTION_ENTRY_SCHEMA,
+  id: "native-file.ensure-directory",
+  toolId: "ordax-native-file-space",
+  toolArtifactSha256: "a".repeat(64),
+  actionId: "files.directory.ensure",
+  effect: "write",
+  inputKind: "resource-value",
+  resourceScheme: "file-space",
+});
+
+function discoveryForChangingNativeCatalog(list) {
+  return createCapabilityDiscovery({
+    getFoundation: () => createSystemFoundationRuntime(),
+    getApplicationActions: () => null,
+    getNativeActions: () => ({
+      schema: PERSONAL_ACTION_CATALOG_SCHEMA,
+      list,
+      propose() {},
+      request() {},
+    }),
+  });
+}
+
+test("Native catalog identity validation uses the same enumeration, not a second list()", () => {
+  let reads = 0;
+  const fabric = discoveryForChangingNativeCatalog(() =>
+    ++reads === 1 ? [] : [NATIVE_FIXTURE_ENTRY]);
+  assert.equal(fabric.isNativeActionRegistered(NATIVE_FIXTURE_ENTRY), false,
+    "a newly returned action must not bypass the initial validated catalog");
+  assert.equal(reads, 1);
+});
+
+test("duplicate Native catalog IDs fail closed before an individual match", () => {
+  const fabric = discoveryForChangingNativeCatalog(() =>
+    [NATIVE_FIXTURE_ENTRY, NATIVE_FIXTURE_ENTRY]);
+  assert.throws(() => fabric.isNativeActionRegistered(NATIVE_FIXTURE_ENTRY),
+    /duplicate/i);
+  assert.throws(() => fabric.snapshot(), /duplicate/i);
 });

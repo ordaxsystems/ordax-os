@@ -16,7 +16,7 @@ import {
   validateApplicationActionCapability,
 } from "../../contracts/application-action-capability.mjs";
 import {
-  assertPersonalActionCatalog,
+  readPersonalActionCatalogEntries,
   validatePersonalActionEntry,
 } from "../../contracts/personal-action-catalog.mjs";
 
@@ -186,9 +186,9 @@ export function createCapabilityDiscovery({
     const system = readSystemCapabilities(foundation, surfaceHost,
       getSurfaceHost !== null);
     if (actions !== null) assertApplicationActionCapabilityRegistryPort(actions);
-    if (nativeCatalog !== null) assertPersonalActionCatalog(nativeCatalog);
     const declared = actions === null ? [] : actions.list();
-    const nativeActions = nativeCatalog === null ? [] : nativeCatalog.list();
+    const nativeActions = nativeCatalog === null ? [] :
+      readPersonalActionCatalogEntries(nativeCatalog);
     // The installed current slot may change after bootstrap. A manifest
     // declared earlier is not current unless the Native verifier still
     // attests the EXACT slot revision/version/source commit. This filter
@@ -276,8 +276,8 @@ export function createCapabilityDiscovery({
           lastProjection = null;
           return false;
         }
-        const catalog = assertPersonalActionCatalog(current);
-        return catalog.list().some(entry =>
+        const entries = readPersonalActionCatalogEntries(current);
+        return entries.some(entry =>
           entry.id === candidate.id && entry.toolId === candidate.toolId &&
           entry.actionId === candidate.actionId &&
           entry.effect === candidate.effect &&
