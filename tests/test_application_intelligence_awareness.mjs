@@ -88,6 +88,27 @@ function installedApp(id = "photoshop", title = "Adobe Photoshop") {
   };
 }
 
+test("Aura app awareness rechecks externally verified current slot but preserves bundled OS",()=>{
+  let notesCurrent=false;
+  const awareness=createApplicationIntelligenceAwareness({
+    firstPartyApplications:[firstPartyApp("notes"),firstPartyApp("system","Sistema")],
+    firstPartyIntelligenceManifests:[appSemantics("notes")],
+    isContextAppCurrent:id=>id!=="notes"||notesCurrent,
+  });
+  const projected=()=>JSON.parse(awareness.contextItem().text);
+  assert.deepEqual(projected().applications.map(entry=>entry.appId),["system"]);
+  assert.equal(awareness.list().length,2,
+    "known declarations remain for strict provider/manifest validation");
+  notesCurrent=true;
+  assert.deepEqual(projected().applications.map(entry=>entry.appId),["notes","system"]);
+  notesCurrent=false;
+  assert.deepEqual(projected().applications.map(entry=>entry.appId),["system"]);
+  assert.equal(projected().toolExecution,false);
+  assert.equal(projected().authority,"none");
+  assert.throws(()=>createApplicationIntelligenceAwareness({
+    isContextAppCurrent:true,
+  }),/verifier/);
+});
 test("native and Windows apps share Intelligence awareness without sharing trust", () => {
   const awareness = createApplicationIntelligenceAwareness({
     firstPartyApplications: [firstPartyApp()],

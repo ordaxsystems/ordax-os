@@ -156,9 +156,13 @@ export function createApplicationIntelligenceAwareness({
   firstPartyApplications = [],
   installedApplications = [],
   firstPartyIntelligenceManifests = [],
+  isContextAppCurrent = null,
 } = {}) {
   if (!Array.isArray(firstPartyApplications) || !Array.isArray(installedApplications)) {
     throw new TypeError("Application Intelligence awareness sources must be arrays");
+  }
+  if (isContextAppCurrent !== null && typeof isContextAppCurrent !== "function") {
+    throw new TypeError("Application awareness current-slot context verifier must be a function");
   }
   if (firstPartyApplications.length + installedApplications.length > MAX_AWARE_APPLICATIONS) {
     throw new TypeError("Application Intelligence awareness catalog is outside bounds");
@@ -186,7 +190,8 @@ export function createApplicationIntelligenceAwareness({
     byTitle.set(titleKey, titleMatches);
   }
 
-  const compiledContextItem = applicationContextItem(descriptors, semanticsByAppId);
+  const compiledContextItem = isContextAppCurrent === null
+    ? applicationContextItem(descriptors, semanticsByAppId) : null;
 
   const port = {
     schema: APPLICATION_INTELLIGENCE_AWARENESS_PORT_SCHEMA,
@@ -204,7 +209,13 @@ export function createApplicationIntelligenceAwareness({
       return matches.length === 1 ? matches[0] : null;
     },
     contextItem() {
-      return compiledContextItem;
+      // Descriptive indexes used by manifest verification remain immutable;
+      // inference sees only external apps still attested by Native CURRENT.
+      return isContextAppCurrent === null ? compiledContextItem :
+        applicationContextItem(
+          descriptors.filter(item => isContextAppCurrent(item.appId) === true),
+          semanticsByAppId,
+        );
     },
   };
 

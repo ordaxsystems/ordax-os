@@ -132,6 +132,46 @@ function awareness() {
   });
 }
 
+test("Native current-slot verifier withdraws actions from every registry view and proposals",()=>{
+  const appId=listFirstPartyApps()[0].id;
+  let current=false;
+  const registry=createApplicationActionCapabilityRegistry({
+    awareness:awareness(),
+    capabilities:[firstPartyCapability(appId)],
+    isCurrent:()=>current,
+  });
+  assert.equal(registry.list().length,0);
+  assert.equal(registry.get(appId,"document.open-resource"),null);
+  assert.equal(registry.listForApp(appId).length,0);
+  assert.equal(JSON.parse(registry.contextItem().text).actions.length,0);
+  assert.equal(JSON.parse(registry.contextItemForApps([appId]).text).actions.length,0);
+  assert.throws(()=>registry.propose(appId,"document.open-resource",{resource:"grant-one"}),
+    /not current/);
+  current=true;
+  assert.equal(registry.list().length,1);
+  assert.equal(registry.get(appId,"document.open-resource")?.appId,appId);
+  assert.equal(registry.listForApp(appId).length,1);
+  assert.equal(JSON.parse(registry.contextItem().text).actions.length,1);
+  assert.equal(JSON.parse(registry.contextItemForApps([appId]).text).actions.length,1);
+  const proposal=registry.propose(appId,"document.open-resource",{resource:"grant-one"});
+  assert.equal(proposal.executionAuthorized,false);
+  assert.equal(proposal.modelDirectExecutionAuthorized,false);
+  current=false;
+  assert.equal(registry.list().length,0);
+  assert.equal(registry.contextItem().text.includes("document.open-resource"),false);
+  assert.equal(registry.contextItemForApps([appId]).text.includes("document.open-resource"),false);
+  assert.throws(()=>registry.propose(appId,"document.open-resource",{resource:"grant-one"}),
+    /not current/);
+  assert.throws(()=>createApplicationActionCapabilityRegistry({
+    awareness:awareness(),capabilities:[],isCurrent:true,
+  }),/verifier/);
+  const broken=createApplicationActionCapabilityRegistry({
+    awareness:awareness(),capabilities:[firstPartyCapability(appId)],
+    isCurrent:()=>{throw new Error("Native Store unavailable")},
+  });
+  assert.throws(()=>broken.list(),/Native Store unavailable/,
+    "unreadable verification must never silently return boot-time actions");
+});
 test("registry binds semantic capabilities to exact known application identity", () => {
   const nativeApp = listFirstPartyApps()[0];
   const registry = createApplicationActionCapabilityRegistry({

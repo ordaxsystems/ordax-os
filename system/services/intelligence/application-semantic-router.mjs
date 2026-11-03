@@ -130,6 +130,7 @@ export function createApplicationSemanticRouter({
   awareness,
   manifests = [],
   maxMatchedApps = MAX_MATCHED_APPS,
+  isManifestCurrent = null,
 } = {}) {
   const appAwareness = assertApplicationIntelligenceAwarenessPort(awareness);
   if (!Array.isArray(manifests) || manifests.length > 128) {
@@ -137,6 +138,9 @@ export function createApplicationSemanticRouter({
   }
   if (!Number.isSafeInteger(maxMatchedApps) || maxMatchedApps < 1 || maxMatchedApps > 8) {
     throw new TypeError("Application semantic router match limit is invalid");
+  }
+  if (isManifestCurrent !== null && typeof isManifestCurrent !== "function") {
+    throw new TypeError("Application semantic router current-slot verifier must be a function");
   }
 
   const descriptors = new Map(appAwareness.list().map((descriptor) => [descriptor.appId, descriptor]));
@@ -178,7 +182,8 @@ export function createApplicationSemanticRouter({
     }
 
     const selected = [...scores]
-      .filter(([, score]) => score >= 4)
+      .filter(([appId, score]) => score >= 4 &&
+        (isManifestCurrent === null || isManifestCurrent(appId) === true))
       .sort(([leftId, leftScore], [rightId, rightScore]) => (
         rightScore - leftScore || leftId.localeCompare(rightId)
       ))
