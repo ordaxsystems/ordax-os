@@ -167,6 +167,31 @@ export function createApplicationActionProviderResolver({
         throw new Error("Verified package provider no longer matches the prepared provider");
       }
 
+      // Verified package resolution is asynchronous. The user's retained
+      // preparation can be revoked or an installed action can disappear while
+      // awaiting it. Revalidate the SAME canonical preparation and registry
+      // immediately before returning a provider binding. A revoked/replaced
+      // preparation must not be resurrected, even with the same opaque ref.
+      if (preparationRegistry.resolve(resourceRef) !== retained) {
+        throw new Error("Prepared Application Action current binding changed: revoked or replaced during verification");
+      }
+      const latestCapability = capabilityRegistry.get(
+        preparation.proposal.appId, preparation.proposal.actionId,
+      );
+      if (!latestCapability || !sameCapability(latestCapability, currentCapability) ||
+          !sameProvider(latestCapability.provider, preparation.provider) ||
+          RISK_TO_EFFECT[latestCapability.riskClass] !== preparation.effect) {
+        throw new Error("Prepared Application Action capability became stale during verification");
+      }
+      const latestProposal = capabilityRegistry.propose(
+        preparation.proposal.appId,
+        preparation.proposal.actionId,
+        preparation.proposal.arguments,
+      );
+      if (!sameApplicationActionProposal(preparation.proposal, latestProposal)) {
+        throw new Error("Prepared Application Action proposal became stale during verification");
+      }
+
       return validateApplicationActionProviderBinding({
         schema: APPLICATION_ACTION_PROVIDER_BINDING_SCHEMA,
         resourceRef: preparation.resourceRef,
