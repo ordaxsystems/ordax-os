@@ -2,7 +2,7 @@
 // Canonical Native runtime checkout; the bundled snapshot is a safe offline fallback.
 const { spawn } = require('node:child_process');
 const { join, win32: win32Path } = require('node:path');
-const { existsSync, lstatSync, readFileSync, symlinkSync } = require('node:fs');
+const { existsSync, lstatSync, readFileSync, realpathSync, symlinkSync } = require('node:fs');
 const { OFFICIAL_REMOTE } = require('./runtime.cjs');
 
 // Windows Desktop Dev must discover an already installed Git even when the
@@ -94,12 +94,20 @@ function dependencies(checkout,template,userData=null) {
 // used by the legacy fallback, but execute it in a separate Node process.
 async function dependenciesForStage(checkout,template,userData){
   const dir=join(checkout,'node_modules');
-  if(existsSync(dir))return dir;
+  // Vite executes from the VERIFIED toolchain directory, not through the
+  // candidate junction. The junction remains for imports resolved by the
+  // candidate's Native configuration. Never accept an arbitrary directory.
+  function alreadyMounted(){
+    if(!lstatSync(dir).isSymbolicLink())
+      throw Error('Staged compiler dependency is not a junction');
+    return realpathSync(dir);
+  }
+  if(existsSync(dir))return alreadyMounted();
   const {ensureRuntimeToolchainIsolated}=require('./toolchain-cache.cjs');
   const source=await ensureRuntimeToolchainIsolated(template,userData);
-  if(existsSync(dir))return dir;
+  if(existsSync(dir))return alreadyMounted();
   symlinkSync(source,dir,process.platform==='win32'?'junction':'dir');
-  return dir;
+  return source;
 }
 
 // Only the immutable Desktop Dev transaction manager may materialize source
