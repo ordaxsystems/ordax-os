@@ -23,9 +23,10 @@ class NativeIntelligenceGateTests(unittest.TestCase):
         self.system=self.root/"candidate/system"
         self.system.mkdir(parents=True)
         self.lock=json.loads((HERE/"docs/contracts/intelligence-source.json").read_text())
+        source_paths=tuple(self.lock["source_paths"])
         self.lock["source_paths"]={}
         digest=hashlib.sha256()
-        for name in sorted(compose.source.EXPECTED):
+        for name in sorted(source_paths):
             body=("verified:"+name+"\n").encode()
             path=self.system/"intelligence-source"/name
             path.parent.mkdir(parents=True,exist_ok=True)

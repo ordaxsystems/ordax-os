@@ -11,12 +11,9 @@ import unittest
 ROOT=Path(__file__).resolve().parents[1]
 HELPER=ROOT/"system/services/intelligence-source/owner-stage.sh"
 TEMPLATES=ROOT/"system/services/intelligence-source/wrappers"
-FILES=(
-    "src/index.mjs","src/contract-bindings.mjs","src/intelligence/runtime.mjs",
-    "src/intelligence/model-router.mjs","src/local-ai/runtime.mjs",
-    "src/local-ai/completion-stream.mjs","src/local-ai/model-compatibility.mjs",
-    "tools/inference-builder/build.py",
-)
+FILES=tuple(json.loads(
+    (ROOT/"docs/contracts/intelligence-source.json").read_text(encoding="utf-8")
+)["source_paths"])
 WRAPPERS={
     "system/services/intelligence/model-router.mjs":"model-router.mjs",
     "system/services/intelligence/runtime.mjs":"intelligence-runtime.mjs",
@@ -217,7 +214,7 @@ class OwnerIntelligenceSourceTests(unittest.TestCase):
         spec.loader.exec_module(module)
         result=module.preseed(self.os_root,assembly,rootfs,self.sha)
         self.assertEqual(result["intelligence_commit"],self.external_sha)
-        self.assertEqual(result["intelligence_files"],8)
+        self.assertEqual(result["intelligence_files"],len(FILES))
         slot=rootfs/"state/ordax/releases"/self.sha
         self.assertTrue((slot/".intelligence-file-hashes").is_file())
         self.assertFalse((slot/"system/intelligence-source/source-provenance.json").exists())
