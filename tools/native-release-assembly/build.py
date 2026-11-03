@@ -225,7 +225,7 @@ def verify_external_intelligence_system(system_source: Path, *, lock_path: Path 
         receipt = json.loads(receipt_path.read_text(encoding="utf-8"))
     except (OSError, ValueError) as exc:
         raise AssemblyError("Native Intelligence receipt is invalid") from exc
-    expected = set(module.source.EXPECTED)
+    expected = set(lock["source_paths"])
     entries = list(base.rglob("*"))
     files = set()
     for entry in entries:

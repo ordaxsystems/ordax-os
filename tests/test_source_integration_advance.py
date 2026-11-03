@@ -79,7 +79,7 @@ class SourceAdvanceTests(unittest.TestCase):
         with self.assertRaisesRegex(advance.SourceAdvanceError, "does not descend"):
             advance.advance(self.root, "surface", self.source, True)
 
-    def test_intelligence_updates_exact_eight_blobs_without_activation(self):
+    def test_intelligence_updates_complete_portable_graph_without_activation(self):
         paths = (
             "src/index.mjs",
             "src/contract-bindings.mjs",
@@ -123,14 +123,22 @@ class SourceAdvanceTests(unittest.TestCase):
         self.assertFalse(unrelated["changed"])
         self.assertEqual(unrelated["reason"], "no-owned-source-change")
         self.assertEqual(json.loads(path.read_text())["source_commit"], new)
-        # The Windows-only builder remains outside the eight-blob OS source
-        # graph, even when a later pinned blob changes legitimately.
-        self.write("src/local-ai/runtime.mjs", "new version 2")
+        # The Windows-only builder remains outside the portable OS source
+        # graph. A new module below src must be discovered and pinned instead
+        # of being silently omitted by a stale fixed inventory.
+        self.write("src/snapshot-notification.mjs", "new shared dependency")
         later = self.commit()
         self.assertTrue(advance.advance(self.root, "intelligence", self.source, True)["changed"])
         final = json.loads(path.read_text())
         self.assertEqual(final["source_commit"], later)
-        self.assertEqual(set(final["source_paths"]), set(paths))
+        self.assertEqual(
+            set(final["source_paths"]),
+            set(paths) | {"src/snapshot-notification.mjs"},
+        )
+        self.assertEqual(
+            final["source_paths"]["src/snapshot-notification.mjs"],
+            self.git("rev-parse", "HEAD:src/snapshot-notification.mjs"),
+        )
         self.assertNotIn("tools/inference-builder/windows-candidate.py", final["source_paths"])
 
     def test_surface_selects_verified_main_source_sha_before_docs_tail(self):
@@ -196,6 +204,8 @@ class SourceAdvanceTests(unittest.TestCase):
         })
         self.write("src/intelligence/runtime.mjs", "updated")
         source_sha = self.commit("Intelligence main source")
+        self.write("src/snapshot-notification.mjs", "new dependency")
+        source_sha = self.commit("Intelligence source graph expansion")
         self.write("tools/inference-builder/windows-candidate.py", "windows only")
         self.commit("Windows builder main")
         self.write("docs/README.md", "documentation only")

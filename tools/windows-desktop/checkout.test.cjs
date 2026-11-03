@@ -4,7 +4,7 @@ const assert=require('node:assert/strict');
 const { mkdtempSync, mkdirSync, writeFileSync, rmSync }=require('node:fs');
 const { tmpdir }=require('node:os');
 const { join }=require('node:path');
-const { hasDesktopHostContract, git }=require('./checkout.cjs');
+const { hasDesktopHostContract, git, dependenciesForStage }=require('./checkout.cjs');
 
 function fixture() {
   const root=mkdtempSync(join(tmpdir(),'ordax-host-contract-'));
@@ -51,6 +51,43 @@ test('canonical desktop host declares the environment variables it promises',()=
   assert.ok(supervisor.includes('ORDAX_EMULATOR_NO_BROWSER'));
   assert.ok(vite.includes('ORDAX_EMULATOR_PORT'));
   assert.ok(vite.includes('ORDAX_EMULATOR_STATE_DIR'));
+});
+
+test('staging launches Native Vite from verified cache rather than candidate junction',async t=>{
+  const root=mkdtempSync(join(tmpdir(),'ordax-staged-vite-'));
+  const candidate=join(root,'candidate');
+  const verified=join(root,'verified','node_modules');
+  const target=join(verified,'vite','bin');
+  mkdirSync(candidate,{recursive:true});
+  mkdirSync(target,{recursive:true});
+  writeFileSync(join(target,'vite.js'),'// verified fixture');
+  const cache=require('./toolchain-cache.cjs');
+  t.mock.method(cache,'ensureRuntimeToolchainIsolated',async()=>verified);
+  try{
+    const result=await dependenciesForStage(candidate,root,root);
+    assert.equal(result,verified);
+    const {realpathSync,lstatSync,existsSync}=require('node:fs');
+    const junction=join(candidate,'node_modules');
+    assert.equal(lstatSync(junction).isSymbolicLink(),true);
+    assert.equal(realpathSync(junction),realpathSync(verified));
+    assert.equal(existsSync(join(result,'vite','bin','vite.js')),true);
+  }finally{
+    t.mock.restoreAll();
+    const {rmdirSync}=require('node:fs');
+    const junction=join(candidate,'node_modules');
+    if(require('node:fs').existsSync(junction))rmdirSync(junction);
+    rmSync(root,{recursive:true,force:true});
+  }
+});
+
+test('stage refuses a non-junction dependency directory',async()=>{
+  const root=mkdtempSync(join(tmpdir(),'ordax-staged-vite-reject-'));
+  const candidate=join(root,'candidate');
+  mkdirSync(join(candidate,'node_modules'),{recursive:true});
+  try{await assert.rejects(
+    dependenciesForStage(candidate,root,root),
+    /Staged compiler dependency is not a junction/
+  );}finally{rmSync(root,{recursive:true,force:true});}
 });
 
 test('canonical public Git commands override interactive global credential helpers',async()=>{
