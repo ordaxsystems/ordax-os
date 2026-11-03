@@ -613,3 +613,54 @@ test("disposing a ready Store projection revokes installable candidates for all 
   assert.equal(projection.port.getSnapshot(), closed);
   assert.deepEqual(seen, ["unavailable"], "a disposed projection never publishes another candidate");
 });
+
+test("one failing Store subscriber cannot suppress CURRENT revocation or notify the next reader", async t => {
+  const catalog = catalogPort(ready());
+  const projection = createVerifiedAppStoreProjection({
+    verifiedCatalogPort: catalog.port,
+    componentSource: source(),
+    fetchImpl: fetchFrom({ notes: metadata("notes") }),
+  });
+  t.after(() => projection.destroy());
+  await projection.waitForCurrentRefresh();
+  assert.equal(projection.port.getSnapshot().state, "ready");
+  const delivered = [];
+  projection.port.subscribe(() => { throw new Error("broken Store UI subscriber"); });
+  projection.port.subscribe(value => delivered.push(value.state));
+
+  await assert.doesNotReject(projection.refresh(),
+    "the first subscriber must not prevent Native CURRENT reconciliation");
+  assert.deepEqual(delivered, ["unavailable", "ready"],
+    "the next subscriber must observe both fail-closed withdrawal and attested restoration");
+  assert.equal(projection.port.getSnapshot().state, "ready");
+  assert.ok(projection.getCurrentObservations().length > 0);
+
+  projection.destroy();
+  assert.equal(delivered.at(-1), "unavailable",
+    "even dispose must notify healthy consumers after a subscriber throws");
+});
+
+test("reentrant Store refresh never sends a superseded ready snapshot after newer withdrawal", async t => {
+  const catalog = catalogPort(ready());
+  const projection = createVerifiedAppStoreProjection({
+    verifiedCatalogPort: catalog.port,
+    componentSource: source(),
+    fetchImpl: fetchFrom({ notes: metadata("notes") }),
+  });
+  t.after(() => projection.destroy());
+  await projection.waitForCurrentRefresh();
+  const delivered = [];
+  let nested = null;
+  projection.port.subscribe(value => {
+    if (value.state === "ready" && nested === null) {
+      nested = projection.refresh();
+    }
+  });
+  projection.port.subscribe(value => delivered.push(value.state));
+  await projection.refresh();
+  assert.ok(nested, "the first Store reader must initiate the one nested reconciliation");
+  await nested;
+  assert.deepEqual(delivered, ["unavailable", "unavailable", "ready"],
+    "the superseded ready emission must not reach later readers after nested withdrawal");
+  assert.equal(projection.port.getSnapshot().state, "ready");
+});
