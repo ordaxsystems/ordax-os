@@ -286,7 +286,7 @@ try {
           'Desktop displays both compact windows');
         assert.equal(await evaluate("(()=>{const a=document.querySelector('[aria-label=\"Janela Projetos\"]').getBoundingClientRect();const b=document.querySelector('[aria-label=\"Janela Arquivos\"]').getBoundingClientRect();return Math.abs(a.top-b.top)<2&&a.right<=b.left+1;})()"),true,
           'Compact windows tile horizontally without overlap');
-        assert.equal(await evaluate("(()=>{const strip=document.querySelector('.workspace-windows');const panes=[...strip.querySelectorAll('[data-mode=\"compact\"]:not([hidden])'].map(p=>p.getBoundingClientRect());return strip.scrollWidth<=strip.clientWidth+1&&Math.abs(panes[0].width-panes[1].width)<2;})()"),true,
+        assert.equal(await evaluate("(()=>{const strip=document.querySelector('.workspace-windows');const panes=[...strip.querySelectorAll('[data-mode=\"compact\"]:not([hidden])')].map(p=>p.getBoundingClientRect());return strip.scrollWidth<=strip.clientWidth+1&&Math.abs(panes[0].width-panes[1].width)<2;})()"),true,
           'Compact windows share available width');
       }
       assert.equal(await evaluate("window.proofPrimary===document.querySelector('[aria-label=\"Janela Projetos\"]')"),true,
