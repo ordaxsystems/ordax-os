@@ -210,7 +210,7 @@ jobs:
         with:
           repository: ordaxsystems/ordax-intelligence
           ref: e739adffc566ae8855a9a521754e32e3ab96c1e1
-          path: _upstream/ordax-intelligence
+          path: out/_upstream/ordax-intelligence
           persist-credentials: false
       - name: Build and stage exact verified offline Aura payload (cache miss only)
         if: steps.aura-cache.outputs.cache-hit != 'true'
@@ -219,7 +219,7 @@ jobs:
           $ErrorActionPreference = 'Stop'
           $candidate = Join-Path $env:RUNNER_TEMP 'ordax-windows-ai-candidate'
           $cache = Join-Path $env:RUNNER_TEMP 'ordax-verified-gguf'
-          & python _upstream/ordax-intelligence/tools/inference-builder/windows-candidate.py --os-source . --out-dir $candidate --cache-dir $cache
+          & python out/_upstream/ordax-intelligence/tools/inference-builder/windows-candidate.py --os-source . --out-dir $candidate --cache-dir $cache
           if ($LASTEXITCODE -ne 0) { throw 'Canonical Windows Intelligence engine build failed' }
           $lock = Get-Content system/services/local-ai/source-lock.json -Raw | ConvertFrom-Json
           $model = Join-Path $cache $lock.model.filename
