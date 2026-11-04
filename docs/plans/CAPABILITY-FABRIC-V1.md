@@ -1531,6 +1531,31 @@ Autoridades existentes a preservar:
   CI remoto, compatibilidade com MCP/Conta e gates desta PR devem ser
   revalidados no SHA publicado. Sem alegar sessão Product MCP autenticada.
 
+### C.43. Revogação CURRENT bloqueia streaming antes da entrega (2026-11-04)
+
+- **Defeito causal reproduzido:** para App assinado *semantic-only*,
+  uma retirada silenciosa do slot `CURRENT` durante a inferência já
+  invalidava a resposta final (C.42), porém o callback `onDelta` ainda
+  entregava trechos intermediários com contexto obsoleto. Teste de
+  streaming falhou antes com `Missing expected exception`.
+- **Correção no validador existente:** a checagem de
+  `awareness.contextItem()` no contexto da Aura agora também roda
+  antes de cada trecho de streaming. Falha fechada antes de chamar
+  o consumidor, além de preservar as verificações de início e conclusão.
+  Não cria segundo catálogo, cache, Event Bus, registry, grant ou executor.
+- **Custo deliberado:** somente quando o produtor da semântica verificada
+  fornece `withCurrentAppSnapshot`, cada callback de streaming consulta
+  a observação canônica atual. É necessário para flagrar retirada
+  silenciosa sem evento, e mantém a lógica de revisão do Fabric para
+  os demais consumidores; não adiciona polling periódico.
+- **Prova Windows:** novo teste recebe um trecho válido, retira
+  `CURRENT` do App sem Actions e rejeita o próximo trecho antes de
+  chamar `onDelta`, bem como a resposta final. Regressão completa
+  do workflow do Fabric: **487/487 em 47 arquivos**, zero falhas/skips;
+  sintaxe dos dois módulos e `git diff --check` aprovados.
+- CI remoto e gates da PR #2406 precisam validar o SHA publicado.
+  Esta verificação não produz authority de Product MCP ou `mcpReady`.
+
 ### D. Integração futura com o Runtime MCP canônico — fronteira auditada
 
 - **Contrato efetivo verificado (2026-11-03):**

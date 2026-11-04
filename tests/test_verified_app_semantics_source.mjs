@@ -1898,6 +1898,67 @@ test("Aura rejects an in-flight answer when a semantic-only signed app loses CUR
   }
 });
 
+test("Aura streaming never emits a chunk after silent semantic-only CURRENT withdrawal", async () => {
+  let observations = [slotMetadata("studio")];
+  let onModelDelta;
+  let complete;
+  const pending = new Promise(resolve => { complete = resolve; });
+  const live = createLiveVerifiedApplicationSemantics({
+    baseApplications: listFirstPartyApps(),
+    bundledManifests: [],
+    initialVerifiedSemantics: [{
+      ...verifiedEntry("studio"),
+      actionManifest: null,
+      providerManifest: null,
+    }],
+    getCurrentObservations: () => observations,
+  });
+  const delivered = [];
+  const aura = createApplicationContextIntelligence({
+    intelligencePort: {
+      schema: INTELLIGENCE_PORT_SCHEMA,
+      getSnapshot: () => ({
+        schema: INTELLIGENCE_PORT_SCHEMA, state: "ready",
+        inferenceAvailable: true, engineId: "local", modelId: "test",
+        authority: "none", toolExecution: false,
+      }),
+      subscribe: () => () => {},
+      respond(_request, { onDelta } = {}) {
+        onModelDelta = onDelta;
+        return pending;
+      },
+    },
+    awarenessPort: live.awarenessPort,
+    actionCapabilityRegistryPort: live.actionRegistryPort,
+    semanticRouterPort: live.semanticRouterPort,
+    getApplicationSemanticsGeneration: () => live.getGeneration(),
+    withCurrentAppSnapshot: callback => live.withCurrentSnapshot(callback),
+  });
+  try {
+    const answer = aura.respond({
+      prompt: "Crie um projeto no Studio",
+    }, { onDelta: chunk => delivered.push(chunk) });
+    assert.equal(typeof onModelDelta, "function");
+    onModelDelta("current chunk");
+    assert.deepEqual(delivered, ["current chunk"]);
+    observations = [];
+    assert.throws(() => onModelDelta("withdrawn chunk"),
+      /Aura verified application CURRENT changed during inference/,
+      "no obsolete semantic-only app description may leak by streaming");
+    assert.deepEqual(delivered, ["current chunk"],
+      "the revoked chunk never reaches the caller");
+    complete({
+      schema: INTELLIGENCE_RESPONSE_SCHEMA,
+      text: "withdrawn response", engineId: "local", modelId: "test",
+      authority: "none",
+    });
+    await assert.rejects(answer,
+      /Aura verified application CURRENT changed during inference/);
+  } finally {
+    live.dispose();
+  }
+});
+
 test("Aura never sends context withdrawn synchronously during its composition", () => {
   let observations = [slotMetadata("notes")];
   let providerCalls = 0;

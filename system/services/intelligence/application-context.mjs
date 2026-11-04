@@ -271,8 +271,10 @@ export function createApplicationContextIntelligence({
         // or the semantic owner's generation. Re-attest through the SAME
         // existing Awareness port, never a second Store/catalog/authority.
         // The synchronous request scope already checked CURRENT before
-        // dispatch; the live readback protects pre-send and completion.
-        if (readSnapshot && withCurrentAppSnapshot !== null &&
+        // dispatch; read back on every streamed chunk as well as completion:
+        // a silent Store withdrawal cannot leak stale content via onDelta.
+        // This reuses Awareness, not a second event bus or action registry.
+        if (withCurrentAppSnapshot !== null &&
             validatedSystemContextItem(
               awareness.contextItem(), "ordax-application-catalog",
             ).text !== liveAwarenessContext.text) {
