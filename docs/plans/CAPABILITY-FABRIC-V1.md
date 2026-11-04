@@ -1276,8 +1276,9 @@ Autoridades existentes a preservar:
   por anchor/alias, sem duplicar os caminhos; o job usa Node 24 fixado
   por SHA oficial já presente em outros workflows do projeto.
 - No Windows, os nove módulos/testes adicionais passaram em `node --check`
-  e as cinco suítes novas aprovaram **85/85 testes**. Este resultado é
-  local; o gate remoto GitHub Actions segue pendente até haver PR válida.
+  e as cinco suítes novas aprovaram **85/85 testes**. Esta foi a prova
+  local inicial; o gate remoto foi validado depois pelo push controlado
+  da mesma branch (C.37), sem exigir PR adicional.
 - O workflow é leve (Node/testes) e não cria build USB/Buildroot.
   A integração na `main` ainda respeita o owner MCP Native, CI e trust.
 
@@ -1389,7 +1390,31 @@ Autoridades existentes a preservar:
   o modo fail-closed.
 - Regressão local Windows: **466/466 testes em 45 arquivos**, zero
   falhas/skips, `node --check` e `git diff --check` aprovados.
-  A publicação MCP remota, as grants e o CI remoto permanecem pendentes.
+  Na época, o CI remoto ainda estava pendente (concluído depois em C.37).
+  A publicação MCP remota e os grants continuam pendentes.
+
+### C.37. CI remoto validado sem PR nem compilação pesada (2026-11-03)
+
+- O workflow existente `application-action-capability-foundation.yml`
+  passou a aceitar push da branch `integration/capability-fabric-v1-*`,
+  preservando os filtros de arquivos de origem, a única lista de paths,
+  Node 24 e o job leve de contratos. Nenhum segundo workflow foi criado.
+- **Evidência GitHub Actions:** commit de código
+  `4f063cff103bba1e2f7d3249d899680f8c779983`, execução
+  `41760404639` em
+  `https://github.com/ordaxsystems/ordax-os/actions/runs/41760404639`,
+  evento `push`, job `capability-foundation` **SUCCESS**, primeira
+  tentativa. O log confirmou **267/267 testes**, sintaxe aprovada e
+  todas as etapas completas no Ubuntu com Node 24.
+- A consulta de runs pelo SHA identificou **um único workflow** e nenhum
+  build USB, Buildroot, Creator ou Windows Release acionado pelo push.
+  O merge simulado do mesmo commit com MCP Native PR #2400 (HEAD
+  `2e2758da`) continuou sem conflitos.
+- Esta evidência fecha o **gate de CI do Fabric neste código**, antes
+  pendente nas etapas C.31/C.36. Não fecha os gates da PR #2400, não
+  instala Desktop e não atesta `mcpReady`, grants ou execução MCP remota.
+  Uma alteração posterior de documentação, sem mudar código ou workflow,
+  não requer repetir o gate leve só para atualizar este registro.
 
 ### D. Integração futura com o Runtime MCP canônico — fronteira auditada
 
