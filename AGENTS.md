@@ -24,9 +24,13 @@ O produto continua em desenvolvimento e homologação: a promoção/renomeação
 
 Para geometria fisica, os contratos machine-readable vencem texto historico: `docs/contracts/physical-media.json` define o seed bootstrap independente de capacidade e `docs/contracts/physical-prepared-media.json` define o USB fisico final preparado pelo Creator.
 
-## 3. Ordem obrigatoria de leitura
+## 3. Leitura proporcional ao impacto (sem auditoria integral obrigatoria)
 
-Antes de alterar codigo, contratos ou midia:
+**Regra de Evolução Rápida DEV:** seguir a sequência de execução da [política operacional canônica](docs/DEVELOPMENT-WORKFLOW.md#regra-operacional-transversal--evolucao-rapida-dev-2026-11-04): localizar o owner e o ponto de mudança, **executar a tarefa**, integrar, realizar testes pertinentes e entregar. Não antecipar pesquisa ampla, relatório, novo workflow ou leitura de todo o projeto para uma mudança simples.
+
+Para mudanças localizadas, ler este `AGENTS.md`, os arquivos afetados e somente os contratos/documentos relevantes. A lista abaixo é um **roteiro de referência para tarefas transversais**, não um checklist obrigatório de dezessete leituras antes de cada edição. Alterações físicas, de trust, identidade, segurança, release ou arquitetura exigem os contratos e preflights específicos, independentemente da pressa.
+
+Roteiro de referência por assunto/impacto:
 
 1. `README.md`
 2. `MVP.md`
@@ -338,6 +342,8 @@ Antes de alterar versionamento, histórico ou a UI de atualizações, leia `docs
 Não reintroduzir derivação de versão/entrega a partir de `Merge pull request #N`. Não alterar versão ou `releaseMode` sem atualizar no mesmo change set os snapshots/contratos canônicos que registram esses valores.
 
 ## 16. Regra de execução: baseline funcional primeiro
+
+**Aplicação obrigatória:** a política transversal de Evolução Rápida está em `docs/DEVELOPMENT-WORKFLOW.md`. O baseline funcional primeiro também significa **implementar antes de ampliar análise, documentação ou CI**, e validar depois com testes proporcionais e gates aplicáveis; não repetir provas nem sair do escopo para resolver vermelho não relacionado. As exceções críticas de segurança, integridade e autorização continuam obrigatórias.
 
 Esta regra vale para qualquer IA, agente, Codex ou pessoa trabalhando no repositorio, inclusive quando o pedido do operador for curto como `continue`, `prossiga`, `deixe pronto` ou equivalente.
 
