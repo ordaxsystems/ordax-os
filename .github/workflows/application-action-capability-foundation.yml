@@ -51,7 +51,9 @@ on:
       - 'tests/test_capability_fabric_native_action_bridge.mjs'
       - 'tests/test_capability_fabric_windows_file_space_e2e.mjs'
   push:
-    branches: [main]
+    # Run only this lightweight contract gate on Fabric integration branches;
+    # do not opt the USB, Buildroot, or Windows release pipelines into pushes.
+    branches: [main, 'integration/capability-fabric-v1-*']
     paths: *capability_sources
 
 permissions:
