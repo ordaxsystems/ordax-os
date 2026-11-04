@@ -264,6 +264,71 @@ não usam o OS Native, desde que não se apresente como estado vivo.
 
 **Limite 93/64:** `93` é a contagem **do dicionário global de ações Product em código**, não das capacidades de um dispositivo nem das ferramentas visíveis ao usuário. `64` é limite do snapshot atual, não limite comprovado do protocolo MCP inteiro. Se o Runtime receber 65 ou mais ações locais suportadas que mapeiam para Product Actions, o snapshot atual falha fechado. Medir isso em dispositivo real **antes** de decidir se precisa de evolução de contrato; não ampliar limite, filtrar ou mudar esquema só por causa da contagem de source.
 
+### Ponte Native Product existente: o que ela realmente entrega (código da OS #2400)
+
+Auditoria de source da [PR #2400](https://github.com/ordaxsystems/ordax-os/pull/2400)
+em **04/11/2026** (HEAD `2e2758daffa4288e2c8df35922aa719a20429f70`):
+a ponte de `system/adapters/desktop/surface-runtime-bridge.mjs`
+está **somente na branch da PR, não integrada à `main`**.
+O GitHub informou conflito de merge com a `main` durante a consulta;
+não sobrescrever alterações contemporâneas, não abrir segunda ponte
+e não promover o candidato DEV sem gates.
+
+| Port da PR candidata | O que transporta | O que NÃO comprova |
+| --- | --- | --- |
+| `GET /__ordax/native/desktop-surface-state` | Estado recente da Surface e `activeAppId`, autenticado por token local Product | Lista de apps instalados, Store `CURRENT`, pacote assinado ou tools do MCP |
+| `POST /__ordax/native/desktop-surface-state` | Relato da Surface com token de reporter próprio; `surfaceReady=true` e `activeAppId` ou nulo | Autorização de executar Application Actions |
+| `GET/POST /__ordax/native/desktop-surface-command` | Poll e solicitação limitada de ativação visual | Execução genérica de um app instalado ou permissão para mouse/teclado |
+| `POST /__ordax/native/desktop-surface-receipt` | Recibo vinculado ao request e à **nova observação de renderização** | Grant OAuth, instalação/atualização, resultado de domínio genérico |
+| `/__ordax/native/product-runtime-status` | Supervisão/observação de processo e readiness como estados distintos | `mcpReady=true` por mera presença de processo |
+
+A ponte candidata usa **tokens efêmeros diferentes** para Surface e Product,
+loopback restrito, relatório de até **512 bytes**, expiração da
+apresentação após **15 segundos**, comandos limitados e timeout de
+**4,5 segundos**. A ativação permite apenas os quatro IDs Native
+`account`, `settings`, `system` e `store`. O pacote
+`ordax-apps` (por exemplo, `notes`) **não** vira alvo executável
+por essa allowlist. **Não acrescentar inventário de apps/manifestos
+ao relatório visual de 512 bytes nem ampliar a allowlist para
+desbloquear a descoberta**; cada ação continua sob o owner de domínio.
+
+**Fonte que deve alimentar o futuro port read-only instalado:**
+`system/composition/native/main.mjs` já compõe
+`storeCatalogComposition.getCurrentObservations()` e
+`liveAppSemantics.withCurrentSnapshot()`; o gate
+`system/services/system-foundation/current-verified-action-gate.mjs`
+confere `componentId`, `version`, `revision`,
+`sourceCommit` e `source="slot"` contra a origem assinada,
+rejeitando duplicatas e `CURRENT` inválido. A leitura da geração
+semântica existente alimenta Aura/Personal/Fabric. **Isso não é,
+hoje, um endpoint HTTP do Runtime**: o próximo executor deve
+expor **uma projeção somente leitura e limitada**, derivada desse
+owner, autenticada e no contexto exato do Device, pela infraestrutura
+Native já existente. Resolver a composição no **owner OS**,
+consumir no **owner Runtime**, sem exportar tokens/paths, dados
+pessoais, manifests de outros Devices, campo de authority ou
+grants. O nome/schema definitivo do port só deve ser publicado
+junto da implementação versionada e seus testes; **não inventar
+um endpoint operacional na documentação**.
+
+**Comparação de revisões:** `revision` do Store/artefato é dado da
+identidade instalada; `revision` do Fabric é monotônico apenas
+na sessão de descoberta. São conceitos diferentes; nenhum pode
+ser usado como `capability_digest` ou substituir as verificações
+de versão, commit e geração no momento da consulta. Revalidar o
+`CURRENT` ao responder e revogar a visão em mudanças da Store,
+Device ou sessão, sem snapshot persistente concorrente.
+
+**Critério de aceite mínimo, antes de oferecer `installed` na Product:**
+app oficial realmente instalado → observar mesma identidade e
+versão pela Aura/Fabric e pelo Runtime Product autenticado →
+substituir/retirar o slot → nova consulta Product nega a
+capacidade antiga **sem restart** nem cache obsoleto. Negativos:
+token de reporter como se fosse token Product, chamada anônima,
+Device errado, version/commit divergente, duplicate slot,
+falta de Store, host offline e troca de sessão. Resultado remoto
+não vira ferramenta de execução e não autoriza efeitos.
+
 ### Um exemplo de integração sem criar duas ações
 
 Para o app **Notas** a ação semântica declarada `notes.create-note` é um bom **exemplo de ID**, **não** uma ferramenta executável Product já atestada. A implementação só pode afirmar que Aura e MCP “fazem a mesma coisa” depois de provar:

@@ -79,6 +79,28 @@ para desbloquear MCP DEV**. A seleção/limpeza DEV de Device está
 coordenada na [Platform #291](https://github.com/ordaxsystems/ordax-platform/issues/291).
 Evitar nova PR de ponte antes de reconciliar essas entregas.
 
+## Ponte Surface não é catálogo de apps — auditoria 2026-11-04
+
+O código da candidata [OS #2400](https://github.com/ordaxsystems/ordax-os/pull/2400)
+só expõe `activeAppId` e `surfaceReady` no relato da Surface,
+com ativação limitada a `account/settings/system/store` e recibo de
+renderização. **Não** fornece inventário de apps instalados ou a
+geração de Application Actions do Native Store `CURRENT`.
+O relato tem limite de **512 bytes** e não deve receber manifests
+nem ser reaproveitado como registry. A PR ainda não estava integrada
+e apresentou conflito de merge com a `main` na revisão.
+
+Para reconciliar Aura e MCP, utilizar a fonte Native existente
+`storeCatalogComposition.getCurrentObservations()` +
+`liveAppSemantics.withCurrentSnapshot()`, validando identidade,
+versão, revisão de Store e `sourceCommit` pelo gate
+`current-verified-action-gate.mjs`. O futuro **port de leitura**
+precisa de implementação e teste autenticado próprio no mesmo Host,
+sem inventar segunda Store, grant ou executor. **Não assumir que
+o endpoint já existe.** Especificação/aceite no
+[`docs/CAPABILITY-FABRIC.md`](docs/CAPABILITY-FABRIC.md),
+subseção **“Ponte Native Product existente”**.
+
 ## Atualização operacional — 2026-10-13
 
 A integração Native de Intelligence já ultrapassou o antigo estado de “runtime isolado”: `ordax.intelligence/1`, Local AI, model router, Memory autorizada, Assistant/Canvas e consumidores first-party possuem composição real em source. O gap transversal prioritário agora é **transporte/composição Web e integrações externas**, sem transformar a Surface em owner de provider.
