@@ -141,7 +141,9 @@ export async function revokeAccountOwnerGrant(access, raw, fetcher=fetch) {
     if (group.grant_group_id === input.grant_group_id) continue;
     const current = preserved.get(group.grant_group_id);
     if (!current || current.client_id !== group.client_id
-        || current.profile_key !== group.profile_key)
+        || current.profile_key !== group.profile_key
+        || current.valid_until !== group.valid_until
+        || current.client_consent_active !== group.client_consent_active)
       throw new Error("mcp-owner-revoke-isolation-unverified");
   }
   return {ok:true, schema:"ordax.owner-mcp-revocation/1", revoked:true,
