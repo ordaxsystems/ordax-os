@@ -70,7 +70,6 @@ LIGHT_EXACT = frozenset({
 CLIENT_ONLY_PREFIXES = (
     "system/adapters/desktop/",
     "system/composition/web/",
-    "tools/windows-desktop/",
     "tools/windows-emulator/",
 )
 PUSH_EXCLUDES = ("!system/adapters/desktop/**", "!system/surface/ui/**", "!system/surface/workspace/**")

@@ -477,11 +477,6 @@ class PortableQemuImpactTests(unittest.TestCase):
     def test_windows_only_native_owners_use_installed_desktop_ci_not_qemu(self):
         desktop_paths = [
             ".github/workflows/windows-desktop-dev.yml",
-            "tools/windows-desktop/main.cjs",
-            "tools/windows-desktop/host.cjs",
-            "tools/windows-desktop/materialize-local-ai.cjs",
-            "tools/windows-desktop/package.json",
-            "tools/windows-desktop/install-smoke.ps1",
             "tools/windows-emulator/native-host.mjs",
             "tools/windows-emulator/desktop-native-server.test.mjs",
             "tests/test_windows_desktop_local_ai_host.mjs",

@@ -102,7 +102,6 @@ APP_DELIVERY_LIGHT_EXACT = {
 # Windows Desktop has its own installed-Electron, Native and offline inference gates.
 # These source owners do not enter Linux Portable boot artifacts.
 WINDOWS_DESKTOP_LIGHT_PREFIXES = (
-    "tools/windows-desktop/",
     "tools/windows-emulator/",
 )
 WINDOWS_DESKTOP_LIGHT_EXACT = {

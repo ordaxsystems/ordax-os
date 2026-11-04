@@ -3,7 +3,7 @@ import assert from "node:assert/strict";
 import { createServer } from "node:http";
 import { createHmac } from "node:crypto";
 import { createRequire } from "node:module";
-const { isReady } = createRequire(import.meta.url)("../windows-desktop/host.cjs");
+const { isReady } = createRequire(import.meta.url)("../../out/ordax-desktop-source/host.cjs");
 import { mkdtempSync, mkdirSync, writeFileSync, rmSync, readFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join, resolve } from "node:path";
@@ -149,7 +149,7 @@ test("source-only system middleware denies path escapes and unsupported files", 
 });
 
 test("installed shell selects standalone Native only for previously verified build",()=>{
-  const shell=readFileSync(new URL("../windows-desktop/host.cjs",import.meta.url),"utf8");
+  const shell=readFileSync(new URL("../../out/ordax-desktop-source/host.cjs",import.meta.url),"utf8");
   assert.match(shell,/const staticHost=Boolean\(builtAssetsRoot && existsSync\(installedNative\)\)/);
   assert.match(shell,/const entry=staticHost\?installedNative:/);
   assert.match(shell,/http-ready after/);

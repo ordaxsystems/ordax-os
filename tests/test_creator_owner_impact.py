@@ -161,7 +161,7 @@ class CreatorOwnerImpactTests(unittest.TestCase):
             "system/adapters/desktop/space-create.mjs",
             "system/adapters/desktop/display-current-mode-host.mjs",
             "system/composition/web/account-session.mjs",
-            "tools/windows-desktop/native-build.cjs",
+            "system/adapters/desktop/local-ai-package.mjs",
             "tools/windows-emulator/account-gateway.mjs",
             "system/contracts/space-create-port.mjs",
             "tests/test_space_create_bridge.mjs",
