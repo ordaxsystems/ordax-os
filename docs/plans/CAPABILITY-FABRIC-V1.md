@@ -1450,9 +1450,14 @@ Autoridades existentes a preservar:
 - **Provas locais:** regressão completa do workflow existente no Windows,
   **482/482 testes em 47 arquivos**, zero falhas/skips; seis módulos/testes
   alterados com sintaxe válida e `git diff --check` aprovado.
-  CI remoto e compatibilidade com PR #2400 devem ser verificados para
-  o commit exato publicado; a aprovação não demonstra execução MCP
-  remota autenticada.
+- **CI remoto conferido:** commit `1cca6709cf2f9b57cc82bbe567ca81d7c864b517`,
+  workflow existente `Application Action Capability Foundation`,
+  execução `41763040281` no GitHub Actions, Ubuntu/Node 24, **SUCCESS**:
+  482/482 testes nos logs, zero falhas. Somente este workflow leve foi
+  iniciado pelo push. A simulação `git merge-tree --write-tree` contra
+  MCP Native PR #2400 HEAD `2e2758da` terminou sem conflito.
+- A prova valida o código deste commit, não a execução MCP remota
+  autenticada, grants de produção ou o merge à `main`.
 
 ### D. Integração futura com o Runtime MCP canônico — fronteira auditada
 
