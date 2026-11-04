@@ -42,7 +42,6 @@ on:
       - 'system/services/system-foundation/capability-discovery.mjs'
       - 'system/services/system-foundation/current-verified-action-gate.mjs'
       - 'system/services/intelligence/live-verified-app-semantics.mjs'
-      - 'system/composition/native/main.mjs'
       - 'system/services/personal-ordax/action-executor.mjs'
       - 'system/services/personal-ordax/proposal-planner.mjs'
       - 'tests/test_capability_discovery.mjs'
