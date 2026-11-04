@@ -618,3 +618,26 @@ test("duplicate Native catalog IDs fail closed before an individual match", () =
     /duplicate/i);
   assert.throws(() => fabric.snapshot(), /duplicate/i);
 });
+
+test("Native provider A-B-A observed by identity check invalidates the earlier discovery revision", () => {
+  let nativeEntries = [NATIVE_FIXTURE_ENTRY];
+  const fabric = discoveryForChangingNativeCatalog(() => nativeEntries);
+  const before = fabric.snapshot();
+  assert.equal(fabric.isNativeActionRegistered(NATIVE_FIXTURE_ENTRY), true);
+  assert.equal(fabric.snapshot().revision, before.revision,
+    "a matching verified provider must not churn the approval revision");
+
+  nativeEntries = [{
+    ...NATIVE_FIXTURE_ENTRY,
+    toolArtifactSha256: "b".repeat(64),
+  }];
+  assert.equal(fabric.isNativeActionRegistered(NATIVE_FIXTURE_ENTRY), false,
+    "an artifact substitution must be observed even without Host or Store events");
+
+  nativeEntries = [NATIVE_FIXTURE_ENTRY];
+  const after = fabric.snapshot();
+  assert.ok(after.revision > before.revision,
+    "the old approval revision must not revive after a silent A-B-A provider change");
+  assert.deepEqual(after.entries, before.entries,
+    "the public descriptors can match while the private revision must advance");
+});

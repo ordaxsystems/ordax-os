@@ -277,13 +277,19 @@ export function createCapabilityDiscovery({
           return false;
         }
         const entries = readPersonalActionCatalogEntries(current);
-        return entries.some(entry =>
+        const matching = entries.some(entry =>
           entry.id === candidate.id && entry.toolId === candidate.toolId &&
           entry.actionId === candidate.actionId &&
           entry.effect === candidate.effect &&
           entry.resourceScheme === candidate.resourceScheme &&
           entry.inputKind === candidate.inputKind &&
           entry.toolArtifactSha256 === candidate.toolArtifactSha256);
+        // A rejected identity check is itself a live observation that the
+        // previously approved provider is no longer current. Fence any
+        // silent A -> B -> A return even if no Host event or snapshot read
+        // occurred while B was present. Do not add another registry/read.
+        if (!matching) lastProjection = null;
+        return matching;
       } catch (error) {
         lastProjection = null;
         throw error;

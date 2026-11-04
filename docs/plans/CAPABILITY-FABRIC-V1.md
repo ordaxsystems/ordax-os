@@ -1281,6 +1281,27 @@ Autoridades existentes a preservar:
 - O workflow é leve (Node/testes) e não cria build USB/Buildroot.
   A integração na `main` ainda respeita o owner MCP Native, CI e trust.
 
+### C.32. Invalidação de provedor Native sem evento de Host (2026-11-03)
+
+- **Defeito reproduzido:** se `isNativeActionRegistered()` detectasse
+  um catálogo cujo hash de artefato já não correspondia à aprovação
+  Native, o método negava a identidade mas não invalidava o fingerprint
+  da última projeção. Um retorno silencioso A → B → A antes da próxima
+  leitura de `snapshot()` podia reutilizar a revisão antiga.
+- **Correção na fonte única:** uma verificação de identidade que não
+  encontra correspondência invalida o fingerprint transitório, assim
+  como já ocorria na ausência ou falha de leitura da fonte. A próxima
+  projeção válida recebe nova revisão; não há segundo catálogo, timer,
+  novo grant ou executor.
+- **Prova causal:** o teste `tests/test_capability_discovery.mjs`
+  falhava antes da correção e passou depois. Verifica substituição
+  silenciosa de `toolArtifactSha256` seguida de retorno ao mesmo
+  provedor, sem reiniciar Host; confirmação de provedor idêntico não
+  avança a revisão desnecessariamente. Regressão dirigida após correção:
+  **69/69 testes**, incluindo HTTP e arquivos físicos Windows.
+- Ainda não atesta uma sessão MCP externa nem dispensa os gates da
+  Platform e do Product Runtime.
+
 ### D. Integração futura com o Runtime MCP canônico — fronteira auditada
 
 - **Contrato efetivo verificado (2026-11-03):**
