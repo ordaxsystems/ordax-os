@@ -645,6 +645,32 @@ test("silent Native removal and return cannot reuse the previous approval revisi
   assert.deepEqual(after.entries, before.entries);
 });
 
+test("silent changes to a second Native provider must fence the shared discovery revision", () => {
+  const peer = {
+    ...NATIVE_FIXTURE_ENTRY,
+    id: "native-file.ensure-peer-directory",
+    actionId: "files.directory.ensure-peer",
+    toolArtifactSha256: "b".repeat(64),
+  };
+  let nativeEntries = [NATIVE_FIXTURE_ENTRY, peer];
+  const fabric = discoveryForChangingNativeCatalog(() => nativeEntries);
+  const before = fabric.snapshot();
+
+  nativeEntries = [peer, NATIVE_FIXTURE_ENTRY];
+  assert.equal(fabric.isNativeActionRegistered(NATIVE_FIXTURE_ENTRY), true);
+  assert.equal(fabric.snapshot().revision, before.revision,
+    "ordering alone must not revoke a verified action");
+
+  nativeEntries = [NATIVE_FIXTURE_ENTRY];
+  assert.equal(fabric.isNativeActionRegistered(NATIVE_FIXTURE_ENTRY), true,
+    "checking A still succeeds when unrelated provider B disappears");
+  nativeEntries = [NATIVE_FIXTURE_ENTRY, peer];
+  const after = fabric.snapshot();
+  assert.ok(after.revision > before.revision,
+    "the observed B removal and return must invalidate the old shared approval revision");
+  assert.deepEqual(after.entries, before.entries);
+});
+
 test("duplicate Native catalog IDs fail closed before an individual match", () => {
   const fabric = discoveryForChangingNativeCatalog(() =>
     [NATIVE_FIXTURE_ENTRY, NATIVE_FIXTURE_ENTRY]);

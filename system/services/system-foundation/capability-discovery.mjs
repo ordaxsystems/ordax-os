@@ -285,15 +285,19 @@ export function createCapabilityDiscovery({
           entry.inputKind === candidate.inputKind &&
           entry.toolArtifactSha256 === candidate.toolArtifactSha256;
         const matching = entries.some(sameIdentity);
-        // A rejected CURRENT identity invalidates an earlier approval only
-        // if that exact identity was part of our previous validated
-        // projection. An arbitrary unknown/foreign candidate must NOT churn
-        // unrelated revisions or revoke legitimate grants. Reuse the private
-        // projection fingerprint already retained for session revisions:
-        // no second Native registry, enumeration or authority source.
-        if (!matching && lastProjection !== null &&
-            JSON.parse(lastProjection).native.some(sameIdentity)) {
-          lastProjection = null;
+        // The same catalog enumeration can expose a change to a different
+        // registered provider even when this candidate still matches. Fence
+        // a silent A -> B -> A of the FULL Native projection; otherwise the
+        // old session revision could revive without a Host or Store event.
+        // Compare against the existing validated fingerprint, not another
+        // registry or independent source of Native action authority.
+        if (lastProjection !== null) {
+          const previous = JSON.parse(lastProjection).native;
+          const observed = [...entries].sort((a, b) =>
+            a.id.localeCompare(b.id, "en"));
+          if (JSON.stringify(previous) !== JSON.stringify(observed)) {
+            lastProjection = null;
+          }
         }
         return matching;
       } catch (error) {

@@ -1324,6 +1324,28 @@ Autoridades existentes a preservar:
   sem falhas nem skips. Verificações Node de sintaxe e
   `git diff --check` aprovadas. Nenhuma habilitação de tools MCP.
 
+### C.34. Troca silenciosa de um segundo provedor Native (2026-11-03)
+
+- **Falha reproduzida:** a verificação de identidade de uma ação Native
+  ainda registrada retornava `true` mesmo quando outro provedor do mesmo
+  catálogo havia sido removido sem evento. Se esse segundo provedor
+  retornasse antes do próximo `snapshot()`, a revisão compartilhada
+  poderia permanecer igual à anterior, apesar de um A→B→A observado.
+- **Correção de uma única fonte:** `isNativeActionRegistered()` compara
+  toda a enumeração Native já validada à parte Native do fingerprint
+  privado usado pela descoberta. Diferença observada invalida a revisão
+  transitória; uma nova leitura válida avança a revisão. Não há nova
+  enumeração, registry, timer, executor ou autorização.
+- **Prova causal:** teste com dois provedores demonstrou a falha antes
+  da correção e passou depois. Reordenação da lista sem alteração de
+  conteúdo permanece estável; retirada e retorno silenciosos do
+  segundo provedor invalidam a revisão anterior. As proteções de
+  identidade desconhecida e troca do primeiro provedor permanecem.
+- **Regressão dirigida:** 72/72 testes no Windows, incluindo o middleware
+  File Space real. Regressão ampliada sobre 45 arquivos: **461/461 testes**,
+  zero falhas e skips. Sintaxe e `git diff --check` aprovados. Não equivale
+  a homologação MCP remota.
+
 ### D. Integração futura com o Runtime MCP canônico — fronteira auditada
 
 - **Contrato efetivo verificado (2026-11-03):**
