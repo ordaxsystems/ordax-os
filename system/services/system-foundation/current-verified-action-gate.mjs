@@ -34,24 +34,39 @@ export function createCurrentVerifiedActionGate({
   // request. No persisted cache, second Store, grant or executor: outside
   // this scope every verification reads the current Native Store again.
   let scopedObservations = null;
+  const readVerifiedObservations = () => {
+    const observed = getCurrentObservations();
+    if (!Array.isArray(observed) || observed.length > 128) {
+      throw new TypeError("Native Store current observations unavailable");
+    }
+    return Object.freeze(observed.map(item =>
+      validateComponentRuntimeMetadata(item, {
+        componentId: item?.componentId, state: "current",
+      })));
+  };
+  const fingerprint = entries => JSON.stringify(
+    entries.map(entry => JSON.stringify(entry)).sort(),
+  );
   const withCurrentSnapshot = (callback) => {
     if (typeof callback !== "function") {
       throw new TypeError("Native Store CURRENT scope requires a callback");
     }
     if (scopedObservations !== null || origins.size === 0) return callback();
-    const observed = getCurrentObservations();
-    if (!Array.isArray(observed) || observed.length > 128) {
-      throw new TypeError("Native Store current observations unavailable");
-    }
-    scopedObservations = Object.freeze(observed.map(item => Object.freeze({
-      ...validateComponentRuntimeMetadata(item, {
-        componentId: item?.componentId, state: "current",
-      }),
-    })));
+    const initial = readVerifiedObservations();
+    scopedObservations = initial;
     try {
-      // Only composition runs in scope; a Promise settles AFTER this
-      // finally, so completion/revocation checks return to live reads.
-      return callback();
+      // The entire Aura context is composed from ONE verified CURRENT
+      // observation, but a synchronous Store subscriber may reenter and
+      // withdraw an app while the context is being assembled. Read back
+      // CURRENT before any inference is dispatched; never authorize using
+      // a transient view that has already changed during composition.
+      const composed = callback();
+      if (fingerprint(readVerifiedObservations()) !== fingerprint(initial)) {
+        throw new Error("Native Store CURRENT changed during Aura context composition");
+      }
+      // Only synchronous composition shares the view. An awaited response
+      // and any later approval or revocation read the live Store again.
+      return composed;
     } finally {
       scopedObservations = null;
     }

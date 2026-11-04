@@ -231,6 +231,10 @@ export function createApplicationContextIntelligence({
         }
       }
 
+      // Do not invoke the model while a temporary CURRENT view is pinned.
+      // The scope owner verifies the Store AGAIN after composition; only
+      // then may this closure subscribe and send the prepared inference.
+      return () => {
       // The same Fabric is the action source for Aura, Personal and UI.
       // A Store revocation during inference invalidates that answer, even
       // when its action set is restored A -> B -> A before delivery. Only
@@ -303,8 +307,10 @@ export function createApplicationContextIntelligence({
         return response;
       }).finally(() => unsubscribeFabric?.());
       };
-      return withCurrentAppSnapshot === null
+      };
+      const invoke = withCurrentAppSnapshot === null
         ? compose() : withCurrentAppSnapshot(compose);
+      return invoke();
     },
   });
 }

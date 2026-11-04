@@ -1773,7 +1773,8 @@ test("Aura assembles all app context from one synchronous CURRENT observation", 
     getCurrentObservations() {
       reads++;
       if (!flip) return [slotMetadata("notes"), slotMetadata("studio")];
-      return ++tick % 2 ? [slotMetadata("notes")] : [slotMetadata("studio")];
+      return Math.floor(tick++ / 2) % 2 === 0
+        ? [slotMetadata("notes")] : [slotMetadata("studio")];
     },
   });
   let observedContext = [];
@@ -1805,8 +1806,8 @@ test("Aura assembles all app context from one synchronous CURRENT observation", 
     flip = true;
     const before = reads;
     await aura.respond({ prompt: "Crie uma nota" });
-    assert.equal(reads - before, 1,
-      "the entire Aura context must share one native Store read");
+    assert.equal(reads - before, 2,
+      "Aura must read one pinned CURRENT view and re-attest just before inference");
     const catalog = JSON.parse(observedContext.find(x =>
       x.id === "ordax-application-catalog").text);
     const currentApps = catalog.applications.filter(x =>
@@ -1821,8 +1822,8 @@ test("Aura assembles all app context from one synchronous CURRENT observation", 
     assert.deepEqual(JSON.parse(actions.text).actions.map(x => x.appId), ["notes"]);
     const next = reads;
     await aura.respond({ prompt: "Crie uma nota" });
-    assert.equal(reads - next, 1,
-      "a new Aura request must read fresh CURRENT rather than retain a cached view");
+    assert.equal(reads - next, 2,
+      "the next Aura request must read and re-attest fresh CURRENT");
     const second = JSON.parse(observedContext.find(x =>
       x.id === "ordax-application-catalog").text);
     assert.deepEqual(second.applications.filter(x =>
@@ -1832,6 +1833,58 @@ test("Aura assembles all app context from one synchronous CURRENT observation", 
     assert.ok(secondActions);
     assert.deepEqual(JSON.parse(secondActions.text).actions.map(x => x.appId),
       ["studio"], "the second request cannot carry stale Notes actions");
+  } finally {
+    live.dispose();
+  }
+});
+
+test("Aura never sends context withdrawn synchronously during its composition", () => {
+  let observations = [slotMetadata("notes")];
+  let providerCalls = 0;
+  const live = createLiveVerifiedApplicationSemantics({
+    baseApplications: listFirstPartyApps(),
+    bundledManifests: [],
+    initialVerifiedSemantics: [verifiedEntry("notes")],
+    getCurrentObservations: () => observations,
+  });
+  const awarenessPort = Object.freeze({
+    ...live.awarenessPort,
+    contextItem() {
+      // Simulate reentrant signed Store withdrawal between the pinned
+      // first CURRENT read and the remaining Aura context construction.
+      observations = [];
+      return live.awarenessPort.contextItem();
+    },
+  });
+  const aura = createApplicationContextIntelligence({
+    intelligencePort: {
+      schema: INTELLIGENCE_PORT_SCHEMA,
+      getSnapshot: () => ({
+        schema: INTELLIGENCE_PORT_SCHEMA, state: "ready",
+        inferenceAvailable: true, engineId: "local", modelId: "test",
+        authority: "none", toolExecution: false,
+      }),
+      subscribe: () => () => {},
+      respond() {
+        providerCalls++;
+        return Promise.resolve({
+          schema: INTELLIGENCE_RESPONSE_SCHEMA,
+          text: "should not execute", engineId: "local", modelId: "test",
+          authority: "none",
+        });
+      },
+    },
+    awarenessPort,
+    actionCapabilityRegistryPort: live.actionRegistryPort,
+    semanticRouterPort: live.semanticRouterPort,
+    getApplicationSemanticsGeneration: () => live.getGeneration(),
+    withCurrentAppSnapshot: callback => live.withCurrentSnapshot(callback),
+  });
+  try {
+    assert.throws(() => aura.respond({ prompt: "Crie uma nota" }),
+      /CURRENT.*changed|changed.*CURRENT|Store.*changed/i,
+      "a reentrant Store withdrawal must reject before any inference call");
+    assert.equal(providerCalls, 0);
   } finally {
     live.dispose();
   }

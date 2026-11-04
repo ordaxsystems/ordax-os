@@ -1485,6 +1485,28 @@ Autoridades existentes a preservar:
   exigem gates próprios; a projeção permanece `authority=none` e
   `toolExecution=false`.
 
+### C.41. Fence CURRENT após montagem síncrona e antes da inferência (2026-11-03)
+
+- **Falha reproduzida:** uma retirada Store `CURRENT` reentrante podia ocorrer
+  *depois* do snapshot inicial, durante `awareness.contextItem()`. O contexto
+  já obsoleto chegava à inferência porque o gate transitório permanecia fixado
+  durante a chamada do modelo. Teste causal confirmou envio indevido antes.
+- **Correção no mesmo gate e owner:** `withCurrentSnapshot()` conserva uma
+  observação atômica apenas para compor o contexto; após a composição,
+  valida uma **segunda observação atual** e compara o metadata canônico,
+  sem depender de evento eventual. Só então a Aura inicia a inferência,
+  **fora** do escopo transitório, com seus guards existentes de geração,
+  descoberta e revogação. Se a Store mudou, falha antes de chamar o modelo.
+- Não há cache entre pedidos, duplicação de Store, nova autorização ou
+  executor. A segunda leitura é intencional e necessária para confirmar
+  ausência de retirada silenciosa antes de enviar o contexto. As provas
+  verificam callback reentrante, erro, retorno assíncrono, contexto estável
+  e recusa pré-envio após revogação.
+- **Regressão local:** **485/485 testes em 47 arquivos** no Windows, zero
+  falhas/skips, 4 fontes/testes em sintaxe e `git diff --check` aprovados.
+  O CI remoto e a compatibilidade com o MCP Native exigem validação
+  para o SHA publicado. Nenhuma promoção ou `mcpReady` é presumida.
+
 ### D. Integração futura com o Runtime MCP canônico — fronteira auditada
 
 - **Contrato efetivo verificado (2026-11-03):**

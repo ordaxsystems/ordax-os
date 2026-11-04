@@ -283,7 +283,6 @@ test("CURRENT inference scope is transient, reentrant and never survives complet
   assert.throws(() => gate.withCurrentSnapshot(null), /requires a callback/);
   const outcome = gate.withCurrentSnapshot(() => {
     assert.equal(gate.isCurrent({ appId: app.id }), true);
-    observations = [metadata({ version: "0.4.3", revision: 13 })];
     return gate.withCurrentSnapshot(() => {
       assert.equal(gate.isCurrent({ appId: app.id }), true,
         "a nested synchronous caller must reuse the pinned view");
@@ -291,10 +290,11 @@ test("CURRENT inference scope is transient, reentrant and never survives complet
     });
   });
   assert.equal(outcome, "verified");
-  assert.equal(reads, 1);
+  assert.equal(reads, 2, "one composition read plus one final CURRENT fence");
+  observations = [metadata({ version: "0.4.3", revision: 13 })];
   assert.equal(gate.isCurrent({ appId: app.id }), false,
     "outside the scope, CURRENT must be read live after withdrawal");
-  assert.equal(reads, 2);
+  assert.equal(reads, 3);
   observations = [metadata()];
   assert.throws(() => gate.withCurrentSnapshot(() => {
     assert.equal(gate.isCurrent({ appId: app.id }), true);
@@ -303,14 +303,23 @@ test("CURRENT inference scope is transient, reentrant and never survives complet
   observations = [];
   assert.equal(gate.isCurrent({ appId: app.id }), false,
     "a thrown request must not leave a stale pinned CURRENT view");
-  assert.equal(reads, 4);
+  assert.equal(reads, 5);
   observations = [metadata()];
   const asynchronous = gate.withCurrentSnapshot(() =>
     Promise.resolve().then(() => gate.isCurrent({ appId: app.id })));
   observations = [];
   assert.equal(await asynchronous, false,
     "async completion must read live CURRENT, not retain the synchronous scope");
-  assert.equal(reads, 6);
+  assert.equal(reads, 8);
+  observations = [metadata()];
+  assert.throws(() => gate.withCurrentSnapshot(() => {
+    assert.equal(gate.isCurrent({ appId: app.id }), true);
+    observations = [];
+  }), /Native Store CURRENT changed during Aura context composition/,
+  "synchronous Store reentry must reject a context withdrawn before inference");
+  assert.equal(gate.isCurrent({ appId: app.id }), false,
+    "the rejected scope must clear its pinned snapshot");
+  assert.equal(reads, 11);
   assert.equal(typeof gate.execute, "undefined");
   assert.equal(typeof gate.authorize, "undefined");
 });
