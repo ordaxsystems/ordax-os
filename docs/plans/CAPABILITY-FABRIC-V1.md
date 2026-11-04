@@ -1256,6 +1256,16 @@ Autoridades existentes a preservar:
   candidato não ativa ferramentas MCP, não cria grants e não substitui
   a cerimônia de confiança dos componentes assinados. Exigir CI remoto
   e revisão de ownership antes de integrar em `main`.
+- **Compatibilidade com a PR #2400:** o único conflito entre Fabric
+  `5c8ba0a43` e MCP Native `2e2758da` era causado por duas linhas
+  em branco no bloco de imports de `system/composition/native/main.mjs`.
+  Corrigido no Fabric `5ce496361`; `git merge-tree` e merge real sem commit
+  em worktree descartável passaram sem conflitos. Na árvore combinada,
+  **477/477 testes em 48 arquivos** do Fabric/Surface e **41/41 em
+  quatro suítes MCP/Windows** passaram: **518/518** no total, sem skips.
+  Sintaxe de 18 módulos MCP e `git diff --cached --check` aprovados.
+  A PR #2400 ainda estava aberta; essa prova não autoriza merge em `main`
+  nem atesta prontidão ou execução remota MCP.
 
 ### D. Integração futura com o Runtime MCP canônico — fronteira auditada
 
