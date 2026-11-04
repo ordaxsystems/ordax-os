@@ -73,7 +73,10 @@ test('installed Electron loads canonical Native composition only after attested 
 
 test('Windows installer CI uses exact PR head rather than ephemeral test-merge SHA', () => {
   const workflow = readFileSync(join(__dirname,'../../.github/workflows/windows-desktop-dev.yml'),'utf8');
-  assert.ok(workflow.includes('ref: ${{ github.event.pull_request.head.sha || github.sha }}'));
+  assert.ok(workflow.includes('ref: ${{ inputs.os_sha || github.event.pull_request.head.sha || github.sha }}'));
+  assert.ok(workflow.includes('workflow_call:'));
+  assert.ok(workflow.includes('repository: ordaxsystems/ordax-desktop'));
+  assert.ok(workflow.includes('ref: ${{ inputs.desktop_sha }}'));
   assert.ok(workflow.includes('Assert exact installer OS source identity'));
   assert.ok(workflow.includes('DESKTOP_INSTALLER_SOURCE_SHA=$actual'));
 });
@@ -85,7 +88,10 @@ test('canonical main automatically builds one SSOT Windows artifact for relevant
   assert.match(events, /\n  push:\n    branches:\n      - main\n    paths: \*desktop_product_sources\n/);
   assert.match(events, /\nconcurrency:\n  group: windows-desktop-dev-/);
   assert.match(events, /\n  cancel-in-progress: true\n/);
-  assert.ok(workflow.includes('EXPECTED_SOURCE_SHA: ${{ github.event.pull_request.head.sha || github.sha }}'));
+  assert.ok(workflow.includes('EXPECTED_SOURCE_SHA: ${{ inputs.os_sha || github.event.pull_request.head.sha || github.sha }}'));
+  assert.ok(workflow.includes('desktop_sha:'));
+  assert.ok(workflow.includes('DESKTOP_OWNER_SHA: ${{ inputs.desktop_sha }}'));
+  assert.ok(workflow.includes('WINDOWS_DESKTOP_DETACHED_SOURCE=VERIFIED'));
   assert.ok(workflow.includes('Bind installer to exact OS + Surface Native provenance'));
   assert.ok(workflow.includes('Verify isolated NSIS installation and Native files'));
   assert.ok(workflow.includes('if-no-files-found: error'));
