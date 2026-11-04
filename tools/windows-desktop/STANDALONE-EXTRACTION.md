@@ -116,3 +116,16 @@ replacement installer or delete the original tools/windows-desktop tree.
 The actual repository migration still requires CI pinned to both SHAs,
 real Windows installed upgrade/rollback proof, and one-way removal of the
 superseded source after its owner verifies the cutover.
+
+
+## Two-source Git trust gate
+
+In detached mode, both inputs must now be official, clean Git checkout roots.
+The OS checkout HEAD must equal the specified OS SHA, and the Desktop checkout
+HEAD must equal the specified Desktop SHA. Generated build output must remain
+Git-ignored; it is verified by the existing Native provenance receipt.
+The Desktop file list is also checked against Git's tracked-file index: an
+untracked, Git-ignored JS file cannot be smuggled into a build solely by listing
+it in package.json. Tests exercise both SHA mismatches, dirty OS source and
+ignored Desktop source rejection. This strengthens a future two-repository cutover
+without creating a second source owner, release channel or installer.

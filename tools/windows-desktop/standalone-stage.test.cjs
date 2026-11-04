@@ -200,7 +200,25 @@ function detachedFixture(f) {
   }
   fs.writeFileSync(join(shell,'main.cjs'),'Desktop-owned Electron code');
   const fixture=gitFixture(shell);
-  return {...fixture,shell,cleanup:()=>fs.rmSync(shell,{recursive:true,force:true})};
+  // Detached packaging also requires a pinned, clean official OS checkout.
+  fs.writeFileSync(join(f.root,'.gitignore'),'out/\n');
+  const osGit=(...args)=>{
+    const r=spawnSync('git',['-C',f.root,...args],{encoding:'utf8',windowsHide:true});
+    assert.equal(r.status,0,r.stderr||'OS Git fixture failed');
+    return r.stdout.trim();
+  };
+  osGit('init','-q');
+  osGit('config','user.name','OrdaX OS Test');
+  osGit('config','user.email','ordax-os-fixture@invalid.example');
+  osGit('remote','add','origin','https://github.com/ordaxsystems/ordax-os.git');
+  osGit('add','.');
+  osGit('commit','-qm','Pinned canonical OS fixture');
+  const osSha=osGit('rev-parse','HEAD');
+  const provenanceFile=join(f.root,'out','windows-desktop-native','source-provenance.json');
+  const provenance=JSON.parse(fs.readFileSync(provenanceFile,'utf8'));
+  fs.writeFileSync(provenanceFile,JSON.stringify({...provenance,os_sha:osSha}));
+  return {...fixture,shell,osGit,osSha,
+    cleanup:()=>fs.rmSync(shell,{recursive:true,force:true})};
 }
 
 test('packages exact external Desktop Git source while resources remain owned by the OS',()=>{
@@ -208,10 +226,10 @@ test('packages exact external Desktop Git source while resources remain owned by
   const d=detachedFixture(f);
   try {
     const result=stageStandalonePackage({
-      sourceRoot:f.root,osSha:SHA,desktopRoot:d.shell,desktopSha:d.sha,
+      sourceRoot:f.root,osSha:d.osSha,desktopRoot:d.shell,desktopSha:d.sha,
       verifyNative:()=>true
     });
-    assert.equal(result.os_sha,SHA);
+    assert.equal(result.os_sha,d.osSha);
     assert.equal(fs.readFileSync(join(f.out,'shell/main.cjs'),'utf8'),
       'Desktop-owned Electron code');
     assert.equal(fs.readFileSync(join(f.out,'runtime-template/system/composition/native/index.html'),'utf8'),
@@ -227,7 +245,7 @@ test('external Desktop source fails closed on a different SHA or origin',()=>{
   const f=fixture();
   const d=detachedFixture(f);
   try {
-    const args={sourceRoot:f.root,osSha:SHA,desktopRoot:d.shell,verifyNative:()=>true};
+    const args={sourceRoot:f.root,osSha:d.osSha,desktopRoot:d.shell,verifyNative:()=>true};
     assert.throws(()=>stageStandalonePackage({...args,desktopSha:'f'.repeat(40)}),
       /does not match pinned commit/);
     d.git('remote','set-url','origin','https://github.com/attacker/fake-desktop.git');
@@ -241,12 +259,48 @@ test('external Desktop source rejects dirty files and relative paths before stag
   const f=fixture();
   const d=detachedFixture(f);
   try {
-    const args={sourceRoot:f.root,osSha:SHA,desktopRoot:d.shell,
+    const args={sourceRoot:f.root,osSha:d.osSha,desktopRoot:d.shell,
       desktopSha:d.sha,verifyNative:()=>true};
     fs.writeFileSync(join(d.shell,'main.cjs'),'not the committed code');
     assert.throws(()=>stageStandalonePackage(args),/uncommitted or untracked/);
     assert.throws(()=>stageStandalonePackage({...args,desktopRoot:'./desktop'}),
       /absolute source directory/);
+    assert.equal(fs.existsSync(f.out),false);
+  } finally {d.cleanup();f.cleanup();}
+});
+
+
+test('detached packaging rejects a mismatched OS HEAD and a dirty OS tree',()=>{
+  const f=fixture(), d=detachedFixture(f);
+  try {
+    const args={sourceRoot:f.root,osSha:d.osSha,desktopRoot:d.shell,
+      desktopSha:d.sha,verifyNative:()=>true};
+    assert.throws(()=>stageStandalonePackage({...args,osSha:'f'.repeat(40)}),
+      /ordax-os source does not match pinned commit/);
+    f.put('system/composition/native/index.html','Modified OS source');
+    assert.throws(()=>stageStandalonePackage(args),
+      /ordax-os checkout contains uncommitted or untracked files/);
+    assert.equal(fs.existsSync(f.out),false);
+  } finally {d.cleanup();f.cleanup();}
+});
+
+test('detached package cannot include an ignored, untracked Electron source',()=>{
+  const f=fixture(), d=detachedFixture(f);
+  try {
+    d.git('config','core.excludesfile',join(d.shell,'.empty-global-gitignore'));
+    fs.writeFileSync(join(d.shell,'.gitignore'),'ignored.cjs\n');
+    d.git('add','.gitignore');
+    const pkg=JSON.parse(fs.readFileSync(join(d.shell,'package.json'),'utf8'));
+    pkg.build.files.push('ignored.cjs');
+    fs.writeFileSync(join(d.shell,'package.json'),JSON.stringify(pkg));
+    d.git('add','package.json');
+    d.git('commit','-qm','Tracked package points to ignored source file');
+    fs.writeFileSync(join(d.shell,'ignored.cjs'),'untrusted code');
+    const newSha=d.git('rev-parse','HEAD');
+    const args={sourceRoot:f.root,osSha:d.osSha,desktopRoot:d.shell,
+      desktopSha:newSha,verifyNative:()=>true};
+    assert.throws(()=>stageStandalonePackage(args),
+      /Detached Desktop package file is not tracked by pinned Git commit/);
     assert.equal(fs.existsSync(f.out),false);
   } finally {d.cleanup();f.cleanup();}
 });

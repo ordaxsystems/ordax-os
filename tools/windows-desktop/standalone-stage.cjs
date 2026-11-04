@@ -63,27 +63,46 @@ function extractFilters(entry) {
   return excludes;
 }
 
-function attestDetachedShell(shell, desktopSha) {
-  if (!SHA40.test(desktopSha))
-    throw Error('External Desktop shell requires an exact commit SHA');
-  assertPlainDirectory(shell);
-  const git = (...args) => execFileSync('git',['-C',shell,...args],{
+function attestGitCheckout(checkout, expectedSha, owner) {
+  if (!SHA40.test(expectedSha))
+    throw Error('External '+owner+' source requires an exact commit SHA');
+  assertPlainDirectory(checkout);
+  const git = (...args) => execFileSync('git',['-C',checkout,...args],{
     encoding:'utf8',windowsHide:true,timeout:15000,
     env:{...process.env,GIT_TERMINAL_PROMPT:'0'}
   }).trim();
   try {
-    if (!/^(?:https:\/\/github\.com\/|git@github\.com:|ssh:\/\/git@github\.com\/)ordaxsystems\/ordax-desktop(?:\.git)?$/i
-      .test(git('remote','get-url','origin')))
-      throw Error('External Desktop source is not the canonical Git repository');
+    const origin=git('remote','get-url','origin');
+    const permitted=new RegExp('^(?:https://github[.]com/|git@github[.]com:|ssh://git@github[.]com/)' +
+      'ordaxsystems/'+owner+'(?:[.]git)?$','i');
+    if (!permitted.test(origin))
+      throw Error('External '+owner+' source is not the canonical Git repository');
     if (git('rev-parse','--show-prefix') !== '')
-      throw Error('External Desktop shell must be the Git repository root');
-    if (git('rev-parse','HEAD') !== desktopSha)
-      throw Error('External Desktop source does not match pinned commit');
+      throw Error('External '+owner+' source must be the Git repository root');
+    if (git('rev-parse','HEAD') !== expectedSha)
+      throw Error('External '+owner+' source does not match pinned commit');
+    // Generated out/ content must be ignored by the source repository.
+    // Do not accept untracked or modified code in the packaged snapshot.
     if (git('status','--porcelain','--untracked-files=all') !== '')
-      throw Error('External Desktop shell contains uncommitted or untracked files');
+      throw Error('External '+owner+' checkout contains uncommitted or untracked files');
   } catch (error) {
-    if (error.message?.startsWith('External Desktop')) throw error;
-    throw Error('Could not attest exact external Desktop Git source');
+    if (error.message?.startsWith('External ')) throw error;
+    throw Error('Could not attest exact external '+owner+' Git source');
+  }
+  return git;
+}
+function attestTrackedShellFiles(shell, manifest, git) {
+  const selected = [...manifest.build.files, 'installer.nsh', 'package-lock.json'];
+  for (const path of selected) {
+    if (typeof path !== 'string' || !/^[a-zA-Z0-9][\w.-]*$/.test(path))
+      throw Error('Unrecognized detached Desktop package file name');
+    try {
+      // git status alone ignores ignored source files. Every selected file
+      // must be in the exact committed tree, never merely present on disk.
+      git('ls-files','--error-unmatch','--',path);
+    } catch {
+      throw Error('Detached Desktop package file is not tracked by pinned Git commit: '+path);
+    }
   }
 }
 
@@ -99,7 +118,8 @@ function stageStandalonePackage({
   const shell = detached ? resolve(desktopRoot) : originalShell;
   assertPlainDirectory(root);
   assertPlainDirectory(shell);
-  if (detached) attestDetachedShell(shell, desktopSha);
+  const desktopGit = detached ? attestGitCheckout(shell, desktopSha, 'ordax-desktop') : null;
+  if (detached) attestGitCheckout(root, osSha, 'ordax-os');
   const out = resolve(outputRoot || join(root, 'out', 'windows-desktop-standalone'));
   const authorized = join(root, 'out');
   if (dirname(out) !== authorized || out === authorized)
@@ -122,6 +142,7 @@ function stageStandalonePackage({
       !Array.isArray(pkg.build.extraResources) || !pkg.build.extraResources.length ||
       pkg.build.nsis?.include !== 'installer.nsh')
     throw Error('Unrecognized Windows package configuration');
+  if (detached) attestTrackedShellFiles(shell, pkg, desktopGit);
   fs.mkdirSync(authorized, { recursive: true });
   assertPlainDirectory(authorized);
   const temporary = fs.mkdtempSync(join(authorized, '.ordax-desktop-standalone-'));
