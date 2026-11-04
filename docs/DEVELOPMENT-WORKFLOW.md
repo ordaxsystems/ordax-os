@@ -40,6 +40,15 @@ Status: CANONICAL FOR PROTOTYPE
 
 ## P0 — Native MCP no Windows/Desktop DEV (31/10/2026)
 
+**Atualização de handoff (04/11/2026):** o código do Capability Fabric v1
+já foi integrado (OS PR #2406). Consultar
+[`docs/CAPABILITY-FABRIC.md`](CAPABILITY-FABRIC.md) e o estado atual
+antes de aplicar as instruções de 31/10 abaixo. Descoberta semântica
+não significa execução MCP; OS #2400, Runtime, Platform, grants e
+recibos reais mantêm gates próprios. **Este bloco preserva o histórico
+DEV**, não autoriza substituir versões, instalar agentes ou repetir
+processos enquanto não houver verificação do estado atual e owner.
+
 **Missão canônica:** provar o mesmo `ordax-runtime` no OrdaX OS Desktop
 instalado no Windows **e**, depois, no agente auxiliar Windows com outra
 identidade Product Device. Prova DEV antes de assinatura de produção.
