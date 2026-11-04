@@ -50,6 +50,47 @@ Se o app oficial `exemplo` publicar uma intenção `exemplo.az` com descrição,
 
 **Limites:** descobrir/intentar não significa poder executar. Uma capacidade declarada fica `declared-only`/`execution=unavailable` no Fabric, mesmo quando a Aura a entende. Para executar localmente, precisa de provider/binding tipado realmente suportado e aprovação/grant/Action Gateway/Executor/recibo; para aparecer como **tool executável no MCP**, o Runtime Product deve oferecer a operação explicitamente suportada, e a Platform deve atestar Device, sessão, grants e autorização. **Não gerar `tools/list` a partir do manifesto** nem traduzir nomes semelhantes em comandos. Uma função nova *apenas descritiva* não exige atualização do OS; um **novo tipo de parâmetro, contrato, privilégio ou primitiva de execução** pode exigir nova versão do App SDK e implementação no owner apropriado, com migração/compatibilidade explícitas. Campos desconhecidos ou requisitos não suportados falham fechados.
 
+## Catálogo comum de capacidades — contratos existentes, não uma segunda lista de ferramentas
+
+**Decisão de produto (2026-11-04):** a ideia inspirada no Android é correta: todos os apps oficiais têm um *padrão mínimo de reconhecimento* e o sistema apresenta o mesmo conjunto de **categorias de integração** para qualquer app, com suporte, disponibilidade e permissão determinados por fatos reais. **O mínimo não é “ter todas as ferramentas MCP”.** MCP é um canal de execução/remoto; apps podem ser reconhecidos e usados pela UI/Aura sem publicar uma única tool.
+
+**SSOT de cada informação, sem `fabric.json` ou lista paralela:**
+
+| Pergunta sobre o app | Fonte canônica já existente | Quem decide |
+| --- | --- | --- |
+| Quem é? Qual versão? Está instalado/saudável? | `app.json`/`ordax.component-manifest/1`, Native Store slot `CURRENT` e health | Pacote + OS/Store com provenance/trust |
+| Quais serviços do OS precisa ou oferece? | `compatibility.json` ou `migrations/<id>.compatibility.json`, `ordax.component-compatibility/1`, `provides[]`/`requires[]` e App SDK pinado | App declara; OS valida os ports existentes e versões |
+| O dispositivo/modo tem a função? | `docs/contracts/product-capabilities.json`, adaptadores e status vivo do Host | OS/adapter; declaração não prova implementação |
+| O que a Aura compreende? | `ai/manifest.json` e `ordax.app-intelligence-manifest/1` | Manifesto first-party verificado e Awareness |
+| Quais ações do app são declaradas? | `actions/manifest.json`, provider manifests, registry e Native Store `CURRENT` | App + verificadores canônicos; Fabric projeta leitura |
+| Quais botões/campos podem ser descritos? | `presentation/semantic-ui.json` + accessibility/DOM atual, quando implementado | App declara; host observa/verifica; Studio é piloto |
+| Quais tools **realmente** existem no MCP? | `ordax-runtime/ordax_dev_agent/product_gateway.py` (`PRODUCT_ACTIONS`) e `capability_snapshot.py` (`ordax.device-agent-capabilities/1`) | Runtime anuncia apenas ações locais suportadas pelo Product gateway |
+| Quem pode executar agora, em qual conta, janela e recurso? | Platform OAuth/grants/leases/Device atestado + Runtime local policy/receipts | Platform e Runtime; nunca `ai/manifest.json` ou Fabric |
+
+### O menu comum de opções não é uma cópia de 100 flags dentro de cada app
+
+As **famílias de integração** podem aparecer na Loja, Ajustes ou ferramentas de desenvolvimento em todo app, mas devem ser **derivadas** dos contratos acima. Exemplos de famílias e suas fontes: arquivos/galeria (`ordax.file-space` e serviços de mídia específicos quando existirem), captura de mídia (`media.capture` no contrato de modos — *definição não prova suporte de câmera/microfone*), áudio/reprodução (somente se houver port publicado), rede (`network.https`/port de rede pertinente), notificações (`notifications.native` quando o adapter for real), fundo (`background.tasks`), interface mouse/teclado/acessibilidade (Surface/UI semântica), navegação (`browser.*` onde suportado), janelas/processos/clipboard (`computer.*` no Runtime), espaços/Conta e Actions do próprio app.
+
+**IDs ilustrativos de tool** como `computer.click`, `computer.type`, `browser.snapshot` ou `intelligence.app_catalog` vêm do catálogo Product do Runtime; a presença desses nomes em source **não** significa que todo dispositivo os executa, que estão autorizados, nem que são requisitos de cada aplicativo. As capacidades de modos do OS, portas do SDK, intents semânticas e ferramentas Product são **tipos de contrato diferentes**; não atribuir a todos o mesmo namespace ou habilitação.
+
+**Estados para uma futura apresentação unificada, calculados no momento da consulta (não gravados como outro SSOT):**
+
+1. **Não declarado / não aplicável** — o app não requer/oferece aquela integração; ela aparece como não suportada ou é omitida da UI; isso **não é erro de pacote**.
+2. **Declarado, mas indisponível** — port/versão/host/provedor não está disponível; se requisito obrigatório, o app é bloqueado conforme compatibilidade. Se opcional, o app funciona sem essa função.
+3. **Disponível, sem autorização** — existe implementação e contexto atuais, mas falta grant, consentimento ou target; execução permanece bloqueada.
+4. **Autorizado para o escopo atual** — apenas o executor de domínio/Runtime e a Platform podem atestar essa condição, vinculada a identidade, app, Device, sessão, recurso e prazo. Revogação altera imediatamente o estado; não reutilizar cache ou approval antigo.
+
+A apresentação pode usar símbolos “ativo”, “indisponível” e “permissão necessária”, **mas nenhum campo `enabled=true` declarado pelo app equivale a execução permitida**. O Fabric v1 continua com seu contrato exato `authority=none`, `toolExecution=false`, `execution=unavailable`; **não adicionar esses quatro estados ao schema v1**. Um painel de permissões real deve obtê-los dos owners corretos, sem inventar status.
+
+### Padrão dos novos aplicativos e evolução
+
+- Todo first-party passa pelos manifests e compatibility/health já exigidos em `ordax-apps`. Em `requires[]`, um port realmente utilizado pode ser **obrigatório** (`optional=false`) ou **opcional** (`optional=true`). **Não listar como dependência 20 portas que o app não utiliza**, nem copiar um arquivo de flags `false` que fique obsoleto.
+- O app `exemplo` pode acrescentar `exemplo.az` aos intents/Actions se utilizar parâmetros e efeitos **já compreendidos pelo schema atual**. A validação do novo pacote e o slot `CURRENT` permitem sua descoberta pelo Fabric **sem edição do OS**. Sem adapter/binding/grant, a ação continua somente descritiva.
+- Se `az` introduzir uma **nova primitiva do host** — por exemplo, acesso ainda não contratado a determinado hardware/áudio — o owner do OS precisa publicar um port de App SDK ou adaptador apropriado, com versionamento, compatibilidade, isolamento, permissão e testes. O MCP não vira automaticamente um espelho disso: o owner Runtime/Platform decide separadamente se expõe uma tool real e como autoriza.
+- Todos os apps compartilham o **mesmo contrato estrutural**, não o mesmo conjunto de capacidades. Programas estrangeiros só adquirem semântica via adaptador OrdaX verificado. O aplicativo nunca recebe permissões por mera instalação ou declaração de intenção.
+
+**O que existe e o que falta:** identidade, SDK/compatibility, manifestos, verificação e Fabric v1 **já existem**. Uma tela universal de opções calculada por app, conectores de mídia/áudio quando ausentes e a exposição segura de todas as interfaces de UI via Runtime/MCP **ainda não foram implementados como produto universal**. Este documento especifica sua composição a partir dos SSOTs atuais; não os declara prontos nem cria um catálogo executável.
+
 ## Contrato público v1 — fonte exata no código
 
 - **Definição/validação:** `system/contracts/capability-discovery.mjs`, esquema `ordax.capability-discovery/1`.
