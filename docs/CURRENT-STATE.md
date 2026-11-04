@@ -1,3 +1,18 @@
+**Aura / MCP Product catalog reconciliation (2026-11-04, source-verified):**
+Runtime `application_intelligence_actions.py` loads the packaged
+`ordax_studio/app_intelligence_registry.json` at initialization;
+Product `intelligence.app_catalog/detail` describe that read-only
+package snapshot, not an attested live OS Store `CURRENT` view.
+Native OS `live-verified-app-semantics.mjs` reconciles the current
+verified installed generation. Do not claim these are one live SSOT
+until a Device-scoped authenticated read-only bridge and removal/
+revision E2E are proven. OS #2400 is the existing Native Product
+bridge (still open on check); OS #2405 is Owner Account gateway,
+intentionally NOT a DEV MCP dependency because of Supabase/Vercel
+release risks. DEV coordination: Platform issue #291.
+Source and acceptance: `docs/CAPABILITY-FABRIC.md`.
+No Product code/credentials/grants modified by this checkpoint.
+
 **Capability Fabric / Aura / MCP — operational documentation checkpoint (2026-11-04):**
 Single cross-repo implementation/acceptance matrix added to
 `docs/CAPABILITY-FABRIC.md` (section “Integração vertical Aura ⇄ Product

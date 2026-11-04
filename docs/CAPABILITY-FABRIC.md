@@ -214,10 +214,53 @@ quando disponível; não transformar um app em MCP server próprio.
 | Descoberta semântica da Aura | OS: `system/services/intelligence/application-context.mjs` + Fabric + Application Action Registry | Contexto descritivo validado, `toolExecution=false` | Provar UI humana real consumindo a revisão atual sem publicar tool executável |
 | Aprovação/efeito Native | OS: `system/composition/native/personal-ordax.mjs` + Action Gateway/Executor | `requestDiscoveredNativeAction()` solicita aprovação; existe prova física Node/HTTP de File Space | Provar clique/consentimento/recibo na Surface, com identidade e revogação |
 | Product action remota | Runtime: `ordax_dev_agent/product_gateway.py` | `PRODUCT_ACTIONS` contém 93 IDs no source; `intelligence.app_catalog`/`intelligence.app_detail` são **leituras**, não um broker de `app.action` | Atestar tool efetivamente publicada em um Device, grant e execução autenticada |
+| Catálogo semântico no Product Runtime | Runtime: `ordax_dev_agent/application_intelligence_actions.py`; OS: `live-verified-app-semantics.mjs` | O Runtime lê `ordax_studio/app_intelligence_registry.json` **na inicialização**; o OS consulta a geração viva validada por Store `CURRENT`. **Não são hoje a mesma observação.** | Preservar a lista estática como metadado consultivo quando aplicável; para representar apps instalados no OS, consumir exclusivamente a fonte OS atestada via port autenticado, com revisão/identidade/revogação. Não promover arquivo empacotado a inventário vivo |
 | Snapshot do Device | Runtime: `ordax_dev_agent/capability_snapshot.py` | Deriva apenas actions locais suportadas; **`MAX_DEVICE_CAPABILITIES=64`** e excedente lança erro | Verificar total efetivamente suportado em Device real e resolver paginação/escopo/capacidade no **owner Runtime** caso exceda 64; nunca truncar silenciosamente |
 | Permissão MCP e dispositivo | Platform: OAuth, Owner, session, Device, grants, leases | Há contratos separados para sessão e atestação; estes não derivam do Fabric | Testar readiness, expiração, revogação, dispositivo errado e ausência de grant |
 | Ação semântica ↔ executor de domínio | App + OS Gateway + Runtime adapter, cada owner em sua camada | **Não existe prova de vínculo universal** entre IDs `app:<id>:<action>` e Product tool de mesmo efeito | Implementar **um vínculo tipado explícito**, no owner correto, só para uma operação real e já implementada, sem nomes aproximados |
 | UI agentic mouse/teclado | Apps: semantic-ui; Runtime: computer/browser control | Studio é piloto do mapa de controles; não é cobertura universal | Provar target/window atual, input autorizado e receipt sem alterar foco global indevidamente |
+
+### Lacuna de SSOT comprovada: catálogo informativo do Runtime ≠ instalação viva do OS
+
+`ordax_dev_agent/application_intelligence_actions.py` carrega
+`ordax_studio/app_intelligence_registry.json` uma vez por
+`_initialize_application_intelligence()`. As Product Actions
+`intelligence.app_catalog` e `intelligence.app_detail` consultam
+esse objeto local para devolver manifests/intents/UI semântica
+**somente leitura** (`tool_execution=false`). O arquivo possui
+proveniência de repositório e commit, mas **não demonstra**, por si,
+que o app está instalado, assinado, atualizado ou disponível no
+dispositivo OrdaX selecionado. O formato `ordax.app-intelligence-registry/2`
+é uma representação própria do Runtime; não substitui o
+`ordax.capability-discovery/1` do OS nem o snapshot Product do Device.
+
+Já o OS `system/services/intelligence/live-verified-app-semantics.mjs`
+fornece a Aura/Personal/Fabric a geração semântica viva, conferida
+contra o Native Store `CURRENT`, com retirada de providers antigos.
+São **duas visões atuais diferentes**: a estática, útil para informação
+de catálogo Runtime/Studio, e a viva, útil para capacidades do OS
+instalado. Não copiar o arquivo empacotado para o OS e não manter
+um watcher duplicado para fazê-las coincidir.
+
+**Contrato de reconciliação a implementar no owner apropriado:**
+se uma ferramenta Product afirmar “app instalado” ou “ação disponível
+no dispositivo”, deve receber uma **observação autenticada do OS**
+que vincule Device, app ID/versão, artefato/slot `CURRENT`, geração
+e disponibilidade, com invalidação após remoção ou troca de sessão.
+Sem essa observação, reportar apenas *catálogo informativo empacotado*
+ou `unavailable`, não `ready`. O Runtime ainda decide quais tools
+suporta; a Platform ainda decide quais clientes/grants estão autorizados.
+A ligação é **somente leitura** primeiro: nenhuma mutação ou permissão
+MCP nasce da sincronização de metadados.
+
+**Prova proporcional exigida:** com um app oficial realmente instalado,
+compare Aura/Fabric e `intelligence.app_catalog/detail` no **mesmo
+Device**; atualize/remova o app, consulte novamente sem reinstalar
+Runtime nem reabrir sessão, e comprove que ambos deixam de anunciar
+o provider antigo. Device errado, snapshot sem `CURRENT`, token
+inválido e perda de conexão devem negar a conclusão de disponibilidade.
+A fonte informativa empacotada pode permanecer para clientes que
+não usam o OS Native, desde que não se apresente como estado vivo.
 
 **Limite 93/64:** `93` é a contagem **do dicionário global de ações Product em código**, não das capacidades de um dispositivo nem das ferramentas visíveis ao usuário. `64` é limite do snapshot atual, não limite comprovado do protocolo MCP inteiro. Se o Runtime receber 65 ou mais ações locais suportadas que mapeiam para Product Actions, o snapshot atual falha fechado. Medir isso em dispositivo real **antes** de decidir se precisa de evolução de contrato; não ampliar limite, filtrar ou mudar esquema só por causa da contagem de source.
 
@@ -237,12 +280,16 @@ Para o app **Notas** a ação semântica declarada `notes.create-note` é um bom
 
 | Prioridade | Owner | Mudança mínima útil | Prova de aceite |
 | --- | --- | --- | --- |
-| P0 | OS + Runtime + Platform, em PRs existentes | Fechar a ligação Native Product MCP já iniciada na [OS #2400](https://github.com/ordaxsystems/ordax-os/pull/2400) e a gerência Owner na [OS #2405](https://github.com/ordaxsystems/ordax-os/pull/2405), sem reabrir Fabric v1 | Dispositivo atestado, 1 tool suportada, grant atual, chamada, recibo, revogação |
+| P0 | OS + Runtime + Platform, nos owners atuais | Concluir a ponte Native Product já existente na [OS #2400](https://github.com/ordaxsystems/ordax-os/pull/2400), alinhada à [Platform #291](https://github.com/ordaxsystems/ordax-platform/issues/291), **sem depender da PR #2405** para DEV. Começar com `ordax.surface.status` (leitura) e depois `ordax.surface.open` (efeito/confirmação), apenas quando atestados | Device selecionado, tool realmente suportada, grant, resultado/recibo real, falha fechada e revogação; `mcpReady` não inferido |
+| P0-release, separado | OS/Platform/Conta/Site | [OS #2405](https://github.com/ordaxsystems/ordax-os/pull/2405) é gateway de Conta/Owner e **não** pré-requisito do MCP DEV. Sua PR foi explicitamente mantida sem merge até autorização coordenada de Supabase/Vercel/Worker e E2E Owner | Sem ativação pública, deploy ou merge prematuro para desbloquear laboratório |
+| P1-discovery | Runtime + OS, sem catálogo novo | Distinguir registro informativo `app_intelligence_registry.json` de inventário de apps **instalados** na Store `CURRENT`; onde o Product oferecer disponibilidade, ligar ao port Native autenticado existente, read-only | Mesmo app, versão e revogação observados pelos dois clientes, com Device/slot/revisão verificáveis |
 | P1 | OS/Apps, com owner único do serviço | Selecionar **uma operação de domínio já executável** e conectar identidade, schema e provider à proposta da Aura e ao adaptador Runtime, com contratos públicos | Mesmo efeito e recibos comparáveis pelas duas rotas, sem segundo executor |
 | P2 | Runtime + Platform | Confrontar `PRODUCT_ACTIONS` com a lista local realmente suportada no Device, limite de snapshot e grants expostos | Capacidade não suportada não aparece; exceder limite não vira falso sucesso |
 | P3 | Surface + Apps | Expor estados derivados de suporte/autorizações em UI e observar semantic controls reais | UI exibe por app e ator o estado atual; não pede autorização inexistente |
 
 **Gates negativos obrigatórios, proporcionais à operação modificada:** app não instalado, hash/revisão de provider divergente, grant vencido, Owner/Device incorreto, escopo de Space errado, usuário negando aprovação, payload inválido, cancelamento/resultado incerto, revogação durante execução e capability desconhecida. Cada falha deve produzir `blocked`, `unavailable`, `denied` ou recibo/erro equivalente **real**, nunca `succeeded` inferido da presença em um catálogo. Testes OS existentes: `tests/test_capability_discovery.mjs`, `tests/test_capability_fabric_aura_context.mjs`, `tests/test_capability_fabric_native_action_bridge.mjs` e `tests/test_capability_fabric_windows_file_space_e2e.mjs`. Só executar suites do Runtime/Platform que afetem o contrato modificado, nos respectivos owners; provas de source não substituem E2E físico.
+
+**Critério intermediário honesto:** uma consulta Product de catálogo empacotado pode ser `success` como **leitura informativa**, mas nunca atesta app instalado ou ação executável. Uma consulta Native `CURRENT` pode provar disponibilidade local sem conceder grants remotos. Não misturar os dois recibos.
 
 **Definition of done:** a documentação deixa de chamar o vínculo “pendente” somente com duas execuções reais e auditáveis da mesma operação: 1 pela Aura/Personal local e 1 pelo MCP remoto autorizado no mesmo target compatível, seguidas de prova de revogação; nenhuma função auxiliar, manifest ou teste de snapshot sozinho satisfaz.
 

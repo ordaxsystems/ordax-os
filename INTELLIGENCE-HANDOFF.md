@@ -59,6 +59,26 @@ provas obrigatórias de grant/recibo/revogação. **Não interpretar essa
 matriz como execução já implantada.** As notas de 13/10 abaixo são
 históricas e só se aplicam quando o owner/contrato atual as confirmar.
 
+## Correção de dependências reais — 2026-11-04
+
+**Verificado no source:**
+`ordax-runtime/ordax_dev_agent/application_intelligence_actions.py`
+lê um registro de apps **empacotado na inicialização**.
+`intelligence.app_catalog`/`intelligence.app_detail` não fornecem
+atualmente a mesma observação de instalação/remoção que o OS obtém
+de `live-verified-app-semantics.mjs` + Store `CURRENT`.
+Para uso como estado vivo Product, a próxima integração deve consumir
+o port atestado do OS, read-only, sem criar outro catálogo nem
+converter manifests em tools. Ver seção **“Lacuna de SSOT comprovada”**
+em [`docs/CAPABILITY-FABRIC.md`](docs/CAPABILITY-FABRIC.md).
+
+**Ordem corrigida:** a [OS #2400](https://github.com/ordaxsystems/ordax-os/pull/2400)
+é a ponte Native Product existente; a [OS #2405](https://github.com/ordaxsystems/ordax-os/pull/2405)
+é uma PR de Conta/Owner com risco de deploy e **não deve ser integrada
+para desbloquear MCP DEV**. A seleção/limpeza DEV de Device está
+coordenada na [Platform #291](https://github.com/ordaxsystems/ordax-platform/issues/291).
+Evitar nova PR de ponte antes de reconciliar essas entregas.
+
 ## Atualização operacional — 2026-10-13
 
 A integração Native de Intelligence já ultrapassou o antigo estado de “runtime isolado”: `ordax.intelligence/1`, Local AI, model router, Memory autorizada, Assistant/Canvas e consumidores first-party possuem composição real em source. O gap transversal prioritário agora é **transporte/composição Web e integrações externas**, sem transformar a Surface em owner de provider.
