@@ -341,3 +341,36 @@ test('rejects altered standalone NSIS audit resource mapping',()=>{
     assert.throws(()=>verifyStandaloneStage(f.out),/Invalid standalone stage manifest/);
   }finally{f.cleanup();}
 });
+
+
+test('detached package rejects modified Git assume-unchanged files',()=>{
+  const f=fixture(), d=detachedFixture(f);
+  try {
+    const args={sourceRoot:f.root,osSha:d.osSha,desktopRoot:d.shell,
+      desktopSha:d.sha,verifyNative:()=>true};
+    d.git('update-index','--assume-unchanged','main.cjs');
+    fs.writeFileSync(join(d.shell,'main.cjs'),'silently altered but tracked');
+    assert.equal(d.git('status','--porcelain','--untracked-files=all'),'',
+      'Git status alone must not attest assume-unchanged source files');
+    assert.throws(()=>stageStandalonePackage(args),
+      /Detached Desktop bytes differ from pinned Git commit: main.cjs/);
+    assert.equal(fs.existsSync(f.out),false);
+  }finally{d.cleanup();f.cleanup();}
+});
+
+test('detached package rejects staged bytes changed after Git attestation',()=>{
+  const f=fixture(), d=detachedFixture(f);
+  const originalCopy=fs.copyFileSync;
+  try {
+    const args={sourceRoot:f.root,osSha:d.osSha,desktopRoot:d.shell,
+      desktopSha:d.sha,verifyNative:()=>true};
+    fs.copyFileSync=(from,to,...flags)=>{
+      originalCopy(from,to,...flags);
+      if (from===join(d.shell,'main.cjs'))
+        fs.writeFileSync(to,'copy-time corruption of tracked Desktop shell');
+    };
+    assert.throws(()=>stageStandalonePackage(args),
+      /Copied Desktop bytes differ from pinned Git commit: main.cjs/);
+    assert.equal(fs.existsSync(f.out),false);
+  }finally{fs.copyFileSync=originalCopy;d.cleanup();f.cleanup();}
+});

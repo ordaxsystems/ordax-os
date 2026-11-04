@@ -141,3 +141,15 @@ OS-pinned lock. In detached mode the record also reports the exact Desktop
 commit and correctly identifies `ordax-desktop` as shell/product owner, while
 `ordax-os` remains runtime owner. The staging verifier forbids an OS
 resource from shadowing this reserved receipt destination.
+
+## Exact committed Desktop bytes
+
+In detached mode, the wrapper also checks the Git **blob object** of every
+listed shell source, `package.json`, `installer.nsh` and lockfile against
+`HEAD:<path>`. This prevents a Git `assume-unchanged` flag from hiding
+modified local code even when `git status` reports a clean checkout. The
+actual bytes of each copied shell file are checked against the same pinned Git
+blob again *after* the copy, before the stage is committed. These checks reuse
+Git's SHA-1 object format only to bind local bytes to the pinned Git revision;
+the stage manifest continues recording SHA-256 for packaged files. A mismatch
+fails closed with no published stage.

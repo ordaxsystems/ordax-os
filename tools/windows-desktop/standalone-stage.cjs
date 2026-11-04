@@ -92,8 +92,16 @@ function attestGitCheckout(checkout, expectedSha, owner) {
   }
   return git;
 }
+// Git porcelain output can intentionally skip assume-unchanged paths. Bind
+// each packaged Desktop byte to its exact Git object, not just a clean index.
+function gitBlobSha1(file) {
+  const bytes = fs.readFileSync(file);
+  return createHash('sha1').update('blob '+bytes.length+'\\0')
+    .update(bytes).digest('hex');
+}
 function attestTrackedShellFiles(shell, manifest, git) {
   const selected = [...manifest.build.files, 'installer.nsh', 'package-lock.json'];
+  const blobs = new Map();
   for (const path of selected) {
     if (typeof path !== 'string' || !/^[a-zA-Z0-9][\w.-]*$/.test(path))
       throw Error('Unrecognized detached Desktop package file name');
@@ -104,7 +112,12 @@ function attestTrackedShellFiles(shell, manifest, git) {
     } catch {
       throw Error('Detached Desktop package file is not tracked by pinned Git commit: '+path);
     }
+    const expected = git('rev-parse','HEAD:'+path);
+    if (!SHA40.test(expected) || gitBlobSha1(join(shell,path)) !== expected)
+      throw Error('Detached Desktop bytes differ from pinned Git commit: '+path);
+    blobs.set(path, expected);
   }
+  return blobs;
 }
 
 function stageStandalonePackage({
@@ -143,7 +156,7 @@ function stageStandalonePackage({
       !Array.isArray(pkg.build.extraResources) || !pkg.build.extraResources.length ||
       pkg.build.nsis?.include !== 'installer.nsh')
     throw Error('Unrecognized Windows package configuration');
-  if (detached) attestTrackedShellFiles(shell, pkg, desktopGit);
+  const desktopBlobs = detached ? attestTrackedShellFiles(shell, pkg, desktopGit) : null;
   fs.mkdirSync(authorized, { recursive: true });
   assertPlainDirectory(authorized);
   const temporary = fs.mkdtempSync(join(authorized, '.ordax-desktop-standalone-'));
@@ -182,6 +195,11 @@ function stageStandalonePackage({
     // Hardlinks can propagate edits from a build stage into canonical OS files.
     // Prefer copy-on-write reflinks where supported; copy independently otherwise.
     fs.copyFileSync(from, to, fs.constants.COPYFILE_EXCL | fs.constants.COPYFILE_FICLONE);
+    if (detached && authorizedRoot === shell) {
+      const trackedName = relative(shell,from).split(sep).join('/');
+      if (desktopBlobs.get(trackedName) !== gitBlobSha1(to))
+        throw Error('Copied Desktop bytes differ from pinned Git commit: '+trackedName);
+    }
     const digest = hashFile(to);
     if (!SHA256.test(digest)) throw Error('Invalid staged file hash');
     sourceRecords.push({path:key.replaceAll('\\', '/'), sha256:digest, bytes:stat.size});
