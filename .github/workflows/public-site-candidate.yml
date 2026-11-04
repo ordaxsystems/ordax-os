@@ -76,6 +76,7 @@ jobs:
           node --test tests/test_account_privileged_rpc.mjs
           node --test tests/test_account_transport_admission.mjs
           node --test tests/test_account_mcp_usage_bridge.mjs
+          node --test tests/test_account_mcp_owner_bridge.mjs
   independent-site-consumer:
     runs-on: ubuntu-24.04
     timeout-minutes: 12
