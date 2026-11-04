@@ -21,8 +21,9 @@ function prepare(){
     const origin=git(root,'remote','get-url','origin');
     if(!/^(?:https:\/\/github\.com\/|git@github\.com:|ssh:\/\/git@github\.com\/)ordaxsystems\/ordax-os(?:\.git)?$/i.test(origin))
       fail('OS origin does not match the canonical repository');
-    const toplevel=resolve(git(root,'rev-parse','--show-toplevel'));
-    if(toplevel.toLowerCase()!==root.toLowerCase())
+    // Git for Windows may render --show-toplevel using POSIX-style drive
+    // notation. --show-prefix checks root identity without path-format guesses.
+    if(git(root,'rev-parse','--show-prefix')!=='')
       fail('selected OS directory is not the Git checkout root');
   }
   const lock=JSON.parse(readFileSync(join(root,'docs/contracts/surface-source.json'),'utf8'));
