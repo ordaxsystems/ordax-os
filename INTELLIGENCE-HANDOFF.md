@@ -47,6 +47,18 @@ semântica ↔ executável e E2E autenticado são pendências reais,
 não defeitos de catálogo a contornar com outro registry, 93 cópias
 de ferramenta ou execução de texto livre.
 
+## Fila única de integração vertical pós-Fabric — 2026-11-04
+
+A próxima IA deve seguir **somente** a seção
+[`docs/CAPABILITY-FABRIC.md#integração-vertical-aura--product-mcp--matriz-operacional-de-implementação`](docs/CAPABILITY-FABRIC.md)
+para fechar uma ação ponta a ponta, em vez de gerar outro plano,
+catálogo Product ou test suite. A matriz identifica os 93 IDs globais
+do Runtime versus o limite de 64 no snapshot Device, o significado de
+`toolExecution=false` na Aura, os owners, PRs já existentes e as
+provas obrigatórias de grant/recibo/revogação. **Não interpretar essa
+matriz como execução já implantada.** As notas de 13/10 abaixo são
+históricas e só se aplicam quando o owner/contrato atual as confirmar.
+
 ## Atualização operacional — 2026-10-13
 
 A integração Native de Intelligence já ultrapassou o antigo estado de “runtime isolado”: `ordax.intelligence/1`, Local AI, model router, Memory autorizada, Assistant/Canvas e consumidores first-party possuem composição real em source. O gap transversal prioritário agora é **transporte/composição Web e integrações externas**, sem transformar a Surface em owner de provider.

@@ -1,3 +1,17 @@
+**Capability Fabric / Aura / MCP — operational documentation checkpoint (2026-11-04):**
+Single cross-repo implementation/acceptance matrix added to
+`docs/CAPABILITY-FABRIC.md` (section “Integração vertical Aura ⇄ Product
+MCP”). Apps PR #452 was merged to `ordax-apps/main` as
+`108a6fe37186d72026b047d5f89821360ceba213`, synchronizing the
+minimum manifest/compatibility and MCP separation in app docs.
+OS PRs #2400 (Native Product bridge) and #2405 (Owner Account gateway)
+remained open when checked; do not claim E2E closure. The Runtime code
+declares 93 Product Action IDs, while a Device snapshot validates at
+most 64 supported entries. This is a potential integration bound,
+not evidence that a real Device currently advertises 93 capabilities.
+No runtime executors, grants, product tools or UI were changed by
+this documentation checkpoint.
+
 **Aura/Fabric ↔ Product MCP SSOT — cross-domain boundary (2026-11-04):**
 Runtime Product gateway has 93 code-declared Product Actions
 (`ordax_dev_agent/product_gateway.py`); `capability_snapshot.py`
