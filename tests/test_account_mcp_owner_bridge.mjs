@@ -45,11 +45,23 @@ test("Gateway Owner routes keep Supabase cookie authorization and fail-closed ro
   const source=readFileSync(new URL("../infra/supabase/functions/ordax-account-gateway/index.ts",import.meta.url),"utf8");
   assert.match(source,/ORDAX_MCP_OWNER_ACCOUNT_ENABLED/);
   assert.match(source,/await authenticated\(req\)/);
-  assert.match(source,/req.headers.get\("sec-fetch-site"\) === "same-origin"/);
+  assert.match(source,/verifyTrustedPublicRequestContext\(req\)\.ok/);
+  assert.doesNotMatch(source,/origin\.host\.toLowerCase\(\) === forwardedHost/);
   assert.match(source,/await revokeAccountOwnerGrant\(session.access, revokeRequest\)/);
   assert.match(source,/mcp-owner-revoke-unconfirmed/);
   assert.doesNotMatch(source,/x-ordax-owner-token/);
 });
+test("Authenticated public bridge carries the verified origin, never mutable forwarded host",()=>{
+  const outer=readFileSync(new URL("../infra/supabase/functions/ordax-public-account-gateway/index.ts",import.meta.url),"utf8");
+  const inner=readFileSync(new URL("../infra/supabase/functions/ordax-account-gateway/index.ts",import.meta.url),"utf8");
+  assert.match(outer,/upstreamHeaders\(req, bridgeKey, requestContext\.origin, requestContext\.host\)/);
+  assert.match(outer,/headers\.set\("x-ordax-public-origin", trustedOrigin\)/);
+  assert.match(outer,/headers\.set\("x-ordax-public-host", trustedHost\)/);
+  assert.match(inner,/if \(publicSiteRequest\(req\)\) return !verifyTrustedPublicRequestContext\(req\)\.ok;/);
+  assert.match(inner,/if \(!publicSiteRequest\(req\) \|\| !verifyTrustedPublicRequestContext\(req\)\.ok\)/);
+  assert.doesNotMatch(inner,/origin\.host\.toLowerCase\(\) === forwardedHost/);
+});
+
 test("Owner inventory is bounded, typed, deduplicated, and projected",()=>{
   assert.deepEqual(validateAccountOwnerDevices(inventory),inventory);
   for(const bad of [{...inventory,count:2},{...inventory,devices:[row,row],count:2},
