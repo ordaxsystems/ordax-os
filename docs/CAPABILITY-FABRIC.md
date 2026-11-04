@@ -311,6 +311,56 @@ grants. O nome/schema definitivo do port só deve ser publicado
 junto da implementação versionada e seus testes; **não inventar
 um endpoint operacional na documentação**.
 
+### Atestação entre processos: o renderer não vira autoridade da Store
+
+O OS **já** tem leitura canônica de slots assinados no Host Windows:
+`system/adapters/desktop/verified-component-slot-host.mjs` invoca
+o helper Go `resolve-current` com trust/root fixados no **Host** e
+retorna `componentId`, `source`, `version`, `revision` e
+`sourceCommit`; `read-runtime-file` revalida a identidade imutável.
+A Surface consome essas leituras por
+`system/adapters/native/verified-app-store-catalog.mjs` e
+`system/services/apps/verified-store-projection.mjs`, que
+mantém `getCurrentObservations()` em memória transitória,
+**sem** criar outra base de dados. Ao iniciar refresh/erro ou destruir
+o owner, a projeção invalida previamente observações antigas.
+`live-verified-app-semantics.mjs` retira imediatamente a geração
+obsoleta e evita a volta silenciosa A→B→A.
+
+**Fronteira de confiança decisiva:** a ponte da PR #2400 aceita
+relatos **visuais** da Surface; esse token do renderer NÃO serve
+como atestado de `CURRENT`. Tampouco o endpoint Go de leitura
+restrito a loopback é, isoladamente, um grant do Product MCP.
+O Runtime externo só poderá receber disponibilidade de aplicativo
+por uma projeção **produzida/revalidada pelo Host/OS proprietário
+do verificador**, protegida pelo token de Device/Runtime apropriado
+e sem aceitar `appId`, versão, caminho, commit ou estado de
+instalação como verdade enviada pelo modelo ou pelo renderer.
+Se algum ID for solicitado como filtro, ele seleciona apenas um
+candidato para **nova verificação**; nunca escolhe a origem dos
+dados, a credencial ou o escopo de confiança.
+
+**Sequência mínima no owner correto (não implementada):**
+leitura autenticada Product → resolver Device/Host exato → obter
+a visão transitória de `CURRENT` do verificador canônico →
+validar unicidade, `source=slot`, versão/revisão/commit e
+provider semântico atual → limitar saída a IDs e descrições
+publicáveis → retornar indisponível se Store/semântica/Device
+não estiver íntegro. Na presença de `CURRENT` válido mas
+sem provider de uma ação, só reportar o app instalado,
+**não** `action executable`. Não retornar paths, entrypoints
+privados, tokens, conteúdo de notas ou dados de sessão.
+
+**Teste negativo indispensável:** depois de a Surface mostrar
+`notes` no primeiro plano, removê-lo no Store deve invalidar
+as consultas Product e Aura ainda que o último relato visual
+continue `activeAppId=notes`. Também testar refresh em andamento,
+helper Go indisponível, app reinstalado com mesmo ID/versão mas
+`sourceCommit` ou `revision` diferente, renderer malicioso,
+token de reporter usado como Product e troca de Owner/Device.
+Esses casos não podem retornar `installed=true` a partir do
+último snapshot visual ou de um catálogo empacotado.
+
 **Comparação de revisões:** `revision` do Store/artefato é dado da
 identidade instalada; `revision` do Fabric é monotônico apenas
 na sessão de descoberta. São conceitos diferentes; nenhum pode

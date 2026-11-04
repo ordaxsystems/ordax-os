@@ -101,6 +101,22 @@ o endpoint já existe.** Especificação/aceite no
 [`docs/CAPABILITY-FABRIC.md`](docs/CAPABILITY-FABRIC.md),
 subseção **“Ponte Native Product existente”**.
 
+## Limite de confiança do Product — 2026-11-04
+
+Além do estado da PR #2400, a fonte `CURRENT` é conferida
+pelo Host Windows via
+`verified-component-slot-host.mjs`/`resolve-current` do
+verificador Go. A Surface mantém uma projeção transitória
+(`verified-store-projection.mjs`); o Runtime não deve aceitar
+o `activeAppId` do renderer nem seu token de apresentação
+como prova de instalação ou autorização. O futuro port Product
+read-only precisa revalidar a identidade do Device, a Store
+`CURRENT` e o provider semântico no owner do Host, sem base
+duplicada, mesmo quando o app é removido durante um refresh.
+Ver **“Atestação entre processos”** no
+[`docs/CAPABILITY-FABRIC.md`](docs/CAPABILITY-FABRIC.md).
+Esta é **especificação de integração futura**, não endpoint ativo.
+
 ## Atualização operacional — 2026-10-13
 
 A integração Native de Intelligence já ultrapassou o antigo estado de “runtime isolado”: `ordax.intelligence/1`, Local AI, model router, Memory autorizada, Assistant/Canvas e consumidores first-party possuem composição real em source. O gap transversal prioritário agora é **transporte/composição Web e integrações externas**, sem transformar a Surface em owner de provider.
