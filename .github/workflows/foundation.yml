@@ -47,6 +47,9 @@ jobs:
               "AGENTS.md", "README.md", "docs/README.md",
               "docs/DEVELOPMENT-WORKFLOW.md", "docs/DECISIONS.md",
               "docs/CURRENT-STATE.md",
+              # Canonical handoff/architecture prose only; no executable or
+              # machine-readable contract bytes, and not CI consumers.
+              "INTELLIGENCE-HANDOFF.md", "docs/CAPABILITY-FABRIC.md",
           }
           full = not (paths and all(p in docs for p in paths))
           print(f"full={str(full).lower()}")
