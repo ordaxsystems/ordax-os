@@ -16,7 +16,14 @@ export function validateDesktopProductRuntimeStatus(raw) {
         (typeof raw.capabilityDigest === "string" &&
           /^[a-f0-9]{64}$/.test(raw.capabilityDigest))))
     throw new Error("Invalid Product Runtime observation");
-  if (raw.state === "running" && !raw.processRunning)
+  // A local Product process is not remote MCP authority. Even if a future
+  // supervisor publishes attested readiness, the Native reader must reject
+  // contradictory state, enrollment or missing session/capability evidence.
+  const processExpected = raw.state === "running" || raw.state === "stopping";
+  if (raw.processRunning !== processExpected ||
+      (raw.mcpReady && (raw.state !== "running" ||
+        !raw.enrolled || !raw.centralSessionAttested ||
+        raw.capabilityDigest === null)))
     throw new Error("Inconsistent Product Runtime process state");
   return Object.freeze({
     schema: SCHEMA, host: "ordax-desktop",

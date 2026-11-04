@@ -43,5 +43,31 @@ test("unauthorized, unavailable and forged Native statuses fail closed", async (
   assert.throws(() => validateDesktopProductRuntimeStatus({
     ...observation, capabilityDigest: "FAKE",
   }));
+  // Future Product readiness must be internally coherent; process presence
+  // alone, missing central attestation or an absent Device digest cannot pass.
+  const digest = "a".repeat(64);
+  for (const forged of [
+    { mcpReady: true },
+    { mcpReady: true, capabilityDigest: digest },
+    { mcpReady: true, centralSessionAttested: true },
+    { mcpReady: true, centralSessionAttested: true,
+      capabilityDigest: digest, enrolled: false },
+    { mcpReady: true, centralSessionAttested: true,
+      capabilityDigest: digest, state: "stopped", processRunning: false },
+    { state: "stopped", processRunning: true },
+    { state: "stopping", processRunning: false },
+  ]) {
+    assert.throws(() => validateDesktopProductRuntimeStatus({
+      ...observation, ...forged,
+    }), /Inconsistent Product Runtime process state/);
+  }
+  const valid = validateDesktopProductRuntimeStatus({
+    ...observation, mcpReady: true, centralSessionAttested: true,
+    capabilityDigest: digest,
+  });
+  assert.equal(valid.mcpReady, true);
+  assert.equal(valid.centralSessionAttested, true);
+  assert.equal(valid.capabilityDigest, digest);
+
   assert.throws(() => createNativeDesktopProductRuntimeStatus({}));
 });
