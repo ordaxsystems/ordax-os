@@ -96,7 +96,7 @@ function attestGitCheckout(checkout, expectedSha, owner) {
 // each packaged Desktop byte to its exact Git object, not just a clean index.
 function gitBlobSha1(file) {
   const bytes = fs.readFileSync(file);
-  return createHash('sha1').update('blob '+bytes.length+'\\0')
+  return createHash('sha1').update('blob '+bytes.length+'\0')
     .update(bytes).digest('hex');
 }
 function attestTrackedShellFiles(shell, manifest, git) {
