@@ -148,12 +148,12 @@ class CreatorOwnerImpactTests(unittest.TestCase):
         for path in (native, catalog):
             target = self.root / path
             target.parent.mkdir(parents=True, exist_ok=True)
-            target.write_text("// existing shared native data\\n", encoding="utf-8")
+            target.write_text("// existing shared native data\n", encoding="utf-8")
         base = self.commit(workflow=WORKFLOW.read_text(encoding="utf-8"), lock=VISUAL)
         for path, additions in impact.WINDOWS_PRODUCT_SHARED_ADDITIONS.items():
             target = self.root / path
             with target.open("a", encoding="utf-8") as output:
-                output.write("\\n".join(additions) + "\\n")
+                output.write("\n".join(additions) + "\n")
         for path in impact.WINDOWS_PRODUCT_PINNED_BLOBS:
             target = self.root / path
             target.parent.mkdir(parents=True, exist_ok=True)
@@ -182,7 +182,7 @@ class CreatorOwnerImpactTests(unittest.TestCase):
         for path in (native, catalog):
             target = self.root / path
             target.parent.mkdir(parents=True, exist_ok=True)
-            target.write_text("baseline\\n", encoding="utf-8")
+            target.write_text("baseline\n", encoding="utf-8")
         base = self.commit(workflow=WORKFLOW.read_text(encoding="utf-8"), lock=VISUAL)
         for path in (native, catalog):
             self.commit(path=path)
