@@ -101,6 +101,7 @@ jobs:
         run: |
           node --test tools/windows-desktop/package-inventory.test.cjs
           node tools/windows-desktop/package-inventory.cjs
+          node --test tools/windows-desktop/standalone-stage.test.cjs
       - name: Install canonical workspace
         run: npm ci --no-audit --no-fund
       - name: Test Native host and desktop contracts
@@ -247,6 +248,13 @@ jobs:
           }
           Write-Output "WINDOWS_RUNTIME_COMPONENT_VERIFIER_BUILT=YES"
           Write-Output ("WINDOWS_RUNTIME_COMPONENT_VERIFIER_SHA256=" + (Get-FileHash -LiteralPath $binary -Algorithm SHA256).Hash.ToLowerInvariant())
+      - name: Stage and verify standalone Windows packaging inputs
+        shell: pwsh
+        run: |
+          $ErrorActionPreference = 'Stop'
+          $sha = (& git rev-parse HEAD).Trim()
+          & node tools/windows-desktop/standalone-stage.cjs $sha
+          if ($LASTEXITCODE -ne 0) { throw 'Standalone Desktop source staging failed' }
       - name: Build unsigned Windows installer
         working-directory: tools/windows-desktop
         run: npm run dist:win
