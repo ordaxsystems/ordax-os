@@ -5,6 +5,8 @@ import {
   validateVerifiedAppStoreCatalogSnapshot,
 } from "../../contracts/verified-app-store-catalog.mjs";
 
+import { createStoreObserverDelivery } from "../../services/apps/store-observer-delivery.mjs";
+
 const STORE_CATALOG_ENDPOINT = "/__ordax/native/store-catalog";
 const DEFAULT_CATALOG_TIMEOUT_MS = 5_000;
 const REQUEST_OPTIONS = Object.freeze({
@@ -61,10 +63,13 @@ export async function createNativeVerifiedAppStoreCatalog(
   let generation = 0;
   let snapshot = unavailable("native-store-catalog-loading");
   let activeRead = null;
+  const notifyListeners = createStoreObserverDelivery(
+    listeners, "OrdaX signed Store reader subscriber failed",
+  );
 
   const emit = (next) => {
     snapshot = validateVerifiedAppStoreCatalogSnapshot(next);
-    for (const listener of [...listeners]) listener(snapshot);
+    notifyListeners(snapshot);
   };
 
   const refresh = async () => {
@@ -139,7 +144,7 @@ export async function createNativeVerifiedAppStoreCatalog(
       // A disposed verifier must not continue exposing trusted candidates to
       // a retained read-only port or its subscribers.
       snapshot = unavailable("native-store-catalog-disposed");
-      for (const listener of [...listeners]) listener(snapshot);
+      notifyListeners(snapshot);
       listeners.clear();
     },
   });

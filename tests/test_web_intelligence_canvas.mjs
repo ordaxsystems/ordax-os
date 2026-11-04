@@ -429,7 +429,10 @@ test("Canonical Web injects Intelligence without owning provider transport or cr
   assert.match(source, /<IntelligenceClientProvider port=\{intelligence\}>/);
   assert.match(source, /<Central key=/);
   assert.doesNotMatch(source, /WebShell/);
-  assert.match(windowContent, /AuraContent/);
+  // The window boundary delegates rendering to the canonical DesktopContent.
+  // The native Home owns the connected Aura entry; do not assert a duplicate Web shortcut.
+  assert.match(windowContent, /DesktopContent/);
+  assert.match(aura, /getSurfaceWindowTitle/);
   assert.match(aura, /client\.ask/);
   assert.doesNotMatch(desktop, /title === 'Aura'/);
   assert.doesNotMatch(desktop, /Pergunte ao Aura/);

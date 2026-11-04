@@ -24,6 +24,7 @@ import {
   hasNativeExternalFirstPartyModuleRead,
   hasNativeExternalFirstPartyProbation,
 } from "./external-first-party-policy.mjs";
+import { createStoreObserverDelivery } from "./store-observer-delivery.mjs";
 
 const REQUEST_OPTIONS = Object.freeze({
   method: "GET",
@@ -292,13 +293,15 @@ export function createVerifiedAppStoreProjection({
   let generation = 0;
   let snapshot = unavailable("verified-store-projection-loading");
   let currentObservations = Object.freeze([]);
-
+  const notifyListeners = createStoreObserverDelivery(
+    listeners, "OrdaX verified Store projection subscriber failed",
+  );
   const emit = (next, observations = []) => {
     snapshot = validateAppStoreCatalogSnapshot(next);
     // Transient read-through of the SAME native verified current-slot reads.
     // Cleared on unavailable/refresh to prevent stale First Run decisions.
     currentObservations = Object.freeze([...observations]);
-    for (const listener of [...listeners]) listener(snapshot);
+    notifyListeners(snapshot);
   };
 
   let activeRefresh = null;
@@ -448,7 +451,7 @@ export function createVerifiedAppStoreProjection({
       // owner exits. Clearing listeners alone kept the last installable
       // snapshot visible to other consumers after teardown.
       snapshot = unavailable("verified-store-projection-disposed");
-      for (const listener of [...listeners]) listener(snapshot);
+      notifyListeners(snapshot);
       listeners.clear();
     },
   });
