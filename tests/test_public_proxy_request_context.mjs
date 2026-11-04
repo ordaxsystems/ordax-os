@@ -92,6 +92,25 @@ test("upstream rewritten forwarding headers do not corrupt signed Vercel authori
   assert.deepEqual(result, { ok: true, origin: ORIGIN, host: HOST });
 });
 
+test("Owner POST accepts validated canonical origin even when Supabase rewrites forwarded host", () => {
+  const result = verifyTrustedPublicRequestContext(request("POST", {
+    origin: ORIGIN,
+    "sec-fetch-site": "same-origin",
+    "x-forwarded-host": "jhfphsjptrpmtnzkpwud.supabase.co",
+    "x-forwarded-proto": "http",
+  }));
+  assert.deepEqual(result, {ok:true,origin:ORIGIN,host:HOST});
+  for(const invalid of [
+    {origin:"https://evil.example", "sec-fetch-site":"same-origin"},
+    {origin:ORIGIN,"sec-fetch-site":"cross-site"},
+    {origin:ORIGIN,"sec-fetch-site":"same-origin","x-ordax-public-host":"evil.example"},
+    {origin:ORIGIN,"sec-fetch-site":"same-origin","x-ordax-public-origin":""},
+  ]) {
+    const verdict=verifyTrustedPublicRequestContext(request("POST",invalid));
+    assert.equal(verdict.ok,false,JSON.stringify(invalid));
+  }
+});
+
 test("missing private Vercel authority is rejected even with matching forwarded host", () => {
   const result = verifyTrustedPublicRequestContext(request("GET", {
     "x-ordax-public-host": "",
