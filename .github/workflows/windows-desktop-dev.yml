@@ -102,6 +102,7 @@ jobs:
           node --test tools/windows-desktop/package-inventory.test.cjs
           node tools/windows-desktop/package-inventory.cjs
           node --test tools/windows-desktop/standalone-stage.test.cjs
+          node --test tools/windows-desktop/owner-export.test.cjs
       - name: Install canonical workspace
         run: npm ci --no-audit --no-fund
       - name: Test Native host and desktop contracts
@@ -257,6 +258,28 @@ jobs:
           $sha = (& git rev-parse HEAD).Trim()
           & node tools/windows-desktop/standalone-stage.cjs $sha
           if ($LASTEXITCODE -ne 0) { throw 'Standalone Desktop source staging failed' }
+      - name: Export exact Windows Desktop Git owner source and prove detached tests
+        shell: pwsh
+        run: |
+          $ErrorActionPreference = 'Stop'
+          $sha = (& git rev-parse HEAD).Trim()
+          & node tools/windows-desktop/owner-export.cjs $sha
+          if ($LASTEXITCODE -ne 0) { throw 'Canonical Desktop owner source export failed' }
+          $archive = "out/windows-desktop-owner-export/ordax-desktop-source.tar.gz"
+          $sandbox = Join-Path $env:RUNNER_TEMP ("ordax-desktop-owner-proof-" + [guid]::NewGuid().ToString("N"))
+          New-Item -Path $sandbox -ItemType Directory -ErrorAction Stop | Out-Null
+          try {
+            & tar -xzf $archive -C $sandbox
+            if ($LASTEXITCODE -ne 0) { throw 'Detached Desktop source could not be extracted' }
+            Push-Location $sandbox
+            try {
+              & node --test owner-export.test.cjs standalone-stage.test.cjs
+              if ($LASTEXITCODE -ne 0) { throw 'Detached Desktop owner source tests failed' }
+            } finally { Pop-Location }
+          } finally {
+            Remove-Item -LiteralPath $sandbox -Recurse -Force -ErrorAction SilentlyContinue
+          }
+          Write-Output "DESKTOP_OWNER_SOURCE_HANDOFF=VERIFIED"
       # Install the same locked shell dependencies into the disposable export.
       # The original OS shell and installed user profile are never modified.
       - name: Install standalone Windows shell toolchain
@@ -277,5 +300,11 @@ jobs:
         with:
           name: ordax-os-desktop-dev-alpha-windows
           path: out/windows-desktop-installer/*.exe
+          if-no-files-found: error
+          retention-days: 14
+      - uses: actions/upload-artifact@b7c566a772e6b6bfb58ed0dc250532a479d7789f # v6
+        with:
+          name: ordax-desktop-owner-source-handoff
+          path: out/windows-desktop-owner-export/*
           if-no-files-found: error
           retention-days: 14

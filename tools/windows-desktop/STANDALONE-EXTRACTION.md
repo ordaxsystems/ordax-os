@@ -153,3 +153,31 @@ blob again *after* the copy, before the stage is committed. These checks reuse
 Git's SHA-1 object format only to bind local bytes to the pinned Git revision;
 the stage manifest continues recording SHA-256 for packaged files. A mismatch
 fails closed with no published stage.
+
+## Fonte independente pronta para migração — sem duplicação permanente
+
+O produtor `owner-export.cjs` extrai **somente** a árvore de código versionada
+em `tools/windows-desktop` do commit oficial `ordax-os`, nunca arquivos de
+`system/`, `docs/contracts/`, `out/`, dependências instaladas, modelos ou
+qualquer fonte da Surface. Ele usa `git archive` diretamente a partir do commit
+e valida cada caminho no inventário do Git, sem confiar no diretório local nem
+em arquivos marcados `assume-unchanged`.
+
+    node tools/windows-desktop/owner-export.cjs <SHA-EXATO-DO-OS>
+
+O comando produz somente em `out/windows-desktop-owner-export/` um
+`ordax-desktop-source.tar.gz` e o recibo `owner-export-receipt.json`, com
+SHA do OS, SHA da subárvore do Electron, arquivos e objetos Git e SHA-256
+do arquivo comprimido. A saída é temporária e **não** cria repositório,
+branch, instalador alternativo ou nova implementação. Recusa links simbólicos,
+submódulos, nomes inseguros, colisões de nomes Windows e destino preexistente.
+
+O workflow Windows valida quatro testes de regressão, extrai o arquivo em
+um diretório temporário fora do OS e executa novamente os testes portáveis
+da fonte destacada. Só publica o pequeno artefato `ordax-desktop-owner-source-handoff`
+se o pipeline Windows completo também passar. O arquivo é insumo para a
+migração futura, não uma segunda autoridade nem uma autorização de Stable.
+A transferência final exige criar `ordaxsystems/ordax-desktop`, CI própria,
+alinhamento dos testes que ainda usam caminhos relativos ao OS, migração
+atômica de owners, atualização dos consumidores e remoção da árvore antiga
+quando o corte for comprovado.
