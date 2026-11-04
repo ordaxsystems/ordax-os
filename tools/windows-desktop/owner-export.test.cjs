@@ -55,7 +55,12 @@ test('export uses committed bytes instead of changed or assume-unchanged worktre
   fs.mkdirSync(dest);
   const x=spawnSync('tar',['-xzf',join(result.directory,'ordax-desktop-source.tar.gz'),'-C',dest],{encoding:'utf8'});
   assert.equal(x.status,0,x.stderr);
-  assert.equal(fs.readFileSync(join(dest,'main.cjs'),'utf8'),'Original main.cjs\n');
+  const commitBytes=spawnSync('git',['-C',f.root,'show',
+    'HEAD:tools/windows-desktop/main.cjs'],{windowsHide:true});
+  assert.equal(commitBytes.status,0,String(commitBytes.stderr));
+  assert.deepEqual(fs.readFileSync(join(dest,'main.cjs')),commitBytes.stdout,
+    'export must reproduce committed Git blob bytes regardless of Windows newline settings');
+  assert.notDeepEqual(commitBytes.stdout,Buffer.from('Modified without Git status'));
 });
 test('rejection of stale commit and untrusted repository without writing export',t=>{
   const f=fixture();t.after(f.cleanup);
