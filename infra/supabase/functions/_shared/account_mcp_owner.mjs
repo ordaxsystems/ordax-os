@@ -130,9 +130,20 @@ export async function revokeAccountOwnerGrant(access, raw, fetcher=fetch) {
   if (!isRecord(result) || result.ok !== true)
     throw new Error("mcp-owner-revoke-unconfirmed");
   const after = await readAccountOwnerAuthority(access, input.device_id, fetcher);
-  if (after.grant_groups.some(g => g.client_id === input.client_id
-      && g.grant_group_id === input.grant_group_id))
+  // A reused or reassigned group id is not proof of revocation.
+  if (after.grant_groups.some(g => g.grant_group_id === input.grant_group_id))
     throw new Error("mcp-owner-revoke-unconfirmed");
+  // Never report an isolated revocation as successful when a different grant
+  // also disappeared or changed identity. Concurrent Owner changes are
+  // ambiguous, so this check intentionally fails closed rather than retrying.
+  const preserved = new Map(after.grant_groups.map(g => [g.grant_group_id, g]));
+  for (const group of before.grant_groups) {
+    if (group.grant_group_id === input.grant_group_id) continue;
+    const current = preserved.get(group.grant_group_id);
+    if (!current || current.client_id !== group.client_id
+        || current.profile_key !== group.profile_key)
+      throw new Error("mcp-owner-revoke-isolation-unverified");
+  }
   return {ok:true, schema:"ordax.owner-mcp-revocation/1", revoked:true,
     device_id:input.device_id, client_id:input.client_id,
     grant_group_id:input.grant_group_id};
