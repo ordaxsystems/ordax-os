@@ -14,6 +14,25 @@ Status: CANONICAL FOR PROTOTYPE
 5. **Conter desvios:** classificar CI vermelho alheio como externo somente após demonstrar que não depende do change set; corrigi-lo em seu owner sem transformar a tarefa atual em reforma de outro domínio. Melhorias opcionais não bloqueiam o objetivo; não criar fila paralela para elas.
 6. **Comunicar entrega, não atividade:** reportar exatamente o que foi alterado, teste pertinente, revisão/PR e se está na `main`/remoto. Se impedido, identificar **um bloqueio concreto** e a ação necessária; nunca declarar finalizado o que só foi planejado ou documentado.
 
+### Como decidir os testes sem atrasar a entrega
+
+| Impacto real da mudança | Ação padrão em desenvolvimento |
+| --- | --- |
+| Texto, comentário, documentação, CSS ou ajuste visual isolado | Editar imediatamente; conferir o trecho/preview afetado, sem suíte completa, build de release ou novo workflow. |
+| Código/comportamento de um único owner | Implementar no source canônico; executar testes existentes e direcionados; corrigir somente falhas causadas pelo diff. |
+| Integração entre componentes | Concluir o fluxo vertical solicitado; depois executar smoke/E2E específico das interfaces modificadas. Reutilizar artefatos válidos. |
+| Identidade, segurança, trust, dados, disco, boot, update, pagamentos ou promoção | Fazer antes da mutação os preflights realmente exigidos; depois aplicar testes e gates obrigatórios pertinentes. Não dispensar autorização nem integridade. |
+
+### Protocolo anti-loop e critério de parada
+
+- **Sem preparação infinita:** uma verificação objetiva de estado/owner deve produzir uma alteração ou identificar um impedimento comprovado. Não reiniciar a mesma auditoria após um resultado sem mudança no source ou no ambiente.
+- **Sem trabalho artificial:** não criar planos, RFCs, novos testes, workflows, relatórios, branches, PRs ou arquivos de evidência só para demonstrar diligência. Usar os instrumentos existentes; criar um novo apenas se a entrega ou uma obrigação concreta exigir.
+- **Sem efeito cascata:** falha fora do diff não autoriza migrar a missão para outros domínios. Corrigir no owner certo quando for dependência real; caso contrário, manter escopo e registrar apenas o bloqueio indispensável.
+- **Sem recompilar por hábito:** mudanças em client/Surface não disparam kernel/USB/Creator/QEMU por padrão; cache e resultados imutáveis aprovados devem ser reaproveitados.
+- **Sem parar em análise:** ao descobrir a causa de um defeito em escopo, corrigir o código existente; não substituir a correção por explicação, issue ou documentação.
+- **Sem concluir por aparência:** só marcar entregue quando existir diff/artefato real, validação proporcional e integração/publicação requerida; caso a proteção da main ou gate exigido impeça, informar PR, estado e único bloqueio verificável.
+- **Em pedidos de continuação:** retomar a última mudança incompleta no mesmo owner/PR; não abrir etapa lateral nem reiniciar a investigação sem evidência nova.
+
 **Exceções não negociáveis:** antes de uma ação que possa ser destrutiva, vazar dados, alterar identidade, permissões, trust, assinatura, atualização/recovery, pagamento ou promoção pública, executar os preflights e obter as autorizações pertinentes. Não burlar proteção de branch, checks realmente obrigatórios, rollback, integridade, segurança ou fail-closed. Quando há risco, a verificação preventiva necessária antecede a execução; não serve de justificativa para auditorias ou builds sem relação causal.
 
 **Critério de sucesso:** o pedido produz um comportamento/artefato observável e validado no owner correto, não uma coleção de planos, evidências e workflows sem entrega.
