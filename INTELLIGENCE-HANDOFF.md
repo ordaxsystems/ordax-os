@@ -25,13 +25,17 @@ novamente missões antigas nem elaborar outro plano.**
 [`8a8eea2`](https://github.com/ordaxsystems/ordax-platform/commit/8a8eea2971492147b28f8c94c247e4d05fb5f282);
 `ordax-surface` via
 [PR #82](https://github.com/ordaxsystems/ordax-surface/pull/82) integrada.
-As alterações documentais [`ordax-apps#455`](https://github.com/ordaxsystems/ordax-apps/pull/455)
-e [`ordax-runtime#317`](https://github.com/ordaxsystems/ordax-runtime/pull/317)
-estavam **abertas com CI em fila** na última checagem.
-O próximo chat deve **verificar os checks e integrar as mesmas PRs,
-caso estejam verdes**, sem abrir outras branches/PRs para repetir
-este handoff. Após integrar, considerar a documentação propagada;
-não reabrir a arquitetura ou a missão DEV por isso.
+A [`ordax-apps#455`](https://github.com/ordaxsystems/ordax-apps/pull/455)
+foi **integrada** após checks verdes (merge `b9e729a1f734af78da8496aa0737b069f05357ea`).
+A [`ordax-runtime#317`](https://github.com/ordaxsystems/ordax-runtime/pull/317)
+foi **reconciliada com a main atual** (HEAD `9c5e4a45a84f98845f220206a7a11a099fd3d417`),
+preservando a correção operacional de prontidão MCP
+[`#319`](https://github.com/ordaxsystems/ordax-runtime/pull/319).
+Os checks de contrato foram reexecutados. **Consultar o estado
+atual da PR #317**: se continuar aberta, integrar **a mesma PR**
+somente depois de todos os checks obrigatórios aprovados; se
+já estiver merged, não repetir o trabalho. Não abrir branch/PR
+alternativa, nem reconstruir arquitetura ou a missão DEV encerrada.
 
 **Owners imutáveis:** `ordax-os`: Store `CURRENT`, verificador Go,
 Native Host, Fabric/Personal/Aura; `ordax-apps`: provider e
