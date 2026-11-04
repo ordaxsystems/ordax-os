@@ -1372,6 +1372,25 @@ Autoridades existentes a preservar:
   O teste causal falhou antes da correção e passou depois; a regressão
   ampliada atual aprovou **464/464 testes em 45 arquivos** no Windows.
 
+### C.36. Publicação fail-closed após perda silenciosa do CURRENT (2026-11-03)
+
+- A compilação de semânticas verificadas já impedia commit quando a
+  observação final da Store lançava erro. Mas uma retirada silenciosa entre
+  o primeiro atestado e a última projeção podia devolver uma lista menor,
+  sem erro, e avançar a geração Aura/Personal mesmo sem ações CURRENT.
+- A rotina canônica `replaceVerifiedSemantics()` agora exige que todas
+  as ações declaradas pelo pacote assinado sobrevivam à última projeção
+  CURRENT antes do commit da geração. Sem ações declaradas, ela verifica
+  também a identidade dos aplicativos sem ação pelo mesmo gate existente.
+- **Prova causal:** os cenários de ação retirada silenciosamente e app
+  somente semântico falharam antes da correção e passaram depois. Uma
+  tentativa rejeitada não altera a geração do proprietário semântico.
+  Sucesso subsequente exige atestado atual válido; revogação vazia mantém
+  o modo fail-closed.
+- Regressão local Windows: **466/466 testes em 45 arquivos**, zero
+  falhas/skips, `node --check` e `git diff --check` aprovados.
+  A publicação MCP remota, as grants e o CI remoto permanecem pendentes.
+
 ### D. Integração futura com o Runtime MCP canônico — fronteira auditada
 
 - **Contrato efetivo verificado (2026-11-03):**

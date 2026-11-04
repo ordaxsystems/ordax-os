@@ -1620,6 +1620,67 @@ test("malformed unsupported CURRENT metadata cannot silently preserve verified N
   assert.equal(loads, 1, "duplicated unsupported metadata cannot trigger module reads");
 });
 
+test("verified semantic replacement cannot commit when final CURRENT silently withdraws its actions", () => {
+  let reads = 0;
+  let changeOnFinalRead = true;
+  const live = createLiveVerifiedApplicationSemantics({
+    baseApplications: listFirstPartyApps(),
+    bundledManifests: [],
+    initialVerifiedSemantics: [],
+    getCurrentObservations() {
+      reads += 1;
+      return changeOnFinalRead && reads === 2 ? [] : [slotMetadata()];
+    },
+  });
+  try {
+    const oldGeneration = live.getGeneration();
+    assert.throws(
+      () => live.replaceVerifiedSemantics([verifiedEntry()]),
+      /CURRENT.*(changed|drift|lost)|lost.*CURRENT/i,
+      "a vanished CURRENT app must prevent publishing its verified Aura and Personal owner",
+    );
+    assert.equal(reads, 2, "the final action projection must detect the disappearing slot");
+    assert.equal(live.getGeneration(), oldGeneration,
+      "silent loss must not advance the semantic generation");
+    assert.equal(live.awarenessPort.get("notes"), null);
+    assert.deepEqual(live.actionRegistryPort.list(), []);
+    changeOnFinalRead = false;
+    assert.equal(live.replaceVerifiedSemantics([verifiedEntry()]).length, 1);
+    assert.equal(live.getGeneration(), oldGeneration + 1);
+  } finally {
+    live.dispose();
+  }
+});
+
+test("semantic-only apps also require a final CURRENT check before publication", () => {
+  let reads = 0;
+  const semanticOnly = {
+    ...verifiedEntry(),
+    actionManifest: null,
+    providerManifest: null,
+  };
+  const live = createLiveVerifiedApplicationSemantics({
+    baseApplications: listFirstPartyApps(),
+    bundledManifests: [],
+    initialVerifiedSemantics: [],
+    getCurrentObservations() {
+      reads++;
+      return reads === 2 ? [] : [slotMetadata()];
+    },
+  });
+  try {
+    const original = live.getGeneration();
+    assert.throws(() => live.replaceVerifiedSemantics([semanticOnly]),
+      /CURRENT.*(changed|drift|lost)|lost.*CURRENT/i);
+    assert.equal(reads, 2,
+      "even a signed app without Action manifest needs final CURRENT attestation");
+    assert.equal(live.getGeneration(), original);
+    assert.equal(live.awarenessPort.get("notes"), null);
+  } finally {
+    live.dispose();
+  }
+});
+
 test("verified semantic replacement never commits if CURRENT becomes unreadable during final action projection", () => {
   let reads = 0;
   let failFinalRead = true;

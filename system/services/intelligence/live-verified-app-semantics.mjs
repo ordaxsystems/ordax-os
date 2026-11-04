@@ -163,6 +163,27 @@ export function createLiveVerifiedApplicationSemantics({
       // commit; a second Native CURRENT read could fail and report rejection
       // even though Aura/Personal had already switched to the new owner.
       const exposedActions = candidate.actions.list();
+      // The Store may silently withdraw a slot between the pre-attestation
+      // and this final CURRENT-dependent read without throwing. Publishing
+      // only a subset would commit Aura/Personal semantics that have not
+      // passed the last CURRENT observation. Require the entire signed
+      // action declaration to survive the final native projection.
+      const declaredActionCount = next.reduce((sum, entry) =>
+        sum + (entry.actionManifest?.capabilities?.length ?? 0), 0);
+      if (exposedActions.length !== declaredActionCount) {
+        throw new Error("Live semantics update lost CURRENT action attestation before publication");
+      }
+      // Semantic-only apps have no Action declaration to observe in the
+      // final action projection. Re-attest their identities directly through
+      // the SAME read-through Store gate before publishing Aura manifests.
+      const withoutActions = next.filter(entry =>
+        (entry.actionManifest?.capabilities?.length ?? 0) === 0);
+      if (withoutActions.length > 0 &&
+          candidate.gate.isCurrentBatch(withoutActions.map(entry => ({
+            appId: entry.application.id,
+          }))).some(current => current !== true)) {
+        throw new Error("Live semantics update lost CURRENT semantic-only attestation before publication");
+      }
       if (generation === Number.MAX_SAFE_INTEGER) {
         throw new RangeError("Verified application semantic generation exhausted");
       }
