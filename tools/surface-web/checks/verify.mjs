@@ -2,14 +2,19 @@ import assert from 'node:assert/strict';
 import {createHash} from 'node:crypto';
 import {readFile, readdir} from 'node:fs/promises';
 import {fileURLToPath} from 'node:url';
+import {join} from 'node:path';
 import {verifyPinnedExternalSurface} from './verified-external-source.mjs';
 
 const root = new URL('../../../', import.meta.url);
 // Verify the immutable Git-sourced visual tree and its assembly receipt
 // *before* executing any external Surface module.
-const verified = await verifyPinnedExternalSurface(
-  fileURLToPath(root), process.env.ORDAX_VERIFIED_SURFACE_ASSEMBLY_RECEIPT,
-);
+// The canonical prepare-verified-surface action already leaves a verified
+// assembly receipt under RUNNER_TEMP. Reuse it without changing the shared
+// Owner/Dev producer action or weakening its source-blob validation.
+const assemblyReceipt = process.env.ORDAX_VERIFIED_SURFACE_ASSEMBLY_RECEIPT ||
+  (process.env.RUNNER_TEMP && join(process.env.RUNNER_TEMP,
+    'ordax-verified-surface-ci/system/surface/source-provenance.json'));
+const verified = await verifyPinnedExternalSurface(fileURLToPath(root), assemblyReceipt);
 const [
   {windowReducer, initialWindows},
   {createUnavailableWebIntelligencePort},
