@@ -1302,6 +1302,28 @@ Autoridades existentes a preservar:
 - Ainda não atesta uma sessão MCP externa nem dispensa os gates da
   Platform e do Product Runtime.
 
+### C.33. Consultas Native desconhecidas não revogam outras ações (2026-11-03)
+
+- **Regressão reproduzida:** a correção C.32 invalidava a revisão da
+  descoberta em toda consulta de identidade Native rejeitada, inclusive
+  uma identidade nunca registrada. Um consumidor com ação desconhecida
+  podia provocar alterações repetidas de revisão sem mudança real da
+  instalação, perturbando aprovações legítimas.
+- **Correção na fonte canônica:** `isNativeActionRegistered()` continua
+  a validar uma única enumeração atual. Se rejeitar a identidade, só
+  invalida o fingerprint transitório quando aquela identidade constava
+  do último snapshot já validado. Reutiliza a projeção privada mantida
+  para revisão, sem segundo registry, cache de autorização ou leitura
+  duplicada do catálogo.
+- **Prova causal:** teste de consultas repetidas a hashes desconhecidos
+  e IDs estrangeiros falhava antes e passou depois. Teste adicional
+  comprova que remoção Native silenciosa seguida do retorno do mesmo
+  provedor invalida a aprovação antiga; o cenário de substituição
+  A→B→A da C.32 também permanece protegido.
+- **Regressão selecionada Windows:** **460/460 testes em 45 arquivos**,
+  sem falhas nem skips. Verificações Node de sintaxe e
+  `git diff --check` aprovadas. Nenhuma habilitação de tools MCP.
+
 ### D. Integração futura com o Runtime MCP canônico — fronteira auditada
 
 - **Contrato efetivo verificado (2026-11-03):**

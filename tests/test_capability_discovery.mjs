@@ -611,6 +611,40 @@ test("Native catalog identity validation uses the same enumeration, not a second
   assert.equal(reads, 1);
 });
 
+test("unknown Native action queries never invalidate an unchanged legitimate approval revision", () => {
+  const fabric = discoveryForChangingNativeCatalog(() => [NATIVE_FIXTURE_ENTRY]);
+  const first = fabric.snapshot();
+  const unknownArtifact = {
+    ...NATIVE_FIXTURE_ENTRY,
+    toolArtifactSha256: "b".repeat(64),
+  };
+  const foreignAction = {
+    ...NATIVE_FIXTURE_ENTRY,
+    id: "native-file.remove-foreign-directory",
+    actionId: "files.directory.remove-foreign",
+  };
+  for (let i = 0; i < 3; i += 1) {
+    assert.equal(fabric.isNativeActionRegistered(unknownArtifact), false);
+    assert.equal(fabric.isNativeActionRegistered(foreignAction), false);
+    assert.equal(fabric.snapshot().revision, first.revision,
+      "rejected foreign queries may not force revocation of unrelated grants");
+  }
+  assert.equal(fabric.isNativeActionRegistered(NATIVE_FIXTURE_ENTRY), true);
+});
+
+test("silent Native removal and return cannot reuse the previous approval revision", () => {
+  let nativeEntries = [NATIVE_FIXTURE_ENTRY];
+  const fabric = discoveryForChangingNativeCatalog(() => nativeEntries);
+  const before = fabric.snapshot();
+  nativeEntries = [];
+  assert.equal(fabric.isNativeActionRegistered(NATIVE_FIXTURE_ENTRY), false);
+  nativeEntries = [NATIVE_FIXTURE_ENTRY];
+  const after = fabric.snapshot();
+  assert.ok(after.revision > before.revision,
+    "a removed registered provider cannot revive an old consent without a Host event");
+  assert.deepEqual(after.entries, before.entries);
+});
+
 test("duplicate Native catalog IDs fail closed before an individual match", () => {
   const fabric = discoveryForChangingNativeCatalog(() =>
     [NATIVE_FIXTURE_ENTRY, NATIVE_FIXTURE_ENTRY]);
