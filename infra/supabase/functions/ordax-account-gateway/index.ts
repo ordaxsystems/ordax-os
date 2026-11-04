@@ -7,6 +7,7 @@ import {
 } from "../_shared/auth_rate_limit.mjs";
 import { readBoundedBody } from "../_shared/bounded_body.mjs";
 import { ACCOUNT_MCP_USAGE_PATH, readAccountMcpUsage } from "../_shared/account_mcp_usage.mjs";
+import { ACCOUNT_MCP_DEVICES_PATH, ACCOUNT_MCP_AUTHORITY_PATH, ACCOUNT_MCP_REVOKE_PATH, isOwnerUuid, readAccountOwnerDevices, readAccountOwnerAuthority, revokeAccountOwnerGrant, parseAccountOwnerRevoke } from "../_shared/account_mcp_owner.mjs";
 import { accountPrivilegedRpc } from "../_shared/account_privileged_rpc.mjs";
 import { authorizeAccountTransport, accountGatewayRoutePath, isPublicAccountPreActivationRoute } from "../_shared/account_transport_admission.mjs";
 import { parseSpaceCreateRequest, projectSpaceCreateResult, spaceCreateRpcArgs } from "../_shared/space_create_contract.mjs";
@@ -1297,6 +1298,84 @@ Deno.serve(async (req: Request) => {
       return error(502, "account-export-failed", "Não foi possível gerar a exportação da Conta OrdaX.");
     }
     return json(200, data, session.cookies);
+  }
+
+  // Owner devices/grants use the same Supabase Account session as MCP usage.
+  // Browser never receives the Product bearer. This is a fixed allowlisted
+  // transport to the single MCP Owner authority; no local grant store.
+  if ((path === ACCOUNT_MCP_DEVICES_PATH && req.method === "GET")
+      || (path === ACCOUNT_MCP_AUTHORITY_PATH && req.method === "GET")
+      || (path === ACCOUNT_MCP_REVOKE_PATH && req.method === "POST")) {
+    const session = await authenticated(req);
+    if (!session.user || !session.access) {
+      return json(401, {
+        $schema: ERROR_SCHEMA, error: "authentication-required",
+        message: "Entre na Conta OrdaX para administrar o MCP.",
+      }, session.cookies);
+    }
+    // Code and SQL can be deployed independently without opening the public
+    // Owner console before its authenticated gateway E2E is approved.
+    if (Deno.env.get("ORDAX_MCP_OWNER_ACCOUNT_ENABLED") !== "1") {
+      return error(503, "mcp-owner-console-unavailable", "A administração MCP ainda não está disponível.");
+    }
+    if (path === ACCOUNT_MCP_DEVICES_PATH) {
+      if (url.search !== "") return error(400, "mcp-owner-devices-query-invalid", "Consulta inválida.");
+      try {
+        return json(200, await readAccountOwnerDevices(session.access), session.cookies);
+      } catch {
+        return error(503, "mcp-owner-devices-unavailable", "Não foi possível consultar dispositivos MCP.");
+      }
+    }
+    if (path === ACCOUNT_MCP_AUTHORITY_PATH) {
+      if (url.searchParams.size !== 1 || !url.searchParams.has("device_id")
+          || !isOwnerUuid(url.searchParams.get("device_id"))) {
+        return error(400, "mcp-owner-device-invalid", "Dispositivo inválido.");
+      }
+      try {
+        return json(200, await readAccountOwnerAuthority(
+          session.access, url.searchParams.get("device_id"),
+        ), session.cookies);
+      } catch {
+        return error(503, "mcp-owner-authority-unavailable", "Não foi possível consultar as autorizações.");
+      }
+    }
+    // A revocation is an explicit browser action, never a GET, CORS, image
+    // request or prompt-triggered method. Fail closed without same-origin
+    // browser provenance; the signed public service bridge is not sufficient.
+    const originHeader = req.headers.get("origin") ?? "";
+    const forwardedHost = (req.headers.get("x-forwarded-host") ?? "").toLowerCase();
+    let sameOrigin = false;
+    try {
+      const origin = new URL(originHeader);
+      sameOrigin = origin.protocol === "https:" && origin.username === ""
+        && origin.password === "" && origin.pathname === "/"
+        && origin.search === "" && origin.hash === ""
+        && origin.host.toLowerCase() === forwardedHost
+        && req.headers.get("sec-fetch-site") === "same-origin";
+    } catch {
+      sameOrigin = false;
+    }
+    if (!sameOrigin) return error(403, "mcp-owner-csrf-denied", "Origem da revogação não autorizada.");
+    if (url.search !== "" || (req.headers.get("content-type") ?? "").split(";")[0].trim().toLowerCase() !== "application/json") {
+      return error(400, "mcp-owner-revoke-invalid", "Solicitação de revogação inválida.");
+    }
+    let revokeRequest;
+    try {
+      const raw = await boundedBody(req);
+      if (raw.length > 1024) throw new Error("mcp-owner-revoke-too-large");
+      revokeRequest = JSON.parse(raw);
+    } catch {
+      return error(400, "mcp-owner-revoke-invalid", "Solicitação de revogação inválida.");
+    }
+    if (!parseAccountOwnerRevoke(revokeRequest))
+      return error(400, "mcp-owner-revoke-invalid", "Confirme o dispositivo e a autorização exatos.");
+    try {
+      return json(200, await revokeAccountOwnerGrant(session.access, revokeRequest), session.cookies);
+    } catch {
+      // An ambiguous DELETE is never repeated automatically or reported as
+      // success. The next explicit Owner read reflects canonical state.
+      return error(503, "mcp-owner-revoke-unconfirmed", "Não foi possível confirmar a revogação.");
+    }
   }
 
   if (path === ACCOUNT_MCP_USAGE_PATH && req.method === "GET") {
