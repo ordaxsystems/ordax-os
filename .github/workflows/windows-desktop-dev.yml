@@ -273,7 +273,7 @@ jobs:
             if ($LASTEXITCODE -ne 0) { throw 'Detached Desktop source could not be extracted' }
             Push-Location $sandbox
             try {
-              & node --test owner-export.test.cjs standalone-stage.test.cjs
+              & node --test owner-export.test.cjs standalone-stage.test.cjs local-dev.test.cjs
               if ($LASTEXITCODE -ne 0) { throw 'Detached Desktop owner source tests failed' }
             } finally { Pop-Location }
           } finally {

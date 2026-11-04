@@ -2,27 +2,29 @@
 const test=require('node:test');
 const assert=require('node:assert/strict');
 const {spawnSync}=require('node:child_process');
-const {mkdtempSync,rmSync,mkdirSync,readFileSync,writeFileSync,existsSync,lstatSync}=require('node:fs');
+const {mkdtempSync,rmSync,rmdirSync,mkdirSync,writeFileSync,existsSync,lstatSync}=require('node:fs');
 const {tmpdir}=require('node:os');
 const {join,dirname}=require('node:path');
 const entry=join(__dirname,'local-dev.cjs');
 test('local Desktop refuses a missing independent visual checkout',()=>{
-  const missing=join(tmpdir(),'ordax-nonexistent-surface-'+process.pid);
-  const r=spawnSync(process.execPath,[entry],{encoding:'utf8',env:{...process.env,ORDAX_SURFACE_CHECKOUT:missing}});
-  assert.equal(r.status,1);
-  assert.match(r.stderr,/canonical ordax-surface checkout required/);
+  const f=makeDetachedFixture();
+  try {
+    const r=spawnSync(process.execPath,[entry],{
+      encoding:'utf8',env:{...f.environment,ORDAX_SURFACE_CHECKOUT:join(f.outer,'missing-surface')}
+    });
+    assert.equal(r.status,1);
+    assert.match(r.stderr,/canonical ordax-surface checkout required/);
+  } finally {f.cleanup();}
 });
 test('local Desktop rejects a wrong Git visual owner before creating junctions',()=>{
-  const temporary=mkdtempSync(join(tmpdir(),'ordax-surface-invalid-'));
+  const f=makeDetachedFixture();
   try{
-    const git=spawnSync('git',['init',temporary],{encoding:'utf8'});
-    assert.equal(git.status,0,git.stderr);
-    const add=spawnSync('git',['-C',temporary,'remote','add','origin','https://github.com/example/other-surface.git'],{encoding:'utf8'});
-    assert.equal(add.status,0,add.stderr);
-    const r=spawnSync(process.execPath,[entry],{encoding:'utf8',env:{...process.env,ORDAX_SURFACE_CHECKOUT:temporary}});
+    runGit(f.surface,'remote','set-url','origin','https://github.com/example/other-surface.git');
+    const r=spawnSync(process.execPath,[entry],{encoding:'utf8',env:f.environment});
     assert.equal(r.status,1);
     assert.match(r.stderr,/Surface origin does not match/);
-  }finally{rmSync(temporary,{recursive:true,force:true})}
+    assert.equal(existsSync(join(f.root,'system/surface/ui')),false);
+  }finally{f.cleanup();}
 });
 
 function runGit(root,...args){
@@ -50,8 +52,19 @@ function makeDetachedFixture(){
   put(surface,'system/surface/workspace/edit.mjs','export const y=2');
   runGit(surface,'add','.');runGit(surface,'commit','-qm','Exact pinned visual fixture');
   const visualSha=runGit(surface,'rev-parse','HEAD');
-  const authority=readFileSync(join(__dirname,'../../docs/contracts/distribution-profiles.json'),'utf8');
-  put(root,'docs/contracts/distribution-profiles.json',authority);
+  // Minimal contract fixture. A detached Desktop test must not read any
+  // contract or build input from a sibling OS monorepo.
+  const authority={
+    $schema:'prototype-ordax.distribution-profiles/1',
+    source_authority:{repository:'ordaxsystems/ordax-os',branch:'main',
+      single_product_codebase:true,permanent_profile_forks_allowed:false},
+    profiles:{
+      'owner-development':{normal_update_transport:'git-main',operational_git_allowed:true},
+      'stable-mvp':{normal_update_transport:'official-signed-release-channel',
+        operational_git_allowed:false}
+    }
+  };
+  put(root,'docs/contracts/distribution-profiles.json',JSON.stringify(authority));
   put(root,'docs/contracts/surface-source.json',JSON.stringify({
     $schema:'prototype-ordax.surface-source/1',status:'canonical',
     source_repository:'ordaxsystems/ordax-surface',source_commit:visualSha,
@@ -68,7 +81,15 @@ function makeDetachedFixture(){
 }
 test('detached Electron shell mounts pinned Surface in independent OS checkout',()=>{
   const f=makeDetachedFixture();
+  const electronMarker=join(__dirname,'node_modules/electron/path.txt');
+  const syntheticMarker=!existsSync(electronMarker);
   try{
+    // Source-only CI intentionally does not install the 680 MB Electron host.
+    // A fixture sentinel proves the *mount contract*, never app execution.
+    if(syntheticMarker){
+      mkdirSync(dirname(electronMarker),{recursive:true});
+      writeFileSync(electronMarker,'fixture-only; never executable');
+    }
     const script='const {prepare}=require('+JSON.stringify(entry)+');console.log("DETACHED_SURFACE="+prepare())';
     const r=spawnSync(process.execPath,['-e',script],{encoding:'utf8',env:f.environment});
     assert.equal(r.status,0,r.stderr);
@@ -81,7 +102,19 @@ test('detached Electron shell mounts pinned Surface in independent OS checkout',
     // Running again must reuse those exact junctions, never overwrite them.
     const second=spawnSync(process.execPath,['-e',script],{encoding:'utf8',env:f.environment});
     assert.equal(second.status,0,second.stderr);
-  }finally{f.cleanup()}
+  }finally{
+    if(syntheticMarker){
+      rmSync(electronMarker,{force:true});
+      // Remove only empty directories created by this test. Never delete an
+      // existing npm installation or a concurrently populated node_modules.
+      for(const path of [dirname(electronMarker),join(__dirname,'node_modules')]){
+        try{rmdirSync(path)}catch(error){
+          if(error.code!=='ENOTEMPTY'&&error.code!=='ENOENT')throw error;
+        }
+      }
+    }
+    f.cleanup();
+  }
 });
 test('detached OS checkout rejects untrusted Git origin before visual mounts',()=>{
   const f=makeDetachedFixture();

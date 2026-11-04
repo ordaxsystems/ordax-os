@@ -193,3 +193,19 @@ SHA-1 de **cada arquivo** e compara aos blobs de `HEAD`. Se filtros,
 atributos ou qualquer transformação alterarem os bytes, recusa o arquivo
 antes de publicar o recibo. A pasta temporária de inspeção é removida.
 Os testes forçam `core.autocrlf=true` para impedir regressão no Windows.
+
+## Portable local-development test across repository boundaries
+
+The exported `local-dev.test.cjs` now creates its own disposable
+`ordax-os` and `ordax-surface` Git fixtures, including the minimal canonical
+distribution contract. It never loads `../../docs` or another accidental
+contract from the repository containing the Electron source. On source-only
+CI, a temporary, non-executable Electron marker only exercises the existing
+toolchain-existence gate; the real CLI still requires the installed Electron
+binary before mounting the verified Surface. The fixture marker is removed
+after use, without deleting existing npm modules.
+
+The Windows CI executes `local-dev.test.cjs` together with both source
+handoff tests **from the extracted archive**, not from the original OS path.
+This catches regressions where Desktop tests work only because a sibling
+monorepo happens to be present.
