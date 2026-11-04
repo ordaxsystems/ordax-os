@@ -1366,6 +1366,11 @@ Autoridades existentes a preservar:
   Regressão Windows: **463/463 em 45 arquivos**, zero falhas/skips;
   cinco módulos/testes alterados passaram em sintaxe; `git diff --check`
   aprovado. A projeção continua descritiva e sem execução MCP.
+- **Proteção do ciclo de vida:** `replaceVerifiedSemantics()` não
+  aceita publicar entradas não vazias com `attestCurrent: false`.
+  Esse modo fica restrito à revogação vazia quando a Store falha.
+  O teste causal falhou antes da correção e passou depois; a regressão
+  ampliada atual aprovou **464/464 testes em 45 arquivos** no Windows.
 
 ### D. Integração futura com o Runtime MCP canônico — fronteira auditada
 

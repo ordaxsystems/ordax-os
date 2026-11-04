@@ -1422,6 +1422,32 @@ test("Aura rejects a stale verified semantic generation even when the public Fab
   await assert.rejects(reply, /semantic generation changed|semantics changed/i);
 });
 
+test("nonempty semantic publication cannot bypass CURRENT attestation through withdrawal mode", () => {
+  let reads = 0;
+  const live = createLiveVerifiedApplicationSemantics({
+    baseApplications: listFirstPartyApps(),
+    bundledManifests: [],
+    initialVerifiedSemantics: [],
+    getCurrentObservations() { reads++; return []; },
+  });
+  try {
+    const before = live.getGeneration();
+    assert.throws(
+      () => live.replaceVerifiedSemantics([verifiedEntry()], { attestCurrent: false }),
+      /CURRENT attestation.*nonempty|nonempty.*CURRENT attestation/i,
+      "withdrawal-only mode must never publish unverified actions or Aura manifests",
+    );
+    assert.equal(live.getGeneration(), before, "rejected publication must not change Aura generation");
+    assert.equal(live.awarenessPort.get("notes"), null);
+    assert.deepEqual(live.actionRegistryPort.list(), []);
+    assert.equal(reads, 0, "reject invalid mode before any Native observation read");
+    live.replaceVerifiedSemantics([], { attestCurrent: false });
+    assert.equal(live.getGeneration(), before + 1, "empty fail-closed withdrawal remains permitted");
+  } finally {
+    live.dispose();
+  }
+});
+
 test("verified App owner advances a single monotonic semantic generation and invalidates consumers on disposal", () => {
   const live = createLiveVerifiedApplicationSemantics({
     baseApplications: listFirstPartyApps(),

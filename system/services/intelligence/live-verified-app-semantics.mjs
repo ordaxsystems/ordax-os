@@ -141,6 +141,12 @@ export function createLiveVerifiedApplicationSemantics({
       if (!Array.isArray(next) || next.length > 32) {
         throw new TypeError("Live semantics update exceeds verified bounds");
       }
+      // Skipping CURRENT attestation is only valid to WITHDRAW a generation
+      // after the Store becomes unavailable or during an explicit removal.
+      // Publishing even one new Aura manifest or action requires CURRENT.
+      if (!attestCurrent && next.length !== 0) {
+        throw new TypeError("Nonempty semantic publication requires CURRENT attestation");
+      }
       const candidate = compile(next);
       if (attestCurrent) {
         // Attest all signed app origins against one atomic Store CURRENT read.
