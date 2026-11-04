@@ -20,6 +20,19 @@ novamente missões antigas nem elaborar outro plano.**
 | Gateway Conta/Owner | [OS #2405](https://github.com/ordaxsystems/ordax-os/pull/2405) **OPEN**, release público Supabase/Vercel/Worker intencionalmente bloqueado | **Não** integrar para destravar MCP DEV nem ativar flags/deploys sem gates de release |
 | Aura ↔ Product MCP | Aura usa `live-verified-app-semantics.mjs` + Store `CURRENT`; Runtime `intelligence.app_catalog/detail` lê registro empacotado uma vez no boot, sem prova de instalação viva | **Próxima implementação útil:** na integração Native Product existente, disponibilizar leitura autenticada de apps/ações atuais **atestadas pelo OS/Store**; Runtime deve consumir sem copiar inventário. Provar instalação → troca/remoção → retirada da capacidade sem restart. Só depois vincular uma Action real ao mesmo executor com autorização/recibos distintos |
 
+**Propagação desta orientação nos demais repositórios (04/11/2026):**
+`ordax-platform/AGENTS.md` + `README.md` integrados em
+[`8a8eea2`](https://github.com/ordaxsystems/ordax-platform/commit/8a8eea2971492147b28f8c94c247e4d05fb5f282);
+`ordax-surface` via
+[PR #82](https://github.com/ordaxsystems/ordax-surface/pull/82) integrada.
+As alterações documentais [`ordax-apps#455`](https://github.com/ordaxsystems/ordax-apps/pull/455)
+e [`ordax-runtime#317`](https://github.com/ordaxsystems/ordax-runtime/pull/317)
+estavam **abertas com CI em fila** na última checagem.
+O próximo chat deve **verificar os checks e integrar as mesmas PRs,
+caso estejam verdes**, sem abrir outras branches/PRs para repetir
+este handoff. Após integrar, considerar a documentação propagada;
+não reabrir a arquitetura ou a missão DEV por isso.
+
 **Owners imutáveis:** `ordax-os`: Store `CURRENT`, verificador Go,
 Native Host, Fabric/Personal/Aura; `ordax-apps`: provider e
 manifests de apps removíveis; `ordax-runtime`: Product gateway,
