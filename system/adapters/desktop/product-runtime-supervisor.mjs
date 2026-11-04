@@ -327,9 +327,28 @@ export function createDesktopProductRuntimeSupervisor({
       const ended=stopActive();
       return current=snapshot(ended?"blocked":"stopping","identity_or_release_changed",true);
     }
-    // Never reuse a process across unsigned DEV and signed release authority.
+    // Validate the current Native grant before reusing an owned Runtime.
+    // Revocation or replacement of a per-launch bridge must retire the old
+    // process tree; an unchanged Device ID/source commit is not authorization.
+    let bridge=null;
+    if(nativeBridge!==null){
+      try{bridge=nativeBridge()}catch{}
+      const valid=bridge && typeof bridge.url==="string" &&
+        /^http:\/\/127\.0\.0\.1:(?:[1-9][0-9]{0,4})\/__ordax\/native\/desktop-surface-state$/.test(bridge.url) &&
+        Number(new URL(bridge.url).port)<=65535 &&
+        typeof bridge.token==="string" && /^[a-f0-9]{64}$/.test(bridge.token);
+      if(!valid){
+        const ended=stopActive();
+        return current=snapshot(ended?"blocked":"stopping","native_surface_bridge_unavailable",true);
+      }
+    }
+    // Bound reuse to the *current* credential and bridge grant, never only
+    // the device identifier or executable path. Digest prevents key leakage.
+    const bridgeBinding=bridge===null?"none":createHash("sha256")
+      .update(bridge.url+"\\0"+bridge.token).digest("hex");
     const key=(plan.dev?"dev:":"signed:")+plan.executable+":"+
-      plan.sourceCommit+":"+prepared.identity.deviceId;
+      plan.sourceCommit+":"+prepared.identity.deviceId+":"+
+      prepared.identity.tokenFingerprint+":"+bridgeBinding;
     if(active?.key===key&&!active.stopRequested&&active.child.exitCode===null&&active.child.signalCode===null)
       return current=snapshot("running",plan.dev?"dev_remote_attestation_pending":"remote_attestation_pending",true);
     if(!stopActive()){
@@ -350,16 +369,9 @@ export function createDesktopProductRuntimeSupervisor({
       ORDAX_PRODUCT_MCP_URL:prepared.identity.transport,
       PYTHONNOUSERSITE:"1",
     });
-    if(nativeBridge!==null){
+    if(bridge!==null){
       // The trusted Native host supplies the per-launch loopback channel.
       // No bridge means no OS status action; never fall back to Windows APIs.
-      let bridge=null;
-      try{bridge=nativeBridge()}catch{}
-      const valid=bridge && typeof bridge.url==="string" &&
-        /^http:\/\/127\.0\.0\.1:(?:[1-9][0-9]{0,4})\/__ordax\/native\/desktop-surface-state$/.test(bridge.url) &&
-        Number(new URL(bridge.url).port)<=65535 &&
-        typeof bridge.token==="string" && /^[a-f0-9]{64}$/.test(bridge.token);
-      if(!valid)return current=snapshot("blocked","native_surface_bridge_unavailable",true);
       childEnv.ORDAX_DESKTOP_SURFACE_BRIDGE_URL=bridge.url;
       childEnv.ORDAX_DESKTOP_SURFACE_BRIDGE_TOKEN=bridge.token;
     }
