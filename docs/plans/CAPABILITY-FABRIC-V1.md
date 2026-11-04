@@ -1267,6 +1267,20 @@ Autoridades existentes a preservar:
   A PR #2400 ainda estava aberta; essa prova não autoriza merge em `main`
   nem atesta prontidão ou execução remota MCP.
 
+### C.31. Gate de CI do Fabric sem workflow duplicado (2026-11-03)
+
+- O workflow `application-action-capability-foundation.yml` existente
+  passa a monitorar os contratos, os provedores Native e cinco suítes
+  específicas do Capability Fabric em PR e `main`.
+- Os filtros de arquivos passam a compartilhar uma única lista YAML
+  por anchor/alias, sem duplicar os caminhos; o job usa Node 24 fixado
+  por SHA oficial já presente em outros workflows do projeto.
+- No Windows, os nove módulos/testes adicionais passaram em `node --check`
+  e as cinco suítes novas aprovaram **85/85 testes**. Este resultado é
+  local; o gate remoto GitHub Actions segue pendente até haver PR válida.
+- O workflow é leve (Node/testes) e não cria build USB/Buildroot.
+  A integração na `main` ainda respeita o owner MCP Native, CI e trust.
+
 ### D. Integração futura com o Runtime MCP canônico — fronteira auditada
 
 - **Contrato efetivo verificado (2026-11-03):**
