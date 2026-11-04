@@ -1,3 +1,41 @@
+**Native Product Windows packaging/Device checkpoint — 2026-11-04:**
+OS [#2400](https://github.com/ordaxsystems/ordax-os/pull/2400), HEAD
+`6785563d0267062dcb3b7b9badad37568347c02d`, now requires
+`product-runtime-supervisor.mjs`, `surface-runtime-bridge.mjs`,
+`desktop-product-runtime-status.mjs`, and
+`desktop-surface-state-report.mjs` in the **actually installed NSIS**.
+The exact-head [Windows Desktop Dev run #41908633198](https://github.com/ordaxsystems/ordax-os/actions/runs/41908633198)
+completed **SUCCESS** including the isolated NSIS install/upgrade smoke.
+Foundation, Web, Source-Consumer and other impact checks passed or were
+legitimately skipped. The **only failed check** remains Creator
+`build-and-publish`, run #41908633215, at
+`Build and verify one canonical offline Surface runtime` (legacy
+Alpine/APK lock `libexpat`). Migration owner #2243 remains draft and
+merge-conflicted; do not retry heavy jobs, change the lone APK pin or
+waive the mandatory Creator gate to merge #2400.
+
+Fresh read-only Windows inspection of `DESKTOP-4UFL03B` still shows
+the *operationally installed* Desktop has the prior Supervisor but not
+the other three modules. Its `native-state/product-runtime`,
+`agent-settings.json`, token file, and verified unsigned DEV
+`product-runtime-dev/ordax-product-agent.exe` are absent. Direct
+OrdaX MCP `ordax_targets` confirms independent `DESKTOP-4UFL03B`
+online with its own full-computer-control grant; `OrdaX Desktop
+(DESKTOP-4UFL03B)` remains **offline/discovery-only**, last heartbeat
+2026-11-04T07:59:32Z. The tested **CI** NSIS is not the older
+**installed** NSIS; neither implies a Product Device heartbeat,
+`capability_digest`, grant, `mcpReady` or shared Aura execution.
+
+Next owner action: finish the existing #2243 Buildroot/Creator cutover
+and gates; reconcile #2400 once with contemporaneous main, pass required
+checks, merge and deploy only its source-bound canonical NSIS.
+Then verify separate Product identity, verified Runtime payload, explicit
+DEV opt-in or signed trust gate, remote attestation and an innocuous
+Product-targeted action with receipt/revocation before Store `CURRENT`
+or Aura execution claims. Preserve existing auxiliary MCP, other
+engineers' uncommitted Windows checkout, credentials and grants.
+Evidence: [PR #2400 comment](https://github.com/ordaxsystems/ordax-os/pull/2400#issuecomment-6641566876).
+
 **Physical Product Desktop readiness / Creator impact — 2026-11-04:**
 On `DESKTOP-4UFL03B`, a read-only examination of the installed
 `OrdaX OS Desktop Dev/resources/runtime-template` found
