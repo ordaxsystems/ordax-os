@@ -618,3 +618,89 @@ test("failed native Windows tree termination falls back only to owned Runtime ch
   assert.equal(treeCalls,1);
   assert.deepEqual(proc.kills,["SIGTERM"]);
 });
+
+test("rotating a Device credential retires the old Product tree before reuse",async t=>{
+  const f=fixture(t,{approved:false});
+  stagePinnedDesktopDevCandidate(f);
+  const processes=[];
+  const stopped=[];
+  const sup=createDesktopProductRuntimeSupervisor({
+    systemRoot:f.systemRoot,userData:f.userData,platform:"win32",
+    developmentCandidate:true,
+    spawnImpl:()=>{const p=child();p.pid=4100+processes.length;processes.push(p);return p},
+    stopTreeImpl:pid=>{stopped.push(pid);return true},
+  });
+  assert.equal((await sup.reconcile()).state,"running");
+  writeFileSync(join(f.state,"device-token.cloudflare-v3.txt"),"d".repeat(64));
+  const changing=await sup.reconcile();
+  assert.equal(changing.state,"stopping");
+  assert.equal(changing.mcpReady,false);
+  assert.deepEqual(stopped,[4100]);
+  assert.equal(processes.length,1,"old Product must leave before new spawn");
+  processes[0].exitCode=0;
+  processes[0].emit("exit",0);
+  assert.equal((await sup.reconcile()).state,"running");
+  assert.equal(processes.length,2);
+  sup.stop();
+});
+
+test("rotated Native bridge grant forces a new scoped Product process",async t=>{
+  const f=fixture(t,{approved:false});
+  stagePinnedDesktopDevCandidate(f);
+  let bridge={url:"http://127.0.0.1:45678/__ordax/native/desktop-surface-state",
+    token:"c".repeat(64)};
+  const processes=[],launched=[],stopped=[];
+  const sup=createDesktopProductRuntimeSupervisor({
+    systemRoot:f.systemRoot,userData:f.userData,platform:"win32",
+    developmentCandidate:true,nativeBridge:()=>bridge,
+    spawnImpl:(_exe,_args,opts)=>{
+      const p=child();p.pid=4200+processes.length;
+      processes.push(p);launched.push(opts.env);return p;
+    },
+    stopTreeImpl:pid=>{stopped.push(pid);return true},
+  });
+  assert.equal((await sup.reconcile()).state,"running");
+  assert.equal((await sup.reconcile()).state,"running");
+  assert.equal(processes.length,1,"unchanged grant must not trigger restart");
+  bridge={...bridge,token:"d".repeat(64)};
+  assert.equal((await sup.reconcile()).state,"stopping");
+  assert.deepEqual(stopped,[4200]);
+  processes[0].exitCode=0;
+  processes[0].emit("exit",0);
+  assert.equal((await sup.reconcile()).state,"running");
+  assert.equal(processes.length,2);
+  assert.equal(launched[0].ORDAX_DESKTOP_SURFACE_BRIDGE_TOKEN,"c".repeat(64));
+  assert.equal(launched[1].ORDAX_DESKTOP_SURFACE_BRIDGE_TOKEN,"d".repeat(64));
+  sup.stop();
+});
+
+test("lost or malformed bridge grant revokes an already running Product",async t=>{
+  const f=fixture(t,{approved:false});
+  stagePinnedDesktopDevCandidate(f);
+  let bridge={url:"http://127.0.0.1:45678/__ordax/native/desktop-surface-state",
+    token:"c".repeat(64)};
+  const proc=child();
+  const stopped=[];
+  let launches=0;
+  const sup=createDesktopProductRuntimeSupervisor({
+    systemRoot:f.systemRoot,userData:f.userData,platform:"win32",
+    developmentCandidate:true,nativeBridge:()=>bridge,
+    spawnImpl:()=>{launches++;return proc},
+    stopTreeImpl:pid=>{stopped.push(pid);return true},
+  });
+  assert.equal((await sup.reconcile()).state,"running");
+  bridge=null;
+  const revoked=await sup.reconcile();
+  assert.equal(revoked.state,"stopping");
+  assert.equal(revoked.reason,"native_surface_bridge_unavailable");
+  assert.equal(revoked.mcpReady,false);
+  assert.deepEqual(stopped,[proc.pid]);
+  assert.equal(launches,1);
+  proc.exitCode=0;
+  proc.emit("exit",0);
+  const blocked=await sup.reconcile();
+  assert.equal(blocked.state,"blocked");
+  assert.equal(blocked.reason,"native_surface_bridge_unavailable");
+  assert.equal(launches,1);
+  sup.stop();
+});
