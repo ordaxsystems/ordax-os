@@ -8,6 +8,7 @@ NATIVE = ROOT / "system/composition/native/main.mjs"
 
 SYSTEM_UI = ROOT / "system/surface/ui/system-overview-controls.mjs"
 CLIENT_ACTIONS = ROOT / "system/services/intelligence/client-actions.mjs"
+LIVE_VERIFIED_APP_SEMANTICS = ROOT / "system/services/intelligence/live-verified-app-semantics.mjs"
 
 
 class IntelligenceProductConsumerTests(unittest.TestCase):
@@ -33,15 +34,28 @@ class IntelligenceProductConsumerTests(unittest.TestCase):
         self.assertIn("intelligence,", text)
         self.assertIn("createNativeVerifiedComponentPackageSource", text)
         self.assertIn("loadVerifiedFirstPartyApplicationSemantics", text)
-        self.assertIn("createApplicationIntelligenceAwareness", text)
+        # Composition now has exactly ONE live verified semantic owner.
+        # Awareness, Actions and routing are built behind its stable ports;
+        # asserting the retired boot-time flatMap in Native would require
+        # restoring a second stale registry rather than checking the contract.
+        live = LIVE_VERIFIED_APP_SEMANTICS.read_text(encoding="utf-8")
+        self.assertEqual(text.count("const liveAppSemantics = createLiveVerifiedApplicationSemantics({"), 1)
+        self.assertIn("const appAwareness = liveAppSemantics.awarenessPort;", text)
+        self.assertIn("const appActionCapabilities = liveAppSemantics.actionRegistryPort;", text)
+        self.assertIn("const appSemanticRouter = liveAppSemantics.semanticRouterPort;", text)
+        self.assertNotIn("createApplicationActionCapabilityRegistry({", text)
+        self.assertNotIn("createApplicationSemanticRouter({", text)
         self.assertIn("createApplicationContextIntelligence", text)
-        self.assertIn("createApplicationActionCapabilityRegistry", text)
-        self.assertIn("const verifiedActionCapabilities = verifiedAppSemantics.flatMap(", text)
-        self.assertIn("(entry) => entry.actionManifest?.capabilities ?? []", text)
         self.assertIn("actionCapabilityRegistryPort: appActionCapabilities", text)
         self.assertIn("listBundledFirstPartyIntelligenceManifests", text)
-        self.assertIn("createApplicationSemanticRouter", text)
         self.assertIn("semanticRouterPort: appSemanticRouter", text)
+        self.assertIn("const gate = createCurrentVerifiedActionGate({", live)
+        self.assertIn("const awareness = createApplicationIntelligenceAwareness({", live)
+        self.assertIn("const actions = createApplicationActionCapabilityRegistry({", live)
+        self.assertIn("verifiedSemantics.flatMap(entry =>", live)
+        self.assertIn("entry.actionManifest?.capabilities ?? []", live)
+        self.assertIn("const router = createApplicationSemanticRouter({", live)
+        self.assertIn("isCurrentBatch: gate.isCurrentBatch", live)
         self.assertIn("const verifiedAppSemanticsPromise = optionalNativeProbe(", text)
         self.assertIn("const appAwareIntelligence = createApplicationContextIntelligence({", text)
         self.assertIn("intelligencePort: appAwareIntelligence", text)

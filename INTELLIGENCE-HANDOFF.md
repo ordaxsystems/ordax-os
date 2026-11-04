@@ -2,6 +2,184 @@
 
 > **Guia de retomada, não nova autoridade de código.** Este arquivo existe para que outros chats/agents entendam o trabalho e prossigam sem reiniciar, duplicar sistemas ou interpretar testes simulados como release. Revalidar a `main` e as PRs antes de implementar. Em divergência prevalecem código + contratos públicos, `docs/CURRENT-STATE.md`, `docs/README.md`, `MVP.md` e os documentos canônicos de domínio.
 
+## Checkpoint operacional e regra de retomada — 2026-11-04
+
+**Este é o ponto de entrada vigente para futuros chats nesta frente.**
+Reconsultar `main`, PRs e Devices antes de agir; conteúdo datado
+abaixo é histórico quando divergir do código/contrato atual.
+**“Continue” significa avançar a pendência comprovada, não executar
+novamente missões antigas nem elaborar outro plano.**
+
+| Frente | Situação comprovada | Ação correta do próximo executor |
+| --- | --- | --- |
+| Windows físico MCP DEV | [Platform #291](https://github.com/ordaxsystems/ordax-platform/issues/291) **CLOSED** (04/11); ChatGPT → Runtime Windows físico com comandos e recibos de execução; cinco devices DEV obsoletos/credenciais revogados; dois devices atuais preservados. Platform #336 integrada. | **Não** repetir matrícula, limpeza, revogação, instalação ou grants por rotina. Só investigar regressão atual demonstrada |
+| Fabric v1 | [OS #2406](https://github.com/ordaxsystems/ordax-os/pull/2406) **merged**; descobre estado Native/ações de app/Aura-Context sem autoridade de execução | Não reconstruir Fabric v1, segundo registry ou duplicar testes/planos |
+| Apps first-party | `ordax-apps/main` usa manifests, App SDK, `compatibility` e Actions declarativas; guias das PRs #450/#451/#452 integrados | Evoluir um provider real somente se solicitado, sem exigir 93 tools por app |
+| Product Runtime | `ordax-runtime/product_gateway.py` é owner de Product Actions; `capability_snapshot.py` filtra suporte real e limita snapshot a 64; registro `app_intelligence_registry.json` é empacotado/estático, não Store atual | Medir Device real; nunca anunciar 93 tools só pela contagem de código |
+| OrdaX Desktop Native | [OS #2400](https://github.com/ordaxsystems/ordax-os/pull/2400) **OPEN** e com conflitos na checagem; ponte candidata mostra `activeAppId` e ativa apenas Native apps específicos, **não** expõe apps instalados `CURRENT` | Preservar/reconciliar a PR existente com seu engenheiro; não abrir outra ponte, forçar merge ou declarar MCP Native homologado |
+| Gateway Conta/Owner | [OS #2405](https://github.com/ordaxsystems/ordax-os/pull/2405) **OPEN**, release público Supabase/Vercel/Worker intencionalmente bloqueado | **Não** integrar para destravar MCP DEV nem ativar flags/deploys sem gates de release |
+| Aura ↔ Product MCP | Aura usa `live-verified-app-semantics.mjs` + Store `CURRENT`; Runtime `intelligence.app_catalog/detail` lê registro empacotado uma vez no boot, sem prova de instalação viva | **Próxima implementação útil:** na integração Native Product existente, disponibilizar leitura autenticada de apps/ações atuais **atestadas pelo OS/Store**; Runtime deve consumir sem copiar inventário. Provar instalação → troca/remoção → retirada da capacidade sem restart. Só depois vincular uma Action real ao mesmo executor com autorização/recibos distintos |
+
+**Propagação desta orientação nos demais repositórios (04/11/2026):**
+`ordax-platform/AGENTS.md` + `README.md` integrados em
+[`8a8eea2`](https://github.com/ordaxsystems/ordax-platform/commit/8a8eea2971492147b28f8c94c247e4d05fb5f282);
+`ordax-surface` via
+[PR #82](https://github.com/ordaxsystems/ordax-surface/pull/82) integrada.
+A [`ordax-apps#455`](https://github.com/ordaxsystems/ordax-apps/pull/455)
+foi **integrada** após checks verdes (merge `b9e729a1f734af78da8496aa0737b069f05357ea`).
+A [`ordax-runtime#317`](https://github.com/ordaxsystems/ordax-runtime/pull/317)
+também foi **integrada** após checks obrigatórios verdes
+(merge `85c848130a32c722ee6c3a6f6fec596e7646952c`),
+preservando a correção de prontidão MCP
+[`#319`](https://github.com/ordaxsystems/ordax-runtime/pull/319).
+**Propagação dos handoffs concluída nos cinco repos envolvidos**:
+OS, Apps, Runtime, Platform e Surface. **Não abrir nova PR para
+propagar essas mesmas instruções, nem reiniciar Windows MCP DEV**.
+A próxima missão operacional é outra: concluir a ponte Native Product
+**existente** OS #2400, ainda aberta na última consulta, e depois
+provar observação autenticada Store `CURRENT`/Aura/Runtime;
+Owner/Conta OS #2405 permanece release-gated.
+
+**Owners imutáveis:** `ordax-os`: Store `CURRENT`, verificador Go,
+Native Host, Fabric/Personal/Aura; `ordax-apps`: provider e
+manifests de apps removíveis; `ordax-runtime`: Product gateway,
+Device agent/adapters e recibo local; `ordax-platform`: OAuth,
+Owner, grants/leases e dispatch remoto; `ordax-surface`: somente UI
+e apresentações. **Não** implantar API, ferramenta ou arquivo
+`fabric.json` de SSOT paralelo.
+
+**Aceite proporcional:** resposta de app instalado depende de
+Device/slot/verificação atual; remoção ou falha da Store revoga imediatamente
+a visão Product e Aura. Provar token inválido, Device incorreto,
+revision/sourceCommit diferente, host indisponível e nenhum
+`installed=true` derivado de `activeAppId` visual. Execução
+Aura/MCP só pode ser chamada de compartilhada depois de **uma
+operação real com um executor**, consentimento local e grant OAuth
+separados e recibos/revogação. Nem código de documentação nem CI
+isolado demonstram isso.
+
+**Ordem de leitura mínima:** `AGENTS.md` → este checkpoint →
+[`docs/CAPABILITY-FABRIC.md`](docs/CAPABILITY-FABRIC.md)
+(seção “Ponte Native Product” e “Atestação entre processos”) →
+os **arquivos source afetados**, conferindo a `main` e PR
+correntes. Se a tarefa for fora de Fabric/MCP/Aura, ignorar este
+handoff e seguir somente o owner daquela tarefa.
+
+
+
+O Capability Fabric v1 foi integrado à `ordax-os/main` pela
+[PR #2406](https://github.com/ordaxsystems/ordax-os/pull/2406). A referência
+para **o que já existe, como funciona, o que falta, owners e testes que
+realmente estão no remoto** é [`docs/CAPABILITY-FABRIC.md`](docs/CAPABILITY-FABRIC.md),
+com status datado em `docs/CURRENT-STATE.md`. O extenso
+`docs/plans/CAPABILITY-FABRIC-V1.md` é **histórico**, não uma nova fila.
+
+**Não reiniciar a fase A/B/C:** Native Surface Host, Store `CURRENT`,
+Application Actions, Aura e Personal compartilham a projeção de leitura
+`ordax.capability-discovery/1` e os guards de revisão/revogação.
+`authority=none` e `toolExecution=false` não dão execução MCP.
+O proprietário de tools, Device Agent e política local é `ordax-runtime`;
+OAuth, grants, leases, Owner e atestação pertencem a `ordax-platform`.
+O OS #2400 (ponte Native Product) e OS #2405 (gateway Conta/Owner)
+permaneciam abertos na consulta de 04/11. UI real pertence a
+`ordax-surface`; não criar outro Fabric, daemon ou registry.
+
+**Prioridade de leitura da próxima IA:** `docs/README.md` →
+`docs/CURRENT-STATE.md` → `docs/CAPABILITY-FABRIC.md` →
+código/contratos pertinentes → histórico somente se necessário.
+A seguir permanece um **handoff de 13/10** de outras etapas de Intelligence;
+suas instruções sobre PRs antigas não são tarefas vigentes por si só.
+
+## SSOT Aura / MCP — retomada pós-Fabric (2026-11-04)
+
+**Não equiparar descoberta a execução.** O Product gateway do
+`ordax-runtime` possui **93 Product Actions declaradas no código**,
+mas o snapshot `ordax.device-agent-capabilities/1` filtra por
+suporte real do Device e impõe limite de 64. Não interpretar os 93 IDs
+como tools remotamente atestadas. A Aura local consome metadados
+do Capability Fabric e Application Actions; seu motor ainda tem
+`toolExecution=false` e **não executa as mesmas tools Product**.
+
+O desenho correto é **SSOT por owner e uma visão comum derivada**,
+com uma implementação canônica por ação de domínio, binding tipado
+e autorizado para cada cliente (Aura local ou MCP remoto). Consultar a
+seção **“SSOT entre Aura, apps e MCP”** em
+[`docs/CAPABILITY-FABRIC.md`](docs/CAPABILITY-FABRIC.md)
+antes de mudar ações, ferramentas, permissões ou API. A ponte
+semântica ↔ executável e E2E autenticado são pendências reais,
+não defeitos de catálogo a contornar com outro registry, 93 cópias
+de ferramenta ou execução de texto livre.
+
+## Fila única de integração vertical pós-Fabric — 2026-11-04
+
+A próxima IA deve seguir **somente** a seção
+[`docs/CAPABILITY-FABRIC.md`](docs/CAPABILITY-FABRIC.md), seção **“Integração vertical Aura ⇄ Product MCP — matriz operacional de implementação”**
+para fechar uma ação ponta a ponta, em vez de gerar outro plano,
+catálogo Product ou test suite. A matriz identifica os 93 IDs globais
+do Runtime versus o limite de 64 no snapshot Device, o significado de
+`toolExecution=false` na Aura, os owners, PRs já existentes e as
+provas obrigatórias de grant/recibo/revogação. **Não interpretar essa
+matriz como execução já implantada.** As notas de 13/10 abaixo são
+históricas e só se aplicam quando o owner/contrato atual as confirmar.
+
+## Correção de dependências reais — 2026-11-04
+
+**Verificado no source:**
+`ordax-runtime/ordax_dev_agent/application_intelligence_actions.py`
+lê um registro de apps **empacotado na inicialização**.
+`intelligence.app_catalog`/`intelligence.app_detail` não fornecem
+atualmente a mesma observação de instalação/remoção que o OS obtém
+de `live-verified-app-semantics.mjs` + Store `CURRENT`.
+Para uso como estado vivo Product, a próxima integração deve consumir
+o port atestado do OS, read-only, sem criar outro catálogo nem
+converter manifests em tools. Ver seção **“Lacuna de SSOT comprovada”**
+em [`docs/CAPABILITY-FABRIC.md`](docs/CAPABILITY-FABRIC.md).
+
+**Ordem corrigida:** a [OS #2400](https://github.com/ordaxsystems/ordax-os/pull/2400)
+é a ponte Native Product existente; a [OS #2405](https://github.com/ordaxsystems/ordax-os/pull/2405)
+é uma PR de Conta/Owner com risco de deploy e **não deve ser integrada
+para desbloquear MCP DEV**. A seleção/limpeza DEV de Device está
+coordenada na [Platform #291](https://github.com/ordaxsystems/ordax-platform/issues/291).
+Evitar nova PR de ponte antes de reconciliar essas entregas.
+
+## Ponte Surface não é catálogo de apps — auditoria 2026-11-04
+
+O código da candidata [OS #2400](https://github.com/ordaxsystems/ordax-os/pull/2400)
+só expõe `activeAppId` e `surfaceReady` no relato da Surface,
+com ativação limitada a `account/settings/system/store` e recibo de
+renderização. **Não** fornece inventário de apps instalados ou a
+geração de Application Actions do Native Store `CURRENT`.
+O relato tem limite de **512 bytes** e não deve receber manifests
+nem ser reaproveitado como registry. A PR ainda não estava integrada
+e apresentou conflito de merge com a `main` na revisão.
+
+Para reconciliar Aura e MCP, utilizar a fonte Native existente
+`storeCatalogComposition.getCurrentObservations()` +
+`liveAppSemantics.withCurrentSnapshot()`, validando identidade,
+versão, revisão de Store e `sourceCommit` pelo gate
+`current-verified-action-gate.mjs`. O futuro **port de leitura**
+precisa de implementação e teste autenticado próprio no mesmo Host,
+sem inventar segunda Store, grant ou executor. **Não assumir que
+o endpoint já existe.** Especificação/aceite no
+[`docs/CAPABILITY-FABRIC.md`](docs/CAPABILITY-FABRIC.md),
+subseção **“Ponte Native Product existente”**.
+
+## Limite de confiança do Product — 2026-11-04
+
+Além do estado da PR #2400, a fonte `CURRENT` é conferida
+pelo Host Windows via
+`verified-component-slot-host.mjs`/`resolve-current` do
+verificador Go. A Surface mantém uma projeção transitória
+(`verified-store-projection.mjs`); o Runtime não deve aceitar
+o `activeAppId` do renderer nem seu token de apresentação
+como prova de instalação ou autorização. O futuro port Product
+read-only precisa revalidar a identidade do Device, a Store
+`CURRENT` e o provider semântico no owner do Host, sem base
+duplicada, mesmo quando o app é removido durante um refresh.
+Ver **“Atestação entre processos”** no
+[`docs/CAPABILITY-FABRIC.md`](docs/CAPABILITY-FABRIC.md).
+Esta é **especificação de integração futura**, não endpoint ativo.
+
 ## Atualização operacional — 2026-10-13
 
 A integração Native de Intelligence já ultrapassou o antigo estado de “runtime isolado”: `ordax.intelligence/1`, Local AI, model router, Memory autorizada, Assistant/Canvas e consumidores first-party possuem composição real em source. O gap transversal prioritário agora é **transporte/composição Web e integrações externas**, sem transformar a Surface em owner de provider.
@@ -16,7 +194,7 @@ A execução corrente está em:
 
 O antigo caminho WebShell/demo de Intelligence não é a composição Web atual e não deve ser ressuscitado para “fazer a IA funcionar”. Ele só pode ser removido depois que busca de dependências + cobertura de replacement comprovarem que nenhum consumidor ativo depende dele.
 
-## Tarefa de implementação ativa — próxima continuidade
+## Histórico de 13/10 — não executar como tarefa ativa sem reconciliação
 
 1. Fechar **Phase 1 da #1756** com Intelligence Foundation, App SDK, Surface Web e demais CI canônicos verdes, sem relaxar gates.
 2. Só depois iniciar **Phase 2 de #1757**: um adapter de transporte Web/remoto suportado, same-origin/owner-bound, fora da Surface, com contexto explícito e fail-closed.

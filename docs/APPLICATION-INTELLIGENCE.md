@@ -1,6 +1,16 @@
 # Application Intelligence
 
-Status: **FOUNDATION / AWARENESS ONLY**
+Status: **FOUNDATION / AWARENESS ONLY** — histórico de escopo; não descreve sozinho a integração atual.
+
+**Atualização 2026-11-04:** o Capability Fabric v1, Store `CURRENT`,
+Awareness, roteador semântico, contexto da Aura e filtros de Application
+Actions já estão integrados à `ordax-os/main` (PR #2406). Esta
+integração é **leitura/descoberta** com `authority=none` e
+`toolExecution=false`, não um App Action Broker executável. Fluxo
+atual, owners, gates e diferenças de Product MCP:
+[docs/CAPABILITY-FABRIC.md](CAPABILITY-FABRIC.md).
+O diagrama-alvo abaixo descreve o caminho futuro de **efeito em apps**,
+não ausência da descoberta semântica já implementada.
 
 OrdaX should let Intelligence understand applications without giving the model direct operating-system authority.
 

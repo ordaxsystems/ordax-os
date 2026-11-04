@@ -44,10 +44,15 @@ class SettingsDeepLocalizationTests(unittest.TestCase):
             '"settings.network.action.forget"',
             "networkManagementActionMessageId",
             "networkManagementFailureMessageId",
-            "formatReceivedAt(networkLastSuccessAt, localization.getLocale())",
-            "formatReceivedAt(networkManagementLastSuccessAt, localization.getLocale())",
+
         ):
             self.assertIn(marker, controls)
+        # Both observation paths must respect the locale and regional timezone.
+        for timestamp in ("networkLastSuccessAt", "networkManagementLastSuccessAt"):
+            self.assertRegex(
+                controls,
+                rf"formatReceivedAt\(\s*{timestamp},\s*localization\.getLocale\(\),\s*resolveRegionalTimeZone\(preferenceSnapshot\)\s*\)",
+            )
         for hardcoded in (
             '"Rede e conexões"',
             '"Procurar redes"',

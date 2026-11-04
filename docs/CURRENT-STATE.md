@@ -1,3 +1,89 @@
+**Cross-repository Fabric/Aura/MCP handoff propagation — closed (2026-11-04):**
+The five relevant repositories now have native documented entrypoints
+in their respective `main` branches. Apps [#455](https://github.com/ordaxsystems/ordax-apps/pull/455)
+merged as `b9e729a1f734af78da8496aa0737b069f05357ea`;
+Runtime [#317](https://github.com/ordaxsystems/ordax-runtime/pull/317)
+merged as `85c848130a32c722ee6c3a6f6fec596e7646952c`,
+after reconciling the upstream readiness fix #319 and passing the
+required checks. Platform handoff `8a8eea2971492147b28f8c94c247e4d05fb5f282`;
+Surface #82 merged; OS `AGENTS.md` and `INTELLIGENCE-HANDOFF.md`
+route future agents to the same canonical implementation matrix.
+**This is only documentation propagation. Do not re-run the closed
+Platform #291 Windows MCP DEV setup; do not build another bridge, tool
+catalog or OAuth/Store owner.** OS #2400 (Native Product) and #2405
+(Owner Account, release-gated) were still open at this checkpoint.
+Real Aura ↔ Product installed-app discovery and shared-action E2E remain
+unimplemented; next action is the existing OS #2400 owner's verified
+integration, then authenticated `CURRENT` projection. Recheck source
+and PR state before any write.
+
+**Continuation checkpoint — 2026-11-04 (cross-repo source + Platform issue verified):**
+Platform [#291](https://github.com/ordaxsystems/ordax-platform/issues/291)
+is **CLOSED** with physical Windows MCP actions and receipts, two current
+DEV devices retained and five obsolete DEV devices/credentials revoked,
+backed by Platform #336. Do **NOT** repeat the old Windows MCP onboarding,
+device cleanup or grant setup as an active task. This does NOT certify
+Aura ↔ Product semantic action execution or the OrdaX Desktop Native
+bridge. OS #2400 remains OPEN/merge-conflicted; OS #2405 remains OPEN and
+release gated, not a dependency for DEV. The remaining cross-repo task
+is an authenticated read-only `CURRENT` app view for Runtime via the
+existing OS Native ownership boundary, then a real typed shared-domain
+action proof. Canonical resume in `INTELLIGENCE-HANDOFF.md` and
+`docs/CAPABILITY-FABRIC.md`; use current source for truth.
+
+**Capability Fabric / Aura / Product MCP — CURRENT-STATE (source-verified 2026-11-04):**
+- `ordax-os` Fabric v1 **merged** via PR #2406
+  (`b44659ec8caad2fff8820bcee83201174dc71702`);
+  `ordax.capability-discovery/1`, Aura/Personal Native composition,
+  Store `CURRENT` generation and revocation checks exist. The projection
+  remains `authority=none`, `execution=unavailable` and
+  `toolExecution=false`: semantic awareness is not MCP authority.
+- Prior Windows `DESKTOP-4UFL03B` packaged-source proof at
+  `9f3a7f0abc45774f146971d6b246e6839f10c53b` verified
+  Desktop Native/Surface startup and anonymous session HTTP 401.
+  It **did not** prove UI approval, a signed first-party app installed,
+  Device Product grant, remote execution or end-to-end revocation.
+- `ordax-apps` docs: PR #452 **merged**
+  (`108a6fe37186d72026b047d5f89821360ceba213`) for minimum
+  app manifests, compatibility and the distinction between semantic
+  actions, UI controls and Product MCP tool execution.
+- `ordax-runtime` `product_gateway.py` currently has **93**
+  source-declared Product Action IDs; `capability_snapshot.py`
+  reports **only** locally supported Product Actions up to
+  `MAX_DEVICE_CAPABILITIES=64`. This bound is a **conditional
+  risk**, not evidence that any deployed Device advertises 93 tools.
+  ActionRegistry host filters may reduce support. Verify installed
+  Device snapshot before changing the contract or limits.
+- Runtime `application_intelligence_actions.py` reads
+  `ordax_studio/app_intelligence_registry.json` at initialization.
+  This file is **not versioned in current Runtime source tree**;
+  it may be packaged in an artifact, which requires installed
+  proof. Without it, the catalog reports `available=false`.
+  When supplied, it describes packaged semantics, **not** the live
+  `CURRENT` installed-app truth owned by OS
+  `live-verified-app-semantics.mjs`. No live authenticated
+  OS→Runtime app inventory reconciliation E2E has been proved.
+- OS #2400 **open**: Native Product Desktop bridge, not yet
+  remotely homologated. OS #2405 **open**: Owner Account gateway,
+  intentionally **not** a DEV MCP prerequisite because of
+  Supabase/Vercel release dependencies. DEV Device cleanup/authorization was completed in closed Platform issue #291;
+  only current regressions justify new Device work. Do not merge #2405, activate
+  Cloudflare/Account or fabricate grants to unlock DEV.
+- **Remaining acceptance:** same Device/app/slot/revision observed
+  live by Aura and authenticated Product; one real typed action and
+  receipt per client through the **same domain executor**, independent
+  authorizations, then revoked grant/provider/Device E2E. No second
+  registry, MCP server per app or model-issued grant. Historical
+  `tests/test_capability_fabric_mcp_authority_boundary.mjs` cited
+  by the plan is **not committed** to OS main. Tests of source,
+  Windows Node/HTTP File Space (8/8) and prior CI do not close
+  remote/UI gates.
+- **Read next:** `docs/CAPABILITY-FABRIC.md` (single SSOT owner
+  matrix, exact code paths, implementation order, negative gates);
+  `INTELLIGENCE-HANDOFF.md` (resume), and GitHub PRs/Device state
+  freshly verified. This is a documentation checkpoint, not a
+  runtime, permission or release change.
+
 Priority / delivery autonomy (2026-10-31):
 The active Windows Desktop release track has priority over Linux USB/Creator
 and Buildroot. Complete real installed Desktop and its essential Account,

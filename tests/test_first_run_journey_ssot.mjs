@@ -62,7 +62,8 @@ test("First Run presentation consumes Meridian directly and adapts all canonical
 
 test("optional network work never blocks the first-run journey", async () => {
   const ui = await readFile(new URL("../system/surface/ui/first-run.mjs", import.meta.url), "utf8");
-  assert.match(ui, /const busy = identityPending !== null \|\| identityAvailabilityPending \|\| localSessionPending \|\| deviceNamePending;/);
+  // Identity availability must block only Account, not offline first-use steps.
+  assert.match(ui, /const busy = identityPending !== null \|\| \(step === "account" && identityAvailabilityPending\) \|\| localSessionPending \|\| deviceNamePending;/);
   assert.match(ui, /scan\.disabled = networkPending;/);
   assert.match(ui, /connect\.disabled = networkPending;/);
   assert.match(ui, /validateWifiCredentials\(\{ ssid, password \}\)/);
