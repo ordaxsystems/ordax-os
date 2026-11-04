@@ -2,6 +2,31 @@
 
 > **Guia de retomada, não nova autoridade de código.** Este arquivo existe para que outros chats/agents entendam o trabalho e prossigam sem reiniciar, duplicar sistemas ou interpretar testes simulados como release. Revalidar a `main` e as PRs antes de implementar. Em divergência prevalecem código + contratos públicos, `docs/CURRENT-STATE.md`, `docs/README.md`, `MVP.md` e os documentos canônicos de domínio.
 
+## Retomada atual — Capability Fabric v1 (2026-11-04)
+
+O Capability Fabric v1 foi integrado à `ordax-os/main` pela
+[PR #2406](https://github.com/ordaxsystems/ordax-os/pull/2406). A referência
+para **o que já existe, como funciona, o que falta, owners e testes que
+realmente estão no remoto** é [`docs/CAPABILITY-FABRIC.md`](docs/CAPABILITY-FABRIC.md),
+com status datado em `docs/CURRENT-STATE.md`. O extenso
+`docs/plans/CAPABILITY-FABRIC-V1.md` é **histórico**, não uma nova fila.
+
+**Não reiniciar a fase A/B/C:** Native Surface Host, Store `CURRENT`,
+Application Actions, Aura e Personal compartilham a projeção de leitura
+`ordax.capability-discovery/1` e os guards de revisão/revogação.
+`authority=none` e `toolExecution=false` não dão execução MCP.
+O proprietário de tools, Device Agent e política local é `ordax-runtime`;
+OAuth, grants, leases, Owner e atestação pertencem a `ordax-platform`.
+O OS #2400 (ponte Native Product) e OS #2405 (gateway Conta/Owner)
+permaneciam abertos na consulta de 04/11. UI real pertence a
+`ordax-surface`; não criar outro Fabric, daemon ou registry.
+
+**Prioridade de leitura da próxima IA:** `docs/README.md` →
+`docs/CURRENT-STATE.md` → `docs/CAPABILITY-FABRIC.md` →
+código/contratos pertinentes → histórico somente se necessário.
+A seguir permanece um **handoff de 13/10** de outras etapas de Intelligence;
+suas instruções sobre PRs antigas não são tarefas vigentes por si só.
+
 ## Atualização operacional — 2026-10-13
 
 A integração Native de Intelligence já ultrapassou o antigo estado de “runtime isolado”: `ordax.intelligence/1`, Local AI, model router, Memory autorizada, Assistant/Canvas e consumidores first-party possuem composição real em source. O gap transversal prioritário agora é **transporte/composição Web e integrações externas**, sem transformar a Surface em owner de provider.

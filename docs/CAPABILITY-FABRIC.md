@@ -1,0 +1,88 @@
+# OrdaX Capability Fabric — visão canônica, estado e continuidade
+
+**Estado verificado em 2026-11-04:** **Capability Fabric v1 implementado e integrado ao `ordax-os/main`** pela [PR #2406](https://github.com/ordaxsystems/ordax-os/pull/2406), merge `b44659ec8caad2fff8820bcee83201174dc71702`. A documentação de fechamento entrou na `main` por `354d6d1462a14d0f6e708f9262353762588b1f01`. **Não equivale** a liberação de ferramentas MCP, execução remota, produção, nem E2E de interface humana.
+
+**Natureza deste arquivo:** guia de arquitetura e retomada. Não é outro contrato, catálogo, permission store ou registro de execução. Em conflito, prevalecem o código/contratos e `docs/CURRENT-STATE.md`, segundo `docs/README.md`. O diário detalhado de desenvolvimento está em `docs/plans/CAPABILITY-FABRIC-V1.md` e é **histórico**, não fila de tarefas.
+
+## Resposta em 30 segundos: o que é e para que serve
+
+O Fabric permite que OrdaX OS, Aura e Personal OrdaX **descubram, de uma única projeção derivada**, o que o sistema e os aplicativos realmente declaram, sem duplicar seus inventários. Os consumidores recebem metadados tipados e uma revisão de sessão; a projeção reage à mudança/revogação do provedor. **Descobrir não é ter permissão para executar.**
+
+As fontes de autoridade continuam existentes e distintas:
+
+```text
+System Foundation / Native Surface Host (estado observado)
+                    |
+Native Store: slot CURRENT verificado + proveniência do app
+                    | -> semântica viva / Awareness / roteador / Action Registry
+Personal Action Catalog (ações Native já registradas)
+                    |
+                    v
+createCapabilityDiscovery (projeção derivada, leitura, revisão de sessão)
+                    | -> Aura: contexto descritivo, seleção, sugestão
+                    | -> Personal: descoberta e solicitação de approval vinculada
+                    | -> UI Native (consumidor a homologar fisicamente)
+                    |
+             [NÃO cria tools, grants ou execução]
+```
+
+O caminho de **efeito local autorizado** é outro, já pertencente ao Personal: proposta/solicitação → consentimento humano e validação vigente → Action Gateway → Action Executor tipado → recibo/Activity. A projeção pode iniciar **pedido de aprovação**, nunca executar diretamente.
+
+O caminho do **ChatGPT/MCP remoto** é independente: cliente OAuth → **ordax-platform** (sessão, Owner, seleção do Device, grants, leases, revogação) → **ordax-runtime** (Product gateway, lista de tools suportadas, política local, agente e recibos) → adaptador/serviço OS existente quando houver integração autenticada e comprovada. O Fabric **não** deve ser publicado diretamente como `tools/list` e seu `revision` **não** é `capability_digest` atestado.
+
+## Contrato público v1 — fonte exata no código
+
+- **Definição/validação:** `system/contracts/capability-discovery.mjs`, esquema `ordax.capability-discovery/1`.
+- **Implementação:** `system/services/system-foundation/capability-discovery.mjs`, `createCapabilityDiscovery()`; lê a fonte viva, sem persistir inventário paralelo.
+- **Envelope:** `schema`, `revision` (inteiro, monotônico **na sessão**, não ID global), `revisionScope="session"`, `authority="none"`, `toolExecution=false`, `entries` (máximo 1024).
+- **Entradas possíveis:** `system-state` (`reported-available`/`unavailable`), `application-action` (`declared-only`, ID `app:<appId>:<actionId>`) e `native-action` (`declared-only`, namespace `system:action.*`). **Todas** têm `execution="unavailable"` e `authority="none"`. Parâmetros de ações são schema fechado, não autorização; as Native exigem `confirmation="always"`.
+- **Port de leitura:** `snapshot()`, `get(id)`, `refresh()`, `subscribe(listener,onError)` quando houver Host Native vivo; `isNativeActionRegistered()` revalida a identidade privada do provedor, incluindo o hash do artefato. Uma leitura inválida falha fechada e invalida o fingerprint transitório; não devolve snapshot obsoleto nem promove revisão inválida. Host/Store acionam os **eventos existentes**, sem polling adicional.
+- **Não confundir com:** `docs/contracts/product-capabilities.json` (compatibilidade dos modos do produto), `ordax.device-agent-capabilities/1` do Runtime (somente ações Product realmente suportadas), `application-action-manifest/1`, `personal-action-catalog/1` nem `capability_digest` da Platform. Esses contratos têm finalidades e autoridades diferentes.
+
+## Integração já implementada — onde procurar
+
+| Responsabilidade | Código canônico existente | Estado verificado |
+| --- | --- | --- |
+| Composição da descoberta Native | `system/composition/native/main.mjs`, `createCapabilityDiscovery` | Integrada à `main`; montagem após Surface Host e reconciliação de grants pelas assinaturas já existentes |
+| Filtro de aplicativo instalado atual | `system/services/system-foundation/current-verified-action-gate.mjs` | Compara app, versão, revisão e `sourceCommit` com a observação assinada `CURRENT`; rejeita divergências/duplicações |
+| Semântica dinâmica dos aplicativos | `system/services/intelligence/live-verified-app-semantics.mjs`, `application-awareness.mjs`, `application-semantic-router.mjs`, `application-action-capabilities.mjs` | Consulta Store atual, retira apps obsoletos e impede propostas sem provedor vigente |
+| Contexto e streaming da Aura | `system/services/intelligence/application-context.mjs` e composição Native | Envia descrições somente leitura; valida a geração antes/depois da inferência e antes de entregar trechos quando houver Store `CURRENT` |
+| Ações Native e aprovações | `system/composition/native/personal-ordax.mjs` + `system/contracts/personal-action-catalog.mjs` | `discoverCapabilities()` e `requestDiscoveredNativeAction(workItemId,capabilityId,{resourceValue,expectedRevision})` convergem à aprovação existente, sem atalho de execução |
+| Fonte de efeitos e recibos | Personal Action Gateway/Executor + Native File Space | Apenas ação registrada, recurso/grant atual e consentimento exato podem produzir efeito; recibo/erro incerto seguem fluxo existente |
+| Runtime MCP externo | `ordaxsystems/ordax-runtime`, `ordax_dev_agent/capability_snapshot.py`, Product gateway | Contrato separado `ordax.device-agent-capabilities/1` limitado às ações suportadas; Fabric não adiciona automaticamente nenhuma tool |
+| Plataforma OAuth/Owner/grants | `ordaxsystems/ordax-platform` | Única autoridade de sessão, Device e grants remotos; presença não equivale a prontidão ou permissão |
+| UX visual | `ordaxsystems/ordax-surface` | Owner da experiência gráfica; teste real de uso visual e aprovação ainda não homologado pelo Fabric v1 |
+
+**Exemplo nativo já exercitado em teste:** `system:action.native-file.ensure-directory` é mostrado declarativamente. Personal pede aprovação vinculada ao `Work`, `resourceValue`, identidade do artefato e `expectedRevision`. Somente depois de consentimento, gateway e grant válidos o executor já existente pode criar diretório no File Space e registrar o resultado. Repetição idempotente, retirada do provedor, travessia de caminho, concorrência e resposta incerta são cenários cobertos. A **entrada Fabric continua `execution=unavailable`**: o efeito, quando autorizado, acontece por outra fronteira canônica.
+
+## Evidências comprovadas e limites
+
+| Evidência | O que demonstra | O que **não** demonstra |
+| --- | --- | --- |
+| [OS PR #2406](https://github.com/ordaxsystems/ordax-os/pull/2406), merge `b44659ec8` | Código Fabric integrado. PR registra **587/587** testes Node locais na reconciliação final | E2E remoto com grants ou UI física |
+| [Application Action Capability Foundation #41778749552](https://github.com/ordaxsystems/ordax-os/actions/runs/41778749552) | CI do HEAD da PR, **487/487** testes, incluindo guards de Aura/streaming | Sessão Product MCP, tool real autorizada |
+| `tests/test_capability_discovery.mjs`, `tests/test_capability_fabric_aura_context.mjs`, `tests/test_capability_fabric_native_action_bridge.mjs`, `tests/test_current_verified_action_gate.mjs` | Contratos, fontes vivas, revogação, consentimento, falha fechada e concorrência | Homologação por clique na Surface |
+| `tests/test_capability_fabric_windows_file_space_e2e.mjs` | **8/8** cenários executados em Windows físico, via Node/HTTP/disco, com diretórios e recibos reais | Clique humano real na janela Electron ou despacho remoto |
+| Windows `DESKTOP-4UFL03B` em 04/11 | Instalador único, Desktop Native e Surface prontos, revisão `9f3a7f0abc45` ativada com health receipt; `GET /__ordax/native/session` anônimo retorna **401** | Product Runtime atestado, App real instalado/removido na UI ou autorização MCP |
+
+**Correção de trilha histórica:** o arquivo `tests/test_capability_fabric_mcp_authority_boundary.mjs` citado na seção D do plano **não existe no `ordax-os/main` verificado em 04/11**. Seu registro é de experimento/teste local do plano, **não** um teste versionado a ser executado no remoto. Não reabrir a implementação do Fabric só para reproduzir esse arquivo ou sua contagem histórica.
+
+## O que falta — gates separados, não defeitos do Fabric v1
+
+1. **UI/Aura (Owner: `ordax-surface` + composição OS):** provar na Surface real Windows a descoberta de capacidades atuais, instalação/remoção ou alteração verificável de app durante a sessão, proposta, solicitação de aprovação, consentimento real, efeito/recibo e revogação sem ação antiga reaparecer. O teste Node/HTTP não substitui esta prova.
+2. **Provedor executável de Application Actions (owners OS/Apps conforme contrato):** resolver artifact/provedor verificado e executar pela aprovação/grant/gateway existentes. Ações de apps anunciadas como `declared-only` não são hoje executáveis só porque aparecem na Aura. Não inventar tool por semelhança de nome.
+3. **Runtime/Product MCP (owners `ordax-runtime` e `ordax-platform`; integração OS na [PR #2400](https://github.com/ordaxsystems/ordax-os/pull/2400)):** concluir a integração existente, atestar Product Device e `capability_digest` verdadeiro, apresentar apenas ferramentas suportadas pelo Runtime, selecionar Device/Owner/grant exatos, executar e revogar em sessão autenticada com recibo `succeeded`/erro verificável. Não usar `mcpReady=true` por inferência. [Runtime #306](https://github.com/ordaxsystems/ordax-runtime/pull/306) e [Platform #333](https://github.com/ordaxsystems/ordax-platform/pull/333) **já foram integradas**; a PR OS #2400 **segue aberta** na data de verificação. Isso **não significa** que todas as ações semânticas Fabric estejam disponíveis como tools MCP.
+4. **Conta/gerência Owner remota:** [OS #2405](https://github.com/ordaxsystems/ordax-os/pull/2405) ainda aberta, sujeita a gates de release/Supabase/Vercel e confirmação de autoridade. [Platform #334](https://github.com/ordaxsystems/ordax-platform/pull/334) já integrada. Não ativar Conta pública ou flags apenas para acelerar o DEV MCP.
+5. **Ambientes adicionais:** prova física no USB/Linux somente quando aquela entrega for retomada; CI Windows não a substitui, e não é pré-requisito para reabrir o v1.
+
+Os passos de Product MCP e UX são **frentes próprias**, não extensões automáticas do catálogo v1. Estado de dispositivo online/offline, check de PR e publicação de Worker são voláteis: consultar fontes atuais antes de declarar conclusões.
+
+## Próxima IA: roteiro de retomada em 5 minutos
+
+1. Ler `docs/README.md` → topo de `docs/CURRENT-STATE.md` → **este arquivo**. Consultar `docs/plans/CAPABILITY-FABRIC-V1.md` somente para histórico ou testes causais específicos.
+2. Verificar `ordax-os/main`, PR #2406 (já merged), PRs #2400 e #2405 e estados atuais dos repos `ordax-runtime`, `ordax-platform`, `ordax-surface`. **Não tratar versões antigas do checkout Windows com mudanças não commitadas como fonte remota canônica; não executar reset/pull destrutivo ali.**
+3. Começar pelo bloqueio vertical existente no owner correto; **não** criar segundo Fabric, inventário, Store, gateway, daemon, plataforma OAuth, grant ledger, instalação Desktop, PR ou workflow só porque os passos de UI/MCP continuam pendentes.
+4. Preservar `authority=none` e `toolExecution=false`, fail-closed e revalidação de `CURRENT`, provedor/artefato/owner/Space/Work/revisão antes de aprovação, despacho, streaming e recibo.
+5. Executar primeiro a correção em escopo, então os testes **existentes** proporcionais ao risco (`tests/test_capability_*.mjs`, suíte de Application Actions/Personal e, para efeito físico, o E2E File Space já existente). Não repetir build USB/QEMU/Creator/CI sem gate causal. Só marcar concluído o que tiver recibo real no ambiente-alvo.
+
+**Critério de conclusão funcional futuro:** a mesma ação de domínio suportada pode ser compreendida e solicitada pela UI/Aura e, quando uma tool Product específica tiver sido explicitamente implementada e autorizada, pelo cliente MCP. As duas rotas chegam a **serviço/recibo canônicos**, com autorização própria de cada ator. Nenhuma descrição semântica concede acesso ao computador.

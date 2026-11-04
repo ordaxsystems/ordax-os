@@ -1,4 +1,10 @@
-# OrdaX Capability Fabric v1 — plano canônico de integração local
+# OrdaX Capability Fabric v1 — histórico de implementação e provas locais
+
+> **ESTADO ATUAL E PRÓXIMOS PASSOS:** ver [`docs/CAPABILITY-FABRIC.md`](../CAPABILITY-FABRIC.md)
+> e `docs/CURRENT-STATE.md`. Este documento guarda as etapas A–E como trilha
+> datada, inclusive expressões antigas como “implementado localmente”,
+> “pendente de PR” e checks anteriores. A PR #2406 já foi integrada; não
+> reexecutar etapas históricas como se fossem pendências atuais.
 
 **Estado em 2026-11-04: v1 integrado em `ordax-os/main`.**
 A [PR #2406](https://github.com/ordaxsystems/ordax-os/pull/2406) foi
@@ -1609,14 +1615,15 @@ Autoridades existentes a preservar:
   lista autoritativa, transporte de credenciais por DOM ou execução direta
   pelo modelo. Uma integração de apps deverá receber proveniência
   verificada, despacho tipado e recibos do executor canônico.
-- **Provas locais:** `tests/test_capability_fabric_mcp_authority_boundary.mjs`
-  confirma que ação semântica nativa declarada não implica prontidão
-  MCP, que catálogo Fabric e Product Device Agent possuem contratos
-  diferentes, que alteração de revisão não gera atestação e que
-  observação HTTP indisponível não se converte em readiness.
-  Regressão ampliada: **333/333 testes aprovados em 43 arquivos**,
-  sem falhas ou skips, incluindo status Product e 8 testes físicos
-  de arquivos com middleware real Windows.
+- **Registro de prova local histórica (não integrada neste arquivo):** a etapa D
+  mencionou `tests/test_capability_fabric_mcp_authority_boundary.mjs`
+  e regressão local **333/333 em 43 arquivos**. Na consulta à `main` de
+  **2026-11-04**, esse teste **não existe no repositório remoto**;
+  não apresentá-lo como suíte publicada nem recriá-lo só para repetir
+  histórico. A fronteira de autoridade permanece comprovada pelo contrato
+  integrado `system/contracts/capability-discovery.mjs` e testes que
+  constam na PR #2406. Validações Product/Platform reais continuam
+  gates independentes e não são substituídas por teste local.
 - **Gate de integração ainda pendente com o owner `ordax-runtime`:**
   inventariar somente ações executáveis suportadas pelo agente Native,
   conectar o SSOT do OS por transporte autenticado local, verificar

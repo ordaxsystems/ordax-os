@@ -2,6 +2,14 @@
 
 Status: **MVP SYSTEM FOUNDATION**
 
+**Capability Fabric v1 (2026-11-04):** a descoberta Native de serviços,
+Application Actions e ações do Personal já está integrada à `ordax-os/main`
+([PR #2406](https://github.com/ordaxsystems/ordax-os/pull/2406)).
+A Aura consome a mesma projeção de leitura e valida `CURRENT`/revisão antes
+ou durante a inferência e streaming. Isso **não** a torna executora de tools
+MCP. Visão canônica do fluxo, owners e limites: [Capability Fabric](CAPABILITY-FABRIC.md).
+As notas antigas abaixo são evidências datadas, não o estado atual de integração.
+
 ## OrdaX OS Native Product Connector — implementação Owner/Development (2026-10-17)
 
 O **Product MCP é uma porta de entrada autorizada de clientes de IA externos**, não

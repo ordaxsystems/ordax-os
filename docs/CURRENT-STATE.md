@@ -17,7 +17,14 @@ been authenticated and authorized for remote execution; the remaining
 integration belongs to `ordax-runtime`/`ordax-platform`, and UI
 acceptance belongs to `ordax-surface`. Do not duplicate registries,
 executors, sessions, or a second installed Desktop to close those gates.
-Historical implementation ledger: `docs/plans/CAPABILITY-FABRIC-V1.md`.
+Canonical architecture, owners, proven gates and next-AI checklist:
+`docs/CAPABILITY-FABRIC.md`. Historical implementation ledger only:
+`docs/plans/CAPABILITY-FABRIC-V1.md` (the section D local test
+`test_capability_fabric_mcp_authority_boundary.mjs` was not merged).
+Existing OS #2400 (Native Product MCP bridge) and #2405 (Owner Account gateway)
+were still OPEN at the 2026-11-04 documentation check; neither makes the
+Fabric's semantic entries remotely executable. Check current PRs before any
+new implementation or release claim.
 
 Priority / delivery autonomy (2026-10-31):
 The active Windows Desktop release track has priority over Linux USB/Creator
