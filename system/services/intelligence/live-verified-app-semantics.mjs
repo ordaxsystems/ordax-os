@@ -51,6 +51,13 @@ export function createLiveVerifiedApplicationSemantics({
     const verifiedIds = new Set(verifiedSemantics.map(entry => entry.application.id));
     const current = (appId) => !verifiedIds.has(appId) ||
       gate.isCurrent({ appId });
+    const currentBatch = (appIds) => {
+      // All verified manifests use the SAME read-through CURRENT gate.
+      // Built-in OS applications are not external signed-slot owners.
+      const decisions = gate.isCurrentBatch(appIds.map(appId => ({ appId })));
+      return decisions.map((valid, index) =>
+        !verifiedIds.has(appIds[index]) || valid);
+    };
     const applications = overlayVerifiedFirstPartyApplications(
       baseApplications, verifiedSemantics,
     );
@@ -65,6 +72,7 @@ export function createLiveVerifiedApplicationSemantics({
       firstPartyApplications: applications,
       firstPartyIntelligenceManifests: activeManifests,
       isContextAppCurrent: current,
+      isContextAppCurrentBatch: currentBatch,
     });
     const actions = createApplicationActionCapabilityRegistry({
       awareness,
@@ -77,6 +85,7 @@ export function createLiveVerifiedApplicationSemantics({
       awareness,
       manifests: activeManifests,
       isManifestCurrent: current,
+      isManifestCurrentBatch: currentBatch,
     });
     return Object.freeze({ gate, awareness, actions, router });
   };

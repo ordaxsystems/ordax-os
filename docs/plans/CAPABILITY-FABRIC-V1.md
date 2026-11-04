@@ -1431,6 +1431,29 @@ Autoridades existentes a preservar:
   CI remoto e compatibilidade com PR #2400 devem ser verificados no SHA
   publicado, sem antecipar `mcpReady`.
 
+### C.39. Aura consome CURRENT em lote no contexto e roteamento (2026-11-03)
+
+- **Falha reproduzida no Windows:** com dois Apps externamente verificados
+  e observações CURRENT alternando entre eles, o contexto da Aura efetuava
+  duas leituras separadas e combinava capacidades que nunca estiveram
+  disponíveis na mesma publicação Store. O teste causal falhou antes.
+- **Correção na fonte canônica:** os serviços existentes
+  `application-awareness.mjs` e `application-semantic-router.mjs`
+  recebem a mesma função de verificação em lote já provida por
+  `createCurrentVerifiedActionGate()`. Contexto e seleção semântica
+  validam seus conjuntos de Apps em **uma** observação por operação,
+  sem criar segundo catálogo, nova Store, executor ou grant.
+- Apps do próprio OS permanecem fora da autoridade da Store externa.
+  Respostas em lote com tamanho ou tipo inválidos falham fechadas;
+  as verificações individuais legadas continuam para consumidores não
+  compostos pelo Fabric.
+- **Provas locais:** regressão completa do workflow existente no Windows,
+  **482/482 testes em 47 arquivos**, zero falhas/skips; seis módulos/testes
+  alterados com sintaxe válida e `git diff --check` aprovado.
+  CI remoto e compatibilidade com PR #2400 devem ser verificados para
+  o commit exato publicado; a aprovação não demonstra execução MCP
+  remota autenticada.
+
 ### D. Integração futura com o Runtime MCP canônico — fronteira auditada
 
 - **Contrato efetivo verificado (2026-11-03):**

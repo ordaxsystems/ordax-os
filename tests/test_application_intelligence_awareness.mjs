@@ -109,6 +109,21 @@ test("Aura app awareness rechecks externally verified current slot but preserves
     isContextAppCurrent:true,
   }),/verifier/);
 });
+test("Aura awareness rejects invalid batch CURRENT decisions without exposing an app", () => {
+  for (const decisions of [[], [1], ["true"], [null]]) {
+    const awareness = createApplicationIntelligenceAwareness({
+      firstPartyApplications: [firstPartyApp()],
+      isContextAppCurrent: () => true,
+      isContextAppCurrentBatch: () => decisions,
+    });
+    assert.throws(() => awareness.contextItem(), /batch current verifier returned invalid decisions/);
+  }
+  assert.throws(() => createApplicationIntelligenceAwareness({
+    firstPartyApplications: [firstPartyApp()],
+    isContextAppCurrentBatch: () => [true],
+  }), /batch current verifier requires a current-slot verifier/);
+});
+
 test("native and Windows apps share Intelligence awareness without sharing trust", () => {
   const awareness = createApplicationIntelligenceAwareness({
     firstPartyApplications: [firstPartyApp()],

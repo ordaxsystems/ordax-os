@@ -131,6 +131,7 @@ export function createApplicationSemanticRouter({
   manifests = [],
   maxMatchedApps = MAX_MATCHED_APPS,
   isManifestCurrent = null,
+  isManifestCurrentBatch = null,
 } = {}) {
   const appAwareness = assertApplicationIntelligenceAwarenessPort(awareness);
   if (!Array.isArray(manifests) || manifests.length > 128) {
@@ -141,6 +142,10 @@ export function createApplicationSemanticRouter({
   }
   if (isManifestCurrent !== null && typeof isManifestCurrent !== "function") {
     throw new TypeError("Application semantic router current-slot verifier must be a function");
+  }
+  if (isManifestCurrentBatch !== null &&
+      (typeof isManifestCurrentBatch !== "function" || isManifestCurrent === null)) {
+    throw new TypeError("Application semantic router batch verifier requires a current-slot verifier");
   }
 
   const descriptors = new Map(appAwareness.list().map((descriptor) => [descriptor.appId, descriptor]));
@@ -181,15 +186,26 @@ export function createApplicationSemanticRouter({
       }
     }
 
-    const selected = [...scores]
-      .filter(([appId, score]) => score >= 4 &&
-        (isManifestCurrent === null || isManifestCurrent(appId) === true))
+    // Rank semantic candidates first, then attest ALL competing manifests
+    // against one Store CURRENT publication before selecting any app.
+    const eligible = [...scores].filter(([, score]) => score >= 4);
+    let current = eligible;
+    if (isManifestCurrentBatch !== null) {
+      const decisions = isManifestCurrentBatch(eligible.map(([appId]) => appId));
+      if (!Array.isArray(decisions) || decisions.length !== eligible.length ||
+          decisions.some(value => typeof value !== "boolean")) {
+        throw new TypeError("Application semantic router batch verifier returned invalid decisions");
+      }
+      current = eligible.filter((_, index) => decisions[index]);
+    } else if (isManifestCurrent !== null) {
+      current = eligible.filter(([appId]) => isManifestCurrent(appId) === true);
+    }
+    return Object.freeze(current
       .sort(([leftId, leftScore], [rightId, rightScore]) => (
         rightScore - leftScore || leftId.localeCompare(rightId)
       ))
       .slice(0, maxMatchedApps)
-      .map(([appId, score]) => Object.freeze({ appId, score }));
-    return Object.freeze(selected);
+      .map(([appId, score]) => Object.freeze({ appId, score })));
   };
 
   const route = (prompt) => {

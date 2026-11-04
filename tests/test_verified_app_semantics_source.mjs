@@ -1721,6 +1721,46 @@ test("mixed Action and semantic-only apps cannot pass mutually exclusive final C
   }
 });
 
+test("Aura context and router use one CURRENT observation for competing verified apps", () => {
+  const verified = [verifiedEntry("notes"), verifiedEntry("studio")];
+  let reads = 0;
+  let alternating = false;
+  let tick = 0;
+  const live = createLiveVerifiedApplicationSemantics({
+    baseApplications: listFirstPartyApps(),
+    bundledManifests: [],
+    initialVerifiedSemantics: verified,
+    getCurrentObservations() {
+      reads++;
+      if (alternating) {
+        return ++tick % 2 ? [slotMetadata("notes")] : [slotMetadata("studio")];
+      }
+      return [slotMetadata("notes"), slotMetadata("studio")];
+    },
+  });
+  try {
+    const initial = JSON.parse(live.awarenessPort.contextItem().text);
+    assert.deepEqual(initial.applications.filter(x =>
+      ["notes", "studio"].includes(x.appId)).map(x => x.appId),
+    ["notes", "studio"], "both signed apps are initially CURRENT");
+    alternating = true;
+    const beforeContext = reads;
+    const context = JSON.parse(live.awarenessPort.contextItem().text);
+    assert.equal(reads - beforeContext, 1,
+      "Aura context should not mix two incompatible Store generations");
+    assert.equal(context.applications.filter(x =>
+      ["notes", "studio"].includes(x.appId)).length, 1);
+    const beforeRoute = reads;
+    const selection = live.semanticRouterPort.select("Crie uma nota");
+    assert.equal(reads - beforeRoute, 1,
+      "Aura routing must check competing manifests from the same CURRENT publication");
+    assert.equal(selection.filter(x =>
+      ["notes", "studio"].includes(x.appId)).length, 1);
+  } finally {
+    live.dispose();
+  }
+});
+
 test("verified semantic replacement never commits if CURRENT becomes unreadable during final action projection", () => {
   let reads = 0;
   let failFinalRead = true;

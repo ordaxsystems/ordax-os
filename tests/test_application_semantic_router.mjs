@@ -83,6 +83,22 @@ test("semantic routing withdraws an external slot's stale intent context without
     awareness,manifests,isManifestCurrent:true,
   }),/verifier/);
 });
+test("Aura routing fails closed on malformed batch CURRENT results", () => {
+  const { awareness, manifests } = runtime();
+  for (const decisions of [[], [1], ["true"], [null]]) {
+    const router = createApplicationSemanticRouter({
+      awareness, manifests,
+      isManifestCurrent: () => true,
+      isManifestCurrentBatch: () => decisions,
+    });
+    assert.throws(() => router.select("Abra Ajustes de rede"),
+      /batch verifier returned invalid decisions/);
+  }
+  assert.throws(() => createApplicationSemanticRouter({
+    awareness, manifests, isManifestCurrentBatch: () => [true],
+  }), /batch verifier requires a current-slot verifier/);
+});
+
 test("semantic router remains bounded and exposes no execution authority", () => {
   const { router } = runtime();
   assert.ok(router.select("Abra internet arquivos projetos ajustes sistema conta atividade assistente rede").length <= 3);
