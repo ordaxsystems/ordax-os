@@ -1,5 +1,17 @@
 name: Windows Desktop Dev (SSOT)
 on:
+  # The private Desktop owner invokes this ONE Windows producer with its own
+  # read-scoped token. The OS remains the Native/Surface runtime source owner.
+  workflow_call:
+    inputs:
+      os_sha:
+        description: Exact canonical OS commit
+        type: string
+        required: true
+      desktop_sha:
+        description: Exact Electron owner commit
+        type: string
+        required: true
   workflow_dispatch:
   pull_request:
     paths: &desktop_product_sources
@@ -43,12 +55,20 @@ jobs:
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
         with:
-          ref: ${{ github.event.pull_request.head.sha || github.sha }}
+          ref: ${{ inputs.os_sha || github.event.pull_request.head.sha || github.sha }}
+          persist-credentials: false
+      - name: Checkout canonical Desktop owner source (reusable workflow only)
+        if: ${{ inputs.desktop_sha != '' }}
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
+        with:
+          repository: ordaxsystems/ordax-desktop
+          ref: ${{ inputs.desktop_sha }}
+          path: out/ordax-desktop-source
           persist-credentials: false
       - name: Assert exact installer OS source identity
         shell: pwsh
         env:
-          EXPECTED_SOURCE_SHA: ${{ github.event.pull_request.head.sha || github.sha }}
+          EXPECTED_SOURCE_SHA: ${{ inputs.os_sha || github.event.pull_request.head.sha || github.sha }}
         run: |
           $actual = (& git rev-parse HEAD).Trim()
           if ($LASTEXITCODE -ne 0 -or $actual -cne $env:EXPECTED_SOURCE_SHA) {
@@ -253,12 +273,29 @@ jobs:
           Write-Output ("WINDOWS_RUNTIME_COMPONENT_VERIFIER_SHA256=" + (Get-FileHash -LiteralPath $binary -Algorithm SHA256).Hash.ToLowerInvariant())
       - name: Stage and verify standalone Windows packaging inputs
         shell: pwsh
+        env:
+          DESKTOP_OWNER_SHA: ${{ inputs.desktop_sha }}
         run: |
           $ErrorActionPreference = 'Stop'
           $sha = (& git rev-parse HEAD).Trim()
-          & node tools/windows-desktop/standalone-stage.cjs $sha
+          if ($env:DESKTOP_OWNER_SHA) {
+            $desktopRoot = Join-Path $PWD 'out/ordax-desktop-source'
+            & node tools/windows-desktop/standalone-stage.cjs $sha --os-root "$PWD" --desktop-root $desktopRoot --desktop-sha $env:DESKTOP_OWNER_SHA
+          } else {
+            & node tools/windows-desktop/standalone-stage.cjs $sha
+          }
           if ($LASTEXITCODE -ne 0) { throw 'Standalone Desktop source staging failed' }
+          $manifest = Get-Content 'out/windows-desktop-standalone/stage-manifest.json' -Raw | ConvertFrom-Json
+          if ($env:DESKTOP_OWNER_SHA) {
+            if ($manifest.desktop_sha -cne $env:DESKTOP_OWNER_SHA -or
+                $manifest.desktop_owner -cne 'ordaxsystems/ordax-desktop' -or
+                $manifest.runtime_owner -cne 'ordaxsystems/ordax-os') {
+              throw 'Standalone Windows installer did not bind two canonical source owners'
+            }
+            Write-Output "WINDOWS_DESKTOP_DETACHED_SOURCE=VERIFIED os=$sha desktop=$env:DESKTOP_OWNER_SHA"
+          }
       - name: Export exact Windows Desktop Git owner source and prove detached tests
+        if: ${{ inputs.desktop_sha == '' }}
         shell: pwsh
         run: |
           $ErrorActionPreference = 'Stop'
@@ -293,16 +330,17 @@ jobs:
       - name: Verify isolated NSIS installation and Native files
         shell: pwsh
         run: |
-          $version = (Get-Content tools/windows-desktop/package.json -Raw | ConvertFrom-Json).version
+          $version = (Get-Content out/windows-desktop-standalone/shell/package.json -Raw | ConvertFrom-Json).version
           $installer = "out/windows-desktop-installer/OrdaX-OS-Desktop-Dev-$version-x64.exe"
           pwsh -NoProfile -File tools/windows-desktop/install-smoke.ps1 -Installer $installer
       - uses: actions/upload-artifact@b7c566a772e6b6bfb58ed0dc250532a479d7789f # v6
         with:
-          name: ordax-os-desktop-dev-alpha-windows
+          name: ordax-desktop-dev-alpha-windows
           path: out/windows-desktop-installer/*.exe
           if-no-files-found: error
           retention-days: 14
       - uses: actions/upload-artifact@b7c566a772e6b6bfb58ed0dc250532a479d7789f # v6
+        if: ${{ inputs.desktop_sha == '' }}
         with:
           name: ordax-desktop-owner-source-handoff
           path: out/windows-desktop-owner-export/*
