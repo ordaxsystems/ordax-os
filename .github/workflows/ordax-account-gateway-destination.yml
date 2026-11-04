@@ -11,7 +11,9 @@ on:
       - 'infra/supabase/functions/_shared/account_privileged_rpc.mjs'
       - 'infra/supabase/functions/_shared/account_transport_admission.mjs'
       - 'infra/supabase/functions/_shared/account_mcp_usage.mjs'
+      - 'infra/supabase/functions/_shared/account_mcp_owner.mjs'
       - 'tests/test_account_mcp_usage_bridge.mjs'
+      - 'tests/test_account_mcp_owner_bridge.mjs'
       - 'infra/supabase/functions/_shared/account_service_bridge.mjs'
       - 'infra/supabase/functions/_shared/account_email_confirmation.mjs'
       - 'infra/supabase/functions/_shared/space_create_contract.mjs'
@@ -96,6 +98,9 @@ jobs:
           grep -Fq 'Deno.env.get("ORDAX_MCP_USAGE_READ_ENABLED") !== "1"' infra/supabase/functions/ordax-account-gateway/index.ts
           grep -Fq 'const PUBLIC_SITE_ACCOUNT_ENABLED = false;' infra/supabase/functions/ordax-account-gateway/index.ts
           node --test tests/test_account_mcp_usage_bridge.mjs
+          test -f infra/supabase/functions/_shared/account_mcp_owner.mjs
+          grep -Fq 'ORDAX_MCP_OWNER_ACCOUNT_ENABLED' infra/supabase/functions/ordax-account-gateway/index.ts
+          node --test tests/test_account_mcp_owner_bridge.mjs
           test "${ORDAX_ACCOUNT_GATEWAY_DESTINATION}" = "ordax-platform"
 
       - name: Deploy exact account gateway bundle to destination
