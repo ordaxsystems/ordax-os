@@ -2,7 +2,7 @@
 // Compile the same canonical Native entrypoint from the exact staged Git SHA.
 // No live-source mutation: Vite output belongs to ignored out/ in the isolated candidate.
 const { spawn } = require('node:child_process');
-const { existsSync, lstatSync, readFileSync, writeFileSync, readdirSync } = require('node:fs');
+const { existsSync, lstatSync, readFileSync, writeFileSync, readdirSync, mkdirSync, mkdtempSync, copyFileSync, rmSync } = require('node:fs');
 const { createHash } = require('node:crypto');
 const { join } = require('node:path');
 const { dependenciesForStage } = require('./checkout.cjs');
@@ -100,17 +100,33 @@ function hasNativeBundle(sourceRoot) {
   } catch { return false; }
 }
 async function buildNativeCandidate(root,template,{log=()=>{},timeoutMs=120000,materializeSurface=withPinnedSurface,userData=null}={}) {
-  const config=join(root,'tools','windows-desktop','vite-native-build.mjs');
-  if(!existsSync(config)) {
-    throw Error('Staged canonical Native source missing build configuration');
+  // The compiled OS revision must NEVER provide executable build policy.
+  // This exact Vite config is shipped by the Desktop shell, and copied to a
+  // fresh, disposable path under the staged OS out/ for Node native loading.
+  // Staged source only provides canonical system/contracts and pinned Surface.
+  const trustedConfig=join(__dirname,'vite-native-build.mjs');
+  if(!existsSync(trustedConfig) || !lstatSync(trustedConfig).isFile())
+    throw Error('Trusted Desktop-owned Native build configuration missing');
+  const buildDir=join(root,'out');
+  mkdirSync(buildDir,{recursive:true});
+  if(!lstatSync(buildDir).isDirectory() || lstatSync(buildDir).isSymbolicLink())
+    throw Error('Untrusted OS candidate build output directory');
+  const configDirectory=mkdtempSync(join(buildDir,'.desktop-build-config-'));
+  const config=join(configDirectory,'vite-native-build.mjs');
+  try {
+    copyFileSync(trustedConfig,config);
+  }catch(error){
+    rmSync(configDirectory,{recursive:true,force:true});
+    throw error;
   }
   // The installed compiler is a verified archive cached only when an actual
   // Dev candidate must compile. No dependency extraction on a normal boot.
-  const nodeModules=await dependenciesForStage(root,template,userData);
-  const vite=join(nodeModules,'vite','bin','vite.js');
-  if(!existsSync(vite))
-    throw Error('Verified installed toolchain lacks canonical Native Vite');
-  const receipt=await materializeSurface(root,sourceReceipt=>new Promise((resolve,reject)=>{
+  try {
+    const nodeModules=await dependenciesForStage(root,template,userData);
+    const vite=join(nodeModules,'vite','bin','vite.js');
+    if(!existsSync(vite))
+      throw Error('Verified installed toolchain lacks canonical Native Vite');
+    const receipt=await materializeSurface(root,sourceReceipt=>new Promise((resolve,reject)=>{
     const child=spawn(process.execPath,[vite,'build','--config',config,'--configLoader','native'],{
       cwd:root,windowsHide:true,
       env:{...process.env,ELECTRON_RUN_AS_NODE:'1'},
@@ -139,6 +155,9 @@ async function buildNativeCandidate(root,template,{log=()=>{},timeoutMs=120000,m
     JSON.stringify({...receipt,bundle_sha256:compiledBundleSha256(root)})+'\n',{flag:'wx'});
   if(!hasNativeBundle(root))throw Error('Compiled Native assets missing or invalid in staged Git source');
   log('Verified staged canonical Native compilation');
+  } finally {
+    rmSync(configDirectory,{recursive:true,force:true});
+  }
 }
 const SHA40=/^[0-9a-f]{40}$/;
 const SHA256=/^[0-9a-f]{64}$/;

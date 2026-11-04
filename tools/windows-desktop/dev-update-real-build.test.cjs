@@ -63,14 +63,6 @@ function osFiles(root,lock,revision) {
       capabilities:['no-external-browser','dynamic-loopback-port','external-state-directory']}
   }));
   put(root,'tools/surface-web/README.md','isolated minimal build fixture');
-  put(root,'tools/windows-desktop/vite-native-build.mjs',
-    'import {resolve} from "node:path";\n'+
-    'import {fileURLToPath} from "node:url";\n'+
-    'import {defineConfig} from "vite";\n'+
-    'const root=resolve(fileURLToPath(new URL("../..",import.meta.url)));\n'+
-    'export default defineConfig({root,publicDir:false,base:"/__ordax/desktop-assets/",\n'+
-    'build:{outDir:resolve(root,"out/windows-desktop-native"),emptyOutDir:true,\n'+
-    'rollupOptions:{input:resolve(root,"system/composition/native/index.html")}}});\n');
   put(root,'.gitignore','node_modules/\nout/\n');
 }
 test('Windows Dev compiles real Git revisions, restores known-good after interrupted trial and preserves rollback',async t=>{
@@ -92,6 +84,8 @@ test('Windows Dev compiles real Git revisions, restores known-good after interru
   initGit(original,OFFICIAL_REMOTE);
   osFiles(original,surfaceOne,'one');
   const osOne=commit(original,'First canonical OS');
+  assert.equal(existsSync(join(original,'tools','windows-desktop')),false,
+    'OS revision must not own or copy Desktop compiler files');
   let buildCount=0;
   const offlineGit=async(args,cwd,timeout)=>{
     if(args[0]==='ls-remote')
@@ -108,6 +102,8 @@ test('Windows Dev compiles real Git revisions, restores known-good after interru
   };
   const compile=async(stage,installed,options)=>{
     buildCount++;
+    assert.equal(existsSync(join(stage,'tools','windows-desktop')),false,
+      'Every Dev candidate must build without OS-owned Desktop tools');
     await buildNativeCandidate(stage,installed,{...options,timeoutMs:120000,
       materializeSurface:async(osRoot,fn)=>{
         const src=join(root,'surface-checkout-'+buildCount);

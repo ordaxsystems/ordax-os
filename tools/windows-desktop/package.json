@@ -32,6 +32,7 @@
       "browser-host.cjs",
       "browser-preload.cjs",
       "native-build.cjs",
+      "vite-native-build.mjs",
       "surface-stage.cjs",
       "toolchain-cache.cjs"
     ],

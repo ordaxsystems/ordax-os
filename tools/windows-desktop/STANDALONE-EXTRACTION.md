@@ -58,3 +58,25 @@ The PR must remain Draft until the new Windows CI and inherited gates pass.
 Do not remove the old build source before stable ownership transfers to
 `ordaxsystems/ordax-desktop` and the Linux/Windows contract boundary is
 verified end-to-end.
+
+## Detached Owner/Dev candidate compilation
+
+The installed Electron shell now owns the only Vite configuration needed for
+new Git candidates (`vite-native-build.mjs` is included in `app.asar`). The
+config is copied to a one-use directory under the candidate's ignored `out/`
+folder and always cleaned up, including on compiler failure. It loads the exact
+OS candidate from its own current working directory rather than deriving the
+root from the config file path. This avoids importing any build policy from an
+untrusted or obsolete OS commit.
+
+The `ordax-os` sparse checkout now contains only the OS/contracts, evidence,
+Native host and Surface-web inputs. It does **not** need
+`tools/windows-desktop` for candidate compilation. The existing offline E2E
+creates three real revisions of OS plus pinned Surface without any desktop tools
+in their Git trees, compiles all three from the installed shell, verifies actual
+activation/crash recovery and pins rollback. The same test executes once with
+the workspace compiler and once with the installed NSIS compiler archive.
+
+The OS root npm lock still owns the canonical Native dependency closure;
+`runtime-toolchain.cjs` generates its verified offline archive at packaging
+time. No second OS dependency manifest or Surface implementation is introduced.
