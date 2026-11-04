@@ -3,7 +3,7 @@ const { test } = require('node:test');
 const assert = require('node:assert/strict');
 const { readFileSync } = require('node:fs');
 const { join, resolve } = require('node:path');
-const { resolveTemplate, runtimeStateDirectory, OFFICIAL_REMOTE } = require('./runtime.cjs');
+const { resolveTemplate, developmentOsRoot, runtimeStateDirectory, OFFICIAL_REMOTE } = require('./runtime.cjs');
 const { resolveInstalledGit } = require('./checkout.cjs');
 
 test('Dev and MVP share the single authoritative distribution contract', () => {
@@ -19,6 +19,12 @@ test('Dev and MVP share the single authoritative distribution contract', () => {
 });
 test('desktop dev uses canonical source in un-packaged mode', () => {
   assert.equal(resolveTemplate(__dirname, 'ignored', false), resolve(__dirname,'../..'));
+});
+test('explicit detached OS checkout must be absolute and must not be a symlink', () => {
+  assert.equal(developmentOsRoot(__dirname,{}),resolve(__dirname,'../..'));
+  assert.throws(()=>developmentOsRoot(__dirname,{ORDAX_DESKTOP_OS_CHECKOUT:'../ordax-os'}),/absolute path/);
+  assert.equal(developmentOsRoot(__dirname,{ORDAX_DESKTOP_OS_CHECKOUT:resolve(__dirname,'../..')}),
+    resolve(__dirname,'../..'));
 });
 test('packaged Windows uses offline verified snapshot with isolated state', () => {
   const template = resolveTemplate('ignored','C:\\OrdaXResources',true);

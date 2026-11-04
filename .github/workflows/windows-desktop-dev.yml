@@ -147,6 +147,8 @@ jobs:
       - name: Install desktop shell toolchain
         working-directory: tools/windows-desktop
         run: npm ci --no-audit --no-fund
+      - name: Prove detached Desktop HMR against disposable OS and Surface Git checkouts
+        run: node --test tools/windows-desktop/local-dev.test.cjs
       - name: Test installed Native HTTP host without Vite
         run: node --test tools/windows-emulator/desktop-built-assets.test.mjs tools/windows-emulator/desktop-native-server.test.mjs
       - name: Compile canonical Native Surface for Windows
