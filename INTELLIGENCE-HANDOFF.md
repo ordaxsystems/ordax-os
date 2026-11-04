@@ -28,14 +28,17 @@ novamente missões antigas nem elaborar outro plano.**
 A [`ordax-apps#455`](https://github.com/ordaxsystems/ordax-apps/pull/455)
 foi **integrada** após checks verdes (merge `b9e729a1f734af78da8496aa0737b069f05357ea`).
 A [`ordax-runtime#317`](https://github.com/ordaxsystems/ordax-runtime/pull/317)
-foi **reconciliada com a main atual** (HEAD `9c5e4a45a84f98845f220206a7a11a099fd3d417`),
-preservando a correção operacional de prontidão MCP
+também foi **integrada** após checks obrigatórios verdes
+(merge `85c848130a32c722ee6c3a6f6fec596e7646952c`),
+preservando a correção de prontidão MCP
 [`#319`](https://github.com/ordaxsystems/ordax-runtime/pull/319).
-Os checks de contrato foram reexecutados. **Consultar o estado
-atual da PR #317**: se continuar aberta, integrar **a mesma PR**
-somente depois de todos os checks obrigatórios aprovados; se
-já estiver merged, não repetir o trabalho. Não abrir branch/PR
-alternativa, nem reconstruir arquitetura ou a missão DEV encerrada.
+**Propagação dos handoffs concluída nos cinco repos envolvidos**:
+OS, Apps, Runtime, Platform e Surface. **Não abrir nova PR para
+propagar essas mesmas instruções, nem reiniciar Windows MCP DEV**.
+A próxima missão operacional é outra: concluir a ponte Native Product
+**existente** OS #2400, ainda aberta na última consulta, e depois
+provar observação autenticada Store `CURRENT`/Aura/Runtime;
+Owner/Conta OS #2405 permanece release-gated.
 
 **Owners imutáveis:** `ordax-os`: Store `CURRENT`, verificador Go,
 Native Host, Fabric/Personal/Aura; `ordax-apps`: provider e

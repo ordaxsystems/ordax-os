@@ -1,3 +1,22 @@
+**Cross-repository Fabric/Aura/MCP handoff propagation — closed (2026-11-04):**
+The five relevant repositories now have native documented entrypoints
+in their respective `main` branches. Apps [#455](https://github.com/ordaxsystems/ordax-apps/pull/455)
+merged as `b9e729a1f734af78da8496aa0737b069f05357ea`;
+Runtime [#317](https://github.com/ordaxsystems/ordax-runtime/pull/317)
+merged as `85c848130a32c722ee6c3a6f6fec596e7646952c`,
+after reconciling the upstream readiness fix #319 and passing the
+required checks. Platform handoff `8a8eea2971492147b28f8c94c247e4d05fb5f282`;
+Surface #82 merged; OS `AGENTS.md` and `INTELLIGENCE-HANDOFF.md`
+route future agents to the same canonical implementation matrix.
+**This is only documentation propagation. Do not re-run the closed
+Platform #291 Windows MCP DEV setup; do not build another bridge, tool
+catalog or OAuth/Store owner.** OS #2400 (Native Product) and #2405
+(Owner Account, release-gated) were still open at this checkpoint.
+Real Aura ↔ Product installed-app discovery and shared-action E2E remain
+unimplemented; next action is the existing OS #2400 owner's verified
+integration, then authenticated `CURRENT` projection. Recheck source
+and PR state before any write.
+
 **Continuation checkpoint — 2026-11-04 (cross-repo source + Platform issue verified):**
 Platform [#291](https://github.com/ordaxsystems/ordax-platform/issues/291)
 is **CLOSED** with physical Windows MCP actions and receipts, two current
