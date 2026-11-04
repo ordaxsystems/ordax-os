@@ -3,15 +3,15 @@
 Este arquivo e a entrada obrigatoria para qualquer IA, agente, Codex ou pessoa que trabalhe neste repositorio.
 
 ## 1. Identidade do repositorio
+`ordaxsystems/ordax-os` é o **repositório oficial e canônico do OrdaX OS**. A identidade e os responsáveis atuais são definidos por `docs/contracts/repository-ownership.json` e `docs/contracts/repository-migration-status.json`.
+
+O produto continua em desenvolvimento e homologação: a promoção/renomeação do repositório **não equivale à aprovação de uma release Stable/MVP**, assinatura, aceite físico ou autorização para publicação e gravação de dispositivos. Esses gates permanecem independentes; consulte `MVP.md` e `docs/PROMOTION-GATES.md`.
+
 ## Handoff transversal obrigatório — Intelligence / ChatGPT / Apps
 
 Antes de alterar Intelligence, chat, plugins, MCP, Studio ou a UI global do OrdaX Web, leia [INTELLIGENCE-HANDOFF.md](INTELLIGENCE-HANDOFF.md). É um guia de retomada que aponta aos contratos e donos existentes, **não substitui os contratos canônicos**. Diferencie explicitamente **chat OrdaX → provedor** de **ChatGPT externo → plugin MCP → OrdaX** e não ative bridges experimentais nem crie outra autoridade em Apps/Lovable.
 
 **Capability Fabric — leitura obrigatória somente quando a tarefa o envolver:** [docs/CAPABILITY-FABRIC.md](docs/CAPABILITY-FABRIC.md) reúne o estado do v1 **integrado pela PR #2406**, o contrato `ordax.capability-discovery/1`, fontes Native/Store/Aura/Personal, evidências e gates futuros de UI/MCP. A descoberta tem `authority=none` e `toolExecution=false` e NÃO substitui Product tools, grants ou atestação da Platform. O plano `docs/plans/CAPABILITY-FABRIC-V1.md` é histórico; não reexecutar suas etapas nem criar catálogo, Runtime ou executor paralelos.
-
-`ordaxsystems/ordax-os` é o **repositório oficial e canônico do OrdaX OS**. A identidade e os responsáveis atuais são definidos por `docs/contracts/repository-ownership.json` e `docs/contracts/repository-migration-status.json`.
-
-O produto continua em desenvolvimento e homologação: a promoção/renomeação do repositório **não equivale à aprovação de uma release Stable/MVP**, assinatura, aceite físico ou autorização para publicação e gravação de dispositivos. Esses gates permanecem independentes; consulte `MVP.md` e `docs/PROMOTION-GATES.md`.
 
 `washingtonmsdj/novo-ordax-os` e os slugs anteriores do repositório canônico são somente referências históricas e de proveniência, nunca uma segunda autoridade de desenvolvimento.
 
