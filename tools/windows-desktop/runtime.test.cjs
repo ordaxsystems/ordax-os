@@ -79,6 +79,13 @@ test('canonical main automatically builds one SSOT Windows artifact for relevant
   assert.match(events, /\n  push:\n    branches:\n      - main\n    paths: \*desktop_product_sources\n/);
   assert.match(events, /\nconcurrency:\n  group: windows-desktop-dev-/);
   assert.match(events, /\n  cancel-in-progress: true\n/);
+  const boundary=require('../../docs/contracts/build-autonomy.json').client_build_independence;
+  for(const field of ['windows_package_forbidden_linux_boot_paths','windows_package_forbidden_linux_shell_paths']){
+    for(const file of boundary[field]){
+      assert.ok(events.includes(`- '!system/${file}'`),
+        `Linux-only source must not rebuild the Desktop installer: ${file}`);
+    }
+  }
   assert.ok(workflow.includes('EXPECTED_SOURCE_SHA: ${{ github.event.pull_request.head.sha || github.sha }}'));
   assert.ok(workflow.includes('Bind installer to exact OS + Surface Native provenance'));
   assert.ok(workflow.includes('Verify isolated NSIS installation and Native files'));
@@ -134,8 +141,19 @@ test('Windows package excludes Linux-only Alpine package declaration without dro
   assert.equal(system[0].from, '../../system');
   assert.deepEqual(system[0].filter, [
     '**/*', '!surface/runtime/packages.txt',
-    '!surface/runtime/media_runtime_probe.py', '!surface/runtime/audio-session.sh',
-    '!surface/runtime/physical_ata_probe.py', '!surface/runtime/physical_kernel_log_probe.py', '!surface/runtime/physical_performance_probe.py',
+    ...require('../../docs/contracts/build-autonomy.json').client_build_independence
+      .windows_package_forbidden_linux_boot_paths.map(path=>'!'+path),
+    ...require('../../docs/contracts/build-autonomy.json').client_build_independence
+      .windows_package_forbidden_linux_shell_paths.map(path=>'!'+path),
+    ...require('../../docs/contracts/build-autonomy.json').client_build_independence
+      .linux_only_client_probe_paths.map(path=>'!'+path),
+    ...require('../../docs/contracts/build-autonomy.json').client_build_independence
+      .linux_only_client_host_entrypoints.map(path=>'!'+path),
+    ...require('../../docs/contracts/build-autonomy.json').client_build_independence
+      .linux_only_client_python_support_paths.map(path=>'!'+path),
+    ...require('../../docs/contracts/build-autonomy.json').client_build_independence
+      .linux_only_client_base_update_diagnostics_paths.map(path=>'!'+path),
+    '!composition/web/**',
   ]);
   const workflow = readFileSync(join(__dirname, '../../.github/workflows/windows-desktop-dev.yml'), 'utf8');
   const paths = workflow.split('paths: &desktop_product_sources', 2)[1].split('  # Every integrated main', 1)[0];
@@ -147,4 +165,17 @@ test('Windows package excludes Linux-only Alpine package declaration without dro
   assert.match(paths, /- '!system\/surface\/runtime\/physical_kernel_log_probe\.py'/);
   assert.match(paths, /- '!system\/surface\/runtime\/physical_performance_probe\.py'/);
   assert.ok(workflow.includes('paths: *desktop_product_sources'));
+});
+
+test('Native Desktop updater never stages the Web-only producer',()=>{
+  const source=readFileSync(join(__dirname,'dev-update.cjs'),'utf8');
+  assert.match(source, /'sparse-checkout','set',\s*'--no-cone',\.\.\.patterns/);
+  assert.match(source, /canonicalWindowsSparsePatterns\(candidatePackage,candidateAuthority\)/);
+  assert.ok(!source.includes("'tools/surface-web'"));
+  assert.ok(require('./package.json').build.files.includes('package-inventory.cjs'));
+  const resources=require('./package.json').build.extraResources;
+  assert.ok(!resources.some(x=>x.to==='runtime-template/tools/surface-web'));
+  const nativeCompiler=readFileSync(join(__dirname,'vite-native-build.mjs'),'utf8');
+  assert.ok(nativeCompiler.includes('system/composition/native/index.html'));
+  assert.ok(!nativeCompiler.includes('tools/surface-web/'));
 });

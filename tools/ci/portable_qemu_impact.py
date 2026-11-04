@@ -74,6 +74,8 @@ CI_GOVERNANCE_LIGHT_EXACT = {
     ".github/workflows/account-memory-local-continuity-flush.yml",
     ".github/workflows/account-memory-protected-mutations.yml",
     ".github/workflows/account-memory-sync-foundation.yml",
+    ".github/workflows/account-sync-checkpoint-durability.yml",
+    "tests/test_native_workspace_owner_isolation.mjs",
     ".github/workflows/application-action-capability-foundation.yml",
     ".github/workflows/component-trusted-context.yml",
     ".github/workflows/first-party-app-delivery.yml",

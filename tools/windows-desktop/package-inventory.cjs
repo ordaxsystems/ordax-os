@@ -4,7 +4,12 @@ const { join, relative, resolve, sep } = require('node:path');
 const { createHash } = require('node:crypto');
 
 function inventory(root, exclusions) {
-  if (!Array.isArray(exclusions) || exclusions.some(x => typeof x !== 'string' || !x.startsWith('!') || x.includes('**'))) {
+  // Only the canonical Web-only composition may use a subtree exclusion.
+  // Every other omission stays exact and reviewable against the real source tree.
+  const WEB_ONLY = '!composition/web/**';
+  if (!Array.isArray(exclusions) || exclusions.some(x =>
+    typeof x !== 'string' || !x.startsWith('!') ||
+    ((x.includes('*') || x.includes('?') || x.includes('[')) && x !== WEB_ONLY))) {
     throw Error('Unexpected non-exact exclusion; inventory requires explicit review');
   }
   const excluded = new Set(exclusions.map(x => x.slice(1)));
@@ -18,13 +23,17 @@ function inventory(root, exclusions) {
       if (entry.isDirectory()) { walk(absolute); continue; }
       if (!entry.isFile()) throw Error('Unsupported packaged entry: ' + key);
       const size = lstatSync(absolute).size;
-      (excluded.has(key) ? skipped : included).push({ path: key, bytes: size });
+      (excluded.has(key) ||
+        (excluded.has('composition/web/**') && key.startsWith('composition/web/'))
+        ? skipped : included).push({ path: key, bytes: size });
     }
   };
   walk(root);
   included.sort((a,b) => a.path.localeCompare(b.path, 'en'));
   skipped.sort((a,b) => a.path.localeCompare(b.path, 'en'));
-  const missing = [...excluded].filter(key => !skipped.some(x => x.path === key)).sort();
+  const missing = [...excluded].filter(key => key === 'composition/web/**'
+    ? !skipped.some(x => x.path.startsWith('composition/web/'))
+    : !skipped.some(x => x.path === key)).sort();
   // Missing exclusion targets are expected during source migrations; never
   // pretend they were removed from an actual installer.
   const groups = {};
@@ -39,6 +48,100 @@ function inventory(root, exclusions) {
   return { schema:'ordax.desktop-system-inventory/1', includedFiles:included.length, includedBytes:totalBytes,
     excludedFiles:skipped.length, excludedBytes:skipped.reduce((s,x)=>s+x.bytes,0),
     missingExclusions:missing, groups, fingerprint };
+}
+
+// Enforce the single checked-in contract before shipping an NSIS system tree.
+// Neither arbitrary extra omissions nor parallel system copies are allowed.
+function canonicalWindowsPackageExclusions(packageJson, autonomy) {
+  const resources = packageJson?.build?.extraResources;
+  if (!Array.isArray(resources)) throw Error('Windows package resources unavailable');
+  const sources = resources.filter(x => x.from === '../../system');
+  if (sources.length !== 1 || sources[0].to !== 'runtime-template/system' ||
+      !Array.isArray(sources[0].filter) || sources[0].filter[0] !== '**/*') {
+    throw Error('Windows system packaging source is not unique');
+  }
+  const scope = autonomy?.client_build_independence;
+  const groups = [
+    scope?.windows_package_forbidden_linux_boot_paths,
+    scope?.windows_package_forbidden_linux_shell_paths,
+    scope?.linux_only_client_probe_paths,
+    scope?.linux_only_client_host_entrypoints,
+    scope?.linux_only_client_python_support_paths,
+    scope?.linux_only_client_base_update_diagnostics_paths,
+  ];
+  if (groups.some(group => !Array.isArray(group) || group.length === 0) ||
+      typeof scope?.linux_only_client_package_manifest !== 'string' ||
+      !scope.linux_only_client_package_manifest) {
+    throw Error('Canonical Windows exclusions unavailable');
+  }
+  const paths = [...groups.flat(), scope.linux_only_client_package_manifest,
+    'composition/web/**'];
+  if (paths.some(x => typeof x !== 'string' || !x) ||
+      new Set(paths).size !== paths.length) {
+    throw Error('Duplicate or malformed canonical Windows exclusion');
+  }
+  const allowed = new Set(paths.map(x => '!' + x));
+  const actual = sources[0].filter.slice(1);
+  if (actual.length !== allowed.size ||
+      new Set(actual).size !== actual.length ||
+      actual.some(x => !allowed.has(x))) {
+    throw Error('Windows package exclusions diverge from canonical build-autonomy contract');
+  }
+  return actual;
+}
+
+
+// Git candidate materialization must obey the SAME exclusion authority as
+// NSIS. Non-cone patterns retain root files but forbid unrelated producers;
+// all Linux/Web omissions are projections of the canonical package contract.
+function canonicalWindowsSparsePatterns(packageJson, autonomy) {
+  const exclusions = canonicalWindowsPackageExclusions(packageJson, autonomy);
+  const patterns = [
+    '/*', '!/*/',
+    '/system/**', '/docs/contracts/**', '/docs/evidence/**',
+    '/tools/windows-emulator/**', '/tools/windows-desktop/**',
+  ];
+  for (const exclusion of exclusions) {
+    const rel = exclusion.slice(1);
+    if (rel !== 'composition/web/**' &&
+        !/^[a-z0-9][a-z0-9._-]*(?:\/[a-z0-9][a-z0-9._-]*)*$/.test(rel)) {
+      throw Error('Unsafe Desktop Git sparse exclusion: ' + rel);
+    }
+    patterns.push('!/system/' + rel);
+  }
+  return patterns;
+}
+
+// Inspect the bytes extracted by NSIS using the SAME canonical exclusions
+// already validated against electron-builder. Never maintain another path list.
+function verifyInstalledWindowsPackage(installedRoot, packageJson, autonomy) {
+  const root = lstatSync(installedRoot);
+  if (!root.isDirectory() || root.isSymbolicLink()) {
+    throw Error('Installed Windows system root must be a real directory');
+  }
+  const exclusions = canonicalWindowsPackageExclusions(packageJson, autonomy);
+  for (const entry of exclusions) {
+    const rel = entry === '!composition/web/**'
+      ? 'composition/web' : entry.slice(1);
+    // The contract is trusted source, but never let a modified path escape
+    // the installed system root, including Windows absolute/path traversal.
+    if (!/^[a-z0-9][a-z0-9._-]*(?:\/[a-z0-9][a-z0-9._-]*)*$/.test(rel)) {
+      throw Error('Unsafe installed Windows exclusion path: ' + rel);
+    }
+    const path = join(installedRoot, ...rel.split('/'));
+    try { lstatSync(path); }
+    catch (error) {
+      if (error?.code === 'ENOENT') continue;
+      throw error;
+    }
+    throw Error('Forbidden Linux/Web source shipped in Windows installer: ' + rel);
+  }
+  const nativeEntry = lstatSync(join(installedRoot,'composition','native','index.html'));
+  if (!nativeEntry.isFile() || nativeEntry.isSymbolicLink()) {
+    throw Error('Installed Windows Native source entry unavailable');
+  }
+  return { schema:'ordax.desktop-installed-exclusions/1',
+    verifiedExclusions:exclusions.length, nativeEntryVerified:true };
 }
 
 // The verified Vite output is a separate runtime artifact. Report it alongside
@@ -69,13 +172,25 @@ function nativeBundleComparison(systemReport, compiledRoot) {
 function main() {
   const base = resolve(__dirname, '../..');
   const packageJson = require('./package.json');
-  const sources = packageJson.build.extraResources.filter(x => x.from === '../../system' && x.to === 'runtime-template/system');
-  if (sources.length !== 1 || sources[0].filter[0] !== '**/*') throw Error('Windows system packaging source is not unique');
-  const report = inventory(join(base,'system'), sources[0].filter.slice(1));
+  const autonomy = require('../../docs/contracts/build-autonomy.json');
+  const installedFlag = process.argv.indexOf('--installed-system');
+  if (installedFlag !== -1) {
+    if (installedFlag !== 2 || process.argv.length !== 4) {
+      throw Error('Installed Windows verification requires exactly one system path');
+    }
+    process.stdout.write(JSON.stringify(
+      verifyInstalledWindowsPackage(process.argv[3],packageJson,autonomy)) + '\n');
+    return;
+  }
+  const exclusions = canonicalWindowsPackageExclusions(packageJson, autonomy);
+  const report = inventory(join(base,'system'), exclusions);
+  if (report.missingExclusions.length) {
+    throw Error('Unverified Windows exclusions: ' + report.missingExclusions.join(', '));
+  }
   if (process.argv.includes('--compiled')) {
     report.nativeRepresentations = nativeBundleComparison(report, join(base, 'out', 'windows-desktop-native'));
   }
   process.stdout.write(JSON.stringify(report, null, 2) + '\n');
 }
 if (require.main === module) main();
-module.exports = { inventory, nativeBundleComparison };
+module.exports = { inventory, nativeBundleComparison, canonicalWindowsPackageExclusions, canonicalWindowsSparsePatterns, verifyInstalledWindowsPackage };

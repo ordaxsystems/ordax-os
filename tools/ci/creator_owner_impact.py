@@ -1,6 +1,7 @@
 #!/usr/bin/env python3
 """Fail-closed Owner USB impact: separate CI/visual contracts from physical producer bytes."""
 import argparse
+import json
 import os
 from pathlib import Path
 import re
@@ -14,12 +15,15 @@ else:
 ROOT = Path(__file__).resolve().parents[2]
 WORKFLOW = ".github/workflows/creator-owner-dev-git.yml"
 SURFACE_LOCK = "docs/contracts/surface-source.json"
+CLIENT_AUTONOMY_CONTRACT = "docs/contracts/build-autonomy.json"
 INTELLIGENCE_WORKFLOW = ".github/workflows/intelligence-foundation.yml"
 LEGACY_PROFILE_DOC = "PLANO-06-PERFIS-PROFISSIONAIS-E-DISTRIBUICAO-SOB-DEMANDA.md"
 CURRENT_PROFILE_KNOWLEDGE_DOC = "docs/PROFILE-INTELLIGENCE-ARCHITECTURE.md"
 LEGACY_PROFILE_TRIGGER = f"      - '{LEGACY_PROFILE_DOC}'"
 CURRENT_PROFILE_TRIGGER = f"      - '{CURRENT_PROFILE_KNOWLEDGE_DOC}'"
 LIGHT_EXACT = frozenset({
+    # Root roadmap: delivery scheduling only, not kernel, USB, or media bytes.
+    "REMOVER-DEPENDENCIA.md",
     "docs/BUILD-AUTONOMY.md",
     "docs/DECISIONS.md",
     "docs/CURRENT-STATE.md",
@@ -50,6 +54,8 @@ LIGHT_EXACT = frozenset({
     # Shared Native composition, component runtime and OS host paths are
     # deliberately NOT excluded; a change to those remains a real USB build.
     ".github/workflows/windows-desktop-dev.yml",
+    # Web client workflow is a client delivery owner, not a USB producer.
+    ".github/workflows/surface-web-candidate.yml",
     "system/adapters/desktop/verified-component-slot-host.mjs",
     "system/adapters/native/signed-current-compatibility.mjs",
     "tests/test_native_signed_current_compatibility.mjs",
@@ -78,7 +84,8 @@ PR_REMOVED = ("docs/contracts/surface-source.json", "system/surface/ui/**", "sys
 PR_ADDED = ("tools/ci/creator_owner_impact.py", "tests/test_creator_owner_impact.py")
 REQUIRED_PR = (
     "bootstrap/dev/**", "bootstrap/dev-base/**", "bootstrap/surface-runtime/**",
-    "system/entrypoint", "system/supervisor", "system/surface/bin/ordax-surface",
+    "system/entrypoint", "system/supervisor", "system/surface/entrypoint",
+    "system/surface/bin/ordax-surface",
     "system/surface/runtime/ordax_browser_host.py",
     ".github/actions/prepare-verified-surface/**", WORKFLOW,
 )
@@ -195,6 +202,166 @@ def workflow_trigger_only(base, head, *, root=ROOT):
 
 
 
+
+def verified_client_delivery_contract_delta(base, head, *, root=ROOT):
+    """Allow ONLY exact addition of bounded client independence metadata.
+
+    Existing dependency graph/provenance/USB policy are byte-stable as parsed
+    JSON objects; changing any existing key reverts to full USB proof.
+    """
+    try:
+        before = json.loads(_git_show(base, CLIENT_AUTONOMY_CONTRACT, root))
+        after = json.loads(_git_show(head, CLIENT_AUTONOMY_CONTRACT, root))
+        old = before["client_build_independence"]
+        current = after["client_build_independence"]
+        if not isinstance(old, dict) or not isinstance(current, dict):
+            return False
+        original_without_client = dict(before)
+        updated_without_client = dict(after)
+        original_without_client.pop("client_build_independence", None)
+        updated_without_client.pop("client_build_independence", None)
+        if original_without_client != updated_without_client:
+            return False
+        if any(k not in current or current[k] != v for k, v in old.items()):
+            return False
+        additions = {k: v for k, v in current.items() if k not in old}
+        expected = {
+            "separation_roadmap": "REMOVER-DEPENDENCIA.md",
+            "client_validation_workflows": {
+                "desktop-client": ".github/workflows/windows-desktop-dev.yml",
+                "web-client": ".github/workflows/surface-web-candidate.yml",
+            },
+            "windows_package_forbidden_linux_boot_paths": [
+                "entrypoint", "supervisor", "surface/entrypoint",
+                "surface/bin/ordax-surface",
+            ],
+            "client_delivery_gate_decoupling_fully_proven": False,
+            "windows_physical_and_web_live_independence_proven": False,
+        }
+        manifest = additions.pop("linux_only_client_package_manifest", None)
+        if manifest is not None:
+            if manifest != "surface/runtime/packages.txt":
+                return False
+            raw = _git_show(head, "system/" + manifest, root)
+            if (not raw or len(raw) > 16 * 1024 or not raw.endswith("\n")
+                    or any(re.fullmatch(r"[a-z0-9][a-z0-9+._-]{0,79}", line) is None
+                           for line in raw.splitlines())):
+                return False
+        probes = additions.pop("linux_only_client_probe_paths", None)
+        if probes is not None:
+            if (not isinstance(probes, list) or len(probes) != 4
+                    or len(set(map(str, probes))) != 4):
+                return False
+            for path in probes:
+                if (not isinstance(path, str) or not re.fullmatch(
+                    r"surface/runtime/(?:media_runtime|physical_(?:ata|kernel_log|performance))_probe\.py",
+                    path)):
+                    return False
+                content = _git_show(head, "system/" + path, root)
+                if not content.startswith("#!/usr/bin/env python3\n") or len(content) > 64 * 1024:
+                    return False
+        hosts = additions.pop("linux_only_client_host_entrypoints", None)
+        if hosts is not None:
+            if (not isinstance(hosts, list) or len(hosts) != 2
+                    or len(set(map(str, hosts))) != 2):
+                return False
+            launcher = _git_show(head, "system/surface/bin/ordax-surface", root)
+            if not launcher.startswith("#!/bin/sh\n"):
+                return False
+            for path in hosts:
+                if (not isinstance(path, str) or not re.fullmatch(
+                    r"surface/runtime/(?:native_host_server|ordax_browser_host)\.py", path)
+                        or path not in launcher):
+                    return False
+                content = _git_show(head, "system/" + path, root)
+                signature = ("from http.server import" if path.endswith("native_host_server.py")
+                             else 'gi.require_version("WebKit2", "4.1")')
+                if (not content.startswith("#!/usr/bin/env python3\n")
+                        or len(content) > 512 * 1024 or signature not in content):
+                    return False
+        support = additions.pop("linux_only_client_python_support_paths", None)
+        if support is not None:
+            if (not isinstance(support, list) or len(support) != 58
+                    or len(set(map(str, support))) != 58
+                    or any(not isinstance(p, str) or not re.fullmatch(
+                        r"surface/runtime/[a-z][a-z0-9_]*\.py", p)
+                           for p in support)):
+                return False
+            runtime_files = subprocess.run(
+                ["git", "-C", str(root), "ls-tree", "-r", "--name-only", head,
+                 "--", "system/surface/runtime"],
+                check=True, capture_output=True, text=True, timeout=20,
+            ).stdout.splitlines()
+            runtime_python = sorted(p[7:] for p in runtime_files if p.endswith(".py"))
+            host_paths = current.get("linux_only_client_host_entrypoints", ())
+            probe_paths = current.get("linux_only_client_probe_paths", ())
+            if sorted([*support, *host_paths, *probe_paths]) != runtime_python:
+                return False
+            for rel in support:
+                raw = _git_show(head, "system/" + rel, root)
+                if not raw or len(raw) > 256 * 1024:
+                    return False
+                if rel == "surface/runtime/native_store_metadata_policy.py":
+                    if (not raw.startswith("# GENERATED FILE. DO NOT EDIT BY HAND.\n")
+                            or "docs/contracts/runtime-component-package.json" not in raw[:300]):
+                        return False
+                elif "from __future__ import annotations" not in raw[:1024]:
+                    return False
+        linux_owner = additions.pop("linux_only_client_base_update_diagnostics_paths", None)
+        if linux_owner is not None:
+            if (not isinstance(linux_owner, list) or len(linux_owner) != 13
+                    or len(set(map(str, linux_owner))) != 13
+                    or any(not isinstance(p, str) or not re.fullmatch(
+                        r"(?:diagnostics|services/base-update)/[a-z][a-z0-9_]*\.py", p)
+                           for p in linux_owner)):
+                return False
+            contents = subprocess.run(
+                ["git", "-C", str(root), "ls-tree", "-r", "--name-only", head,
+                 "--", "system/diagnostics", "system/services/base-update"],
+                check=True, capture_output=True, text=True, timeout=20,
+            ).stdout.splitlines()
+            tracked = sorted(p[7:] for p in contents if p.endswith(".py"))
+            if sorted(linux_owner) != tracked:
+                return False
+            for rel in linux_owner:
+                raw = _git_show(head, "system/" + rel, root)
+                if (not raw.startswith("#!/usr/bin/env python3\n")
+                        or len(raw) > 256 * 1024
+                        or "from __future__ import annotations" not in raw[:1024]):
+                    return False
+            for path, name in (
+                ("system/services/base-update/agent.sh", "orchestrator.py"),
+                ("system/surface/bin/ordax-internet-proof", "internet_native_physical_proof.py"),
+                ("system/surface/bin/ordax-mvp-smoke", "mvp_surface_smoke.py"),
+            ):
+                owner = _git_show(head, path, root)
+                if not owner.startswith("#!/bin/sh\n") or name not in owner:
+                    return False
+        scripts = additions.pop("windows_package_forbidden_linux_shell_paths", None)
+        if scripts is not None:
+            # Only tracked POSIX scripts may be omitted from Windows client
+            # artifacts. No second pathname authority: paths come exclusively
+            # from the build-autonomy contract and verified Git source.
+            if (not isinstance(scripts, list) or not scripts or len(scripts) > 64
+                    or len(set(map(str, scripts))) != len(scripts)):
+                return False
+            for path in scripts:
+                if not isinstance(path, str) or not re.fullmatch(
+                    r"(?:[a-z0-9-]+/)+[a-z0-9._-]+\.sh|surface/bin/ordax-[a-z0-9-]+",
+                    path,
+                ):
+                    return False
+                if not _git_show(head, "system/" + path, root).startswith("#!/bin/sh\n"):
+                    return False
+        return (bool(additions) or scripts is not None or manifest is not None
+                or probes is not None or hosts is not None
+                or linux_owner is not None or support is not None) and all(
+            k in expected and v == expected[k] for k, v in additions.items()
+        )
+    except (OSError, UnicodeError, ValueError, KeyError, TypeError,
+            subprocess.SubprocessError):
+        return False
+
 def verified_legacy_profile_trigger_migration(base, head, *, root=ROOT):
     """Only an exact two-entry Intelligence CI documentation path migration is light."""
     try:
@@ -249,6 +416,9 @@ def classify(base, head, *, root=ROOT):
             elif path == SURFACE_LOCK:
                 if not verified_surface_visual_source_lock_delta(base, head, root=root):
                     return True, "surface-lock-not-proven-visual-only"
+            elif path == CLIENT_AUTONOMY_CONTRACT:
+                if not verified_client_delivery_contract_delta(base, head, root=root):
+                    return True, "client-delivery-contract-unknown-or-producer-delta"
             elif path == INTELLIGENCE_WORKFLOW:
                 if not verified_legacy_profile_trigger_migration(base, head, root=root):
                     return True, "intelligence-workflow-not-exact-profile-doc-migration"

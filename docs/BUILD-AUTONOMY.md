@@ -217,3 +217,94 @@ This is an artifact and release gate boundary, **not a fork of the product**:
 - **CI ownership:** `tools/ci/creator_owner_impact.py` recognizes only the exact client-exclusive roots and reviewed pure client contracts/tests. Web/Windows still run their respective builds and tests. Unknown or mixed deltas trigger the USB producer; the classifier cannot replace product tests, disable required checks or claim runtime availability.
 
 The executable build graph SSOT is `docs/contracts/build-autonomy.json#client_build_independence`; the Python impact classifier and `tests/test_creator_owner_impact.py` verify routing. Expensive USB gates must not be coupled to a Desktop/Web-only PR. A one-time shared Native entrypoint migration remains a genuinely shared change; it may not be relabeled merely to save CI time.
+
+
+## P0 execution roadmap: remove Desktop/Web dependency on USB Creator (2026-11-01)
+
+The **single** root roadmap is [`REMOVER-DEPENDENCIA.md`](../REMOVER-DEPENDENCIA.md). It is subordinate to the machine contract `docs/contracts/build-autonomy.json#client_build_independence` and tracks concrete status/gates. Client artifacts must remain buildable while the USB producer is broken. Currently separate Windows/Web jobs already meet that direct build invariant, but the physical USB check may still block a mixed Native PR merge; branch ruleset access was denied during this audit (403). No gate may be waived without an independently verified replacement.
+
+The first safe packaging reduction removes only the Linux USB boot executables from the Windows NSIS runtime template with exact exclusions and an inventory regression. Complete Linux/Native/Windows import-graph analysis and installed NSIS proof are still pending. The Linux Alpine/Python mismatch belongs exclusively to the USB producer and is not to be repaired by adding Alpine or Linux tooling to Windows/Web.
+
+## P0 — exclusão de scripts Linux dos clientes (2026-11-01)
+
+O pacote Windows **não** deve materializar scripts POSIX destinados ao boot
+Linux, monitoramento físico USB, ACPI, WPA, recuperação, montagem EROFS nem
+ao supervisor de base. A relação exata, não uma varredura por extensão, está
+em `docs/contracts/build-autonomy.json#client_build_independence.windows_package_forbidden_linux_shell_paths`.
+O NSIS utiliza exclusões explícitas em `tools/windows-desktop/package.json`;
+`tools/windows-desktop/package-inventory.test.cjs` verifica seus bytes `#!/bin/sh`
+e a inexistência de inclusões acidentais. Os filtros push/PR de Windows/Web
+ignoram estes artefatos de Linux somente; os imports Native compartilhados
+continuam testados. `tools/ci/creator_owner_impact.py` verifica identidade Git
+e shebang das adições contratuais, sem manter outra lista de caminho canônica.
+
+A independência é de **compilação, distribuição e entrega** do cliente.
+Não autoriza remover arquivos de suporte Python/JS que sejam consumidos pelo
+Native Windows nem alterar política de boot do Linux/USB sem QEMU/Creator.
+Prova de pacote NSIS e status de required checks continuam exigidos antes
+de promover ou declarar encerramento do roadmap.
+
+### Windows packaging of Web-only composition
+
+The canonical Web `system/composition/web/` is never a Native Desktop
+runtime prerequisite: `tools/windows-desktop/vite-native-build.mjs` names
+`system/composition/native/index.html` as the single input. The Windows
+template can therefore exclude the Web composition subtree, without
+altering Web source, Native composition or Surface ownership. The
+inventory accepts exactly `!composition/web/**`, no arbitrary subtree
+wildcards; the Windows workflow excludes `system/composition/web/**`
+from its rebuild triggers, while the Web workflow retains that source.
+An actual extracted NSIS must have no Web-only composition directory.
+`tools/surface-web/` is also a **Web producer**, not a Windows Native
+compiler. The installed NSIS runtime must not copy it, nor should the
+Windows Git updater sparse-checkout stage it. Preserve Windows' existing
+`tools/windows-desktop/vite-native-build.mjs`, canonical locked Vite
+archive, verified Surface source and rollback validation; test the absence
+of Web producer tools in an installed NSIS and a compiled Git candidate.
+This is delivery separation, not a second Native or Web implementation.
+The source graph and integration tests, not file extension guessing,
+remain authoritative for removing any other Python/JS components.
+
+### Vercel Web ignored-build: USB-only inputs are non-producers
+
+The Web Vercel Git ignore command formerly compared the entire `system/`
+tree and rebuilt on Linux-only USB boot and POSIX service changes. It now
+obtains exactly the same verified Linux-only paths already in
+`docs/contracts/build-autonomy.json#client_build_independence` from a
+small read-only `tools/vercel/web_linux_exclusions.py` projection.
+The command skips only when the Git diff contains exclusively those
+proven OS Linux paths (or other non-build docs). Missing/invalid contract,
+Git history, interpreter, file identity or script shape **forces a build**.
+Native shared, composition Web, account/session, contracts, API, Site pin
+and unknown changes still trigger the respective Web build; `ordax-os-public`
+keeps its separate original rule. No new deployment authority is introduced.
+
+### Alpine package manifest has no Web delivery owner
+
+`system/surface/runtime/packages.txt` is a package selection manifest of
+the Linux/USB producer and is already excluded from the Windows installer
+and Web Git workflow source paths. The Web Vercel ignored-build now obtains
+its precise path from the same `docs/contracts/build-autonomy.json` as
+`linux_only_client_package_manifest`. The read-only Git exclusion
+projection verifies a regular, bounded, syntactically valid Alpine package
+list and fails closed (BUILD) on any unknown state; an invalid/changed
+source owner is never silently excluded from the Web deployment gate.
+The Creator impact classifier verifies the metadata addition and exact
+Git source bytes, without reducing Native shared USB proof.
+
+### Linux-only physical probes and POSIX audio session
+
+Four existing Python probes (`surface/runtime/media_runtime_probe.py`,
+`physical_ata_probe.py`, `physical_kernel_log_probe.py`,
+`physical_performance_probe.py`) and the POSIX `audio-session.sh`
+are Linux physical-runtime evidence tools, **not** Windows Native or
+browser Web payloads. Each has a verified executable shebang and is
+already omitted from the Windows package. The single
+`build-autonomy.json#client_build_independence` owns their client
+exclusions: `linux_only_client_probe_paths` and the existing
+`windows_package_forbidden_linux_shell_paths`, respectively.
+The NSIS exact filter is reconciled against these arrays; Web PR/push
+filters and the Vercel read-only impact projector ignore only those
+exact source paths. Unlisted Python code is **never** excluded.
+Physical USB builds still own these files, and any unknown/corrupt
+source/contract change is a build-trigger, not a waiver.

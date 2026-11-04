@@ -438,14 +438,19 @@ test("Web adapter migrates v1 only when v2 is absent", () => {
   assert.equal(recovered.areas[0].windows.length, 0);
 });
 
-test("Native adapter migrates its own v1 namespace independently", () => {
+test("Native adapter quarantines unowned v1 data instead of exposing it as guest", () => {
   const storage = createMemoryStorage();
-  storage.setItem("ordax.native.workspace.v1", JSON.stringify(legacyWithAccount()));
-  const native = createNativeWorkspaceStore({ localStorage: storage }).load();
+  const rawLegacy = JSON.stringify(legacyWithAccount());
+  storage.setItem("ordax.native.workspace.v1", rawLegacy);
+  const nativeStore = createNativeWorkspaceStore({ localStorage: storage });
+  assert.equal(nativeStore.load().areas[0].windows.length, 0);
+  nativeStore.selectOwner({ state: "signed-out" });
+  assert.equal(nativeStore.load().areas[0].windows.length, 0);
   const web = createWebWorkspaceStore({ localStorage: storage }).load();
-  assert.equal(native.areas[0].windows[0].id, "account");
   assert.equal(web.areas[0].windows.length, 0);
-  assert.equal(typeof storage.raw("ordax.native.workspace.v2"), "string");
+  assert.equal(storage.raw("ordax.native.workspace.v1"), rawLegacy);
+  assert.equal(storage.raw("ordax.native.workspace.v2"), undefined);
+  assert.equal(storage.raw("ordax.native.workspace.v2.guest"), undefined);
   assert.equal(storage.raw("ordax.workspace.v2"), undefined);
 });
 
@@ -454,6 +459,7 @@ test("Web and Native v2 stores persist independently", () => {
   const windowRef = { localStorage: storage };
   const webStore = createWebWorkspaceStore(windowRef);
   const nativeStore = createNativeWorkspaceStore(windowRef);
+  nativeStore.selectOwner({ state: "signed-out" });
   let state = baseline();
   state = reduceSurfaceState(state, { type: "app.launch", appId: "account" });
   const snapshot = createWorkspaceSnapshot(state);
@@ -465,8 +471,11 @@ test("Web and Native v2 stores persist independently", () => {
   assert.equal(storage.raw("ordax.native.workspace.v2"), undefined);
 
   nativeStore.save(snapshot);
-  assert.equal(createNativeWorkspaceStore(windowRef).load().areas[0].windows.length, 1);
-  assert.equal(typeof storage.raw("ordax.native.workspace.v2"), "string");
+  const reopened = createNativeWorkspaceStore(windowRef);
+  reopened.selectOwner({ state: "signed-out" });
+  assert.equal(reopened.load().areas[0].windows.length, 1);
+  assert.equal(typeof storage.raw("ordax.native.workspace.v2.guest"), "string");
+  assert.equal(storage.raw("ordax.native.workspace.v2"), undefined);
 });
 
 
