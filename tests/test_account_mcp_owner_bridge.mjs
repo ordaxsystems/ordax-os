@@ -129,6 +129,8 @@ test("Isolated revoke proves every unrelated grant survives, including another O
     {...after,grant_groups:[extraSame]},
     {...after,grant_groups:[{...extraSame,profile_key:"full-computer-control"},extraOther]},
     {...after,grant_groups:[extraSame,{...extraOther,client_id:client}]},
+    {...after,grant_groups:[{...extraSame,valid_until:"2026-12-01T10:00:00.000Z"},extraOther]},
+    {...after,grant_groups:[extraSame,{...extraOther,client_consent_active:false}]},
   ]){
     const calls=[];
     await assert.rejects(revokeAccountOwnerGrant(access,input,
