@@ -2,6 +2,51 @@
 
 > **Guia de retomada, não nova autoridade de código.** Este arquivo existe para que outros chats/agents entendam o trabalho e prossigam sem reiniciar, duplicar sistemas ou interpretar testes simulados como release. Revalidar a `main` e as PRs antes de implementar. Em divergência prevalecem código + contratos públicos, `docs/CURRENT-STATE.md`, `docs/README.md`, `MVP.md` e os documentos canônicos de domínio.
 
+## Prova física de Produto e bloqueio causal — 2026-11-04
+
+**Observação read-only em `DESKTOP-4UFL03B`:** a instalação
+`%LOCALAPPDATA%/Programs/OrdaX OS Desktop Dev` está aberta,
+mas o `resources/runtime-template` instalado **não inclui**
+`surface-runtime-bridge.mjs`,
+`desktop-product-runtime-status.mjs` nem
+`desktop-surface-state-report.mjs`, ainda exclusivos da
+[OS #2400](https://github.com/ordaxsystems/ordax-os/pull/2400).
+O Supervisor anterior existe, porém não há
+`native-state/product-runtime` ou `agent-settings.json`
+na instalação observada. O MCP auxiliar Windows está online
+com grant próprio; a identidade **OrdaX Desktop Product** está
+offline e só possui `mcp-discovery`. Este diagnóstico não é
+uma queda do MCP auxiliar e **não** é resolvido com novas matrículas
+da Platform, copiar módulos soltos ou executar agentes não atestados.
+
+**Gate real:** a PR #2400 continua aberta, HEAD
+`29330e6b901c311680cc468c93e8e6556cfb03ec`. Seu diff
+edita `system/composition/native/main.mjs`, que também é
+consumido no Owner USB; o classificador
+`tools/ci/creator_owner_impact.py` corretamente exige o
+`build-and-publish`. O produtor legado da `main` usa
+`bootstrap/surface-runtime/source.json` (324 APKs pinados)
+e falha ao solicitar `libexpat=2.9.0-r0` enquanto o index
+oferece `2.10.0-r0`. A migração Buildroot/Alpine-free
+trabalha na **mesma [OS #2243](https://github.com/ordaxsystems/ordax-os/pull/2243)**,
+que ainda está aberta/conflitante; o diagnóstico de origem
+já foi registrado no comentário #6633701970 dessa PR.
+**Não** alterar o pin isoladamente, dispensar Creator, editar
+a branch #2243 em paralelo, abrir outro workflow, refazer USB
+ou promover o artefato antes do gate físico cabível.
+
+**Ordem mínima para o próximo chat:** 1) confirmar o avanço
+da #2243 com o owner sem invadir a branch; 2) quando o produtor
+estiver resolvido, atualizar **somente a PR #2400** com a `main`
+contemporânea, preservar 105 testes Node já aprovados e aguardar
+checks exigidos; 3) após merge, instalar **o artefato canônico**
+no Windows e provar o boot do Device Product, grants próprios,
+recibo e revogação; 4) só então conectar consulta autenticada
+à Store `CURRENT` no owner OS/Runtime, e depois uma ação
+compartilhada pela Aura. A Web [#2413](https://github.com/ordaxsystems/ordax-os/pull/2413)
+já foi integrada; não repetir essa missão. Não assumir que
+qualquer etapa está concluída só por constar neste handoff.
+
 ## Checkpoint operacional e regra de retomada — 2026-11-04
 
 **Este é o ponto de entrada vigente para futuros chats nesta frente.**

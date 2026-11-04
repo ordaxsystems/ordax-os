@@ -1,3 +1,27 @@
+**Physical Product Desktop readiness / Creator impact — 2026-11-04:**
+On `DESKTOP-4UFL03B`, a read-only examination of the installed
+`OrdaX OS Desktop Dev/resources/runtime-template` found
+`product-runtime-supervisor.mjs`, but **not** the three native
+Surface/Product modules added by unmerged OS #2400; the active
+user-data tree also lacks `native-state/product-runtime` and its
+agent settings. Product target remains offline/discovery-only
+while independent Windows MCP target is online with its own grant.
+Never share/copy credentials, modules or grants across identities.
+Owner USB Creator job is legitimately required for the
+`system/composition/native/main.mjs` change in #2400;
+`creator_owner_impact.py` intentionally treats that shared
+composition as boot-impacting. The main's legacy Alpine Surface
+runtime lock requests `libexpat=2.9.0-r0` versus available
+`2.10.0-r0` (full 324-pin lock); the Alpine-free Buildroot
+owner is still working through #2243. Do not change one pin
+without full lock revalidation, bypass Creator proof, or alter
+#2243 in parallel. After owner closure, reconcile existing
+#2400 and its CI; only after a real packaged Product Device
+works should Aura/Runtime's authenticated `CURRENT` bridge be
+called ready. Details and source checklist:
+`INTELLIGENCE-HANDOFF.md` and
+[PR #2400 proof](https://github.com/ordaxsystems/ordax-os/pull/2400#issuecomment-6639859338).
+
 **Native Product / Web gating checkpoint — 2026-11-04:**
 [OS #2413](https://github.com/ordaxsystems/ordax-os/pull/2413)
 **merged** as `ba701464a354f7736b5743a6ec8b446e39ab7bb8`,
