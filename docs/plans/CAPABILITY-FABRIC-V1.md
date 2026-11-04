@@ -1507,6 +1507,30 @@ Autoridades existentes a preservar:
   O CI remoto e a compatibilidade com o MCP Native exigem validação
   para o SHA publicado. Nenhuma promoção ou `mcpReady` é presumida.
 
+### C.42. Revogação CURRENT de App somente semântico durante inferência (2026-11-04)
+
+- **Regressão reproduzida antes da correção:** aplicativo assinado com
+  `app-intelligence-manifest` e **sem Action manifest** podia ser retirado
+  da Store enquanto a Aura aguardava resposta do modelo. A geração do
+  proprietário semântico não havia avançado e o Fabric não tinha Actions
+  para retirar; a resposta obsoleta era aceita. O teste causal falhou com
+  `Missing expected rejection`.
+- **Correção sem duplicação:** quando a composição utiliza
+  `withCurrentAppSnapshot` do proprietário verificado, a Aura compara a
+  projeção atual de `awareness.contextItem()` **já existente** com a
+  projeção usada na solicitação, antes do envio e na conclusão. Uma
+  alteração silenciosa de `CURRENT` invalida a resposta. A comparação
+  não cria registry, cache, grant, executor ou fonte adicional.
+- Os controles de revisão do Capability Fabric e da geração semântica
+  continuam ativos; consumidores sem o escopo verificado preservam o
+  contrato anterior. Os testes exercitam também a resposta estável e
+  pedidos consecutivos sob observações Store distintas.
+- **Prova local Windows:** **486/486** testes do workflow
+  `Application Action Capability Foundation` em 47 arquivos, zero
+  falhas/skips, sintaxe de ambos os módulos e `git diff --check` OK.
+  CI remoto, compatibilidade com MCP/Conta e gates desta PR devem ser
+  revalidados no SHA publicado. Sem alegar sessão Product MCP autenticada.
+
 ### D. Integração futura com o Runtime MCP canônico — fronteira auditada
 
 - **Contrato efetivo verificado (2026-11-03):**

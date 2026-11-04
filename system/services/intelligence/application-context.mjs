@@ -266,6 +266,18 @@ export function createApplicationContextIntelligence({
         if (appGeneration !== readAppGeneration()) {
           throw new Error("Aura verified application semantic generation changed during inference");
         }
+        // A semantic-only signed app can lose Native Store CURRENT while
+        // the inference is pending without changing the Action Registry
+        // or the semantic owner's generation. Re-attest through the SAME
+        // existing Awareness port, never a second Store/catalog/authority.
+        // The synchronous request scope already checked CURRENT before
+        // dispatch; the live readback protects pre-send and completion.
+        if (readSnapshot && withCurrentAppSnapshot !== null &&
+            validatedSystemContextItem(
+              awareness.contextItem(), "ordax-application-catalog",
+            ).text !== liveAwarenessContext.text) {
+          throw new Error("Aura verified application CURRENT changed during inference");
+        }
         if (fabricFence === null) return;
         if (observedRevocation) {
           throw new Error("Aura Native capability context changed during inference");

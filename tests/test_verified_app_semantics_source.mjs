@@ -1773,7 +1773,9 @@ test("Aura assembles all app context from one synchronous CURRENT observation", 
     getCurrentObservations() {
       reads++;
       if (!flip) return [slotMetadata("notes"), slotMetadata("studio")];
-      return Math.floor(tick++ / 2) % 2 === 0
+      // Each request reads once for composition, once for the pre-send
+      // fence, and twice to attest Awareness before and after inference.
+      return Math.floor(tick++ / 4) % 2 === 0
         ? [slotMetadata("notes")] : [slotMetadata("studio")];
     },
   });
@@ -1806,8 +1808,8 @@ test("Aura assembles all app context from one synchronous CURRENT observation", 
     flip = true;
     const before = reads;
     await aura.respond({ prompt: "Crie uma nota" });
-    assert.equal(reads - before, 2,
-      "Aura must read one pinned CURRENT view and re-attest just before inference");
+    assert.equal(reads - before, 4,
+      "Aura must pin one CURRENT view, fence before dispatch and recheck signed Awareness");
     const catalog = JSON.parse(observedContext.find(x =>
       x.id === "ordax-application-catalog").text);
     const currentApps = catalog.applications.filter(x =>
@@ -1822,8 +1824,8 @@ test("Aura assembles all app context from one synchronous CURRENT observation", 
     assert.deepEqual(JSON.parse(actions.text).actions.map(x => x.appId), ["notes"]);
     const next = reads;
     await aura.respond({ prompt: "Crie uma nota" });
-    assert.equal(reads - next, 2,
-      "the next Aura request must read and re-attest fresh CURRENT");
+    assert.equal(reads - next, 4,
+      "each new Aura request must pin and re-attest fresh CURRENT through completion");
     const second = JSON.parse(observedContext.find(x =>
       x.id === "ordax-application-catalog").text);
     assert.deepEqual(second.applications.filter(x =>
@@ -1833,6 +1835,64 @@ test("Aura assembles all app context from one synchronous CURRENT observation", 
     assert.ok(secondActions);
     assert.deepEqual(JSON.parse(secondActions.text).actions.map(x => x.appId),
       ["studio"], "the second request cannot carry stale Notes actions");
+  } finally {
+    live.dispose();
+  }
+});
+
+test("Aura rejects an in-flight answer when a semantic-only signed app loses CURRENT", async () => {
+  let observations = [slotMetadata("studio")];
+  let complete;
+  const pending = new Promise(resolve => { complete = resolve; });
+  const semanticOnly = {
+    ...verifiedEntry("studio"),
+    actionManifest: null,
+    providerManifest: null,
+  };
+  const live = createLiveVerifiedApplicationSemantics({
+    baseApplications: listFirstPartyApps(),
+    bundledManifests: [],
+    initialVerifiedSemantics: [semanticOnly],
+    getCurrentObservations: () => observations,
+  });
+  let modelCalls = 0;
+  const aura = createApplicationContextIntelligence({
+    intelligencePort: {
+      schema: INTELLIGENCE_PORT_SCHEMA,
+      getSnapshot: () => ({
+        schema: INTELLIGENCE_PORT_SCHEMA, state: "ready",
+        inferenceAvailable: true, engineId: "local", modelId: "test",
+        authority: "none", toolExecution: false,
+      }),
+      subscribe: () => () => {},
+      respond(request) {
+        modelCalls++;
+        assert.ok(JSON.parse(request.context.find(item =>
+          item.id === "ordax-application-catalog").text)
+          .applications.some(item => item.appId === "studio"));
+        return pending;
+      },
+    },
+    awarenessPort: live.awarenessPort,
+    actionCapabilityRegistryPort: live.actionRegistryPort,
+    semanticRouterPort: live.semanticRouterPort,
+    getApplicationSemanticsGeneration: () => live.getGeneration(),
+    withCurrentAppSnapshot: callback => live.withCurrentSnapshot(callback),
+  });
+  try {
+    const previousGeneration = live.getGeneration();
+    const result = aura.respond({ prompt: "Crie um projeto no Studio" });
+    assert.equal(modelCalls, 1);
+    observations = [];
+    complete({
+      schema: INTELLIGENCE_RESPONSE_SCHEMA,
+      text: "stale response", engineId: "local", modelId: "test",
+      authority: "none",
+    });
+    await assert.rejects(result, /Aura verified application CURRENT changed during inference/,
+      "the result cannot outlive a semantic-only signed slot");
+    assert.equal(live.getGeneration(), previousGeneration,
+      "Store withdrawal can precede the asynchronous semantic refresh");
   } finally {
     live.dispose();
   }
