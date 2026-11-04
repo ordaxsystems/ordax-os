@@ -1,3 +1,42 @@
+**ESTADO CANÔNICO ATUAL — Desktop Product MCP / 04-11-2026**
+
+A ponte Native Product Windows [OS #2400](https://github.com/ordaxsystems/ordax-os/pull/2400)
+foi **INTEGRADA** à `ordax-os/main` no merge squash
+[`5eb9e2f8d6c95c457c307e872e6f953bd48e2a36`](https://github.com/ordaxsystems/ordax-os/commit/5eb9e2f8d6c95c457c307e872e6f953bd48e2a36).
+O último commit da branch foi `9a7930f09b3048c328d0dd7ad9d678433bbfa0bd`.
+[Windows CI #41930150826](https://github.com/ordaxsystems/ordax-os/actions/runs/41930150826)
+foi **SUCCESS**, incluindo NSIS instalado isoladamente e módulos Product exigidos.
+A prova Owner USB [#41930150978](https://github.com/ordaxsystems/ordax-os/actions/runs/41930150978)
+foi **SUCCESS** com `CREATOR_OWNER_USB_REQUIRED=NO reason=nonproducer-contract-only`:
+o classificador valida exatamente 10 adições Windows-guardadas na composição
+Native, 28 adições de tradução e blobs Product com hashes fixados;
+alterações diferentes voltam a exigir o gate USB. Teste físico isolado
+do classificador no Windows: **13/13 PASS**. Não há autorização geral
+para dispensar Creator/Buildroot, apenas a não incidência causal
+demonstrada para esse diff. A PR #2243 mantém missão Buildroot separada.
+
+**Implantação física NÃO concluída** em `DESKTOP-4UFL03B`: a instalação
+atual foi identificada com executável anterior (mtime 04/11 03:45) e
+ainda não foi atualizada para o NSIS do merge. O Device separado
+`OrdaX Desktop (DESKTOP-4UFL03B)` permanece offline/discovery-only,
+sem identidade/token Product e binário DEV preparados no perfil.
+O MCP auxiliar `DESKTOP-4UFL03B` é outra identidade, com grant próprio,
+e não deve ser reintegrado, duplicado ou usado como origem de token
+Product. `mcpReady` remoto e Aura↔Product **NÃO comprovados**.
+
+**Próxima execução necessária:** adquirir pela conta GitHub autorizada
+o NSIS canônico do CI exato de main, validar SHA/proveniência, atualizar
+a instalação operacional única preservando perfil e processos remotos,
+provisionar somente a identidade Product pelo fluxo oficial e provar
+heartbeat, `capability_digest`, grants e uma ação inócua com recibo.
+O artefato CI de #2400 tem ~680 MB e não cabe no limite de transferência
+do conector GitHub de 512 MB; transferência direta de API sem login
+retornou HTTP 401. Não contornar com reutilização de segredos nem copiar
+módulos avulsos. Histórico de PR aberta e gate libexpat abaixo é apenas
+histórico e está SUPERADO para #2400.
+
+---
+
 **Native Product Windows packaging/Device checkpoint — 2026-11-04:**
 OS [#2400](https://github.com/ordaxsystems/ordax-os/pull/2400), HEAD
 `6785563d0267062dcb3b7b9badad37568347c02d`, now requires
