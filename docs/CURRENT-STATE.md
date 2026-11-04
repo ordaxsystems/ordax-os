@@ -1,3 +1,24 @@
+Capability Fabric v1 — merged, bounded, Windows package verified (2026-11-04):
+`ordaxsystems/ordax-os` PR #2406 merged as
+`b44659ec8caad2fff8820bcee83201174dc71702`, and the discovery
+contract (`ordax.capability-discovery/1`), Native/Aura/Personal
+composition, CURRENT verified-action gate and revocation behavior are
+present in `main` (`9f3a7f0abc45774f146971d6b246e6839f10c53b` at this checkpoint).
+On `DESKTOP-4UFL03B`, a single canonical installed Desktop Dev instance
+activated that same source revision, passed its Native Surface health
+receipt, and rejected a direct unauthenticated local session request
+with HTTP 401. This is proof of installed boot and packaged source, not
+a full physical UI/Aura action-use E2E.
+The Fabric projection is descriptive and read-only:
+`authority=none`, `toolExecution=false`, `execution=unavailable`.
+No Product MCP `tools/list`, remote action authorization, Product
+attestation or grant readiness is implied. The Product device has not
+been authenticated and authorized for remote execution; the remaining
+integration belongs to `ordax-runtime`/`ordax-platform`, and UI
+acceptance belongs to `ordax-surface`. Do not duplicate registries,
+executors, sessions, or a second installed Desktop to close those gates.
+Historical implementation ledger: `docs/plans/CAPABILITY-FABRIC-V1.md`.
+
 Priority / delivery autonomy (2026-10-31):
 The active Windows Desktop release track has priority over Linux USB/Creator
 and Buildroot. Complete real installed Desktop and its essential Account,

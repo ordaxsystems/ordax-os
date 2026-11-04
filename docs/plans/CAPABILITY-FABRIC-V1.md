@@ -1,12 +1,28 @@
 # OrdaX Capability Fabric v1 — plano canônico de integração local
 
-**Estado em 2026-11-03:** candidato A/B/C implementado sobre a `main`
-remota em worktree exclusivo, com descoberta somente leitura, Store
-CURRENT, Aura/Personal e recibos Native testados no Windows. A fase D
-continua sem tool MCP publicada e sem autorização remota presumida.
-Esta integração **não** cria fonte de autoridade, registro de apps
-ou executor adicional; os gates externos de confiança e Runtime
-continuam independentes.
+**Estado em 2026-11-04: v1 integrado em `ordax-os/main`.**
+A [PR #2406](https://github.com/ordaxsystems/ordax-os/pull/2406) foi
+integrada no commit `b44659ec8caad2fff8820bcee83201174dc71702` e
+permanece na main `9f3a7f0abc45774f146971d6b246e6839f10c53b`. A projeção de descoberta, os vínculos com
+Store CURRENT, Native/Aura/Personal e os gates de revisão/revogação
+foram incorporados ao código canônico. No Windows instalado
+(`DESKTOP-4UFL03B`), a revisão `9f3a7f0abc45774f146971d6b246e6839f10c53b` foi ativada com
+recibo de saúde e `Native Surface ready`, sem segunda instalação ativa.
+
+**Limites ainda não homologados:** descoberta dinâmica por interação real
+na UI/Aura, sessão Product MCP autenticada, `tools/list` autorizado,
+grants e execução remota. A projeção Fabric segue
+`authority=none`, `toolExecution=false` e
+`execution=unavailable`: ela não constitui atestação de dispositivo,
+registro de tools nem canal alternativo de execução. A etapa D depende
+dos owners `ordax-runtime` e `ordax-platform`; UX pertence a
+`ordax-surface`. Não reabrir a implementação v1 para cobrir essas
+fronteiras com duplicações.
+
+**Nota de leitura:** o histórico de implementação abaixo preserva
+expressões da época como “implementado localmente”, “PR pendente” e
+números de testes datados. Esses trechos são evidência histórica, não
+o estado atual; prevalecem código/contratos e `docs/CURRENT-STATE.md`.
 
 ## Decisão arquitetural
 
