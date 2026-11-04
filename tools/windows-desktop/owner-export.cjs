@@ -67,8 +67,10 @@ function exportDesktopOwner({sourceRoot,osSha,outputRoot}={}){
   const temp=fs.mkdtempSync(join(allowed,'.ordax-desktop-owner-export-'));
   try{
     const archive=join(temp,'ordax-desktop-source.tar.gz');
-    command('git',['-C',root,'archive','--format=tar.gz','--output='+archive,
-      osSha+':'+SHELL_PATH]);
+    // Git for Windows can apply core.autocrlf to archive payloads. Disable
+    // checkout EOL conversion for this one read-only archive operation.
+    command('git',['-C',root,'-c','core.autocrlf=false','archive',
+      '--format=tar.gz','--output='+archive,osSha+':'+SHELL_PATH]);
     const stat=fs.lstatSync(archive);
     if(!stat.isFile()||stat.size<100||stat.size>MAX_ARCHIVE_BYTES)
       throw Error('Detached Desktop source archive exceeds safe size bounds');
@@ -78,6 +80,28 @@ function exportDesktopOwner({sourceRoot,osSha,outputRoot}={}){
     const expected=files.map(f=>f.path).sort();
     if(JSON.stringify(listed)!==JSON.stringify(expected))
       throw Error('Desktop owner archive files diverge from committed Git tree');
+    // Do not rely on tar names alone: check extracted bytes against exact Git
+    // blob objects, even when OS attributes or Windows EOL rules would convert.
+    const inspection=join(temp,'.inspect-extracted-git-blobs');
+    fs.mkdirSync(inspection);
+    try {
+      command('tar',['-xzf',archive,'-C',inspection]);
+      let extractedBytes=0;
+      for(const file of files){
+        const source=join(inspection,...file.path.split('/'));
+        const st=fs.lstatSync(source);
+        if(!st.isFile()||st.isSymbolicLink()||st.size>8*1024*1024)
+          throw Error('Unsafe extracted Desktop owner source file');
+        extractedBytes+=st.size;
+        if(extractedBytes>64*1024*1024)
+          throw Error('Desktop owner source exceeds extracted byte bound');
+        const bytes=fs.readFileSync(source);
+        const gitObject=createHash('sha1')
+          .update('blob '+bytes.length+'\0').update(bytes).digest('hex');
+        if(gitObject!==file.git_blob_sha)
+          throw Error('Desktop owner archive bytes differ from committed Git blob: '+file.path);
+      }
+    }finally{fs.rmSync(inspection,{recursive:true,force:true});}
     const receipt={schema:SCHEMA,os_repository:'ordaxsystems/ordax-os',os_sha:osSha,
       source_tree_sha:tree,source_prefix:SHELL_PATH,
       proposed_owner:'ordaxsystems/ordax-desktop',

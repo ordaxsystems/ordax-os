@@ -12,7 +12,8 @@ function fixture(){
     const r=spawnSync('git',['-C',root,...args],{encoding:'utf8',windowsHide:true});
     assert.equal(r.status,0,r.stderr||'Git fixture failed');return r.stdout.trim();
   };
-  git('init','-q');git('config','user.name','OrdaX Desktop Export Fixture');
+  git('init','-q');git('config','core.autocrlf','true');
+  git('config','user.name','OrdaX Desktop Export Fixture');
   git('config','user.email','ordax-export@invalid.example');
   git('remote','add','origin','https://github.com/ordaxsystems/ordax-os.git');
   const put=(name,bytes)=>{

@@ -181,3 +181,15 @@ A transferência final exige criar `ordaxsystems/ordax-desktop`, CI própria,
 alinhamento dos testes que ainda usam caminhos relativos ao OS, migração
 atômica de owners, atualização dos consumidores e remoção da árvore antiga
 quando o corte for comprovado.
+
+## Preservação byte a byte no Windows
+
+A CI revelou uma divergência real: o Git for Windows com `core.autocrlf=true`
+pode converter LF em CRLF na própria operação `git archive`. Esse comportamento
+foi reproduzido em um Windows físico e confirmado como evitável com
+`git -c core.autocrlf=false archive`, sem alterar a configuração do checkout.
+A exportação agora também extrai o tar temporariamente, calcula o objeto Git
+SHA-1 de **cada arquivo** e compara aos blobs de `HEAD`. Se filtros,
+atributos ou qualquer transformação alterarem os bytes, recusa o arquivo
+antes de publicar o recibo. A pasta temporária de inspeção é removida.
+Os testes forçam `core.autocrlf=true` para impedir regressão no Windows.
