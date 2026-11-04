@@ -268,7 +268,7 @@ try {
         'Web Central has no fake Aura composer');
       await openSidebarDestination('Projetos');
       await until("!!document.querySelector('[aria-label=\"Janela Projetos\"]')");
-      await evaluate("window.proofPrimary=document.querySelector('[aria-label=\"Janela Projetos\"]')");
+      await evaluate("window.proofPrimary=document.querySelector('[aria-label=\"Janela Projetos\"]');true");
       await click('[aria-label="Compactar Projetos"]');
       assert.equal(await evaluate("document.querySelector('.window-workspace').dataset.compact"),'expanded');
       assert.equal(await evaluate("window.proofPrimary===document.querySelector('[aria-label=\"Janela Projetos\"]')"),true,
