@@ -109,6 +109,38 @@ test("Explicit revoke targets exactly one group, checks authority before and aft
   assert.equal(calls[1].url,
     "https://mcp.ordax.com.br/v3/owner/remote-grant-groups/"+group+"?client_id="+client);
 });
+test("Isolated revoke proves every unrelated grant survives, including another OAuth client",async()=>{
+  const input={device_id:device,client_id:client,grant_group_id:group,confirm:"revogar"};
+  const otherClient="66666666-6666-4666-8666-666666666666";
+  const extraSame={...authority.grant_groups[0],
+    grant_group_id:"55555555-5555-4555-8555-555555555555",profile_key:"mcp-discovery"};
+  const extraOther={...authority.grant_groups[0],
+    grant_group_id:"77777777-7777-4777-8777-777777777777",
+    client_id:otherClient,profile_key:"mcp-discovery"};
+  const before={...authority,grant_groups:[authority.grant_groups[0],extraSame,extraOther]};
+  const after={...before,grant_groups:[extraSame,extraOther]};
+  const successCalls=[];
+  const confirmed=await revokeAccountOwnerGrant(access,input,
+    transport([before,{ok:true},after],successCalls));
+  assert.equal(confirmed.revoked,true);
+  assert.equal(successCalls.filter(call=>call.options.method==="DELETE").length,1);
+
+  for(const invalidAfter of [
+    {...after,grant_groups:[extraSame]},
+    {...after,grant_groups:[{...extraSame,profile_key:"full-computer-control"},extraOther]},
+    {...after,grant_groups:[extraSame,{...extraOther,client_id:client}]},
+  ]){
+    const calls=[];
+    await assert.rejects(revokeAccountOwnerGrant(access,input,
+      transport([before,{ok:true},invalidAfter],calls)),/revoke-isolation-unverified/);
+    assert.equal(calls.filter(call=>call.options.method==="DELETE").length,1);
+  }
+  const reused={...after,grant_groups:[...after.grant_groups,
+    {...authority.grant_groups[0],client_id:otherClient}]};
+  await assert.rejects(revokeAccountOwnerGrant(access,input,
+    transport([before,{ok:true},reused])),/revoke-unconfirmed/);
+});
+
 test("Stale and cross-device groups fail before DELETE",async()=>{
   const input={device_id:device,client_id:client,grant_group_id:group,confirm:"revogar"};
   for(const invalid of [{...authority,grant_groups:[]},{...authority,device_id:other}]){
