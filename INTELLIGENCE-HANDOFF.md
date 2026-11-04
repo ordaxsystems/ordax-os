@@ -16,7 +16,7 @@ novamente missões antigas nem elaborar outro plano.**
 | Fabric v1 | [OS #2406](https://github.com/ordaxsystems/ordax-os/pull/2406) **merged**; descobre estado Native/ações de app/Aura-Context sem autoridade de execução | Não reconstruir Fabric v1, segundo registry ou duplicar testes/planos |
 | Apps first-party | `ordax-apps/main` usa manifests, App SDK, `compatibility` e Actions declarativas; guias das PRs #450/#451/#452 integrados | Evoluir um provider real somente se solicitado, sem exigir 93 tools por app |
 | Product Runtime | `ordax-runtime/product_gateway.py` é owner de Product Actions; `capability_snapshot.py` filtra suporte real e limita snapshot a 64; registro `app_intelligence_registry.json` é empacotado/estático, não Store atual | Medir Device real; nunca anunciar 93 tools só pela contagem de código |
-| OrdaX Desktop Native | [OS #2400](https://github.com/ordaxsystems/ordax-os/pull/2400) **OPEN** e com conflitos na checagem; ponte candidata mostra `activeAppId` e ativa apenas Native apps específicos, **não** expõe apps instalados `CURRENT` | Preservar/reconciliar a PR existente com seu engenheiro; não abrir outra ponte, forçar merge ou declarar MCP Native homologado |
+| OrdaX Desktop Native | [OS #2400](https://github.com/ordaxsystems/ordax-os/pull/2400) **OPEN**, HEAD `29330e6`: conflitos de merge resolvidos, **105/105 testes Node locais PASS**; PR #2413 Web **merged** na main (`ba701464`), porém o gate legado `build-and-publish` ainda reprova por `apk`/`libexpat` | Preservar a PR #2400; não iniciar segunda ponte nem alegar Device Product pronto. Resolver gate de empacotamento com seu owner antes de integrar; após avançar main, atualizar a mesma PR uma vez com gates apropriados |
 | Gateway Conta/Owner | [OS #2405](https://github.com/ordaxsystems/ordax-os/pull/2405) **OPEN**, release público Supabase/Vercel/Worker intencionalmente bloqueado | **Não** integrar para destravar MCP DEV nem ativar flags/deploys sem gates de release |
 | Aura ↔ Product MCP | Aura usa `live-verified-app-semantics.mjs` + Store `CURRENT`; Runtime `intelligence.app_catalog/detail` lê registro empacotado uma vez no boot, sem prova de instalação viva | **Próxima implementação útil:** na integração Native Product existente, disponibilizar leitura autenticada de apps/ações atuais **atestadas pelo OS/Store**; Runtime deve consumir sem copiar inventário. Provar instalação → troca/remoção → retirada da capacidade sem restart. Só depois vincular uma Action real ao mesmo executor com autorização/recibos distintos |
 
@@ -89,6 +89,46 @@ permaneciam abertos na consulta de 04/11. UI real pertence a
 código/contratos pertinentes → histórico somente se necessário.
 A seguir permanece um **handoff de 13/10** de outras etapas de Intelligence;
 suas instruções sobre PRs antigas não são tarefas vigentes por si só.
+
+## Resultado da reconciliação Native/Web — 2026-11-04
+
+**Não repetir estas tarefas já concluídas:** [OS #2413](https://github.com/ordaxsystems/ordax-os/pull/2413)
+integrada à `main` (`ba701464a354f7736b5743a6ec8b446e39ab7bb8`),
+corrigindo a verificação da Surface externa e atualizando o smoke do
+Chromium à UI Web atual. `foundation` e `web-client` aprovaram.
+Não restaurar `#meridian-prompt`, janela Aura simulada nem hashes de
+Central da época da UI vendorizada. O código de interface continua
+pertencendo ao `ordax-surface`.
+
+A [OS #2400](https://github.com/ordaxsystems/ordax-os/pull/2400)
+foi reconciliada na **mesma branch**, commit `29330e6b901c311680cc468c93e8e6556cfb03ec`.
+Os arquivos MCP foram preservados; **105/105 testes Node
+direcionados aprovados** no checkout isolado Windows, que foi removido.
+O CI da cabeça anterior à PR #2413 tem `foundation` e
+`desktop-dev` verdes, mas **`build-and-publish` falha**
+no produtor legado Surface/Linux ao fixar `libexpat=2.9.0-r0`
+contra pacote `2.10.0-r0` disponível. Este é outro owner;
+não resolver ajustando o hash, alterando Kernel/USB,
+duplicando workflows ou escondendo check obrigatório.
+
+**Identidades Device verificadas via OrdaX Product:**
+`DESKTOP-4UFL03B` (agente MCP Windows auxiliar) **online**
+com grant `full-computer-control`;
+`OrdaX Desktop (DESKTOP-4UFL03B)` **offline**, apenas
+`mcp-discovery` — sem grant de ação Product.
+Não confundir o sucesso do primeiro com homologação do segundo,
+nem liberar implicitamente Aura ou Software da Surface.
+
+**Única sequência de retomada:** verificar se o owner do
+empacotamento já fechou o gate legado, reconciliar **a mesma
+OS #2400** com a `main` quando a dependência estiver resolvida,
+aguardar checks pertinentes, integrar sem force; depois validar
+bootstrap/sessão/grant do **Device Product** e sua ação real,
+antes de oferecer Store `CURRENT` read-only ao Runtime.
+PR #2405 de Conta continua release-gated e fora desse caminho.
+A evidência causal e os testes estão documentados no
+[comentário de continuidade da #2400](https://github.com/ordaxsystems/ordax-os/pull/2400#issuecomment-6639859338).
+Nem essa nota nem uma PR Web verde encerram o E2E Aura/MCP.
 
 ## SSOT Aura / MCP — retomada pós-Fabric (2026-11-04)
 

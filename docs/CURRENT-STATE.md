@@ -1,3 +1,20 @@
+**Native Product / Web gating checkpoint — 2026-11-04:**
+[OS #2413](https://github.com/ordaxsystems/ordax-os/pull/2413)
+**merged** as `ba701464a354f7736b5743a6ec8b446e39ab7bb8`,
+replacing retired vendored Central hashes with verification of
+the pinned external Surface tree, and testing the current Web
+UI without a fabricated Aura composer. Both `web-client` and
+`foundation` passed. [OS #2400](https://github.com/ordaxsystems/ordax-os/pull/2400)
+remains **OPEN**, reconciled as `29330e6b901c311680cc468c93e8e6556cfb03ec`;
+105/105 focal Node tests passed on isolated Windows checkout.
+Historical check `build-and-publish` fails on the unrelated legacy
+Surface/Linux APK lock `libexpat=2.9.0-r0` vs `2.10.0-r0`.
+Do not merge without required checks or rebuild USB as MCP workaround.
+Authenticated targets still distinguish working external Windows MCP
+from the offline OrdaX Desktop Product Device. This does NOT provide
+live Store `CURRENT` to Runtime or grant Aura tool execution.
+See `INTELLIGENCE-HANDOFF.md` for exact next action and owners.
+
 **Cross-repository Fabric/Aura/MCP handoff propagation — closed (2026-11-04):**
 The five relevant repositories now have native documented entrypoints
 in their respective `main` branches. Apps [#455](https://github.com/ordaxsystems/ordax-apps/pull/455)
