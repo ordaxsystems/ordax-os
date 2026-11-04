@@ -129,3 +129,15 @@ untracked, Git-ignored JS file cannot be smuggled into a build solely by listing
 it in package.json. Tests exercise both SHA mismatches, dirty OS source and
 ignored Desktop source rejection. This strengthens a future two-repository cutover
 without creating a second source owner, release channel or installer.
+
+## Installed source-boundary audit
+
+The *existing* `stage-manifest.json` is also installed as
+`resources/runtime-template/docs/evidence/desktop-stage-manifest.json`.
+This is a read-only audit record, **not** an independent authority for OS,
+Surface, signatures or capabilities. The Windows installed-NSIS smoke compares
+its OS SHA with the canonical Native provenance and its Surface SHA with the
+OS-pinned lock. In detached mode the record also reports the exact Desktop
+commit and correctly identifies `ordax-desktop` as shell/product owner, while
+`ordax-os` remains runtime owner. The staging verifier forbids an OS
+resource from shadowing this reserved receipt destination.

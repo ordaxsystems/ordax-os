@@ -11,6 +11,7 @@ const { join, resolve, dirname, relative, sep, isAbsolute } = require('node:path
 const SHA40 = /^[0-9a-f]{40}$/;
 const SHA256 = /^[0-9a-f]{64}$/;
 const SCHEMA = 'ordax.desktop-standalone-stage/1';
+const STAGE_RECEIPT_RESOURCE = 'runtime-template/docs/evidence/desktop-stage-manifest.json';
 const MAX_FILES = 100000;
 const MAX_BYTES = 8 * 1024 * 1024 * 1024;
 
@@ -234,9 +235,13 @@ function stageStandalonePackage({
       if (matchedExclusions > exclusions.size)
         throw Error('Invalid duplicate resource exclusion');
     }
+    // NSIS includes exactly one copy of the already-generated audit manifest.
+    if (pathExistsIncludingLinks(join(stagePayload,'docs','evidence','desktop-stage-manifest.json')))
+      throw Error('OS payload shadows reserved installed Desktop stage manifest');
     const standalone = structuredClone(pkg);
     standalone.build.extraResources = [
-      {from:'../runtime-template', to:'runtime-template', filter:['**/*']}
+      {from:'../runtime-template', to:'runtime-template', filter:['**/*']},
+      {from:'../stage-manifest.json', to:STAGE_RECEIPT_RESOURCE}
     ];
     standalone.build.directories.output = '../../windows-desktop-installer';
     const packageBytes = JSON.stringify(standalone, null, 2) + '\n';
@@ -245,7 +250,8 @@ function stageStandalonePackage({
       bytes:Buffer.byteLength(packageBytes)});
     sourceRecords.sort((a,b)=>a.path.localeCompare(b.path,'en'));
     const manifest = {schema:SCHEMA, os_sha:osSha,
-      product_owner:'ordaxsystems/ordax-os',
+      product_owner:detached ? 'ordaxsystems/ordax-desktop' : 'ordaxsystems/ordax-os',
+      runtime_owner:'ordaxsystems/ordax-os',
       source_authority:detached
         ? 'ordaxsystems/ordax-desktop/package.json'
         : 'tools/windows-desktop/package.json',
@@ -280,7 +286,10 @@ function verifyStandaloneStage(stageRoot) {
         (manifest.desktop_owner !== 'ordaxsystems/ordax-desktop' ||
           !SHA40.test(manifest.desktop_sha) ||
           manifest.source_authority !== 'ordaxsystems/ordax-desktop/package.json')) ||
-      (manifest.desktop_owner === undefined && manifest.desktop_sha !== undefined))
+      (manifest.desktop_owner === undefined && manifest.desktop_sha !== undefined) ||
+      manifest.runtime_owner !== 'ordaxsystems/ordax-os' ||
+      manifest.product_owner !== (manifest.desktop_owner === undefined
+        ? 'ordaxsystems/ordax-os' : 'ordaxsystems/ordax-desktop'))
     throw Error('Invalid standalone stage manifest');
   const targets = new Set();
   let bytes = 0;
@@ -301,10 +310,14 @@ function verifyStandaloneStage(stageRoot) {
   }
   if (bytes !== manifest.total_bytes) throw Error('Stage byte total mismatch');
   const pkg = JSON.parse(fs.readFileSync(join(root,'shell','package.json'),'utf8'));
-  if (pkg.build?.extraResources?.length !== 1 ||
+  if (pkg.build?.extraResources?.length !== 2 ||
       pkg.build.extraResources[0].from !== '../runtime-template' ||
-      pkg.build.extraResources[0].to !== 'runtime-template')
-    throw Error('Standalone shell still packages a foreign checkout path');
+      pkg.build.extraResources[0].to !== 'runtime-template' ||
+      JSON.stringify(pkg.build.extraResources[0].filter) !== JSON.stringify(['**/*']) ||
+      pkg.build.extraResources[1].from !== '../stage-manifest.json' ||
+      pkg.build.extraResources[1].to !== STAGE_RECEIPT_RESOURCE ||
+      pathExistsIncludingLinks(join(root,'runtime-template','docs','evidence','desktop-stage-manifest.json')))
+    throw Error('Standalone shell has unexpected packaging resources or receipt collision');
   // All files must be declared: prevent any unverified insertion after staging.
   function auditTree(dir, prefix) {
     for (const entry of fs.readdirSync(dir, {withFileTypes:true})) {

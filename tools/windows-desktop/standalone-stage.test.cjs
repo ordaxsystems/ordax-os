@@ -55,7 +55,12 @@ test('stages a self-contained Desktop shell from verified OS resources without a
     assert.ok(!content.files.some(record=>record.path.endsWith('packages.txt')));
     assert.equal(fs.existsSync(join(f.out,'runtime-template/system/surface/runtime/packages.txt')),false);
     const pkg=JSON.parse(fs.readFileSync(join(f.out,'shell/package.json'),'utf8'));
-    assert.deepEqual(pkg.build.extraResources,[{from:'../runtime-template',to:'runtime-template',filter:['**/*']}]);
+    assert.deepEqual(pkg.build.extraResources,[
+      {from:'../runtime-template',to:'runtime-template',filter:['**/*']},
+      {from:'../stage-manifest.json',to:'runtime-template/docs/evidence/desktop-stage-manifest.json'}
+    ]);
+    assert.equal(content.product_owner,'ordaxsystems/ordax-os');
+    assert.equal(content.runtime_owner,'ordaxsystems/ordax-os');
     assert.equal(pkg.build.directories.output,'../../windows-desktop-installer');
     assert.equal(fs.existsSync(join(f.out,'shell/installer.nsh')),true);
     assert.equal(fs.existsSync(join(f.out,'shell/package-lock.json')),true);
@@ -236,6 +241,8 @@ test('packages exact external Desktop Git source while resources remain owned by
       'Native OS');
     const manifest=verifyStandaloneStage(f.out);
     assert.equal(manifest.desktop_owner,'ordaxsystems/ordax-desktop');
+    assert.equal(manifest.product_owner,'ordaxsystems/ordax-desktop');
+    assert.equal(manifest.runtime_owner,'ordaxsystems/ordax-os');
     assert.equal(manifest.desktop_sha,d.sha);
     assert.equal(manifest.source_authority,'ordaxsystems/ordax-desktop/package.json');
   } finally {d.cleanup();f.cleanup();}
@@ -303,4 +310,34 @@ test('detached package cannot include an ignored, untracked Electron source',()=
       /Detached Desktop package file is not tracked by pinned Git commit/);
     assert.equal(fs.existsSync(f.out),false);
   } finally {d.cleanup();f.cleanup();}
+});
+
+
+test('rejects OS resources that shadow the installed stage receipt',()=>{
+  const f=fixture();
+  try {
+    f.put('docs/evidence/desktop-stage-manifest.json','untrusted receipt');
+    const pkg=JSON.parse(fs.readFileSync(join(f.shell,'package.json'),'utf8'));
+    pkg.build.extraResources.push({from:'../../docs/evidence/desktop-stage-manifest.json',
+      to:'runtime-template/docs/evidence/desktop-stage-manifest.json'});
+    fs.writeFileSync(join(f.shell,'package.json'),JSON.stringify(pkg));
+    assert.throws(()=>stageStandalonePackage({sourceRoot:f.root,osSha:SHA,verifyNative:()=>true}),
+      /shadows reserved installed Desktop stage manifest/);
+    assert.equal(fs.existsSync(f.out),false);
+  } finally {f.cleanup();}
+});
+test('rejects altered standalone NSIS audit resource mapping',()=>{
+  const f=fixture();
+  try {
+    stageStandalonePackage({sourceRoot:f.root,osSha:SHA,verifyNative:()=>true});
+    const pkgPath=join(f.out,'shell/package.json');
+    const pkg=JSON.parse(fs.readFileSync(pkgPath,'utf8'));
+    pkg.build.extraResources[1].to='runtime-template/other-receipt.json';
+    fs.writeFileSync(pkgPath,JSON.stringify(pkg));
+    assert.throws(()=>verifyStandaloneStage(f.out),/hash mismatch/);
+    const manifestPath=join(f.out,'stage-manifest.json');
+    const manifest=JSON.parse(fs.readFileSync(manifestPath,'utf8'));
+    fs.writeFileSync(manifestPath,JSON.stringify({...manifest,product_owner:'untrusted'}));
+    assert.throws(()=>verifyStandaloneStage(f.out),/Invalid standalone stage manifest/);
+  }finally{f.cleanup();}
 });

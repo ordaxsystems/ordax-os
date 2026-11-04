@@ -87,13 +87,36 @@ try {
   )
   $required += @(
     (Join-Path $resources "runtime-template\\docs\\contracts\\surface-source.json"),
-    (Join-Path $resources "runtime-template\\desktop-assets\\source-provenance.json")
+    (Join-Path $resources "runtime-template\\desktop-assets\\source-provenance.json"),
+    (Join-Path $resources "runtime-template\\docs\\evidence\\desktop-stage-manifest.json")
   )
   foreach ($entry in $required) {
     if (-not (Test-Path -LiteralPath $entry -PathType Leaf)) {
       throw ("Packaged Native dependency missing: " + $entry)
     }
   }
+  # Installed audit manifest is informational, not an authorization authority.
+  $stageReceipt = Get-Content -LiteralPath (Join-Path $resources "runtime-template\\docs\\evidence\\desktop-stage-manifest.json") -Raw | ConvertFrom-Json
+  $nativeReceipt = Get-Content -LiteralPath (Join-Path $resources "runtime-template\\desktop-assets\\source-provenance.json") -Raw | ConvertFrom-Json
+  $surfaceLock = Get-Content -LiteralPath (Join-Path $resources "runtime-template\\docs\\contracts\\surface-source.json") -Raw | ConvertFrom-Json
+  if ($stageReceipt.schema -cne "ordax.desktop-standalone-stage/1" -or
+      $stageReceipt.runtime_owner -cne "ordaxsystems/ordax-os" -or
+      $stageReceipt.os_sha -cne $nativeReceipt.os_sha -or
+      $nativeReceipt.source_commit -cne $surfaceLock.source_commit) {
+    throw "Installed Desktop stage audit conflicts with canonical Native/Surface provenance"
+  }
+  if ($stageReceipt.desktop_owner) {
+    if ($stageReceipt.desktop_owner -cne "ordaxsystems/ordax-desktop" -or
+        $stageReceipt.product_owner -cne "ordaxsystems/ordax-desktop" -or
+        $stageReceipt.source_authority -cne "ordaxsystems/ordax-desktop/package.json" -or
+        $stageReceipt.desktop_sha -cnotmatch "^[a-f0-9]{40}$") {
+      throw "Installed detached Desktop source audit is invalid"
+    }
+  } elseif ($stageReceipt.product_owner -cne "ordaxsystems/ordax-os" -or
+            $stageReceipt.source_authority -cne "tools/windows-desktop/package.json") {
+    throw "Installed single-source Desktop audit is invalid"
+  }
+  Write-Output "INSTALLED_DESKTOP_SOURCE_BOUNDARY=PASS"
   $compiledRoot = Join-Path $resources "runtime-template\\desktop-assets"
   $compiledHtml = Get-Content (Join-Path $compiledRoot "system\\composition\\native\\index.html") -Raw
   if ($compiledHtml -notmatch "/__ordax/desktop-assets/assets/") {
