@@ -30,6 +30,26 @@ O caminho de **efeito local autorizado** é outro, já pertencente ao Personal: 
 
 O caminho do **ChatGPT/MCP remoto** é independente: cliente OAuth → **ordax-platform** (sessão, Owner, seleção do Device, grants, leases, revogação) → **ordax-runtime** (Product gateway, lista de tools suportadas, política local, agente e recibos) → adaptador/serviço OS existente quando houver integração autenticada e comprovada. O Fabric **não** deve ser publicado diretamente como `tools/list` e seu `revision` **não** é `capability_digest` atestado.
 
+## Padrão mínimo universal dos aplicativos oficiais — decisão de integração (2026-11-04)
+
+**Regra:** todo aplicativo first-party criado/distribuído para OrdaX deve usar os mesmos **contratos públicos mínimos**, mesmo que não exponha nenhuma automação. O **formato e a identidade** são uniformes; a **quantidade e o significado** das funções são particulares de cada app. **Não criar** `fabric.json`, segundo registry, lista manual por app, API MCP exclusiva ou um novo catálogo de capabilities.
+
+| Responsabilidade | SSOT de origem no app | Obrigação do app oficial |
+| --- | --- | --- |
+| Identidade e lifecycle | `app.json` → `ordax.component-manifest/1` | ID estável, nome, versão, owner, dependências, modo de release, health/lifecycle; fonte validada e slot instalado `CURRENT` verificado pelo OS |
+| Compreensão pela Aura | `ai/manifest.json` → `ordax.app-intelligence-manifest/1` | Mesmos `appId`/`appVersion`, instruções não vazias, `intents[]` tipados por namespace do app e `authority=none`, `execution=declarative-only`. **Zero intents é válido** quando não há intenção verdadeira a anunciar |
+| Ações semânticas | `actions/manifest.json` → `ordax.application-action-manifest/1` | Mesma identidade/versão, `authority=none`, `execution=proposal-only`, `capabilities[]` somente para intents existentes, com parâmetros, risco e confirmação; **zero capabilities é válido**. Provider manifest/artefatos seguem o pacote canônico, sem presumir execução |
+| Compatibilidade e runtime | `compatibility.json` (ou descriptor único de migration), App SDK pinado e `componentRuntime` | `requires` compatíveis com o host; ports públicos, montagem, health, desmontagem e empacotamento verificáveis; não importar serviços privados nem criar transportes alternativos |
+| Distribuição e instalação | pacote assinado/verificado, Store e Native Store `CURRENT` | O OS só anuncia o pacote atual efetivamente instalado e verificado; manifesto solto, build não assinado ou catálogo remoto não equivale a aplicativo ativo |
+
+**O cumprimento já é verificado no owner `ordax-apps`** por `tools/app-package/build.py`, `tools/verify_app_intelligence.py`, `tools/verify_app_actions.py`, compatibilidade e gates de catalogação existentes; esses validadores percorrem os diretórios oficiais com `app.json`. O OS continua owner dos contratos e da validação da fonte realmente instalada, sem segunda cópia de schema. O padrão é obrigatório para **first-party OrdaX**; programas externos não precisam produzir manifestos OrdaX e só ganham semântica por adaptadores verificados; Conta, Sistema, Ajustes e Loja são estruturas Native com owners próprios, não apps removíveis obrigados a copiar manifestos.
+
+### Capacidade nova `az`: como evoluir sem atualizar o OS a cada app
+
+Se o app oficial `exemplo` publicar uma intenção `exemplo.az` com descrição, parâmetros tipados, efeito e confirmação dentro do contrato **atual**, e uma Action `exemplo.az` correspondente (quando houver provider verificado), o pacote pode evoluir em `ordax-apps`. Depois da verificação, instalação e promoção do slot `CURRENT`, o Fabric reconsulta a fonte viva e descobre a capacidade derivada `app:exemplo:exemplo.az`, **sem hardcode de `az`**, sem alteração de código no OS/Fabric e sem regenerar listas por app. Mudanças/remoções do provedor invalidam a revisão e as propostas antigas.
+
+**Limites:** descobrir/intentar não significa poder executar. Uma capacidade declarada fica `declared-only`/`execution=unavailable` no Fabric, mesmo quando a Aura a entende. Para executar localmente, precisa de provider/binding tipado realmente suportado e aprovação/grant/Action Gateway/Executor/recibo; para aparecer como **tool executável no MCP**, o Runtime Product deve oferecer a operação explicitamente suportada, e a Platform deve atestar Device, sessão, grants e autorização. **Não gerar `tools/list` a partir do manifesto** nem traduzir nomes semelhantes em comandos. Uma função nova *apenas descritiva* não exige atualização do OS; um **novo tipo de parâmetro, contrato, privilégio ou primitiva de execução** pode exigir nova versão do App SDK e implementação no owner apropriado, com migração/compatibilidade explícitas. Campos desconhecidos ou requisitos não suportados falham fechados.
+
 ## Contrato público v1 — fonte exata no código
 
 - **Definição/validação:** `system/contracts/capability-discovery.mjs`, esquema `ordax.capability-discovery/1`.
