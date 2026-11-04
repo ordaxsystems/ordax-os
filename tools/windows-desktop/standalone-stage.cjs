@@ -5,6 +5,7 @@
 // assembled from the exact verified Windows build inputs, never checked in.
 const { createHash } = require('node:crypto');
 const fs = require('node:fs');
+const { execFileSync } = require('node:child_process');
 const { join, resolve, dirname, relative, sep, isAbsolute } = require('node:path');
 
 const SHA40 = /^[0-9a-f]{40}$/;
@@ -62,12 +63,43 @@ function extractFilters(entry) {
   return excludes;
 }
 
-function stageStandalonePackage({ sourceRoot, osSha, verifyNative, outputRoot } = {}) {
+function attestDetachedShell(shell, desktopSha) {
+  if (!SHA40.test(desktopSha))
+    throw Error('External Desktop shell requires an exact commit SHA');
+  assertPlainDirectory(shell);
+  const git = (...args) => execFileSync('git',['-C',shell,...args],{
+    encoding:'utf8',windowsHide:true,timeout:15000,
+    env:{...process.env,GIT_TERMINAL_PROMPT:'0'}
+  }).trim();
+  try {
+    if (!/^(?:https:\/\/github\.com\/|git@github\.com:|ssh:\/\/git@github\.com\/)ordaxsystems\/ordax-desktop(?:\.git)?$/i
+      .test(git('remote','get-url','origin')))
+      throw Error('External Desktop source is not the canonical Git repository');
+    if (git('rev-parse','--show-prefix') !== '')
+      throw Error('External Desktop shell must be the Git repository root');
+    if (git('rev-parse','HEAD') !== desktopSha)
+      throw Error('External Desktop source does not match pinned commit');
+    if (git('status','--porcelain','--untracked-files=all') !== '')
+      throw Error('External Desktop shell contains uncommitted or untracked files');
+  } catch (error) {
+    if (error.message?.startsWith('External Desktop')) throw error;
+    throw Error('Could not attest exact external Desktop Git source');
+  }
+}
+
+function stageStandalonePackage({
+  sourceRoot, osSha, verifyNative, outputRoot, desktopRoot, desktopSha
+} = {}) {
   if (!SHA40.test(osSha)) throw Error('Expected an exact 40-character OS source SHA');
   const root = resolve(sourceRoot || join(__dirname, '../..'));
-  const shell = join(root, 'tools', 'windows-desktop');
+  const originalShell = join(root, 'tools', 'windows-desktop');
+  const detached = desktopRoot !== undefined || desktopSha !== undefined;
+  if (detached && (typeof desktopRoot !== 'string' || !isAbsolute(desktopRoot)))
+    throw Error('Detached Desktop shell requires an absolute source directory');
+  const shell = detached ? resolve(desktopRoot) : originalShell;
   assertPlainDirectory(root);
   assertPlainDirectory(shell);
+  if (detached) attestDetachedShell(shell, desktopSha);
   const out = resolve(outputRoot || join(root, 'out', 'windows-desktop-standalone'));
   const authorized = join(root, 'out');
   if (dirname(out) !== authorized || out === authorized)
@@ -96,13 +128,13 @@ function stageStandalonePackage({ sourceRoot, osSha, verifyNative, outputRoot } 
   const sourceRecords = [];
   const seen = new Set();
   let totalBytes = 0;
-  function copyVerified(from, to, key) {
-    inside(root, from);
+  function copyVerified(from, to, key, authorizedRoot = root) {
+    inside(authorizedRoot, from);
     inside(temporary, to);
     // Even an intermediate path segment must not redirect a trusted mapping.
     let ancestor = dirname(from);
-    while (ancestor !== root) {
-      inside(root, ancestor);
+    while (ancestor !== authorizedRoot) {
+      inside(authorizedRoot, ancestor);
       const parentStat = fs.lstatSync(ancestor);
       if (!parentStat.isDirectory() || parentStat.isSymbolicLink())
         throw Error('Linked or non-directory packaging source ancestor');
@@ -113,7 +145,7 @@ function stageStandalonePackage({ sourceRoot, osSha, verifyNative, outputRoot } 
     if (stat.isDirectory()) {
       fs.mkdirSync(to, {recursive:true});
       for (const child of fs.readdirSync(from).sort()) {
-        copyVerified(join(from, child), join(to, child), key + '/' + child);
+        copyVerified(join(from, child), join(to, child), key + '/' + child, authorizedRoot);
       }
       return;
     }
@@ -141,7 +173,8 @@ function stageStandalonePackage({ sourceRoot, osSha, verifyNative, outputRoot } 
       if (typeof file !== 'string' || !/^[a-zA-Z0-9][\w.-]*$/.test(file))
         throw Error('Non-literal or unsafe shell file in Desktop build manifest');
       if (file === 'package.json') continue; // rewritten deterministically below
-      copyVerified(join(shell, file), join(stageShell, file), 'shell/' + file);
+      copyVerified(join(shell, file), join(stageShell, file), 'shell/' + file,
+        detached ? shell : root);
     }
     // Resources are only the existing package.json inputs; no second ownership
     // or independent source lock is introduced by the Desktop export.
@@ -149,7 +182,9 @@ function stageStandalonePackage({ sourceRoot, osSha, verifyNative, outputRoot } 
       if (!entry || typeof entry.from !== 'string' || typeof entry.to !== 'string' ||
           isAbsolute(entry.from) || isAbsolute(entry.to))
         throw Error('Invalid Desktop resource mapping');
-      const from = resolve(shell, entry.from);
+      // Resource paths retain the OS virtual shell layout even when the
+      // actual Desktop package.json belongs to a separate canonical repo.
+      const from = resolve(originalShell, entry.from);
       inside(root, from);
       const to = resolve(stagePayload, entry.to.replace(/^runtime-template\//, ''));
       if (!entry.to.startsWith('runtime-template/') ||
@@ -190,7 +225,11 @@ function stageStandalonePackage({ sourceRoot, osSha, verifyNative, outputRoot } 
     sourceRecords.sort((a,b)=>a.path.localeCompare(b.path,'en'));
     const manifest = {schema:SCHEMA, os_sha:osSha,
       product_owner:'ordaxsystems/ordax-os',
-      source_authority:'tools/windows-desktop/package.json',
+      source_authority:detached
+        ? 'ordaxsystems/ordax-desktop/package.json'
+        : 'tools/windows-desktop/package.json',
+      ...(detached ? {desktop_owner:'ordaxsystems/ordax-desktop',
+        desktop_sha:desktopSha} : {}),
       files:sourceRecords,
       total_bytes:totalBytes + Buffer.byteLength(packageBytes)};
     fs.writeFileSync(join(temporary,'stage-manifest.json'),
@@ -215,7 +254,12 @@ function verifyStandaloneStage(stageRoot) {
   const manifest = JSON.parse(fs.readFileSync(join(root, 'stage-manifest.json'), 'utf8'));
   if (manifest.schema !== SCHEMA || !SHA40.test(manifest.os_sha) ||
       !Array.isArray(manifest.files) || manifest.files.length < 1 ||
-      manifest.files.length > MAX_FILES)
+      manifest.files.length > MAX_FILES ||
+      (manifest.desktop_owner !== undefined &&
+        (manifest.desktop_owner !== 'ordaxsystems/ordax-desktop' ||
+          !SHA40.test(manifest.desktop_sha) ||
+          manifest.source_authority !== 'ordaxsystems/ordax-desktop/package.json')) ||
+      (manifest.desktop_owner === undefined && manifest.desktop_sha !== undefined))
     throw Error('Invalid standalone stage manifest');
   const targets = new Set();
   let bytes = 0;
@@ -258,9 +302,17 @@ function verifyStandaloneStage(stageRoot) {
 
 if (require.main === module) {
   try {
-    const sha = process.argv[2];
-    if (process.argv.length !== 3) throw Error('Usage: node standalone-stage.cjs <exact-OS-SHA>');
-    const staged = stageStandalonePackage({osSha:sha});
+    const args = process.argv.slice(2);
+    const standalone = args.length === 1;
+    const detached = args.length === 7 && args[1] === '--os-root' &&
+      args[3] === '--desktop-root' && args[5] === '--desktop-sha';
+    if (!standalone && !detached)
+      throw Error('Usage: node standalone-stage.cjs <exact-OS-SHA> [--os-root <absolute-OS-path> --desktop-root <absolute-Desktop-path> --desktop-sha <exact-Desktop-SHA>]');
+    if (detached && !isAbsolute(args[2]))
+      throw Error('Detached staging requires an absolute OS checkout directory');
+    const staged = stageStandalonePackage(detached ? {
+      osSha:args[0],sourceRoot:args[2],desktopRoot:args[4],desktopSha:args[6]
+    } : {osSha:args[0]});
     process.stdout.write('ORDAX_DESKTOP_STANDALONE_STAGE=VERIFIED '+
       staged.os_sha+' files='+staged.files+' bytes='+staged.bytes+'\n');
   } catch (error) {

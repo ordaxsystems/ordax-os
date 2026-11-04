@@ -30,10 +30,11 @@ persistent Surface fork, service, installer or update policy is created.
 
 ## Cutover gate
 
-The Windows CI validates this projected input but continues generating the
-existing NSIS installer unchanged. Only after a real Windows run of
-electron-builder against the projected shell plus installed/upgrade/rollback
-tests on isolated profiles should the build be switched over.
+The Windows CI now generates its one NSIS installer from this projected
+shell, after installing the locked Electron dependencies. The isolated NSIS
+install, same-version upgrade, compiled Dev update/rollback and startup proof
+are validated in the current Windows workflow. An old-to-new release upgrade
+still needs a dedicated gate before any public release.
 
 Do not edit MCP, Capability Fabric, Runtime, Platform or shared Surface here.
 
@@ -91,3 +92,27 @@ compiled Native assets. A matching standalone file manifest cannot replace
 this authority: altered bytes, copy races, or mismatched receipts must fail
 closed before NSIS. The original OS inputs and installed Desktop remain
 untouched.
+
+
+## Handoff-ready source split (no second live implementation)
+
+The staging tool also supports a **detached, exact Git checkout** of the future
+`ordaxsystems/ordax-desktop` as the shell owner:
+
+    node standalone-stage.cjs <OS_SHA> --os-root <absolute-OS-directory> \
+      --desktop-root <absolute-Desktop-directory> --desktop-sha <DESKTOP_SHA>
+
+The detached shell must be at the canonical Git repository root, have the
+official origin, match the exact supplied commit and contain no modified or
+untracked files. Only Electron package files (and its one npm lock) are taken
+from that source. All build.extraResources paths are resolved relative to the
+unchanged OS checkout layout, so the Native runtime, Surface lock, engine,
+models and trust contracts retain their OS ownership. The output manifest
+records both the OS SHA and Desktop SHA. No copying of OS source into the
+Desktop Git repository is needed.
+
+This is a gated extraction contract, not an authorization to publish a
+replacement installer or delete the original tools/windows-desktop tree.
+The actual repository migration still requires CI pinned to both SHAs,
+real Windows installed upgrade/rollback proof, and one-way removal of the
+superseded source after its owner verifies the cutover.

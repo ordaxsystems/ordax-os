@@ -4,6 +4,7 @@ const assert = require('node:assert/strict');
 const fs = require('node:fs');
 const os = require('node:os');
 const {join, dirname, resolve} = require('node:path');
+const {spawnSync} = require('node:child_process');
 const {stageStandalonePackage, verifyStandaloneStage} = require('./standalone-stage.cjs');
 const SHA = 'c'.repeat(40);
 
@@ -175,4 +176,77 @@ test('copied payload must pass the canonical Native verifier before export',()=>
     assert.equal(fs.existsSync(f.out),false,
       'rejected copy must not become a published stage');
   } finally {f.cleanup();}
+});
+
+
+function gitFixture(shell) {
+  const git=(...args)=>{
+    const r=spawnSync('git',['-C',shell,...args],{encoding:'utf8',windowsHide:true});
+    assert.equal(r.status,0,(r.stderr||r.stdout||'Git fixture failed'));
+    return r.stdout.trim();
+  };
+  git('init','-q');
+  git('config','user.name','OrdaX Detached Desktop Fixture');
+  git('config','user.email','ordax-detached@invalid.example');
+  git('remote','add','origin','https://github.com/ordaxsystems/ordax-desktop.git');
+  git('add','.');
+  git('commit','-qm','Canonical detached Desktop fixture');
+  return {git, sha:git('rev-parse','HEAD')};
+}
+function detachedFixture(f) {
+  const shell=fs.mkdtempSync(join(os.tmpdir(),'ordax-detached-shell-'));
+  for (const name of ['main.cjs','runtime.cjs','package-lock.json','installer.nsh','package.json']) {
+    fs.copyFileSync(join(f.shell,name),join(shell,name));
+  }
+  fs.writeFileSync(join(shell,'main.cjs'),'Desktop-owned Electron code');
+  const fixture=gitFixture(shell);
+  return {...fixture,shell,cleanup:()=>fs.rmSync(shell,{recursive:true,force:true})};
+}
+
+test('packages exact external Desktop Git source while resources remain owned by the OS',()=>{
+  const f=fixture();
+  const d=detachedFixture(f);
+  try {
+    const result=stageStandalonePackage({
+      sourceRoot:f.root,osSha:SHA,desktopRoot:d.shell,desktopSha:d.sha,
+      verifyNative:()=>true
+    });
+    assert.equal(result.os_sha,SHA);
+    assert.equal(fs.readFileSync(join(f.out,'shell/main.cjs'),'utf8'),
+      'Desktop-owned Electron code');
+    assert.equal(fs.readFileSync(join(f.out,'runtime-template/system/composition/native/index.html'),'utf8'),
+      'Native OS');
+    const manifest=verifyStandaloneStage(f.out);
+    assert.equal(manifest.desktop_owner,'ordaxsystems/ordax-desktop');
+    assert.equal(manifest.desktop_sha,d.sha);
+    assert.equal(manifest.source_authority,'ordaxsystems/ordax-desktop/package.json');
+  } finally {d.cleanup();f.cleanup();}
+});
+
+test('external Desktop source fails closed on a different SHA or origin',()=>{
+  const f=fixture();
+  const d=detachedFixture(f);
+  try {
+    const args={sourceRoot:f.root,osSha:SHA,desktopRoot:d.shell,verifyNative:()=>true};
+    assert.throws(()=>stageStandalonePackage({...args,desktopSha:'f'.repeat(40)}),
+      /does not match pinned commit/);
+    d.git('remote','set-url','origin','https://github.com/attacker/fake-desktop.git');
+    assert.throws(()=>stageStandalonePackage({...args,desktopSha:d.sha}),
+      /not the canonical Git repository/);
+    assert.equal(fs.existsSync(f.out),false);
+  } finally {d.cleanup();f.cleanup();}
+});
+
+test('external Desktop source rejects dirty files and relative paths before staging',()=>{
+  const f=fixture();
+  const d=detachedFixture(f);
+  try {
+    const args={sourceRoot:f.root,osSha:SHA,desktopRoot:d.shell,
+      desktopSha:d.sha,verifyNative:()=>true};
+    fs.writeFileSync(join(d.shell,'main.cjs'),'not the committed code');
+    assert.throws(()=>stageStandalonePackage(args),/uncommitted or untracked/);
+    assert.throws(()=>stageStandalonePackage({...args,desktopRoot:'./desktop'}),
+      /absolute source directory/);
+    assert.equal(fs.existsSync(f.out),false);
+  } finally {d.cleanup();f.cleanup();}
 });
