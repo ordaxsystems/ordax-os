@@ -144,10 +144,15 @@ function capabilityContextItem(capabilities) {
 
 export function createApplicationActionCapabilityRegistry({
   awareness, capabilities = [], isCurrent = null,
+  isCurrentBatch = null,
 } = {}) {
   assertApplicationIntelligenceAwarenessPort(awareness);
   if (isCurrent !== null && typeof isCurrent !== "function") {
     throw new TypeError("Application action current-slot verifier must be a function");
+  }
+  if (isCurrentBatch !== null &&
+      (typeof isCurrentBatch !== "function" || isCurrent === null)) {
+    throw new TypeError("Application action batch verifier requires a current-slot verifier");
   }
   if (!Array.isArray(capabilities) || capabilities.length > MAX_CAPABILITIES) {
     throw new TypeError("Application action capability catalog is outside bounds");
@@ -195,8 +200,18 @@ export function createApplicationActionCapabilityRegistry({
   // slot; it never registers actions or creates execution permission.
   const available = (capability) =>
     isCurrent === null || isCurrent(capability) === true;
-  const availableList = () =>
-    isCurrent === null ? frozen : Object.freeze(frozen.filter(available));
+  const availableList = (selected = frozen) => {
+    if (isCurrent === null) return selected;
+    if (isCurrentBatch !== null) {
+      const flags = isCurrentBatch(selected);
+      if (!Array.isArray(flags) || flags.length !== selected.length ||
+          flags.some(flag => typeof flag !== "boolean")) {
+        throw new TypeError("Native Store batch verifier returned invalid decisions");
+      }
+      return Object.freeze(selected.filter((_, index) => flags[index]));
+    }
+    return Object.freeze(selected.filter(available));
+  };
   const compiledContextItem = isCurrent === null ? capabilityContextItem(frozen) : null;
 
   const port = {
@@ -212,8 +227,7 @@ export function createApplicationActionCapabilityRegistry({
     listForApp(appId) {
       if (typeof appId !== "string") return EMPTY_LIST;
       const declared = byApp.get(appId) ?? EMPTY_LIST;
-      return isCurrent === null ? declared :
-        Object.freeze(declared.filter(available));
+      return availableList(declared);
     },
     propose(appId, actionId, argumentsValue = {}) {
       const key = capabilityKey(appId, actionId);
@@ -253,11 +267,9 @@ export function createApplicationActionCapabilityRegistry({
           throw new TypeError("Application action capability selected app ids must be unique");
         }
         seen.add(appId);
-        selected.push(...(isCurrent === null
-          ? (byApp.get(appId) ?? EMPTY_LIST)
-          : (byApp.get(appId) ?? EMPTY_LIST).filter(available)));
+        selected.push(...(byApp.get(appId) ?? EMPTY_LIST));
       }
-      return capabilityContextItem(selected);
+      return capabilityContextItem(availableList(selected));
     },
   };
 

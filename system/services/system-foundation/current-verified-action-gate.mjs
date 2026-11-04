@@ -30,36 +30,46 @@ export function createCurrentVerifiedActionGate({
       revision,sourceCommit:sourceCommit.toLowerCase(),
     }));
   }
-  return Object.freeze({
-    isCurrent(action) {
-      const appId = action?.appId;
-      const origin = origins.get(appId);
-      if (!origin) return false;
-      const observed = getCurrentObservations();
-      if (!Array.isArray(observed) || observed.length > 128) {
-        throw new TypeError("Native Store current observations unavailable");
+  // A single CURRENT observation must decide an entire action list.
+  // The Store remains the only source; this never grants execution.
+  const isCurrentBatch = (actions) => {
+    if (!Array.isArray(actions) || actions.length > 512) {
+      throw new TypeError("Native Store current action selection exceeds bounds");
+    }
+    if (!actions.some(action => origins.has(action?.appId))) {
+      return Object.freeze(actions.map(() => false));
+    }
+    const observed = getCurrentObservations();
+    if (!Array.isArray(observed) || observed.length > 128) {
+      throw new TypeError("Native Store current observations unavailable");
+    }
+    // Validate the ENTIRE publication, not just the requested apps.
+    const currentById = new Map();
+    let duplicate = false;
+    for (const item of observed) {
+      const entry = validateComponentRuntimeMetadata(item, {
+        componentId: item?.componentId, state: "current",
+      });
+      if (entry.state !== "current") {
+        throw new TypeError("Native Store CURRENT state mismatch");
       }
-      // CURRENT is one atomic Store publication. A matching app must not
-      // remain visible if ANY peer in that publication is malformed or
-      // duplicated, even before the next Store change event reaches the
-      // semantic refresh coordinator. This is a transient validation pass,
-      // never another persisted app catalog or source of authority.
-      const ids = new Set();
-      let current = null;
-      for (const item of observed) {
-        const entry = validateComponentRuntimeMetadata(item, {
-          componentId: item?.componentId, state: "current",
-        });
-        if (entry.state !== "current") throw new TypeError("Native Store CURRENT state mismatch");
-        if (ids.has(entry.componentId)) return false;
-        ids.add(entry.componentId);
-        if (entry.componentId === appId) current = entry;
-      }
-      if (current === null) return false;
-      return current.source === "slot" &&
+      if (currentById.has(entry.componentId)) duplicate = true;
+      currentById.set(entry.componentId, entry);
+    }
+    if (duplicate) return Object.freeze(actions.map(() => false));
+    return Object.freeze(actions.map(action => {
+      const origin = origins.get(action?.appId);
+      const current = currentById.get(action?.appId);
+      return Boolean(origin && current && current.source === "slot" &&
         current.version === origin.version &&
         current.revision === origin.revision &&
-        current.sourceCommit.toLowerCase() === origin.sourceCommit;
+        current.sourceCommit.toLowerCase() === origin.sourceCommit);
+    }));
+  };
+  return Object.freeze({
+    isCurrent(action) {
+      return isCurrentBatch([action])[0];
     },
+    isCurrentBatch,
   });
 }

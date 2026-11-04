@@ -219,6 +219,60 @@ test("an unrelated malformed or duplicate CURRENT slot invalidates the whole act
     "the same live registry must recover only after a valid complete observation");
 });
 
+test("a multi-app Native Store read never mixes CURRENT generations in one action list", t => {
+  const secondApp = listFirstPartyApps()[1];
+  const secondOrigin = {
+    ...origin,
+    application: {
+      id: secondApp.id,
+      component: { id: secondApp.id, version: "0.4.2" },
+    },
+  };
+  const secondMetadata = {
+    ...metadata(),
+    componentId: secondApp.id,
+    entrypoint: `system/apps/${secondApp.id}/src/runtime.mjs`,
+  };
+  let reads = 0;
+  const gate = createCurrentVerifiedActionGate({
+    verifiedSemantics: [origin, secondOrigin],
+    // A changing CURRENT slot makes two consecutive reads disagree:
+    // each application could seem current individually, but not together.
+    getCurrentObservations() {
+      return ++reads % 2 ? [metadata()] : [secondMetadata];
+    },
+  });
+  const actions = [
+    capability,
+    { ...capability, appId: secondApp.id },
+  ];
+  const mixed = createApplicationActionCapabilityRegistry({
+    awareness: createApplicationIntelligenceAwareness({
+      firstPartyApplications: [app, secondApp],
+      installedApplications: [],
+    }),
+    capabilities: actions,
+    isCurrent: gate.isCurrent,
+    isCurrentBatch: gate.isCurrentBatch,
+  });
+  const listed = mixed.list();
+  assert.equal(reads, 1, "the whole list must use one canonical CURRENT observation");
+  assert.deepEqual(listed.map(action => action.appId), [app.id],
+    "two mutually exclusive CURRENT generations cannot be published together");
+  const listedNext = mixed.list();
+  assert.equal(reads, 2);
+  assert.deepEqual(listedNext.map(action => action.appId), [secondApp.id]);
+  const context = JSON.parse(mixed.contextItemForApps([
+    app.id, secondApp.id,
+  ]).text);
+  assert.equal(reads, 3,
+    "selected app context must use the same one-read CURRENT gate");
+  assert.deepEqual(context.actions.map(action => action.appId), [app.id]);
+  assert.throws(() => gate.isCurrentBatch(new Array(513)), /bounds/);
+  assert.equal(typeof gate.execute, "undefined");
+  assert.equal(typeof gate.authorize, "undefined");
+});
+
 test("Native event subscription does not turn app observations into executable grants",t=>{
   const {catalog,host,setCurrent}=env(t);
   const revisions=[];

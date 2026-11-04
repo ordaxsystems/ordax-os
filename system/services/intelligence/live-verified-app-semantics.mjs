@@ -71,6 +71,7 @@ export function createLiveVerifiedApplicationSemantics({
       capabilities: verifiedSemantics.flatMap(entry =>
         entry.actionManifest?.capabilities ?? []),
       isCurrent: gate.isCurrent,
+      isCurrentBatch: gate.isCurrentBatch,
     });
     const router = createApplicationSemanticRouter({
       awareness,
@@ -142,10 +143,13 @@ export function createLiveVerifiedApplicationSemantics({
       }
       const candidate = compile(next);
       if (attestCurrent) {
-        for (const entry of next) {
-          if (candidate.gate.isCurrent({ appId: entry.application.id }) !== true) {
-            throw new Error("Live semantics update lost CURRENT slot attestation");
-          }
+        // Attest all signed app origins against one atomic Store CURRENT read.
+        // Separate reads could mix mutually exclusive slot generations.
+        const current = candidate.gate.isCurrentBatch(next.map(entry => ({
+          appId: entry.application.id,
+        })));
+        if (current.some(valid => valid !== true)) {
+          throw new Error("Live semantics update lost CURRENT slot attestation");
         }
       }
       // Complete every fallible CURRENT-dependent projection BEFORE the

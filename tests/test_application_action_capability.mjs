@@ -172,6 +172,25 @@ test("Native current-slot verifier withdraws actions from every registry view an
   assert.throws(()=>broken.list(),/Native Store unavailable/,
     "unreadable verification must never silently return boot-time actions");
 });
+test("malformed Native CURRENT batch decisions fail closed without changing the registry", () => {
+  const appId = listFirstPartyApps()[0].id;
+  for (const decisions of [[], [1], ["true"], [null]]) {
+    const registry = createApplicationActionCapabilityRegistry({
+      awareness: awareness(),
+      capabilities: [firstPartyCapability(appId)],
+      isCurrent: () => false,
+      isCurrentBatch: () => decisions,
+    });
+    assert.throws(() => registry.list(), /batch verifier returned invalid decisions/);
+    assert.throws(() => registry.contextItem(), /batch verifier returned invalid decisions/);
+  }
+  assert.throws(() => createApplicationActionCapabilityRegistry({
+    awareness: awareness(),
+    capabilities: [],
+    isCurrentBatch: () => [],
+  }), /batch verifier requires a current-slot verifier/);
+});
+
 test("registry binds semantic capabilities to exact known application identity", () => {
   const nativeApp = listFirstPartyApps()[0];
   const registry = createApplicationActionCapabilityRegistry({

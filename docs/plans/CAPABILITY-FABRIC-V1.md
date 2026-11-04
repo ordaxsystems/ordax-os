@@ -1346,6 +1346,27 @@ Autoridades existentes a preservar:
   zero falhas e skips. Sintaxe e `git diff --check` aprovados. Não equivale
   a homologação MCP remota.
 
+### C.35. Consulta CURRENT atômica por lista de ações (2026-11-03)
+
+- **Falha reproduzida:** com dois aplicativos e CURRENT mudando entre
+  consultas síncronas, o Registry podia incluir na mesma lista uma ação
+  de cada geração, embora nenhuma publicação Store contivesse ambas.
+- **Correção no verificador existente:** `isCurrentBatch()` avalia uma
+  lista limitada a 512 ações contra **uma única** observação CURRENT
+  completa, valida inclusive os peers não solicitados e nega toda a
+  seleção se houver identidades CURRENT duplicadas. Nenhum registro,
+  catálogo persistido, grant, executor ou mecanismo de confiança novo.
+- O Registry usa essa checagem para `list()`, `listForApp()`,
+  contexto Aura e seleção de apps. Propostas individuais continuam
+  verificadas em tempo real por `isCurrent()`; a substituição de
+  semântica verificada atesta a geração como conjunto antes do commit.
+- **Prova causal:** o teste com CURRENT alternando a cada leitura falhou
+  antes, passou após correção e confirma uma leitura por catálogo e por
+  seleção de contexto. Decisões em lote malformadas falham fechadas.
+  Regressão Windows: **463/463 em 45 arquivos**, zero falhas/skips;
+  cinco módulos/testes alterados passaram em sintaxe; `git diff --check`
+  aprovado. A projeção continua descritiva e sem execução MCP.
+
 ### D. Integração futura com o Runtime MCP canônico — fronteira auditada
 
 - **Contrato efetivo verificado (2026-11-03):**
