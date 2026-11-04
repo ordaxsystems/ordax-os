@@ -345,7 +345,7 @@ export function createDesktopProductRuntimeSupervisor({
     // Bound reuse to the *current* credential and bridge grant, never only
     // the device identifier or executable path. Digest prevents key leakage.
     const bridgeBinding=bridge===null?"none":createHash("sha256")
-      .update(bridge.url+"\\0"+bridge.token).digest("hex");
+      .update(bridge.url).update(Buffer.from([0])).update(bridge.token).digest("hex");
     const key=(plan.dev?"dev:":"signed:")+plan.executable+":"+
       plan.sourceCommit+":"+prepared.identity.deviceId+":"+
       prepared.identity.tokenFingerprint+":"+bridgeBinding;
