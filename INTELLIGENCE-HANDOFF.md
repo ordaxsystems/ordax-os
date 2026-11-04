@@ -27,6 +27,26 @@ código/contratos pertinentes → histórico somente se necessário.
 A seguir permanece um **handoff de 13/10** de outras etapas de Intelligence;
 suas instruções sobre PRs antigas não são tarefas vigentes por si só.
 
+## SSOT Aura / MCP — retomada pós-Fabric (2026-11-04)
+
+**Não equiparar descoberta a execução.** O Product gateway do
+`ordax-runtime` possui **93 Product Actions declaradas no código**,
+mas o snapshot `ordax.device-agent-capabilities/1` filtra por
+suporte real do Device e impõe limite de 64. Não interpretar os 93 IDs
+como tools remotamente atestadas. A Aura local consome metadados
+do Capability Fabric e Application Actions; seu motor ainda tem
+`toolExecution=false` e **não executa as mesmas tools Product**.
+
+O desenho correto é **SSOT por owner e uma visão comum derivada**,
+com uma implementação canônica por ação de domínio, binding tipado
+e autorizado para cada cliente (Aura local ou MCP remoto). Consultar a
+seção **“SSOT entre Aura, apps e MCP”** em
+[`docs/CAPABILITY-FABRIC.md`](docs/CAPABILITY-FABRIC.md)
+antes de mudar ações, ferramentas, permissões ou API. A ponte
+semântica ↔ executável e E2E autenticado são pendências reais,
+não defeitos de catálogo a contornar com outro registry, 93 cópias
+de ferramenta ou execução de texto livre.
+
 ## Atualização operacional — 2026-10-13
 
 A integração Native de Intelligence já ultrapassou o antigo estado de “runtime isolado”: `ordax.intelligence/1`, Local AI, model router, Memory autorizada, Assistant/Canvas e consumidores first-party possuem composição real em source. O gap transversal prioritário agora é **transporte/composição Web e integrações externas**, sem transformar a Surface em owner de provider.

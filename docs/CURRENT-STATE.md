@@ -1,3 +1,16 @@
+**Aura/Fabric ↔ Product MCP SSOT — cross-domain boundary (2026-11-04):**
+Runtime Product gateway has 93 code-declared Product Actions
+(`ordax_dev_agent/product_gateway.py`); `capability_snapshot.py`
+filters by actual local support and bounds each Device snapshot to 64.
+This is NOT proof of 93 advertised/authorized MCP tools. Native Aura
+consumes read-only Fabric/Application Action context and still has
+`toolExecution=false`; it does NOT yet share Product executable tools
+end-to-end. The canonical owner-specific SSOT and the future typed
+binding + approval/grant/receipt criteria are documented in
+`docs/CAPABILITY-FABRIC.md` (section “SSOT entre Aura, apps e MCP”).
+Do not duplicate executor, tool registry or grants. This is a
+documentation/architecture checkpoint, not a delivered MCP or Aura E2E.
+
 Capability Fabric v1 — merged, bounded, Windows package verified (2026-11-04):
 `ordaxsystems/ordax-os` PR #2406 merged as
 `b44659ec8caad2fff8820bcee83201174dc71702`, and the discovery

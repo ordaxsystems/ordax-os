@@ -10,6 +10,16 @@ ou durante a inferência e streaming. Isso **não** a torna executora de tools
 MCP. Visão canônica do fluxo, owners e limites: [Capability Fabric](CAPABILITY-FABRIC.md).
 As notas antigas abaixo são evidências datadas, não o estado atual de integração.
 
+**SSOT das ações (04/11/2026):** o catálogo de ferramentas Product
+no `ordax-runtime` **não é** o catálogo de ações da Aura. O Runtime
+define as Product Actions que conhece e anuncia no Device somente
+o subconjunto suportado; a Aura recebe leitura do Fabric/App Actions
+e mantém `toolExecution=false`. O Personal tem gate próprio de
+aprovação de operações Native. O modelo alvo compartilha a **mesma
+operação canônica de domínio** entre clientes, não duas cópias de
+um executor nem grant implícito. Contratos, diferenças e gates
+reais: [Capability Fabric — SSOT Aura/MCP](CAPABILITY-FABRIC.md#ssot-entre-aura-apps-e-mcp--regra-de-compartilhamento-da-mesma-ação).
+
 ## OrdaX OS Native Product Connector — implementação Owner/Development (2026-10-17)
 
 O **Product MCP é uma porta de entrada autorizada de clientes de IA externos**, não

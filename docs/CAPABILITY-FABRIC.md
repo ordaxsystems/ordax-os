@@ -91,6 +91,117 @@ A apresentação pode usar símbolos “ativo”, “indisponível” e “permi
 
 **O que existe e o que falta:** identidade, SDK/compatibility, manifestos, verificação e Fabric v1 **já existem**. Uma tela universal de opções calculada por app, conectores de mídia/áudio quando ausentes e a exposição segura de todas as interfaces de UI via Runtime/MCP **ainda não foram implementados como produto universal**. Este documento especifica sua composição a partir dos SSOTs atuais; não os declara prontos nem cria um catálogo executável.
 
+## SSOT entre Aura, apps e MCP — regra de compartilhamento da mesma ação
+
+**Resultado de leitura de source em 04/11/2026:** no `ordax-runtime/main`,
+`ordax_dev_agent/product_gateway.py` reúne **93 IDs de Product Actions**
+no dicionário único `PRODUCT_ACTIONS`, com nome, ação local, efeito,
+escopo e campos aceitos. Essa é a **fonte das ferramentas Product que o
+Runtime pode reconhecer**, **não** uma lista de 93 ferramentas publicadas
+ou autorizadas em cada dispositivo. O arquivo
+`ordax_dev_agent/capability_snapshot.py` deriva
+`ordax.device-agent-capabilities/1` somente das ações realmente
+suportadas pelo agente local, com limite **64 por snapshot**; exceder
+esse limite falha fechado, não corta ou declara capacidade inexistente.
+Um cliente MCP ainda depende da Platform, Device atestado, grants, sessão,
+política local e recibo. Nomes como `computer.type` ou
+`browser.snapshot` são Product Actions do Runtime, **não** permissões
+que todos os aplicativos possuem.
+
+**Estado da Aura local:** o `ordax-os` usa
+`system/services/intelligence/application-context.mjs` para entregar
+à Aura metadados **somente leitura** do Fabric e das Application Actions,
+atrelados ao pacote `CURRENT`. O motor
+`system/services/intelligence/runtime.mjs` e o contrato
+`system/contracts/intelligence.mjs` mantêm
+`authority=none`/`toolExecution=false`. O Personal pode solicitar
+aprovação de ações Native já registradas por uma via **separada**.
+Portanto, **não é verdade** que a Aura local já consuma ou execute as
+mesmas 93 Product Actions do MCP. O catálogo
+`docs/contracts/intelligence-tools.json` é uma fundação desabilitada;
+não tratá-lo como outro catálogo Product ativo.
+
+### O que significa um SSOT funcional, sem criar outro registro
+
+```text
+Fontes dos donos (mantidas em seus repos e contratos)
+  |-- OS/System + App SDK: disponibilidade de host, serviços e tipos
+  |-- Apps: identidade verificada, intents, Action e provider do app
+  |-- Runtime: PRODUCT_ACTIONS + adapters realmente suportados
+  |-- Platform: sessão, Device, permissions/grants/attestation
+                         |
+                         v
+          Descoberta derivada, por ator/contexto atual
+             Fabric + visão autorizável do Runtime
+                |                            |
+          Aura / Personal              Cliente MCP
+                |                            |
+           solicita ação              solicita tool
+                \                            /
+                 \  mesmo owner de domínio /
+                  v
+          Gate de aprovação / dispatch tipado
+          ao executor REAL que possui o efeito
+                         |
+                  recibo verificável
+```
+
+**SSOT não é “tudo num JSON” nem “cada app cadastrar 93 ferramentas”.**
+Existe **uma fonte de verdade por responsabilidade**, e a apresentação
+compõe uma visão derivada. Uma ação de negócio, por exemplo
+`notes.create-note`, deve possuir **um único provider executável
+canônico** e contratos de entrada/saída, resultado e risco inequívocos.
+Aura e MCP podem ser **dois clientes** dessa mesma operação, mas cada
+um passa por sua identidade, autorização, escopo e camada de transporte.
+Não duplicar o executor no OS, Runtime e aplicativo.
+
+**Regras obrigatórias da futura ligação Aura ↔ MCP:**
+
+1. **Identidade**: resolver app/ação por IDs canônicos, versão/slot
+   `CURRENT` e provider verificado. Mapear explicitamente
+   `intent/actionId` semântico ↔ `Product Action` **somente** se
+   existir um adapter de domínio verificado; nomes semelhantes ou
+   descrições textuais nunca formam um binding executável.
+2. **Mesmo contrato de efeito**: tipo e limites de argumentos, saída,
+   classe de risco, owner, recurso, idempotência, cancellation/uncertain
+   e recibos pertencem ao **serviço executor de domínio**. Uma mudança
+   de schema exige negociação de compatibilidade/versionamento do
+   App SDK/Runtime, não um hardcode para Aura nem 93 wrappers independentes.
+3. **Descoberta por contexto**: app instalado e saudável, modo/host
+   suportado, dispositivo correto, grant vigente e autorização do
+   ator. A Aura pode compreender a ação sem ter permissão para
+   executá-la; o MCP expõe apenas ferramentas realmente implementadas,
+   atestadas e selecionáveis no dispositivo, nunca o catálogo global
+   inteiro por default.
+4. **Fluxos de permissão independentes**: aprovação local do
+   Personal/OS não é grant OAuth para cliente MCP; e grant de MCP não
+   autoriza chamada direta do modelo local. Ambos devem terminar em
+   um executor tipado existente após os controles pertinentes.
+5. **Evolução automática e revogação**: nova Action de app dentro de
+   contrato suportado aparece na descoberta após promoção de
+   `CURRENT`; ação removida/trocada invalida a revisão e a seleção
+   antiga. Habilitar tool remota nova exige implementação real no
+   Runtime Product e autorização da Platform — não converter
+   `declared-only` em tool.
+6. **Evidência**: só marcar a ação como “disponível para Aura e MCP”
+   quando houver duas provas no mesmo alvo/revisão de provider:
+   proposta/aprovação/efeito/recibo pela UI/Aura **e**
+   chamada MCP autenticada/grant/efeito/recibo, com revogação
+   demonstrada. Catálogo, teste de schema ou sucesso de CI isolados
+   não satisfazem esse critério.
+
+**Limite de escopo atual:** esta seção define o **contrato de
+interoperabilidade a concluir**, não cria um dispatcher, não ativa
+execução da Aura nem transforma o Fabric em Product MCP. A ligação
+física semântica ↔ executor Product, o painel consolidado por
+ator/Device e os E2E reais **ainda não estão concluídos**.
+Owners: `ordax-os` (Fabric/Personal/Action Gateway local),
+`ordax-apps` (providers first-party), `ordax-runtime`
+(Product gateway/adapters e recibo local), `ordax-platform`
+(OAuth/Device/grants) e `ordax-surface` (UI). O vínculo deverá usar
+contratos públicos do App SDK/Runtime e o **mesmo serviço de domínio**
+quando disponível; não transformar um app em MCP server próprio.
+
 ## Contrato público v1 — fonte exata no código
 
 - **Definição/validação:** `system/contracts/capability-discovery.mjs`, esquema `ordax.capability-discovery/1`.
