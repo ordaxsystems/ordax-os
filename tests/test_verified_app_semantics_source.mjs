@@ -1681,6 +1681,46 @@ test("semantic-only apps also require a final CURRENT check before publication",
   }
 });
 
+test("mixed Action and semantic-only apps cannot pass mutually exclusive final CURRENT reads", () => {
+  const semanticOnly = {
+    ...verifiedEntry("studio"),
+    actionManifest: null,
+    providerManifest: null,
+  };
+  const entries = [verifiedEntry("notes"), semanticOnly];
+  let reads = 0;
+  let drift = true;
+  const live = createLiveVerifiedApplicationSemantics({
+    baseApplications: listFirstPartyApps(),
+    bundledManifests: [],
+    initialVerifiedSemantics: [],
+    getCurrentObservations() {
+      reads += 1;
+      if (!drift || reads === 1) {
+        return [slotMetadata("notes"), slotMetadata("studio")];
+      }
+      if (reads === 2) return [slotMetadata("notes")];
+      return [slotMetadata("studio")];
+    },
+  });
+  try {
+    const generation = live.getGeneration();
+    assert.throws(() => live.replaceVerifiedSemantics(entries),
+      /CURRENT.*(changed|drift|lost)|lost.*CURRENT/i,
+      "two different CURRENT generations must not jointly attest the same publication");
+    assert.equal(reads, 3, "prove the Store changed between final action and semantic reads");
+    assert.equal(live.getGeneration(), generation);
+    assert.equal(live.awarenessPort.get("studio"), null);
+    assert.deepEqual(live.actionRegistryPort.list(), []);
+    drift = false;
+    const published = live.replaceVerifiedSemantics(entries);
+    assert.equal(published.length, 1);
+    assert.equal(live.getGeneration(), generation + 1);
+  } finally {
+    live.dispose();
+  }
+});
+
 test("verified semantic replacement never commits if CURRENT becomes unreadable during final action projection", () => {
   let reads = 0;
   let failFinalRead = true;

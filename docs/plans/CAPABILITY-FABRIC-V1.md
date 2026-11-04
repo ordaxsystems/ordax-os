@@ -1416,6 +1416,21 @@ Autoridades existentes a preservar:
   Uma alteração posterior de documentação, sem mudar código ou workflow,
   não requer repetir o gate leve só para atualizar este registro.
 
+### C.38. Atestação final conjunta de Apps com e sem Actions
+
+- **Falha reproduzida:** ao publicar simultaneamente um App com Actions e
+  outro somente semântico, leituras finais separadas podiam aceitar duas
+  gerações mutuamente exclusivas da Store `CURRENT` e publicar a Aura.
+- **Correção canônica:** quando há Apps sem Actions, a última leitura do
+  mesmo `isCurrentBatch()` atesta **todos** os Apps da publicação, não
+  apenas os sem Actions. Não cria nova fonte, leitura adicional, executor
+  nem permissão; a geração anterior permanece intacta na falha.
+- **Prova causal Windows:** teste misto falhou antes e passou após a
+  alteração; regressão integral do workflow: **479/479 testes em 47
+  arquivos**, zero falhas/skips, sintaxe e `git diff --check` aprovados.
+  CI remoto e compatibilidade com PR #2400 devem ser verificados no SHA
+  publicado, sem antecipar `mcpReady`.
+
 ### D. Integração futura com o Runtime MCP canônico — fronteira auditada
 
 - **Contrato efetivo verificado (2026-11-03):**

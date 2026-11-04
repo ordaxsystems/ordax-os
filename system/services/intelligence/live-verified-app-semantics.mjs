@@ -174,15 +174,17 @@ export function createLiveVerifiedApplicationSemantics({
         throw new Error("Live semantics update lost CURRENT action attestation before publication");
       }
       // Semantic-only apps have no Action declaration to observe in the
-      // final action projection. Re-attest their identities directly through
-      // the SAME read-through Store gate before publishing Aura manifests.
-      const withoutActions = next.filter(entry =>
-        (entry.actionManifest?.capabilities?.length ?? 0) === 0);
-      if (withoutActions.length > 0 &&
-          candidate.gate.isCurrentBatch(withoutActions.map(entry => ({
+      // final action projection. If any are present, the FINAL Store read
+      // must attest ALL apps together, not only the semantic-only subset:
+      // two mutually exclusive CURRENT generations could otherwise
+      // validate Actions and Aura separately and publish a mixed owner.
+      // Reuse the same canonical batch gate; never cache a second Store.
+      if (next.some(entry =>
+        (entry.actionManifest?.capabilities?.length ?? 0) === 0) &&
+          candidate.gate.isCurrentBatch(next.map(entry => ({
             appId: entry.application.id,
           }))).some(current => current !== true)) {
-        throw new Error("Live semantics update lost CURRENT semantic-only attestation before publication");
+        throw new Error("Live semantics update lost CURRENT shared-generation attestation before publication");
       }
       if (generation === Number.MAX_SAFE_INTEGER) {
         throw new RangeError("Verified application semantic generation exhausted");
