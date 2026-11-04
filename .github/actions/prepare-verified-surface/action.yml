@@ -21,5 +21,8 @@ runs:
           cp -a "$source" "$target"
           diff -qr "$source" "$target"
         done
+        receipt="$RUNNER_TEMP/ordax-verified-surface-ci/system/surface/source-provenance.json"
+        test -f "$receipt" && test ! -L "$receipt"
+        printf 'ORDAX_VERIFIED_SURFACE_ASSEMBLY_RECEIPT=%s\n' "$receipt" >> "$GITHUB_ENV"
         echo "ORDAX_VISUAL_SOURCE_REPOSITORY=ordaxsystems/ordax-surface"
         echo "ORDAX_VISUAL_SOURCE_MATERIALIZED_FOR_TEST_ONLY=YES"
