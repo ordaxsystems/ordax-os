@@ -50,7 +50,7 @@ de ferramenta ou execução de texto livre.
 ## Fila única de integração vertical pós-Fabric — 2026-11-04
 
 A próxima IA deve seguir **somente** a seção
-[`docs/CAPABILITY-FABRIC.md#integração-vertical-aura--product-mcp--matriz-operacional-de-implementação`](docs/CAPABILITY-FABRIC.md)
+[`docs/CAPABILITY-FABRIC.md`](docs/CAPABILITY-FABRIC.md), seção **“Integração vertical Aura ⇄ Product MCP — matriz operacional de implementação”**
 para fechar uma ação ponta a ponta, em vez de gerar outro plano,
 catálogo Product ou test suite. A matriz identifica os 93 IDs globais
 do Runtime versus o limite de 64 no snapshot Device, o significado de
