@@ -140,6 +140,56 @@ class CreatorOwnerImpactTests(unittest.TestCase):
         boot = self.commit(path="bootstrap/surface-runtime/build.py")
         self.assertTrue(impact.classify(base, boot, root=self.root)[0])
 
+    def test_exact_windows_product_bridge_has_no_usb_producer_delta(self):
+        # This is an exact *source-diff* proof, never a wildcard exclusion:
+        # shared Native modules are additive and Windows-guarded, translations
+        # contain only added data, and sidecar/evidence bytes are pinned.
+        native, catalog = tuple(impact.WINDOWS_PRODUCT_SHARED_ADDITIONS)
+        for path in (native, catalog):
+            target = self.root / path
+            target.parent.mkdir(parents=True, exist_ok=True)
+            target.write_text("// existing shared native data\\n", encoding="utf-8")
+        base = self.commit(workflow=WORKFLOW.read_text(encoding="utf-8"), lock=VISUAL)
+        for path, additions in impact.WINDOWS_PRODUCT_SHARED_ADDITIONS.items():
+            target = self.root / path
+            with target.open("a", encoding="utf-8") as output:
+                output.write("\\n".join(additions) + "\\n")
+        for path in impact.WINDOWS_PRODUCT_PINNED_BLOBS:
+            target = self.root / path
+            target.parent.mkdir(parents=True, exist_ok=True)
+            target.write_bytes((ROOT / path).read_bytes())
+        head = self.commit(path="docs/DEVELOPMENT-WORKFLOW.md")
+        for path in impact.WINDOWS_PRODUCT_SHARED_ADDITIONS:
+            self.assertTrue(impact.verified_windows_product_additions(
+                base, head, path, root=self.root), path)
+        for path in impact.WINDOWS_PRODUCT_PINNED_BLOBS:
+            self.assertTrue(impact.verified_windows_product_blob(
+                head, path, root=self.root), path)
+        self.assertEqual(impact.classify(base, head, root=self.root),
+                         (False, "nonproducer-contract-only"))
+        # An actual boot-side edit cannot piggyback on the approved lines.
+        bad = self.commit(path="system/composition/native/main.mjs")
+        self.assertEqual(impact.classify(base, bad, root=self.root)[0], True)
+        self.assertFalse(impact.verified_windows_product_additions(
+            base, bad, native, root=self.root))
+        # A candidate's signature or authority cannot change under a stale
+        # content pin, even if its path looks Windows-only.
+        suspect = self.commit(path="docs/evidence/desktop-runtime-windows-candidate-2026-10-31.json")
+        self.assertEqual(impact.classify(base, suspect, root=self.root)[0], True)
+
+    def test_unrecognized_native_and_catalog_additions_remain_usb_gated(self):
+        native, catalog = tuple(impact.WINDOWS_PRODUCT_SHARED_ADDITIONS)
+        for path in (native, catalog):
+            target = self.root / path
+            target.parent.mkdir(parents=True, exist_ok=True)
+            target.write_text("baseline\\n", encoding="utf-8")
+        base = self.commit(workflow=WORKFLOW.read_text(encoding="utf-8"), lock=VISUAL)
+        for path in (native, catalog):
+            self.commit(path=path)
+            self.assertTrue(impact.classify(base,
+                subprocess.check_output(["git", "-C", str(self.root),
+                "rev-parse", "HEAD"], text=True).strip(), root=self.root)[0])
+
     def test_new_workflow_producer_step_forces_usb(self):
         workflow = WORKFLOW.read_text(encoding="utf-8")
         base = self.commit(workflow, VISUAL)

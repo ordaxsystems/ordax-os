@@ -23,6 +23,10 @@ LIGHT_EXACT = frozenset({
     "docs/BUILD-AUTONOMY.md",
     "docs/DECISIONS.md",
     "docs/CURRENT-STATE.md",
+    "docs/DEVELOPMENT-WORKFLOW.md",
+    "tests/test_desktop_product_runtime_status_port.mjs",
+    "tests/test_desktop_surface_runtime_bridge.mjs",
+    "tests/test_desktop_surface_state_report.mjs",
     # Existing docs index + UX owner and archived historical reference:
     # no executable Native, USB, release, kernel or signing producer bytes.
     # Keep this exact allowlist; docs/contracts/** cannot be skipped wholesale.
@@ -73,6 +77,60 @@ CLIENT_ONLY_PREFIXES = (
     "tools/windows-desktop/",
     "tools/windows-emulator/",
 )
+# Narrow, content-proven DEV Windows Product bridge delta (OS #2400).
+# These additions are WindowsDesktopHost-guarded and data-only. Any other
+# shared Native/USB edit, unknown dependency or modified attestation blob
+# immediately restores the mandatory Creator gate. No broad Native allowlist.
+WINDOWS_PRODUCT_SHARED_ADDITIONS = {
+    "system/composition/native/main.mjs": (
+        "import { createNativeDesktopProductRuntimeStatus } from \"../../adapters/native/desktop-product-runtime-status.mjs\";",
+        "import { mountNativeDesktopSurfaceStateReport } from \"../../adapters/native/desktop-surface-state-report.mjs\";",
+        "  const desktopProductRuntimeStatus = windowsDesktopHost",
+        "    ? createNativeDesktopProductRuntimeStatus(window)",
+        "    : null;",
+        "    desktopProductRuntimeStatus,",
+        "  const desktopSurfaceReporter = windowsDesktopHost",
+        "    ? mountNativeDesktopSurfaceStateReport(window, root, surface, appActivation)",
+        "    : null;",
+        "      desktopSurfaceReporter?.dispose();",
+    ),
+    "system/services/i18n/catalog/system.mjs": (
+        "  \"system.overview.mcp.card\": \"MCP do OrdaX Desktop\",",
+        "  \"system.overview.mcp.checking\": \"Verificando...\",",
+        "  \"system.overview.mcp.unavailable\": \"Status indisponível\",",
+        "  \"system.overview.mcp.noObservation\": \"Sem leitura local do Supervisor.\",",
+        "  \"system.overview.mcp.attested\": \"Conectado e atestado\",",
+        "  \"system.overview.mcp.attestedDetail\": \"A sessão e as capacidades foram atestadas pelo Runtime.\",",
+        "  \"system.overview.mcp.notEnrolled\": \"Sem matrícula\",",
+        "  \"system.overview.mcp.notEnrolledDetail\": \"Este Desktop precisa de sua própria identidade na Platform.\",",
+        "  \"system.overview.mcp.running\": \"Runtime em execução\",",
+        "  \"system.overview.mcp.runningDetail\": \"Processo Native ativo. A sessão do GPT é verificada separadamente.\",",
+        "  \"system.overview.mcp.blocked\": \"Runtime bloqueado\",",
+        "  \"system.overview.mcp.blockedDetail\": \"Verifique a identidade e a política do componente.\",",
+        "  \"system.overview.mcp.stopped\": \"Runtime parado\",",
+        "  \"system.overview.mcp.stoppedDetail\": \"O Supervisor não mantém um processo ativo.\",",
+        "  \"system.overview.mcp.card\": \"OrdaX Desktop MCP\",",
+        "  \"system.overview.mcp.checking\": \"Checking...\",",
+        "  \"system.overview.mcp.unavailable\": \"Status unavailable\",",
+        "  \"system.overview.mcp.noObservation\": \"No local Supervisor observation available.\",",
+        "  \"system.overview.mcp.attested\": \"Connected and attested\",",
+        "  \"system.overview.mcp.attestedDetail\": \"The Runtime has attested the session and capabilities.\",",
+        "  \"system.overview.mcp.notEnrolled\": \"Not enrolled\",",
+        "  \"system.overview.mcp.notEnrolledDetail\": \"This Desktop needs its own Platform device identity.\",",
+        "  \"system.overview.mcp.running\": \"Runtime running\",",
+        "  \"system.overview.mcp.runningDetail\": \"Native process is active. GPT session attestation is verified separately.\",",
+        "  \"system.overview.mcp.blocked\": \"Runtime blocked\",",
+        "  \"system.overview.mcp.blockedDetail\": \"Check the device identity and component policy.\",",
+        "  \"system.overview.mcp.stopped\": \"Runtime stopped\",",
+        "  \"system.overview.mcp.stoppedDetail\": \"The Supervisor has no active process.\",",
+    ),
+}
+WINDOWS_PRODUCT_PINNED_BLOBS = {
+    "docs/evidence/desktop-runtime-windows-candidate-2026-10-31.json": "5f26c8d88b579fcaed95baceab0d197fdea31441",
+    "system/adapters/native/desktop-product-runtime-status.mjs": "476ff188877cf7deb0dd52865d4e467d67d639bc",
+    "system/adapters/native/desktop-surface-state-report.mjs": "352f69a36e1b9f2f29d4b20cf453c5b3f15c301d",
+}
+
 PUSH_EXCLUDES = ("!system/adapters/desktop/**", "!system/surface/ui/**", "!system/surface/workspace/**")
 PR_REMOVED = ("docs/contracts/surface-source.json", "system/surface/ui/**", "system/surface/workspace/**")
 PR_ADDED = ("tools/ci/creator_owner_impact.py", "tests/test_creator_owner_impact.py")
@@ -237,6 +295,40 @@ def changed_paths(base, head, *, root=ROOT):
     return tuple(x for x in out.splitlines() if x)
 
 
+def verified_windows_product_additions(base, head, path, *, root=ROOT):
+    """Only the exact additive, Windows-guarded Native and translation delta."""
+    expected = WINDOWS_PRODUCT_SHARED_ADDITIONS.get(path)
+    if expected is None:
+        return False
+    try:
+        original = _git_show(base, path, root).splitlines()
+        modified = _git_show(head, path, root).splitlines()
+        pos, additions = 0, []
+        for line in modified:
+            if pos < len(original) and line == original[pos]:
+                pos += 1
+            else:
+                additions.append(line)
+        return pos == len(original) and tuple(additions) == expected
+    except (OSError, UnicodeError, ValueError, subprocess.SubprocessError):
+        return False
+
+
+def verified_windows_product_blob(head, path, *, root=ROOT):
+    """Pin actual Native sidecar and DEV evidence bytes, not a filename claim."""
+    expected = WINDOWS_PRODUCT_PINNED_BLOBS.get(path)
+    if not expected:
+        return False
+    try:
+        actual = subprocess.run(
+            ["git", "-C", str(root), "rev-parse", f"{head}:{path}"],
+            check=True, capture_output=True, text=True, timeout=20,
+        ).stdout.strip()
+        return actual == expected
+    except (OSError, UnicodeError, ValueError, subprocess.SubprocessError):
+        return False
+
+
 def classify(base, head, *, root=ROOT):
     try:
         paths = changed_paths(base, head, root=root)
@@ -255,6 +347,12 @@ def classify(base, head, *, root=ROOT):
             elif path == LEGACY_PROFILE_DOC:
                 if not verified_legacy_profile_deletion(base, head, root=root):
                     return True, "legacy-profile-doc-not-verified-deletion"
+            elif path in WINDOWS_PRODUCT_SHARED_ADDITIONS:
+                if not verified_windows_product_additions(base, head, path, root=root):
+                    return True, "windows-product-shared-delta-not-proven:" + path
+            elif path in WINDOWS_PRODUCT_PINNED_BLOBS:
+                if not verified_windows_product_blob(head, path, root=root):
+                    return True, "windows-product-untrusted-blob:" + path
             elif path not in LIGHT_EXACT and not any(
                 path.startswith(prefix) for prefix in CLIENT_ONLY_PREFIXES
             ):
