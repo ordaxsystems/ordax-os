@@ -7,7 +7,24 @@ Este arquivo e a entrada obrigatoria para qualquer IA, agente, Codex ou pessoa q
 
 O produto continua em desenvolvimento e homologação: a promoção/renomeação do repositório **não equivale à aprovação de uma release Stable/MVP**, assinatura, aceite físico ou autorização para publicação e gravação de dispositivos. Esses gates permanecem independentes; consulte `MVP.md` e `docs/PROMOTION-GATES.md`.
 
-## Handoff transversal obrigatório — Intelligence / ChatGPT / Apps
+## Retomada ativa — não repetir missão antiga (04/11/2026)
+
+Antes de **continuar** uma missão envolvendo Fabric, Aura, aplicativos
+ou Product MCP, consulte **somente o trecho atual** do
+[handoff transversal](INTELLIGENCE-HANDOFF.md#checkpoint-operacional-e-regra-de-retomada--2026-11-04)
+e o [estado canônico](docs/CURRENT-STATE.md).
+Reverifique HEAD/PRs e execute a menor entrega pendente no **owner
+correto**, sem reiniciar auditoria, criar outro plano/SSOT, repetir
+migração ou executar tarefas encerradas. Documentos antigos e seções
+datadas são contexto histórico, **não** autorização para recomeçar.
+O fluxo Windows MCP DEV da [Platform #291](https://github.com/ordaxsystems/ordax-platform/issues/291)
+foi encerrado com recibos reais e cinco devices obsoletos revogados;
+**não** repetir limpeza/grants/instalação. A integração Aura ↔
+Native Store `CURRENT` ↔ Product MCP **continua pendente** e deve
+preservar OS #2400 (aberta/conflitante na última checagem) e a
+separação de release da OS #2405.
+
+
 
 Antes de alterar Intelligence, chat, plugins, MCP, Studio ou a UI global do OrdaX Web, leia [INTELLIGENCE-HANDOFF.md](INTELLIGENCE-HANDOFF.md). É um guia de retomada que aponta aos contratos e donos existentes, **não substitui os contratos canônicos**. Diferencie explicitamente **chat OrdaX → provedor** de **ChatGPT externo → plugin MCP → OrdaX** e não ative bridges experimentais nem crie outra autoridade em Apps/Lovable.
 

@@ -1,3 +1,17 @@
+**Continuation checkpoint — 2026-11-04 (cross-repo source + Platform issue verified):**
+Platform [#291](https://github.com/ordaxsystems/ordax-platform/issues/291)
+is **CLOSED** with physical Windows MCP actions and receipts, two current
+DEV devices retained and five obsolete DEV devices/credentials revoked,
+backed by Platform #336. Do **NOT** repeat the old Windows MCP onboarding,
+device cleanup or grant setup as an active task. This does NOT certify
+Aura ↔ Product semantic action execution or the OrdaX Desktop Native
+bridge. OS #2400 remains OPEN/merge-conflicted; OS #2405 remains OPEN and
+release gated, not a dependency for DEV. The remaining cross-repo task
+is an authenticated read-only `CURRENT` app view for Runtime via the
+existing OS Native ownership boundary, then a real typed shared-domain
+action proof. Canonical resume in `INTELLIGENCE-HANDOFF.md` and
+`docs/CAPABILITY-FABRIC.md`; use current source for truth.
+
 **Capability Fabric / Aura / Product MCP — CURRENT-STATE (source-verified 2026-11-04):**
 - `ordax-os` Fabric v1 **merged** via PR #2406
   (`b44659ec8caad2fff8820bcee83201174dc71702`);
@@ -33,8 +47,8 @@
 - OS #2400 **open**: Native Product Desktop bridge, not yet
   remotely homologated. OS #2405 **open**: Owner Account gateway,
   intentionally **not** a DEV MCP prerequisite because of
-  Supabase/Vercel release dependencies. DEV Device/Owner coordination
-  belongs to Platform issue #291. Do not merge #2405, activate
+  Supabase/Vercel release dependencies. DEV Device cleanup/authorization was completed in closed Platform issue #291;
+  only current regressions justify new Device work. Do not merge #2405, activate
   Cloudflare/Account or fabricate grants to unlock DEV.
 - **Remaining acceptance:** same Device/app/slot/revision observed
   live by Aura and authenticated Product; one real typed action and
