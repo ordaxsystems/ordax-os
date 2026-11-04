@@ -96,7 +96,10 @@ class NativeNetworkStatusTests(unittest.TestCase):
         self.assertIn("networkManagementLastSuccessAt", controls)
         self.assertIn('"settings.network.interfaces.stale"', controls)
         self.assertIn('"settings.network.management.stale"', controls)
-        self.assertIn("formatReceivedAt(networkLastSuccessAt, localization.getLocale())", controls)
+        self.assertRegex(
+            controls,
+            r"formatReceivedAt\(\s*networkLastSuccessAt,\s*localization\.getLocale\(\),\s*resolveRegionalTimeZone\(preferenceSnapshot\)\s*\)",
+        )
         self.assertIn("networkSnapshot !== null", controls)
         self.assertIn("networkManagementSnapshot !== null", controls)
         self.assertNotIn("adapters/native", controls)
