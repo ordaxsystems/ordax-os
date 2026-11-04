@@ -101,6 +101,7 @@ export function createApplicationContextIntelligence({
   semanticRouterPort = null,
   getCapabilityDiscovery = null,
   getApplicationSemanticsGeneration = null,
+  withCurrentAppSnapshot = null,
 } = {}) {
   const intelligence = assertIntelligencePort(intelligencePort);
   const awareness = assertApplicationIntelligenceAwarenessPort(awarenessPort);
@@ -116,6 +117,11 @@ export function createApplicationContextIntelligence({
   if (getApplicationSemanticsGeneration !== null &&
       typeof getApplicationSemanticsGeneration !== "function") {
     throw new TypeError("Aura verified app semantic generation resolver must be a function");
+  }
+  if (withCurrentAppSnapshot !== null &&
+      (typeof withCurrentAppSnapshot !== "function" ||
+        getApplicationSemanticsGeneration === null)) {
+    throw new TypeError("Aura CURRENT context scope requires a verified semantic generation owner");
   }
   const readAppGeneration = () => {
     if (getApplicationSemanticsGeneration === null) return null;
@@ -139,6 +145,10 @@ export function createApplicationContextIntelligence({
       return intelligence.subscribe(listener);
     },
     respond(value, { signal = null, onDelta = null } = {}) {
+      // The live verified owner supplies one ephemeral CURRENT view for the
+      // synchronous construction of awareness, routes, Actions and Fabric.
+      // Inference and completion run outside the scope and recheck live.
+      const compose = () => {
       const request = validateIntelligenceRequest(value);
       for (const entry of request.context) {
         if (reservedContextId(entry.id)) {
@@ -292,6 +302,9 @@ export function createApplicationContextIntelligence({
         assertSameFabric(true);
         return response;
       }).finally(() => unsubscribeFabric?.());
+      };
+      return withCurrentAppSnapshot === null
+        ? compose() : withCurrentAppSnapshot(compose);
     },
   });
 }

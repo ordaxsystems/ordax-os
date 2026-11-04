@@ -145,6 +145,12 @@ export function createLiveVerifiedApplicationSemantics({
       ensureActive();
       return generation;
     },
+    withCurrentSnapshot(callback) {
+      ensureActive();
+      // The same compiled semantic owner fences Aura, Personal and Fabric.
+      // Only a synchronous context assembly shares the temporary Store view.
+      return active.gate.withCurrentSnapshot(callback);
+    },
     replaceVerifiedSemantics(next, { attestCurrent = true } = {}) {
       ensureActive();
       if (!Array.isArray(next) || next.length > 32) {

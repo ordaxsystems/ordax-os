@@ -1459,6 +1459,32 @@ Autoridades existentes a preservar:
 - A prova valida o código deste commit, não a execução MCP remota
   autenticada, grants de produção ou o merge à `main`.
 
+### C.40. Contexto da Aura atômico por pedido (2026-11-03)
+
+- **Problema reproduzido:** apesar de cada serviço validar uma publicação
+  Store `CURRENT` isoladamente, um pedido da Aura ainda lia a Store
+  separadamente para consciência de Apps, roteamento, Actions e Fabric.
+  Com versões alternadas, o contexto composto não correspondia a uma
+  geração única. O teste de integração falhou antes da correção.
+- **Solução na fonte existente:** `createCurrentVerifiedActionGate()`
+  fornece uma visão efêmera **apenas para a montagem síncrona** de um
+  pedido, reusada pelos serviços do proprietário `liveAppSemantics`.
+  A composição Native passa o mesmo escopo à Aura, sem criar um segundo
+  catálogo, Store, executor, concessão ou temporizador.
+- O escopo é liberado em `finally`, também após exceções. O callback
+  reentrante vê a mesma observação, mas uma conclusão assíncrona e a
+  solicitação seguinte voltam obrigatoriamente ao estado Store atual.
+  Os guards de geração, revogação e confirmação continuam fora do
+  escopo e com leitura atualizada.
+- **Prova Windows:** teste de contexto completo falhou com três leituras
+  por pedido antes da correção e passou com uma leitura após a composição;
+  teste adicional verifica reentrada, exceção e conclusão assíncrona.
+  Regressão do workflow: **484/484 em 47 arquivos**, zero falhas/skips;
+  seis módulos/testes com sintaxe válida, `git diff --check` aprovado.
+- CI remoto, merge com MCP PR #2400 e execução real Product MCP ainda
+  exigem gates próprios; a projeção permanece `authority=none` e
+  `toolExecution=false`.
+
 ### D. Integração futura com o Runtime MCP canônico — fronteira auditada
 
 - **Contrato efetivo verificado (2026-11-03):**

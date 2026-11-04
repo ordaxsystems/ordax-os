@@ -273,6 +273,48 @@ test("a multi-app Native Store read never mixes CURRENT generations in one actio
   assert.equal(typeof gate.authorize, "undefined");
 });
 
+test("CURRENT inference scope is transient, reentrant and never survives completion or failure", async t => {
+  let observations = [metadata()];
+  let reads = 0;
+  const gate = createCurrentVerifiedActionGate({
+    verifiedSemantics: [origin],
+    getCurrentObservations() { reads++; return observations; },
+  });
+  assert.throws(() => gate.withCurrentSnapshot(null), /requires a callback/);
+  const outcome = gate.withCurrentSnapshot(() => {
+    assert.equal(gate.isCurrent({ appId: app.id }), true);
+    observations = [metadata({ version: "0.4.3", revision: 13 })];
+    return gate.withCurrentSnapshot(() => {
+      assert.equal(gate.isCurrent({ appId: app.id }), true,
+        "a nested synchronous caller must reuse the pinned view");
+      return "verified";
+    });
+  });
+  assert.equal(outcome, "verified");
+  assert.equal(reads, 1);
+  assert.equal(gate.isCurrent({ appId: app.id }), false,
+    "outside the scope, CURRENT must be read live after withdrawal");
+  assert.equal(reads, 2);
+  observations = [metadata()];
+  assert.throws(() => gate.withCurrentSnapshot(() => {
+    assert.equal(gate.isCurrent({ appId: app.id }), true);
+    throw new Error("test interruption");
+  }), /test interruption/);
+  observations = [];
+  assert.equal(gate.isCurrent({ appId: app.id }), false,
+    "a thrown request must not leave a stale pinned CURRENT view");
+  assert.equal(reads, 4);
+  observations = [metadata()];
+  const asynchronous = gate.withCurrentSnapshot(() =>
+    Promise.resolve().then(() => gate.isCurrent({ appId: app.id })));
+  observations = [];
+  assert.equal(await asynchronous, false,
+    "async completion must read live CURRENT, not retain the synchronous scope");
+  assert.equal(reads, 6);
+  assert.equal(typeof gate.execute, "undefined");
+  assert.equal(typeof gate.authorize, "undefined");
+});
+
 test("Native event subscription does not turn app observations into executable grants",t=>{
   const {catalog,host,setCurrent}=env(t);
   const revisions=[];

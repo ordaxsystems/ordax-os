@@ -30,6 +30,32 @@ export function createCurrentVerifiedActionGate({
       revision,sourceCommit:sourceCommit.toLowerCase(),
     }));
   }
+  // A transient CURRENT read can be scoped to ONE synchronous Aura
+  // request. No persisted cache, second Store, grant or executor: outside
+  // this scope every verification reads the current Native Store again.
+  let scopedObservations = null;
+  const withCurrentSnapshot = (callback) => {
+    if (typeof callback !== "function") {
+      throw new TypeError("Native Store CURRENT scope requires a callback");
+    }
+    if (scopedObservations !== null || origins.size === 0) return callback();
+    const observed = getCurrentObservations();
+    if (!Array.isArray(observed) || observed.length > 128) {
+      throw new TypeError("Native Store current observations unavailable");
+    }
+    scopedObservations = Object.freeze(observed.map(item => Object.freeze({
+      ...validateComponentRuntimeMetadata(item, {
+        componentId: item?.componentId, state: "current",
+      }),
+    })));
+    try {
+      // Only composition runs in scope; a Promise settles AFTER this
+      // finally, so completion/revocation checks return to live reads.
+      return callback();
+    } finally {
+      scopedObservations = null;
+    }
+  };
   // A single CURRENT observation must decide an entire action list.
   // The Store remains the only source; this never grants execution.
   const isCurrentBatch = (actions) => {
@@ -39,7 +65,7 @@ export function createCurrentVerifiedActionGate({
     if (!actions.some(action => origins.has(action?.appId))) {
       return Object.freeze(actions.map(() => false));
     }
-    const observed = getCurrentObservations();
+    const observed = scopedObservations ?? getCurrentObservations();
     if (!Array.isArray(observed) || observed.length > 128) {
       throw new TypeError("Native Store current observations unavailable");
     }
@@ -71,5 +97,6 @@ export function createCurrentVerifiedActionGate({
       return isCurrentBatch([action])[0];
     },
     isCurrentBatch,
+    withCurrentSnapshot,
   });
 }

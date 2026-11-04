@@ -1761,6 +1761,82 @@ test("Aura context and router use one CURRENT observation for competing verified
   }
 });
 
+test("Aura assembles all app context from one synchronous CURRENT observation", async () => {
+  const verified = [verifiedEntry("notes"), verifiedEntry("studio")];
+  let reads = 0;
+  let tick = 0;
+  let flip = false;
+  const live = createLiveVerifiedApplicationSemantics({
+    baseApplications: listFirstPartyApps(),
+    bundledManifests: [],
+    initialVerifiedSemantics: verified,
+    getCurrentObservations() {
+      reads++;
+      if (!flip) return [slotMetadata("notes"), slotMetadata("studio")];
+      return ++tick % 2 ? [slotMetadata("notes")] : [slotMetadata("studio")];
+    },
+  });
+  let observedContext = [];
+  const aura = createApplicationContextIntelligence({
+    intelligencePort: {
+      schema: INTELLIGENCE_PORT_SCHEMA,
+      getSnapshot: () => ({
+        schema: INTELLIGENCE_PORT_SCHEMA, state: "ready",
+        inferenceAvailable: true, engineId: "local", modelId: "test",
+        authority: "none", toolExecution: false,
+      }),
+      subscribe: () => () => {},
+      respond(request) {
+        observedContext = request.context;
+        return Promise.resolve({
+          schema: INTELLIGENCE_RESPONSE_SCHEMA,
+          text: "ok", engineId: "local", modelId: "test",
+          authority: "none",
+        });
+      },
+    },
+    awarenessPort: live.awarenessPort,
+    actionCapabilityRegistryPort: live.actionRegistryPort,
+    semanticRouterPort: live.semanticRouterPort,
+    getApplicationSemanticsGeneration: () => live.getGeneration(),
+    withCurrentAppSnapshot: callback => live.withCurrentSnapshot(callback),
+  });
+  try {
+    flip = true;
+    const before = reads;
+    await aura.respond({ prompt: "Crie uma nota" });
+    assert.equal(reads - before, 1,
+      "the entire Aura context must share one native Store read");
+    const catalog = JSON.parse(observedContext.find(x =>
+      x.id === "ordax-application-catalog").text);
+    const currentApps = catalog.applications.filter(x =>
+      ["notes", "studio"].includes(x.appId)).map(x => x.appId);
+    assert.deepEqual(currentApps, ["notes"]);
+    const details = observedContext.filter(x =>
+      x.id.startsWith("ordax-application-detail:"));
+    assert.ok(details.every(x => x.id.endsWith(":notes")));
+    const actions = observedContext.find(x =>
+      x.id === "ordax-application-action-capabilities");
+    assert.ok(actions);
+    assert.deepEqual(JSON.parse(actions.text).actions.map(x => x.appId), ["notes"]);
+    const next = reads;
+    await aura.respond({ prompt: "Crie uma nota" });
+    assert.equal(reads - next, 1,
+      "a new Aura request must read fresh CURRENT rather than retain a cached view");
+    const second = JSON.parse(observedContext.find(x =>
+      x.id === "ordax-application-catalog").text);
+    assert.deepEqual(second.applications.filter(x =>
+      ["notes", "studio"].includes(x.appId)).map(x => x.appId), ["studio"]);
+    const secondActions = observedContext.find(x =>
+      x.id === "ordax-application-action-capabilities");
+    assert.ok(secondActions);
+    assert.deepEqual(JSON.parse(secondActions.text).actions.map(x => x.appId),
+      ["studio"], "the second request cannot carry stale Notes actions");
+  } finally {
+    live.dispose();
+  }
+});
+
 test("verified semantic replacement never commits if CURRENT becomes unreadable during final action projection", () => {
   let reads = 0;
   let failFinalRead = true;

@@ -574,6 +574,9 @@ async function start() {
     // An AI manifest can change without changing the public action catalog.
     // Fence in-flight inference against the SAME verified semantic owner.
     getApplicationSemanticsGeneration: () => liveAppSemantics.getGeneration(),
+    // Capture one CURRENT view for the whole synchronous Aura context.
+    // Pending inference and consent checks still re-attest the live Store.
+    withCurrentAppSnapshot: callback => liveAppSemantics.withCurrentSnapshot(callback),
   });
   const consumerIntelligence = (
     profileContentContextCapability?.available === true && profileActivationState !== null
