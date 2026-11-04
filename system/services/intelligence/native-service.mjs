@@ -115,6 +115,22 @@ export function createNativeIntelligenceService({
   const identitySession = assertIdentitySessionPort(identitySessionPort);
   const spaceSelection = assertSpaceSelectionPort(spaceSelectionPort);
 
+  // The canonical ports are the ONLY source of identity/Space truth. Their
+  // existing notifications provide a monotonic in-flight invalidation fence
+  // so A -> B -> A cannot restore an older inference response.
+  let contextGeneration = 0;
+  let disposed = false;
+  const invalidateInFlight = () => { contextGeneration += 1; };
+  let unsubscribeIdentity = null;
+  let unsubscribeSpace = null;
+  try {
+    unsubscribeIdentity = identitySession.subscribe(invalidateInFlight);
+    unsubscribeSpace = spaceSelection.subscribe(invalidateInFlight);
+  } catch (error) {
+    unsubscribeIdentity?.();
+    throw error;
+  }
+
   const readCurrentContext = () => {
     const identity = validateIdentitySessionSnapshot(identitySession.getSnapshot());
     if (identity.state !== "signed-in") {
@@ -134,7 +150,9 @@ export function createNativeIntelligenceService({
   return Object.freeze({
     schema: NATIVE_INTELLIGENCE_SERVICE_SCHEMA,
     async respond(value) {
+      if (disposed) throw new Error("Native Intelligence service is disposed");
       const envelope = validateNativeIntelligenceServiceRequest(value);
+      const generation = contextGeneration;
       const before = readCurrentContext();
       if (!sameContext(envelope.context, before)) {
         throw new Error("Native Intelligence request context does not match current identity/Space");
@@ -142,8 +160,12 @@ export function createNativeIntelligenceService({
       const response = validateIntelligenceResponse(
         await intelligence.respond(envelope.request),
       );
+      if (disposed) throw new Error("Native Intelligence service is disposed");
+      if (contextGeneration !== generation) {
+        throw new Error("Native Intelligence identity/Space changed while inference was pending");
+      }
       const after = readCurrentContext();
-      if (!sameContext(after, before)) {
+      if (!sameContext(after, before) || contextGeneration !== generation || disposed) {
         throw new Error("Native Intelligence identity/Space changed while inference was pending");
       }
       return Object.freeze({
@@ -152,6 +174,16 @@ export function createNativeIntelligenceService({
         context: before,
         response,
       });
+    },
+    dispose() {
+      if (disposed) return;
+      disposed = true;
+      contextGeneration += 1;
+      try {
+        unsubscribeIdentity?.();
+      } finally {
+        unsubscribeSpace?.();
+      }
     },
   });
 }

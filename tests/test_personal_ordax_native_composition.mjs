@@ -2,6 +2,7 @@ import assert from "node:assert/strict";
 import test from "node:test";
 
 import { IDENTITY_SESSION_SCHEMA } from "../system/contracts/identity-session.mjs";
+import { CAPABILITY_DISCOVERY_SCHEMA } from "../system/contracts/capability-discovery.mjs";
 import {
   INTELLIGENCE_PORT_SCHEMA,
   INTELLIGENCE_RESPONSE_SCHEMA,
@@ -137,6 +138,38 @@ test("Native composition reuses canonical owner/context/intelligence ports witho
   assert.deepEqual(work.contextRefs, []);
   assert.equal(runtime.getSnapshot().persistence, "device");
   runtime.dispose();
+});
+
+test("Native Personal OrdaX consumes the live read-only Capability Fabric without minting authority",()=>{
+  const snapshot=Object.freeze({
+    schema:CAPABILITY_DISCOVERY_SCHEMA,
+    revision:1,revisionScope:"session",
+    authority:"none",toolExecution:false,
+    entries:Object.freeze([]),
+  });
+  let source=Object.freeze({
+    schema:CAPABILITY_DISCOVERY_SCHEMA,
+    snapshot:()=>snapshot,
+  });
+  const runtime=createNativePersonalOrdaxComposition({
+    windowRef:{localStorage:memoryStorage()},
+    identitySession:identitySession(),
+    spaceSelection:selectedSpace(),
+    projects:projectCatalog(),
+    intelligence:intelligence(),
+    getCapabilityDiscovery:()=>source,
+  });
+  assert.equal(runtime.discoverCapabilities(),snapshot);
+  assert.equal(typeof runtime.executeCapability,"undefined");
+  assert.equal(typeof runtime.grantCapability,"undefined");
+  source=null;
+  assert.throws(()=>runtime.discoverCapabilities(),/not current/);
+  source={schema:CAPABILITY_DISCOVERY_SCHEMA,snapshot:()=>({
+    ...snapshot,toolExecution:true,
+  })};
+  assert.throws(()=>runtime.discoverCapabilities(),/envelope is invalid/);
+  runtime.dispose();
+  assert.throws(()=>runtime.discoverCapabilities(),/unavailable/);
 });
 
 test("Native composition persists completed owner-bound Work Result through the native store", async () => {
