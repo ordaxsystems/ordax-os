@@ -131,3 +131,28 @@ test('rejects a verified-but-different OS SHA instead of trusting the caller cla
       /not bound to requested OS SHA/);
   } finally {f.cleanup();}
 });
+
+test('staged writes cannot mutate their canonical OS source',()=>{
+  const f=fixture();
+  try {
+    const canonical = join(f.root,'system/composition/native/index.html');
+    stageStandalonePackage({sourceRoot:f.root,osSha:SHA,verifyNative:()=>true});
+    const staged = join(f.out,'runtime-template/system/composition/native/index.html');
+    assert.notEqual(fs.statSync(canonical).ino, fs.statSync(staged).ino,
+      'standalone staging must not hardlink the OS source');
+    fs.writeFileSync(staged,'staged modification only');
+    assert.equal(fs.readFileSync(canonical,'utf8'),'Native OS');
+    assert.throws(()=>verifyStandaloneStage(f.out),/hash mismatch/);
+  } finally { f.cleanup(); }
+});
+
+test('existing dangling output links cannot be overwritten',()=>{
+  const f=fixture();
+  try {
+    const external=join(f.root,'external');
+    fs.symlinkSync(external,f.out,process.platform==='win32'?'junction':'dir');
+    assert.throws(()=>stageStandalonePackage({sourceRoot:f.root,osSha:SHA,verifyNative:()=>true}),
+      /cannot be silently overwritten/);
+    assert.equal(fs.existsSync(external),false);
+  } finally { f.cleanup(); }
+});

@@ -255,8 +255,13 @@ jobs:
           $sha = (& git rev-parse HEAD).Trim()
           & node tools/windows-desktop/standalone-stage.cjs $sha
           if ($LASTEXITCODE -ne 0) { throw 'Standalone Desktop source staging failed' }
-      - name: Build unsigned Windows installer
-        working-directory: tools/windows-desktop
+      # Install the same locked shell dependencies into the disposable export.
+      # The original OS shell and installed user profile are never modified.
+      - name: Install standalone Windows shell toolchain
+        working-directory: out/windows-desktop-standalone/shell
+        run: npm ci --prefer-offline --no-audit --no-fund
+      - name: Build unsigned Windows installer from verified standalone shell
+        working-directory: out/windows-desktop-standalone/shell
         run: npm run dist:win
         env:
           CSC_IDENTITY_AUTO_DISCOVERY: 'false'

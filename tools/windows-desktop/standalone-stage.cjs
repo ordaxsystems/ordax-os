@@ -32,6 +32,10 @@ function hashFile(file) {
   } finally { fs.closeSync(fd); }
   return hash.digest('hex');
 }
+function pathExistsIncludingLinks(path) {
+  try { fs.lstatSync(path); return true; }
+  catch (error) { if (error.code === 'ENOENT') return false; throw error; }
+}
 function safeFile(path) {
   const stat = fs.lstatSync(path);
   if (!stat.isFile() || stat.isSymbolicLink())
@@ -68,7 +72,7 @@ function stageStandalonePackage({ sourceRoot, osSha, verifyNative, outputRoot } 
   const authorized = join(root, 'out');
   if (dirname(out) !== authorized || out === authorized)
     throw Error('Standalone stage may only be written under the OS out directory');
-  if (fs.existsSync(out)) throw Error('Existing standalone stage cannot be silently overwritten');
+  if (pathExistsIncludingLinks(out)) throw Error('Existing standalone stage cannot be silently overwritten');
   if (typeof verifyNative !== 'function') {
     // Reuse the established OS+Surface source/provenance gate, not a new one.
     verifyNative = (base) => require('./native-build.cjs')
@@ -121,13 +125,9 @@ function stageStandalonePackage({ sourceRoot, osSha, verifyNative, outputRoot } 
       throw Error('Desktop packaging input exceeds allowed bound');
     totalBytes += stat.size;
     fs.mkdirSync(dirname(to), {recursive:true});
-    // Same-volume hardlinks avoid duplicating large verified model/engine bytes.
-    // The immutable staging manifest is checked before any promotion.
-    try { fs.linkSync(from, to); }
-    catch (error) {
-      if (!['EXDEV', 'EPERM', 'EOPNOTSUPP', 'ENOTSUP'].includes(error.code)) throw error;
-      fs.copyFileSync(from, to, fs.constants.COPYFILE_EXCL);
-    }
+    // Hardlinks can propagate edits from a build stage into canonical OS files.
+    // Prefer copy-on-write reflinks where supported; copy independently otherwise.
+    fs.copyFileSync(from, to, fs.constants.COPYFILE_EXCL | fs.constants.COPYFILE_FICLONE);
     const digest = hashFile(to);
     if (!SHA256.test(digest)) throw Error('Invalid staged file hash');
     sourceRecords.push({path:key.replaceAll('\\', '/'), sha256:digest, bytes:stat.size});
