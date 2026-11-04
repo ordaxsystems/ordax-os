@@ -156,3 +156,23 @@ test('existing dangling output links cannot be overwritten',()=>{
     assert.equal(fs.existsSync(external),false);
   } finally { f.cleanup(); }
 });
+
+
+test('copied payload must pass the canonical Native verifier before export',()=>{
+  const f=fixture();
+  try {
+    const inspected=[];
+    const verifyNative=(base,emittedRoot)=>{
+      inspected.push([base,emittedRoot]);
+      return emittedRoot===undefined; // source passes, copied payload fails
+    };
+    assert.throws(()=>stageStandalonePackage({sourceRoot:f.root,osSha:SHA,verifyNative}),
+      /Copied Desktop Native bundle fails canonical OS\/Surface provenance/);
+    assert.equal(inspected.length,2);
+    assert.equal(inspected[0][0],f.root);
+    assert.equal(inspected[1][0].includes('.ordax-desktop-standalone-'),true);
+    assert.ok(inspected[1][1].endsWith('runtime-template'+require('node:path').sep+'desktop-assets'));
+    assert.equal(fs.existsSync(f.out),false,
+      'rejected copy must not become a published stage');
+  } finally {f.cleanup();}
+});

@@ -75,8 +75,8 @@ function stageStandalonePackage({ sourceRoot, osSha, verifyNative, outputRoot } 
   if (pathExistsIncludingLinks(out)) throw Error('Existing standalone stage cannot be silently overwritten');
   if (typeof verifyNative !== 'function') {
     // Reuse the established OS+Surface source/provenance gate, not a new one.
-    verifyNative = (base) => require('./native-build.cjs')
-      .verifyBundledNativeReceipt(base, join(base, 'out', 'windows-desktop-native'));
+    verifyNative = (base, emittedRoot = join(base, 'out', 'windows-desktop-native')) =>
+      require('./native-build.cjs').verifyBundledNativeReceipt(base, emittedRoot);
   }
   if (!verifyNative(root)) throw Error('Compiled OS+Surface Native bundle failed existing provenance gate');
   const provenancePath = join(root, 'out', 'windows-desktop-native', 'source-provenance.json');
@@ -196,6 +196,11 @@ function stageStandalonePackage({ sourceRoot, osSha, verifyNative, outputRoot } 
     fs.writeFileSync(join(temporary,'stage-manifest.json'),
       JSON.stringify(manifest, null, 2)+'\n', {flag:'wx'});
     verifyStandaloneStage(temporary);
+    // Verify the *copied* payload, not merely the source bytes before copy.
+    // The existing Native receipt attests to the actual NSIS packaging input.
+    const stagedTemplate = join(temporary, 'runtime-template');
+    if (!verifyNative(stagedTemplate, join(stagedTemplate, 'desktop-assets')))
+      throw Error('Copied Desktop Native bundle fails canonical OS/Surface provenance');
     fs.renameSync(temporary, out);
     return {destination:out, os_sha:osSha, files:manifest.files.length, bytes:manifest.total_bytes};
   } catch (error) {

@@ -80,3 +80,14 @@ the workspace compiler and once with the installed NSIS compiler archive.
 The OS root npm lock still owns the canonical Native dependency closure;
 `runtime-toolchain.cjs` generates its verified offline archive at packaging
 time. No second OS dependency manifest or Surface implementation is introduced.
+
+## Reattestation after copying source bytes
+
+The staging tool verifies canonical Native/Surface provenance both **before**
+copying the OS-owned sources and **inside the copied runtime-template** before
+publishing the disposable stage. The second check calls the existing
+`verifyBundledNativeReceipt` implementation with the staged Surface lock and
+compiled Native assets. A matching standalone file manifest cannot replace
+this authority: altered bytes, copy races, or mismatched receipts must fail
+closed before NSIS. The original OS inputs and installed Desktop remain
+untouched.
