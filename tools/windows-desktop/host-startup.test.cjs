@@ -2,7 +2,7 @@
 const test=require('node:test');
 const assert=require('node:assert/strict');
 const http=require('node:http');
-const {isReady,freePort,startHost}=require('./host.cjs');
+const {isReady,freePort,startHost,stopHost}=require('./host.cjs');
 const {mkdtempSync,mkdirSync,writeFileSync,rmSync}=require('node:fs');
 const {join}=require('node:path');
 const {tmpdir}=require('node:os');
@@ -60,7 +60,7 @@ test('signaled Native child fails startup immediately instead of waiting for rea
   mkdirSync(target,{recursive:true});
   writeFileSync(join(target,'desktop-native-server.mjs'),
     'process.kill(process.pid, "SIGTERM");\n','utf8');
-  const tokens=['a','b','c','d','e','f','1','2','3','4'].map(x=>x.repeat(64));
+  const tokens=['a','b','c','d','e','f','1','2','3','4','5'].map(x=>x.repeat(64));
   const started=Date.now();
   await assert.rejects(startHost({
     root,template:root,stateDirectory:root,userData:root,log:()=>{},
@@ -69,7 +69,30 @@ test('signaled Native child fails startup immediately instead of waiting for rea
     nativeSessionToken:tokens[2],diagnosticToken:tokens[3],
     deviceProfileToken:tokens[4],stateToken:tokens[5],
     networkToken:tokens[6],observationToken:tokens[7],
-    displayToken:tokens[8],localAiToken:tokens[9],
+    displayToken:tokens[8],localAiToken:tokens[9],surfaceReportToken:tokens[10],
   }),/Canonical Native server exited before HTTP readiness: (SIGTERM|1|143)/);
   assert.ok(Date.now()-started<10000,'dead Native child must not burn 45-second startup deadline');
+});
+
+
+test("Electron shutdown waits for the trusted Native process tree before exiting",t=>{
+  const root=mkdtempSync(join(tmpdir(),"ordax-native-owned-tree-"));
+  t.after(()=>rmSync(root,{recursive:true,force:true}));
+  const adapter=join(root,"system","adapters","desktop");
+  mkdirSync(adapter,{recursive:true});
+  const receipt=join(root,"tree-stopped.txt");
+  writeFileSync(join(adapter,"owned-process-tree.cjs"),
+    "module.exports.stopOwnedWindowsProcessTree=(pid)=>{"+
+    "require('node:fs').writeFileSync("+JSON.stringify(receipt)+",String(pid));"+
+    "return true;};\n");
+  const child={pid:28734,exitCode:null,signalCode:null,
+    kill:()=>{throw Error("Must not fallback to a signal")}};
+  assert.equal(stopHost(child,root),true);
+  assert.equal(require("node:fs").readFileSync(receipt,"utf8"),"28734");
+});
+
+test("Electron Native stop never touches an exited child PID",()=>{
+  const old={pid:28735,exitCode:0,signalCode:null,
+    kill:()=>{throw Error("Exited PID must not be reused")}};
+  assert.equal(stopHost(old,"C:\\Windows\\missing-template"),true);
 });

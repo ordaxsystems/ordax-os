@@ -55,73 +55,71 @@ identidade Product Device. Prova DEV antes de assinatura de produção.
 A Platform, OAuth/grants, Worker e Supervisor existentes são as únicas
 autoridades. Não criar Runtime, dispatcher, CLI, banco, sessão, workflow ou
 instalador paralelo.
+## Ponte Native Product — PR #2400 (implementação candidata, não homologada)
 
-**Estado comprovado em `DESKTOP-PNUHUA0`:**
-- Desktop NSIS oficial já atualizado; um único Runtime DEV existente
-  iniciado pelo Supervisor, com processo principal + subprocesso PyInstaller.
-  O Device `OrdaX Desktop (DESKTOP-PNUHUA0)` ficou online na Platform.
-- OAuth Owner do cliente ChatGPT exato e grant `computer-observe` por 1 dia
-  foram concluídos. A seleção Owner de um challenge foi aceita pelo sistema,
-  e uma chamada MCP real `computer.access_status` chegou ao Runtime, mas
-  recebeu `action not allowed: computer.access_status`. Portanto conexão e
-  resposta remota foram **provadas**, sucesso da leitura ainda não.
-- Causa no owner Runtime: a antiga lista permitia só `agent.status`.
-  [ordax-runtime#282](https://github.com/ordaxsystems/ordax-runtime/pull/282)
-  foi integrada à Runtime main (commit `726f41f77897aed7bdadbf4a7865a9aeca032f9c`)
-  e limita o Desktop a **exatamente** `agent.status` +
-  `computer.access_status`; não há terminal, escrita, clique, GUI nem
-  segundo adapter Windows.
-- O novo executável Windows foi gerado pela mesma workflow oficial e
-  provado no Windows físico **sem Python no PATH, credenciais ou rede**.
-  Origem `ordax-runtime@50a8626d9212e3741b38b87fbe658e24c8bee024`,
-  SHA-256 `33e6c14b2f6e03e275697806f686195ca3de1a13296adc107bd003f5d71ceae2`,
-  19.491.629 bytes. O único manifesto fonte de verdade é
-  `docs/evidence/desktop-runtime-windows-candidate-2026-10-31.json`;
-  ele não é licença para ativação de produção.
-- **Ainda pendente:** o executável **novo** ainda não substituiu o antigo
-  na instância supervisionada; a leitura remota nova não foi concluída.
-  O Windows auxiliar ainda usa a identidade do Desktop indevidamente em
-  sua configuração DevAgent. **Não iniciar** agente auxiliar ou instalador
-  com autostart enquanto as identidades colidirem.
+Owners: ordax-os (Native Host, Supervisor e ponte autenticada);
+ordax-runtime (dispatcher e ação Product Device);
+ordax-surface (UI e appActivation existentes);
+ordax-platform (Device, identidade, atestação e grants do cliente ChatGPT).
+O MCP auxiliar Windows mantém identidade independente.
+O histórico de testes locais abaixo é evidência de candidato,
+não substitui merge gates atuais, recibo remoto nem Store CURRENT.
 
-**Ordem mínima do próximo executor:**
-1. Após integrar o PR que atualiza o único manifesto OS, deixar
-   o `ordax-pull` canônico materializar a revisão. Confirmar que o
-   manifesto veio de `main`, a SHA é a acima e que o binário oficial
-   obtido em CI já passou o self-test físico. Não alterar o checkout
-   imutável manualmente nem inventar hash local.
-2. Substituir **apenas** o executável DEV em
-   `<Desktop userData>/native-state/product-runtime-dev/ordax-product-agent.exe`
-   pela mesma origem, com Supervisor parado e recuperação segura se
-   a verificação falhar. Não mexer em token, matrícula ou
-   `Components` de produção, nem reinstalar Electron.
-3. Reiniciar uma única instância Desktop DEV com
-   `ORDAX_DESKTOP_MCP_DEV=1`, confirmar online/presença, grant exato,
-   sessão atestada e chamar `computer.access_status` via o conector
-   **OrdaX MCP** do ChatGPT; exigir receipt `status=succeeded`
-   e `result.ok=true` no mesmo dispositivo. `queued` ou `pending`
-   **não** bastam. Não marcar `mcpReady=true` sem digest atestado.
-4. Com Desktop E2E provado, matricular o **agente auxiliar Windows**
-   em uma identidade Product Device própria, usando o Owner oficial.
-   Só então instalar/iniciar o Runtime auxiliar canônico e conceder
-   os grants específicos do cliente, sem emprestar credenciais Desktop.
-5. Assinatura Ed25519, cerimônia, distribuição estável e USB/Creator
-   pertencem à fase de **produção/portabilidade**, não ao teste DEV.
 
-**Restrições duras:** zero novos workflows, CLIs, serviços ou canais MCP.
-Não iniciar buildroot/USB/Creator/QEMU/EROFS ou reinstalar NSIS do Desktop
-para essa tarefa. Não recompilar o mesmo candidato já atestado.
-Proibir grants implícitos, cópia de tokens, redirecionamentos permanentes
-de endpoint e fallback de produção para binário unsigned. Quando o Worker
-precisar de acesso Owner, usar OAuth oficial para o cliente exato; uma
-seleção de challenge jamais substitui atestação do Device.
 
-**Próximos chats:** ler esta seção, `docs/CURRENT-STATE.md` e
-[issue canônica #1985](https://github.com/ordaxsystems/ordax-os/issues/1985)
-antes de executar. Reaproveitar os commits/artifacts já aprovados e
-continuar no último checkpoint; não repetir auditorias gerais ou criar
-PR paralela. Registrar sucesso somente com ação física remota e receipt.
+**Estado local comprovado:**
+- A Surface publica estado de aplicativo por appId, sem usar windowId.
+- Apenas o Runtime Product recebe o token de acao; o Electron
+  injeta credencial distinta para a propria Surface. Rotas
+  desktop-surface-state, desktop-surface-command e
+  desktop-surface-receipt negam clientes sem credenciais.
+- ordax.surface.open aceita somente account/settings/system/store,
+  usa appActivation e aguarda confirmacao da janela exibida.
+  Em timeout, app nao instalado, grant ausente ou resposta falsa,
+  retorna erro, nunca sucesso. Sem controle de janelas Windows.
+  O reporte transitorio de HTTP 503 nao repete appActivation:
+  o canal reenvia apenas estado ate o Host aceitar a observacao;
+  uma confirmacao antecipada nao e aceita. O reporter agora espera
+  a janela visivel antes de reconhecer a ativacao, sem repetir o
+  publish se a Surface renderizar mais tarde; abrir a janela que ja
+  esta ativa nao cria outra. Se nao abrir, o Host devolve HTTP 504
+  sem confirmar uma acao inexistente. Prova integrada sobre HTTP
+  loopback com tokens distintos e rejeicao de acesso indevido.
+  Testes: 58 OS e 130 Surface.
+- Compilacao local oficial ordax-runtime em
+  5173f2b01cb7abb1e5d98fdd00750c17fb6f85e4;
+  SHA-256 988f2ee5a57404f03db8536d515551d3ed2976783a1575e92223b8f611fe327e,
+  18.682.343 bytes; self-test congelado offline e dependencias
+  verificadas por hash. Slot DEV atualizado sem reinstalar Electron.
+- Janela Electron real e Surface prontas, reporter e polling autenticados
+  no Native Host, 1 instancia Product (2 processos), 1 MCP Windows separado.
+- Testes de integracao no OS, regressao da Surface, testes Python do
+  Runtime e provas fisicas de loopback invalidado aprovadas.
+- SSOT de evidencias: docs/evidence/desktop-runtime-windows-candidate-2026-10-31.json.
+  Arquivo historico de CI/prova remota da revisao anterior so no Git.
 
+**Gates por responsabilidade (02/11/2026):**
+- Platform #333 ja foi integrada a main (bcb9c8e7), com
+  ordax_surface_status e ordax_surface_open sob perfis de Owner
+  ordax-surface-read/ordax-surface-control, nunca Computer Control.
+- Runtime #306 ja foi integrado a main (f89ab01c), sem segunda
+  implementacao de dispatcher. O pacote Windows valida a lista Native
+  pelo mesmo product_action_scope, e todos os gates de codigo
+  passaram. O executavel DEV instalado continua pinned pelo hash
+  de evidencia OS, sem promocao silenciosa.
+- Esta revisao OS usa os contratos Native e appActivation existentes:
+  credenciais efemeras distintas, relatorios apos comandos, receipt
+  quando o app montou realmente, timeout fail-closed e uma arvore
+  de processos sob o Supervisor. Sem acesso aos arquivos/janelas
+  Windows pelo Device OrdaX Desktop.
+- O MCP publico ainda esta no catalogo antigo e sua publicacao requer
+  check_mcp_release.py, Owner grants reais e E2E atestado.
+  Nao reduzir gate, habilitar full-computer-control, inventar grants
+  ou produzir outro Worker/Runtime. Progresso de runtime/Platform no
+  Git remoto nao e prova de deploy nem de acao GPT.
+- Melhorias de Home/Loja/Spaces/Aura so devem usar novas capacidades
+  canonicamente autorizadas, nunca cliques do Windows como substituto
+  do OrdaX OS. Preservar o fluxo First Run de outros proprietarios.
 ## Source model
 
 `main` is the source authority for this prototype.

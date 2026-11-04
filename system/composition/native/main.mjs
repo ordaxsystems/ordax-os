@@ -151,6 +151,8 @@ import { mountLocalSessionLock } from "../../surface/ui/local-session-lock.mjs";
 import { mountSettingsOverviewControls } from "../../surface/ui/settings-overview-controls.mjs";
 import { mountStoreWindows } from "../../surface/ui/store-experience.mjs";
 import { mountSystemOverviewControls } from "../../surface/ui/system-overview-controls.mjs";
+import { createNativeDesktopProductRuntimeStatus } from "../../adapters/native/desktop-product-runtime-status.mjs";
+import { mountNativeDesktopSurfaceStateReport } from "../../adapters/native/desktop-surface-state-report.mjs";
 import { mountSystemTrayQuickPanels } from "../../surface/ui/system-tray-quick-panels.mjs";
 import { mountUpdateControls } from "../../surface/ui/update-controls.mjs";
 
@@ -1073,6 +1075,9 @@ async function start() {
   // the visible shell from requesting legitimate Surface health.
   let storeCatalog = createUnavailableAppStoreCatalogPort();
   let storeOverviewControls = null;
+  const desktopProductRuntimeStatus = windowsDesktopHost
+    ? createNativeDesktopProductRuntimeStatus(window)
+    : null;
   const systemOverviewControls = mountSystemOverviewControls(
     root,
     host,
@@ -1085,6 +1090,7 @@ async function start() {
     componentManager,
     selectedSpaceIntelligence,
     recoveryStatus,
+    desktopProductRuntimeStatus,
   );
   const updateControls = mountUpdateControls(root, updateWatcher, appActivation, surface);
   const powerControls = mountPowerControls(root, powerActions, surface, updateWatcher);
@@ -1095,6 +1101,9 @@ async function start() {
   // The already-mounted shell is visible before asking the official
   // Supervisor to acknowledge its identity. No synthetic heartbeat is sent.
   bootScreen.ready();
+  const desktopSurfaceReporter = windowsDesktopHost
+    ? mountNativeDesktopSurfaceStateReport(window, root, surface, appActivation)
+    : null;
   componentManager.setCurrentHealth("surface-shell", "healthy");
   void updateWatcher.markHealthy();
   const surfaceHeartbeat = createNativeSurfaceHeartbeat(window);
@@ -1324,6 +1333,7 @@ async function start() {
       localSessionLock?.destroy();
       firstRun?.destroy();
       surfaceHeartbeat.dispose();
+      desktopSurfaceReporter?.dispose();
       homePending.dispose();
       homeContinuation.dispose();
       homeStatus.dispose();
