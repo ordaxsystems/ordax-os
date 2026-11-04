@@ -55,6 +55,7 @@ jobs:
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
         with:
+          repository: ordaxsystems/ordax-os
           ref: ${{ inputs.os_sha || github.event.pull_request.head.sha || github.sha }}
           persist-credentials: false
       - name: Checkout canonical Desktop owner source (reusable workflow only)
