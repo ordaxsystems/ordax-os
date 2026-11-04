@@ -156,3 +156,24 @@ test("Ambiguous or unverifiable revocation does not replay DELETE",async()=>{
     transport([authority,{ok:true},authority],calls)),/revoke-unconfirmed/);
   assert.equal(calls.filter(call=>call.options.method==="DELETE").length,1);
 });
+
+test("Production gateway releases require an explicit manual exact-SHA approval",()=>{
+  for(const [filename,confirmation,deployedFunction] of [
+    ["ordax-account-gateway-destination.yml","DEPLOY_ACCOUNT_GATEWAY_PRODUCTION","ordax-account-gateway"],
+    ["ordax-public-account-gateway-destination.yml","DEPLOY_PUBLIC_ACCOUNT_GATEWAY_PRODUCTION","ordax-public-account-gateway"],
+  ]){
+    const workflow=readFileSync(new URL("../.github/workflows/"+filename,import.meta.url),"utf8");
+    assert.match(workflow,/^on:\s*$/m);
+    assert.match(workflow,/^  workflow_dispatch:\s*$/m);
+    assert.doesNotMatch(workflow,/^  push:\s*$/m,"No merge-to-main production deploy");
+    assert.match(workflow,/^      approved_sha:\s*$/m);
+    assert.match(workflow,/^      release_confirmation:\s*$/m);
+    assert.match(workflow,/github\.event_name == 'workflow_dispatch'/);
+    assert.match(workflow,/github\.ref == 'refs\/heads\/main'/);
+    assert.match(workflow,/inputs\.approved_sha == github\.sha/);
+    assert.ok(workflow.includes("inputs.release_confirmation == '"+confirmation+"'"));
+    assert.match(workflow,/test "\$\{ACTUAL\}" = "\$\{GITHUB_SHA\}"/);
+    assert.match(workflow,/test "\$\{CURRENT\}" = "\$\{GITHUB_SHA\}"/);
+    assert.ok(workflow.includes("supabase functions deploy "+deployedFunction));
+  }
+});
