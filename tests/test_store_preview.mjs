@@ -15,8 +15,8 @@ before(async () => {
   [session, data, domain, catalog] = await Promise.all([
     load('system/composition/web/store-preview/session.js'),
     load('system/composition/web/store-preview/preview-data.js'),
-    load('system/surface/workspace/lib/store/state.ts'),
-    load('system/surface/workspace/lib/store/catalog.ts'),
+    load('system/surface/workspace/lib/store/state.mjs'),
+    load('system/surface/workspace/lib/store/catalog.mjs'),
   ]);
 });
 after(async () => { await server?.close(); });
