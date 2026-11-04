@@ -8,6 +8,7 @@ import {
 import { readBoundedBody } from "../_shared/bounded_body.mjs";
 import { ACCOUNT_MCP_USAGE_PATH, readAccountMcpUsage } from "../_shared/account_mcp_usage.mjs";
 import { ACCOUNT_MCP_DEVICES_PATH, ACCOUNT_MCP_AUTHORITY_PATH, ACCOUNT_MCP_REVOKE_PATH, isOwnerUuid, readAccountOwnerDevices, readAccountOwnerAuthority, revokeAccountOwnerGrant, parseAccountOwnerRevoke } from "../_shared/account_mcp_owner.mjs";
+import { verifyTrustedPublicRequestContext } from "../ordax-public-account-gateway/public_request_context.mjs";
 import { accountPrivilegedRpc } from "../_shared/account_privileged_rpc.mjs";
 import { authorizeAccountTransport, accountGatewayRoutePath, isPublicAccountPreActivationRoute } from "../_shared/account_transport_admission.mjs";
 import { parseSpaceCreateRequest, projectSpaceCreateResult, spaceCreateRpcArgs } from "../_shared/space_create_contract.mjs";
@@ -382,6 +383,11 @@ async function revokeCurrentSession(accessToken: string) {
 
 function crossSiteStateChange(req: Request) {
   if (!["POST", "PUT", "PATCH", "DELETE"].includes(req.method)) return false;
+  // The signed public-service bridge carries the canonical Vercel authority
+  // validated at the outer edge. Supabase can rewrite x-forwarded-host.
+  // The bridge secret is verified by authorizeAccountTransport immediately
+  // after this early CSRF check; a forged service marker cannot grant access.
+  if (publicSiteRequest(req)) return !verifyTrustedPublicRequestContext(req).ok;
   const fetchSite = (req.headers.get("sec-fetch-site") ?? "").toLowerCase();
   if (fetchSite === "cross-site") return true;
 
@@ -1342,20 +1348,11 @@ Deno.serve(async (req: Request) => {
     // A revocation is an explicit browser action, never a GET, CORS, image
     // request or prompt-triggered method. Fail closed without same-origin
     // browser provenance; the signed public service bridge is not sufficient.
-    const originHeader = req.headers.get("origin") ?? "";
-    const forwardedHost = (req.headers.get("x-forwarded-host") ?? "").toLowerCase();
-    let sameOrigin = false;
-    try {
-      const origin = new URL(originHeader);
-      sameOrigin = origin.protocol === "https:" && origin.username === ""
-        && origin.password === "" && origin.pathname === "/"
-        && origin.search === "" && origin.hash === ""
-        && origin.host.toLowerCase() === forwardedHost
-        && req.headers.get("sec-fetch-site") === "same-origin";
-    } catch {
-      sameOrigin = false;
+    // Trust only the OIDC-verified service context carried through the
+    // authenticated bridge; x-forwarded-host is not stable at Supabase ingress.
+    if (!publicSiteRequest(req) || !verifyTrustedPublicRequestContext(req).ok) {
+      return error(403, "mcp-owner-csrf-denied", "Origem da revogação não autorizada.");
     }
-    if (!sameOrigin) return error(403, "mcp-owner-csrf-denied", "Origem da revogação não autorizada.");
     if (url.search !== "" || (req.headers.get("content-type") ?? "").split(";")[0].trim().toLowerCase() !== "application/json") {
       return error(400, "mcp-owner-revoke-invalid", "Solicitação de revogação inválida.");
     }
