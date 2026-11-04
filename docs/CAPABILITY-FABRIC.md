@@ -227,7 +227,7 @@ quando disponível; não transformar um app em MCP server próprio.
 `_initialize_application_intelligence()`. As Product Actions
 `intelligence.app_catalog` e `intelligence.app_detail` consultam
 esse objeto local para devolver manifests/intents/UI semântica
-**somente leitura** (`tool_execution=false`). O arquivo possui
+**somente leitura** (`tool_execution=false`). O arquivo **não está versionado na árvore source atual de `ordax-runtime`**; ele pode ser fornecido no artefato instalado, o que precisa ser comprovado no pacote real. O teste `tests/test_application_intelligence_actions.py` garante `available=false` quando o arquivo está ausente. Quando presente, possui
 proveniência de repositório e commit, mas **não demonstra**, por si,
 que o app está instalado, assinado, atualizado ou disponível no
 dispositivo OrdaX selecionado. O formato `ordax.app-intelligence-registry/2`
