@@ -45,7 +45,7 @@ test("web identity adapter reports signed-out when the real gateway is configure
     fetch: async () => ({
       ok: true,
       status: 200,
-      json:json: async () => ({
+      json: async () => ({
         $schema: "prototype-ordax.public-identity-session/1",
         authenticated: false,
         provider: "supabase",
@@ -70,7 +70,7 @@ test("web identity adapter reports a validated signed-in account", async () => {
     fetch: async () => ({
       ok: true,
       status: 200,
-      json:json: async () => ({
+      json: async () => ({
         $schema: "prototype-ordax.public-identity-session/1",
         authenticated: true,
         provider: "supabase",
@@ -97,7 +97,7 @@ test("identity adapter ignores unsafe account display names and keeps its email 
     fetch: async () => ({
       ok: true,
       status: 200,
-      json:json: async () => ({
+      json: async () => ({
         $schema: "prototype-ordax.public-identity-session/1",
         authenticated: true,
         provider: "supabase",
@@ -189,7 +189,7 @@ function controlledIdentityGateway() {
   const reply = ({ subject = null } = {}) => ({
     ok: true,
     status: 200,
-    json:json: async () => ({
+    json: async () => ({
       $schema: "prototype-ordax.public-identity-session/1",
       provider: "supabase",
       authenticated: subject !== null,
