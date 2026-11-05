@@ -1,3 +1,4 @@
+import { resolveWebLocalStorage } from "./local-storage.mjs";
 import {
   WORKSPACE_STORE_SCHEMA,
   assertWorkspaceStore,
@@ -8,18 +9,6 @@ import {
 const STORAGE_KEY = "ordax.workspace.v2";
 const LEGACY_STORAGE_KEY = "ordax.workspace.v1";
 
-function resolveStorage(windowRef) {
-  try {
-    const storage = windowRef?.localStorage;
-    if (storage && typeof storage.getItem === "function" && typeof storage.setItem === "function") {
-      return storage;
-    }
-  } catch {
-    // Browser privacy/security policy may deny storage access.
-  }
-  return null;
-}
-
 function readStored(storage, key, validator) {
   const raw = storage.getItem(key);
   if (raw === null) return null;
@@ -27,7 +16,7 @@ function readStored(storage, key, validator) {
 }
 
 export function createWebWorkspaceStore(windowRef = globalThis.window) {
-  const storage = resolveStorage(windowRef);
+  const storage = resolveWebLocalStorage(windowRef);
   let memory = validateWorkspaceRecord(null);
 
   const load = () => {
