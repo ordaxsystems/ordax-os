@@ -117,14 +117,27 @@ export function createSameOriginIdentityCredentials(windowRef = globalThis.windo
     throw new TypeError("Identity credentials adapter requires window.fetch");
   }
   const policy = createWebRegistrationPolicyReader(windowRef);
+  // A single browser adapter must not send overlapping credential commands.
+  // No password, request body or result is retained; the flag covers both
+  // the POST and its independently verified session read.
+  let submissionPending = false;
+  const execute = (path, credentials, options) => {
+    if (submissionPending) {
+      return Promise.reject(new Error("Identity credential submission is already in progress"));
+    }
+    submissionPending = true;
+    return submit(windowRef, path, credentials, options).finally(() => {
+      submissionPending = false;
+    });
+  };
   return Object.freeze({
     schema: IDENTITY_CREDENTIALS_SCHEMA,
     registrationPolicy: policy.read,
     signIn(credentials) {
-      return submit(windowRef, "/auth/login", credentials);
+      return execute("/auth/login", credentials);
     },
     register(credentials) {
-      return submit(windowRef, "/auth/register", credentials, { registration: true });
+      return execute("/auth/register", credentials, { registration: true });
     },
   });
 }
