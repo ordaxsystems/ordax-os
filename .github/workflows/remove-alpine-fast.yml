@@ -26,6 +26,9 @@ on:
       - 'docs/contracts/kernel-build-environment.json'
       - 'tools/ci/portable_component_cache.py'
       - 'tests/test_alpine_removal_boundary.py'
+      - 'tests/test_owner_rootfs_capabilities.py'
+      - 'tests/test_stable_hardware_baseline_contract.py'
+      - 'tests/test_first_physical_usb_payload_ssot.py'
       - 'tests/test_stable_runtime_layout.py'
       - 'tests/test_creator_kernel_reuse_workflows.py'
       - 'tests/test_dev_base_channel.py'
@@ -134,6 +137,9 @@ jobs:
           python3 tools/verify/github_actions_supply_chain.py
           python3 -m unittest \
             tests.test_alpine_removal_boundary \
+            tests.test_owner_rootfs_capabilities \
+            tests.test_stable_hardware_baseline_contract \
+            tests.test_first_physical_usb_payload_ssot \
             tests.test_stable_runtime_layout \
             tests.test_creator_kernel_reuse_workflows \
             tests.test_dev_base_channel \
@@ -191,6 +197,9 @@ jobs:
             tools/creator/proof/disposable_media.py \
             tools/verify/github_actions_supply_chain.py \
             tests/test_alpine_removal_boundary.py \
+            tests/test_owner_rootfs_capabilities.py \
+            tests/test_stable_hardware_baseline_contract.py \
+            tests/test_first_physical_usb_payload_ssot.py \
             tests/test_stable_runtime_layout.py \
             tests/test_creator_kernel_reuse_workflows.py \
             tests/test_dev_base_channel.py \
