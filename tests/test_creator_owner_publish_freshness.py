@@ -94,7 +94,7 @@ class CreatorMainFreshnessTests(unittest.TestCase):
         verify = flow.index("python3 " + gate, pub)
         upload = flow.index("gh release upload creator-owner-prototype", pub)
         self.assertLess(verify, upload)
-        self.assertIn("if [ \"$freshness\" = 'SKIP' ]; then", flow[pub:upload])
+        self.assertIn("'CREATOR_MAIN_FRESHNESS=SKIP '*", flow[pub:upload])
         # No replacement scheduler, rebuild loop or unsafe cancellation.
         self.assertIn("cancel-in-progress: ${{ github.event_name == 'pull_request' }}", flow)
 
