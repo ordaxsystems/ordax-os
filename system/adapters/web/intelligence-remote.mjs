@@ -33,6 +33,8 @@ export function validateWebIntelligenceRemoteContext(value) {
   if (!Object.hasOwn(value, "spaceId") || !Object.hasOwn(value, "projectId")) {
     throw new TypeError("Web Intelligence remote context must state Space and project explicitly");
   }
+  const missing = CONTEXT_FIELDS.find((field) => !Object.hasOwn(value, field));
+  if (missing) throw new TypeError(`Web Intelligence remote context missing ${missing}`);
   if (Object.keys(value).sort().join(",") !== CONTEXT_FIELDS.join(",")) {
     throw new TypeError("Web Intelligence remote context must use exact Product fields");
   }
