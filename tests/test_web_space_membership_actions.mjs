@@ -6,6 +6,7 @@ import {
   SPACE_MEMBERSHIP_ACTION_RESULT_SCHEMA,
 } from "../system/contracts/space-membership-actions.mjs";
 import { createWebSpaceMembershipActions } from "../system/adapters/web/space-membership-actions.mjs";
+import { WEB_JSON_READ_TIMEOUT_MS } from "../system/adapters/web/json-read.mjs";
 
 const SPACE_ID = "11111111-1111-4111-8111-111111111111";
 const USER_ID = "22222222-2222-4222-8222-222222222222";
@@ -74,7 +75,7 @@ test("member mutation and JSON receipt share one deadline without replaying comm
     let timerId = 0, resolveLate;
     const port = createWebSpaceMembershipActions({
       setTimeout(callback, delay) {
-        assert.equal(delay, 10_000);
+        assert.equal(delay, WEB_JSON_READ_TIMEOUT_MS);
         const id = ++timerId; timers.set(id, callback); return id;
       },
       clearTimeout(id) { timers.delete(id); },
@@ -119,7 +120,7 @@ test("disposed member action port cancels a pending receipt without publishing s
   let timerId = 0, resolveLate;
   const port = createWebSpaceMembershipActions({
     setTimeout(callback, delay) {
-      assert.equal(delay, 10_000);
+      assert.equal(delay, WEB_JSON_READ_TIMEOUT_MS);
       const id = ++timerId; timers.set(id, callback); return id;
     },
     clearTimeout(id) { timers.delete(id); },
