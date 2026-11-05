@@ -106,6 +106,46 @@ class CreatorOwnerImpactTests(unittest.TestCase):
         self.assertTrue(impact.classify(light, boot, root=self.root)[0])
         self.assertTrue(impact.classify("0" * 40, boot, root=self.root)[0])
 
+    def test_pull_script_only_pr_uses_owner_preflight_main_still_produces_usb(self):
+        workflow = WORKFLOW.read_text(encoding="utf-8")
+        preflight = (ROOT / ".github/workflows/owner-dev-preflight.yml").read_text(encoding="utf-8")
+        inventory = (ROOT / "tools/ci/preflight_owner_dev.py").read_text(encoding="utf-8")
+        self.assertIn("'bootstrap/dev-base/**'", preflight)
+        self.assertIn('"tests/test_dev_pull_expected_sha.py"', inventory)
+        self.assertIn('"tests/test_dev_checkout_exchange.py"', inventory)
+        self.assertIn('GITHUB_EVENT_NAME', (ROOT / "tools/ci/creator_owner_impact.py").read_text())
+
+        base = self.commit(workflow, VISUAL)
+        pull = self.commit(path="bootstrap/dev-base/ordax-pull")
+        self.assertEqual(impact.classify(base, pull, root=self.root, event="pull_request"),
+                         (False, "pull-pr-owner-preflight"))
+        self.assertEqual(impact.classify(base, pull, root=self.root, event="push"),
+                         (True, "real-or-unknown-usb-producer:bootstrap/dev-base/ordax-pull"))
+        self.assertTrue(impact.classify(base, pull, root=self.root, event="workflow_dispatch")[0])
+        self.assertTrue(impact.classify(base, pull, root=self.root, event="unknown")[0])
+
+        # A reviewed Pull change and its own regression tests/docs are light;
+        # the same merged main payload is still published with full USB proof.
+        for path in ("tests/test_dev_pull_expected_sha.py",
+                     "tests/test_dev_checkout_exchange.py",
+                     "docs/DEV-USB-GIT.md"):
+            head = self.commit(path=path)
+            self.assertEqual(impact.classify(base, head, root=self.root, event="pull_request"),
+                             (False, "pull-pr-owner-preflight"))
+            self.assertTrue(impact.classify(base, head, root=self.root, event="push")[0])
+
+        # A mixed Native, Base, boot or untrusted delta must never be hidden
+        # behind the otherwise eligible Pull script.
+        for path in ("bootstrap/dev-base/ordax-main-watch",
+                     "bootstrap/dev-base/ordax_checkout_exchange.c",
+                     "bootstrap/dev-base/build.py",
+                     "system/supervisor",
+                     "bootstrap/initramfs/build.py",
+                     "docs/contracts/unowned-release.json"):
+            head = self.commit(path=path)
+            self.assertTrue(impact.classify(base, head, root=self.root, event="pull_request")[0],
+                            path)
+
     def test_boot_and_unknown_owner_changes_require_real_usb(self):
         base = self.commit(WORKFLOW.read_text(encoding="utf-8"), VISUAL)
         for path in ("bootstrap/initramfs/build.py", "bootstrap/surface-runtime/build.py",
@@ -330,6 +370,18 @@ class CreatorOwnerImpactTests(unittest.TestCase):
         self.assertTrue(independent["unknown_owner_changes_fail_closed"])
         self.assertEqual(tuple(impact.CLIENT_ONLY_PREFIXES),
                          tuple(independent["client_only_source_prefixes"]))
+        pull = contract["owner_dev_pull_ci"]
+        self.assertEqual(pull["distribution_owner_ssot"],
+                         "docs/contracts/distribution-profiles.json#profiles.owner-development")
+        self.assertEqual(pull["pull_review_fast_path_scope"],
+                         "tools/ci/creator_owner_impact.py#PULL_REVIEW_ONLY_PATHS")
+        self.assertEqual(pull["pull_review_validation_owner"], "Owner Development Preflight")
+        self.assertTrue(pull["pull_only_pull_request_skips_creator_usb_build"])
+        self.assertTrue(pull["pull_source_change_on_main_preserves_creator_usb_publish"])
+        self.assertTrue(pull["mixed_boot_base_native_or_unknown_changes_require_full_usb_proof"])
+        self.assertTrue(pull["manual_creator_usb_production_requires_full_proof"])
+        self.assertFalse(pull["installed_git_updates_require_creator"])
+        self.assertIn("docs/DEV-USB-GIT.md", impact.LIGHT_EXACT)
 
 if __name__ == "__main__":
     unittest.main()

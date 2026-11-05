@@ -128,6 +128,29 @@ body. This prevents CI governance merges from invoking the known-broken
 legacy Alpine/APK Surface builder merely because the Creator YAML changed,
 without weakening physical release requirements.
 
+### Owner/Development Git Pull is not a Creator build dependency
+
+`bootstrap/dev-base/ordax-pull` updates an **already installed** Owner/Dev
+Linux checkout. The standalone Creator only consumes the Pull when **producing
+new physical USB media**, including seeding the initial Git checkout with
+`--seed-from-local`. The installed updater never invokes the Creator.
+
+For an exact Pull-script-only pull request (optionally accompanied by its own
+tests, documentation and approved non-producer contracts), the existing
+`Owner Development Preflight` is the required code/recovery validation.
+`tools/ci/creator_owner_impact.py` suppresses only the redundant **Creator
+USB build-and-publish job on that PR**. Mixed changes affecting boot, Base,
+Supervisor, native helpers, physical media or unknown owners still fail
+closed to full USB proof. The same Pull source change on a `main` push
+**continues to produce/validate a new USB image** under the existing
+distribution policy, and manual Creator dispatch also forces full proof.
+This is review-time CI isolation, not an unreviewed change to USB publication.
+
+The policy is recorded in
+`docs/contracts/build-autonomy.json#owner_dev_pull_ci`, with ownership and
+runtime boundaries remaining in
+`docs/contracts/distribution-profiles.json#profiles.owner-development`.
+
 The Portable/QEMU causal impact policy treats changes to the standalone Creator
 workflow routing and its contract tests as CI governance, not as changes to the
 Portable boot artifact. Creator still runs its own full USB/boot tests when its

@@ -67,7 +67,7 @@ class PublicSiteDeploymentTests(unittest.TestCase):
                 login.write_text(
                     '<html><head><link href="/assets/site.css" rel="stylesheet">'
                     '<script src="/assets/site.js"></script></head>'
-                    '<body><form data-identity-form="login" action="/auth/login"></form>'
+                    '<body><a href="/">Início</a><form data-identity-form="login" action="/auth/login"></form>'
                     '<a href="/cadastro/">Cadastro</a></body></html>', encoding="utf-8")
                 return "c" * 40
 
@@ -75,6 +75,10 @@ class PublicSiteDeploymentTests(unittest.TestCase):
                 module, "build_independent_site_candidate", materialize_test_site
             ):
                 module.compose_web_identity_bootstrap("a" * 40)
+                login_html = (output / "login/index.html").read_text(encoding="utf-8")
+                self.assertIn('href="https://ordax.com.br/"', login_html)
+                self.assertNotIn('href="/"', login_html)
+                self.assertIn('action="/auth/login"', login_html)
                 css = (output / "assets/ordax-design-tokens.css").read_text(encoding="utf-8")
                 dependencies = re.findall(r"url\(\s*['\"]?([^'\")]+)", css)
                 self.assertIn("./ordax-symbol.png", dependencies)

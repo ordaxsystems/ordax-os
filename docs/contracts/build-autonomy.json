@@ -145,5 +145,15 @@
     "unknown_owner_changes_fail_closed": true,
     "identity_and_shared_contracts_remain_cross_mode": true,
     "ci_path_filters_not_authority": true
+  },
+  "owner_dev_pull_ci": {
+    "distribution_owner_ssot": "docs/contracts/distribution-profiles.json#profiles.owner-development",
+    "pull_review_fast_path_scope": "tools/ci/creator_owner_impact.py#PULL_REVIEW_ONLY_PATHS",
+    "pull_review_validation_owner": "Owner Development Preflight",
+    "pull_only_pull_request_skips_creator_usb_build": true,
+    "pull_source_change_on_main_preserves_creator_usb_publish": true,
+    "mixed_boot_base_native_or_unknown_changes_require_full_usb_proof": true,
+    "manual_creator_usb_production_requires_full_proof": true,
+    "installed_git_updates_require_creator": false
   }
 }
