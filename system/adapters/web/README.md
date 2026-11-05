@@ -40,3 +40,14 @@ asserting logout, then revalidates on reconnect. Commands remain outside this
 transport and are never replayed. Disposed adapters accept no new work/listeners;
 unchanged identity/action snapshots keep their reference identity for React.
 Regression source/CI updated without local execution; layout remains unchanged.
+
+The dormant remote Intelligence adapter uses the exact Product UUID context
+shape required by `ordax-platform/control-plane/cloudflare/src/product_intelligence_relay_contract.ts`.
+An authenticated subject and an explicit target Device must each be canonical
+UUIDs; Space/project are explicit nullable UUIDs (project requires Space), and
+unknown envelope context fields are rejected. It normalizes UUID casing before
+comparing echoed responses or checking for mid-flight context changes. This is
+request-shape validation only: it never issues a grant, discovers a Device or
+activates inference. Until the Platform/OS transport is deployed and credentialed
+end-to-end, `system/composition/web/main.tsx` continues to inject the
+unavailable canonical Intelligence port and the official Store stays unavailable.
