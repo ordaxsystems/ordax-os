@@ -16,6 +16,16 @@ Session state and command support are intentionally separate ports. `system/serv
 
 The Web preference store currently persists only the shared preference snapshot supplied by the Surface. It does not imply account sync, server backup or secure-secret storage.
 
+Optional browser persistence is discovered in exactly one place:
+`local-storage.mjs`. Preferences, Workspace, Memory, Sync State and Sync
+Checkpoint reuse its single capability check; each retains its own canonical
+schema, storage key, validation, persistence-failure behavior and session
+fallback. `app-data.mjs` intentionally requires durable storage **and**
+Web Locks for atomic mutations, so it must not silently inherit optional
+session fallback. Existing `workspace.v1` migration is retained only to
+avoid dropping stored user state without a verified migration cutoff; it is
+not an additional source of truth.
+
 This adapter deliberately does **not** claim that account or sync services are implemented merely because those capabilities belong to the Web product baseline. Runtime capability snapshots describe what the current host actually exposes.
 
 `system/composition/web/` is responsible for wiring Web adapters to the shared Surface. Adapter modules never import the Surface.
@@ -28,8 +38,7 @@ Offline hints suppress account actions/refresh and abort/invalidate Spaces
 using the existing catalog; reconnect revalidates session/context and never
 replays commands. The UI labels cached identity as potentially stale.
 Unknown browser connectivity stays unknown. Online hints are not evidence of
-gateway/device access. Layout and appearance are unchanged; transition
-regression source/CI were updated without local test/build/npm/browser runs.
+gateway/device access. Layout and appearance are unchanged.
 
 Identity/Spaces GET transports now share json-read.mjs with a single 10-second
 deadline including JSON body reads, same-origin/no-store and redirect:error.
@@ -39,7 +48,6 @@ their existing adapters. Composition cancels identity reads on offline without
 asserting logout, then revalidates on reconnect. Commands remain outside this
 transport and are never replayed. Disposed adapters accept no new work/listeners;
 unchanged identity/action snapshots keep their reference identity for React.
-Regression source/CI updated without local execution; layout remains unchanged.
 
 The dormant remote Intelligence adapter uses the exact Product UUID context
 shape required by `ordax-platform/control-plane/cloudflare/src/product_intelligence_relay_contract.ts`.

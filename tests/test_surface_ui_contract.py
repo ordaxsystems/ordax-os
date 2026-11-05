@@ -556,7 +556,16 @@ class SurfaceUiContractTests(unittest.TestCase):
         contract = PREFERENCE_STORE_CONTRACT.read_text(encoding="utf-8")
         composition = (COMPOSITION / "main.tsx").read_text(encoding="utf-8")
         surface = (SURFACE / "surface.mjs").read_text(encoding="utf-8")
-        self.assertIn("localStorage", adapter)
+        # Browser storage capability belongs to one Web helper. Preference
+        # semantics and key remain owned by the preference adapter.
+        storage_owner = (ROOT / "system/adapters/web/local-storage.mjs").read_text(encoding="utf-8")
+        self.assertIn("windowRef?.localStorage", storage_owner)
+        self.assertIn("resolveWebLocalStorage", adapter)
+        self.assertNotIn("localStorage", adapter)
+        for name in ("preferences", "workspace", "memory", "sync-state", "sync-checkpoint"):
+            state_adapter = (ROOT / f"system/adapters/web/{name}.mjs").read_text(encoding="utf-8")
+            self.assertIn("resolveWebLocalStorage", state_adapter)
+            self.assertNotIn("function resolveStorage(", state_adapter)
         self.assertIn("contracts/preference-store.mjs", adapter)
         self.assertIn('"ordax.preferences.v1"', adapter)
         self.assertIn("ordax.preference-store/1", contract)
