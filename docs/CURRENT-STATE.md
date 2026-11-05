@@ -44,15 +44,34 @@ loopback pronto, `Native Surface state reporter authenticated`,
 Um aviso não fatal de rede Native `503` ainda aparece nesse boot;
 não declarar a rede/Platform totalmente saudável por isso.
 
-**Product Device remoto NÃO pronto:** `OrdaX Desktop
-(DESKTOP-4UFL03B)` segue offline/discovery-only, último heartbeat
-`2026-11-04T07:59:32Z`; o perfil operacional **não tem**
-`native-state/product-runtime/agent-settings.json` nem
-`native-state/product-runtime-dev/ordax-product-agent.exe`.
-O MCP auxiliar `DESKTOP-4UFL03B` mantém identidade e grant próprios
-e não foi reinstalado, desligado nem usado como origem de token.
-Não declarar `mcpReady`, `capability_digest` ou Aura↔Product por
-causa do boot Native local.
+**Binário Product DEV instalado e provado offline — 04/11/2026:**
+sem novo build, o executável canônico do checkout local
+`ordax-runtime/dist/desktop-component/ordax-product-agent.exe`
+foi validado com tamanho **18.682.343 bytes**, SHA-256
+`988f2ee5a57404f03db8536d515551d3ed2976783a1575e92223b8f611fe327e`,
+`source_commit=5173f2b01cb7abb1e5d98fdd00750c17fb6f85e4` e
+ZIP SHA-256
+`f61657b140853a3b3a1cb05a3591508db203e1a041eb85b627e2b81c7c76afe3`,
+todos idênticos à evidência OS
+`docs/evidence/desktop-runtime-windows-candidate-2026-10-31.json`.
+Somente o binário verificado foi copiado atomicamente para
+`%APPDATA%\\OrdaX OS Desktop Dev\\native-state\\product-runtime-dev\\ordax-product-agent.exe`.
+O `--self-test` físico desse arquivo passou com **exit 0**,
+`ok=true`, perfil `ordax-desktop`, quatro ações limitadas,
+`network_used=false`, `device_credential_used=false` e
+`remote_action_proven=false`.
+Uma prova isolada do Supervisor OS instalada (`developmentCandidate=true`,
+`spawnImpl` proibido) devolveu `blocked/device_not_enrolled`,
+`mcpReady=false`, `centralSessionAttested=false`, sem tentativa
+de iniciar um processo: **fail-closed aprovado**.
+
+**Product Device remoto ainda NÃO pronto:** `OrdaX Desktop
+(DESKTOP-4UFL03B)` segue offline/discovery-only; o perfil Product
+não tem `agent-settings.json` nem token próprios. O executável
+DEV está pronto no slot correto, **não está autorizado a executar ações
+remotas**. O MCP auxiliar mantém identidade e grants separados; não
+copiar tokens, criar outro Device ou inferir `capability_digest`
+a partir do teste offline.
 
 **Próxima execução necessária — bloqueio concreto de matrícula:**
 corrigir no owner `ordax-runtime` a
@@ -64,9 +83,10 @@ matrícula ao **MCP auxiliar**. A Platform reutiliza o Device pela
 vinculação e pode rotacionar o token do auxiliar. **Não executar
 Owner OAuth/PKCE Product ou copiar credenciais até esse reparo**
 e confirmação de que o Device Product já existente será reutilizado,
-sem novo Device. Depois de aprovação Owner, instalar apenas
-o candidato DEV do Runtime que passe pelos hashes/lock existentes;
-atestar heartbeat, capacidades, grant e recibo remoto real.
+sem novo Device. O candidato DEV já está instalado
+e passou na prova offline; após correção e aprovação Owner, validar
+o ciclo de inicialização, heartbeat, capacidades, grant e recibo
+remoto real, sem recompilar ou reinstalar o binário.
 A questão separada de presença intermitente do auxiliar está em
 [Runtime #324](https://github.com/ordaxsystems/ordax-runtime/issues/324).
 Nenhuma nova ponte, workflow, branch, instalador paralelo ou
