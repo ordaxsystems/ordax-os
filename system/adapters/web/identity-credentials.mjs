@@ -5,7 +5,7 @@ import {
   validateRegistrationPolicy,
 } from "../../contracts/identity-credentials.mjs";
 import { createWebJsonReader, runWebRequestWithinDeadline } from "./json-read.mjs";
-import { configuredWebSessionProvider } from "./identity.mjs";
+import { interpretWebIdentityGatewaySession } from "./identity.mjs";
 import { rememberVerifiedLoginEmail } from "../../services/account/remembered-login-email.mjs";
 
 // Read-only lifecycle extension. The gateway owns activation and legal metadata.
@@ -26,7 +26,11 @@ export function createWebRegistrationPolicyReader(windowRef = globalThis.window)
   return Object.freeze({
     async read() {
       const response = await reader.read("/auth/registration-policy");
-      if (!response.ok) throw new Error(`Registration policy request failed: ${response.status}`);
+      // A partial or otherwise noncanonical 2xx policy response must
+      // never enable public registration.
+      if (!response.ok || response.status !== 200) {
+        throw new Error(`Registration policy request failed: ${response.status}`);
+      }
       return validateRegistrationPolicy(response.value);
     },
     cancel: reader.cancel,
@@ -85,31 +89,18 @@ async function submit(windowRef, path, credentials, { registration = false } = {
   } finally {
     reader.dispose();
   }
-  if (!session || session.$schema !== "prototype-ordax.public-identity-session/1") {
-    throw new Error("Identity session verification invalid");
-  }
-  if (
-    session.authenticated === true
-    && session.status === "authenticated"
-    && configuredWebSessionProvider(session.provider)
-    && typeof session.subject === "string"
-    && session.subject.length > 0
-    && typeof session.email === "string"
-    && session.email.length > 0
-  ) {
-    if (!registration) rememberVerifiedLoginEmail(windowRef, session.email);
+  // Never maintain a second interpretation of public gateway identities.
+  // A 200 or 303 credential response is not account activation; the same
+  // snapshot parser used by the real Web identity port must prove it.
+  const identity = interpretWebIdentityGatewaySession(session);
+  if (identity.state === "signed-in") {
+    if (!registration && identity.email) rememberVerifiedLoginEmail(windowRef, identity.email);
     return Object.freeze({ authenticated: true, confirmationRequired: false });
   }
-  if (
-    registration
-    && configuredWebSessionProvider(session.provider)
-    && session.authenticated === false
-    && session.status === "anonymous"
-  ) {
+  if (registration && identity.state === "signed-out") {
     return Object.freeze({ authenticated: false, confirmationRequired: true });
   }
   throw new Error("Identity session was not activated");
-
 }
 
 export function createSameOriginIdentityCredentials(windowRef = globalThis.window) {
@@ -117,14 +108,27 @@ export function createSameOriginIdentityCredentials(windowRef = globalThis.windo
     throw new TypeError("Identity credentials adapter requires window.fetch");
   }
   const policy = createWebRegistrationPolicyReader(windowRef);
+  // A single browser adapter must not send overlapping credential commands.
+  // No password, request body or result is retained; the flag covers both
+  // the POST and its independently verified session read.
+  let submissionPending = false;
+  const execute = (path, credentials, options) => {
+    if (submissionPending) {
+      return Promise.reject(new Error("Identity credential submission is already in progress"));
+    }
+    submissionPending = true;
+    return submit(windowRef, path, credentials, options).finally(() => {
+      submissionPending = false;
+    });
+  };
   return Object.freeze({
     schema: IDENTITY_CREDENTIALS_SCHEMA,
     registrationPolicy: policy.read,
     signIn(credentials) {
-      return submit(windowRef, "/auth/login", credentials);
+      return execute("/auth/login", credentials);
     },
     register(credentials) {
-      return submit(windowRef, "/auth/register", credentials, { registration: true });
+      return execute("/auth/register", credentials, { registration: true });
     },
   });
 }

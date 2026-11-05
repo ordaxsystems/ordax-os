@@ -10,6 +10,7 @@ import {
   sameRegistrationLegalPolicy,
 } from "../system/contracts/identity-credentials.mjs";
 import { createSameOriginIdentityCredentials, IdentityCredentialRequestError } from "../system/adapters/web/identity-credentials.mjs";
+import { createWebIdentitySession } from "../system/adapters/web/identity.mjs";
 import { WEB_JSON_READ_TIMEOUT_MS } from "../system/adapters/web/json-read.mjs";
 import { identityCredentialFailureMessageId } from "../system/services/account/identity-credential-feedback.mjs";
 
@@ -152,6 +153,106 @@ test("same-origin credential adapter posts only to OrdaX auth routes", async () 
     "Post-login session proof must reuse the bounded same-origin Web GET transport");
 });
 
+test("overlapping login and registration commands never submit credentials twice", async () => {
+  const requests = [];
+  let resolvePost;
+  const authenticated = {
+    $schema: "prototype-ordax.public-identity-session/1",
+    authenticated: true, status: "authenticated", provider: "supabase",
+    subject: "validated-subject", email: "pessoa@example.com",
+  };
+  const windowRef = {
+    fetch(path, options) {
+      requests.push({ path, options });
+      if (path === "/auth/login") return new Promise(resolve => { resolvePost = resolve; });
+      if (path === "/auth/register") return Promise.resolve({ ok: true, status: 202 });
+      if (path === "/auth/session") return Promise.resolve({
+        ok: true, status: 200, json: async () => authenticated,
+      });
+      throw Error("Unexpected credential endpoint");
+    },
+  };
+  const port = createSameOriginIdentityCredentials(windowRef);
+  const first = port.signIn({ email: "pessoa@example.com", password: "never-save-1" });
+  assert.deepEqual(requests.map(x => x.path), ["/auth/login"]);
+  for (const [action, value] of [
+    ["signIn", { email: "another@example.com", password: "never-save-2" }],
+    ["register", { email: "nova@example.com", password: "never-save-3", legalAccepted: true }],
+  ]) {
+    await assert.rejects(port[action](value), error => {
+      assert.match(error.message, /submission is already in progress/);
+      assert.doesNotMatch(error.message, /never-save|pessoa@example.com|another@example.com|nova@example.com/);
+      return true;
+    });
+  }
+  assert.deepEqual(requests.map(x => x.path), ["/auth/login"],
+    "Overlapping credential commands cannot send a second POST or session GET");
+  resolvePost({ ok: false, status: 303 });
+  assert.deepEqual(await first, { authenticated: true, confirmationRequired: false });
+  assert.deepEqual(requests.map(x => x.path), ["/auth/login", "/auth/session"]);
+  assert.deepEqual(
+    await port.register({ email: "nova@example.com", password: "never-save-4", legalAccepted: true }),
+    { authenticated: false, confirmationRequired: true },
+    "A completed verified session frees the adapter for an explicit subsequent action",
+  );
+  assert.deepEqual(requests.map(x => x.path), [
+    "/auth/login", "/auth/session", "/auth/register",
+  ]);
+});
+
+test("credential overlap guard includes pending session proof and resets after verification failure", async () => {
+  let releaseSession;
+  const requests = [];
+  const port = createSameOriginIdentityCredentials({
+    fetch(path, options) {
+      requests.push({ path, options });
+      if (path === "/auth/login") return Promise.resolve({ ok: false, status: 303 });
+      if (path === "/auth/session") return new Promise(resolve => { releaseSession = resolve; });
+      if (path === "/auth/register") return Promise.resolve({ ok: true, status: 202 });
+      throw Error("Unexpected auth endpoint");
+    },
+  });
+  const first = port.signIn({ email: "pessoa@example.com", password: "never-save-5" });
+  for (let i = 0; i < 30 && !releaseSession; i++) await Promise.resolve();
+  assert.equal(typeof releaseSession, "function");
+  await assert.rejects(
+    port.register({ email: "nova@example.com", password: "never-save-6", legalAccepted: true }),
+    /submission is already in progress/,
+    "A credential POST must not overlap an earlier POST's session verification",
+  );
+  assert.deepEqual(requests.map(x => x.path), ["/auth/login", "/auth/session"]);
+  releaseSession({ ok: false, status: 503 });
+  await assert.rejects(first, /session verification unavailable/);
+  assert.deepEqual(
+    await port.register({ email: "nova@example.com", password: "never-save-7", legalAccepted: true }),
+    { authenticated: false, confirmationRequired: true },
+    "A failed proof releases the single in-flight slot without an automatic retry",
+  );
+  assert.deepEqual(requests.map(x => x.path), [
+    "/auth/login", "/auth/session", "/auth/register",
+  ]);
+});
+
+test("invalid credential input cannot strand the in-flight slot", async () => {
+  const requests = [];
+  const port = createSameOriginIdentityCredentials({
+    fetch(path) {
+      requests.push(path);
+      return Promise.resolve({ ok: true, status: 202 });
+    },
+  });
+  await assert.rejects(
+    port.signIn({ email: "invalid", password: "never-save-8" }),
+    TypeError,
+  );
+  assert.deepEqual(requests, []);
+  assert.deepEqual(
+    await port.register({ email: "nova@example.com", password: "never-save-9", legalAccepted: true }),
+    { authenticated: false, confirmationRequired: true },
+  );
+  assert.deepEqual(requests, ["/auth/register"]);
+});
+
 test("registration confirmation is explicit and does not claim a session", async () => {
   const port = createSameOriginIdentityCredentials({
     fetch: async () => ({ ok: true, status: 202 }),
@@ -193,6 +294,87 @@ test("credential POST success cannot activate a signed-out or unverified account
     });
     await assert.rejects(port.signIn(credentials), /session/i, title);
     assert.deepEqual(calls, [["/auth/login", "POST"], ["/auth/session", "GET"]], title);
+  }
+});
+
+test("credential activation follows the exact canonical identity parser for unsafe gateway identities", async () => {
+  const base = {
+    $schema: "prototype-ordax.public-identity-session/1",
+    authenticated: true, status: "authenticated", provider: "supabase",
+    subject: "user-verified", email: "pessoa@example.com",
+  };
+  for (const [reason, payload] of [
+    ["unsafe email fallback", { ...base, email: "unsafe\\nname@example.com".replace("\\n", "\n") }],
+    ["oversized email fallback", { ...base, email: `${"x".repeat(121)}@example.com` }],
+    ["control-only email fallback", { ...base, email: "\n@example.com" }],
+    ["invalid subject", { ...base, subject: "" }],
+    ["conflicting status", { ...base, status: "anonymous" }],
+    ["unconfigured provider", { ...base, provider: "gated" }],
+  ]) {
+    const calls = [];
+    const windowRef = {
+      fetch: async (path, options) => {
+        calls.push({ path, options });
+        return path === "/auth/session"
+          ? { ok: true, status: 200, json: async () => payload }
+          : { ok: false, status: 303 };
+      },
+    };
+    const session = createWebIdentitySession(windowRef);
+    try {
+      await session.refresh();
+      assert.equal(session.getSnapshot().state, "unavailable", reason);
+      await assert.rejects(
+        createSameOriginIdentityCredentials(windowRef).signIn({
+          email: "pessoa@example.com", password: "never-disclose-this-password",
+        }),
+        error => {
+          assert.match(error.message, /session was not activated/i, reason);
+          assert.doesNotMatch(error.message, /never-disclose|unsafe|pessoa@example.com/);
+          return true;
+        },
+      );
+      assert.deepEqual(calls.map(call => call.path),
+        ["/auth/session", "/auth/login", "/auth/session"], reason);
+    } finally {
+      session.dispose();
+    }
+  }
+});
+
+test("credential success and remembered email use only the canonical verified identity", async () => {
+  const gateway = {
+    $schema: "prototype-ordax.public-identity-session/1",
+    authenticated: true, status: "authenticated", provider: "supabase",
+    subject: "account-verified",
+    displayName: "  Pessoa com nome seguro  ",
+    email: "pessoa@example.com",
+  };
+  const localStorage = new Map();
+  const windowRef = {
+    localStorage: {
+      getItem: key => localStorage.get(key) ?? null,
+      setItem: (key, value) => localStorage.set(key, value),
+    },
+    fetch: async (path) => path === "/auth/session"
+      ? { ok: true, status: 200, json: async () => gateway }
+      : { ok: false, status: 303 },
+  };
+  const identity = createWebIdentitySession(windowRef);
+  try {
+    await identity.refresh();
+    assert.equal(identity.getSnapshot().state, "signed-in");
+    assert.equal(identity.getSnapshot().displayName, "Pessoa com nome seguro");
+    assert.deepEqual(
+      await createSameOriginIdentityCredentials(windowRef).signIn({
+        email: "pessoa@example.com", password: "never-store-this-password",
+      }),
+      { authenticated: true, confirmationRequired: false },
+    );
+    assert.equal(localStorage.get("ordax.account.remembered-email.v1"), "pessoa@example.com");
+    assert.equal(JSON.stringify([...localStorage]).includes("never-store-this-password"), false);
+  } finally {
+    identity.dispose();
   }
 });
 
@@ -403,6 +585,41 @@ test("registration policy is fetched read-only from the same-origin gateway", as
   assert.equal(calls[0].options.method, "GET");
   assert.equal(calls[0].options.credentials, "same-origin");
   assert.equal(calls[0].options.cache, "no-store");
+});
+
+test("partial or noncanonical 2xx responses cannot enable registration", async () => {
+  const authoritative = {
+    $schema: "prototype-ordax.registration-legal-policy/1",
+    active: true, registrationEnabled: true, publicRegistrationEnabled: true,
+    policyId: "11111111-1111-4111-8111-111111111111",
+    privacy: {
+      version: "2026-10-02", effectiveDate: "2026-10-02",
+      sha256: "a".repeat(64), url: "https://ordax.example/privacidade/",
+    },
+    terms: {
+      version: "2026-10-02", effectiveDate: "2026-10-02",
+      sha256: "b".repeat(64), url: "https://ordax.example/termos/",
+    },
+  };
+  for (const status of [201, 202, 206, 207]) {
+    const requests = [];
+    const port = createSameOriginIdentityCredentials({
+      fetch: async (path, options) => {
+        requests.push({ path, options });
+        return { ok: true, status, json: async () => authoritative };
+      },
+    });
+    await assert.rejects(port.registrationPolicy(),
+      /Registration policy request failed/, `HTTP ${status} is not an authoritative policy`);
+    assert.deepEqual(requests.map(x => x.path), ["/auth/registration-policy"]);
+    assert.equal(requests[0].options.credentials, "same-origin");
+  }
+  const trusted = createSameOriginIdentityCredentials({
+    fetch: async () => ({ ok: true, status: 200, json: async () => authoritative }),
+  });
+  const policy = await trusted.registrationPolicy();
+  assert.equal(policy.registrationEnabled, true);
+  assert.equal(policy.publicRegistrationEnabled, true);
 });
 
 test("OOBE must request fresh legal acceptance when any authoritative document changes", () => {
