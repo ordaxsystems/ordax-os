@@ -4,6 +4,7 @@ import test from "node:test";
 import { resolveWebLocalStorage } from "../system/adapters/web/local-storage.mjs";
 import { createWebPreferenceStore } from "../system/adapters/web/preferences.mjs";
 import { createWebWorkspaceStore } from "../system/adapters/web/workspace.mjs";
+import { WORKSPACE_STORE_SCHEMA } from "../system/contracts/workspace-store.mjs";
 import { createWebMemoryStore } from "../system/adapters/web/memory.mjs";
 import { createWebSyncStateStore } from "../system/adapters/web/sync-state.mjs";
 import { createWebSyncCheckpointStore } from "../system/adapters/web/sync-checkpoint.mjs";
@@ -46,7 +47,7 @@ test("five Web state adapters use one optional-storage boundary without changing
   assert.equal(createWebPreferenceStore(windowRef).load()["appearance.theme"], "dark");
 
   const workspace = createWebWorkspaceStore(windowRef);
-  assert.equal(workspace.schema, "ordax.workspace-store/1");
+  assert.equal(workspace.schema, WORKSPACE_STORE_SCHEMA);
   assert.ok(workspace.load());
 
   const memory = createWebMemoryStore(windowRef);
