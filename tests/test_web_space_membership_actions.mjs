@@ -68,6 +68,107 @@ test("web membership adapter sends only canonical POST action requests", async (
   assert.deepEqual(value, result());
 });
 
+test("concurrent member submissions with the same idempotency key reuse one POST", async () => {
+  let resolveReceipt;
+  let postCount = 0;
+  const port = createWebSpaceMembershipActions({
+    fetch(path, options) {
+      postCount++;
+      assert.equal(path, "/account/space-membership-actions");
+      assert.equal(JSON.parse(options.body).idempotencyKey, KEY);
+      return new Promise(resolve => { resolveReceipt = resolve; });
+    },
+  });
+  const request = {
+    schema: SPACE_MEMBERSHIP_ACTION_REQUEST_SCHEMA,
+    action: "remove", spaceId: SPACE_ID,
+    targetUserId: USER_ID, idempotencyKey: KEY,
+  };
+  try {
+    const first = port.removeMember(request);
+    const duplicate = port.removeMember({ ...request });
+    assert.equal(postCount, 1, "Identical requests must share the original POST");
+    await assert.rejects(port.suspendMember({
+      ...request, action: "suspend",
+    }), /idempotency key is already in use/,
+    "A conflicting action cannot reuse an in-flight idempotency key");
+    assert.equal(postCount, 1);
+    resolveReceipt(response(result({ removed: true })));
+    const [left, right] = await Promise.all([first, duplicate]);
+    assert.deepEqual(left, right);
+    assert.equal(left.removed, true);
+    assert.equal(postCount, 1);
+    // A later explicit action can reuse the gateway key, but the adapter
+    // never retries automatically or retains a response as a stale cache.
+    const later = port.removeMember(request);
+    assert.equal(postCount, 2);
+    resolveReceipt(response(result({ removed: true, changed: false })));
+    assert.equal((await later).changed, false);
+  } finally {
+    port.dispose();
+  }
+});
+
+test("concurrent member commands with different keys remain independent", async () => {
+  const responses = [];
+  let postCount = 0;
+  const port = createWebSpaceMembershipActions({
+    fetch() {
+      postCount++;
+      return new Promise(resolve => responses.push(resolve));
+    },
+  });
+  const request = {
+    schema: SPACE_MEMBERSHIP_ACTION_REQUEST_SCHEMA,
+    action: "suspend", spaceId: SPACE_ID,
+    targetUserId: USER_ID, idempotencyKey: KEY,
+  };
+  try {
+    const first = port.suspendMember(request);
+    const second = port.suspendMember({
+      ...request, idempotencyKey: "55555555-5555-4555-8555-555555555555",
+    });
+    assert.equal(postCount, 2);
+    responses[1](response(result({ state: "suspended" })));
+    responses[0](response(result({ state: "active" })));
+    const [one, two] = await Promise.all([first, second]);
+    assert.equal(one.state, "active");
+    assert.equal(two.state, "suspended");
+  } finally {
+    port.dispose();
+  }
+});
+
+test("failed member request releases its in-flight key without retrying", async () => {
+  let resolveResponse, postCount = 0;
+  const port = createWebSpaceMembershipActions({
+    fetch() {
+      postCount++;
+      return new Promise(resolve => { resolveResponse = resolve; });
+    },
+  });
+  const request = {
+    schema: SPACE_MEMBERSHIP_ACTION_REQUEST_SCHEMA,
+    action: "remove", spaceId: SPACE_ID,
+    targetUserId: USER_ID, idempotencyKey: KEY,
+  };
+  try {
+    const first = port.removeMember(request);
+    const duplicate = port.removeMember(request);
+    assert.equal(postCount, 1);
+    resolveResponse(response({ error: "forbidden" }, 403));
+    const results = await Promise.allSettled([first, duplicate]);
+    assert.deepEqual(results.map(x => x.status), ["rejected", "rejected"]);
+    assert.equal(postCount, 1);
+    const later = port.removeMember(request);
+    assert.equal(postCount, 2);
+    resolveResponse(response(result()));
+    await later;
+  } finally {
+    port.dispose();
+  }
+});
+
 test("member mutation and JSON receipt share one deadline without replaying commands", async () => {
   for (const stalled of ["request", "receipt"]) {
     const timers = new Map();
