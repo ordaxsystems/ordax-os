@@ -274,7 +274,7 @@ jobs:
         if: steps.surface-artifact-cache.outputs.cache-hit != 'true' && steps.surface-r2.outputs.hit != 'true'
         run: |
           python3 bootstrap/surface-runtime/prepare_config.py preflight \
-            --cache "$RUNNER_TEMP/ordax-independent-surface-cache"
+            --cache "${BR2_DL_DIR:?}"
 
       - name: Build Buildroot/musl Surface runtime on durable artifact miss
         if: steps.surface-artifact-cache.outputs.cache-hit != 'true' && steps.surface-r2.outputs.hit != 'true'
@@ -303,7 +303,7 @@ jobs:
           fi
           python3 bootstrap/surface-runtime/build.py build \
             --out "$RUNNER_TEMP/ordax-independent-surface" \
-            --cache "$RUNNER_TEMP/ordax-independent-surface-cache" \
+            --cache "${BR2_DL_DIR:?}" \
             --jobs "$ORDAX_SURFACE_BUILD_JOBS" "${work_args[@]}"
 
       - name: Verify exact Independent Surface EROFS bytes
