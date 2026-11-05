@@ -117,4 +117,3 @@ manifest['boot_policy'] = {
 manifest['runtime_roots_created_empty'] = []
 manifest['current_pointer_initial_state'] = 'unset'
 output.write_text(json.dumps(manifest, indent=2) + '\n', encoding='utf-8')
-

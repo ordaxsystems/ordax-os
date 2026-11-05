@@ -10,11 +10,11 @@ import unittest
 
 ROOT = Path(__file__).resolve().parents[1] / ".github" / "workflows"
 TARGETS = {
-    "creator-owner-dev-git.yml": ("build-and-publish:", "if: github.event_name != 'pull_request' || !github.event.pull_request.draft"),
+    "creator-owner-dev-git.yml": ("build-and-publish:", "if: needs.impact.outputs.required == 'true' && (github.event_name != 'pull_request' || !github.event.pull_request.draft)"),
     "independent-surface-runtime.yml": ("buildroot-surface:", "if: needs.impact.outputs.required == 'true' && (github.event_name != 'pull_request' || !github.event.pull_request.draft)"),
     "portable-v2-qemu-boot-proof.yml": ("qemu-portable-v2:", "if: needs.impact.outputs.required == 'true' && (github.event_name != 'pull_request' || !github.event.pull_request.draft)"),
-    "independent-base-experiment.yml": ("buildroot-qemu:", "if: github.event_name == 'workflow_dispatch' || (github.event_name == 'pull_request' && !github.event.pull_request.draft)"),
-    "independent-portable-v2-integration.yml": ("independent-real-portable-qemu:", "if: github.event_name != 'pull_request' || !github.event.pull_request.draft"),
+    "independent-base-experiment.yml": ("buildroot-qemu:", "if: " + chr(36) + "{{ github.event_name == 'workflow_dispatch' || (github.event_name == 'pull_request' && !github.event.pull_request.draft) || (github.event_name == 'push' && github.ref == 'refs/heads/integration/dev-usb-buildroot-surface-20261024' && contains(github.event.head_commit.message, '[stable-mvp-proof]')) }}"),
+    "independent-portable-v2-integration.yml": ("independent-real-portable-qemu:", "if: " + chr(36) + "{{ github.event_name == 'workflow_dispatch' || (github.event_name == 'pull_request' && !github.event.pull_request.draft) || (github.event_name == 'push' && github.ref == 'refs/heads/integration/dev-usb-buildroot-surface-20261024' && contains(github.event.head_commit.message, '[stable-mvp-signed-boot]')) }}"),
     "native-esp-candidate.yml": ("native-esp:", "if: github.event_name != 'pull_request' || !github.event.pull_request.draft"),
 }
 
@@ -79,7 +79,8 @@ class ReleaseCandidateGateTests(unittest.TestCase):
         self.assertIn("tests.test_ci_two_stage_release_gate", contract)
         self.assertIn("permissions:\n      contents: read", contract)
         self.assertNotIn("pull_request.draft", contract)
-        self.assertIn("needs: owner-dev-contract", heavy)
+        self.assertIn("needs: [owner-dev-contract, impact]", heavy)
+        self.assertIn("needs.impact.outputs.required == 'true'", heavy)
         self.assertEqual(workflow.count("python3 tools/ci/preflight_owner_dev.py"), 1)
 
     def test_surface_contract_and_impact_run_while_draft(self):
@@ -114,7 +115,8 @@ class ReleaseCandidateGateTests(unittest.TestCase):
                 self.assertNotIn("env.ImageOS", text)
                 self.assertNotIn("env.ImageVersion", text)
         producer = (ROOT / "independent-surface-runtime.yml").read_text(encoding="utf-8")
-        self.assertIn('if [ "${RUNNER_ENVIRONMENT:-}" != "self-hosted" ]; then', producer)
+        self.assertIn("ORDAX_VERIFIED_RUNNER_ENVIRONMENT: " + chr(36) + "{{ runner.environment }}", producer)
+        self.assertIn('if [ "${ORDAX_VERIFIED_RUNNER_ENVIRONMENT:-}" != "self-hosted" ]; then', producer)
         self.assertIn('export ORDAX_COMPONENT_CACHE_ENVIRONMENT="$ORDAX_SURFACE_PRODUCER_ENVIRONMENT"', producer)
         self.assertIn('export ORDAX_COMPONENT_CACHE_ENVIRONMENT="${RUNNER_OS:?}/${RUNNER_ARCH:?}/${ImageOS}/${ImageVersion}"', producer)
         self.assertIn("ORDAX_SURFACE_RUNNER_LABEL", producer)
@@ -139,7 +141,7 @@ class ReleaseCandidateGateTests(unittest.TestCase):
         self.assertNotIn("github.event_name == 'pull_request'", concurrency)
         self.assertIn("independent-real-portable-qemu:", text)
         self.assertIn(
-            "github.event_name != 'pull_request' || !github.event.pull_request.draft",
+            "github.event_name == 'workflow_dispatch' || (github.event_name == 'pull_request' && !github.event.pull_request.draft)",
             text,
         )
 
