@@ -16,15 +16,20 @@ export function validateDesktopProductRuntimeStatus(raw) {
         (typeof raw.capabilityDigest === "string" &&
           /^[a-f0-9]{64}$/.test(raw.capabilityDigest))))
     throw new Error("Invalid Product Runtime observation");
-  // A local Product process is not remote MCP authority. Even if a future
-  // supervisor publishes attested readiness, the Native reader must reject
-  // contradictory state, enrollment or missing session/capability evidence.
-  const processExpected = raw.state === "running" || raw.state === "stopping";
-  if (raw.processRunning !== processExpected ||
-      (raw.mcpReady && (raw.state !== "running" ||
-        !raw.enrolled || !raw.centralSessionAttested ||
-        raw.capabilityDigest === null)))
+  if (raw.processRunning !== (raw.state === "running" || raw.state === "stopping"))
     throw new Error("Inconsistent Product Runtime process state");
+  // A running process, heartbeat or unverified digest must never be
+  // presented as a centrally attested action-capable MCP connection.
+  if (raw.centralSessionAttested && (
+      raw.state !== "running" || !raw.enrolled ||
+      typeof raw.capabilityDigest !== "string" ||
+      !/^[a-f0-9]{64}$/.test(raw.capabilityDigest)))
+    throw new Error("Inconsistent Product MCP attestation");
+  if (raw.mcpReady && (!raw.centralSessionAttested ||
+      raw.state !== "running" || !raw.enrolled ||
+      typeof raw.capabilityDigest !== "string" ||
+      !/^[a-f0-9]{64}$/.test(raw.capabilityDigest)))
+    throw new Error("Product MCP cannot be ready without attested capabilities");
   return Object.freeze({
     schema: SCHEMA, host: "ordax-desktop",
     state: raw.state, reason: raw.reason, enrolled: raw.enrolled,

@@ -43,31 +43,26 @@ test("unauthorized, unavailable and forged Native statuses fail closed", async (
   assert.throws(() => validateDesktopProductRuntimeStatus({
     ...observation, capabilityDigest: "FAKE",
   }));
-  // Future Product readiness must be internally coherent; process presence
-  // alone, missing central attestation or an absent Device digest cannot pass.
-  const digest = "a".repeat(64);
-  for (const forged of [
-    { mcpReady: true },
-    { mcpReady: true, capabilityDigest: digest },
-    { mcpReady: true, centralSessionAttested: true },
-    { mcpReady: true, centralSessionAttested: true,
-      capabilityDigest: digest, enrolled: false },
-    { mcpReady: true, centralSessionAttested: true,
-      capabilityDigest: digest, state: "stopped", processRunning: false },
-    { state: "stopped", processRunning: true },
-    { state: "stopping", processRunning: false },
-  ]) {
-    assert.throws(() => validateDesktopProductRuntimeStatus({
-      ...observation, ...forged,
-    }), /Inconsistent Product Runtime process state/);
-  }
-  const valid = validateDesktopProductRuntimeStatus({
-    ...observation, mcpReady: true, centralSessionAttested: true,
-    capabilityDigest: digest,
-  });
-  assert.equal(valid.mcpReady, true);
-  assert.equal(valid.centralSessionAttested, true);
-  assert.equal(valid.capabilityDigest, digest);
-
   assert.throws(() => createNativeDesktopProductRuntimeStatus({}));
+});
+test("Native MCP observation cannot turn a running process into invented attested capabilities",()=>{
+  const digest="f".repeat(64);
+  for(const invalid of [
+    {...observation,mcpReady:true},
+    {...observation,mcpReady:true,capabilityDigest:digest},
+    {...observation,mcpReady:true,centralSessionAttested:true},
+    {...observation,centralSessionAttested:true},
+    {...observation,centralSessionAttested:true,capabilityDigest:digest,enrolled:false},
+    {...observation,centralSessionAttested:true,capabilityDigest:digest,state:"blocked",processRunning:false},
+    {...observation,state:"blocked",processRunning:true},
+    {...observation,state:"stopping",processRunning:false},
+    {...observation,state:"stopped",processRunning:true},
+  ])assert.throws(()=>validateDesktopProductRuntimeStatus(invalid));
+  const attested=validateDesktopProductRuntimeStatus({
+    ...observation,centralSessionAttested:true,mcpReady:true,
+    capabilityDigest:digest,
+  });
+  assert.equal(attested.mcpReady,true);
+  assert.equal(attested.capabilityDigest,digest);
+  assert.equal(Object.isFrozen(attested),true);
 });
