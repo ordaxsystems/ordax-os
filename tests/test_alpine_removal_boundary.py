@@ -42,6 +42,16 @@ class AlpineRemovalBoundaryTests(unittest.TestCase):
             + ", ".join(sorted(stale)),
         )
 
+    def test_retired_surface_apk_catalog_is_absent(self) -> None:
+        # Surface/Creator must use the Buildroot graphical producer, never
+        # resurrect the obsolete Alpine package selection manifest.
+        self.assertFalse((ROOT / "system/surface/runtime/packages.txt").exists())
+        creator = (ROOT / ".github/workflows/creator-owner-dev-git.yml").read_text(encoding="utf-8")
+        self.assertNotIn("bootstrap/dev-base/build.py", creator)
+        self.assertNotIn("apk add", creator)
+        runtime = (ROOT / "bootstrap/surface-runtime/source.json").read_text(encoding="utf-8")
+        self.assertIn('"package_manager_in_runtime_allowed": false', runtime)
+        self.assertNotIn('"apk_package_lock"', runtime)
     def test_retired_dev_builder_is_absent(self) -> None:
         self.assertFalse((BOOTSTRAP / "dev-base/build.py").exists())
         self.assertTrue((BOOTSTRAP / "independent-base/post-build.sh").is_file())
