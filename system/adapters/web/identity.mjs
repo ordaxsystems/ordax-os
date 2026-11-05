@@ -33,6 +33,32 @@ export function configuredWebSessionProvider(value) {
     && value !== "gated";
 }
 
+// One canonical interpretation of the public gateway response. Both the
+// long-lived session port and post-credential activation must agree on exactly
+// the same identity, provider and safe presentation fields.
+export function interpretWebIdentityGatewaySession(value) {
+  if (!value || value.$schema !== SESSION_SCHEMA
+    || !configuredWebSessionProvider(value.provider)) {
+    return validateIdentitySessionSnapshot({ state: "unavailable" });
+  }
+  if (value.authenticated === true && value.status === "authenticated") {
+    const displayName = publicDisplayName(value.email, value.displayName);
+    if (typeof value.subject !== "string" || !value.subject || !displayName) {
+      return validateIdentitySessionSnapshot({ state: "unavailable" });
+    }
+    return validateIdentitySessionSnapshot({
+      state: "signed-in",
+      subjectId: value.subject,
+      displayName,
+      email: value.email,
+    });
+  }
+  if (value.authenticated === false && value.status === "anonymous") {
+    return validateIdentitySessionSnapshot({ state: "signed-out" });
+  }
+  return validateIdentitySessionSnapshot({ state: "unavailable" });
+}
+
 export function createWebIdentitySession(windowRef = globalThis.window) {
   if (!windowRef || typeof windowRef.fetch !== "function") {
     throw new TypeError("Web identity session requires window.fetch");
@@ -75,31 +101,7 @@ export function createWebIdentitySession(windowRef = globalThis.window) {
       if (!response.ok) {
         return apply({ state: "unavailable" });
       }
-      const value = response.value;
-      if (!value || value.$schema !== SESSION_SCHEMA) {
-        return apply({ state: "unavailable" });
-      }
-      if (!configuredWebSessionProvider(value.provider)) {
-        return apply({ state: "unavailable" });
-      }
-      if (value.authenticated === true && value.status === "authenticated") {
-        const displayName = publicDisplayName(value.email, value.displayName);
-        if (typeof value.subject !== "string" || !value.subject || !displayName) {
-          return apply({ state: "unavailable" });
-        }
-        return apply({
-          state: "signed-in",
-          subjectId: value.subject,
-          displayName,
-          email: value.email,
-        });
-      }
-      // Only an explicit gateway-anonymous session proves signed-out. A 200
-      // response with mismatched flags/status is unavailable, not logout.
-      if (value.authenticated === false && value.status === "anonymous") {
-        return apply({ state: "signed-out" });
-      }
-      return apply({ state: "unavailable" });
+      return apply(interpretWebIdentityGatewaySession(response.value));
     } catch {
       return apply({ state: "unavailable" });
     }

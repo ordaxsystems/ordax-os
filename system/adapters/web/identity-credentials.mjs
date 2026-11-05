@@ -5,7 +5,7 @@ import {
   validateRegistrationPolicy,
 } from "../../contracts/identity-credentials.mjs";
 import { createWebJsonReader, runWebRequestWithinDeadline } from "./json-read.mjs";
-import { configuredWebSessionProvider } from "./identity.mjs";
+import { interpretWebIdentityGatewaySession } from "./identity.mjs";
 import { rememberVerifiedLoginEmail } from "../../services/account/remembered-login-email.mjs";
 
 // Read-only lifecycle extension. The gateway owns activation and legal metadata.
@@ -85,31 +85,18 @@ async function submit(windowRef, path, credentials, { registration = false } = {
   } finally {
     reader.dispose();
   }
-  if (!session || session.$schema !== "prototype-ordax.public-identity-session/1") {
-    throw new Error("Identity session verification invalid");
-  }
-  if (
-    session.authenticated === true
-    && session.status === "authenticated"
-    && configuredWebSessionProvider(session.provider)
-    && typeof session.subject === "string"
-    && session.subject.length > 0
-    && typeof session.email === "string"
-    && session.email.length > 0
-  ) {
-    if (!registration) rememberVerifiedLoginEmail(windowRef, session.email);
+  // Never maintain a second interpretation of public gateway identities.
+  // A 200 or 303 credential response is not account activation; the same
+  // snapshot parser used by the real Web identity port must prove it.
+  const identity = interpretWebIdentityGatewaySession(session);
+  if (identity.state === "signed-in") {
+    if (!registration && identity.email) rememberVerifiedLoginEmail(windowRef, identity.email);
     return Object.freeze({ authenticated: true, confirmationRequired: false });
   }
-  if (
-    registration
-    && configuredWebSessionProvider(session.provider)
-    && session.authenticated === false
-    && session.status === "anonymous"
-  ) {
+  if (registration && identity.state === "signed-out") {
     return Object.freeze({ authenticated: false, confirmationRequired: true });
   }
   throw new Error("Identity session was not activated");
-
 }
 
 export function createSameOriginIdentityCredentials(windowRef = globalThis.window) {

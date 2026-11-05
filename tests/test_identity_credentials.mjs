@@ -10,6 +10,7 @@ import {
   sameRegistrationLegalPolicy,
 } from "../system/contracts/identity-credentials.mjs";
 import { createSameOriginIdentityCredentials, IdentityCredentialRequestError } from "../system/adapters/web/identity-credentials.mjs";
+import { createWebIdentitySession } from "../system/adapters/web/identity.mjs";
 import { WEB_JSON_READ_TIMEOUT_MS } from "../system/adapters/web/json-read.mjs";
 import { identityCredentialFailureMessageId } from "../system/services/account/identity-credential-feedback.mjs";
 
@@ -293,6 +294,87 @@ test("credential POST success cannot activate a signed-out or unverified account
     });
     await assert.rejects(port.signIn(credentials), /session/i, title);
     assert.deepEqual(calls, [["/auth/login", "POST"], ["/auth/session", "GET"]], title);
+  }
+});
+
+test("credential activation follows the exact canonical identity parser for unsafe gateway identities", async () => {
+  const base = {
+    $schema: "prototype-ordax.public-identity-session/1",
+    authenticated: true, status: "authenticated", provider: "supabase",
+    subject: "user-verified", email: "pessoa@example.com",
+  };
+  for (const [reason, payload] of [
+    ["unsafe email fallback", { ...base, email: "unsafe\\nname@example.com".replace("\\n", "\n") }],
+    ["oversized email fallback", { ...base, email: `${"x".repeat(121)}@example.com` }],
+    ["control-only email fallback", { ...base, email: "\n@example.com" }],
+    ["invalid subject", { ...base, subject: "" }],
+    ["conflicting status", { ...base, status: "anonymous" }],
+    ["unconfigured provider", { ...base, provider: "gated" }],
+  ]) {
+    const calls = [];
+    const windowRef = {
+      fetch: async (path, options) => {
+        calls.push({ path, options });
+        return path === "/auth/session"
+          ? { ok: true, status: 200, json: async () => payload }
+          : { ok: false, status: 303 };
+      },
+    };
+    const session = createWebIdentitySession(windowRef);
+    try {
+      await session.refresh();
+      assert.equal(session.getSnapshot().state, "unavailable", reason);
+      await assert.rejects(
+        createSameOriginIdentityCredentials(windowRef).signIn({
+          email: "pessoa@example.com", password: "never-disclose-this-password",
+        }),
+        error => {
+          assert.match(error.message, /session was not activated/i, reason);
+          assert.doesNotMatch(error.message, /never-disclose|unsafe|pessoa@example.com/);
+          return true;
+        },
+      );
+      assert.deepEqual(calls.map(call => call.path),
+        ["/auth/session", "/auth/login", "/auth/session"], reason);
+    } finally {
+      session.dispose();
+    }
+  }
+});
+
+test("credential success and remembered email use only the canonical verified identity", async () => {
+  const gateway = {
+    $schema: "prototype-ordax.public-identity-session/1",
+    authenticated: true, status: "authenticated", provider: "supabase",
+    subject: "account-verified",
+    displayName: "  Pessoa com nome seguro  ",
+    email: "pessoa@example.com",
+  };
+  const localStorage = new Map();
+  const windowRef = {
+    localStorage: {
+      getItem: key => localStorage.get(key) ?? null,
+      setItem: (key, value) => localStorage.set(key, value),
+    },
+    fetch: async (path) => path === "/auth/session"
+      ? { ok: true, status: 200, json: async () => gateway }
+      : { ok: false, status: 303 },
+  };
+  const identity = createWebIdentitySession(windowRef);
+  try {
+    await identity.refresh();
+    assert.equal(identity.getSnapshot().state, "signed-in");
+    assert.equal(identity.getSnapshot().displayName, "Pessoa com nome seguro");
+    assert.deepEqual(
+      await createSameOriginIdentityCredentials(windowRef).signIn({
+        email: "pessoa@example.com", password: "never-store-this-password",
+      }),
+      { authenticated: true, confirmationRequired: false },
+    );
+    assert.equal(localStorage.get("ordax.account.remembered-email.v1"), "pessoa@example.com");
+    assert.equal(JSON.stringify([...localStorage]).includes("never-store-this-password"), false);
+  } finally {
+    identity.dispose();
   }
 });
 
