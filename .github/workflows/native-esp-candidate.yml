@@ -120,6 +120,47 @@ jobs:
           set -euo pipefail
           python3 bootstrap/kernel/ci_env.py --github-env "$GITHUB_ENV"
 
+      - name: Resolve locked Native initramfs environment
+        id: initramfs-env
+        run: |
+          python3 - <<'PY' >> "$GITHUB_OUTPUT"
+          import json, pathlib
+          value = json.loads(pathlib.Path('docs/contracts/native-initramfs-build-environment.json').read_text())
+          image = value['base_image']['repository'] + '@' + value['base_image']['manifest_digest']
+          print('image=' + image)
+          print('snapshot=' + value['apt']['snapshot_id'])
+          print('packages=' + ' '.join(value['apt']['top_level_packages']))
+          PY
+
+      - name: Preflight exact signed Ubuntu snapshot before Native builds
+        env:
+          SNAPSHOT_ID: ${{ steps.initramfs-env.outputs.snapshot }}
+        run: |
+          set -euo pipefail
+          if [[ ! "${SNAPSHOT_ID:-}" =~ ^[0-9]{8}T[0-9]{6}Z$ ]]; then
+            echo "::error::Invalid locked Native initramfs APT snapshot ID" >&2
+            exit 1
+          fi
+          # Read only the same pinned suite metadata that APT will later
+          # authenticate with Ubuntu's archive key. A successful preflight
+          # is not a release signature proof or permission to use a mirror.
+          snapshot_uri="https://snapshot.ubuntu.com/ubuntu/$SNAPSHOT_ID"
+          metadata="$(mktemp "$RUNNER_TEMP/native-esp-snapshot.XXXXXX")"
+          trap 'rm -f "$metadata"' EXIT
+          for suite in noble noble-updates noble-backports noble-security; do
+            if ! curl --fail --location --silent --show-error \
+                --retry 1 --retry-delay 2 --connect-timeout 10 --max-time 35 \
+                --output "$metadata" "$snapshot_uri/dists/$suite/InRelease"; then
+              echo "::error title=Locked Native initramfs snapshot unavailable::Refusing kernel and bootloader builds until the exact Ubuntu snapshot $SNAPSHOT_ID ($suite) is accessible" >&2
+              exit 1
+            fi
+            if ! grep -Fqx -- '-----BEGIN PGP SIGNED MESSAGE-----' "$metadata"; then
+              echo "::error title=Invalid snapshot metadata::Exact Ubuntu snapshot $SNAPSHOT_ID ($suite) did not return signed InRelease metadata" >&2
+              exit 1
+            fi
+          done
+          echo 'NATIVE_ESP_LOCKED_SNAPSHOT_PREFLIGHT=PASS'
+
       - name: Install bounded build and FAT32 proof dependencies
         run: |
           set -euo pipefail
@@ -174,18 +215,6 @@ jobs:
             --work-dir out/native-esp-kernel-work \
             --out-dir out/native-esp-kernel
           python bootstrap/kernel/verify.py out/native-esp-kernel
-
-      - name: Resolve locked Native initramfs environment
-        id: initramfs-env
-        run: |
-          python3 - <<'PY' >> "$GITHUB_OUTPUT"
-          import json, pathlib
-          value = json.loads(pathlib.Path('docs/contracts/native-initramfs-build-environment.json').read_text())
-          image = value['base_image']['repository'] + '@' + value['base_image']['manifest_digest']
-          print('image=' + image)
-          print('snapshot=' + value['apt']['snapshot_id'])
-          print('packages=' + ' '.join(value['apt']['top_level_packages']))
-          PY
 
       - name: Build and verify exact-source Native initramfs
         env:

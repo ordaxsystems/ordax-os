@@ -72,6 +72,47 @@ class NativeESPProofContractTests(unittest.TestCase):
         self.assertIn('Exact Ubuntu snapshot unavailable after four attempts', WORKFLOW)
         self.assertNotIn('http://archive.ubuntu.com', WORKFLOW)
 
+    def test_locked_snapshot_is_preflighted_before_any_expensive_native_work(self):
+        # The Ubuntu snapshot can return HTTP 401/502 for the exact pinned
+        # date. Fail closed before apt host setup, Creator Go, bootloader or
+        # kernel compilation, rather than wasting a long hosted build.
+        resolve = WORKFLOW.index("      - name: Resolve locked Native initramfs environment")
+        preflight = WORKFLOW.index(
+            "      - name: Preflight exact signed Ubuntu snapshot before Native builds"
+        )
+        install = WORKFLOW.index(
+            "      - name: Install bounded build and FAT32 proof dependencies"
+        )
+        creator = WORKFLOW.index(
+            "      - name: Verify independent Creator Native boot renderer"
+        )
+        bootloader = WORKFLOW.index(
+            "      - name: Build and verify pinned systemd-boot candidate"
+        )
+        kernel = WORKFLOW.index(
+            "      - name: Build and verify exact-source shared kernel"
+        )
+        initramfs = WORKFLOW.index(
+            "      - name: Build and verify exact-source Native initramfs"
+        )
+        self.assertLess(resolve, preflight)
+        self.assertLess(preflight, install)
+        self.assertLess(install, creator)
+        self.assertLess(creator, bootloader)
+        self.assertLess(bootloader, kernel)
+        self.assertLess(kernel, initramfs)
+        early = WORKFLOW[preflight:install]
+        self.assertIn("steps.initramfs-env.outputs.snapshot", early)
+        self.assertIn("snapshot.ubuntu.com/ubuntu/$SNAPSHOT_ID", early)
+        self.assertIn("for suite in noble noble-updates noble-backports noble-security", early)
+        self.assertIn("InRelease", early)
+        self.assertIn("-----BEGIN PGP SIGNED MESSAGE-----", early)
+        self.assertIn("curl --fail", early)
+        self.assertNotIn("archive.ubuntu.com", early)
+        # APT still verifies signed archives inside the pinned image.
+        self.assertIn("Signed-By: /usr/share/keyrings/ubuntu-archive-keyring.gpg",
+                      WORKFLOW[initramfs:])
+
     def test_boolean_checks_encode_success_not_negative_safety_state(self):
         self.assertIn('"physical_device_untouched": False', SCRIPT)
         self.assertIn('checks["physical_device_untouched"] = True', SCRIPT)
