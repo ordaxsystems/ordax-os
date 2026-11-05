@@ -149,7 +149,8 @@ class OwnerSurfaceSourceTests(unittest.TestCase):
         self.assertFalse((self.slot / ".surface-source-sha").exists())
 
 
-    def supervisor_start(self, profile: str, provision_missing: bool = False):
+    def supervisor_start(self, profile: str, provision_missing: bool = False,
+                         helper_override: Path | None = None):
         supervisor = (ROOT / "system/supervisor").read_text(encoding="utf-8")
         section = "start_surface() {" + supervisor.split("start_surface() {", 1)[1].split("\n}\n", 1)[0] + "\n}\n"
         receipt = self.root / "started-from.txt"
@@ -195,7 +196,8 @@ stage_candidate_release() {
         proc = subprocess.run([
             "/bin/sh", "-c", shell, "sh", str(self.os_root),
             str(self.root / "releases"), str(self.os_root / "system"),
-            str(HELPER), str(work), profile, self.os_sha, str(receipt),
+            str(helper_override if helper_override is not None else HELPER),
+            str(work), profile, self.os_sha, str(receipt),
             self.source_sha,
         ], env=self.env, text=True, capture_output=True)
         return proc, receipt
@@ -269,14 +271,10 @@ stage_candidate_release() {
         self.assertFalse(marker.exists())
 
     def test_missing_stage_helper_must_not_boot_from_git_tree(self):
-        self.set_lock("canonical")
-        work = self.root / "update.log"
-        work.touch()
-        supervisor = (ROOT / "system/supervisor").read_text(encoding="utf-8")
-        section = "start_surface() {" + supervisor.split("start_surface() {", 1)[1].split("\n}\n", 1)[0] + "\n}\n"
-        self.assertIn('if [ ! -f "$OWNER_SURFACE_STAGE_HELPER" ] || [ -L "$OWNER_SURFACE_STAGE_HELPER" ]; then', section)
-        self.assertNotIn('start_surface_from_system "$SYSTEM_ROOT" "$(current_sha)"\n}', section)
-        self.assertIn('start_surface_from_system "$active_slot/system" "$active_os_sha"', section)
+        missing = self.root / "no-such-surface-stage-helper.sh"
+        proc, marker = self.supervisor_start("owner-development", helper_override=missing)
+        self.assertNotEqual(proc.returncode, 0, "missing staging owner must fail closed")
+        self.assertFalse(marker.exists(), "mutable OS visuals must never start")
 
 
 if __name__ == "__main__":
