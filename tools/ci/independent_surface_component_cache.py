@@ -4,7 +4,6 @@ from __future__ import annotations
 
 import argparse
 import hashlib
-import importlib.util
 import json
 import os
 from pathlib import Path
@@ -107,48 +106,22 @@ def fingerprint(
     root: Path = ROOT,
     *,
     build_environment: str | None = None,
-    overrides: dict[str, bytes] | None = None,
 ) -> str:
+    # SSOT: hash only the immutable, checked-in producer inputs. A rendered
+    # Kconfig is a build output, not an alternative cache identity.
     root = root.resolve()
     build_environment = validated_environment(build_environment, "build environment") if build_environment is not None else environment()
-    overrides = overrides or {}
-    unknown = set(overrides) - set(INPUTS)
-    if unknown:
-        raise CacheError(f"unknown fingerprint override: {sorted(unknown)}")
     digest = hashlib.sha256()
     digest.update((FINGERPRINT_VERSION + "\0" + build_environment + "\0").encode())
     for path in input_files(root):
         relative = path.relative_to(root).as_posix()
-        payload = overrides.get(relative)
-        size = len(payload) if payload is not None else path.stat().st_size
-        file_digest = hashlib.sha256(payload).hexdigest() if payload is not None else sha256_file(path)
         digest.update(relative.encode())
         digest.update(b"\0")
-        digest.update(str(size).encode("ascii"))
+        digest.update(str(path.stat().st_size).encode("ascii"))
         digest.update(b"\0")
-        digest.update(file_digest.encode("ascii"))
+        digest.update(sha256_file(path).encode("ascii"))
         digest.update(b"\0")
     return digest.hexdigest()
-
-
-def legacy_materialized_fingerprint(root: Path, *, build_environment: str | None = None) -> str:
-    """Reproduce the historical v1 identity created after in-place config materialization."""
-    root = root.resolve()
-    helper = root / "bootstrap/surface-runtime/prepare_config.py"
-    spec = importlib.util.spec_from_file_location("ordax_surface_prepare_config_legacy_v1", helper)
-    if spec is None or spec.loader is None:
-        raise CacheError("cannot load Surface config renderer for v1 cache verification")
-    module = importlib.util.module_from_spec(spec)
-    try:
-        spec.loader.exec_module(module)
-        rendered = module.rendered_config().encode("utf-8")
-    except Exception as exc:
-        raise CacheError(f"cannot reproduce historical materialized Surface config: {exc}") from exc
-    return fingerprint(
-        root,
-        build_environment=build_environment,
-        overrides={CONFIG_RELATIVE: rendered},
-    )
 
 
 def provenance(out_dir: Path) -> dict:
@@ -228,15 +201,8 @@ def verify(
     fingerprint_environment = build_environment if consumer else None
     expected_fingerprint = fingerprint(root, build_environment=fingerprint_environment)
     manifest_fingerprint = str(manifest.get("input_fingerprint", ""))
-    legacy_materialized_manifest = False
     if manifest_fingerprint != expected_fingerprint:
-        historical_fingerprint = legacy_materialized_fingerprint(
-            root,
-            build_environment=fingerprint_environment,
-        )
-        if manifest_fingerprint != historical_fingerprint:
-            raise CacheError("cached Surface build inputs changed")
-        legacy_materialized_manifest = True
+        raise CacheError("cached Surface build inputs changed")
     build_commit = exact_commit(str(manifest.get("build_source_commit", "")), "build source commit")
     prov_commit = exact_commit(str(provenance(out_dir).get("source_commit", "")), "provenance source commit")
     if prov_commit != build_commit:
@@ -259,8 +225,6 @@ def verify(
         "$schema": REUSE_SCHEMA,
         "status": "verified",
         "input_fingerprint": expected_fingerprint,
-        "manifest_input_fingerprint": manifest_fingerprint,
-        "legacy_materialized_manifest": legacy_materialized_manifest,
         "execution_environment": build_environment,
         "verification_environment": verification_environment,
         "consumer_verification": bool(consumer),

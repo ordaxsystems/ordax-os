@@ -187,7 +187,10 @@ class IndependentSurfaceComponentCacheTests(unittest.TestCase):
             self.assertEqual(receipt["execution_environment"], "Linux/X64/ubuntu24/image-v1")
             self.assertEqual(receipt["verification_environment"], "Linux/X64/ubuntu24/image-v2")
 
-    def test_historical_materialized_v1_manifest_is_verified_without_rewrite(self):
+    def test_retired_materialized_fingerprint_is_rejected_without_rewrite(self):
+        # A rendered Kconfig must never substitute for the checked-in source
+        # fingerprint. Cache misses require the canonical producer, not a
+        # historical alternate hash of mutable build outputs.
         with tempfile.TemporaryDirectory() as td:
             temp = Path(td)
             root = self.make_root(temp / "repo")
@@ -195,22 +198,21 @@ class IndependentSurfaceComponentCacheTests(unittest.TestCase):
             self.mod.record(out, "1" * 40, root)
             manifest_path = out / self.mod.MANIFEST
             manifest = json.loads(manifest_path.read_text(encoding="utf-8"))
-            historical = "f" * 64
-            manifest["input_fingerprint"] = historical
+            manifest["input_fingerprint"] = "f" * 64
             manifest_path.write_text(json.dumps(manifest) + "\n", encoding="utf-8")
-            original_manifest = manifest_path.read_bytes()
-            with mock.patch.object(self.mod, "legacy_materialized_fingerprint", return_value=historical):
-                receipt = self.mod.verify(
+            original = manifest_path.read_bytes()
+            receipt = temp / "receipt.json"
+            with self.assertRaisesRegex(self.mod.CacheError, "build inputs changed"):
+                self.mod.verify(
                     out,
                     "2" * 40,
-                    temp / "receipt.json",
+                    receipt,
                     cache_hit=True,
                     root=root,
                 )
-            self.assertTrue(receipt["legacy_materialized_manifest"])
-            self.assertEqual(receipt["manifest_input_fingerprint"], historical)
-            self.assertNotEqual(receipt["input_fingerprint"], historical)
-            self.assertEqual(manifest_path.read_bytes(), original_manifest)
+            self.assertEqual(manifest_path.read_bytes(), original)
+            self.assertFalse(receipt.exists())
+            self.assertFalse(hasattr(self.mod, "legacy_materialized_fingerprint"))
 
     def test_tampering_fails_closed(self):
         with tempfile.TemporaryDirectory() as td:
