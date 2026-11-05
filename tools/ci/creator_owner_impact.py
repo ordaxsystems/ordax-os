@@ -68,6 +68,10 @@ LIGHT_EXACT = frozenset({
     "tests/test_portable_qemu_impact.py",
     "tools/ci/creator_owner_impact.py",
     "tests/test_creator_owner_impact.py",
+    # This tool and test govern only CI publication freshness; neither is
+    # installed in the physical USB image. QEMU cannot validate these bytes.
+    "tools/ci/creator_owner_publish_freshness.py",
+    "tests/test_creator_owner_publish_freshness.py",
 })
 # Self-contained artifact consumers. Changes in these owners are validated
 # by installed Windows Desktop / Chromium Web gates, never the USB producer.
@@ -278,6 +282,82 @@ def workflow_trigger_only(base, head, *, root=ROOT):
 
 
 
+def verified_creator_freshness_wiring_only(base, head, *, root=ROOT):
+    """Only add a monotonic, fail-closed latest-main guard to existing CI.
+
+    This proof does not waive real USB production: it admits exactly three
+    reviewed workflow edits (impact output, early skip, pre-upload veto).
+    Packaging, signing, test steps, permissions, release upload, and source
+    selection must remain byte-identical.
+    """
+    try:
+        before = _git_show(base, WORKFLOW, root)
+        after = _git_show(head, WORKFLOW, root)
+        replacements = (
+            (
+                """    outputs:
+      required: __DOLLAR__{{ steps.scope.outputs.required }}
+      reason: __DOLLAR__{{ steps.scope.outputs.reason }}
+    steps:""",
+                """    outputs:
+      required: __DOLLAR__{{ steps.scope.outputs.required == 'true' && steps.freshness.outputs.publish_allowed != 'false' }}
+      reason: __DOLLAR__{{ steps.freshness.outputs.reason || steps.scope.outputs.reason }}
+    steps:""",
+            ),
+            (
+                """          esac
+  build-and-publish:""",
+                r"""          esac
+      # On a queued main push, avoid an expensive build that is already
+      # obsolete. PR proofs and explicit manual dispatch remain unaffected.
+      - name: Skip superseded main USB production
+        id: freshness
+        if: github.event_name == 'push' && steps.scope.outputs.required == 'true'
+        env:
+          ORDAX_SOURCE_SHA: __DOLLAR__{{ github.sha }}
+        run: |
+          set -euo pipefail
+          python3 tools/ci/creator_owner_publish_freshness.py \
+            --source "$ORDAX_SOURCE_SHA" --github-output "$GITHUB_OUTPUT"
+  build-and-publish:""",
+            ),
+            (
+                """          repo='ordaxsystems/ordax-os'
+          release="$GITHUB_WORKSPACE/out/owner-prototype/release"
+          if ! gh release view creator-owner-prototype --repo "$repo" >/dev/null 2>&1; then""",
+                r"""          repo='ordaxsystems/ordax-os'
+          release="$GITHUB_WORKSPACE/out/owner-prototype/release"
+          # Recheck immediately before mutating the rolling channel: main can
+          # advance during a long Creator/QEMU build after the first CI gate.
+          # A newer non-producer-only main revision may reuse the proved USB.
+          freshness="$(python3 tools/ci/creator_owner_publish_freshness.py \
+            --source "$ORDAX_OWNER_SOURCE_COMMIT")"
+          echo "$freshness"
+          case "$freshness" in
+            'CREATOR_MAIN_FRESHNESS=SKIP '*)
+              echo 'OWNER_CREATOR_PUBLICATION=SKIPPED_SUPERSEDED_SOURCE'
+              exit 0
+              ;;
+            'CREATOR_MAIN_FRESHNESS=ALLOW '*) ;;
+            *)
+              echo 'Creator main freshness result is unrecognized: fail closed' >&2
+              exit 1
+              ;;
+          esac
+          if ! gh release view creator-owner-prototype --repo "$repo" >/dev/null 2>&1; then""",
+            ),
+        )
+        for old, new in replacements:
+            old = old.replace("__DOLLAR__", "$")
+            new = new.replace("__DOLLAR__", "$")
+            if before.count(old) != 1 or new in before:
+                return False
+            before = before.replace(old, new)
+        return before == after
+    except (OSError, ValueError, UnicodeError, subprocess.SubprocessError):
+        return False
+
+
 def verified_legacy_profile_trigger_migration(base, head, *, root=ROOT):
     """Only an exact two-entry Intelligence CI documentation path migration is light."""
     try:
@@ -399,7 +479,8 @@ def classify(base, head, *, root=ROOT, event="push"):
             return False, "pull-pr-owner-preflight"
         for path in paths:
             if path == WORKFLOW:
-                if not workflow_trigger_only(base, head, root=root):
+                if not (workflow_trigger_only(base, head, root=root)
+                        or verified_creator_freshness_wiring_only(base, head, root=root)):
                     return True, "creator-workflow-producer-or-unknown-change"
             elif path == SURFACE_LOCK:
                 if not verified_surface_visual_source_lock_delta(base, head, root=root):
