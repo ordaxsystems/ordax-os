@@ -73,25 +73,31 @@ remotas**. O MCP auxiliar mantém identidade e grants separados; não
 copiar tokens, criar outro Device ou inferir `capability_digest`
 a partir do teste offline.
 
-**Próxima execução necessária — bloqueio concreto de matrícula:**
-corrigir no owner `ordax-runtime` a
-[issue #327](https://github.com/ordaxsystems/ordax-runtime/issues/327):
-`owner_device_connect_cli.py` configura o host
-`ordax-desktop` mas não transmite `desktop_machine_binding()`;
-`device_setup._configure` usa `machine_id()`, vinculando a
-matrícula ao **MCP auxiliar**. A Platform reutiliza o Device pela
-vinculação e pode rotacionar o token do auxiliar. **Não executar
-Owner OAuth/PKCE Product ou copiar credenciais até esse reparo**
-e confirmação de que o Device Product já existente será reutilizado,
-sem novo Device. O candidato DEV já está instalado
-e passou na prova offline; após correção e aprovação Owner, validar
-o ciclo de inicialização, heartbeat, capacidades, grant e recibo
-remoto real, sem recompilar ou reinstalar o binário.
-A questão separada de presença intermitente do auxiliar está em
+**Vinculação Product comprovada; próximo bloqueio somente Runtime #327:**
+verificação física no `DESKTOP-4UFL03B` + SQL **somente leitura** na
+Platform confirmou dois Device records ativos, cada um com credencial não
+revogada. Com hashes de prova temporários (sem exibir MachineGuid, token ou
+binding), `machine_id()` corresponde **somente ao auxiliar existente** e
+`desktop_machine_binding()` corresponde **exatamente ao Product existente**.
+O SQL `ordax_enroll_product_device_v1` já reutiliza `device_id` pelo
+binding único; **não criar terceiro Device e não alterar o banco**.
+
+O `ordax-runtime/main` atual ainda não passa `desktop_machine_binding()`
+ao `configure_device` do Owner CLI: queda silenciosa para `machine_id()`
+pode rotacionar o token do **auxiliar**. A correção mínima, sem novo
+mecanismo, está na [Runtime issue #327](https://github.com/ordaxsystems/ordax-runtime/issues/327#issuecomment-6647580361)
+e pertence ao executor Runtime, não a este OS. **Não iniciar matrícula
+Owner OAuth Product nem copiar credenciais antes do fix e da aprovação
+Owner explícita**. O binário DEV já instalado e com `--self-test` físico
+aprovado dispensa novo build: depois do fix, re-matricular o **mesmo**
+Product Device e provar heartbeat, `capability_digest`, grant e recibo
+remoto, mantendo `mcpReady=false` até atestação central.
+
+A oscilação de presença do auxiliar está separadamente em
 [Runtime #324](https://github.com/ordaxsystems/ordax-runtime/issues/324).
-Nenhuma nova ponte, workflow, branch, instalador paralelo ou
-autoridade duplicada é necessária. O histórico de PR aberta/Creator
-abaixo está superado para #2400; #2243 continua independente.
+Nenhuma nova ponte, workflow, branch, instalador paralelo, autoridade
+ou banco é necessária; histórico Creator USB abaixo está superado
+para #2400 e #2243 continua independente.
 
 ---
 
