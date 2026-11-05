@@ -25,6 +25,13 @@ export function decideWebEntry(snapshot, { allowLocalLayoutPreview = false } = {
  * reconnects. The authenticated workspace is never retained across an
  * unavailable or signed-out transition. The owning session adapter supplies
  * refresh events; this adds no network reader or retry loop.
+ *
+ * @param {{
+ *   onWorkspace: () => void,
+ *   onLogin: () => void,
+ *   onUnavailable: () => void,
+ *   allowLocalLayoutPreview?: boolean,
+ * }} options
  */
 export function createWebEntryLifecycle({
   onWorkspace,
