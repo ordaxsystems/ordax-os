@@ -262,12 +262,20 @@ class IndependentPortableBootIntegrationTest(unittest.TestCase):
             "stable_portable_bridge_test", BASE / "portable_boot_proof.py")
         self.assertIsNotNone(bridge_spec)
         self.assertIsNotNone(bridge_spec.loader)
+        # Multiple producer modules are named build.py. Isolate the one
+        # adjacent to the independent-base bridge from earlier test imports.
+        previous_build = sys.modules.pop("build", None)
         sys.path.insert(0, str(BASE))
         try:
             bridge = importlib.util.module_from_spec(bridge_spec)
             bridge_spec.loader.exec_module(bridge)
         finally:
             sys.path.remove(str(BASE))
+            if previous_build is None:
+                sys.modules.pop("build", None)
+            else:
+                sys.modules["build"] = previous_build
+        self.assertEqual(bridge.ROOT, ROOT)
 
         with tempfile.TemporaryDirectory() as td, patch.dict(
             os.environ, {"ORDAX_COMPONENT_CACHE_ENVIRONMENT": "unit-test/portable-bridge"}

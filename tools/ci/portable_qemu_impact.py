@@ -190,7 +190,6 @@ ALWAYS_HEAVY_EXACT = {
     "system/entrypoint",
     "system/supervisor",
     "system/surface/entrypoint",
-    "bootstrap/surface-runtime/source.json",
     "system/services/telemetry/base-agent.sh",
     "system/services/telemetry/relay.json",
     "system/services/base-update/agent.sh",
