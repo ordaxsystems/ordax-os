@@ -46,6 +46,17 @@ inteiramente desconectado ou candidato de downgrade. O marcador histórico
 de divergência não impede a reavaliação quando o Supervisor comprova que
 as condições de recuperação mudaram.
 
+**Recuperação de transação interrompida (05/11/2026):** o contrato de motivos
+do recibo `/state/ordax/pull-transaction.tsv` pertence exclusivamente a
+`bootstrap/dev-base/ordax-pull:transaction_reason_valid` e é usado tanto na
+gravação quanto na leitura. Uma reconciliação autenticada pode registrar
+`reconciled`; esse motivo não deve ser confundido com um erro nem rejeitado
+durante a recuperação offline após a troca atômica. Motivos desconhecidos
+continuam bloqueados, preservando o checkout para diagnóstico. O `current-commit`
+não é regravado quando já coincide com o HEAD confirmado; o refresh de helpers
+e os controles de saúde/rollback do Supervisor continuam obrigatórios. Teste
+direcionado: `tests/test_dev_pull_expected_sha.py`.
+
 **Prevenção na origem:** agentes e mantenedores devem preservar a
 ancestralidade de commits da `main` que podem ter alcançado dispositivos
 Owner/Development. Prefira merge commits em PRs e não reescreva `main`.
