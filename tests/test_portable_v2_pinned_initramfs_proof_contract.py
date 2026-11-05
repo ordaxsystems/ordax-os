@@ -60,6 +60,39 @@ class PortableV2PinnedInitramfsProofTests(unittest.TestCase):
         self.assertIn("ordax-portable-capsule-verify verify", WORKFLOW)
         self.assertIn("ordax-portable-base-verify verify", WORKFLOW)
 
+    def test_stable_cache_is_verified_before_expensive_artifact_builds(self):
+        # A missing exact Stable cache must block before Go capsule or kernel
+        # compilation. Cache verification remains strict, never a rebuild.
+        fingerprint = WORKFLOW.index(
+            "      - name: Resolve exact Stable Buildroot component fingerprint"
+        )
+        restore = WORKFLOW.index(
+            "      - name: Restore verified Stable Buildroot component"
+        )
+        verified = WORKFLOW.index(
+            "      - name: Verify and stage exact Stable Buildroot EROFS"
+        )
+        capsule = WORKFLOW.index(
+            "      - name: Build exact static release agent and bootstrap capsule"
+        )
+        kernel = WORKFLOW.index("      - name: Build exact kernel modules")
+        initramfs = WORKFLOW.index(
+            "      - name: Build one initramfs pinned to both real EROFS artifacts"
+        )
+        self.assertLess(WORKFLOW.index("      - name: Install exact-artifact build dependencies"), fingerprint)
+        self.assertLess(fingerprint, restore)
+        self.assertLess(restore, verified)
+        self.assertLess(verified, capsule)
+        self.assertLess(verified, kernel)
+        self.assertLess(kernel, initramfs)
+        stable_block = WORKFLOW[verified:capsule]
+        self.assertIn('mkdir -p "$work/metadata"', stable_block)
+        self.assertIn('if [ "$ORDAX_STABLE_CACHE_HIT" != true ]; then', stable_block)
+        self.assertIn('bootstrap/independent-base/build.py verify', stable_block)
+        self.assertIn('portable_component_cache.py verify', stable_block)
+        self.assertIn('fsck.erofs "$work/stable-base/stable-base.erofs"', stable_block)
+        self.assertNotIn("bootstrap/independent-base/build.py build", stable_block)
+
     def test_workflow_requires_tamper_rejection_without_qemu_or_physical_device(self):
         self.assertIn("CAPSULE_TAMPER_REJECTED=YES", WORKFLOW)
         self.assertIn("STABLE_BASE_TAMPER_REJECTED=YES", WORKFLOW)
