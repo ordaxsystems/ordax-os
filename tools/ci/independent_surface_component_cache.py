@@ -124,11 +124,20 @@ def fingerprint(
     return digest.hexdigest()
 
 
+def redirected_path(path: Path) -> bool:
+    # A normal leaf inside a redirected parent is just as unsafe as a
+    # redirected leaf. Inspect the original path before resolve(), including
+    # junctions on Windows, rather than trusting the resolved destination.
+    if ".." in path.parts:
+        return True
+    return any(
+        candidate.is_symlink() or getattr(candidate, "is_junction", lambda: False)()
+        for candidate in (path, *path.parents)
+    )
+
+
 def verified_output_dir(path: Path) -> Path:
-    # Path.resolve() follows symlinks and Windows directory junctions.
-    # Reject the untrusted artifact root BEFORE resolving it, otherwise
-    # a cached alias can redirect both provenance reads and manifest writes.
-    if path.is_symlink() or getattr(path, "is_junction", lambda: False)() or not path.is_dir():
+    if redirected_path(path) or not path.is_dir():
         raise CacheError("Surface output directory is missing or unsafe")
     return path.resolve()
 
@@ -241,7 +250,7 @@ def verify(
         "provenance_rewritten": False,
         "artifacts": actual,
     }
-    if receipt.is_symlink() or getattr(receipt, "is_junction", lambda: False)():
+    if redirected_path(receipt):
         raise CacheError("Surface receipt destination is unsafe")
     receipt = receipt.resolve()
     receipt.parent.mkdir(parents=True, exist_ok=True)
