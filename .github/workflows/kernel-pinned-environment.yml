@@ -115,7 +115,7 @@ jobs:
               apt_snapshot_update() {
                 local attempt
                 for attempt in 1 2 3; do
-                  if apt-get -o Acquire::Retries=2 -o Acquire::https::Timeout=30 \\
+                  if apt-get -o Acquire::Retries=2 -o Acquire::https::Timeout=30 \
                       update --error-on=any; then
                     return 0
                   fi
