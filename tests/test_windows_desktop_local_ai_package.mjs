@@ -6,7 +6,8 @@ import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { verifyWindowsLocalAiPackage } from "../system/adapters/desktop/local-ai-package.mjs";
 
-const NAMES = ["ggml-base.dll", "ggml-cpu.dll", "ggml.dll", "llama-common.dll",
+const NAMES = ["ggml-base.dll", "ggml-cpu-x64.dll", "ggml-cpu-sandybridge.dll",
+  "ggml-cpu-haswell.dll", "ggml.dll", "llama-common.dll",
   "llama-server-impl.dll", "llama-server.exe", "llama.dll", "mtmd.dll"];
 const sha = bytes => createHash("sha256").update(bytes).digest("hex");
 
@@ -71,5 +72,16 @@ test("Windows package never accepts extra models or omitted DLL pin as successfu
   data.lock.engine.windows_artifact.files.pop();
   await assert.rejects(verifyWindowsLocalAiPackage(data.root, data), /pin unavailable/);
   data.lock.engine.windows_artifact.files.push({ name: "../../unsafe.dll", sha256: "a".repeat(64), size_bytes: 15 });
+  await assert.rejects(verifyWindowsLocalAiPackage(data.root, data), /binary pin/);
+});
+
+test("Windows verifier rejects absent required CPU variant and path-shaped DLL", async t => {
+  const data = await fixture(t);
+  data.lock.engine.windows_artifact.files =
+    data.lock.engine.windows_artifact.files.filter(item => item.name !== "ggml-cpu-sandybridge.dll");
+  await assert.rejects(verifyWindowsLocalAiPackage(data.root, data), /pin unavailable/);
+  data.lock.engine.windows_artifact.files.push({
+    name: "ggml-cpu-malicious/escape.dll", sha256: "f".repeat(64), size_bytes: 99,
+  });
   await assert.rejects(verifyWindowsLocalAiPackage(data.root, data), /binary pin/);
 });

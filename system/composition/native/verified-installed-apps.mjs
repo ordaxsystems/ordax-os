@@ -7,6 +7,7 @@ import {
   hasNativeExternalFirstPartyModuleRead,
 } from "../../services/apps/external-first-party-policy.mjs";
 import { assertSurfaceRenderLifecycle } from "../../contracts/surface-render-lifecycle.mjs";
+import { validateComponentCompatibility } from "../../contracts/component-update-compatibility.mjs";
 
 /**
  * Native only: verified 'current' slot discovery is the SSOT. A verified
@@ -93,11 +94,15 @@ function assertExternalCallerContext(context) {
 export async function mountNativeVerifiedInstalledApps({
   installed, source, fetchImpl, importModule,
   context, onError = null,
+  signedCurrentCompatibility = null,
 } = {}) {
   if (!Array.isArray(installed)) throw new TypeError("Installed app mounts require an array");
   const narrowContext = assertExternalCallerContext(context);
   if (onError !== null && typeof onError !== "function") {
     throw new TypeError("Installed app mount error handler must be a function or null");
+  }
+  if (signedCurrentCompatibility !== null && typeof signedCurrentCompatibility !== "function") {
+    throw new TypeError("Signed compatibility resolver must be a trusted Native function");
   }
   const results = await Promise.all(installed.map(async (entry) => {
     const appId = entry.component.id;
@@ -106,13 +111,30 @@ export async function mountNativeVerifiedInstalledApps({
       return null;
     }
     try {
+      // The optional Windows path reads a release/2 sidecar through the
+      // same Go verifier that owns the activation-state revision. A missing,
+      // stale or unsigned descriptor never permits dropping App Data.
+      const signed = signedCurrentCompatibility === null
+        ? null : await signedCurrentCompatibility(entry.metadata);
+      const descriptor = signed === null ? null : validateComponentCompatibility(signed);
+      if (descriptor !== null && (
+        descriptor.componentId !== appId
+        || descriptor.componentVersion !== entry.metadata.version
+      )) throw new TypeError("Signed compatibility identity differs from current component");
+      // Persistent state owners and explicit App Data consumers retain the
+      // mandatory host-bound port. Only a signed descriptor with neither
+      // requirement may mount without it.
+      const requireAppData = descriptor === null
+        || descriptor.state !== null
+        || descriptor.requires.some((required) => required.id === "ordax.app-data");
       const mounted = await loadVerifiedCurrentComponentRuntime({
         componentId: appId,
         source,
         fetchImpl,
         importModule,
         context: narrowContext,
-        requireTrustedAppData: true,
+        requireTrustedAppData: requireAppData,
+        forbidUnrequiredAppData: signed !== null && !requireAppData,
         expectedCurrent: entry.metadata,
         onError(error) { onError?.(error, appId); },
       });

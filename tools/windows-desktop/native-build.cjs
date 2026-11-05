@@ -54,6 +54,32 @@ function compiledBundleSha256(sourceRoot,emittedRoot=null) {
   return manifest.digest('hex');
 }
 
+// One entry/asset gate for both newly staged candidates and the NSIS bundled
+// fallback. A self-consistent hash receipt cannot turn source-tree HTML or
+// missing compiled assets into an installable Native application.
+function hasCompiledNativeEntry(root) {
+  const html=readFileSync(join(root,'system','composition','native','index.html'),'utf8');
+  if(/<script\s+type="module"\s+src="\.\/main\.mjs"/.test(html))return false;
+  // Every executable script must actually be a compiled, same-origin Vite
+  // asset. A URL merely mentioned in HTML text cannot attest the entrypoint.
+  // Match every script tag case-insensitively, including an untrusted upper-
+  // case tag following an otherwise valid compiled script. Inspect the WHOLE
+  // opening tag: a quoted fake src, duplicate src or event handler must not
+  // pass just because it contains the expected asset path as a substring.
+  // Vite emits a module script with an optional crossorigin attribute.
+  const scriptTags=[...html.matchAll(/<script\b[^>]*>/gi)];
+  const compiledScript=/^<script\s+(?:type="module"\s+)?(?:crossorigin(?:="anonymous")?\s+)?src="\/__ordax\/desktop-assets\/assets\/[a-zA-Z0-9][a-zA-Z0-9._-]{0,180}\.js"\s*>$/;
+  if(!scriptTags.length || scriptTags.some(([tag])=>!compiledScript.test(tag)))return false;
+  const matches=[...html.matchAll(/\/__ordax\/desktop-assets\/assets\/([a-zA-Z0-9][a-zA-Z0-9._-]{0,180}\.(?:js|css|png|svg|webp|woff2))/g)];
+  if(!matches.some(([,file])=>file.endsWith('.js')))return false;
+  const assets=join(root,'assets');
+  if(!lstatSync(assets).isDirectory())return false;
+  return matches.every(([,file])=>{
+    const stat=lstatSync(join(assets,file));
+    return stat.isFile() && stat.size>0;
+  });
+}
+
 function hasNativeBundle(sourceRoot) {
   try {
     const root=join(sourceRoot,OUTPUT);
@@ -70,18 +96,7 @@ function hasNativeBundle(sourceRoot) {
        !/^[0-9a-f]{64}$/.test(receipt.visual_source_sha256) ||
        !Number.isInteger(receipt.file_count)||receipt.file_count<1 ||
        receipt.bundle_sha256!==compiledBundleSha256(sourceRoot)) return false;
-    const html=readFileSync(htmlPath,'utf8');
-    // A source-tree entry is not an acceptable installed/candidate artifact.
-    if(/<script\s+type="module"\s+src="\.\/main\.mjs"/.test(html))return false;
-    const matches=[...html.matchAll(/\/__ordax\/desktop-assets\/assets\/([a-zA-Z0-9][a-zA-Z0-9._-]{0,180}\.(?:js|css|png|svg|webp|woff2))/g)];
-    if(!matches.some(([,file])=>file.endsWith('.js')))return false;
-    const assetRoot=join(root,'assets');
-    if(!lstatSync(assetRoot).isDirectory())return false;
-    return matches.every(([,file])=>{
-      const item=join(assetRoot,file);
-      const stat=lstatSync(item);
-      return stat.isFile() && stat.size>0;
-    });
+    return hasCompiledNativeEntry(root);
   } catch { return false; }
 }
 async function buildNativeCandidate(root,template,{log=()=>{},timeoutMs=120000,materializeSurface=withPinnedSurface,userData=null}={}) {
@@ -101,20 +116,24 @@ async function buildNativeCandidate(root,template,{log=()=>{},timeoutMs=120000,m
       env:{...process.env,ELECTRON_RUN_AS_NODE:'1'},
       stdio:['ignore','pipe','pipe'],
     });
-    let output='',settled=false;
+    let outputHead='',outputTail='',settled=false;
     const cleanup=()=>clearTimeout(timer);
     const finish=error=>{
       if(settled)return;settled=true;cleanup();
       if(error)reject(error);else resolve();
     };
-    const capture=chunk=>{output=(output+String(chunk)).slice(-1800);};
+    const capture=chunk=>{
+      const message=String(chunk);
+      outputHead=(outputHead+message).slice(0,1600);
+      outputTail=(outputTail+message).slice(-1100);
+    };
     const timer=setTimeout(()=>{
       child.kill('SIGTERM');
       finish(Error('Canonical Native candidate compilation exceeded bounded timeout'));
     },timeoutMs);
     child.stdout.on('data',capture);child.stderr.on('data',capture);
     child.once('error',e=>finish(Error('Cannot spawn canonical Native compiler: '+e.message)));
-    child.once('close',code=>finish(code===0?null:Error('Canonical Native compiler rejected candidate: '+output.slice(-400))));
+    child.once('close',code=>finish(code===0?null:Error('Canonical Native compiler rejected candidate (first/last output): '+outputHead+'\n[tail]\n'+outputTail)));
   }).then(()=>sourceReceipt));
   writeFileSync(join(root,OUTPUT,'surface-source-receipt.json'),
     JSON.stringify({...receipt,bundle_sha256:compiledBundleSha256(root)})+'\n',{flag:'wx'});
@@ -154,7 +173,8 @@ function verifyBundledNativeReceipt(template,emittedRoot) {
       receipt.source_commit===lock.source_commit &&
       SHA256.test(receipt.visual_source_sha256) &&
       Number.isInteger(receipt.file_count)&&receipt.file_count>0 &&
-      receipt.bundle_sha256===compiledBundleSha256(template,emittedRoot);
+      receipt.bundle_sha256===compiledBundleSha256(template,emittedRoot) &&
+      hasCompiledNativeEntry(emittedRoot);
   }catch{return false;}
 }
 

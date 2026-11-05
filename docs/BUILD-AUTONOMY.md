@@ -115,6 +115,30 @@ The shared product source may feed several delivery modes, but those delivery ar
 - new artifact classes require a provenance owner;
 - caches may accelerate a verified build but may not replace verification.
 
+The Owner USB Creator CI uses the same exact Git diff impact decision on PRs
+and on integrated `main` pushes. An exact visual-only source-pin advancement,
+Windows-only Host change or specifically verified workflow routing change
+uses a lightweight contract gate; it does not produce or publish a USB image.
+Any unknown changed path, change to Creator's build/publish body, unverified
+Surface source lock, changed kernel/initramfs/Supervisor or stale/missing Git
+base **fails closed** to the full Owner USB producer. `workflow_dispatch`
+always requires full Owner USB proof. Workflow changes are checked against
+an exact reviewable governance template and the unchanged physical-producer
+body. This prevents CI governance merges from invoking the known-broken
+legacy Alpine/APK Surface builder merely because the Creator YAML changed,
+without weakening physical release requirements.
+
+The Portable/QEMU causal impact policy treats changes to the standalone Creator
+workflow routing and its contract tests as CI governance, not as changes to the
+Portable boot artifact. Creator still runs its own full USB/boot tests when its
+workflow or real image inputs change. A kernel, initramfs, graphical runtime,
+Native boot launcher, Portable QEMU workflow, unverified Surface source pin,
+or unknown owner must continue to trigger the Portable/QEMU heavy proof.
+The source lock can bypass that heavy proof only after an exact commit-level
+verification that its change is visual-only; Surface source and Windows
+consumer gates remain mandatory. This separates build-time impact from
+product installation and distribution authority.
+
 This lets future targets and features be added without turning every commit into a kernel/full-product rebuild. The `public-site` artifact is owned by `tools/public-site/build.py` and its contract in `docs/contracts/public-site.json`; it is intentionally distinct from the `web-client` product mode.
 
 ## Native system release assembly
@@ -182,3 +206,14 @@ PHYSICAL_DEVICE_ACTION_STILL_REQUIRES_AUTHORIZED_LOCAL_EXECUTION=YES
 ## Failure rule
 
 If CI is unavailable, source must remain reproducible from the versioned build recipe in another compatible container executor. CI availability must not redefine source truth.
+
+## Desktop/Web independent of Creator and USB (2026-10-31)
+
+This is an artifact and release gate boundary, **not a fork of the product**:
+
+- **Desktop Windows:** `tools/windows-desktop/`, `tools/windows-emulator/` and `system/adapters/desktop/` are owned by the installed Windows Desktop/NSIS gates. The Desktop consumes shared versioned OS contracts and the separately pinned Surface; it never consumes or builds a Creator USB image, Buildroot, kernel or initramfs to deliver Windows-only code.
+- **OrdaX Web:** `system/composition/web/` is owned by Surface Web/Chromium client gates. It does not consume Creator, Native Linux releases, or USB installation. Shared Account/Platform semantics remain authoritative; no shadow backend is allowed.
+- **Shared Native / USB:** `system/composition/native/`, `system/adapters/native/`, `system/adapters/web/` (also imported by Native), shared nontrivial contracts, system runtime/hosts and boot/USB producer sources remain fail-closed. A change to `system/composition/native/main.mjs` is **not Windows-only** merely because a runtime branch checks `windowsDesktopHost`; it still reaches the USB entrypoint and requires a valid Native/Creator proof or a real architectural refactor.
+- **CI ownership:** `tools/ci/creator_owner_impact.py` recognizes only the exact client-exclusive roots and reviewed pure client contracts/tests. Web/Windows still run their respective builds and tests. Unknown or mixed deltas trigger the USB producer; the classifier cannot replace product tests, disable required checks or claim runtime availability.
+
+The executable build graph SSOT is `docs/contracts/build-autonomy.json#client_build_independence`; the Python impact classifier and `tests/test_creator_owner_impact.py` verify routing. Expensive USB gates must not be coupled to a Desktop/Web-only PR. A one-time shared Native entrypoint migration remains a genuinely shared change; it may not be relabeled merely to save CI time.

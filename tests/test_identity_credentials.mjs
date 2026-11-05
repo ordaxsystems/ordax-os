@@ -9,7 +9,8 @@ import {
   validateRegistrationPolicy,
   sameRegistrationLegalPolicy,
 } from "../system/contracts/identity-credentials.mjs";
-import { createSameOriginIdentityCredentials } from "../system/adapters/web/identity-credentials.mjs";
+import { createSameOriginIdentityCredentials, IdentityCredentialRequestError } from "../system/adapters/web/identity-credentials.mjs";
+import { identityCredentialFailureMessageId } from "../system/services/account/identity-credential-feedback.mjs";
 
 test("identity credentials validate transient email/password input", () => {
   assert.deepEqual(
@@ -352,4 +353,33 @@ test("unverified login and unavailable storage do not create a remembered email"
   const forbidden = { get localStorage() { throw new Error("storage blocked"); } };
   assert.equal(readRememberedLoginEmail(forbidden), "");
   assert.equal(rememberVerifiedLoginEmail(forbidden, "pessoa@example.com"), false);
+});
+
+
+test("credential errors keep bounded transport status without leaking provider content", async () => {
+  const credentials = { email: "pessoa@example.com", password: "secret-1" };
+  for (const [status, expectedStatus, messageId] of [
+    [401,401,"account.credentials.invalid"],
+    [429,429,"account.credentials.rateLimited"],
+    [503,503,"account.credentials.unavailable"],
+    [500,500,"account.action.failed"],
+    [0,null,"account.action.failed"],
+    [202,null,"account.action.failed"],
+  ]) {
+    let calls=0;
+    const port=createSameOriginIdentityCredentials({
+      fetch: async () => {calls += 1; return {status, ok:false,
+        text:async()=>"<html>secret-provider-trace</html>"};},
+    });
+    await assert.rejects(port.signIn(credentials), error => {
+      assert.ok(error instanceof IdentityCredentialRequestError);
+      assert.equal(error.status, expectedStatus);
+      if (expectedStatus !== null) assert.match(error.message, new RegExp(String(expectedStatus)));
+      assert.equal(identityCredentialFailureMessageId(error),messageId);
+      assert.doesNotMatch(error.message,/secret|trace|pessoa@example.com|secret-1/i);
+      return true;
+    });
+    assert.equal(calls,1,"failed credential submission must not claim verified session");
+  }
+  assert.equal(identityCredentialFailureMessageId(new Error("network")), "account.action.failed");
 });

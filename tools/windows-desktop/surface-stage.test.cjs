@@ -6,6 +6,7 @@ const {mkdtempSync,mkdirSync,writeFileSync,readFileSync,existsSync,rmSync,chmodS
 const {join,dirname}=require('node:path');
 const {tmpdir}=require('node:os');
 const {pinnedSourceLock,verifyPinnedSource,withVerifiedSurface,cleanupPinnedSurfaceTemporary}=require('./surface-stage.cjs');
+const {resolveInstalledGit}=require('./checkout.cjs');
 
 function fixture(t) {
   const dir=mkdtempSync(join(tmpdir(),'ordax-desktop-surface-test-'));
@@ -19,7 +20,7 @@ function fixture(t) {
   mkdirSync(join(root,'docs','contracts'),{recursive:true});
   writeFileSync(visual,'export const canonical=true;\n');
   writeFileSync(workspace,'export const workspace=true;\n');
-  const git=(...argv)=>execFileSync('git',argv,{cwd:source,encoding:'utf8',windowsHide:true}).trim();
+  const git=(...argv)=>execFileSync(resolveInstalledGit(),argv,{cwd:source,encoding:'utf8',windowsHide:true}).trim();
   git('init','-q');
   git('-c','core.autocrlf=false','add','.'); // working source bytes stay exact
   git('-c','user.name=OrdaX test','-c','user.email=ci@invalid.example','commit','-qm','verified fixture');
@@ -83,6 +84,8 @@ test('pinned Surface Git clone cleanup is shared, bounded and safe against unrel
 
 test('public pinned Surface Git acquisition never invokes user credential helpers',()=>{
   const source=readFileSync(join(__dirname,'surface-stage.cjs'),'utf8');
+  assert.ok(source.includes('spawn(resolveInstalledGit()'),
+    'use canonical installed Git discovery even when Windows PATH lacks git');
   assert.ok(source.includes("['-c','credential.helper=',...argv]"),
     'even official read-only Surface clones must override inherited Git credential helpers');
   // Do not modify machine/user Git config, disable SSOT source checks or

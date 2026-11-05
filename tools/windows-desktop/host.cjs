@@ -1,9 +1,10 @@
 'use strict';
-const { fork, spawn } = require('node:child_process');
+const { fork } = require('node:child_process');
 const { join } = require('node:path');
 const { existsSync } = require('node:fs');
 const net = require('node:net');
 const http = require('node:http');
+const { createHmac, randomBytes, timingSafeEqual } = require('node:crypto');
 function freePort() {
   return new Promise((resolve,reject) => {
     const server=net.createServer();
@@ -14,17 +15,40 @@ function freePort() {
     });
   });
 }
-function isReady(port) {
+function isReady(port, nativeGrant=null) {
+  const attested=nativeGrant!==null;
+  if(attested && (typeof nativeGrant!=='string'||!/^[0-9a-f]{64}$/.test(nativeGrant)))
+    return Promise.resolve(false);
+  // Only the Vite development fallback retains its historical HTML probe.
+  // An installed Native process must answer a fresh, grant-bound challenge.
+  const challenge=attested?randomBytes(32).toString('hex'):null;
   return new Promise(resolve => {
     const request=http.get({
-      hostname:'127.0.0.1',port,path:'/system/composition/native/index.html',timeout:8000,
-    },r=>{r.resume();resolve(r.statusCode===200);});
+      hostname:'127.0.0.1',port,
+      path:attested?'/__ordax/desktop-host-ready':'/system/composition/native/index.html',
+      timeout:8000,
+      headers:attested?{'X-Ordax-Desktop-Ready-Challenge':challenge}:{},
+    },r=>{
+      r.resume();
+      if(!attested) return resolve(r.statusCode===200);
+      const proof=r.headers['x-ordax-desktop-ready-proof'];
+      if(r.statusCode!==200||typeof proof!=='string'||!/^[0-9a-f]{64}$/.test(proof))
+        return resolve(false);
+      const expected=createHmac('sha256',Buffer.from(nativeGrant,'hex'))
+        .update('ordax.desktop.native-ready/1:'+challenge).digest();
+      resolve(timingSafeEqual(expected,Buffer.from(proof,'hex')));
+    });
     request.on('timeout',()=>request.destroy());
     request.on('error',()=>resolve(false));
   });
 }
+// Node leaves exitCode null for processes killed by a signal. A failed
+// fork may also emit 'error' before there is any PID to observe.
+function hasHostExited(child) {
+  return child.exitCode!==null || child.signalCode!==null;
+}
 async function startHost({root,template=root,stateDirectory,userData,log,builtAssetsRoot=null,
-  fileToken,localSessionToken,nativeSessionToken,diagnosticToken,deviceProfileToken,stateToken,networkToken,observationToken,displayToken,localAiToken,sourceSha=""}) {
+  fileToken,localSessionToken,nativeSessionToken,diagnosticToken,deviceProfileToken,stateToken,networkToken,observationToken,surfaceReportToken,displayToken,localAiToken,sourceSha=""}) {
   if(typeof fileToken!=="string" || !/^[0-9a-f]{64}$/.test(fileToken))
     throw TypeError("OrdaX Desktop Files require per-launch authorization");
   if(typeof localSessionToken!=="string" || !/^[0-9a-f]{64}$/.test(localSessionToken) ||
@@ -36,9 +60,10 @@ async function startHost({root,template=root,stateDirectory,userData,log,builtAs
      !/^[0-9a-f]{64}$/.test(stateToken) ||
      !/^[0-9a-f]{64}$/.test(networkToken) ||
      !/^[0-9a-f]{64}$/.test(observationToken) ||
+     !/^[0-9a-f]{64}$/.test(surfaceReportToken) ||
      !/^[0-9a-f]{64}$/.test(displayToken) ||
      !/^[0-9a-f]{64}$/.test(localAiToken) ||
-     new Set([fileToken,localSessionToken,nativeSessionToken,diagnosticToken,deviceProfileToken,stateToken,networkToken,observationToken,displayToken,localAiToken]).size!==10)
+     new Set([fileToken,localSessionToken,nativeSessionToken,diagnosticToken,deviceProfileToken,stateToken,networkToken,observationToken,surfaceReportToken,displayToken,localAiToken]).size!==11)
     throw TypeError("Desktop Native sessions require independent per-launch tokens");
   if(sourceSha!=="" && !/^[0-9a-f]{40}$/.test(sourceSha))
     throw TypeError("Desktop diagnostic source SHA must be verified");
@@ -73,8 +98,12 @@ async function startHost({root,template=root,stateDirectory,userData,log,builtAs
       ORDAX_DESKTOP_STATE_TOKEN:stateToken,
       ORDAX_DESKTOP_NETWORK_TOKEN:networkToken,
       ORDAX_DESKTOP_OBSERVATION_TOKEN:observationToken,
+      ORDAX_DESKTOP_SURFACE_REPORT_TOKEN:surfaceReportToken,
       ORDAX_DESKTOP_LOCAL_AI_TOKEN:localAiToken,
       ORDAX_DESKTOP_LOCAL_AI_ROOT:join(template,'local-ai-runtime'),
+      // The signed component verifier is an installer resource. Git version
+      // checkouts selected by ordax-pull never own this executable.
+      ORDAX_DESKTOP_COMPONENT_VERIFIER_ROOT:template,
       ORDAX_DESKTOP_DISPLAY_TOKEN:displayToken,
       ORDAX_DESKTOP_RENDERED_SOURCE_SHA:sourceSha,
       ORDAX_EMULATOR_PORT:String(port),ORDAX_EMULATOR_STATE_DIR:stateDirectory,
@@ -94,7 +123,11 @@ async function startHost({root,template=root,stateDirectory,userData,log,builtAs
     }
   });
   child.stderr.on('data',b=>log('runtime: '+String(b).trim()));
-  child.on('error',e=>log('Runtime error: '+e.message));
+  let launchError=null;
+  child.on('error',e=>{
+    launchError=e;
+    log('Runtime error: '+e.message);
+  });
   // The installed Native server uses already-verified compiled bytes and
   // no source transformation; keep Vite's larger cold-start grace only for
   // backwards-compatible old bundles and explicit emulator development.
@@ -102,35 +135,45 @@ async function startHost({root,template=root,stateDirectory,userData,log,builtAs
   const processDeadline=startedAt+(staticHost?45000:120000);
   const absoluteDeadline=startedAt+(staticHost?60000:150000);
   let probes=0;
-  while(child.exitCode===null) {
+  while(!hasHostExited(child) && launchError===null) {
     const deadline=runtimeReadyAt===null
       ? processDeadline
       : Math.min(absoluteDeadline,Math.max(processDeadline,
           runtimeReadyAt+(staticHost?10000:30000)));
     if(Date.now()>=deadline)break;
     probes++;
-    if(await isReady(port)){
+    if(await isReady(port,staticHost?nativeSessionToken:null)){
       log((staticHost?'Installed Native':'Vite fallback')+
         ' http-ready after '+Math.round((Date.now()-startedAt)/1000)+'s; probes='+probes);
-      return {child,url:'http://127.0.0.1:'+port};
+      return {child,url:'http://127.0.0.1:'+port,template};
     }
     await new Promise(resolve=>setTimeout(resolve,350));
   }
-  const exited=child.exitCode!==null;
-  stopHost(child);
-  throw Error(exited
-    ? 'Canonical Native server exited before HTTP readiness: '+child.exitCode
-    : 'Canonical Native server not ready within bounded cold start ('+
+  const exited=hasHostExited(child);
+  stopHost(child,template);
+  throw Error(launchError
+    ? 'Canonical Native server could not start: '+(launchError.code||'SPAWN_ERROR')
+    : exited
+      ? 'Canonical Native server exited before HTTP readiness: '+
+          (child.signalCode||child.exitCode)
+      : 'Canonical Native server not ready within bounded cold start ('+
         (staticHost?'installed-host':'vite-fallback')+' stage: '+
         (runtimeReadyAt===null?'not reached':'ready')+')');
 }
-function stopHost(child) {
-  if(!child?.pid) return;
-  if(process.platform==='win32') {
-    const kill=spawn('taskkill',['/PID',String(child.pid),'/T','/F'],{
-      windowsHide:true,stdio:'ignore',
-    });
-    kill.on('error',()=>{});
-  } else child.kill('SIGTERM');
+function stopHost(child,template=null) {
+  // Wait for the real Win32 process tree to terminate before Electron exits.
+  // The async taskkill used previously lost the PyInstaller child as its
+  // parent was already gone. Never scan/terminate by executable name.
+  if(!child?.pid || hasHostExited(child)) return true;
+  if(process.platform==='win32' && typeof template==='string') {
+    try {
+      const {stopOwnedWindowsProcessTree}=require(join(template,
+        'system','adapters','desktop','owned-process-tree.cjs'));
+      if(stopOwnedWindowsProcessTree(child.pid)) return true;
+    }catch{}
+  }
+  // Fail closed: fallback only affects this exact owned child PID.
+  try{child.kill('SIGTERM')}catch{}
+  return false;
 }
 module.exports={startHost,stopHost,freePort,isReady};

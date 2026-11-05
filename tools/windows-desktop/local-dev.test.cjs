@@ -24,3 +24,8 @@ test('local Desktop rejects a wrong Git visual owner before creating junctions',
     assert.match(r.stderr,/Surface origin does not match/);
   }finally{rmSync(temporary,{recursive:true,force:true})}
 });
+test('DEV launcher opts into the existing Product Runtime supervisor',()=>{
+  const source=require('node:fs').readFileSync(entry,'utf8');
+  assert.match(source,/ORDAX_DESKTOP_LOCAL_DEV:'1',ORDAX_DESKTOP_MCP_DEV:'1'/);
+  assert.doesNotMatch(source,/ORDAX_DESKTOP_MCP_DEV:'1'[^}]*ORDAX_DESKTOP_TEST_PROFILE/);
+});

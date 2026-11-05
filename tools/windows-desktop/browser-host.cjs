@@ -51,6 +51,22 @@ function createDesktopBrowserHost({window, ipcMain, WebContentsView, session, di
       typeof WebContentsView !== 'function') throw new TypeError('Electron Desktop browser owner is required');
   const tabs = new Map();
   const downloads = new Map();
+  // Async page operations are scoped to the exact WebContents and navigation
+  // generation, never merely the tab ID (which may be reused after close).
+  const pageEpochs = new WeakMap();
+  const findQueries = new Map();
+  const findRequests = new Map();
+  const clearFindRequest = id => {
+    const pending=findRequests.get(id);
+    if(!pending)return;
+    findRequests.delete(id);
+    pending.contents.removeListener('found-in-page',pending.listener);
+  };
+  const invalidatePage = (id,contents) => {
+    pageEpochs.set(contents,(pageEpochs.get(contents)??0)+1);
+    findQueries.delete(id);
+    clearFindRequest(id);
+  };
   let activeTabId = null;
   let viewport = null;
   let disposed = false;
@@ -104,9 +120,11 @@ function createDesktopBrowserHost({window, ipcMain, WebContentsView, session, di
     const id='download-'+randomBytes(8).toString('hex');
     const fileName=safeDownloadName(item.getFilename());
     item.pause();
-    downloads.set(id,{item,fileName});
+    const record={item,fileName,phase:'pending'};
+    downloads.set(id,record);
     downloadEvent(id,fileName,'pending');
     item.on('done',(_event,state)=>{
+      record.phase='done';
       downloads.delete(id);
       downloadEvent(id,fileName,state==='completed'?'saved':state==='cancelled'?'cancelled':'failed');
     });
@@ -125,6 +143,11 @@ function createDesktopBrowserHost({window, ipcMain, WebContentsView, session, di
       javascript:true,webviewTag:false,
     }});
     const wc=view.webContents;
+    pageEpochs.set(wc,0);
+    // A navigation/reload revokes prior selection and find results. Chromium
+    // may resolve executeJavaScript only after the next document is active.
+    for(const event of ['did-start-navigation','did-navigate','did-navigate-in-page'])
+      wc.on(event,()=>{if(tabs.get(id)===view)invalidatePage(id,wc);});
     wc.setWindowOpenHandler(()=>({action:'deny'}));
     wc.on('will-navigate',(event,next)=>{if(!safeWebUrl(next,{blank:true}))event.preventDefault();});
     wc.on('will-redirect',(event,next)=>{if(!safeWebUrl(next,{blank:true}))event.preventDefault();});
@@ -140,6 +163,7 @@ function createDesktopBrowserHost({window, ipcMain, WebContentsView, session, di
   const close = id => {
     const view=tabs.get(id);
     if(!view)return;
+    invalidatePage(id,view.webContents);
     window.contentView.removeChildView(view);
     tabs.delete(id);
     if(activeTabId===id)activeTabId=[...tabs.keys()].at(-1)??null;
@@ -149,9 +173,9 @@ function createDesktopBrowserHost({window, ipcMain, WebContentsView, session, di
   const navigate=(id,url)=>{
     const view=tabs.get(id),target=safeWebUrl(url,{blank:true});
     if(!view||!target)return;
+    invalidatePage(id,view.webContents);
     void view.webContents.loadURL(target).catch(error=>{log('Browser navigation failed: '+error.message);publish();});
   };
-  const findQueries=new Map();
   const handle = (event,raw) => {
     if (disposed || event.sender!==window.webContents ||
         typeof raw!=='string'||raw.length>MAX_BYTES)return;
@@ -172,54 +196,111 @@ function createDesktopBrowserHost({window, ipcMain, WebContentsView, session, di
     if(!view)return;
     const wc=view.webContents,nav=canNavigate(wc);
     if(type==='tab.navigate'){navigate(tabId,command.url);return;}
-    if(type==='tab.reload'){wc.reload();return;}
-    if(type==='tab.back'){if(nav.canGoBack?.())nav.goBack();return;}
-    if(type==='tab.forward'){if(nav.canGoForward?.())nav.goForward();return;}
+    if(type==='tab.reload'){invalidatePage(tabId,wc);wc.reload();return;}
+    if(type==='tab.back'){if(nav.canGoBack?.()){invalidatePage(tabId,wc);nav.goBack();}return;}
+    if(type==='tab.forward'){if(nav.canGoForward?.()){invalidatePage(tabId,wc);nav.goForward();}return;}
     if(type==='page-selection.capture'){
       if(typeof command.requestId!=='string'||!/^[a-z0-9-]{1,64}$/.test(command.requestId))return;
       const url=safeWebUrl(wc.getURL());
       if(!url){send({type:'page-selection.result',tabId,requestId:command.requestId,error:'unsupported-url'});return;}
+      const epoch=pageEpochs.get(wc);
+      const stillCurrent=()=>!disposed && tabs.get(tabId)===view &&
+        !wc.isDestroyed() && pageEpochs.get(wc)===epoch &&
+        safeWebUrl(wc.getURL())===url;
       void wc.executeJavaScript('String(window.getSelection()?.toString()||"").slice(0,4097)',true)
         .then(text=>{
+          if(!stillCurrent())return;
           const selection=String(text).trim();
           if(!selection)throw Error('empty-selection');
           send({type:'page-selection.result',tabId,requestId:command.requestId,
             selection:{schema:'ordax.browser-page-selection/1',kind:'selection',
               source:'untrusted-web-content',tabId,url,title:(wc.getTitle()||'').slice(0,256),
               text:selection.slice(0,4096),truncated:selection.length>4096}});
-        }).catch(()=>send({type:'page-selection.result',tabId,requestId:command.requestId,error:'selection-unavailable'}));
+        }).catch(()=>{if(stillCurrent())send({type:'page-selection.result',tabId,requestId:command.requestId,error:'selection-unavailable'});});
       return;
     }
-    if(type==='page-find.finish'){findQueries.delete(tabId);wc.stopFindInPage('clearSelection');return;}
+    if(type==='page-find.finish'){
+      findQueries.delete(tabId);
+      clearFindRequest(tabId);
+      wc.stopFindInPage('clearSelection');
+      return;
+    }
     if(type.startsWith('page-find.')){
       const query=type==='page-find.search'?command.query:findQueries.get(tabId);
       if(typeof query!=='string'||query.length<1||query.length>256||/[\u0000-\u001f\u007f]/.test(query))return;
+      clearFindRequest(tabId);
       findQueries.set(tabId,query);
+      const epoch=pageEpochs.get(wc);
+      const pending={contents:wc,listener:null,requestId:null};
       const onFound=(_event,result)=>{
-        wc.removeListener('found-in-page',onFound);
+        // Electron search results include their own requestId. Never confuse
+        // an older response with a newer search on the same WebContents.
+        if(result?.requestId!==pending.requestId)return;
+        clearFindRequest(tabId);
+        if(disposed||tabs.get(tabId)!==view||wc.isDestroyed()||
+           pageEpochs.get(wc)!==epoch)return;
+        const count=Number.isFinite(result.matches)
+          ?Math.min(1000,Math.max(0,Math.floor(result.matches))):0;
         send({type:'page-find.result',tabId,query,
-          count:Math.min(1000,Math.max(0,result.matches??0)),
-          state:result.matches>0?'found':'not-found'});
+          count,state:count>0?'found':'not-found'});
       };
+      pending.listener=onFound;
+      findRequests.set(tabId,pending);
       wc.on('found-in-page',onFound);
-      wc.findInPage(query,{forward:type!=='page-find.previous',findNext:type!=='page-find.search'});
+      try {
+        pending.requestId=wc.findInPage(query,{
+          forward:type!=='page-find.previous',findNext:type!=='page-find.search',
+        });
+        if(!Number.isSafeInteger(pending.requestId)||pending.requestId<=0)
+          clearFindRequest(tabId);
+      } catch(error) {
+        clearFindRequest(tabId);
+        log('Browser find operation failed: '+error.message);
+      }
     }
   };
   const handleDownloads = (event,raw)=>{
-    if(disposed||event.sender!==window.webContents||typeof raw!=='string')return;
+    if(disposed||event.sender!==window.webContents||typeof raw!=='string'||raw.length>MAX_BYTES)return;
     let command;try{command=JSON.parse(raw)}catch{return;}
     if(!DOWNLOAD_ID.test(command?.id))return;
     const record=downloads.get(command.id);
     if(!record)return;
-    if(command.type==='download.cancel'){record.item.cancel();return;}
-    if(command.type!=='download.approve')return;
+    if(command.type==='download.cancel'){
+      if(record.phase==='pending'||record.phase==='approving'||record.phase==='downloading'){
+        record.phase='cancelled';
+        record.item.cancel();
+      }
+      return;
+    }
+    if(command.type!=='download.approve'||record.phase!=='pending')return;
+    // One consent dialog per item; a late answer must never revive a
+    // cancelled/completed download or an already disposed browser host.
+    record.phase='approving';
     void dialog.showSaveDialog(window,{title:'Salvar arquivo',defaultPath:record.fileName,
       buttonLabel:'Salvar',properties:['createDirectory','showOverwriteConfirmation']})
       .then(result=>{
-        if(result.canceled||!result.filePath){record.item.cancel();return;}
-        record.item.setSavePath(result.filePath);record.item.resume();
-        downloadEvent(command.id,record.fileName,'downloading');
-      }).catch(()=>record.item.cancel());
+        if(disposed||downloads.get(command.id)!==record||record.phase!=='approving')return;
+        if(result.canceled||!result.filePath){
+          record.phase='cancelled';
+          record.item.cancel();
+          return;
+        }
+        try {
+          record.item.setSavePath(result.filePath);
+          record.item.resume();
+          record.phase='downloading';
+          downloadEvent(command.id,record.fileName,'downloading');
+        } catch(error) {
+          record.phase='cancelled';
+          record.item.cancel();
+          log('Browser download could not be saved: '+error.message);
+        }
+      }).catch(error=>{
+        if(disposed||downloads.get(command.id)!==record||record.phase!=='approving')return;
+        record.phase='cancelled';
+        record.item.cancel();
+        log('Browser save dialog failed: '+error.message);
+      });
   };
   const onMessage=(e,raw)=>{handle(e,raw);handleDownloads(e,raw);};
   ipcMain.on(CMD,onMessage);
@@ -233,6 +314,7 @@ function createDesktopBrowserHost({window, ipcMain, WebContentsView, session, di
     for(const record of downloads.values())record.item.cancel();
     downloads.clear();
     for(const [id,v] of [...tabs]) {
+      invalidatePage(id,v.webContents);
       window.contentView.removeChildView(v);
       if(!v.webContents.isDestroyed())v.webContents.close();
       tabs.delete(id);

@@ -94,6 +94,7 @@ export async function loadVerifiedCurrentComponentRuntime({
   context = Object.freeze({}), timeout = 5_000, onError = null,
   expectedCurrent = null,
   requireTrustedAppData = false,
+  forbidUnrequiredAppData = false,
 } = {}) {
   const id = validateComponentId(componentId);
   const slotSource = assertComponentSlotSource(source);
@@ -101,8 +102,10 @@ export async function loadVerifiedCurrentComponentRuntime({
   const expected = expectedCurrent === null ? null : validateComponentRuntimeMetadata(expectedCurrent, {
     componentId: id, state: "current",
   });
-  if (typeof requireTrustedAppData !== "boolean") {
-    throw new TypeError("Current component App Data requirement must be boolean");
+  if (typeof requireTrustedAppData !== "boolean"
+    || typeof forbidUnrequiredAppData !== "boolean"
+    || (requireTrustedAppData && forbidUnrequiredAppData)) {
+    throw new TypeError("Current component App Data requirement must be an unambiguous boolean");
   }
   if (typeof fetchImpl !== "function" || typeof importModule !== "function") {
     throw new TypeError("Current component requires fetch and import ports");
@@ -146,6 +149,9 @@ export async function loadVerifiedCurrentComponentRuntime({
       () => composeTrustedComponentContext(id, context), limit, "trusted context",
     );
     trustedContext = effectiveContext;
+    if (forbidUnrequiredAppData && Object.prototype.hasOwnProperty.call(effectiveContext, "appData")) {
+      throw new TypeError("Stateless signed component cannot receive an undeclared App Data capability");
+    }
     if (Object.prototype.hasOwnProperty.call(effectiveContext, "fileSpace")) {
       if (id !== "files") {
         throw new TypeError("Native File Space is available only to the verified Files slot");

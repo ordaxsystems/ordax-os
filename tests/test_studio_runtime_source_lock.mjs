@@ -41,6 +41,7 @@ test("Studio runtime source lock pins the merged headless compatibility contract
     product_version: "0.4.7",
   });
 
+  assert.deepEqual(Object.keys(lock.candidate_evidence_by_target), ["linux-amd64"]);
   assert.equal(lock.runtime.profile, "headless");
   assert.equal(lock.runtime.python, ">=3.11");
   assert.deepEqual(lock.runtime.entrypoints, ["ordax-dev-agent", "ordax-device-agent"]);
@@ -219,7 +220,7 @@ test("development enrollment trusts only canonical ordax-runtime recovery workfl
 
 test("Owner DEV CI candidate is recorded as evidence, not unsigned installation authority", async () => {
   const lock = await readJson(SOURCE_LOCK_PATH);
-  assert.deepEqual(lock.candidate_evidence, {
+  assert.deepEqual(lock.candidate_evidence_by_target["linux-amd64"], {
     kind: "ci-only-unsigned",
     source_commit: lock.source.commit,
     platform: "linux-amd64-musl",
@@ -255,5 +256,5 @@ test("Owner DEV CI candidate is recorded as evidence, not unsigned installation 
   assert.equal(lock.distribution.signed_runtime_slot_available, false);
   assert.equal(lock.activation.dispatch_enabled, false);
   assert.equal(lock.activation.single_device_heartbeat_owner_required, true);
-  assert.equal(lock.candidate_evidence.independent_base_abi_ready, false);
+  assert.equal(lock.candidate_evidence_by_target["linux-amd64"].independent_base_abi_ready, false);
 });

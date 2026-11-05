@@ -418,7 +418,7 @@ async function stageMain({ userData, template, log = () => {}, remote = OFFICIAL
         '--single-branch','--no-tags','--branch','main',OFFICIAL_REMOTE,staging],userData,120000);
       if (!clone.ok) return {status:'unavailable'};
       const sparse = await runGit(['-C',staging,'sparse-checkout','set',
-        'system','docs/contracts','tools/windows-emulator','tools/surface-web','tools/windows-desktop'],staging,60000);
+        'system','docs/contracts','docs/evidence','tools/windows-emulator','tools/surface-web','tools/windows-desktop'],staging,60000);
       if (!sparse.ok) {
         log('Windows Git sparse-checkout refused official main candidate: '+
           String(sparse.stderr||'no Git diagnostic').slice(-350));

@@ -39,6 +39,15 @@ test('exact Native candidate requires compiled referenced JavaScript',t=>{
   assert.equal(hasNativeBundle(root),false,'unknown receipt contract must block updates');
   writeFileSync(receiptPath,JSON.stringify({...receipt,bundle_sha256:compiledBundleSha256(root)}));
   assert.equal(hasNativeBundle(root),true);
+  const stagedHtml='<script type="module" crossorigin src="/__ordax/desktop-assets/assets/index-AbC123.js"></script>';
+  writeFileSync(html,
+    '<script data-source=\' src="/__ordax/desktop-assets/assets/index-AbC123.js"\' src="https://untrusted.example/script.js"></script>');
+  writeFileSync(receiptPath,JSON.stringify({...receipt,bundle_sha256:compiledBundleSha256(root)}));
+  assert.equal(hasNativeBundle(root),false,
+    'forged substring in unrelated attribute cannot authorize an external script');
+  writeFileSync(html,stagedHtml);
+  writeFileSync(receiptPath,JSON.stringify({...receipt,bundle_sha256:compiledBundleSha256(root)}));
+  assert.equal(hasNativeBundle(root),true);
   writeFileSync(js,'export const source = "tampered";');
   assert.equal(hasNativeBundle(root),false,'changed compiled JS must never be trusted');
   writeFileSync(js,'export const source = "compiled";');
@@ -65,7 +74,9 @@ test('installed fallback rejects wrong Surface source and modified compiled byte
    source_repository:'ordaxsystems/ordax-surface',source_commit:sha,
    visual_source_paths:['system/surface/ui','system/surface/workspace']
  }));
- writeFileSync(join(built,'system','composition','native','index.html'),'<script src="/assets/app.js"></script>');
+ const html=join(built,'system','composition','native','index.html');
+ const canonicalHtml='<script type="module" crossorigin src="/__ordax/desktop-assets/assets/app.js"></script>';
+ writeFileSync(html,'<script src="/assets/app.js"></script>');
  const js=join(built,'assets','app.js');
  writeFileSync(js,'export const ok=true');
  assert.equal(verifyBundledNativeReceipt(root,built),false);
@@ -75,6 +86,43 @@ test('installed fallback rejects wrong Surface source and modified compiled byte
    bundle_sha256:compiledBundleSha256(root,built)};
  const target=join(built,'source-provenance.json');
  writeFileSync(target,JSON.stringify(receipt));
+ assert.equal(verifyBundledNativeReceipt(root,built),false,
+   'installed fallback rejects non-canonical HTML despite a matching self-hash');
+ writeFileSync(html,canonicalHtml);
+ writeFileSync(target,JSON.stringify({...receipt,bundle_sha256:compiledBundleSha256(root,built)}));
+ assert.equal(verifyBundledNativeReceipt(root,built),true);
+ writeFileSync(html,'<script type="module" src="./main.mjs"></script>');
+ writeFileSync(target,JSON.stringify({...receipt,bundle_sha256:compiledBundleSha256(root,built)}));
+ assert.equal(verifyBundledNativeReceipt(root,built),false,
+   'installed fallback must not boot Vite source-tree HTML');
+ writeFileSync(html,'<script type="module" src="/__ordax/desktop-assets/assets/missing.js"></script>');
+ writeFileSync(target,JSON.stringify({...receipt,bundle_sha256:compiledBundleSha256(root,built)}));
+ assert.equal(verifyBundledNativeReceipt(root,built),false,
+   'missing referenced compiled JavaScript cannot pass through the receipt');
+ writeFileSync(html,'<script src="https://untrusted.example/app.js"></script><p>/__ordax/desktop-assets/assets/app.js</p>');
+ writeFileSync(target,JSON.stringify({...receipt,bundle_sha256:compiledBundleSha256(root,built)}));
+ assert.equal(verifyBundledNativeReceipt(root,built),false,
+   'a compiled asset path mentioned in HTML cannot attest an external script');
+ writeFileSync(html,canonicalHtml);
+ writeFileSync(target,JSON.stringify({...receipt,bundle_sha256:compiledBundleSha256(root,built)}));
+ assert.equal(verifyBundledNativeReceipt(root,built),true);
+ const allowedSrc='/__ordax/desktop-assets/assets/app.js';
+ const forbiddenScripts=[
+   `<script data-shadow=' src="${allowedSrc}"' src="https://untrusted.example/evil.js"></script>`,
+   `<script type="module" src="${allowedSrc}" src="https://untrusted.example/evil.js"></script>`,
+   `<script type="module" src="${allowedSrc}" onerror="alert(1)"></script>`,
+   canonicalHtml+'<SCRIPT SRC="https://untrusted.example/evil.js"></SCRIPT>',
+ ];
+ for(const candidate of forbiddenScripts){
+   writeFileSync(html,candidate);
+   // Even an attacker-supplied self-consistent digest must never make an
+   // executable unbundled script a valid Desktop Native fallback.
+   writeFileSync(target,JSON.stringify({...receipt,bundle_sha256:compiledBundleSha256(root,built)}));
+   assert.equal(verifyBundledNativeReceipt(root,built),false,
+     'untrusted or ambiguous script markup must not pass Native attestation');
+ }
+ writeFileSync(html,canonicalHtml);
+ writeFileSync(target,JSON.stringify({...receipt,bundle_sha256:compiledBundleSha256(root,built)}));
  assert.equal(verifyBundledNativeReceipt(root,built),true);
  writeFileSync(js,'export const ok=false');
  assert.equal(verifyBundledNativeReceipt(root,built),false);

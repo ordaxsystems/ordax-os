@@ -9,6 +9,7 @@ const OBSERVATION_ROUTES=Object.freeze([
   '/__ordax/native/update-history',
   '/__ordax/desktop/recovery',
   '/__ordax/native/power-status',
+  '/__ordax/native/product-runtime-status',
 ]);
 const routes=new Set(OBSERVATION_ROUTES);
 const TOKEN=/^[0-9a-f]{64}$/;

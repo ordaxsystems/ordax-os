@@ -34,7 +34,7 @@ export async function createNativeStoreCatalogComposition({
     componentSource,
     fetchImpl: fetchImpl ?? windowRef.fetch.bind(windowRef),
   });
-  await projection.refresh();
+  await projection.waitForCurrentRefresh();
 
   let destroyed = false;
   return Object.freeze({
@@ -46,7 +46,7 @@ export async function createNativeStoreCatalogComposition({
     async refresh() {
       if (destroyed) return projection.port.getSnapshot();
       await nativeCatalog.refresh();
-      return projection.refresh();
+      return projection.waitForCurrentRefresh();
     },
     destroy() {
       if (destroyed) return;

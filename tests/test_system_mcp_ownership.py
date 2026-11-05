@@ -17,12 +17,15 @@ class SystemMcpOwnershipTests(unittest.TestCase):
         self.assertIn("native-capability-preflight", repos["platform"]["owns"])
         self.assertIn("mcp-system-authority", repos["apps"]["must_not_own"])
         self.assertIn("product-mcp", repos["control_plane"]["owns"])
+        self.assertIn("windows-ordax-mcp-distribution", repos["runtime"]["owns"])
+        self.assertIn("windows-mcp-installer", repos["apps"]["must_not_own"])
         for key in (
             "mcp_is_system_wide_capability_not_an_app",
             "native_os_permissions_owned_by_platform_not_studio",
             "apps_consume_capability_ports_without_grant_minting",
             "remote_mcp_grants_remain_control_plane_owned",
-            "windows_studio_is_owner_ui_not_authority",
+            "windows_studio_is_optional_runtime_consumer",
+            "windows_mcp_distribution_independent_of_studio",
         ):
             self.assertIs(ownership["invariants"].get(key), True, key)
 

@@ -498,3 +498,43 @@ test("Intelligence incremental transport composes with the real Local AI SSE por
   intelligence.dispose();
   local.dispose();
 });
+
+test("Ordax Intelligence follows the canonical regional locale during the same session", async () => {
+  const prompts = [];
+  let locale = "pt-BR";
+  const intelligence = createIntelligenceRuntime({
+    inferencePort: inferencePort({
+      onGenerate: request => prompts.push(request.systemPrompt),
+    }),
+    getLocale: () => locale,
+  });
+  await intelligence.respond({ intent: "ask", prompt: "50x0", maxTokens: 64 });
+  locale = "en-US";
+  await intelligence.respond({ intent: "ask", prompt: "Hello", maxTokens: 64 });
+  assert.match(prompts[0], /OrdaX system response language: Brazilian Portuguese/);
+  assert.match(prompts[1], /OrdaX system response language: English/);
+  assert.ok(prompts.every(text => text.includes("no implicit authority")));
+  assert.ok(prompts.every(text => text.includes("explicit user request")));
+  intelligence.dispose();
+});
+
+test("Ordax Intelligence refuses an untrusted regional locale before calling inference", async () => {
+  let generated = false;
+  const intelligence = createIntelligenceRuntime({
+    inferencePort: inferencePort({ onGenerate: () => { generated = true; } }),
+    getLocale: () => "unknown-locale",
+  });
+  await assert.rejects(
+    () => intelligence.respond({ intent: "ask", prompt: "hello" }),
+    /Unsupported regional.locale/,
+  );
+  assert.equal(generated, false);
+  intelligence.dispose();
+});
+
+test("Ordax Intelligence refuses a non-callable locale resolver", () => {
+  assert.throws(
+    () => createIntelligenceRuntime({ inferencePort: inferencePort(), getLocale: "pt-BR" }),
+    /locale getter must be a function/,
+  );
+});

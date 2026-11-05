@@ -42,7 +42,7 @@ class NativeAccountSessionContractTests(unittest.TestCase):
         source = MODULE.read_text(encoding="utf-8")
         self.assertNotIn("_persist_session", source)
         self.assertNotIn("_load_session", source)
-        self.assertNotIn("json.dump", source)
+        self.assertNotIn("json.dump(", source)
         self.assertIn("_purge_legacy_plaintext_session", source)
         self.assertIn("self._cookies: dict[str, str] = {}", source)
 

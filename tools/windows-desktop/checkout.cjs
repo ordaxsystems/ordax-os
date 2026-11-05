@@ -1,9 +1,38 @@
 'use strict';
 // Canonical Native runtime checkout; the bundled snapshot is a safe offline fallback.
 const { spawn } = require('node:child_process');
-const { join } = require('node:path');
-const { existsSync, readFileSync, symlinkSync } = require('node:fs');
+const { join, win32: win32Path } = require('node:path');
+const { existsSync, lstatSync, readFileSync, realpathSync, symlinkSync } = require('node:fs');
 const { OFFICIAL_REMOTE } = require('./runtime.cjs');
+
+// Windows Desktop Dev must discover an already installed Git even when the
+// Electron process PATH was inherited from an installer or Remote session.
+// Use absolute system install paths first; never install another Git, invoke
+// a shell, or accept an executable path supplied by a remote MCP argument.
+function resolveInstalledGit({
+  platform=process.platform,env=process.env,stat=lstatSync,
+}={}){
+  if(platform!=="win32")return "git";
+  const prefixes=[
+    env.ProgramW6432,env.ProgramFiles,
+    "C:\\Program Files",env["ProgramFiles(x86)"],
+    "C:\\Program Files (x86)",
+  ];
+  const seen=new Set();
+  for(const prefix of prefixes){
+    if(typeof prefix!=="string"||!win32Path.isAbsolute(prefix))continue;
+    const path=win32Path.join(prefix,"Git","cmd","git.exe");
+    const key=path.toLowerCase();
+    if(seen.has(key))continue;
+    seen.add(key);
+    try {
+      const file=stat(path);
+      if(file.isFile()&&!file.isSymbolicLink())return path;
+    }catch {}
+  }
+  // Portable/managed Git installations remain supported when present in PATH.
+  return "git";
+}
 
 function git(argv, cwd, timeoutMs = 90000) {
   return new Promise(resolve => {
@@ -13,7 +42,7 @@ function git(argv, cwd, timeoutMs = 90000) {
 // even on anonymous reads, exceeding the 25s discovery deadline. Empty
 // credential.helper overrides all inherited helpers for this invocation;
 // never prompt or forward an account credential to a public checkout.
-const child = spawn('git', ['-c','credential.helper=',...argv], {
+const child = spawn(resolveInstalledGit(), ['-c','credential.helper=',...argv], {
       cwd, windowsHide:true, env: { ...process.env, GIT_TERMINAL_PROMPT:'0' },
       stdio:['ignore','pipe','pipe']
     });
@@ -65,14 +94,22 @@ function dependencies(checkout,template,userData=null) {
 // used by the legacy fallback, but execute it in a separate Node process.
 async function dependenciesForStage(checkout,template,userData){
   const dir=join(checkout,'node_modules');
-  if(existsSync(dir))return dir;
+  // Vite executes from the VERIFIED toolchain directory, not through the
+  // candidate junction. The junction remains for imports resolved by the
+  // candidate's Native configuration. Never accept an arbitrary directory.
+  function alreadyMounted(){
+    if(!lstatSync(dir).isSymbolicLink())
+      throw Error('Staged compiler dependency is not a junction');
+    return realpathSync(dir);
+  }
+  if(existsSync(dir))return alreadyMounted();
   const {ensureRuntimeToolchainIsolated}=require('./toolchain-cache.cjs');
   const source=await ensureRuntimeToolchainIsolated(template,userData);
-  if(existsSync(dir))return dir;
+  if(existsSync(dir))return alreadyMounted();
   symlinkSync(source,dir,process.platform==='win32'?'junction':'dir');
-  return dir;
+  return source;
 }
 
 // Only the immutable Desktop Dev transaction manager may materialize source
 // updates. This helper never merges a Git checkout in place.
-module.exports = {git, isTrusted, hasDesktopHostContract, dependencies, dependenciesForStage};
+module.exports = {git, resolveInstalledGit, isTrusted, hasDesktopHostContract, dependencies, dependenciesForStage};

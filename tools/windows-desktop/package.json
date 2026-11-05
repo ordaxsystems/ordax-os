@@ -40,7 +40,13 @@
         "from": "../../system",
         "to": "runtime-template/system",
         "filter": [
-          "**/*"
+          "**/*",
+          "!surface/runtime/packages.txt",
+          "!surface/runtime/media_runtime_probe.py",
+          "!surface/runtime/audio-session.sh",
+          "!surface/runtime/physical_ata_probe.py",
+          "!surface/runtime/physical_kernel_log_probe.py",
+          "!surface/runtime/physical_performance_probe.py"
         ]
       },
       {
@@ -87,7 +93,25 @@
       {
         "from": "../../out/windows-local-ai-runtime",
         "to": "runtime-template/local-ai-runtime",
-        "filter": ["**/*"]
+        "filter": [
+          "**/*"
+        ]
+      },
+      {
+        "from": "../../out/windows-desktop-components/ordax-runtime-component-channel.exe",
+        "to": "runtime-template/tools/runtime-component-channel/ordax-runtime-component-channel.exe"
+      },
+      {
+        "from": "../../docs/contracts/runtime-component-trust-policy.json",
+        "to": "runtime-template/docs/contracts/runtime-component-trust-policy.json"
+      },
+      {
+        "from": "../../docs/evidence/desktop-runtime-windows-candidate-2026-10-31.json",
+        "to": "runtime-template/docs/evidence/desktop-runtime-windows-candidate-2026-10-31.json"
+      },
+      {
+        "from": "../../docs/contracts/runtime-component-package.json",
+        "to": "runtime-template/docs/contracts/runtime-component-package.json"
       }
     ],
     "asar": true,

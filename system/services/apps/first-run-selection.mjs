@@ -10,8 +10,9 @@ import { validateComponentRuntimeMetadata } from "../../contracts/component-runt
 // IDs are existing app identities, not a parallel source/package registry.
 export const FIRST_RUN_APP_SELECTION_SCHEMA = "ordax.first-run-app-selection/1";
 
-// The base OS remains minimal. These removable apps are selected for a future
-// verified initial provision from local signed packages or an approved release.
+// The base OS installs no removable apps by default. These IDs are Store
+// Essentials recommendations only, not preinstalled packages or install intents.
+// First Run shows availability without executing an installation.
 const DEFAULT_APP_IDS = Object.freeze([
   "internet",
   "assistant", // Aura app UI; only eligible after verified package + current Native absence.

@@ -24,6 +24,7 @@ import {
   hasNativeExternalFirstPartyModuleRead,
   hasNativeExternalFirstPartyProbation,
 } from "./external-first-party-policy.mjs";
+import { createStoreObserverDelivery } from "./store-observer-delivery.mjs";
 
 const REQUEST_OPTIONS = Object.freeze({
   method: "GET",
@@ -292,13 +293,15 @@ export function createVerifiedAppStoreProjection({
   let generation = 0;
   let snapshot = unavailable("verified-store-projection-loading");
   let currentObservations = Object.freeze([]);
-
+  const notifyListeners = createStoreObserverDelivery(
+    listeners, "OrdaX verified Store projection subscriber failed",
+  );
   const emit = (next, observations = []) => {
     snapshot = validateAppStoreCatalogSnapshot(next);
     // Transient read-through of the SAME native verified current-slot reads.
     // Cleared on unavailable/refresh to prevent stale First Run decisions.
     currentObservations = Object.freeze([...observations]);
-    for (const listener of [...listeners]) listener(snapshot);
+    notifyListeners(snapshot);
   };
 
   let activeRefresh = null;
@@ -372,7 +375,7 @@ export function createVerifiedAppStoreProjection({
     };
   };
 
-  const refresh = async () => {
+  const performRefresh = async () => {
     if (destroyed) return snapshot;
     activeRefresh?.abort();
     const controller = new AbortController();
@@ -393,6 +396,16 @@ export function createVerifiedAppStoreProjection({
     if (activeRefresh === controller) activeRefresh = null;
     emit(next.catalog, next.observations);
     return snapshot;
+  };
+
+  // The Native catalog subscription already starts the unique current-state
+  // reconciliation. Callers awaiting that same verification must not abort it
+  // and start another identical metadata sweep.
+  let lastRefresh = Promise.resolve(snapshot);
+  const refresh = () => {
+    const pending = performRefresh();
+    lastRefresh = pending;
+    return pending;
   };
 
   const unsubscribeCatalog = catalog.subscribe(() => {
@@ -420,6 +433,9 @@ export function createVerifiedAppStoreProjection({
   return Object.freeze({
     port,
     refresh,
+    waitForCurrentRefresh() {
+      return destroyed ? Promise.resolve(snapshot) : lastRefresh;
+    },
     getCurrentObservations() {
       return currentObservations;
     },
@@ -431,6 +447,11 @@ export function createVerifiedAppStoreProjection({
       activeRefresh = null;
       currentObservations = Object.freeze([]);
       unsubscribeCatalog?.();
+      // A retained read-only Store port must fail closed after its runtime
+      // owner exits. Clearing listeners alone kept the last installable
+      // snapshot visible to other consumers after teardown.
+      snapshot = unavailable("verified-store-projection-disposed");
+      notifyListeners(snapshot);
       listeners.clear();
     },
   });

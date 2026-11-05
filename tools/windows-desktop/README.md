@@ -22,6 +22,53 @@ Para pré-visualização visual, usar o Vite já existente no OS com `npm run em
 
 Fluxo recomendado: **editar no repositório owner → preview Web/HMR → teste local relevante → integrar no Desktop com seu host e adaptadores → testar USB Dev só quando capacidades Native/boot forem afetadas**. Construção de instalador e validação cross-repo ficam no caminho de distribuição/integração, não no ciclo de edição. Esta seção descreve ferramentas presentes, **não** afirma que preview, host e USB já possuem paridade E2E comprovada.
 
+## Canal IPC de downloads do navegador
+
+O bridge Electron de downloads recebe somente mensagens do WebContents
+proprietário e aplica o mesmo limite de **12.000 caracteres** usado pelos
+comandos do navegador, antes de interpretar JSON ou abrir um diálogo
+privilegiado de gravação. Requisições excessivas ou de outra janela são
+rejeitadas; um pedido válido ainda precisa de confirmação explícita no
+diálogo nativo de salvar arquivo. Cada item aceita um único diálogo;
+se o download for cancelado, concluído ou se o host encerrar enquanto
+o diálogo estiver aberto, a resposta atrasada não pode reativar o item,
+atribuir um novo caminho ou gravar o arquivo. A regressão está em
+`browser-host.test.cjs`. Isso é uma correção de source e teste isolado,
+**não** comprovação de funcionamento no Desktop instalado.
+
+## Prova de prontidão do Native host instalado
+
+No Windows instalado, a porta loopback é escolhida dinamicamente e liberada
+antes de iniciar o processo filho. **HTTP 200 sozinho não atesta o processo
+OrdaX**: outro listener poderia ocupar a porta e ser confundido com a
+Surface verificada. O host Electron agora envia um desafio aleatório por
+tentativa a `/__ordax/desktop-host-ready` e exige HMAC-SHA256 vinculado
+ao **mesmo token efêmero Native** já fornecido pelo host. O token nunca é
+retornado na resposta. Uma página HTML em HTTP 200, prova incorreta,
+ausência de token ou processo falho não aprova o boot. O listener continua
+restrito a loopback e os assets/recibos OS+Surface continuam sujeitos
+aos seus verificadores existentes.
+
+O fallback Vite exclusivamente de desenvolvimento mantém seu probe antigo
+para preservar rollbacks de revisões anteriores; ele **não** é a prova do
+Native instalado. Os testes de `host-startup.test.cjs` e
+`desktop-native-server.test.mjs` exercitam o mesmo contrato, sem segundo
+servidor ou estado persistente e sem tocar no USB.
+
+## Encerramento antecipado do Native durante boot
+
+O host Electron reconhece falha de criação do processo e encerramento por
+código **ou sinal** do processo filho, antes do timeout de cold start.
+Em Node, um processo terminado por sinal pode conservar `exitCode=null`;
+logo, observar apenas `exitCode` faria um Native já morto permanecer em
+espera. A correção reside exclusivamente em
+`tools/windows-desktop/host.cjs`, sem segundo supervisor, sem retry de
+rede e sem alterar o protocolo de prontidão autenticada.
+O encerramento conhecido também impede `taskkill` tardio de agir sobre
+um PID que o Windows possa ter reutilizado. O teste de regressão cria
+um processo Native descartável e prova falha imediata; ele não utiliza
+o Desktop do usuário nem confere saúde física.
+
 ## Integração com a source authority atual — 25/10/2026
 
 O Windows consome **a mesma revisão OS de `main`** utilizada pelos outros
@@ -63,7 +110,12 @@ assinatura, outra política comercial ou uma segunda versão de código.
 O instalador CI agora transporta o lock da Surface e o recibo contendo
 OS SHA, Surface SHA e fingerprint SHA-256 dos arquivos Native gerados. O
 Electron recusa abrir o bundle de instalação se faltar esse manifesto ou
-houver divergência dos bytes. Isso não é assinatura de release pública.
+houver divergência dos bytes. A verificação também valida a **tag inteira**
+de cada script executável contra o caminho compilado de assets do host,
+rejeitando `src` duplicado, atributo que simule um `src` legítimo,
+scripts externos e tags adicionais mesmo com caixa diferente. Um recibo
+SHA-256 autoconsistente não transforma HTML com script externo em bundle
+Native válido. Isso não é assinatura de release pública.
 Intelligence/Aura local, autenticação real, updates assinados e rollback
 E2E instalado ainda **não estão homologados como produto completo**. Os PRs de infraestrutura já integrados não equivalem à homologação comercial Stable/MVP.
 
@@ -91,24 +143,44 @@ Mudanças exclusivamente Linux (kernel/base/USB) não devem acionar um
 novo instalador Windows; mudanças no núcleo compartilhado, no lock
 Surface ou nos adaptadores Windows devem acioná-lo.
 
+## Recuperação delimitada da Aura após encerramento do modelo
+
+No Windows, `system/adapters/desktop/local-ai-host.mjs` continua sendo o
+**único** supervisor do motor local `llama-server`. O mesmo reciclador
+transacional que interrompe gerações abandonadas também recupera **uma**
+terminação inesperada do processo, por código ou sinal, quando uma consulta
+autorizada solicitar novamente o serviço. Antes de iniciar o sucessor, o
+reciclador verifica que o processo antigo está morto, revoga/remove a chave
+privada antiga e verifica novamente o pacote e seus hashes canônicos.
+
+Se o novo motor também encerrar inesperadamente, a Aura permanece
+indisponível (*fail-closed*) até uma recuperação explícita do host; não há
+loop infinito, segundo motor concorrente, download implícito de GGUF ou
+resposta simulada. Falha na verificação inicial do pacote ou na criação do
+processo continua bloqueada, sem autorizar novo binário.
+
+A UI recebe 503 enquanto a geração é recuperada e só vê 200 quando o
+backend responder à consulta. A correção foi exercitada em regressões
+offline do host Windows; não comprova um notebook ou desktop físico online.
+
 ## Aura local no Windows Desktop (Owner/Development)
 
 O produto consome **uma unica** cadeia de inferencia:
 `ordax.intelligence/1 -> ordax.local-ai/1 -> /__ordax/native/local-ai`.
-O source-lock do OS inclui agora a identidade PE x64, com oito hashes
-verificados pela CI do repositório `ordax-intelligence`. O Native Host
+O source-lock do OS inclui agora a identidade PE x64, com hashes para todas as variantes de CPU do pacote Windows, verificados
+pela CI do repositório `ordax-intelligence`. O Native Host
 verifica todos os EXE/DLL e o GGUF no pacote imutavel
 `resources/runtime-template/local-ai-runtime/{engine,models}`, antes de
 iniciar uma única instancia local de `llama-server`. O segredo é gerado
 pelo host e **não** chega ao renderer; apenas a Surface Electron autorizada
 recebe o grant de rota. O motor nunca bloqueia o boot do OS.
 
-**Limite da fatia de source:** o pacote binario e o GGUF ainda nao sao
-materializados pelo instalador Owner/Dev. Em uma instalacao sem o pacote,
-a Aura permanece indisponivel (503), corretamente. Não marcar a issue
-#2251 concluída ate materialização verificada, E2E offline no .exe,
-cancelamento, recuperacao e rollback. Nenhum runtime e instalado
-a partir de downloads na primeira execucao.
+**Entrega:** o instalador Owner/Dev deve transportar todos os binários
+pinados e o modelo verificado. Atualizar apenas o source lock não substitui
+as DLLs de uma instalação antiga: a entrega requer a mesma revisão de
+engine e código no instalador, mais teste físico e rollback. Não marcar
+o app externo assistant como instalado, nem ativar pacotes não assinados.
+Nenhum runtime é baixado automaticamente na primeira execução.
 
 ### Integridade da observação de updates
 

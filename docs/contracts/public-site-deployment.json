@@ -476,7 +476,9 @@
     "widget_name": "OrdaX OS - public account production",
     "sitekey": "0x4AAAAAAFR-Kz0Uc9rNW_iE",
     "hostname_allowlist": [
-      "ordax.com.br"
+      "ordax.com.br",
+      "web.ordax.com.br",
+      "www.ordax.com.br"
     ],
     "widget_mode": "managed",
     "action": "ordax-account",
@@ -494,7 +496,7 @@
     "production_secret_configured": true,
     "production_e2e_verified": false,
     "production_hostname_verified": true,
-    "production_hostname_verification_evidence": "Cloudflare dedicated OrdaX account GET /accounts/{account_id}/challenges/widgets returned this managed widget with domains ordax.com.br and www.ordax.com.br on 2026-10-09; real Siteverify E2E remains pending"
+    "production_hostname_verification_evidence": "Cloudflare dedicated OrdaX account GET /accounts/{account_id}/challenges/widgets/{sitekey} revalidated on 2026-10-30: managed widget permits exactly ordax.com.br, web.ordax.com.br and www.ordax.com.br; real Siteverify E2E remains pending"
   },
   "cloudflare_dns_migration": {
     "status": "dedicated-zone-active-independent-registrar-and-https-verified",

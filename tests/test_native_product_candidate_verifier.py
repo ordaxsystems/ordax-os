@@ -79,7 +79,7 @@ class CandidateVerifierTests(unittest.TestCase):
         self.lock = {
             "$schema": "prototype-ordax.studio-runtime-source-lock/1",
             "source": {"commit": COMMIT},
-            "candidate_evidence": {
+            "candidate_evidence_by_target": {"linux-amd64": {
                 "kind": "ci-only-unsigned", "source_commit": COMMIT,
                 "platform": "linux-amd64-musl", "archive_sha256": "",
                 "executable_sha256": hashlib.sha256(ELF).hexdigest(),
@@ -97,7 +97,7 @@ class CandidateVerifierTests(unittest.TestCase):
                         "independent_base_compatibility_proven", "install_authorized"
                     )
                 },
-            },
+            }},
             "distribution": {"runtime_artifact_claimed": False, "runtime_packaged_in_stable": False,
                              "source_binding_only": True},
             "activation": {"dispatch_enabled": False, "requires_signed_runtime_slot": True},
@@ -112,7 +112,7 @@ class CandidateVerifierTests(unittest.TestCase):
             archive.writestr("SHA256SUMS", self.manifest["sha256"] + "  ordax-product-agent\n")
             for name, value in (extras or []):
                 archive.writestr(name, value)
-        self.lock["candidate_evidence"]["archive_sha256"] = hashlib.sha256(self.archive.read_bytes()).hexdigest()
+        self.lock["candidate_evidence_by_target"]["linux-amd64"]["archive_sha256"] = hashlib.sha256(self.archive.read_bytes()).hexdigest()
         self.lockfile.write_text(json.dumps(self.lock))
 
     def verify(self):
@@ -159,28 +159,28 @@ class CandidateVerifierTests(unittest.TestCase):
 
     def test_manifest_cannot_claim_independent_base_ready(self):
         self.manifest["independent_base_abi_ready"] = True
-        self.lock["candidate_evidence"]["independent_base_abi_ready"] = True
+        self.lock["candidate_evidence_by_target"]["linux-amd64"]["independent_base_abi_ready"] = True
         self.write_fixture()
         with self.assertRaisesRegex(verifier.CandidateError, "Independent Base ABI"):
             self.verify()
 
     def test_manifest_cannot_drop_unresolved_abi_blockers(self):
         self.manifest["independent_base_abi_blockers"] = []
-        self.lock["candidate_evidence"]["independent_base_abi_blockers"] = []
+        self.lock["candidate_evidence_by_target"]["linux-amd64"]["independent_base_abi_blockers"] = []
         self.write_fixture()
         with self.assertRaisesRegex(verifier.CandidateError, "Independent Base ABI"):
             self.verify()
 
     def test_elf_interpreter_is_verified_from_executable_bytes(self):
         self.manifest["elf_interpreter"] = "/lib/fake-loader"
-        self.lock["candidate_evidence"]["elf_interpreter"] = "/lib/fake-loader"
+        self.lock["candidate_evidence_by_target"]["linux-amd64"]["elf_interpreter"] = "/lib/fake-loader"
         self.write_fixture()
         with self.assertRaisesRegex(verifier.CandidateError, "native ELF loader"):
             self.verify()
 
     def test_elf_libraries_are_verified_from_executable_bytes(self):
         self.manifest["elf_needed_libraries"] = ["libnotreally.so.1"]
-        self.lock["candidate_evidence"]["elf_needed_libraries"] = ["libnotreally.so.1"]
+        self.lock["candidate_evidence_by_target"]["linux-amd64"]["elf_needed_libraries"] = ["libnotreally.so.1"]
         self.write_fixture()
         with self.assertRaisesRegex(verifier.CandidateError, "native ELF loader"):
             self.verify()
@@ -205,21 +205,21 @@ class CandidateVerifierTests(unittest.TestCase):
 
     def test_rejects_embedded_native_install_authority(self):
         self.manifest["embedded_elf_inventory"]["install_authorized"] = True
-        self.lock["candidate_evidence"]["embedded_elf_inventory"]["install_authorized"] = True
+        self.lock["candidate_evidence_by_target"]["linux-amd64"]["embedded_elf_inventory"]["install_authorized"] = True
         self.write_fixture()
         with self.assertRaisesRegex(verifier.CandidateError, "cannot authorize"):
             self.verify()
 
     def test_rejects_false_independent_base_compatibility(self):
         self.manifest["embedded_elf_inventory"]["independent_base_compatibility_proven"] = True
-        self.lock["candidate_evidence"]["embedded_elf_inventory"]["independent_base_compatibility_proven"] = True
+        self.lock["candidate_evidence_by_target"]["linux-amd64"]["embedded_elf_inventory"]["independent_base_compatibility_proven"] = True
         self.write_fixture()
         with self.assertRaisesRegex(verifier.CandidateError, "cannot authorize"):
             self.verify()
 
     def test_rejects_unbound_embedded_dependency_names(self):
         self.manifest["embedded_elf_inventory"]["unprovided_needed_names"] = ["fake.so"]
-        self.lock["candidate_evidence"]["embedded_elf_inventory"]["unprovided_needed_names"] = ["fake.so"]
+        self.lock["candidate_evidence_by_target"]["linux-amd64"]["embedded_elf_inventory"]["unprovided_needed_names"] = ["fake.so"]
         self.write_fixture()
         with self.assertRaisesRegex(verifier.CandidateError, "dependencies are invalid"):
             self.verify()

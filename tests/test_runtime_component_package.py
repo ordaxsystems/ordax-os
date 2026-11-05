@@ -2,6 +2,8 @@ from importlib.util import module_from_spec, spec_from_file_location
 from pathlib import Path
 import hashlib
 import json
+import copy
+import stat
 import shutil
 import tempfile
 import unittest
@@ -349,6 +351,94 @@ class RuntimeComponentPackageTests(unittest.TestCase):
             ):
                 builder.verify_package(tampered)
 
+    def test_archive_manifest_rejects_incomplete_and_inconsistent_component_identity(self):
+        builder = load_builder()
+        manifest, _ = builder.render_manifest("local-ai-service", "9" * 40)
+        invalid = (
+            {"owner": {"not": "a canonical owner"}},
+            {"title": ""},
+            {"dependencies": "ordax-base"},
+            {"dependencies": ["ordax-base", "ordax-base"]},
+            {"dependencies": ["local-ai-service"]},
+            {"kind": "unrecognized"},
+            {"criticality": "unrecognized"},
+            {"failureDomain": "unrecognized"},
+            {"restartScope": "unrecognized"},
+            {"healthMode": "unrecognized"},
+            {"kind": "app"},
+            {"releaseMode": "git-app"},
+            {"obsolete_field": True},
+        )
+        for change in invalid:
+            with self.subTest(change=change):
+                damaged = copy.deepcopy(manifest)
+                damaged["component"].update(change)
+                with self.assertRaises(builder.ComponentPackageError):
+                    builder.validate_manifest_shape(damaged)
+
+    def test_archive_paths_must_have_one_exact_posix_representation(self):
+        builder = load_builder()
+        for name in (
+            "system//components/local-ai-service/runtime.mjs",
+            "system/components/./local-ai-service/runtime.mjs",
+            "system/components/local-ai-service/runtime.mjs/",
+            "./system/components/local-ai-service/runtime.mjs",
+            "system/components/local-ai-service/../runtime.mjs",
+            "system\\components\\local-ai-service\\runtime.mjs",
+        ):
+            with self.subTest(name=name):
+                with self.assertRaises(builder.ComponentPackageError):
+                    builder.safe_zip_name(name)
+
+    def test_package_verifier_rejects_special_entries_and_alternate_compression(self):
+        builder = load_builder()
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory)
+            original = root / "local-ai-service.zip"
+            builder.build_package("local-ai-service", "a" * 40, original)
+            with zipfile.ZipFile(original, "r") as archive:
+                entries = [(info.filename, archive.read(info.filename))
+                           for info in archive.infolist()]
+            runtime = "system/components/local-ai-service/runtime.mjs"
+            for case in ("fifo", "deflated"):
+                with self.subTest(case=case):
+                    changed = root / f"noncanonical-{case}.zip"
+                    with zipfile.ZipFile(changed, "w") as output:
+                        for name, content in entries:
+                            info = builder.zip_info(name)
+                            if name == runtime and case == "fifo":
+                                info.external_attr = (stat.S_IFIFO | 0o644) << 16
+                            if name == runtime and case == "deflated":
+                                info.compress_type = zipfile.ZIP_DEFLATED
+                            output.writestr(info, content)
+                    with self.assertRaisesRegex(
+                        builder.ComponentPackageError,
+                        "unsafe entry type|non-canonical compression",
+                    ):
+                        builder.verify_package(changed)
+
+    def test_package_verifier_rejects_rewritten_identity_even_with_matching_payload_hashes(self):
+        builder = load_builder()
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory)
+            original = root / "local-ai-service.zip"
+            changed = root / "tampered-identity.zip"
+            builder.build_package("local-ai-service", "b" * 40, original)
+            with zipfile.ZipFile(original, "r") as archive:
+                entries = [(info.filename, archive.read(info.filename))
+                           for info in archive.infolist()]
+            with zipfile.ZipFile(changed, "w") as output:
+                for name, payload in entries:
+                    if name == builder.MANIFEST_NAME:
+                        manifest = json.loads(payload.decode("utf-8"))
+                        manifest["component"]["owner"] = ["untrusted"]
+                        payload = (json.dumps(manifest, sort_keys=True) + "\n").encode("utf-8")
+                    output.writestr(builder.zip_info(name), payload)
+            with self.assertRaisesRegex(
+                builder.ComponentPackageError, "component package owner is invalid"
+            ):
+                builder.verify_package(changed)
+
     def test_archive_traversal_and_unreachable_payload_are_rejected(self):
         builder = load_builder()
         source_commit = "3" * 40
@@ -379,11 +469,7 @@ class RuntimeComponentPackageTests(unittest.TestCase):
         manifest = {
             "$schema": builder.SCHEMA,
             "status": "candidate",
-            "component": {
-                "id": "local-ai-service",
-                "version": "0.1.0",
-                "releaseMode": "bundled",
-            },
+            "component": builder.load_component_metadata("local-ai-service")["component"],
             "source_commit": "b" * 40,
             "entrypoint": "system/components/local-ai-service/runtime.mjs",
             "self_contained_source_graph": True,
@@ -410,6 +496,53 @@ class RuntimeComponentPackageTests(unittest.TestCase):
             "another component owner",
         ):
             builder.validate_manifest_shape(manifest)
+
+    def test_commonjs_runtime_package_cannot_claim_missing_dependency(self):
+        builder = load_builder()
+        entry = "system/components/local-ai-service/runtime.cjs"
+        files = {entry: b'const helper = require("./missing.cjs");'}
+        with self.assertRaisesRegex(
+            builder.ComponentPackageError, "not self-contained"
+        ):
+            builder.verify_internal_graph(files, entry)
+
+    def test_commonjs_runtime_package_requires_exact_local_helper(self):
+        builder = load_builder()
+        entry = "system/components/local-ai-service/runtime.cjs"
+        helper = "system/components/local-ai-service/helper.cjs"
+        files = {
+            entry: b'const helper = require.resolve("./helper.cjs");',
+            helper: b"exports.ok = true;",
+        }
+        builder.verify_internal_graph(files, entry)
+        with self.assertRaisesRegex(
+            builder.ComponentPackageError, "not self-contained"
+        ):
+            builder.verify_internal_graph({entry: files[entry]}, entry)
+
+    def test_runtime_component_graph_rejects_parent_symlink_to_external_repo(self):
+        builder = load_builder()
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory) / "ordax-os"
+            external = Path(directory) / "ordax-runtime"
+            external.mkdir()
+            (external / "private.mjs").write_text("export default 'external';", encoding="utf-8")
+            entry = root / "system/components/local-ai-service/runtime.mjs"
+            entry.parent.mkdir(parents=True)
+            entry.write_text(
+                'import "../../contracts/private.mjs";\\n', encoding="utf-8",
+            )
+            linked = root / "system/contracts"
+            try:
+                linked.symlink_to(external, target_is_directory=True)
+            except (OSError, NotImplementedError):
+                self.skipTest("directory symlinks unavailable on this test host")
+            with self.assertRaisesRegex(builder.SourceGraphError, "linked source path"):
+                builder.discover_graph(
+                    root,
+                    builder.PurePosixPath("system/components/local-ai-service/runtime.mjs"),
+                    allowed_prefixes=("system",),
+                )
 
     def test_shared_source_graph_detects_import_meta_assets(self):
         builder = load_builder()

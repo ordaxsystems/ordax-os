@@ -1,21 +1,21 @@
 # Roadmap de prioridades — OrdaX OS
 
 Status: **EXECUTION ROUTER**  
-Atualizado: **2026-10-15**
+Atualizado: **2026-10-31**
 
 Este roadmap ordena **janelas de execução**, não redefine arquitetura. Ele não substitui `docs/CURRENT-STATE.md`, `docs/PROMOTION-GATES.md`, `MVP.md`, contratos ou ADRs.
 
-## Janela atual — fechar o MVP antes de executar planos futuros
+## Janela atual — Desktop Windows funcional antes da mídia física
 
-A janela corrente é exclusivamente o fechamento do MVP conforme seus owners canônicos.
+O `MVP.md` já aboliu "produto mínimo" como estratégia ativa. A janela atual prioriza o **OrdaX Desktop Windows instalado**, seguido pela integração de Conta/Spaces, Loja/Apps, Aura, arquivos e Platform, estabilização e correção causal; o Web segue por deploy independente. A etapa de USB/Creator/Buildroot/Native físico é **posterior**, não uma dependência para fechar clientes Desktop/Web.
 
 Durante esta janela:
 
 - planos P1/P2/P3 permanecem documentados, pesquisáveis e reconciliáveis;
 - nenhum plano futuro abre task/issue/PR de implementação apenas por estar `READY`;
-- requisitos que já pertencem ao MVP continuam sendo executados por `MVP.md`, contratos, `docs/CURRENT-STATE.md`, `docs/PROMOTION-GATES.md` e owners canônicos;
+- requisitos já iniciados no produto continuam integrados pelos owners canônicos, mas com priorização Windows-first e provas host-específicas;
 - corrigir documentação, links, classificação e SSOT não promove capacidade de produto;
-- após o fechamento do MVP, este roadmap deve ser revalidado antes de liberar a próxima frente.
+- depois de estabilizar Desktop e funcionalidades básicas, revalidar este roadmap antes de autorizar USB/Native físico.
 
 Isso inclui uma distinção importante:
 
@@ -27,9 +27,9 @@ fechamento completo da jornada MVP instalável
 
 `MVP.md` já inclui Native SSD/NVMe/HDD no ciclo integrado do MVP. Portanto o trabalho real de Native pode ser P0 **quando exigido pelos owners canônicos**, mesmo que a primeira candidata Stable permaneça temporariamente USB-only até os gates Native passarem.
 
-## P0 — gates atuais do Stable/MVP
+## Gates históricos de USB/Native — não são P0 da janela Windows
 
-Somente os gates realmente correntes e comprovados pelos owners canônicos são elegíveis nesta janela. O resumo abaixo é um roteador; valores exatos vêm dos contratos e documentos canônicos.
+Os requisitos abaixo permanecem preservados no baseline e continuam exigindo suas provas **quando houver liberação específica da etapa física**. A numeração e os gates históricos não autorizam builds USB, Creator, QEMU nem aplicação em disco durante a priorização Windows-first.
 
 1. **Stable/MVP físico USB:** consentimento explícito válido para o contexto corrente, seleção segura do alvo, escrita autorizada e prova física exigida pelo contrato atual.
 2. **Boot/recovery/cold-health canônicos:** validar o ciclo físico real quando o owner canônico ainda o exigir, sem substituir por mock/synthetic proof.
@@ -39,17 +39,17 @@ Somente os gates realmente correntes e comprovados pelos owners canônicos são 
 6. **Hardware mínimo do modelo Native anunciado:** quando necessário ao claim de produto, áudio e suspend/resume deixam de ser "extras" para aquele hardware específico e passam a integrar a homologação real do modelo; não generalizar suporte para outras máquinas.
 7. **Profiles profissionais já exigidos pelo MVP:** fechar somente os recortes seguros de `pizzaria-br@1` e `impressao-3d-br@1` definidos pelos owners atuais de Profile/MVP; isso **não** promove OrdaX Food ou OrdaX Fabrication comerciais completos para P0.
 
-### FOUNDATION-001 — higiene e confiabilidade da fundação (recorte P0 já canônico)
+### FOUNDATION-001 — integridade/SSOT do Desktop na janela atual
 
 Roteiro de auditoria, SSOT, limpeza de legado comprovado, boot/Supervisor, atualização transacional, Creator/USB e provas está em `plans/FOUNDATION-001-OS-ARCHITECTURE-CONSOLIDATION.md`. É **handoff interagentes**, não um novo instalador, atualizador, gate de release ou source de estado; complementa `EXEC-000` e **não duplica** `NATIVE-001`. Execute apenas defeitos e fechamento já exigidos pelos owners MVP, com testes e evidências por fase; nenhuma autorização de escrita física é concedida.
 
-Fonte de execução: `docs/CURRENT-STATE.md` + `docs/PROMOTION-GATES.md` + `MVP.md` + `docs/NATIVE-INSTALLATION.md` + contratos correntes. `PLANO-00-ESTADO-ATUAL-E-PRIORIDADES.md` é apenas overlay auxiliar.
+Fonte de execução: `docs/CURRENT-STATE.md` + `docs/PROMOTION-GATES.md` + `MVP.md` + `docs/NATIVE-INSTALLATION.md` + contratos correntes. `PLANO-00-ESTADO-ATUAL-E-PRIORIDADES.md` é snapshot histórico arquivado, não overlay de prioridades atual.
 
-### NATIVE-001 — posição exata na janela P0
+### NATIVE-001 — implementação preservada para etapa física posterior
 
 - **Status documental:** READY
-- **Elegibilidade:** EXECUTION-ELIGIBLE somente no recorte que os owners canônicos do MVP já exigirem
-- **Prioridade:** P0
+- **Elegibilidade:** DEFERRED FOR EXECUTION até liberação do owner após Desktop funcional
+- **Prioridade:** posterior à estabilização Windows/Web
 - **Autoridade destrutiva:** continua nos contratos/gates existentes, nunca neste roadmap
 
 Objetivo de produto:
@@ -68,7 +68,7 @@ Creator/release
 
 Plano detalhado: `plans/NATIVE-001-USB-TO-NATIVE-MVP-CLOSURE.md`.
 
-## Planos preservados — execução adiada até pós-MVP
+## Planos preservados — execução condicionada à janela/owner contemporâneos
 
 ### MODE-001 — OrdaX Web, Cloud & Device Runtime
 
@@ -233,7 +233,7 @@ Plano detalhado: `plans/HEALTH-001-HEALTHCARE-CLINIC-AND-PATIENT-PORTAL.md`.
 
 ### Demais planos existentes
 
-`SURFACE-001`, `ECO-001`, `PROFILE-001`, `PERSONAL-001`, `NETWORK-001` e demais itens catalogados permanecem preservados conforme `REGISTRY.md`.
+`SURFACE-001`, `ECO-001`, `PERSONAL-001`, `NETWORK-001` e demais itens seguem o `REGISTRY.md`. O antigo `PROFILE-001` foi absorvido por `docs/SPACES-AND-PROFILES.md` e pelos contratos/manifests canônicos, sem backlog duplicado.
 
 Regra comum:
 

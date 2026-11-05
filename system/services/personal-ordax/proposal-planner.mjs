@@ -47,12 +47,21 @@ function parsePlannerResponse(text) {
   });
 }
 
-function safeCatalogProjection(catalog) {
-  return Object.freeze(catalog.list().map((entry) => Object.freeze({
-    entryId: entry.id,
-    inputKind: entry.inputKind,
-    resourceScheme: entry.resourceScheme,
-  })));
+function safeCatalogProjection(catalog, getCurrentEntryIds) {
+  // Filter the canonical registrations by the live Fabric observation.
+  // The model never receives a second catalog or execution authority.
+  const allowed = getCurrentEntryIds === null ? null : getCurrentEntryIds();
+  if (allowed !== null &&
+      (!(allowed instanceof Set) || [...allowed].some(id => typeof id !== "string"))) {
+    throw new TypeError("Personal action planner requires current entry identities");
+  }
+  return Object.freeze(catalog.list()
+    .filter(entry => allowed === null || allowed.has(entry.id))
+    .map((entry) => Object.freeze({
+      entryId: entry.id,
+      inputKind: entry.inputKind,
+      resourceScheme: entry.resourceScheme,
+    })));
 }
 
 function promptFor(work, options) {
@@ -77,9 +86,13 @@ function promptFor(work, options) {
 export function createPersonalActionProposalPlanner({
   intelligencePort,
   actionCatalog,
+  getCurrentEntryIds = null,
 } = {}) {
   const intelligence = assertIntelligencePort(intelligencePort);
   const catalog = assertPersonalActionCatalog(actionCatalog);
+  if (getCurrentEntryIds !== null && typeof getCurrentEntryIds !== "function") {
+    throw new TypeError("Personal action planner current entry resolver must be a function");
+  }
 
   return Object.freeze({
     async propose(workValue) {
@@ -88,7 +101,7 @@ export function createPersonalActionProposalPlanner({
         throw new Error("Personal action planner requires queued or paused Work");
       }
 
-      const options = safeCatalogProjection(catalog);
+      const options = safeCatalogProjection(catalog, getCurrentEntryIds);
       if (options.length === 0) return null;
 
       const response = validateIntelligenceResponse(await intelligence.respond({
@@ -99,7 +112,15 @@ export function createPersonalActionProposalPlanner({
       }));
       const candidate = parsePlannerResponse(response.text);
       if (candidate.kind === "none") return null;
-
+      if (!options.some(option => option.entryId === candidate.entryId)) {
+        throw new Error("Personal action model selection is unavailable in current allowed actions");
+      }
+      // The same source is re-read after inference. Changing or removing a
+      // provider mid-request revokes its option before a proposal is returned.
+      const stillAllowed = safeCatalogProjection(catalog, getCurrentEntryIds);
+      if (!stillAllowed.some(option => option.entryId === candidate.entryId)) {
+        throw new Error("Personal action model selection is no longer current");
+      }
       return catalog.propose(work.id, candidate.entryId, {
         resourceValue: candidate.resourceValue,
         rationale: candidate.rationale,

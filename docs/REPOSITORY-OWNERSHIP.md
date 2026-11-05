@@ -64,6 +64,7 @@ Não é owner de:
 
 É owner de:
 - ORDAX Runtime para Windows;
+- OrdaX MCP para Windows como **distribuição independente**, sem depender do Studio ou do Electron;
 - device host/agent;
 - Computer Control;
 - filesystem/process/input/screenshot/app launch;
@@ -112,6 +113,40 @@ O único código de apresentação, CSS, assets, rotas, i18n e testes do Site pe
 
 Identity, sessão, autorização, billing, publicação assinada de releases, domínios e o proxy do gateway **não** pertencem ao Site. Esses serviços mantêm a autoridade no OS/Platform e apenas fornecem APIs/autorização de mesma origem ao frontend. O ambiente `ordax-site-dev` é separado da operação de produção.
 
+### 7. ordaxsystems/ordax-creator
+
+**Papel:** aplicativo independente do Creator, Core de verificação de mídia e interface/adapters Windows.
+
+É owner do código-fonte do Creator, seus consumidores dos canais assinados, verificações de integridade de payload, UI e adapters limitados do host. Sua CI de aplicativo/Core é independente de compilar kernel, Base, Surface ou USB.
+
+**Não** é owner dos produtores de kernel, boot, Base, prova descartável de ESP/QEMU, política de release/assinatura nem autorização da gravação física. Esses componentes permanecem no `ordaxsystems/ordax-os`, inclusive os produtores Python de `tools/creator/`. O Core pode consumir contratos OS imutáveis sem duplicá-los; um CI verde do Creator não autoriza gravar USB nem lançar Stable.
+
+O corte de fonte do Creator já foi concluído (C6), mas esta declaração de owner **não** promove payload, dispositivo físico, release assinada ou qualquer alteração à PR USB Dev #2243.
+
+### 8. ordaxsystems/ordax-intelligence — fonte portátil candidata, não autoridade ativa
+
+O oitavo repositório possui a **fonte portátil candidata** do motor de
+Intelligence, router, streaming, compatibilidade e builder técnico. Seu único
+pin de integração, incluindo o grafo portátil completo verificado, é
+`docs/contracts/intelligence-source.json`. Enquanto o lock declarar
+`integration-candidate`, `cutover_complete=false` e
+`activation_authorized=false`, essa fonte **não substitui** o motor
+ativo no OS nem autoriza remoção de consumidores antigos, assinatura ou boot.
+
+Por isso `docs/contracts/repository-ownership.json#repositories` ainda
+enumera **sete autoridades operacionais**: o OS retém Intelligence de
+sistema, Memory, permissões, Supervisor, composição Native e política de
+modelos. O conjunto de **oito repositórios em auditoria** é obtido desses
+sete owners mais o `source_repository` do lock, **sem manter segunda lista
+de versões ou duplicar ownership**. O teste de contrato impede promover
+a candidata como owner operacional antes do cutover atestado.
+
+O corte definitivo exige migrar consumidores e validar OS/Windows com
+as mesmas portas públicas, segurança, cancelamento, recuperação e artefatos
+verificados. Só então atualizar owner ativo, remover o motor OS substituído
+e encerrar o estado de candidata no mesmo change set. Nenhum trabalho
+de código é autorizado no repositório Intelligence por esta definição.
+
 ## Fluxos oficiais
 
 ### Site público independente
@@ -136,6 +171,20 @@ ordaxsystems/ordax-surface (revisão fixa em docs/contracts/surface-source.json)
 
 O repositório da Surface não instala serviços nativos nem atualiza dispositivos; a verificação, staging e ativação pertencem aos owners do OS.
 
+### Creator independente com artefatos OS assinados
+
+```text
+ordaxsystems/ordax-os
+  -> Base / boot / componentes físicos / contratos / assinatura (owner produtor)
+  -> artefatos com proveniência verificável
+  -> ordaxsystems/ordax-creator (Core + UI + adapters Windows consumidores)
+  -> verificação independente de integridade + gates de autorização física
+```
+
+O Creator **não** aciona rebuild da Base por mudar sua interface. A autorização
+para gravar mídia depende de assinatura, gates físicos e confirmação explícita,
+não da existência de um instalador do Creator ou de testes isolados.
+
 ### ChatGPT controlando um computador Windows
 
 ```text
@@ -146,6 +195,24 @@ ChatGPT
   -> capability tipada no dispositivo
   -> receipt/audit
 ```
+
+### OrdaX MCP independente para Windows
+
+```text
+ordaxsystems/ordax-runtime
+  -> instalador e processo OrdaX MCP / ORDAX Runtime (mesmo executor)
+  -> capabilities locais sujeitas a política e consentimento
+  -> ordaxsystems/ordax-platform (Conta, OAuth, grants, sessões e MCP remoto)
+  -> ChatGPT e outros clientes autorizados
+```
+
+A distribuição Windows do **OrdaX MCP** pertence exclusivamente a
+`ordax-runtime`, e não ao Studio. O candidato independente foi validado
+na [PR #278 do Runtime](https://github.com/ordaxsystems/ordax-runtime/pull/278)
+com build, instalação e desinstalação em runner Windows; não é release
+público assinado nem comprovação de onboarding gráfico completo.
+`ordax-platform` permanece a autoridade remota. Não existe segundo MCP,
+executor, base de identidade ou atualização sob a responsabilidade de apps.
 
 ### ORDAX Studio no Windows
 
@@ -171,9 +238,11 @@ O OrdaX OS não deve empacotar um segundo ORDAX Runtime apenas para executar o S
 O OrdaX OS é owner dos **serviços nativos de permissões e capabilities**
 consumidos por todos os apps, não apenas Studio. A Platform é owner do
 Product MCP remoto e dos grants OAuth/PostgreSQL. No Windows, o Runtime
-implementa a política e as capacidades locais; o Studio pode apresentar a
-interface Owner para autorizações Windows, mas não se torna serviço de
-permissões universal.
+implementa a política e as capacidades locais; a instalação e a vinculação
+Owner pertencem ao produto independente **OrdaX MCP**, e não ao Studio.
+O Studio consome capabilities autorizadas como qualquer outro aplicativo,
+sem assumir onboarding obrigatório, grant minting ou autoridade de permissões.
+A interface gráfica própria do OrdaX MCP ainda exige gates de produto.
 
 No OrdaX OS, Settings/Permissions e o host de sistema administram acesso
 tipado por app verificado/cliente + conta + Space/projeto + dispositivo +
@@ -227,6 +296,7 @@ Atualizado em 2026-10-08 após validação da migração concluída e dos quatro
 | Camada | Repositório canônico | Estado |
 | --- | --- | --- |
 | OrdaX OS / plataforma | `ordaxsystems/ordax-os` | canônico |
+| Creator (Core/UI/consumidor Windows) | `ordaxsystems/ordax-creator` | fonte independente C6; publicação física depende de gates OS |
 | Apps first-party / ORDAX Studio | `ordaxsystems/ordax-apps` | canônico; Studio portátil em `apps/studio` |
 | Runtime / Device Host Windows | `ordaxsystems/ordax-runtime` | canônico; namespace transferido e histórico preservado |
 | Product MCP / Control Plane / connectors | `ordaxsystems/ordax-platform` | canônico; transferido e renomeado, histórico preservado |

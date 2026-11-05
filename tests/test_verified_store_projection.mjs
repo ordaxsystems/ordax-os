@@ -586,3 +586,81 @@ test("new signed catalog immediately clears stale Store actions while Native ref
   assert.equal(fresh.entries[0].installable, true);
   projection.destroy();
 });
+
+test("disposing a ready Store projection revokes installable candidates for all retained readers", async () => {
+  const catalog = catalogPort(ready());
+  const projection = createVerifiedAppStoreProjection({
+    verifiedCatalogPort: catalog.port,
+    componentSource: source(),
+    fetchImpl: fetchFrom({ notes: metadata("notes") }),
+  });
+  await projection.refresh();
+  assert.equal(projection.port.getSnapshot().state, "ready");
+  assert.equal(projection.port.getSnapshot().entries[0].installable, true);
+  assert.ok(projection.getCurrentObservations().length > 0);
+
+  const seen = [];
+  projection.port.subscribe((snapshot) => seen.push(snapshot.state));
+  projection.destroy();
+  const closed = projection.port.getSnapshot();
+  assert.equal(closed.state, "unavailable");
+  assert.equal(closed.reason, "verified-store-projection-disposed");
+  assert.deepEqual(closed.entries, []);
+  assert.deepEqual(projection.getCurrentObservations(), []);
+  assert.deepEqual(seen, ["unavailable"]);
+
+  await projection.refresh();
+  assert.equal(projection.port.getSnapshot(), closed);
+  assert.deepEqual(seen, ["unavailable"], "a disposed projection never publishes another candidate");
+});
+
+test("one failing Store subscriber cannot suppress CURRENT revocation or notify the next reader", async t => {
+  const catalog = catalogPort(ready());
+  const projection = createVerifiedAppStoreProjection({
+    verifiedCatalogPort: catalog.port,
+    componentSource: source(),
+    fetchImpl: fetchFrom({ notes: metadata("notes") }),
+  });
+  t.after(() => projection.destroy());
+  await projection.waitForCurrentRefresh();
+  assert.equal(projection.port.getSnapshot().state, "ready");
+  const delivered = [];
+  projection.port.subscribe(() => { throw new Error("broken Store UI subscriber"); });
+  projection.port.subscribe(value => delivered.push(value.state));
+
+  await assert.doesNotReject(projection.refresh(),
+    "the first subscriber must not prevent Native CURRENT reconciliation");
+  assert.deepEqual(delivered, ["unavailable", "ready"],
+    "the next subscriber must observe both fail-closed withdrawal and attested restoration");
+  assert.equal(projection.port.getSnapshot().state, "ready");
+  assert.ok(projection.getCurrentObservations().length > 0);
+
+  projection.destroy();
+  assert.equal(delivered.at(-1), "unavailable",
+    "even dispose must notify healthy consumers after a subscriber throws");
+});
+
+test("reentrant Store refresh never sends a superseded ready snapshot after newer withdrawal", async t => {
+  const catalog = catalogPort(ready());
+  const projection = createVerifiedAppStoreProjection({
+    verifiedCatalogPort: catalog.port,
+    componentSource: source(),
+    fetchImpl: fetchFrom({ notes: metadata("notes") }),
+  });
+  t.after(() => projection.destroy());
+  await projection.waitForCurrentRefresh();
+  const delivered = [];
+  let nested = null;
+  projection.port.subscribe(value => {
+    if (value.state === "ready" && nested === null) {
+      nested = projection.refresh();
+    }
+  });
+  projection.port.subscribe(value => delivered.push(value.state));
+  await projection.refresh();
+  assert.ok(nested, "the first Store reader must initiate the one nested reconciliation");
+  await nested;
+  assert.deepEqual(delivered, ["unavailable", "unavailable", "ready"],
+    "the superseded ready emission must not reach later readers after nested withdrawal");
+  assert.equal(projection.port.getSnapshot().state, "ready");
+});

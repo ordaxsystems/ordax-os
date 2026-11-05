@@ -91,8 +91,14 @@ jobs:
               "installation_authorized",
               "activation_authorized",
           ))
+          # The toolkit's existing Notes fixture is selected from the same
+          # frozen interop inventory; it must not introduce another source pin.
+          notes = [item for item in value["fixtures"] if item["component_id"] == "notes"]
+          assert len(notes) == 1
+          assert notes[0]["component_version"] == "0.4.3"
+          assert notes[0]["compatibility_path"] == "migrations/notes.compatibility.json"
           print(f"repository={value['source_repository']}")
-          print(f"commit={value['source_commit']}")
+          print(f"commit={notes[0]['source_commit']}")
           PY
 
       - name: Checkout pinned ordax-apps interoperability fixture

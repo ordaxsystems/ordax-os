@@ -46,7 +46,7 @@ function fixture(){
   const dialog={showSaveDialog:async()=>({canceled:true})};
   const host=createDesktopBrowserHost({window,ipcMain,WebContentsView:View,session,dialog});
   const post=payload=>ipcMain.emit('ordax:desktop-browser:command',{sender:ui},JSON.stringify(payload));
-  return {window,ui,host,post,browserSession,ipcMain};
+  return {window,ui,host,post,browserSession,ipcMain,dialog};
 }
 
 test('Browser URL validation rejects privileged schemes, credentials and oversized data',()=>{
@@ -121,6 +121,118 @@ test('malformed and cross-window commands cannot acquire browser privileges',t=>
   assert.equal(allowed,false);
 });
 
+test('download IPC rejects oversized and foreign-window requests before save dialog',async t=>{
+  const f=fixture();t.after(()=>f.host.dispose());
+  f.post({type:'tab.open',tabId:'tab-download',url:'https://example.com/'});
+  await Promise.resolve();
+  const wc=View.all[0].webContents;
+  let cancelled=false, dialogs=0;
+  const item=new EventEmitter();
+  item.getFilename=()=> 'safe-file.txt';
+  item.pause=()=>{};
+  item.cancel=()=>{cancelled=true;};
+  f.browserSession.emit('will-download',{preventDefault(){throw Error('unexpected reject');}},item,wc);
+  const pending=f.ui.sent.map(x=>x.value).find(x=>x.type==='browser-download'&&x.status==='pending');
+  assert.match(pending.id,/^download-[0-9a-f]{16}$/);
+  f.dialog.showSaveDialog=async()=>{dialogs++;return {canceled:true};};
+  f.ipcMain.emit('ordax:desktop-browser:command',{sender:f.ui},
+    JSON.stringify({type:'download.approve',id:pending.id,padding:'x'.repeat(12000)}));
+  assert.equal(dialogs,0,'oversized payload must not invoke the privileged save dialog');
+  f.ipcMain.emit('ordax:desktop-browser:command',{sender:{}},
+    JSON.stringify({type:'download.cancel',id:pending.id}));
+  assert.equal(cancelled,false,'another WebContents cannot cancel a download');
+  f.post({type:'download.approve',id:pending.id});
+  await new Promise(resolve=>setImmediate(resolve));
+  assert.equal(dialogs,1,'bounded request retains the intended save flow');
+  assert.equal(cancelled,true,'canceling the save dialog cancels the download');
+});
+
+test('download consent is single-use and cancelled pending approval never writes a file',async t=>{
+  const f=fixture();t.after(()=>f.host.dispose());
+  f.post({type:'tab.open',tabId:'tab-download',url:'https://example.com'});
+  await Promise.resolve();
+  let resolveSave, dialogs=0, cancellations=0, resumed=0;
+  const paths=[];
+  const item=new EventEmitter();
+  item.getFilename=()=> 'private.txt';
+  item.pause=()=>{};
+  item.cancel=()=>{cancellations++;};
+  item.setSavePath=p=>paths.push(p);
+  item.resume=()=>{resumed++;};
+  f.browserSession.emit('will-download',{preventDefault(){throw Error('unexpected reject');}},
+    item,View.all[0].webContents);
+  const pending=f.ui.sent.map(x=>x.value).find(x=>x.type==='browser-download'&&x.status==='pending');
+  f.dialog.showSaveDialog=()=>{
+    dialogs++;
+    return new Promise(resolve=>{resolveSave=resolve;});
+  };
+  f.post({type:'download.approve',id:pending.id});
+  f.post({type:'download.approve',id:pending.id});
+  assert.equal(dialogs,1,'concurrent approvals must not create multiple native dialogs');
+  f.post({type:'download.cancel',id:pending.id});
+  f.post({type:'download.cancel',id:pending.id});
+  resolveSave({canceled:false,filePath:'C:\\Users\\Dev\\private.txt'});
+  await new Promise(resolve=>setImmediate(resolve));
+  assert.equal(cancellations,1,'only the first cancel is applied');
+  assert.deepEqual(paths,[],'late native approval must not write after cancellation');
+  assert.equal(resumed,0,'cancelled transfer must never resume');
+});
+
+test('late save dialogs cannot resume downloads after browser disposal or completion',async()=>{
+  for(const terminal of ['disposed','completed']){
+    const f=fixture();
+    f.post({type:'tab.open',tabId:'tab-file',url:'https://example.com'});
+    await Promise.resolve();
+    const item=new EventEmitter();
+    let cancellations=0, resumed=0, saved=0, resolveSave;
+    item.getFilename=()=> 'file.txt';
+    item.pause=()=>{};
+    item.cancel=()=>{cancellations++;};
+    item.setSavePath=()=>{saved++;};
+    item.resume=()=>{resumed++;};
+    f.browserSession.emit('will-download',{preventDefault(){throw Error('unexpected reject');}},
+      item,View.all[0].webContents);
+    const pending=f.ui.sent.map(x=>x.value).find(x=>x.type==='browser-download'&&x.status==='pending');
+    f.dialog.showSaveDialog=()=>new Promise(resolve=>{resolveSave=resolve;});
+    f.post({type:'download.approve',id:pending.id});
+    if(terminal==='disposed') f.host.dispose();
+    else item.emit('done',{},'cancelled');
+    resolveSave({canceled:false,filePath:'C:\\Users\\Dev\\file.txt'});
+    await new Promise(resolve=>setImmediate(resolve));
+    assert.equal(saved,0,terminal+' pending approval never sets a save path');
+    assert.equal(resumed,0,terminal+' pending approval never resumes a transfer');
+    assert.equal(cancellations,terminal==='disposed'?1:0);
+    f.host.dispose();
+  }
+});
+
+test('single valid download approval still saves and starts the transfer',async t=>{
+  const f=fixture();t.after(()=>f.host.dispose());
+  f.post({type:'tab.open',tabId:'tab-valid',url:'https://example.com'});
+  await Promise.resolve();
+  const item=new EventEmitter();
+  let savePath=null, resumed=0, dialogs=0;
+  item.getFilename=()=> 'file.txt';
+  item.pause=()=>{};
+  item.cancel=()=>{};
+  item.setSavePath=path=>{savePath=path;};
+  item.resume=()=>{resumed++;};
+  f.browserSession.emit('will-download',{preventDefault(){throw Error('unexpected reject');}},
+    item,View.all[0].webContents);
+  const pending=f.ui.sent.map(x=>x.value).find(x=>x.type==='browser-download'&&x.status==='pending');
+  f.dialog.showSaveDialog=async()=>{
+    dialogs++;
+    return {canceled:false,filePath:'C:\\Users\\Dev\\file.txt'};
+  };
+  f.post({type:'download.approve',id:pending.id});
+  await new Promise(resolve=>setImmediate(resolve));
+  f.post({type:'download.approve',id:pending.id});
+  assert.equal(dialogs,1);
+  assert.equal(savePath,'C:\\Users\\Dev\\file.txt');
+  assert.equal(resumed,1);
+  assert.ok(f.ui.sent.some(x=>x.value.type==='browser-download'&&x.value.status==='downloading'));
+});
+
 test('untrusted page selection is only returned to OrdaX on explicit tab-scoped request',async t=>{
   const f=fixture();t.after(()=>f.host.dispose());
   f.post({type:'tab.open',tabId:'tab-a',url:'https://example.com'});
@@ -131,6 +243,103 @@ test('untrusted page selection is only returned to OrdaX on explicit tab-scoped 
   assert.equal(event.selection.source,'untrusted-web-content');
   assert.equal(event.selection.text,'selected web text');
   assert.equal(event.selection.url,'https://example.com/');
+});
+
+test('late page selection from a previous navigation cannot be attributed to the new document',async t=>{
+  const f=fixture();t.after(()=>f.host.dispose());
+  f.post({type:'tab.open',tabId:'tab-selection',url:'https://old.example/'});
+  await Promise.resolve();
+  const wc=View.all[0].webContents;
+  let resolveSelection;
+  wc.executeJavaScript=()=>new Promise(resolve=>{resolveSelection=resolve;});
+  f.post({type:'page-selection.capture',tabId:'tab-selection',requestId:'old-selection'});
+  f.post({type:'tab.navigate',tabId:'tab-selection',url:'https://new.example/'});
+  await Promise.resolve();
+  resolveSelection('private text from previous document');
+  await new Promise(resolve=>setImmediate(resolve));
+  assert.equal(f.ui.sent.some(x=>x.value.type==='page-selection.result'
+    && x.value.requestId==='old-selection'),false,
+    'previous document text must not reach the new page context');
+  wc.executeJavaScript=async()=> 'current text';
+  f.post({type:'page-selection.capture',tabId:'tab-selection',requestId:'current-selection'});
+  await new Promise(resolve=>setImmediate(resolve));
+  const fresh=f.ui.sent.map(x=>x.value).find(x=>x.requestId==='current-selection');
+  assert.equal(fresh.selection.text,'current text');
+  assert.equal(fresh.selection.url,'https://new.example/');
+});
+
+test('closing and reusing a tab ID cannot revive old pending selection',async t=>{
+  const f=fixture();t.after(()=>f.host.dispose());
+  f.post({type:'tab.open',tabId:'tab-reuse',url:'https://old.example/'});
+  await Promise.resolve();
+  let complete;
+  View.all[0].webContents.executeJavaScript=()=>new Promise(resolve=>{complete=resolve;});
+  f.post({type:'page-selection.capture',tabId:'tab-reuse',requestId:'old-request'});
+  f.post({type:'tab.close',tabId:'tab-reuse'});
+  f.post({type:'tab.open',tabId:'tab-reuse',url:'https://new.example/'});
+  await Promise.resolve();
+  complete('old tab secret');
+  await new Promise(resolve=>setImmediate(resolve));
+  assert.equal(f.ui.sent.some(x=>x.value.requestId==='old-request'),false);
+  f.post({type:'page-selection.capture',tabId:'tab-reuse',requestId:'new-request'});
+  await new Promise(resolve=>setImmediate(resolve));
+  const current=f.ui.sent.map(x=>x.value).find(x=>x.requestId==='new-request');
+  assert.equal(current.selection.text,'selected web text');
+  assert.equal(current.selection.url,'https://new.example/');
+});
+
+test('page find accepts only current requestId and clears pending listeners at navigation',async t=>{
+  const f=fixture();t.after(()=>f.host.dispose());
+  f.post({type:'tab.open',tabId:'tab-find',url:'https://old.example/'});
+  await Promise.resolve();
+  const wc=View.all[0].webContents;
+  let nextId=40;
+  const queries=[];
+  wc.findInPage=q=>{queries.push(q);return ++nextId;};
+  f.post({type:'page-find.search',tabId:'tab-find',query:'old private query'});
+  assert.equal(wc.listenerCount('found-in-page'),1);
+  wc.emit('found-in-page',{}, {requestId:40,matches:10});
+  assert.equal(f.ui.sent.some(x=>x.value.type==='page-find.result'),false,
+    'stale Chromium request ID is not a fresh find response');
+  wc.emit('found-in-page',{}, {requestId:41,matches:3});
+  assert.equal(f.ui.sent.filter(x=>x.value.type==='page-find.result').length,1);
+  assert.equal(wc.listenerCount('found-in-page'),0);
+  f.post({type:'page-find.search',tabId:'tab-find',query:'pending old query'});
+  assert.equal(wc.listenerCount('found-in-page'),1);
+  f.post({type:'tab.navigate',tabId:'tab-find',url:'https://new.example/'});
+  await Promise.resolve();
+  assert.equal(wc.listenerCount('found-in-page'),0,
+    'navigation must remove the old page find listener');
+  wc.emit('found-in-page',{}, {requestId:42,matches:20});
+  assert.equal(f.ui.sent.filter(x=>x.value.type==='page-find.result').length,1);
+  f.post({type:'page-find.next',tabId:'tab-find'});
+  assert.equal(queries.length,2,
+    'new document must not inherit the previous document search query');
+  f.post({type:'page-find.search',tabId:'tab-find',query:'new query'});
+  assert.equal(queries.at(-1),'new query');
+  f.post({type:'page-find.finish',tabId:'tab-find'});
+  assert.equal(wc.listenerCount('found-in-page'),0);
+});
+
+test('closing a tab and disposing the host clear outstanding find and selection work',async()=>{
+  const f=fixture();
+  f.post({type:'tab.open',tabId:'tab-clean',url:'https://old.example/'});
+  await Promise.resolve();
+  const wc=View.all[0].webContents;
+  wc.findInPage=()=>77;
+  f.post({type:'page-find.search',tabId:'tab-clean',query:'old'});
+  assert.equal(wc.listenerCount('found-in-page'),1);
+  f.post({type:'tab.close',tabId:'tab-clean'});
+  assert.equal(wc.listenerCount('found-in-page'),0);
+  f.post({type:'tab.open',tabId:'tab-clean',url:'https://new.example/'});
+  await Promise.resolve();
+  let resolveSelection;
+  View.all[1].webContents.executeJavaScript=()=>new Promise(resolve=>{resolveSelection=resolve;});
+  f.post({type:'page-selection.capture',tabId:'tab-clean',requestId:'disposed-request'});
+  f.host.dispose();
+  resolveSelection('no consent after disposal');
+  await new Promise(resolve=>setImmediate(resolve));
+  assert.equal(f.ui.sent.some(x=>x.value.requestId==='disposed-request'),false);
 });
 
 test('Desktop bridge remains a preload-only port on canonical Native; no privileged browser shortcuts',()=>{

@@ -42,6 +42,7 @@ The product foundation also defines narrow provider-neutral ports for the next a
 - `space-lifecycle.mjs` — explicit versioned rename/archive/restore action boundary; requests carry Space identity, bounded payload and idempotency only, never client-supplied actor/role/ownership authority;
 - `space-actor-capability.mjs` - subject-bound, read-only Space participation/capability projection; presentation capability is server-authored and never derived from role in the client;
 - `space-membership-actions.mjs` — bounded actions over already-existing memberships (`change-role`, `suspend`, `reactivate`, `remove`); direct member creation, invites, leave and ownership transfer remain separate flows, and `owner` is never assignable through this boundary;
+- `space-invites.mjs` — transport-neutral, versioned invite value/port contract only (no mounted executor): invites are not memberships; owner transfer is forbidden; secrets never enter the invite read model; authenticated acceptance and authorization remain server-owned when implemented.
 - `memory.mjs` — scoped, provenance-bearing OrdaX Memory independent of model provider;
 - `model-router.mjs` — local/external inference route selection with explicit egress for cloud providers;
 - `intelligence-artifact.mjs` — signed/content-addressed identity, provenance, compatibility and resource gates for replaceable engines, models, embeddings, tool runtimes and knowledge packs;

@@ -4,6 +4,7 @@ const assert = require('node:assert/strict');
 const { readFileSync } = require('node:fs');
 const { join, resolve } = require('node:path');
 const { resolveTemplate, runtimeStateDirectory, OFFICIAL_REMOTE } = require('./runtime.cjs');
+const { resolveInstalledGit } = require('./checkout.cjs');
 
 test('Dev and MVP share the single authoritative distribution contract', () => {
   const source = JSON.parse(readFileSync(join(__dirname,'../../docs/contracts/distribution-profiles.json'),'utf8'));
@@ -24,6 +25,26 @@ test('packaged Windows uses offline verified snapshot with isolated state', () =
   assert.equal(template,join('C:\\OrdaXResources','runtime-template'));
   assert.ok(!runtimeStateDirectory('C:\\UserData').includes('runtime-template'));
 });
+test('Windows Git discovery reuses installed Git without PATH or a second installer',()=>{
+  const expected='C:\\Program Files\\Git\\cmd\\git.exe';
+  const seen=[];
+  const fakeStat=path=>{
+    seen.push(path);
+    if(path===expected)return {isFile:()=>true,isSymbolicLink:()=>false};
+    throw Object.assign(Error('ENOENT'),{code:'ENOENT'});
+  };
+  assert.equal(resolveInstalledGit({
+    platform:'win32',env:{ProgramFiles:'C:\\Program Files',PATH:'C:\\Windows'},
+    stat:fakeStat,
+  }),expected);
+  assert.equal(seen.includes(expected),true);
+  assert.equal(resolveInstalledGit({
+    platform:'win32',env:{ProgramFiles:'C:\\Untrusted',PATH:''},
+    stat:()=>({isFile:()=>true,isSymbolicLink:()=>true}),
+  }),'git','never select a symlink as a privileged Git binary');
+  assert.equal(resolveInstalledGit({platform:'linux'}),'git');
+});
+
 test('Desktop Dev source is the sole canonical remote, with no shallow live merge', () => {
   assert.equal(OFFICIAL_REMOTE, 'https://github.com/ordaxsystems/ordax-os.git');
   const main = readFileSync(join(__dirname,'main.cjs'),'utf8');
@@ -35,11 +56,13 @@ test('Desktop Dev source is the sole canonical remote, with no shallow live merg
   assert.ok(staging.includes("'--sparse'"));
   assert.ok(!staging.includes("'--depth'"));
 });
-test('installed Electron opens canonical Native composition without iframe', () => {
+test('installed Electron loads canonical Native composition only after attested listener readiness', () => {
   const main = readFileSync(join(__dirname,'main.cjs'),'utf8');
   const host = readFileSync(join(__dirname,'host.cjs'),'utf8');
   assert.ok(main.includes("const PRODUCT='/system/composition/native/index.html'"));
-  assert.ok(host.includes("path:'/system/composition/native/index.html'"));
+  assert.ok(host.includes("path:attested?'/__ordax/desktop-host-ready':'/system/composition/native/index.html'"));
+  assert.ok(host.includes('if(await isReady(port,staticHost?nativeSessionToken:null))'));
+  assert.ok(host.includes('timingSafeEqual(expected,Buffer.from(proof,\'hex\'))'));
 });
 
 test('Windows installer CI uses exact PR head rather than ephemeral test-merge SHA', () => {
@@ -102,4 +125,26 @@ test('NSIS Owner Dev mode is forced to the current Windows user without a select
   assert.match(nsisScript, /!macro customInstallMode/);
   assert.ok(nsisScript.includes('StrCpy $isForceCurrentInstall "1"'));
   assert.ok(!nsisScript.includes('StrCpy $isForceMachineInstall "1"'));
+});
+
+test('Windows package excludes Linux-only Alpine package declaration without dropping the shared Native tree', () => {
+  const resources = require('./package.json').build.extraResources;
+  const system = resources.filter(item => item.to === 'runtime-template/system');
+  assert.equal(system.length, 1);
+  assert.equal(system[0].from, '../../system');
+  assert.deepEqual(system[0].filter, [
+    '**/*', '!surface/runtime/packages.txt',
+    '!surface/runtime/media_runtime_probe.py', '!surface/runtime/audio-session.sh',
+    '!surface/runtime/physical_ata_probe.py', '!surface/runtime/physical_kernel_log_probe.py', '!surface/runtime/physical_performance_probe.py',
+  ]);
+  const workflow = readFileSync(join(__dirname, '../../.github/workflows/windows-desktop-dev.yml'), 'utf8');
+  const paths = workflow.split('paths: &desktop_product_sources', 2)[1].split('  # Every integrated main', 1)[0];
+  assert.match(paths, /- 'system\/\*\*'/);
+  assert.match(paths, /- '!system\/surface\/runtime\/packages\.txt'/);
+  assert.match(paths, /- '!system\/surface\/runtime\/media_runtime_probe\.py'/);
+  assert.match(paths, /- '!system\/surface\/runtime\/audio-session\.sh'/);
+  assert.match(paths, /- '!system\/surface\/runtime\/physical_ata_probe\.py'/);
+  assert.match(paths, /- '!system\/surface\/runtime\/physical_kernel_log_probe\.py'/);
+  assert.match(paths, /- '!system\/surface\/runtime\/physical_performance_probe\.py'/);
+  assert.ok(workflow.includes('paths: *desktop_product_sources'));
 });

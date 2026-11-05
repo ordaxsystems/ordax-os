@@ -1,6 +1,9 @@
 import test from "node:test";
 import assert from "node:assert/strict";
 import { createServer } from "node:http";
+import { createHmac } from "node:crypto";
+import { createRequire } from "node:module";
+const { isReady } = createRequire(import.meta.url)("../windows-desktop/host.cjs");
 import { mkdtempSync, mkdirSync, writeFileSync, rmSync, readFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join, resolve } from "node:path";
@@ -15,6 +18,7 @@ const tokens={
   ORDAX_DESKTOP_STATE_TOKEN:"f".repeat(64),
   ORDAX_DESKTOP_NETWORK_TOKEN:"1".repeat(64),
   ORDAX_DESKTOP_OBSERVATION_TOKEN:"2".repeat(64),
+  ORDAX_DESKTOP_SURFACE_REPORT_TOKEN:"5".repeat(64),
   ORDAX_DESKTOP_DISPLAY_TOKEN:"3".repeat(64),
   ORDAX_DESKTOP_LOCAL_AI_TOKEN:"4".repeat(64),
   ORDAX_DESKTOP_RENDERED_SOURCE_SHA:"a".repeat(40),
@@ -33,6 +37,7 @@ test("standalone installed Native host serves verified bundle and existing privi
   for(const [k,v] of Object.entries({...tokens,
     ORDAX_DESKTOP_HOST:"1",ORDAX_DESKTOP_UPDATE_USER_DATA:dir,
     ORDAX_DESKTOP_ASSETS_ROOT:built,
+    ORDAX_DESKTOP_COMPONENT_VERIFIER_ROOT:root,
     ORDAX_DESKTOP_LOCAL_AI_ROOT:join(dir,"missing-local-ai-runtime")})){
     previous[k]=process.env[k];process.env[k]=v;
   }
@@ -47,6 +52,25 @@ test("standalone installed Native host serves verified bundle and existing privi
   await new Promise(resolve=>host.listen(0,"127.0.0.1",resolve));
   t.after(()=>new Promise(resolve=>host.close(resolve)));
   const base="http://127.0.0.1:"+host.address().port;
+  const nonce="d".repeat(64);
+  const handshake=await fetch(base+"/__ordax/desktop-host-ready",{
+    headers:{"x-ordax-desktop-ready-challenge":nonce},
+  });
+  assert.equal(handshake.status,200);
+  assert.equal(handshake.headers.get("cache-control"),"no-store");
+  assert.equal(handshake.headers.get("x-ordax-desktop-ready-proof"),
+    createHmac("sha256",Buffer.from(tokens.ORDAX_DESKTOP_NATIVE_SESSION_TOKEN,"hex"))
+      .update("ordax.desktop.native-ready/1:"+nonce).digest("hex"));
+  assert.equal(await isReady(host.address().port,tokens.ORDAX_DESKTOP_NATIVE_SESSION_TOKEN),true);
+  assert.equal(await isReady(host.address().port,"9".repeat(64)),false);
+  assert.equal(await isReady(host.address().port,"malformed"),false);
+  assert.equal((await fetch(base+"/__ordax/desktop-host-ready")).status,404);
+  assert.equal((await fetch(base+"/__ordax/desktop-host-ready?bypass=1",{
+    headers:{"x-ordax-desktop-ready-challenge":nonce},
+  })).status,404);
+  assert.equal((await fetch(base+"/__ordax/desktop-host-ready",{
+    method:"POST",headers:{"x-ordax-desktop-ready-challenge":nonce},
+  })).status,404);
   const html=await fetch(base+"/system/composition/native/index.html");
   assert.equal(html.status,200);
   assert.match(await html.text(),/Verified compiled Native/);
@@ -60,6 +84,11 @@ test("standalone installed Native host serves verified bundle and existing privi
   assert.equal((await fetch(base+"/system/services/account/gateway-base-url")).status,404);
   assert.equal((await fetch(base+"/system/contracts/%2e%2e%2fsecret.mjs")).status,404);
   assert.equal((await fetch(base+"/__ordax/native/network-status")).status,401);
+  assert.equal((await fetch(base+"/__ordax/native/product-runtime-status")).status,401);
+  assert.equal((await fetch(base+"/__ordax/native/product-runtime-status?x=1",{
+    headers:{"x-ordax-observation-token":tokens.ORDAX_DESKTOP_OBSERVATION_TOKEN}})).status,400);
+  assert.equal((await fetch(base+"/__ordax/native/product-runtime-status",{
+    method:"POST",headers:{"x-ordax-observation-token":tokens.ORDAX_DESKTOP_OBSERVATION_TOKEN}})).status,405);
   assert.equal((await fetch(base+"/__ordax/native/first-run")).status,401);
   const first=await fetch(base+"/__ordax/native/first-run",{
     headers:{"x-ordax-desktop-state-token":tokens.ORDAX_DESKTOP_STATE_TOKEN}});
@@ -76,6 +105,28 @@ test("standalone installed Native host serves verified bundle and existing privi
     headers:{"x-ordax-observation-token":tokens.ORDAX_DESKTOP_OBSERVATION_TOKEN}});
   assert.equal(recovery.status,200);
   assert.equal((await recovery.json()).platform,"windows");
+  // MCP presence is not a substitute for signed Runtime, per-device
+  // enrollment, a fresh capability digest or an attested client grant.
+  const productRoute=base+"/__ordax/native/product-runtime-status";
+  assert.equal((await fetch(productRoute)).status,401);
+  assert.equal((await fetch(productRoute+"?probe=1",{
+    headers:{"x-ordax-observation-token":tokens.ORDAX_DESKTOP_OBSERVATION_TOKEN},
+  })).status,400);
+  assert.equal((await fetch(productRoute,{
+    method:"POST",headers:{"x-ordax-observation-token":tokens.ORDAX_DESKTOP_OBSERVATION_TOKEN},
+  })).status,405);
+  const productResponse=await fetch(productRoute,{
+    headers:{"x-ordax-observation-token":tokens.ORDAX_DESKTOP_OBSERVATION_TOKEN},
+  });
+  assert.equal(productResponse.status,200);
+  const product=await productResponse.json();
+  assert.equal(product.schema,"ordax.product-runtime-supervisor-status/1");
+  assert.equal(product.host,"ordax-desktop");
+  assert.equal(product.mcpReady,false);
+  assert.equal(product.capabilityDigest,null);
+  assert.equal(product.enrolled,false);
+  assert.equal(product.state,"blocked");
+  assert.equal(product.reason,"device_not_enrolled");
 });
 
 test("source-only system middleware denies path escapes and unsupported files", async t=>{

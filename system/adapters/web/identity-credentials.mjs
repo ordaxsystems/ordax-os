@@ -8,6 +8,18 @@ import { createWebJsonReader } from "./json-read.mjs";
 import { rememberVerifiedLoginEmail } from "../../services/account/remembered-login-email.mjs";
 
 // Read-only lifecycle extension. The gateway owns activation and legal metadata.
+// Transport status is bounded; never expose provider response bodies or credentials.
+export class IdentityCredentialRequestError extends Error {
+  constructor(status) {
+    const parsed = Number(status);
+    const safeStatus = Number.isInteger(parsed) && parsed >= 400 && parsed <= 599 ? parsed : null;
+    // Existing contract consumers can read the bounded HTTP code in the
+    // error message; never include provider response bodies or credentials.
+    super(`Identity credential request failed: ${safeStatus ?? "unknown"}`);
+    this.name = "IdentityCredentialRequestError";
+    this.status = safeStatus;
+  }
+}
 export function createWebRegistrationPolicyReader(windowRef = globalThis.window) {
   const reader = createWebJsonReader(windowRef);
   return Object.freeze({
@@ -47,7 +59,7 @@ async function submit(windowRef, path, credentials, { registration = false } = {
     // An opaque redirect (status 0), empty success, or transport error is
     // never account activation. Do not report a signed-in identity without
     // an independently verified same-origin session.
-    throw new Error(`Identity credential request failed: ${response.status}`);
+    throw new IdentityCredentialRequestError(response.status);
   }
   const sessionResponse = await windowRef.fetch("/auth/session", {
     method: "GET",

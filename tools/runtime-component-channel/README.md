@@ -503,3 +503,38 @@ At present the OS source lock explicitly denies this handoff. Unit tests
 use a **synthetic ELF with an ephemeral signing key** solely to exercise
 metadata validation; they do not provide evidence of an installable
 Buildroot Runtime or actual MCP control on USB hardware.
+
+## Signed Product Runtime target binding
+
+The single canonical component channel binds `target_platform` in the
+signed Product Runtime package manifest. Only `linux-amd64` ELF64 and
+`windows-amd64` PE32+ binaries are recognized. The exact executable path,
+file hash, signed target, source commit and OS-pinned target evidence must
+agree. A foreign binary, omitted target or target field in an ordinary app
+package is rejected. Platform format inspection alone is not ABI readiness.
+
+`inspect-native-product-handoff` requires `--target linux-amd64` on the
+Native Supervisor and `--target windows-amd64` on Windows Desktop. It reuses
+the same signed component slot and canonical trust anchor. The Windows target
+also requires independently attested private-runtime dependency closure.
+
+**Activation is still prohibited.** The current OS source lock describes a
+Linux CI-only unsigned candidate; the component trust anchor remains
+operator-ceremony-pending. The Windows installer in ordax-runtime is not a
+signed, self-contained Product Runtime component slot. Synthetic PE tests
+are protocol proofs only: they do not establish real Windows execution,
+device enrollment, central attestation, or grants.
+
+### One source lock, multiple verified targets
+
+The OS source lock now has a single `candidate_evidence_by_target` map
+indexed by the same `linux-amd64` and `windows-amd64` values bound into
+the signed package manifest. Each target retains its own executable digest,
+file size, source commit and ABI/dependency-closure evidence. Adding a Windows
+candidate must **not** overwrite the Linux/USB evidence, and vice versa.
+The Linux offline verifier reads only the Linux entry. Windows Desktop reads
+only the Windows entry. Unknown targets or a missing entry fail closed.
+
+There is no second source lock, downloaded Runtime, private signing key,
+unverified fallback or duplicated MCP dispatcher. The existing Linux
+CI-only candidate remains untrusted and Windows has no approved entry yet.

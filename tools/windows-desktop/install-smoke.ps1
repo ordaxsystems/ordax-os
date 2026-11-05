@@ -75,10 +75,17 @@ try {
     (Join-Path $resources "runtime-template\tools\windows-emulator\dev-supervisor.mjs"),
     (Join-Path $resources "runtime-template\tools\windows-emulator\desktop-native-server.mjs"),
     (Join-Path $resources "runtime-template\tools\windows-emulator\desktop-host-contract.json"),
+    (Join-Path $resources "runtime-template\system\adapters\desktop\product-runtime-supervisor.mjs"),
+    (Join-Path $resources "runtime-template\system\adapters\desktop\surface-runtime-bridge.mjs"),
+    (Join-Path $resources "runtime-template\system\adapters\native\desktop-product-runtime-status.mjs"),
+    (Join-Path $resources "runtime-template\system\adapters\native\desktop-surface-state-report.mjs"),
     (Join-Path $resources "runtime-template\system\composition\native\index.html"),
     (Join-Path $resources "runtime-template\desktop-assets\system\composition\native\index.html"),
     (Join-Path $resources "runtime-template\toolchain\node_modules.tar.gz"),
     (Join-Path $resources "runtime-template\toolchain\toolchain-receipt.json"),
+    (Join-Path $resources "runtime-template\\tools\\runtime-component-channel\\ordax-runtime-component-channel.exe"),
+    (Join-Path $resources "runtime-template\\docs\\contracts\\runtime-component-trust-policy.json"),
+    (Join-Path $resources "runtime-template\\docs\\contracts\\runtime-component-package.json"),
     (Join-Path $resources "runtime-template\local-ai-runtime\engine\llama-server.exe"),
     (Join-Path $resources "runtime-template\local-ai-runtime\models\Qwen3.5-0.8B-Q4_0.gguf")
   )

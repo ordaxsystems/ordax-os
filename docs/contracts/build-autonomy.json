@@ -121,5 +121,29 @@
     ],
     "component_helper_publish_authorized": false,
     "creator_source_owner": "ordaxsystems/ordax-creator"
+  },
+  "client_build_independence": {
+    "desktop-client": {
+      "requires_creator": false,
+      "requires_usb_producer": false,
+      "producer": "tools/windows-desktop/",
+      "validation_owner": "Windows Desktop Dev (SSOT)"
+    },
+    "web-client": {
+      "requires_creator": false,
+      "requires_usb_producer": false,
+      "producer": "system/composition/web/",
+      "validation_owner": "Surface Web Candidate"
+    },
+    "client_only_source_prefixes": [
+      "system/adapters/desktop/",
+      "system/composition/web/",
+      "tools/windows-desktop/",
+      "tools/windows-emulator/"
+    ],
+    "shared_native_changes_require_usb_proof": true,
+    "unknown_owner_changes_fail_closed": true,
+    "identity_and_shared_contracts_remain_cross_mode": true,
+    "ci_path_filters_not_authority": true
   }
 }

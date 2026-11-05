@@ -9,6 +9,7 @@ const {join,dirname,basename,resolve} = require('node:path');
 const {tmpdir} = require('node:os');
 const {TextDecoder} = require('node:util');
 const {prepareWindowsGitDeletion}=require('./git-cleanup.cjs');
+const {resolveInstalledGit}=require('./checkout.cjs');
 
 const SHA40=/^[0-9a-f]{40}$/;
 const PATH=/^system\/surface\/(?:ui|workspace)\/[a-zA-Z0-9._/@+\-]+$/;
@@ -39,7 +40,7 @@ function git(argv,cwd,timeout=120000) {
     // Exact pinned Surface source is public. Never let machine-wide GitHub
     // CLI/GCM credential helpers delay this anonymous acquisition or prompt
     // during an unattended Desktop update.
-    const child=spawn('git',['-c','credential.helper=',...argv],{cwd,windowsHide:true,
+    const child=spawn(resolveInstalledGit(),['-c','credential.helper=',...argv],{cwd,windowsHide:true,
       env:{...process.env,GIT_TERMINAL_PROMPT:'0'},stdio:['ignore','pipe','pipe']});
     const chunks=[];let size=0,errorText='',done=false,timedOut=false;
     const finish=(error,result)=>{

@@ -1,47 +1,32 @@
 import assert from 'node:assert/strict';
 import {createHash} from 'node:crypto';
 import {readFile, readdir} from 'node:fs/promises';
-import {windowReducer, initialWindows} from '../../../system/surface/workspace/lib/web/windows.ts';
-import {createUnavailableWebIntelligencePort} from '../../../system/adapters/web/intelligence.mjs';
-import {createIntelligenceClient} from '../../../system/surface/workspace/lib/intelligence/client.mjs';
-import {desktopReducer, initialDesktopState} from '../../../system/surface/workspace/components/central/desktop-state.ts';
+import {fileURLToPath} from 'node:url';
+import {join} from 'node:path';
+import {verifyPinnedExternalSurface} from './verified-external-source.mjs';
+
 const root = new URL('../../../', import.meta.url);
-const sourceRoot = new URL('system/surface/workspace/', root);
-const provenance = JSON.parse(await readFile(new URL('docs/evidence/web-layout-reference-2026-10-10.json', root), 'utf8'));
-const centralReference = JSON.parse(await readFile(new URL('docs/evidence/web-central-reference-2026-10-11.json', root), 'utf8'));
-for (const entry of centralReference.files) {
-  const bytes = await readFile(new URL(entry.target, root));
-  const sha = value => createHash('sha256').update(value).digest('hex');
-  if (entry.adaptedSha256) {
-    assert.equal(sha(bytes.toString('utf8').replace(/\r\n/g, '\n')), entry.adaptedSha256, 'Central adaptation drift: ' + entry.target);
-    assert.ok(entry.adaptation && /^[a-f0-9]{64}$/.test(entry.sha256), 'Adaptations retain upstream provenance');
-    continue;
-  }
-  const candidates = [sha(bytes)];
-  if (!entry.source.startsWith('src/assets/')) {
-    let restored = bytes.toString('utf8').replace(/\r\n/g, '\n');
-    for (const edit of [...(centralReference.textChanges[entry.source] ?? [])].reverse()) {
-      const from = edit.from.replace(/\r\n/g, '\n');
-      const to = edit.to.replace(/\r\n/g, '\n');
-      assert.ok(restored.includes(to), 'Missing integration adjustment: ' + entry.target);
-      restored = restored.replaceAll(to, from);
-    }
-    candidates.push(sha(restored), sha(restored.replace(/\n/g, '\r\n')));
-  }
-  assert.ok(candidates.includes(entry.sha256), 'Central reference drift: ' + entry.target);
-}
-for (const entry of centralReference.native_files ?? []) {
-  const source = (await readFile(new URL(entry.target, root), 'utf8')).replace(/\r\n/g, '\n');
-  const currentDigest = createHash('sha256').update(source).digest('hex');
-  if (entry.adaptedSha256) {
-    assert.match(entry.sha256, /^[a-f0-9]{64}$/, 'Historical Native Central provenance must be retained');
-    assert.match(entry.adaptedSha256, /^[a-f0-9]{64}$/, 'Native adaptation digest must be valid');
-    assert.ok(typeof entry.adaptation === 'string' && entry.adaptation.trim(), 'Native adaptation requires an explanation');
-    assert.equal(currentDigest, entry.adaptedSha256, 'Native Central adaptation drift: ' + entry.target);
-  } else {
-    assert.equal(currentDigest, entry.sha256, 'Native Central source drift: ' + entry.target);
-  }
-}
+// Verify the immutable Git-sourced visual tree and its assembly receipt
+// *before* executing any external Surface module.
+// The canonical prepare-verified-surface action already leaves a verified
+// assembly receipt under RUNNER_TEMP. Reuse it without changing the shared
+// Owner/Dev producer action or weakening its source-blob validation.
+const assemblyReceipt = process.env.ORDAX_VERIFIED_SURFACE_ASSEMBLY_RECEIPT ||
+  (process.env.RUNNER_TEMP && join(process.env.RUNNER_TEMP,
+    'ordax-verified-surface-ci/system/surface/source-provenance.json'));
+const verified = await verifyPinnedExternalSurface(fileURLToPath(root), assemblyReceipt);
+const [
+  {windowReducer, initialWindows},
+  {createUnavailableWebIntelligencePort},
+  {createIntelligenceClient},
+  {desktopReducer, initialDesktopState},
+] = await Promise.all([
+  import('../../../system/surface/workspace/lib/web/windows.ts'),
+  import('../../../system/adapters/web/intelligence.mjs'),
+  import('../../../system/surface/workspace/lib/intelligence/client.mjs'),
+  import('../../../system/surface/workspace/components/central/desktop-state.ts'),
+]);
+
 const composition = await readFile(new URL('system/composition/web/main.tsx', root), 'utf8');
 assert.ok(composition.includes('<Central key='), 'The approved Central is the primary Web page');
 assert.ok(!composition.includes('WebShell'), 'Previous Web presentation must not be mounted');
@@ -80,45 +65,6 @@ assert.equal(unchanged, desktop, 'Unknown focus never creates another app');
 desktop = desktopReducer(desktop, {type: 'close', title: 'Projetos'});
 assert.ok(!desktop.windows.some(window => window.title === 'Projetos'));
 assert.equal(JSON.stringify(initialDesktopState), initialDesktopSnapshot);
-let verified = 0;
-for (const entry of provenance.files) {
-  if (entry.path === 'src/lib/intelligence/ai.functions.ts' || Object.hasOwn(provenance.excluded_files ?? {}, entry.path)) continue;
-  let bytes = await readFile(new URL(entry.path.replace(/^src\//, ''), sourceRoot));
-  const sha = value => createHash('sha256').update(value).digest('hex');
-  if (entry.adaptedSha256) {
-    assert.match(entry.sha256, /^[a-f0-9]{64}$/, 'Adaptations retain the upstream digest');
-    assert.ok(entry.adaptation, 'Adapted reference requires its migration explanation');
-    assert.equal(sha(bytes.toString('utf8').replace(/\r\n/g, '\n')), entry.adaptedSha256, 'Adapted reference drift: ' + entry.path);
-    if (entry.runtime) {
-      const runtime = await readFile(new URL(entry.runtime.target, root), 'utf8');
-      assert.equal(sha(runtime.replace(/\r\n/g, '\n')), entry.runtime.sha256, 'Shared runtime drift: ' + entry.runtime.target);
-    }
-    verified++;
-    continue;
-  }
-  const candidates = [sha(bytes)];
-  if (!entry.path.startsWith('src/assets/')) {
-    // Normalize both the source and recorded edits before reversing multiline changes.
-    // Windows checkouts use CRLF; the provenance may have been recorded with LF.
-    const restore = raw => {
-      let source = raw.replace(/\r\n/g, '\n');
-      for (const change of [...(provenance.textChanges?.[entry.path] ?? [])].reverse()) {
-        const from = change.from.replace(/\r\n/g, '\n');
-        const to = change.to.replace(/\r\n/g, '\n');
-        assert.ok(to.length > 0 && source.includes(to), 'Recorded adjustment missing: ' + entry.path);
-        source = source.replaceAll(to, from);
-      }
-      return source;
-    };
-    const text = bytes.toString('utf8');
-    const restored = restore(text);
-    assert.equal(restore(text.replace(/\r\n/g, '\n').replace(/\n/g, '\r\n')), restored,
-      'Reference restoration must work for Windows and Unix checkouts: ' + entry.path);
-    candidates.push(sha(restored), sha(restored.replace(/\n/g, '\r\n')));
-  }
-  assert.ok(candidates.includes(entry.sha256), 'Reference drift: ' + entry.path);
-  verified++;
-}
 const before = JSON.stringify(initialWindows);
 let windows = windowReducer(initialWindows, {type:'open', appId:'studio'});
 assert.equal(windows.length, initialWindows.length, 'Opening an existing app must not duplicate it');
@@ -148,7 +94,7 @@ assert.ok(opened.find(w=>w.appId==='notes').layer>opened.find(w=>w.appId==='sett
 const intelligence = createIntelligenceClient(createUnavailableWebIntelligencePort());
 assert.equal(intelligence.getSnapshot().state, 'degraded', 'Web fallback must remain explicitly unavailable');
 await assert.rejects(intelligence.ask('verification'), /not ready/, 'Visual preview must not execute a model');
-console.log('PASS: ' + verified + ' reference files/assets (recorded edits reversed for LF/CRLF); window lifecycle, geometry and canonical fail-closed AI');
+console.log('PASS: ' + verified + ' pinned external Surface files verified by immutable assembly receipt; window lifecycle, geometry and canonical fail-closed AI');
 
 if (process.argv.includes('--preview')) {
   const origin = 'http://127.0.0.1:4201';

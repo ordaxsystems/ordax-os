@@ -79,7 +79,7 @@ class SourceAdvanceTests(unittest.TestCase):
         with self.assertRaisesRegex(advance.SourceAdvanceError, "does not descend"):
             advance.advance(self.root, "surface", self.source, True)
 
-    def test_intelligence_updates_exact_eight_blobs_without_activation(self):
+    def test_intelligence_updates_complete_portable_graph_without_activation(self):
         paths = (
             "src/index.mjs",
             "src/contract-bindings.mjs",
@@ -123,14 +123,22 @@ class SourceAdvanceTests(unittest.TestCase):
         self.assertFalse(unrelated["changed"])
         self.assertEqual(unrelated["reason"], "no-owned-source-change")
         self.assertEqual(json.loads(path.read_text())["source_commit"], new)
-        # The Windows-only builder remains outside the eight-blob OS source
-        # graph, even when a later pinned blob changes legitimately.
-        self.write("src/local-ai/runtime.mjs", "new version 2")
+        # The Windows-only builder remains outside the portable OS source
+        # graph. A new module below src must be discovered and pinned instead
+        # of being silently omitted by a stale fixed inventory.
+        self.write("src/snapshot-notification.mjs", "new shared dependency")
         later = self.commit()
         self.assertTrue(advance.advance(self.root, "intelligence", self.source, True)["changed"])
         final = json.loads(path.read_text())
         self.assertEqual(final["source_commit"], later)
-        self.assertEqual(set(final["source_paths"]), set(paths))
+        self.assertEqual(
+            set(final["source_paths"]),
+            set(paths) | {"src/snapshot-notification.mjs"},
+        )
+        self.assertEqual(
+            final["source_paths"]["src/snapshot-notification.mjs"],
+            self.git("rev-parse", "HEAD:src/snapshot-notification.mjs"),
+        )
         self.assertNotIn("tools/inference-builder/windows-candidate.py", final["source_paths"])
 
     def test_surface_selects_verified_main_source_sha_before_docs_tail(self):
@@ -196,6 +204,8 @@ class SourceAdvanceTests(unittest.TestCase):
         })
         self.write("src/intelligence/runtime.mjs", "updated")
         source_sha = self.commit("Intelligence main source")
+        self.write("src/snapshot-notification.mjs", "new dependency")
+        source_sha = self.commit("Intelligence source graph expansion")
         self.write("tools/inference-builder/windows-candidate.py", "windows only")
         self.commit("Windows builder main")
         self.write("docs/README.md", "documentation only")
@@ -344,6 +354,36 @@ fi
         self.assertIn('git merge-base --is-ancestor "$existing_sha" "$main_sha"', workflow)
         self.assertIn("refuse overwrite", workflow)
         self.assertNotIn("git push --force", workflow)
+
+    def test_new_source_owner_pr_denies_native_token_before_branch_push(self):
+        # Reproduce the repository's disabled GitHub Actions PR-creation policy.
+        # Authentication preflight must reject an orphan push while continuing
+        # to allow native-token updates of an existing, verified single-lock PR.
+        import os
+        workflow = (advance.ROOT / ".github/workflows/external-source-lock-integration.yml").read_text()
+        publish = workflow.split("      - name: Create or fast-forward the single owner lock PR", 1)[1]
+        guard = publish.split('          test -n "$GH_TOKEN"\n', 1)[1].split(
+            "          candidate_lock=", 1
+        )[0]
+        guard = 'test -n "$GH_TOKEN"\n' + "\n".join(
+            line[10:] if line.startswith(" " * 10) else line
+            for line in guard.splitlines()
+        ) + "\n"
+        self.assertLess(
+            publish.index('if [ "$EXISTING" != true ] && [ "$NATIVE_FALLBACK" = true ]; then'),
+            publish.index('git switch -c "$branch"'),
+        )
+        def check(existing, native, token="fixture-token"):
+            env = dict(os.environ, EXISTING=existing, NATIVE_FALLBACK=native,
+                       GH_TOKEN=token)
+            return subprocess.run(["bash", "-e"], input=guard, text=True,
+                                  capture_output=True, env=env)
+        blocked = check("false", "true")
+        self.assertNotEqual(blocked.returncode, 0)
+        self.assertIn("No branch was pushed", blocked.stdout)
+        self.assertEqual(check("true", "true").returncode, 0)
+        self.assertEqual(check("false", "false").returncode, 0)
+        self.assertNotEqual(check("false", "false", "").returncode, 0)
 
     def test_native_bot_uses_existing_ci_without_duplicated_release_authority(self):
         root = advance.ROOT
