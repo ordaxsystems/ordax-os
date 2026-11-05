@@ -248,6 +248,85 @@ test("registration confirmation rejects unavailable and contradictory gateway pr
   }
 });
 
+test("credential POSTs terminate when the transport ignores abort, without replay or false activation", async () => {
+  const credentials = { email: "pessoa@example.com", password: "never-log-this-password" };
+  for (const action of ["signIn", "register"]) {
+    const timers = new Map();
+    const calls = [];
+    let resolveLate;
+    let nextTimerId = 0;
+    const windowRef = {
+      setTimeout(callback, duration) {
+        assert.equal(duration, WEB_JSON_READ_TIMEOUT_MS);
+        const id = ++nextTimerId;
+        timers.set(id, callback);
+        return id;
+      },
+      clearTimeout(id) { timers.delete(id); },
+      fetch(path, options) {
+        calls.push({ path, options });
+        return new Promise(resolve => { resolveLate = resolve; });
+      },
+    };
+    const port = createSameOriginIdentityCredentials(windowRef);
+    const pending = port[action](action === "register"
+      ? { ...credentials, legalAccepted: true }
+      : credentials);
+    assert.deepEqual(calls.map(call => call.path),
+      [action === "register" ? "/auth/register" : "/auth/login"]);
+    assert.equal(calls[0].options.method, "POST");
+    assert.equal(calls[0].options.redirect, "manual");
+    assert.equal(calls[0].options.credentials, "same-origin");
+    assert.equal(calls[0].options.cache, "no-store");
+    assert.equal(calls[0].options.signal instanceof AbortSignal, true);
+    assert.equal(timers.size, 1);
+    [...timers.values()][0]();
+    await assert.rejects(pending, error => {
+      assert.equal(error.name, "TimeoutError");
+      assert.match(error.message, /Web credential request deadline exceeded/);
+      assert.doesNotMatch(error.message, /never-log-this-password|pessoa@example.com/);
+      return true;
+    });
+    assert.equal(calls[0].options.signal.aborted, true);
+    assert.equal(timers.size, 0, "Aborted POST must release the shared deadline");
+    resolveLate({ status: action === "register" ? 202 : 303, ok: true });
+    await Promise.resolve();
+    await Promise.resolve();
+    assert.equal(calls.length, 1,
+      "Late POST success cannot trigger verification or automatically replay credentials");
+  }
+});
+
+test("credential error HTTP responses retain bounded status with the shared POST deadline", async () => {
+  const timers = new Map();
+  let nextId = 0;
+  const windowRef = {
+    setTimeout(callback, duration) {
+      assert.equal(duration, WEB_JSON_READ_TIMEOUT_MS);
+      const id = ++nextId;
+      timers.set(id, callback);
+      return id;
+    },
+    clearTimeout(id) { timers.delete(id); },
+    fetch: async () => ({
+      status: 429, ok: false,
+      text: async () => "<html>never-read-provider-trace</html>",
+    }),
+  };
+  await assert.rejects(
+    createSameOriginIdentityCredentials(windowRef).signIn({
+      email: "pessoa@example.com", password: "never-log-this-password",
+    }),
+    error => {
+      assert.ok(error instanceof IdentityCredentialRequestError);
+      assert.equal(error.status, 429);
+      assert.doesNotMatch(error.message, /never-read|never-log|pessoa@example.com/);
+      return true;
+    },
+  );
+  assert.equal(timers.size, 0);
+});
+
 test("post-credential session verification bounds stalled fetch and JSON body with the shared deadline", async () => {
   for (const mode of ["fetch", "body"]) {
     const timers = new Map();
