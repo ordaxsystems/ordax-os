@@ -152,6 +152,106 @@ test("same-origin credential adapter posts only to OrdaX auth routes", async () 
     "Post-login session proof must reuse the bounded same-origin Web GET transport");
 });
 
+test("overlapping login and registration commands never submit credentials twice", async () => {
+  const requests = [];
+  let resolvePost;
+  const authenticated = {
+    $schema: "prototype-ordax.public-identity-session/1",
+    authenticated: true, status: "authenticated", provider: "supabase",
+    subject: "validated-subject", email: "pessoa@example.com",
+  };
+  const windowRef = {
+    fetch(path, options) {
+      requests.push({ path, options });
+      if (path === "/auth/login") return new Promise(resolve => { resolvePost = resolve; });
+      if (path === "/auth/register") return Promise.resolve({ ok: true, status: 202 });
+      if (path === "/auth/session") return Promise.resolve({
+        ok: true, status: 200, json: async () => authenticated,
+      });
+      throw Error("Unexpected credential endpoint");
+    },
+  };
+  const port = createSameOriginIdentityCredentials(windowRef);
+  const first = port.signIn({ email: "pessoa@example.com", password: "never-save-1" });
+  assert.deepEqual(requests.map(x => x.path), ["/auth/login"]);
+  for (const [action, value] of [
+    ["signIn", { email: "another@example.com", password: "never-save-2" }],
+    ["register", { email: "nova@example.com", password: "never-save-3", legalAccepted: true }],
+  ]) {
+    await assert.rejects(port[action](value), error => {
+      assert.match(error.message, /submission is already in progress/);
+      assert.doesNotMatch(error.message, /never-save|pessoa@example.com|another@example.com|nova@example.com/);
+      return true;
+    });
+  }
+  assert.deepEqual(requests.map(x => x.path), ["/auth/login"],
+    "Overlapping credential commands cannot send a second POST or session GET");
+  resolvePost({ ok: false, status: 303 });
+  assert.deepEqual(await first, { authenticated: true, confirmationRequired: false });
+  assert.deepEqual(requests.map(x => x.path), ["/auth/login", "/auth/session"]);
+  assert.deepEqual(
+    await port.register({ email: "nova@example.com", password: "never-save-4", legalAccepted: true }),
+    { authenticated: false, confirmationRequired: true },
+    "A completed verified session frees the adapter for an explicit subsequent action",
+  );
+  assert.deepEqual(requests.map(x => x.path), [
+    "/auth/login", "/auth/session", "/auth/register",
+  ]);
+});
+
+test("credential overlap guard includes pending session proof and resets after verification failure", async () => {
+  let releaseSession;
+  const requests = [];
+  const port = createSameOriginIdentityCredentials({
+    fetch(path, options) {
+      requests.push({ path, options });
+      if (path === "/auth/login") return Promise.resolve({ ok: false, status: 303 });
+      if (path === "/auth/session") return new Promise(resolve => { releaseSession = resolve; });
+      if (path === "/auth/register") return Promise.resolve({ ok: true, status: 202 });
+      throw Error("Unexpected auth endpoint");
+    },
+  });
+  const first = port.signIn({ email: "pessoa@example.com", password: "never-save-5" });
+  for (let i = 0; i < 30 && !releaseSession; i++) await Promise.resolve();
+  assert.equal(typeof releaseSession, "function");
+  await assert.rejects(
+    port.register({ email: "nova@example.com", password: "never-save-6", legalAccepted: true }),
+    /submission is already in progress/,
+    "A credential POST must not overlap an earlier POST's session verification",
+  );
+  assert.deepEqual(requests.map(x => x.path), ["/auth/login", "/auth/session"]);
+  releaseSession({ ok: false, status: 503 });
+  await assert.rejects(first, /session verification unavailable/);
+  assert.deepEqual(
+    await port.register({ email: "nova@example.com", password: "never-save-7", legalAccepted: true }),
+    { authenticated: false, confirmationRequired: true },
+    "A failed proof releases the single in-flight slot without an automatic retry",
+  );
+  assert.deepEqual(requests.map(x => x.path), [
+    "/auth/login", "/auth/session", "/auth/register",
+  ]);
+});
+
+test("invalid credential input cannot strand the in-flight slot", async () => {
+  const requests = [];
+  const port = createSameOriginIdentityCredentials({
+    fetch(path) {
+      requests.push(path);
+      return Promise.resolve({ ok: true, status: 202 });
+    },
+  });
+  await assert.rejects(
+    port.signIn({ email: "invalid", password: "never-save-8" }),
+    TypeError,
+  );
+  assert.deepEqual(requests, []);
+  assert.deepEqual(
+    await port.register({ email: "nova@example.com", password: "never-save-9", legalAccepted: true }),
+    { authenticated: false, confirmationRequired: true },
+  );
+  assert.deepEqual(requests, ["/auth/register"]);
+});
+
 test("registration confirmation is explicit and does not claim a session", async () => {
   const port = createSameOriginIdentityCredentials({
     fetch: async () => ({ ok: true, status: 202 }),
