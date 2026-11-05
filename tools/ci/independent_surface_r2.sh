@@ -75,7 +75,7 @@ restore_surface() {
 set -euo pipefail
 printf 'hit=false\n' >> "$GITHUB_OUTPUT"
 if [ -z "${ORDAX_R2_ACCESS_KEY_ID:-}" ] || [ -z "${ORDAX_R2_SECRET_ACCESS_KEY:-}" ]; then
-  echo 'Durable R2 store is not configured for this runner; GitHub cache/build fallback remains available.'
+  echo 'Durable R2 is unavailable on this runner; an exact GitHub cache hit or trusted persistent producer is required.'
   exit 0
 fi
 

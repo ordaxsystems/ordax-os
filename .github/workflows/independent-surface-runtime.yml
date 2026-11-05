@@ -178,7 +178,7 @@ jobs:
             fi
             cache_root="$(realpath -m -- "$ORDAX_SURFACE_PERSISTENT_WORK_ROOT")"
             case "$cache_root" in
-              /|"$RUNNER_TEMP"|"$GITHUB_WORKSPACE"|"$GITHUB_WORKSPACE"/*)
+              /|"$RUNNER_TEMP"|"$RUNNER_TEMP"/*|"$GITHUB_WORKSPACE"|"$GITHUB_WORKSPACE"/*)
                 echo "::error::Surface persistent cache must be outside workspace and runner temp" >&2
                 exit 1
                 ;;
@@ -216,11 +216,6 @@ jobs:
           ORDAX_SURFACE_FINGERPRINT: ${{ steps.surface-artifact-fingerprint.outputs.fingerprint }}
           ORDAX_SOURCE_COMMIT: ${{ github.event.pull_request.head.sha || github.sha }}
         run: bash tools/ci/independent_surface_r2.sh restore
-      - name: Install Surface verification dependencies
-        run: |
-          sudo apt-get update
-          sudo apt-get install -y --no-install-recommends erofs-utils util-linux
-
       - name: Require persistent producer on verified Surface artifact miss
         if: steps.surface-artifact-cache.outputs.cache-hit != 'true' && steps.surface-r2.outputs.hit != 'true'
         run: |
@@ -229,6 +224,11 @@ jobs:
             echo "::error title=Surface EROFS requires resumable producer::No verified EROFS is available in the exact GitHub cache or R2. Refusing another hosted 330-minute rebuild. Configure the pinned Linux self-hosted producer and persistent workspace before attempting the same WebKit build." >&2
             exit 1
           fi
+
+      - name: Install Surface verification dependencies
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y --no-install-recommends erofs-utils util-linux
 
       - name: Install full Surface Buildroot host dependencies on durable artifact miss
         if: steps.surface-artifact-cache.outputs.cache-hit != 'true' && steps.surface-r2.outputs.hit != 'true'
@@ -396,7 +396,9 @@ jobs:
           key: ${{ steps.surface-ccache.outputs.cache-primary-key }}
 
       - name: Upload candidate evidence
-        if: always()
+        # Do not generate a second error when a missing durable producer
+        # correctly stopped the candidate before any verified artifact exists.
+        if: always() && steps.surface-reuse-state.outputs.source != ''
         uses: actions/upload-artifact@b7c566a772e6b6bfb58ed0dc250532a479d7789f # v6
         with:
           name: ordax-independent-surface-runtime-${{ github.run_id }}

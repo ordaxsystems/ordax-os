@@ -237,6 +237,47 @@ class IndependentSurfaceComponentCacheTests(unittest.TestCase):
         self.assertIn("/blobs/sha256/${digest}", script)
         self.assertNotIn("r2.dev", script)
 
+    def test_durable_surface_miss_fails_before_host_dependency_install(self):
+        # Hosted workers must never enter a costly build without a resumable
+        # producer. The failure is authoritative, not an upload-artifact error.
+        workflow = WORKFLOW.read_text(encoding="utf-8")
+        fingerprint = workflow.index("      - name: Resolve exact Surface artifact fingerprint")
+        cache = workflow.index("      - name: Restore verified Independent Surface EROFS component")
+        r2 = workflow.index("      - name: Restore verified Independent Surface EROFS from durable R2 store")
+        guard = workflow.index("      - name: Require persistent producer on verified Surface artifact miss")
+        install = workflow.index("      - name: Install Surface verification dependencies")
+        build = workflow.index("      - name: Build Buildroot/musl Surface runtime on durable artifact miss")
+        self.assertLess(fingerprint, cache)
+        self.assertLess(cache, r2)
+        self.assertLess(r2, guard)
+        self.assertLess(guard, install)
+        self.assertLess(install, build)
+        guard_block = workflow[guard:install]
+        self.assertIn("steps.surface-artifact-cache.outputs.cache-hit != 'true'", guard_block)
+        self.assertIn("steps.surface-r2.outputs.hit != 'true'", guard_block)
+        self.assertIn("ORDAX_SURFACE_PERSISTENT_WORK_ROOT", guard_block)
+        self.assertIn("exit 1", guard_block)
+        evidence = workflow[workflow.index("      - name: Upload candidate evidence"):]
+        self.assertIn(
+            "if: always() && steps.surface-reuse-state.outputs.source != ''",
+            evidence.split("      - name: Create manual-only", 1)[0],
+        )
+
+    def test_durable_cache_root_rejects_runner_temp_descendants(self):
+        # A nested path under RUNNER_TEMP is disposable even when absolute.
+        # Accepting it as "persistent" discards build state across jobs.
+        workflow = WORKFLOW.read_text(encoding="utf-8")
+        resolver = workflow.split(
+            "      - name: Resolve exact Surface artifact fingerprint", 1
+        )[1].split("      - name: Restore verified Independent Surface", 1)[0]
+        self.assertIn(
+            '/|"$RUNNER_TEMP"|"$RUNNER_TEMP"/*|"$GITHUB_WORKSPACE"|"$GITHUB_WORKSPACE"/*)',
+            resolver,
+        )
+        self.assertIn('cache_root="$(realpath -m -- "$ORDAX_SURFACE_PERSISTENT_WORK_ROOT")"', resolver)
+        self.assertIn("Surface persistent cache must be outside workspace and runner temp", resolver)
+        self.assertIn('if [ -L "$ORDAX_SURFACE_PERSISTENT_WORK_ROOT" ]; then', resolver)
+
     def test_workflow_keeps_github_cache_fast_but_r2_durable(self):
         workflow = WORKFLOW.read_text(encoding="utf-8")
         self.assertIn("Restore verified Independent Surface EROFS component", workflow)
