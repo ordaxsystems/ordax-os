@@ -16,14 +16,19 @@ SPEC.loader.exec_module(AUDIT)
 
 class IndependentSurfaceCutoverAuditTests(unittest.TestCase):
     def make_tree(self, base: Path, *, cutover: bool) -> Path:
-        for relative in (
-            "bootstrap/base/alpine_core.py",
-            "bootstrap/stable-base/build.py",
-            "bootstrap/stable-base/source.json",
-        ):
-            path = base / relative
-            path.parent.mkdir(parents=True, exist_ok=True)
-            path.write_text("stable alpine owner intentionally preserved\n", encoding="utf-8")
+        stable_source = base / "bootstrap/stable-base/source.json"
+        stable_source.parent.mkdir(parents=True, exist_ok=True)
+        stable_source.write_text(
+            json.dumps({"base_producer": {
+                "entrypoint": "bootstrap/independent-base/build.py",
+                "profile": "stable-mvp",
+                "package_manager_in_runtime_allowed": False,
+                "physical_artifact_authorized": False,
+            }}) + "\n", encoding="utf-8",
+        )
+        builder = base / "bootstrap/independent-base/build.py"
+        builder.parent.mkdir(parents=True, exist_ok=True)
+        builder.write_text("# buildroot stable only\n", encoding="utf-8")
 
         cache = base / "tools/ci/portable_component_cache.py"
         cache.parent.mkdir(parents=True, exist_ok=True)
@@ -80,7 +85,7 @@ class IndependentSurfaceCutoverAuditTests(unittest.TestCase):
             )
         return base
 
-    def test_pre_cutover_accepts_clean_independent_owner_and_preserved_legacy(self):
+    def test_pre_cutover_accepts_buildroot_base_even_with_old_surface_fixture(self):
         with tempfile.TemporaryDirectory() as td:
             root = self.make_tree(Path(td), cutover=False)
             result = AUDIT.audit_pre(root)
@@ -88,7 +93,7 @@ class IndependentSurfaceCutoverAuditTests(unittest.TestCase):
             self.assertTrue(result.checks["surface_contract_uses_musl"])
             self.assertTrue(result.checks["surface_contract_forbids_runtime_package_manager"])
             self.assertTrue(result.checks["legacy_surface_launcher_still_present"])
-            self.assertTrue(result.checks["stable_base_alpine_owner_preserved"])
+            self.assertTrue(result.checks["stable_base_buildroot_only"])
 
     def test_generated_python_cache_is_not_treated_as_operational_surface_source(self):
         with tempfile.TemporaryDirectory() as td:
@@ -137,7 +142,7 @@ class IndependentSurfaceCutoverAuditTests(unittest.TestCase):
             with self.assertRaisesRegex(AUDIT.AuditError, "post-cutover"):
                 AUDIT.audit_post(root)
 
-    def test_post_cutover_accepts_buildroot_surface_but_preserves_stable_base_alpine(self):
+    def test_post_cutover_accepts_buildroot_surface_and_buildroot_stable(self):
         with tempfile.TemporaryDirectory() as td:
             root = self.make_tree(Path(td), cutover=True)
             result = AUDIT.audit_post(root)
@@ -146,7 +151,15 @@ class IndependentSurfaceCutoverAuditTests(unittest.TestCase):
             self.assertTrue(result.checks["surface_contract_uses_musl"])
             self.assertTrue(result.checks["surface_contract_forbids_runtime_package_manager"])
             self.assertTrue(result.checks["surface_launcher_alpine_provisioning_removed"])
-            self.assertTrue(result.checks["stable_base_alpine_owner_preserved_for_later_gate"])
+            self.assertTrue(result.checks["stable_base_buildroot_only_after_surface_cutover"])
+
+    def test_reintroducing_alpine_stable_builder_is_rejected(self):
+        with tempfile.TemporaryDirectory() as td:
+            root = self.make_tree(Path(td), cutover=True)
+            old = root / "bootstrap/stable-base/build.py"
+            old.write_text("# unsafe retired producer", encoding="utf-8")
+            with self.assertRaisesRegex(AUDIT.AuditError, "post-cutover"):
+                AUDIT.audit_post(root)
 
     def test_real_repository_is_valid_post_cutover(self):
         result = AUDIT.audit_post(ROOT)

@@ -36,68 +36,6 @@
       }
     },
     {
-      "id": "alpine-development-base",
-      "kind": "base-rootfs-and-selected-packages",
-      "source_authority": "bootstrap/base/alpine_core.py",
-      "version": "3.22.5",
-      "branch": "v3.22",
-      "arch": "x86_64",
-      "packages": [
-        "git",
-        "ca-certificates",
-        "kmod",
-        "iproute2",
-        "iw",
-        "wpa_supplicant",
-        "zstd",
-        "linux-firmware-other",
-        "linux-firmware-rtlwifi",
-        "linux-firmware-mediatek",
-        "linux-firmware-ath9k_htc"
-      ],
-      "build_only_packages": [
-        "zstd"
-      ],
-      "delivery_scope": [
-        "owner-development-usb-base"
-      ],
-      "license": {
-        "status": "unresolved-in-this-inventory",
-        "spdx": null
-      }
-    },
-    {
-      "id": "alpine-stable-mvp-base",
-      "kind": "base-rootfs-and-selected-packages",
-      "source_authority": "bootstrap/stable-base/source.json",
-      "version": "3.22.5",
-      "branch": "v3.22",
-      "arch": "x86_64",
-      "packages": [
-        "ca-certificates",
-        "kmod",
-        "iproute2",
-        "iw",
-        "wpa_supplicant",
-        "zstd",
-        "linux-firmware-other",
-        "linux-firmware-rtlwifi",
-        "linux-firmware-mediatek",
-        "linux-firmware-ath9k_htc"
-      ],
-      "build_only_packages": [
-        "zstd"
-      ],
-      "delivery_scope": [
-        "stable-mvp-usb-base-candidate"
-      ],
-      "promotion_status": "blocked-until-source-and-package-locks",
-      "license": {
-        "status": "unresolved-in-this-inventory",
-        "spdx": null
-      }
-    },
-    {
       "id": "buildroot-native-surface-runtime",
       "kind": "immutable-runtime-erofs",
       "source_authority": "bootstrap/surface-runtime/source.json",

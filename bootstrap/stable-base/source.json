@@ -1,39 +1,16 @@
 {
   "$schema": "prototype-ordax.stable-base-source/1",
-  "status": "candidate-not-promotable",
+  "status": "buildroot-candidate-not-promotable",
   "product_scope": "stable-mvp-usb-only",
-  "alpine": {
-    "version": "3.22.5",
-    "branch": "v3.22",
-    "arch": "x86_64",
-    "archive_url": "https://dl-cdn.alpinelinux.org/alpine/v3.22/releases/x86_64/alpine-minirootfs-3.22.5-x86_64.tar.gz",
-    "checksum_sidecar_url": "https://dl-cdn.alpinelinux.org/alpine/v3.22/releases/x86_64/alpine-minirootfs-3.22.5-x86_64.tar.gz.sha256",
-    "archive_sha256": "4b4daa9fe2fc696c4919c4412a4c3d3e770d8fb70292a004a2c72f5096175282",
-    "archive_hash_pin_status": "pinned-from-verified-candidate-daf33badda46b82b1d4e3faafcf040ca8dca479c",
-    "checksum_sidecar_must_match_download": true
+  "base_producer": {
+    "entrypoint": "bootstrap/independent-base/build.py",
+    "source_contract": "bootstrap/independent-base/source.json",
+    "profile": "stable-mvp",
+    "requires_authenticated_kernel_archive": true,
+    "package_manager_in_runtime_allowed": false,
+    "physical_artifact_authorized": false,
+    "signed_release_equivalence_proven": false
   },
-  "packages": [
-    "ca-certificates",
-    "kmod",
-    "iproute2",
-    "iw",
-    "wpa_supplicant",
-    "zstd",
-    "linux-firmware-other",
-    "linux-firmware-rtlwifi",
-    "linux-firmware-mediatek",
-    "linux-firmware-ath9k_htc"
-  ],
-  "build_only_packages": [
-    "zstd"
-  ],
-  "apk_package_versions_pinned": true,
-  "apk_package_lock_status": "pinned-from-verified-candidate-e0b8caa6ed447710465b8ab5ee91a599ccfaa3c3",
-  "git_client_allowed": false,
-  "source_checkout_allowed": false,
-  "development_helpers_allowed": false,
-  "runtime_package_client_retained": true,
-  "runtime_package_trust_keys_retained": true,
   "kernel_modules": {
     "source": "bootstrap/kernel",
     "required_basenames": [
@@ -92,100 +69,16 @@
     "base_root_immutable": true
   },
   "build": {
-    "canonical_entrypoint": "bootstrap/stable-base/build.py",
-    "shared_alpine_core": "bootstrap/base/alpine_core.py",
+    "canonical_entrypoint": "bootstrap/independent-base/build.py",
     "shared_firmware_policy": "bootstrap/base/firmware_policy.py",
-    "shared_runtime_policy": "bootstrap/base/runtime_policy.py",
     "physical_artifact_authorized": false,
     "signed_update_integration_implemented": false,
     "qemu_boot_proven": false,
     "physical_boot_proven": false
   },
   "promotion_blockers": [
-    "bind-stable-base-into-portable-boot-contract",
-    "signed-stable-base-update-protocol",
-    "qemu-portable-v2-boot-proof",
+    "verified-signed-buildroot-delivery",
+    "portable-uefi-ovmf-proof",
     "physical-usb-boot-proof"
-  ],
-  "apk_package_lock": {
-    "alpine-baselayout": "3.7.0-r0",
-    "alpine-baselayout-data": "3.7.0-r0",
-    "alpine-keys": "2.5-r0",
-    "alpine-release": "3.22.5-r0",
-    "apk-tools": "2.14.10-r0",
-    "busybox": "1.37.0-r20",
-    "busybox-binsh": "1.37.0-r20",
-    "ca-certificates": "20261020-r0",
-    "ca-certificates-bundle": "20260611-r0",
-    "dbus-libs": "1.16.2-r1",
-    "iproute2": "6.15.0-r0",
-    "iproute2-minimal": "6.15.0-r0",
-    "iproute2-ss": "6.15.0-r0",
-    "iproute2-tc": "6.15.0-r0",
-    "iw": "6.9-r0",
-    "kmod": "34.2-r0",
-    "libapk2": "2.14.10-r0",
-    "libcap2": "2.78-r0",
-    "libcrypto3": "3.5.7-r0",
-    "libelf": "0.193-r0",
-    "libgcc": "14.2.0-r6",
-    "libmnl": "1.0.5-r2",
-    "libnl3": "3.11.0-r0",
-    "libssl3": "3.5.7-r0",
-    "libstdc++": "14.2.0-r6",
-    "libxtables": "1.8.11-r1",
-    "linux-firmware-ath9k_htc": "20250509-r0",
-    "linux-firmware-mediatek": "20250509-r0",
-    "linux-firmware-other": "20250509-r0",
-    "linux-firmware-rtlwifi": "20250509-r0",
-    "musl": "1.2.5-r12",
-    "musl-utils": "1.2.5-r12",
-    "pcsc-lite-libs": "2.3.3-r0",
-    "scanelf": "1.3.8-r1",
-    "ssl_client": "1.37.0-r20",
-    "wpa_supplicant": "2.11-r2",
-    "xz-libs": "5.8.4-r0",
-    "zlib": "1.3.2-r0",
-    "zstd": "1.5.7-r0",
-    "zstd-libs": "1.5.7-r0"
-  },
-  "apk_package_lock_scope": "all-installed-packages-including-transitive-dependencies",
-  "apk_package_lock_source": "verified-candidate-e0b8caa6ed447710465b8ab5ee91a599ccfaa3c3",
-  "apk_package_lock_count": 40,
-  "apk_package_lock_refresh": {
-    "status": "candidate-reproof-passed",
-    "detected_by_workflow_run_id": 39476365071,
-    "detected_by_job_id": 118813346675,
-    "detected_on_commit": "73d6923ca2cb9e7c37fcc712f21dda9c20414c48",
-    "changes": [
-      {
-        "package": "ca-certificates",
-        "from": "20260909-r0",
-        "to": "20261020-r0"
-      }
-    ],
-    "candidate_source_commit": "e0b8caa6ed447710465b8ab5ee91a599ccfaa3c3",
-    "candidate_workflow_run_id": 39497041081,
-    "candidate_job_id": 118884662201,
-    "candidate_artifact_id": 12297049355,
-    "candidate_artifact_archive_sha256": "8727e15cc902c13bbf1bf8ca17e31857819005c3b10d20aa5c2999a1f7abfa6e",
-    "candidate_normalized_rootfs_tar_sha256": "df668955408b50adc3541daca844440eac2aa1cd47deab25de40bb59564e5a5f",
-    "candidate_erofs_sha256": "081fef6e9c9c4c991363f07ddcc08856b2a3ed65b5ec844108da43cd232396a6",
-    "candidate_artifact_recorded": true,
-    "physical_artifact_authorized": false
-  },
-  "apk_install_policy": "full-transitive-lock-exact-version-specs",
-  "discovery_evidence": {
-    "workflow": "Stable MVP Base Candidate",
-    "workflow_run_id": 39497041081,
-    "job_id": 118884662201,
-    "source_commit": "e0b8caa6ed447710465b8ab5ee91a599ccfaa3c3",
-    "artifact_id": 12297049355,
-    "artifact_archive_sha256": "8727e15cc902c13bbf1bf8ca17e31857819005c3b10d20aa5c2999a1f7abfa6e",
-    "alpine_archive_sha256": "4b4daa9fe2fc696c4919c4412a4c3d3e770d8fb70292a004a2c72f5096175282",
-    "installed_package_count": 40,
-    "normalized_rootfs_tar_sha256": "df668955408b50adc3541daca844440eac2aa1cd47deab25de40bb59564e5a5f",
-    "stable_base_erofs_sha256": "081fef6e9c9c4c991363f07ddcc08856b2a3ed65b5ec844108da43cd232396a6",
-    "physical_artifact_authorized": false
-  }
+  ]
 }

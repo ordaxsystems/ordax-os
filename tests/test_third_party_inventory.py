@@ -1,4 +1,3 @@
-import ast
 import json
 import re
 import unittest
@@ -7,28 +6,11 @@ from pathlib import Path
 ROOT = Path(__file__).resolve().parents[1]
 INVENTORY_PATH = ROOT / "platform" / "compliance" / "declared-inputs.json"
 KERNEL_SOURCE = ROOT / "bootstrap" / "kernel" / "source.json"
-DEV_CORE = ROOT / "bootstrap" / "base" / "alpine_core.py"
-BASE_RUNTIME_POLICY = ROOT / "bootstrap" / "base" / "runtime_policy.py"
 DEV_BUILD = ROOT / "bootstrap" / "dev-base" / "build.py"
 STABLE_SOURCE = ROOT / "bootstrap" / "stable-base" / "source.json"
 INDEPENDENT_SOURCE = ROOT / "bootstrap" / "independent-base" / "source.json"
 INDEPENDENT_DEFCONFIG = ROOT / "bootstrap" / "independent-base" / "configs" / "ordax_minimal_defconfig"
 SURFACE = ROOT / "system" / "surface" / "bin" / "ordax-surface"
-
-
-def assignment_literals(path: Path):
-    tree = ast.parse(path.read_text(encoding="utf-8"))
-    values = {}
-    for node in tree.body:
-        if not isinstance(node, ast.Assign) or len(node.targets) != 1:
-            continue
-        target = node.targets[0]
-        if isinstance(target, ast.Name):
-            try:
-                values[target.id] = ast.literal_eval(node.value)
-            except (ValueError, TypeError):
-                pass
-    return values
 
 
 class ThirdPartyInventoryTests(unittest.TestCase):
@@ -53,32 +35,16 @@ class ThirdPartyInventoryTests(unittest.TestCase):
         for duplicated in ("version", "archive_url", "archive_sha256"):
             self.assertNotIn(duplicated, item)
 
-    def test_development_base_input_matches_selected_packages(self):
-        core = assignment_literals(DEV_CORE)
-        runtime = assignment_literals(BASE_RUNTIME_POLICY)
-        item = self.by_id["alpine-development-base"]
-        self.assertEqual(item["version"], core["ALPINE_VERSION"])
-        self.assertEqual(item["branch"], core["ALPINE_BRANCH"])
-        self.assertEqual(item["arch"], core["ARCH"])
-        self.assertEqual(item["packages"], core["PACKAGES"])
-        self.assertEqual(
-            item["build_only_packages"],
-            list(runtime["BUILD_ONLY_PACKAGES"]),
-        )
-
-    def test_stable_mvp_base_input_matches_candidate_contract(self):
+    def test_alpine_inputs_are_retired_without_removing_buildroot_or_wine(self):
+        self.assertNotIn("alpine-development-base", self.by_id)
+        self.assertNotIn("alpine-stable-mvp-base", self.by_id)
         source = json.loads(STABLE_SOURCE.read_text(encoding="utf-8"))
-        item = self.by_id["alpine-stable-mvp-base"]
-        self.assertEqual(item["version"], source["alpine"]["version"])
-        self.assertEqual(item["branch"], source["alpine"]["branch"])
-        self.assertEqual(item["arch"], source["alpine"]["arch"])
-        self.assertEqual(item["packages"], source["packages"])
-        self.assertEqual(item["build_only_packages"], source["build_only_packages"])
-        self.assertNotIn("git", item["packages"])
-        self.assertEqual(
-            item["promotion_status"],
-            "blocked-until-source-and-package-locks",
-        )
+        self.assertNotIn("alpine", source)
+        self.assertNotIn("apk_package_lock", source)
+        self.assertEqual(source["base_producer"]["profile"], "stable-mvp")
+        self.assertEqual(source["base_producer"]["entrypoint"], "bootstrap/independent-base/build.py")
+        self.assertIn("independent-buildroot-base-candidate", self.by_id)
+        self.assertIn("wine-windows-compat-runtime-source-candidate", self.by_id)
 
     def test_independent_base_input_matches_pinned_buildroot_profile(self):
         source = json.loads(INDEPENDENT_SOURCE.read_text(encoding="utf-8"))

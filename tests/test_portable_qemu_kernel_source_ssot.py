@@ -40,7 +40,7 @@ class PortableQemuKernelSourceSSOTTests(unittest.TestCase):
         self.assertNotRegex(workflow, r"vmlinuz-[0-9]+\.[0-9]+\.[0-9]+")
         for step in (
             "Build exact kernel and kernel modules",
-            "Build and verify exact Stable Base",
+            "Build and verify canonical independent Buildroot base",
             "Boot portable-v2 candidate PID1 in QEMU",
             "Prove armed candidate one-shot fallback in QEMU",
             "Prove invalid Ed25519 candidate, durable rollback and read-only rescue in QEMU",

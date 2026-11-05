@@ -545,3 +545,11 @@ A política geral permanece nos owners existentes:
 ## Critério de conclusão
 
 A migração termina quando Alpine deixa de ser dependência ativa do runtime/base canônico, os consumidores foram convergidos para owners neutros ou para a Independent Base, a prova completa passa e `main` volta a conter uma única implementação ativa sem compatibilidade Alpine residual desnecessária.
+
+### Alpine executable cut completed in the integration branch (2026-11-05)
+
+- Retired the rootfs producer, runtime APK policy and old Stable Alpine builder. The single Base producer now uses the independent Buildroot profile stable-mvp; kernel, firmware and boot policies remain with their existing owners.
+- QEMU, initramfs, Stable candidate and Creator use Buildroot inputs. The physical workflow requires an authenticated Buildroot component from the exact authorized signed source commit, never rebuilds the older Alpine image or substitutes another commit.
+- Retired the Alpine/APK Wine compilation experiments. Wine 11.0 remains only as a hash-bound source candidate with source-only proof; no executable runtime, install or activation is claimed.
+- Previous signed releases remain immutable history; no old release is relabeled as Buildroot. Official physical release and promotion remain blocked until a genuinely verified signed Buildroot delivery exists.
+- Historical checkpoints above describe earlier revisions, not current executable code.

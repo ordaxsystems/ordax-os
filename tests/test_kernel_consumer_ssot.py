@@ -18,7 +18,7 @@ def load_module(path: Path, name: str):
     return module
 
 
-CORE = load_module(ROOT / "bootstrap/base/alpine_core.py", "ordax_kernel_consumer_core")
+KERNEL_CI = load_module(ROOT / "bootstrap/kernel/ci_env.py", "ordax_kernel_consumer_version")
 ASSEMBLER = load_module(ROOT / "tools/creator/assemble.py", "ordax_kernel_consumer_assembler")
 
 
@@ -29,24 +29,23 @@ class KernelConsumerSSOTTests(unittest.TestCase):
         source.write_text(json.dumps({"$schema": schema, "version": version}) + "\n", encoding="utf-8")
         return source
 
-    def test_real_dev_base_and_creator_consume_same_kernel_pin(self):
+    def test_buildroot_base_and_creator_consume_same_kernel_pin(self):
         pinned = json.loads((ROOT / "bootstrap/kernel/source.json").read_text(encoding="utf-8"))["version"]
-        self.assertEqual(CORE.pinned_kernel_version(), pinned)
-        self.assertEqual(CORE.kernel_module_archive_path(), ROOT / "out/kernel" / f"kernel-modules-{pinned}.tar")
+        self.assertEqual(KERNEL_CI.canonical_version(), pinned)
         self.assertEqual(
             ASSEMBLER.canonical_kernel_sources(ROOT),
             {f"bootstrap/kernel/vmlinuz-{pinned}": f"out/kernel/vmlinuz-{pinned}"},
         )
-        stable_source = (ROOT / "bootstrap/stable-base/build.py").read_text(encoding="utf-8")
-        self.assertIn("default=CORE.kernel_module_archive_path()", stable_source)
-        self.assertNotIn("kernel-modules-6.6.52.tar", stable_source)
+        base = (ROOT / "bootstrap/independent-base/build.py").read_text(encoding="utf-8")
+        self.assertIn('KERNEL = ROOT / "bootstrap/kernel/source.json"', base)
+        stable = json.loads((ROOT / "bootstrap/stable-base/source.json").read_text(encoding="utf-8"))
+        self.assertEqual(stable["base_producer"]["entrypoint"], "bootstrap/independent-base/build.py")
 
     def test_new_kernel_version_changes_both_names_without_mutating_repo(self):
         with tempfile.TemporaryDirectory() as tmp:
             root = Path(tmp)
             contract = self.write_kernel_source(root)
-            self.assertEqual(CORE.pinned_kernel_version(contract), "6.6.158")
-            self.assertEqual(CORE.kernel_module_archive_path(contract).name, "kernel-modules-6.6.158.tar")
+            self.assertEqual(KERNEL_CI.canonical_version(contract), "6.6.158")
             self.assertEqual(
                 ASSEMBLER.canonical_kernel_sources(root),
                 {"bootstrap/kernel/vmlinuz-6.6.158": "out/kernel/vmlinuz-6.6.158"},
@@ -56,13 +55,13 @@ class KernelConsumerSSOTTests(unittest.TestCase):
         with tempfile.TemporaryDirectory() as tmp:
             root = Path(tmp)
             contract = self.write_kernel_source(root, version="../6.6.158")
-            with self.assertRaises(CORE.BuildError):
-                CORE.pinned_kernel_version(contract)
+            with self.assertRaises(KERNEL_CI.KernelCIError):
+                KERNEL_CI.canonical_version(contract)
             with self.assertRaises(ASSEMBLER.AssembleError):
                 ASSEMBLER.canonical_kernel_sources(root)
             self.write_kernel_source(root, schema="unexpected")
-            with self.assertRaises(CORE.BuildError):
-                CORE.pinned_kernel_version(contract)
+            with self.assertRaises(KERNEL_CI.KernelCIError):
+                KERNEL_CI.canonical_version(contract)
             with self.assertRaises(ASSEMBLER.AssembleError):
                 ASSEMBLER.canonical_kernel_sources(root)
 

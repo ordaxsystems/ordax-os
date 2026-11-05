@@ -105,10 +105,10 @@ python3 bootstrap/independent-base/qemu_proof.py \
 
 | Componente | Dependência atual | Classificação | Estratégia na migração |
 |---|---|---|---|
-| `bootstrap/base/alpine_core.py` | Alpine minirootfs, espelho APK, `apk add` | distribuição | remover somente após último consumidor migrado |
-| `bootstrap/stable-base/build.py` | `alpine_core.py`/APK e parâmetros Stable | distribuição + build | separar responsabilidades neutras e convergir para base independente |
+| Alpine rootfs producer | removed | Buildroot is sole Base producer |
+| Stable Alpine builder | removed | Stable uses the independent-base stable-mvp profile |
 | `bootstrap/dev-base/build.py` | builder Alpine Dev aposentado na PR #2243 | distribuição | removido sem alterar a política de prova física do USB Owner |
-| `bootstrap/base/runtime_policy.py` | `apk del`, chaves APK | distribuição | eliminar após consumidores deixarem de depender de APK |
+| Alpine APK runtime policy | removed | No APK removal or installation commands |
 | `bootstrap/base/firmware_policy.py` | módulos/firmware do kernel | política independente | preservada e reutilizada como política neutra |
 | `bootstrap/base/kernel_module_payload.py` | archive do kernel + hardware matrix | política independente | novo owner neutro do payload selecionado de módulos |
 | `bootstrap/initramfs/build.py` | BusyBox oficial + `musl-gcc` | independente | preservar |

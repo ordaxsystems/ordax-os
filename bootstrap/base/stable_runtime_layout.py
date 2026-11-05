@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 """Stable rootfs directory layout, sourced solely from stable-base/source.json.
 
-Shared by the existing Alpine candidate and the Independent Base Stable profile.
+Owned by the Buildroot stable-mvp profile and the canonical Portable boot contract.
 It neither builds a rootfs nor grants activation or physical-media authority.
 """
 from __future__ import annotations

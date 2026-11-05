@@ -268,6 +268,18 @@ jobs:
           fetch-depth: 0
           persist-credentials: false
 
+      - name: Block historical Alpine signed sources before any physical build
+        shell: bash
+        run: |
+          set -euo pipefail
+          # Release identity is immutable. A pre-Buildroot signed release cannot
+          # be silently rebuilt from another commit or distribution.
+          if [ ! -f release-source/bootstrap/independent-base/build.py ] ||
+             [ ! -f release-source/tools/ci/portable_component_cache.py ]; then
+            echo '::error::Authorized signed source predates Buildroot. New signed Buildroot source and receipts are required; physical payload remains blocked.' >&2
+            exit 1
+          fi
+
       - name: Set up Python
         uses: actions/setup-python@ece7cb06caefa5fff74198d8649806c4678c61a1 # v6
         with:
@@ -444,23 +456,44 @@ jobs:
           test -s "$work/kernel/vmlinuz-$ORDAX_KERNEL_VERSION"
           test -s "$work/kernel/kernel-modules-$ORDAX_KERNEL_VERSION.tar"
 
-      - name: Build and verify exact Stable Base
+      - name: Resolve exact Stable component fingerprint from authorized release
+        id: stable-fingerprint
         shell: bash
         working-directory: release-source
         run: |
           set -euo pipefail
+          test -n "${ImageOS:-}"
+          test -n "${ImageVersion:-}"
+          export ORDAX_COMPONENT_CACHE_ENVIRONMENT="${RUNNER_OS:?}/${RUNNER_ARCH:?}/${ImageOS}/${ImageVersion}"
+          python3 tools/ci/portable_component_cache.py fingerprints --github-output "$GITHUB_OUTPUT"
+
+      - name: Restore exact signed-release Buildroot Stable component
+        id: signed-stable-cache
+        uses: actions/cache/restore@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
+        with:
+          path: ${{ runner.temp }}/ordax-independent
+          key: ordax-portable-component-v1-${{ runner.os }}-${{ runner.arch }}-independent-base-stable-${{ steps.stable-fingerprint.outputs.independent_base_stable }}
+
+      - name: Verify exact authorized Buildroot Stable Base without rebuilding
+        shell: bash
+        working-directory: release-source
+        env:
+          ORDAX_STABLE_CACHE_HIT: ${{ steps.signed-stable-cache.outputs.cache-hit }}
+        run: |
+          set -euo pipefail
+          if [ "$ORDAX_STABLE_CACHE_HIT" != true ]; then
+            echo '::error::No authenticated Stable Buildroot artifact for the exact authorized release; never substitute another commit or Alpine.' >&2
+            exit 1
+          fi
           work="$RUNNER_TEMP/first-physical-payload"
-          sudo -E env ORDAX_SOURCE_COMMIT="$RELEASE_SOURCE_COMMIT" \
-            python bootstrap/stable-base/build.py build \
-              --kernel-modules "$work/kernel/kernel-modules-$ORDAX_KERNEL_VERSION.tar" \
-              --out-dir "$work/stable-base" \
-              --cache-dir "$work/stable-base-cache" \
-              > "$work/metadata/stable-base-build.json"
-          sudo chown -R "$(id -u):$(id -g)" "$work/stable-base"
-          python bootstrap/stable-base/build.py verify \
-            --out-dir "$work/stable-base" \
-            > "$work/metadata/stable-base-verify.json"
-          test -s "$work/stable-base/stable-base.erofs"
+          base="$RUNNER_TEMP/ordax-independent"
+          test -s "$base/independent-base.erofs"
+          python3 bootstrap/independent-base/build.py verify             --profile stable-mvp --out "$base"             > "$work/metadata/stable-base-verify.json"
+          python3 tools/ci/portable_component_cache.py verify             --component independent-base-stable --out-dir "$base"             --integration-commit "$RELEASE_SOURCE_COMMIT" --cache-hit true             --receipt "$work/metadata/stable-component-reuse.json"
+          mkdir -p "$work/stable-base"
+          cp -- "$base/independent-base.erofs" "$work/stable-base/stable-base.erofs"
+          cmp -- "$base/independent-base.erofs" "$work/stable-base/stable-base.erofs"
+          fsck.erofs "$work/stable-base/stable-base.erofs"
 
       - name: Build and verify exact bootstrap capsule
         shell: bash

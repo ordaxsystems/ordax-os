@@ -35,8 +35,10 @@ class IndependentBaseTest(unittest.TestCase):
         self.assertEqual(spec["status"], "experimental-not-promotable")
         self.assertIs(spec["physical_artifact_authorized"], False)
         self.assertIs(spec["stable_channel_authorized"], False)
-        self.assertNotIn("bootstrap/independent-base/build.py",
-                         (ROOT / "bootstrap/stable-base/source.json").read_text())
+        stable = json.loads((ROOT / "bootstrap/stable-base/source.json").read_text())
+        self.assertEqual(stable["base_producer"]["entrypoint"], "bootstrap/independent-base/build.py")
+        self.assertEqual(stable["base_producer"]["profile"], "stable-mvp")
+        self.assertFalse(stable["base_producer"]["signed_release_equivalence_proven"])
 
     def test_neutral_erofs_owner_and_legacy_layout_separation(self):
         spec = json.loads((BASE / "source.json").read_text())

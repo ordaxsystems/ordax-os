@@ -1,15 +1,9 @@
-#!/usr/bin/env python3
-"""Machine-checkable guard for the Alpine -> Buildroot Surface cutover.
+"""Guard the independent and canonical Surface migration to Buildroot/musl.
 
-`pre` validates the migration state that is allowed before promotion: the new
-Independent Surface owner is Buildroot/musl and package-manager-free while the
-current canonical Alpine Surface and Stable Base remain intact.
-
-`post` is intentionally red before cutover. It becomes green only after the
-canonical Surface owner has been replaced atomically by Buildroot/musl and all
-Surface-only Alpine/APK provisioning is gone. Stable Base Alpine ownership is
-explicitly preserved until its later migration gate.
+Both pre- and post-cutover reject the retired Alpine Stable builders and
+require the canonical Stable layout to be owned by independent-base.
 """
+
 from __future__ import annotations
 
 import argparse
@@ -27,10 +21,13 @@ LEGACY_SURFACE_FILES = (
     Path("bootstrap/surface-runtime/discover_lock.py"),
     Path(".github/workflows/surface-runtime-lock-discovery.yml"),
 )
-STABLE_BASE_GUARDS = (
+STABLE_BUILDROOT_REQUIRED = (
+    Path("bootstrap/independent-base/build.py"),
+    Path("bootstrap/stable-base/source.json"),
+)
+RETIRED_ALPINE_PRODUCERS = (
     Path("bootstrap/base/alpine_core.py"),
     Path("bootstrap/stable-base/build.py"),
-    Path("bootstrap/stable-base/source.json"),
 )
 SURFACE_CACHE_OWNER = Path("tools/ci/portable_component_cache.py")
 
@@ -128,8 +125,20 @@ def _surface_contract(owner: Path) -> dict[str, bool]:
     }
 
 
-def _stable_base_preserved(root: Path) -> bool:
-    return all((root / relative).is_file() for relative in STABLE_BASE_GUARDS)
+def _stable_base_buildroot_only(root: Path) -> bool:
+    if any((root / relative).exists() for relative in RETIRED_ALPINE_PRODUCERS):
+        return False
+    if not all((root / relative).is_file() for relative in STABLE_BUILDROOT_REQUIRED):
+        return False
+    source = _json(root / "bootstrap/stable-base/source.json")
+    base = source.get("base_producer")
+    return (
+        isinstance(base, dict)
+        and base.get("entrypoint") == "bootstrap/independent-base/build.py"
+        and base.get("profile") == "stable-mvp"
+        and base.get("package_manager_in_runtime_allowed") is False
+        and base.get("physical_artifact_authorized") is False
+    )
 
 
 def _launcher_alpine_provisioning_absent(root: Path) -> bool:
@@ -150,7 +159,7 @@ def audit_pre(root: Path = ROOT) -> AuditResult:
         "legacy_surface_builder_still_present": (canonical / "build.py").is_file(),
         "legacy_surface_source_still_present": (canonical / "source.json").is_file(),
         "legacy_surface_launcher_still_present": (root / SURFACE_LAUNCHER).is_file(),
-        "stable_base_alpine_owner_preserved": _stable_base_preserved(root),
+        "stable_base_buildroot_only": _stable_base_buildroot_only(root),
     }
     if not all(checks.values()):
         detail = f" checks={checks} forbidden_hits={hits}"
@@ -176,7 +185,7 @@ def audit_post(root: Path = ROOT) -> AuditResult:
             and "'bootstrap/base/alpine_core.py'" not in cache_text
         ),
         "independent_surface_bridge_removed": independent_bridge_absent,
-        "stable_base_alpine_owner_preserved_for_later_gate": _stable_base_preserved(root),
+        "stable_base_buildroot_only_after_surface_cutover": _stable_base_buildroot_only(root),
     }
     if not all(checks.values()):
         detail = f" checks={checks} forbidden_hits={hits}"

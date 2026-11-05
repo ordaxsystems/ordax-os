@@ -13,7 +13,6 @@ import unittest
 ROOT = Path(__file__).resolve().parents[1]
 HELPER = ROOT / "bootstrap/base/stable_runtime_layout.py"
 STABLE_SOURCE = ROOT / "bootstrap/stable-base/source.json"
-LEGACY = ROOT / "bootstrap/stable-base/build.py"
 POST_BUILD = ROOT / "bootstrap/independent-base/post-build.sh"
 
 
@@ -36,12 +35,10 @@ class StableRuntimeLayoutTests(unittest.TestCase):
             "home", "run", "tmp", "proc", "sys", "dev", "root",
         )
         self.assertEqual(load_module().runtime_directories(contract), expected)
-        old_builder = LEGACY.read_text(encoding="utf-8")
-        self.assertIn("LAYOUT.ensure_runtime_directories(rootfs, contract, create=True)", old_builder)
-        self.assertNotIn('for relative in (\n        "state",', old_builder)
-        self.assertNotIn("bootstrap/independent-base/build.py", old_builder)
-        self.assertIn("LAYOUT.verify_stable_size(rootfs, contract)", old_builder)
-        self.assertNotIn("CORE.unique_regular_bytes(rootfs)", old_builder)
+        self.assertFalse((ROOT / "bootstrap/stable-base/build.py").exists())
+        self.assertEqual(contract["base_producer"]["profile"], "stable-mvp")
+        self.assertEqual(contract["base_producer"]["entrypoint"], "bootstrap/independent-base/build.py")
+        self.assertFalse(contract["base_producer"]["package_manager_in_runtime_allowed"])
 
     def test_buildroot_stable_uses_same_layout_and_validates_real_target(self):
         script = POST_BUILD.read_text(encoding="utf-8")
