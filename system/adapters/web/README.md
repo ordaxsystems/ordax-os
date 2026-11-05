@@ -22,9 +22,11 @@ Checkpoint reuse its single capability check; each retains its own canonical
 schema, storage key, validation, persistence-failure behavior and session
 fallback. `app-data.mjs` intentionally requires durable storage **and**
 Web Locks for atomic mutations, so it must not silently inherit optional
-session fallback. Existing `workspace.v1` migration is retained only to
-avoid dropping stored user state without a verified migration cutoff; it is
-not an additional source of truth.
+session fallback. The `workspace.v1` reader exists only for one-time import:
+the Web removes stale v1 bytes after a valid v2 read or confirmed v2 write.
+Failed v2 persistence retains the original v1 and validated in-memory layout;
+failed cleanup cannot invalidate committed v2. Corrupt v2 never falls back to
+stale v1. Native has its own independent namespace and lifecycle.
 
 This adapter deliberately does **not** claim that account or sync services are implemented merely because those capabilities belong to the Web product baseline. Runtime capability snapshots describe what the current host actually exposes.
 
