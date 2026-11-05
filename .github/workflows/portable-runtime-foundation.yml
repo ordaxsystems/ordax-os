@@ -57,7 +57,7 @@ on:
       - 'bootstrap/stable-base/ordax-stable-init'
       - 'bootstrap/kernel/config/ordax.fragment'
       - 'tests/test_stable_hardware_baseline_contract.py'
-      - 'tests/test_stable_base_contract.py'
+      - 'tests/test_stable_runtime_layout.py'
       - '.github/workflows/portable-runtime-foundation.yml'
   pull_request:
     paths:
@@ -114,7 +114,7 @@ on:
       - 'bootstrap/stable-base/ordax-stable-init'
       - 'bootstrap/kernel/config/ordax.fragment'
       - 'tests/test_stable_hardware_baseline_contract.py'
-      - 'tests/test_stable_base_contract.py'
+      - 'tests/test_stable_runtime_layout.py'
       - '.github/workflows/portable-runtime-foundation.yml'
   workflow_dispatch:
 

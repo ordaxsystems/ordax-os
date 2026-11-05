@@ -1,5 +1,14 @@
 # Migração para base independente — remoção do Alpine
 
+> **Estado atual (2026-11-05):** Os produtores Alpine/APK foram retirados do
+> codigo na branch da PR #2243 e o unico produtor de Base e Buildroot. A prova
+> de codigo-fonte do Wine permanece, sem runtime ativavel. O preflight do Owner
+> mantem seus testes de inventario e comandos Buildroot. As secoes anteriores
+> registram checkpoints historicos, nao etapas ainda obrigatorias. A branch
+> ainda nao foi integrada a main e as provas Linux/boot/USB nao foram aprovadas
+> por este corte.
+
+
 ## Objetivo
 
 Remover Alpine/APK do runtime base do OrdaX OS sem bloquear o desenvolvimento normal do produto e sem criar uma segunda arquitetura.
