@@ -21,6 +21,7 @@ LEGACY_PROFILE_TRIGGER = f"      - '{LEGACY_PROFILE_DOC}'"
 CURRENT_PROFILE_TRIGGER = f"      - '{CURRENT_PROFILE_KNOWLEDGE_DOC}'"
 LIGHT_EXACT = frozenset({
     "docs/BUILD-AUTONOMY.md",
+    "docs/DEV-USB-GIT.md",
     "docs/DECISIONS.md",
     "docs/CURRENT-STATE.md",
     "docs/DEVELOPMENT-WORKFLOW.md",
