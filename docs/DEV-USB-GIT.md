@@ -2,6 +2,27 @@
 
 Status: **CANONICAL FOR THE CURRENT DEVELOPMENT USB**
 
+## Fronteira entre o Creator USB e o ordax-pull
+
+O Creator independente prepara uma **nova mídia USB**; durante a produção
+`creator-owner-dev-git.yml` instala o `ordax-pull` e inicia o checkout Git
+via `--seed-from-local`. **Depois da instalação, o Pull não depende do
+Creator, de QEMU ou de recompilar kernel/Buildroot**. O Supervisor coordena
+a atualização Git no Linux, com preflight, saúde e rollback; no Windows, a
+materialização do canal Dev pertence a
+`tools/windows-desktop/dev-update.cjs`, não ao script Linux.
+
+Mudanças restritas ao script `bootstrap/dev-base/ordax-pull` em uma PR são
+validadas pelo workflow já existente **Owner Development Preflight**,
+com testes de transação/recuperação. O classificador causal evita montar
+uma segunda imagem USB nessa PR. Alterações mistas em Base, boot,
+Supervisor, helper nativo ou entrada desconhecida exigem o gate USB.
+Quando o Pull modificado entra na `main`, a publicação normal do USB
+continua ativa até uma decisão explícita sobre o canal de distribuição.
+O contrato normativo está em
+`docs/contracts/build-autonomy.json#owner_dev_pull_ci`; o owner operacional
+está em `docs/contracts/distribution-profiles.json`.
+
 ## Repetição inteligente após falhas de checkout
 
 Depois de uma falha **posterior ao fetch**, o Supervisor guarda um recibo
