@@ -1102,7 +1102,7 @@ async function start() {
   // Supervisor to acknowledge its identity. No synthetic heartbeat is sent.
   bootScreen.ready();
   const desktopSurfaceReporter = windowsDesktopHost
-    ? mountNativeDesktopSurfaceStateReport(window, root, surface, appActivation)
+    ? mountNativeDesktopSurfaceStateReport(window, surface, appActivation)
     : null;
   componentManager.setCurrentHealth("surface-shell", "healthy");
   void updateWatcher.markHealthy();

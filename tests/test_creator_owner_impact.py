@@ -177,6 +177,49 @@ class CreatorOwnerImpactTests(unittest.TestCase):
         suspect = self.commit(path="docs/evidence/desktop-runtime-windows-candidate-2026-10-31.json")
         self.assertEqual(impact.classify(base, suspect, root=self.root)[0], True)
 
+    def test_exact_windows_semantic_surface_mount_is_not_a_usb_producer(self):
+        # Exact source-diff proof: the same Linux Native composition remains
+        # byte-identical except for one call inside an existing Windows guard.
+        path = "system/composition/native/main.mjs"
+        source = self.root / path
+        source.parent.mkdir(parents=True, exist_ok=True)
+        old = (
+            "const something = true;\n"
+            "  const desktopSurfaceReporter = windowsDesktopHost\n"
+            "    ? mountNativeDesktopSurfaceStateReport(window, root, surface, appActivation)\n"
+            "    : null;\n"
+        )
+        source.write_text(old, encoding="utf-8")
+        base = self.commit(workflow=WORKFLOW.read_text(encoding="utf-8"), lock=VISUAL)
+        new = old.replace(
+            "mountNativeDesktopSurfaceStateReport(window, root, surface, appActivation)",
+            "mountNativeDesktopSurfaceStateReport(window, surface, appActivation)",
+        )
+        source.write_text(new, encoding="utf-8")
+        head = self.commit()
+        self.assertTrue(impact.verified_windows_semantic_surface_mount(
+            base, head, root=self.root
+        ))
+        self.assertEqual(impact.classify(base, head, root=self.root),
+                         (False, "nonproducer-contract-only"))
+        # Any extra Native or USB mutation invalidates the exception.
+        source.write_text(new + "\nconst unexpectedNativeChange = true;\n", encoding="utf-8")
+        bad = self.commit()
+        self.assertFalse(impact.verified_windows_semantic_surface_mount(
+            base, bad, root=self.root
+        ))
+        self.assertTrue(impact.classify(base, bad, root=self.root)[0])
+        # Even if the same call text is moved out of the Windows guard, no skip.
+        source.write_text(old.replace(
+            "const desktopSurfaceReporter = windowsDesktopHost",
+            "const desktopSurfaceReporter = true",
+        ).replace(
+            "mountNativeDesktopSurfaceStateReport(window, root, surface, appActivation)",
+            "mountNativeDesktopSurfaceStateReport(window, surface, appActivation)",
+        ), encoding="utf-8")
+        unguarded = self.commit()
+        self.assertTrue(impact.classify(base, unguarded, root=self.root)[0])
+
     def test_unrecognized_native_and_catalog_additions_remain_usb_gated(self):
         native, catalog = tuple(impact.WINDOWS_PRODUCT_SHARED_ADDITIONS)
         for path in (native, catalog):

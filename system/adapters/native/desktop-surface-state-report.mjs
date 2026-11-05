@@ -10,33 +10,41 @@ const REPORT_INTERVAL_MS = 5000;
 const COMMAND_POLL_MS = 450;
 const SCHEMA = "ordax.desktop-surface-command/1";
 
-export function readMountedDesktopSurfaceApp(root) {
-  if(typeof root?.querySelector!=="function")return null;
-  const selected=root.querySelector('[data-window-id][data-active="true"]:not([hidden])');
-  // Surface's window instance ID is not its app ID. Never report it to GPT.
-  const id=selected?.dataset?.appId;
-  return typeof id==="string"&&ID.test(id)?id:null;
+export function readMountedDesktopSurfaceApp(lifecycle) {
+  // The Surface owns this state. Presentation is a semantic service
+  // projection, not a query over HTML, windows or the Windows desktop.
+  if(typeof lifecycle?.getActiveAppId!=="function")
+    throw new TypeError("Native Surface state port unavailable");
+  const id=lifecycle.getActiveAppId();
+  if(id===null)return null; // Home with no active application is valid.
+  if(typeof id!=="string"||!ID.test(id))
+    throw new TypeError("Invalid Native Surface application observation");
+  return id;
 }
 
-export function mountNativeDesktopSurfaceStateReport(windowRef,root,lifecycle,activationPort=null) {
+export function mountNativeDesktopSurfaceStateReport(windowRef,lifecycle,activationPort=null) {
   if(typeof windowRef?.fetch!=="function"||
      typeof windowRef?.setInterval!=="function"||
      typeof windowRef?.clearInterval!=="function"||
      typeof lifecycle?.subscribeRender!=="function"||
-     typeof root?.querySelector!=="function"||
+     typeof lifecycle?.getActiveAppId!=="function"||
      (activationPort!==null&&typeof activationPort?.publish!=="function"))
     throw new TypeError("Mounted Surface and Native activation transport required");
   let disposed=false;
   let pendingReport=null;
   let polling=false;
   let handled=null;
+  const commandAbort=new AbortController();
   const report=(force=false)=>{
     if(disposed)return Promise.resolve(false);
     if(pendingReport) {
       return force?pendingReport.then(()=>report()):pendingReport;
     }
+    let activeAppId;
+    try{activeAppId=readMountedDesktopSurfaceApp(lifecycle)}
+    catch{return Promise.resolve(false)}
     const body={schema:"ordax.desktop-surface-state/1",
-      activeAppId:readMountedDesktopSurfaceApp(root),surfaceReady:true};
+      activeAppId,surfaceReady:true};
     pendingReport=(async()=>{
       try{
         const response=await windowRef.fetch(ROUTE,{
@@ -57,10 +65,14 @@ export function mountNativeDesktopSurfaceStateReport(windowRef,root,lifecycle,ac
     try{
       const response=await windowRef.fetch(COMMAND,{
         method:"GET",credentials:"same-origin",cache:"no-store",
+        // Wait on the authenticated Native Host instead of hammering the
+        // local bridge every 450ms while no application command is queued.
+        headers:{"X-OrdaX-Native-Command-Wait":"1"},
+        signal:commandAbort.signal,
       });
-      if(response.status!==200)return;
+      if(disposed||response.status!==200)return;
       const command=await response.json();
-      if(!command||command.schema!==SCHEMA||
+      if(disposed||!command||command.schema!==SCHEMA||
          !REQUEST_ID.test(command.requestId??"")||
          !NATIVE_APPS.has(command.appId))return;
       if(handled?.id!==command.requestId) {
@@ -69,7 +81,7 @@ export function mountNativeDesktopSurfaceStateReport(windowRef,root,lifecycle,ac
         let state="awaiting-render";
         try{
           // The same visible app is already the desired result; no new window.
-          if(readMountedDesktopSurfaceApp(root)!==command.appId)
+          if(readMountedDesktopSurfaceApp(lifecycle)!==command.appId)
             activationPort.publish({appId:command.appId});
         }catch{state="unavailable"}
         handled={id:command.requestId,appId:command.appId,state};
@@ -77,13 +89,13 @@ export function mountNativeDesktopSurfaceStateReport(windowRef,root,lifecycle,ac
       if(handled.state==="awaiting-render") {
         // An unavailable app eventually fails under the Host's bounded
         // command deadline. Do not resend appActivation or confirm prematurely.
-        if(readMountedDesktopSurfaceApp(root)!==handled.appId)return;
+        if(readMountedDesktopSurfaceApp(lifecycle)!==handled.appId)return;
         handled.state="awaiting-report";
       }
       if(handled.state==="awaiting-report") {
         // The Host must accept a post-command presentation report before an
         // "applied" receipt is sent. Retry the report, not appActivation.
-        if(readMountedDesktopSurfaceApp(root)!==handled.appId)
+        if(readMountedDesktopSurfaceApp(lifecycle)!==handled.appId)
           handled.state="unavailable";
         else {
           if(!(await report(true)))return;
@@ -92,7 +104,7 @@ export function mountNativeDesktopSurfaceStateReport(windowRef,root,lifecycle,ac
       }
       if(disposed)return;
       const body={schema:SCHEMA,requestId:handled.id,
-        state:handled.state,activeAppId:readMountedDesktopSurfaceApp(root)};
+        state:handled.state,activeAppId:readMountedDesktopSurfaceApp(lifecycle)};
       const receipt=await windowRef.fetch(RECEIPT,{
         method:"POST",credentials:"same-origin",cache:"no-store",
         headers:{"Content-Type":"application/json"},body:JSON.stringify(body),
@@ -110,6 +122,7 @@ export function mountNativeDesktopSurfaceStateReport(windowRef,root,lifecycle,ac
     dispose(){
       if(disposed)return;
       disposed=true;
+      commandAbort.abort(); // Free the Host's parked poll immediately.
       windowRef.clearInterval(reportTimer);
       if(commandTimer!==null)windowRef.clearInterval(commandTimer);
       unsubscribe();
