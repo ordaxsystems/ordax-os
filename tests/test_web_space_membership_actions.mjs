@@ -67,6 +67,81 @@ test("web membership adapter sends only canonical POST action requests", async (
   assert.deepEqual(value, result());
 });
 
+test("member mutation and JSON receipt share one deadline without replaying commands", async () => {
+  for (const stalled of ["request", "receipt"]) {
+    const timers = new Map();
+    const requests = [];
+    let timerId = 0, resolveLate;
+    const port = createWebSpaceMembershipActions({
+      setTimeout(callback, delay) {
+        assert.equal(delay, 10_000);
+        const id = ++timerId; timers.set(id, callback); return id;
+      },
+      clearTimeout(id) { timers.delete(id); },
+      fetch(path, options) {
+        requests.push({path, options});
+        if (stalled === "request") return new Promise(resolve => { resolveLate = resolve; });
+        return Promise.resolve({
+          ...response(result()),
+          json: () => new Promise(resolve => { resolveLate = resolve; }),
+        });
+      },
+    });
+    try {
+      const pending = port.removeMember({
+        schema: SPACE_MEMBERSHIP_ACTION_REQUEST_SCHEMA, action: "remove",
+        spaceId: SPACE_ID, targetUserId: USER_ID, idempotencyKey: KEY,
+      });
+      assert.equal(requests.length, 1);
+      assert.equal(requests[0].options.method, "POST");
+      assert.equal(requests[0].options.credentials, "same-origin");
+      assert.equal(requests[0].options.signal instanceof AbortSignal, true);
+      assert.equal(timers.size, 1);
+      for (let i = 0; i < 6; i++) await Promise.resolve();
+      [...timers.values()][0]();
+      await assert.rejects(pending, {
+        name: "TimeoutError", message: "Web Space membership action deadline exceeded",
+      });
+      assert.equal(requests[0].options.signal.aborted, true);
+      assert.equal(timers.size, 0);
+      resolveLate(stalled === "request" ? response(result()) : result());
+      await Promise.resolve();
+      assert.equal(requests.length, 1,
+        "Uncertain server mutation must never be automatically resent");
+    } finally {
+      port.dispose();
+    }
+  }
+});
+
+test("disposed member action port cancels a pending receipt without publishing stale results", async () => {
+  const timers = new Map(), requests = [];
+  let timerId = 0, resolveLate;
+  const port = createWebSpaceMembershipActions({
+    setTimeout(callback, delay) {
+      assert.equal(delay, 10_000);
+      const id = ++timerId; timers.set(id, callback); return id;
+    },
+    clearTimeout(id) { timers.delete(id); },
+    fetch(path, options) {
+      requests.push({path, options});
+      return new Promise(resolve => { resolveLate = resolve; });
+    },
+  });
+  const pending = port.suspendMember({
+    schema: SPACE_MEMBERSHIP_ACTION_REQUEST_SCHEMA, action: "suspend",
+    spaceId: SPACE_ID, targetUserId: USER_ID, idempotencyKey: KEY,
+  });
+  assert.equal(requests.length, 1);
+  port.dispose();
+  await assert.rejects(pending, /disposed/);
+  assert.equal(requests[0].options.signal.aborted, true);
+  assert.equal(timers.size, 0);
+  resolveLate(response(result()));
+  await Promise.resolve();
+  assert.equal(requests.length, 1);
+});
+
 test("web membership adapter rejects client authority before transport", async () => {
   let calls = 0;
   const port = createWebSpaceMembershipActions({
