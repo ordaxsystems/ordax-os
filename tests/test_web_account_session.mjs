@@ -7,7 +7,7 @@ const signedIn = subject => ({
   provider: 'configured', authenticated: true, status: 'authenticated',
   subject, email: subject + '@example.invalid',
 });
-const signedOut = { $schema: 'prototype-ordax.public-identity-session/1', provider: 'configured', authenticated: false, status: 'signed-out' };
+const signedOut = { $schema: 'prototype-ordax.public-identity-session/1', provider: 'configured', authenticated: false, status: 'anonymous' };
 const catalog = subject => ({
   $schema: 'prototype-ordax.account-spaces/1',
   spaces: [{ id: 'space-' + subject, name: 'Space ' + subject, kind: 'personal', state: 'active', ownerId: subject }],
