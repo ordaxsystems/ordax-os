@@ -14,6 +14,7 @@ const MAX_REPORT_BYTES = 512;
 const MAX_COMMAND_BYTES = 256;
 const MAX_AGE_MS = 15000;
 const COMMAND_DEADLINE_MS = 4500;
+const COMMAND_WAIT_MS = 1800; // Authenticated local-only command notification.
 const SCHEMA = "ordax.desktop-surface-state/1";
 const COMMAND_SCHEMA = "ordax.desktop-surface-command/1";
 
@@ -32,6 +33,7 @@ export function createDesktopSurfaceRuntimeBridge({
   let acceptedReportRevision=0;
   let pending=null;
   let commandPollAuthenticated=false;
+  let waitingCommandPoll=null;
   const reply=(response,code,data)=>{
     if(response.writableEnded||response.destroyed)return;
     response.writeHead(code,{
@@ -108,7 +110,28 @@ export function createDesktopSurfaceRuntimeBridge({
         commandPollAuthenticated=true;
         try{onFirstCommandPoll()}catch{}
       }
-      if(!pending)return reply(response,204,{state:"empty"});
+      if(!pending){
+        // Only the authenticated Surface may opt into a bounded wait.
+        // Keep legacy non-waiting clients compatible and allow at most one
+        // parked response: polling never creates another queue or authority.
+        if(request.headers["x-ordax-native-command-wait"]!=="1"||
+           waitingCommandPoll)return reply(response,204,{state:"empty"});
+        let timer=null;
+        const onClose=()=>{
+          clearTimeout(timer);
+          if(waitingCommandPoll===complete)waitingCommandPoll=null;
+        };
+        const complete=(code,data)=>{
+          onClose();
+          response.off("close",onClose);
+          reply(response,code,data);
+        };
+        waitingCommandPoll=complete;
+        response.once("close",onClose);
+        timer=setTimeout(()=>complete(204,{state:"empty"}),COMMAND_WAIT_MS);
+        timer.unref?.();
+        return;
+      }
       return reply(response,200,{schema:COMMAND_SCHEMA,
         requestId:pending.id,appId:pending.appId});
     }
@@ -128,6 +151,12 @@ export function createDesktopSurfaceRuntimeBridge({
         const command={id,appId:data.appId,
           startingReportRevision:acceptedReportRevision,settle:null};
         pending=command;
+        // Wake the single authenticated renderer poll immediately; this is
+        // only an in-process hint. The canonical command still requires the
+        // visible-app report and matching receipt before success.
+        if(waitingCommandPoll)waitingCommandPoll(200,{
+          schema:COMMAND_SCHEMA,requestId:command.id,appId:command.appId,
+        });
         const timer=setTimeout(()=>{
           if(pending!==command)return;
           pending=null;

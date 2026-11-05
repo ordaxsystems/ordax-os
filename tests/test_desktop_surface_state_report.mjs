@@ -10,10 +10,6 @@ test("OS native Surface reporter uses the displayed canonical app ID, not the wi
   const subscriptions=[];
   let timerCallback=null,intervalCleared=false,unsubscribed=false;
   let selected="system";
-  const root={querySelector(selector){
-    assert.match(selector,/data-window-id/);
-    return selected ? {dataset:{windowId:"window-instance-18",appId:selected}} : null;
-  }};
   const win={
     async fetch(path,opts){
       assert.equal(path,"/__ordax/native/desktop-surface-state");
@@ -33,11 +29,11 @@ test("OS native Surface reporter uses the displayed canonical app ID, not the wi
       intervalCleared=true;
     },
   };
-  const lifecycle={subscribeRender(fn){
+  const lifecycle={getActiveAppId:()=>selected,subscribeRender(fn){
     subscriptions.push(fn);
     return ()=>{unsubscribed=true};
   }};
-  const reporter=mountNativeDesktopSurfaceStateReport(win,root,lifecycle);
+  const reporter=mountNativeDesktopSurfaceStateReport(win,lifecycle);
   await new Promise(resolve=>setImmediate(resolve));
   assert.equal(payloads[0].activeAppId,"system");
   assert.equal(payloads[0].surfaceReady,true);
@@ -51,7 +47,13 @@ test("OS native Surface reporter uses the displayed canonical app ID, not the wi
   selected="../evil";
   timerCallback();
   await new Promise(resolve=>setImmediate(resolve));
-  assert.equal(payloads.at(-1).activeAppId,null);
+  assert.equal(payloads.at(-1).activeAppId,"settings",
+    "Malformed app IDs cannot publish a misleading healthy report");
+  selected=null;
+  timerCallback();
+  await new Promise(resolve=>setImmediate(resolve));
+  assert.equal(payloads.at(-1).activeAppId,null,
+    "A valid Home with no selected app is distinguishable from invalid state");
   const count=payloads.length;
   reporter.dispose();
   reporter.dispose();
@@ -64,7 +66,7 @@ test("OS native Surface reporter uses the displayed canonical app ID, not the wi
 
 test("invalid Native renderer dependencies fail before scheduling a reporter",()=>{
   assert.throws(()=>mountNativeDesktopSurfaceStateReport(null,{},{}));
-  assert.equal(readMountedDesktopSurfaceApp(null),null);
+  assert.throws(()=>readMountedDesktopSurfaceApp(null),/state port unavailable/);
 });
 
 
@@ -72,9 +74,6 @@ test("Native Surface command opens through the canonical activation port and con
   let active="system",renderListener,actions=[],receipts=[],reports=[],poll=null;
   const command={schema:"ordax.desktop-surface-command/1",
     requestId:"b".repeat(32),appId:"settings"};
-  const root={querySelector:()=>({dataset:{
-    windowId:"instance-18",appId:active,
-  }})};
   const fakeWindow={
     async fetch(path,opts){
       if(path==="/__ordax/native/desktop-surface-state"){
@@ -95,7 +94,7 @@ test("Native Surface command opens through the canonical activation port and con
     },
     clearInterval(){},
   };
-  const lifecycle={subscribeRender(fn){
+  const lifecycle={getActiveAppId:()=>active,subscribeRender(fn){
     renderListener=fn;
     return ()=>{};
   }};
@@ -106,7 +105,7 @@ test("Native Surface command opens through the canonical activation port and con
     return value;
   }};
   const reporter=mountNativeDesktopSurfaceStateReport(
-    fakeWindow,root,lifecycle,port);
+    fakeWindow,lifecycle,port);
   await new Promise(resolve=>setImmediate(resolve));
   assert.equal(typeof poll,"function");
   poll();
@@ -119,6 +118,44 @@ test("Native Surface command opens through the canonical activation port and con
     activeAppId:"settings",
   }]);
   reporter.dispose();
+});
+
+test("Native renderer cancels parked command poll on disposal without acknowledging an action",async()=>{
+  let poll=null,signal=null,polls=0;
+  const windowRef={
+    fetch(path,opts){
+      if(path==="/__ordax/native/desktop-surface-state")
+        return Promise.resolve({status:200});
+      if(path==="/__ordax/native/desktop-surface-command"){
+        polls++;
+        assert.equal(opts.headers["X-OrdaX-Native-Command-Wait"],"1");
+        signal=opts.signal;
+        return new Promise((_resolve,reject)=>{
+          opts.signal.addEventListener("abort",()=>{
+            reject(Object.assign(new Error("aborted"),{name:"AbortError"}));
+          },{once:true});
+        });
+      }
+      throw Error("Unexpected Native endpoint");
+    },
+    setInterval(fn,ms){if(ms===450)poll=fn;return ms},
+    clearInterval(){},
+  };
+  const reporter=mountNativeDesktopSurfaceStateReport(windowRef,
+    {getActiveAppId:()=>"system",subscribeRender:()=>()=>{}},
+    {publish(){throw Error("No Native command issued")}});
+  poll();
+  await new Promise(resolve=>setImmediate(resolve));
+  assert.equal(polls,1);
+  assert.equal(signal?.aborted,false);
+  poll();
+  assert.equal(polls,1,"one in-flight poll per Surface");
+  reporter.dispose();
+  assert.equal(signal.aborted,true,
+    "disposal must release pending Host request immediately");
+  await new Promise(resolve=>setImmediate(resolve));
+  poll();
+  assert.equal(polls,1,"disposed reporter must never poll again");
 });
 
 test("Native Surface never confirms unavailable built-in app",async()=>{
@@ -135,8 +172,7 @@ test("Native Surface never confirms unavailable built-in app",async()=>{
     },
     setInterval(fn,ms){if(ms===450)poll=fn;return ms;},
     clearInterval(){},
-  },{querySelector:()=>({dataset:{windowId:"win",appId:"system"}})},
-  {subscribeRender:()=>()=>{}},
+  },{getActiveAppId:()=>"system",subscribeRender:()=>()=>{}},
   {publish:()=>{activations++; /* Store not installed in the catalog. */}});
   poll();
   await new Promise(resolve=>setTimeout(resolve,20));
@@ -176,10 +212,8 @@ test("Native Surface retries a failed state publication without repeating the ap
     setInterval(fn,ms){if(ms===450)poll=fn;return ms;},
     clearInterval(){},
   };
-  const root={querySelector:()=>({dataset:{appId:activeAppId,
-    windowId:"window-instance",active:"true"}})};
   const reporter=mountNativeDesktopSurfaceStateReport(
-    windowRef,root,{subscribeRender:()=>()=>{}},
+    windowRef,{getActiveAppId:()=>activeAppId,subscribeRender:()=>()=>{}},
     {publish({appId}){activations.push(appId);activeAppId=appId;}});
   await new Promise(resolve=>setImmediate(resolve));
   assert.equal(reportCount,1);
@@ -221,8 +255,8 @@ test("Native MCP waits for the displayed app instead of rejecting a delayed rend
     clearInterval(){},
   };
   const reporter=mountNativeDesktopSurfaceStateReport(win,
-    {querySelector:()=>({dataset:{windowId:"current",appId:active}})},
-    {subscribeRender(callback){render=callback;return ()=>{};}},
+    {getActiveAppId:()=>active,
+      subscribeRender(callback){render=callback;return ()=>{};}},
     {publish(value){
       assert.equal(value.appId,"settings");
       activations++;
@@ -269,8 +303,7 @@ test("Native MCP does not reopen an already visible app",async()=>{
     clearInterval(){},
   };
   const reporter=mountNativeDesktopSurfaceStateReport(win,
-    {querySelector:()=>({dataset:{windowId:"already-visible",appId:"system"}})},
-    {subscribeRender:()=>()=>{}},
+    {getActiveAppId:()=>"system",subscribeRender:()=>()=>{}},
     {publish(){activationCount++}});
   await new Promise(resolve=>setImmediate(resolve));
   poll();
@@ -279,4 +312,58 @@ test("Native MCP does not reopen an already visible app",async()=>{
   assert.equal(receiptCount,1);
   assert.ok(reportCount>=2,"Receipt requires a report after the request");
   reporter.dispose();
+});
+
+test("Native Surface rejects malformed semantic state reports without claiming readiness",async()=>{
+  let reports=0;
+  let status="../invalid";
+  const lifecycle={
+    getActiveAppId(){return status},
+    subscribeRender(listener){return ()=>{}},
+  };
+  const win={
+    async fetch(){reports++;return {status:200};},
+    setInterval(){return 10;},
+    clearInterval(){},
+  };
+  const reporter=mountNativeDesktopSurfaceStateReport(win,lifecycle);
+  await new Promise(resolve=>setImmediate(resolve));
+  assert.equal(reports,0,"Malformed state cannot be reported as surfaceReady");
+  assert.throws(()=>readMountedDesktopSurfaceApp(lifecycle),/observation/);
+  status=null;
+  assert.equal(readMountedDesktopSurfaceApp(lifecycle),null,"No selected app is valid Home state");
+  reporter.dispose();
+});
+
+test("Disposed Native Surface reporter ignores a late command response",async()=>{
+  let poll,resolveCommand,activations=0,receipts=0;
+  const command={schema:"ordax.desktop-surface-command/1",
+    requestId:"9".repeat(32),appId:"settings"};
+  const win={
+    fetch(path){
+      if(path==="/__ordax/native/desktop-surface-state")
+        return Promise.resolve({status:200});
+      if(path==="/__ordax/native/desktop-surface-command")
+        return new Promise(resolve=>{resolveCommand=()=>resolve({status:200,
+          json:async()=>command})});
+      if(path==="/__ordax/native/desktop-surface-receipt"){
+        receipts++;
+        return Promise.resolve({status:200});
+      }
+      throw Error("Unexpected Native endpoint");
+    },
+    setInterval(fn,ms){if(ms===450)poll=fn;return ms;},
+    clearInterval(){},
+  };
+  const reporter=mountNativeDesktopSurfaceStateReport(win,
+    {getActiveAppId:()=>"system",subscribeRender:()=>()=>{}},
+    {publish(){activations++}});
+  await new Promise(resolve=>setImmediate(resolve));
+  poll();
+  await new Promise(resolve=>setImmediate(resolve));
+  reporter.dispose();
+  resolveCommand();
+  await new Promise(resolve=>setImmediate(resolve));
+  assert.equal(activations,0,"A disposed Surface cannot activate an app from a late poll");
+  assert.equal(receipts,0,"A disposed Surface cannot acknowledge a late command");
 });

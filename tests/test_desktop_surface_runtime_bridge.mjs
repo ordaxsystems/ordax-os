@@ -89,6 +89,75 @@ test("Invalid and identical Native grants fail closed",()=>{
 });
 
 
+test("authenticated Native Surface parked poll wakes immediately when a Product command arrives",async()=>{
+  await withServer(async({url})=>{
+    const base=url.slice(0,-ROUTE.length);
+    const report=(activeAppId)=>fetch(url,{method:"POST",headers:{
+      "content-type":"application/json","x-ordax-surface-report-token":reportToken,
+    },body:JSON.stringify({...observation,activeAppId})});
+    assert.equal((await report("system")).status,200);
+    let returned=false;
+    const waiting=fetch(base+COMMAND,{headers:{
+      "x-ordax-surface-report-token":reportToken,
+      "x-ordax-native-command-wait":"1",
+    }}).then(result=>{returned=true;return result});
+    await new Promise(resolve=>setTimeout(resolve,60));
+    assert.equal(returned,false,"empty authenticated poll must remain parked");
+    const requestedAt=Date.now();
+    const command=fetch(base+COMMAND,{method:"POST",headers:{
+      "content-type":"application/json","x-ordax-product-bridge-token":runtimeToken,
+    },body:JSON.stringify({schema:"ordax.desktop-surface-command/1",appId:"settings"})});
+    const response=await waiting;
+    assert.equal(response.status,200);
+    assert.ok(Date.now()-requestedAt<1200,
+      "command must wake renderer without waiting for idle timeout");
+    const delivered=await response.json();
+    assert.equal(delivered.appId,"settings");
+    assert.match(delivered.requestId,/^[a-f0-9]{32}$/);
+    assert.equal((await report("settings")).status,200);
+    const receipt=await fetch(base+RECEIPT,{method:"POST",headers:{
+      "content-type":"application/json","x-ordax-surface-report-token":reportToken,
+    },body:JSON.stringify({schema:"ordax.desktop-surface-command/1",
+      requestId:delivered.requestId,state:"applied",activeAppId:"settings"})});
+    assert.equal(receipt.status,200);
+    assert.equal((await command).status,200,
+      "a successful command still requires the canonical visible-app receipt");
+  });
+});
+
+test("parked Native polls cannot bypass reporter grant or multiply listeners",async()=>{
+  await withServer(async({url})=>{
+    const command=url.slice(0,-ROUTE.length)+COMMAND;
+    const wait={"x-ordax-native-command-wait":"1"};
+    assert.equal((await fetch(command,{headers:wait})).status,401);
+    assert.equal((await fetch(command,{headers:{
+      ...wait,"x-ordax-product-bridge-token":runtimeToken,
+    }})).status,401,"Product token cannot impersonate Surface");
+    assert.equal((await fetch(command,{headers:{
+      "x-ordax-surface-report-token":reportToken,
+    }})).status,204,"legacy non-waiting client remains compatible");
+    const controller=new AbortController();
+    const waiting=fetch(command,{headers:{
+      ...wait,"x-ordax-surface-report-token":reportToken,
+    },signal:controller.signal});
+    await new Promise(resolve=>setTimeout(resolve,60));
+    assert.equal((await fetch(command,{headers:{
+      ...wait,"x-ordax-surface-report-token":reportToken,
+    }})).status,204,"only one renderer poll can park");
+    controller.abort();
+    await assert.rejects(waiting,{name:"AbortError"});
+    // The host releases the old waiter after the client disconnects.
+    await new Promise(resolve=>setTimeout(resolve,30));
+    const started=Date.now();
+    const next=await fetch(command,{headers:{
+      ...wait,"x-ordax-surface-report-token":reportToken,
+    }});
+    assert.equal(next.status,204);
+    assert.ok(Date.now()-started>=1300,
+      "a new authenticated waiter should park rather than inherit stale state");
+  });
+});
+
 test("Native command is confirmed by a visible Surface receipt",async()=>{
   await withServer(async({url})=>{
     const base=url.slice(0,-ROUTE.length);
@@ -256,10 +325,7 @@ test("Product command crosses real loopback Host and Surface reporter with delay
       setInterval(callback,ms){if(ms===450)poll=callback;return ms;},
       clearInterval(){},
     };
-    const root={querySelector:()=>({dataset:{
-      windowId:"instance-1",appId:activeAppId,
-    }})};
-    const lifecycle={subscribeRender(callback){
+        const lifecycle={getActiveAppId:()=>activeAppId,subscribeRender(callback){
       renderListener=callback;return ()=>{};
     }};
     const activation={publish({appId}){
@@ -269,7 +335,7 @@ test("Product command crosses real loopback Host and Surface reporter with delay
       setTimeout(()=>{activeAppId=appId;renderListener();},60);
     }};
     const reporter=mountNativeDesktopSurfaceStateReport(
-      win,root,lifecycle,activation);
+      win,lifecycle,activation);
     try{
       await new Promise(resolve=>setTimeout(resolve,25));
       const request=fetch(base+COMMAND,{method:"POST",
@@ -313,8 +379,7 @@ test("Native unavailable app times out without inventing a receipt or replaying 
       clearInterval(){},
     };
     const reporter=mountNativeDesktopSurfaceStateReport(win,
-      {querySelector:()=>({dataset:{windowId:"current",appId:"system"}})},
-      {subscribeRender:()=>()=>{}},
+      {getActiveAppId:()=>"system",subscribeRender:()=>()=>{}},
       {publish(){activationCount++}});
     let timer=null;
     try{
