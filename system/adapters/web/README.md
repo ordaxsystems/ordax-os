@@ -12,6 +12,8 @@ Identity implements the neutral ordax.identity-session/1 port by reading /auth/s
 
 Identity actions implement ordax.identity-actions/1 and derive supported commands from that same session. Sign-in delegates to /login/; sign-out posts to /auth/logout and completes **only after** the same-origin canonical session reader confirms `signed-out`. A 303 or opaque manual redirect acknowledges the command but is not evidence that the browser lost its authenticated cookies; failed verification remains an error without synthesizing logout state. Provider credentials remain in the existing server/adapter boundary; unavailable identity advertises no commands.
 
+The login/registration credential adapter now confirms activation with the **same bounded Web JSON GET reader** as the session and Spaces ports. The post-credential `/auth/session` proof has same-origin credentials, no-store, redirect rejection and one deadline encompassing fetch and JSON parsing. Any denied, stalled or malformed proof fails closed; neither a successful credential POST nor a `gated`/unconfigured anonymous session claims login or email confirmation. Provider availability uses the existing identity adapter's rule. Credential POSTs are never retried.
+
 Session state and command support are intentionally separate ports. `system/services/account/` validates their relationship with runtime capabilities so adapters cannot advertise account actions while identity itself is unavailable. The Surface chooses the context-appropriate action from the current session and never needs provider-specific branches.
 
 The Web preference store currently persists only the shared preference snapshot supplied by the Surface. It does not imply account sync, server backup or secure-secret storage.
