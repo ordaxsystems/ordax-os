@@ -132,6 +132,18 @@ WINDOWS_PRODUCT_PINNED_BLOBS = {
     "system/adapters/native/desktop-surface-state-report.mjs": "175f000801fd7953cec693e441a7ceb5107e9227",
 }
 
+# The installed Linux Git updater is a source file, not a Creator build dependency.
+# Its PR regressions are covered by Owner Development Preflight. Preserve the
+# actual USB producer on main and on mixed boot/Base/native-helper changes.
+# Never broad-exclude bootstrap/dev-base/** or any installed native helper.
+PULL_REVIEW_ONLY_PATHS = frozenset({
+    "bootstrap/dev-base/ordax-pull",
+    "tests/test_dev_pull_expected_sha.py",
+    "tests/test_dev_git_flow.py",
+    "tests/test_dev_checkout_exchange.py",
+    "docs/DEV-USB-GIT.md",
+})
+
 PUSH_EXCLUDES = ("!system/adapters/desktop/**", "!system/surface/ui/**", "!system/surface/workspace/**")
 PR_REMOVED = ("docs/contracts/surface-source.json", "system/surface/ui/**", "system/surface/workspace/**")
 PR_ADDED = ("tools/ci/creator_owner_impact.py", "tests/test_creator_owner_impact.py")
@@ -357,11 +369,22 @@ def verified_windows_product_blob(head, path, *, root=ROOT):
         return False
 
 
-def classify(base, head, *, root=ROOT):
+def classify(base, head, *, root=ROOT, event="push"):
     try:
+        if event not in ("pull_request", "push"):
+            return True, "unsupported-event"
         paths = changed_paths(base, head, root=root)
         if not paths:
             return False, "no-changes"
+        # The Owner preflight already tests Git transactions, power loss,
+        # recovery and the actual ordax-pull script on a PR. PR-only isolation
+        # is safe because the main push still builds the changed physical USB.
+        # A mixed change to boot, Base, Supervisor, native helper, signer or
+        # unknown path never qualifies for this fast path.
+        if (event == "pull_request"
+                and "bootstrap/dev-base/ordax-pull" in paths
+                and set(paths).issubset(PULL_REVIEW_ONLY_PATHS | LIGHT_EXACT)):
+            return False, "pull-pr-owner-preflight"
         for path in paths:
             if path == WORKFLOW:
                 if not workflow_trigger_only(base, head, root=root):
@@ -402,7 +425,11 @@ def main():
     parser.add_argument("--head", required=True)
     parser.add_argument("--force", action="store_true")
     args = parser.parse_args()
-    required, reason = (True, "manual-dispatch-producer-proof") if args.force else classify(args.base, args.head)
+    # GitHub Actions sets this host-owned variable for each workflow event.
+    # Local classifier invocations retain conservative push behavior.
+    event = os.environ.get("GITHUB_EVENT_NAME", "push")
+    required, reason = ((True, "manual-dispatch-producer-proof") if args.force
+                        else classify(args.base, args.head, event=event))
     result = f"required={'true' if required else 'false'}\nreason={reason}\n"
     if os.environ.get("GITHUB_OUTPUT"):
         with open(os.environ["GITHUB_OUTPUT"], "a", encoding="utf-8") as output:
