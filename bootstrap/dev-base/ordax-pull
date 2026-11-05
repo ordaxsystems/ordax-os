@@ -271,7 +271,7 @@ write_pull_transaction() {
         echo "ordax-git: invalid pull transaction reason; current checkout preserved" >&2
         return 1
     }
-    temporary=$TRANSACTION_FILE.tmp.$
+    temporary=$TRANSACTION_FILE.tmp.$$
     printf '%s|%s|%s|%s|%s\n' \
         "$transaction_id" "$phase" "$expected_sha" "$old_sha" "$reason" >"$temporary"
     mv -f "$temporary" "$TRANSACTION_FILE"
