@@ -251,7 +251,7 @@ class DevPullExpectedShaTests(unittest.TestCase):
         # An interruption between the atomic exchange and the durable commit
         # must not reject a journal written by the Pull's own reconciled mode.
         journal = self.state / "pull-transaction.tsv"
-        journal.write_text(f"4242|prepared|{new}|{old}|reconciled\\n", encoding="ascii")
+        journal.write_text(f"4242|prepared|{new}|{old}|reconciled\n", encoding="ascii")
         subprocess.run(
             [str(self.exchange_binary), "--exchange",
              str(self.worktree), str(candidate), str(journal)],
@@ -278,7 +278,7 @@ class DevPullExpectedShaTests(unittest.TestCase):
     def test_unsupported_pull_transaction_reason_fails_closed(self):
         journal = self.state / "pull-transaction.tsv"
         journal.write_text(
-            f"4242|prepared|{self.first}|{self.first}|unsupported\\n", encoding="ascii",
+            f"4242|prepared|{self.first}|{self.first}|unsupported\n", encoding="ascii",
         )
         refused = self._pull(self.first)
         self.assertNotEqual(refused.returncode, 0)
