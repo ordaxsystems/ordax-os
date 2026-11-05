@@ -89,7 +89,7 @@ test('Web members composition rejects stale or unauthorized Space before transpo
   try {
     await assert.rejects(
       () => f.session.members.list({ spaceId: SPACE_ID }),
-      /catalog is not ready/,
+      /context is unavailable/,
     );
     assert.equal(f.requests.length, 0);
 
@@ -108,7 +108,7 @@ test('Web members composition rejects stale or unauthorized Space before transpo
 test('Web account session composes server-authoritative actor capability on demand', async () => {
   const f = fixture();
   try {
-    await assert.rejects(() => f.session.actorCapability.read({ spaceId: SPACE_ID }), /catalog is not ready/);
+    await assert.rejects(() => f.session.actorCapability.read({ spaceId: SPACE_ID }), /context is unavailable/);
     assert.equal(f.requests.length, 0);
     await f.session.refresh();
     const capability = await f.session.actorCapability.read({ spaceId: SPACE_ID });
@@ -124,7 +124,7 @@ test('Web account session composes membership actions through the canonical runt
   try {
     await assert.rejects(
       () => f.session.membershipActions.suspendMember(SPACE_ID, USER_ID, IDEMPOTENCY_KEY),
-      /Spaces catalog is not ready/,
+      /context is unavailable/,
     );
     assert.equal(f.requests.length, 0);
 
