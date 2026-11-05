@@ -3,6 +3,7 @@ import {
   validateIdentityActionsSnapshot,
 } from "../../contracts/identity-actions.mjs";
 import { assertIdentitySessionPort } from "../../contracts/identity-session.mjs";
+import { runWebRequestWithinDeadline } from "./json-read.mjs";
 
 function actionsForSession(snapshot, registrationEnabled) {
   if (snapshot.state === "signed-out") {
@@ -36,6 +37,7 @@ export function createWebIdentityActions(
   const listeners = new Set();
   let disposed = false;
   let policyRefreshSequence = 0;
+  const inFlightLogouts = new Set();
 
   const emit = () => {
     if (disposed) return;
@@ -114,13 +116,22 @@ export function createWebIdentityActions(
         return;
       }
       if (action === "sign-out") {
-        const response = await windowRef.fetch("/auth/logout", {
-          method: "POST",
-          credentials: "same-origin",
-          cache: "no-store",
-          redirect: "manual",
-          headers: { Accept: "application/json" },
-        });
+        const controller = new AbortController();
+        inFlightLogouts.add(controller);
+        let response;
+        try {
+          response = await runWebRequestWithinDeadline(windowRef, controller, (signal) =>
+            windowRef.fetch("/auth/logout", {
+              method: "POST",
+              credentials: "same-origin",
+              cache: "no-store",
+              redirect: "manual",
+              headers: { Accept: "application/json" },
+              signal,
+            }), "Web logout request");
+        } finally {
+          inFlightLogouts.delete(controller);
+        }
         if (!(response.ok || response.status === 303 || response.status === 0)) {
           throw new Error(`Identity sign-out failed: ${response.status}`);
         }
@@ -140,6 +151,10 @@ export function createWebIdentityActions(
       if (disposed) return;
       disposed = true;
       policyRefreshSequence += 1;
+      for (const controller of inFlightLogouts) {
+        controller.abort(new Error("Identity actions are disposed"));
+      }
+      inFlightLogouts.clear();
       unsubscribe();
       listeners.clear();
     },

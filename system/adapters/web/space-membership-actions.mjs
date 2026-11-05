@@ -5,6 +5,7 @@ import {
   validateSpaceMembershipActionResult,
   validateSpaceMembershipActionsSnapshot,
 } from "../../contracts/space-membership-actions.mjs";
+import { runWebRequestWithinDeadline } from "./json-read.mjs";
 
 const ACTION_PATH = "/account/space-membership-actions";
 
@@ -14,6 +15,7 @@ export function createWebSpaceMembershipActions(windowRef = globalThis.window) {
   }
 
   let disposed = false;
+  const inFlightActions = new Set();
   const listeners = new Set();
   const snapshot = validateSpaceMembershipActionsSnapshot({
     supportedActions: SPACE_MEMBERSHIP_ACTIONS,
@@ -29,42 +31,56 @@ export function createWebSpaceMembershipActions(windowRef = globalThis.window) {
     if (request.action !== expectedAction) {
       throw new TypeError(`Space membership method/action mismatch: ${expectedAction}`);
     }
-    const response = await windowRef.fetch(ACTION_PATH, {
-      method: "POST",
-      credentials: "same-origin",
-      cache: "no-store",
-      redirect: "manual",
-      headers: {
-        Accept: "application/json",
-        "Content-Type": "application/json",
-      },
-      body: JSON.stringify(request),
-    });
-
-    if (response.status === 401) {
-      throw new Error("Space membership actions require an authenticated OrdaX account session");
-    }
-    if (response.status === 403) {
-      throw new Error("Space membership action is forbidden for the current account");
-    }
-    if (response.status === 409) {
-      throw new Error("Space membership action idempotency conflict");
-    }
-    if (!response.ok) {
-      throw new Error(`Space membership action failed: ${response.status}`);
-    }
-
-    let payload;
+    const controller = new AbortController();
+    inFlightActions.add(controller);
     try {
-      payload = await response.json();
-    } catch {
-      throw new Error("Space membership action returned invalid JSON");
+      // Bound both the POST and its receipt JSON, without retries. The
+      // gateway remains authoritative if the browser loses the response.
+      return await runWebRequestWithinDeadline(windowRef, controller, async (signal) => {
+        const response = await windowRef.fetch(ACTION_PATH, {
+          method: "POST",
+          credentials: "same-origin",
+          cache: "no-store",
+          redirect: "manual",
+          headers: {
+            Accept: "application/json",
+            "Content-Type": "application/json",
+          },
+          body: JSON.stringify(request),
+          signal,
+        });
+        if (signal.aborted) throw signal.reason;
+
+        if (response.status === 401) {
+          throw new Error("Space membership actions require an authenticated OrdaX account session");
+        }
+        if (response.status === 403) {
+          throw new Error("Space membership action is forbidden for the current account");
+        }
+        if (response.status === 409) {
+          throw new Error("Space membership action idempotency conflict");
+        }
+        if (!response.ok) {
+          throw new Error(`Space membership action failed: ${response.status}`);
+        }
+
+        let payload;
+        try {
+          payload = await response.json();
+        } catch {
+          throw new Error("Space membership action returned invalid JSON");
+        }
+        const result = validateSpaceMembershipActionResult(payload);
+        if (result.spaceId !== request.spaceId || result.targetUserId !== request.targetUserId) {
+          throw new Error("Space membership action response targets another membership");
+        }
+        if (signal.aborted) throw signal.reason;
+        if (disposed) throw new Error("Web Space membership actions are disposed");
+        return result;
+      }, "Web Space membership action");
+    } finally {
+      inFlightActions.delete(controller);
     }
-    const result = validateSpaceMembershipActionResult(payload);
-    if (result.spaceId !== request.spaceId || result.targetUserId !== request.targetUserId) {
-      throw new Error("Space membership action response targets another membership");
-    }
-    return result;
   };
 
   return Object.freeze({
@@ -99,6 +115,10 @@ export function createWebSpaceMembershipActions(windowRef = globalThis.window) {
     dispose() {
       if (disposed) return;
       disposed = true;
+      for (const controller of inFlightActions) {
+        controller.abort(new Error("Web Space membership actions are disposed"));
+      }
+      inFlightActions.clear();
       listeners.clear();
     },
   });
