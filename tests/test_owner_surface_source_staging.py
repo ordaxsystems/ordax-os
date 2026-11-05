@@ -102,6 +102,29 @@ class OwnerSurfaceSourceTests(unittest.TestCase):
         self.make_file(self.slot / ".surface-source-sha", "0" * 40 + "\n")
         self.assertNotEqual(self.call("ready").returncode, 0)
 
+    def test_ready_does_not_write_into_immutable_release_slot(self):
+        # Ready is a read-only verifier, not a second stage writer. This is
+        # necessary when the Supervisor boots from an immutable release mount.
+        self.call("stage", check=True)
+        self.make_file(self.slot / ".sha", self.os_sha + "\n")
+        self.make_file(self.slot / ".ready", "ready\n")
+        before = {p.relative_to(self.slot).as_posix(): p.read_bytes()
+                  for p in self.slot.rglob("*") if p.is_file()}
+        self.slot.chmod(0o555)
+        try:
+            self.call("ready", check=True)
+            self.call("ready", check=True)
+        finally:
+            self.slot.chmod(0o755)
+        after = {p.relative_to(self.slot).as_posix(): p.read_bytes()
+                 for p in self.slot.rglob("*") if p.is_file()}
+        self.assertEqual(before, after)
+        integrity = HELPER.read_text(encoding="utf-8").split(
+            "source_integrity() {", 1)[1].split("\n}\n", 1)[0]
+        self.assertNotIn(".surface-expected-paths.", integrity)
+        self.assertNotIn(".surface-actual-paths.", integrity)
+        self.assertNotIn("trap ", integrity)
+
     def test_changed_or_injected_visual_file_blocks_reuse(self):
         self.call("stage", check=True)
         self.make_file(self.slot / ".sha", self.os_sha + "\n")
