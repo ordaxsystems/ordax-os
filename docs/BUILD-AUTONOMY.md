@@ -151,6 +151,36 @@ The policy is recorded in
 runtime boundaries remaining in
 `docs/contracts/distribution-profiles.json#profiles.owner-development`.
 
+### Publication freshness of the rolling Creator USB release
+
+The Owner/Dev Creator channel publishes mutable assets at
+`creator-owner-prototype`, while each built ZIP is bound to its immutable OS
+source SHA. Serialized GitHub Actions builds are **not** sufficient proof that
+an older completed job may clobber that rolling channel: the official `main`
+may advance during compilation or offline QEMU proof.
+
+`tools/ci/creator_owner_publish_freshness.py` is the sole freshness decision
+owner. It validates the official repository origin and exact checked-out SHA,
+reads the latest `main` Git SHA, fetches that immutable revision and proves
+ancestry. Using the existing Creator producer-impact classifier, it allows
+the candidate only when the latest main has the **same revision** or has
+advanced exclusively through **non-producer** changes. A newer kernel, boot,
+Base, Native/USB source or unknown change makes the older candidate obsolete.
+
+The check is performed twice: before admitting an expensive queued
+`main` build, and again immediately before the release asset upload.
+Superseded jobs skip work/publication; inaccessible Git refs, unverified
+ancestry, unexpected source identity or network errors fail closed.
+Prebuilt candidate review, manual Creator invocation, cryptographic trust,
+QEMU/boot proof and cleanup are unaffected. Running builds are not
+cancelled, and no additional scheduler or publication authority is created.
+
+SSOT: `docs/contracts/build-autonomy.json#owner_dev_pull_ci.creator_main_freshness`.
+This prevents *known-stale* releases but does not claim GitHub's mutable
+multi-asset upload is an atomic cross-asset transaction. The published
+`creator-owner-update.json` receipt and ZIP/hash verification remain
+mandatory.
+
 The Portable/QEMU causal impact policy treats changes to the standalone Creator
 workflow routing and its contract tests as CI governance, not as changes to the
 Portable boot artifact. Creator still runs its own full USB/boot tests when its
