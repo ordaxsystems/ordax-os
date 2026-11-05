@@ -587,6 +587,41 @@ test("registration policy is fetched read-only from the same-origin gateway", as
   assert.equal(calls[0].options.cache, "no-store");
 });
 
+test("partial or noncanonical 2xx responses cannot enable registration", async () => {
+  const authoritative = {
+    $schema: "prototype-ordax.registration-legal-policy/1",
+    active: true, registrationEnabled: true, publicRegistrationEnabled: true,
+    policyId: "11111111-1111-4111-8111-111111111111",
+    privacy: {
+      version: "2026-10-02", effectiveDate: "2026-10-02",
+      sha256: "a".repeat(64), url: "https://ordax.example/privacidade/",
+    },
+    terms: {
+      version: "2026-10-02", effectiveDate: "2026-10-02",
+      sha256: "b".repeat(64), url: "https://ordax.example/termos/",
+    },
+  };
+  for (const status of [201, 202, 206, 207]) {
+    const requests = [];
+    const port = createSameOriginIdentityCredentials({
+      fetch: async (path, options) => {
+        requests.push({ path, options });
+        return { ok: true, status, json: async () => authoritative };
+      },
+    });
+    await assert.rejects(port.registrationPolicy(),
+      /Registration policy request failed/, `HTTP ${status} is not an authoritative policy`);
+    assert.deepEqual(requests.map(x => x.path), ["/auth/registration-policy"]);
+    assert.equal(requests[0].options.credentials, "same-origin");
+  }
+  const trusted = createSameOriginIdentityCredentials({
+    fetch: async () => ({ ok: true, status: 200, json: async () => authoritative }),
+  });
+  const policy = await trusted.registrationPolicy();
+  assert.equal(policy.registrationEnabled, true);
+  assert.equal(policy.publicRegistrationEnabled, true);
+});
+
 test("OOBE must request fresh legal acceptance when any authoritative document changes", () => {
   const data = {
     $schema: "prototype-ordax.registration-legal-policy/1",
