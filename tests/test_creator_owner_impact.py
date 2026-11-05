@@ -125,6 +125,7 @@ class CreatorOwnerImpactTests(unittest.TestCase):
             "tests/test_native_verified_installed_apps.mjs",
             "tools/windows-emulator/desktop-verified-component-slot.test.mjs",
             "tools/surface-web/browser-smoke.mjs",
+            "tests/test_windows_desktop_client_diagnostics.mjs",
         )
         for path in desktop_only:
             current = self.commit(path=path)

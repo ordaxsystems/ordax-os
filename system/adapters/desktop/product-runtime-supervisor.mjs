@@ -221,7 +221,8 @@ function snapshot(state,reason,identity){
 export function createDesktopProductRuntimeSupervisor({
   systemRoot,userData,verifiedHandoff=null,developmentCandidate=false,spawnImpl=spawn,
   platform=process.platform,env=process.env,log=()=>{},nativeBridge=null,
-  stopTreeImpl=null,
+  stopTreeImpl=null,clock=Date.now,setTimeoutImpl=setTimeout,
+  clearTimeoutImpl=clearTimeout,
 }={}){
   if(typeof systemRoot!=="string"||!isAbsolute(systemRoot)||
      typeof userData!=="string"||!isAbsolute(userData)||
@@ -229,7 +230,9 @@ export function createDesktopProductRuntimeSupervisor({
      (verifiedHandoff!==null&&typeof verifiedHandoff!=="function")||
      typeof spawnImpl!=="function"||typeof log!=="function"||
      (nativeBridge!==null&&typeof nativeBridge!=="function")||
-     (stopTreeImpl!==null&&typeof stopTreeImpl!=="function"))
+     (stopTreeImpl!==null&&typeof stopTreeImpl!=="function")||
+     typeof clock!=="function"||typeof setTimeoutImpl!=="function"||
+     typeof clearTimeoutImpl!=="function")
     throw TypeError("OrdaX Supervisor requires OS-owned roots and verifier");
   const stopOwnedTree=stopTreeImpl??(spawnImpl===spawn
     ? pid=>stopOwnedDesktopWindowsTree(pid,{windowsRoot:env.SystemRoot})
@@ -240,12 +243,41 @@ export function createDesktopProductRuntimeSupervisor({
   // Never persist the token or authorize retry until its fingerprint changes.
   let credentialRecoveryFingerprint=null;
   let current=snapshot("blocked","not_checked",false);
+  // Retry the ONE owned process promptly after transport/runtime failures.
+  // Repeated crashes back off instead of launching an uncontrolled loop.
+  // Owner credential rejection (exit 43) never schedules automatic retries.
+  let retryTimer=null,retryAt=0,retryKey=null,failureCount=0;
+  const cancelRetry=()=>{
+    if(retryTimer!==null){clearTimeoutImpl(retryTimer);retryTimer=null;}
+  };
+  const resetRetry=()=>{
+    cancelRetry();retryAt=0;retryKey=null;failureCount=0;
+  };
+  const scheduleRecovery=(key,startedAt,requestedRestart=false)=>{
+    if(closed)return;
+    if(retryKey!==key){retryKey=key;failureCount=0;}
+    if(clock()-startedAt>=120000)failureCount=0;
+    failureCount=Math.min(7,failureCount+1);
+    // Runtime exit 42 requests a restart. Keep it prompt but bounded
+    // if a broken Runtime repeatedly asks for the same restart.
+    const delay=requestedRestart
+      ? Math.min(30000,250*2**(failureCount-1))
+      : Math.min(60000,1000*2**(failureCount-1));
+    retryAt=clock()+delay;
+    cancelRetry();
+    retryTimer=setTimeoutImpl(()=>{
+      retryTimer=null;
+      if(!closed)void reconcile().catch(()=>{});
+    },delay);
+    retryTimer?.unref?.();
+    log("Product Runtime recovery scheduled in "+delay+"ms");
+  };
   const stopActive=()=>{
     if(!active)return true;
     const owned=active;
-    if(owned.child.exitCode!==null||owned.child.signalCode!==null){
-      active=null;return true;
-    }
+    // ChildProcess signalCode can be visible before the exit callback has
+    // reaped the owned Windows process tree. Only our exit/error handler
+    // releases active; a signalled child must not overlap its replacement.
     // Do not start a replacement while the prior owned child may still be
     // executing. It is reaped only by its own exit/error event, never by PID.
     if(!owned.stopRequested){
@@ -327,9 +359,10 @@ export function createDesktopProductRuntimeSupervisor({
       const ended=stopActive();
       return current=snapshot(ended?"blocked":"stopping","identity_or_release_changed",true);
     }
-    // Validate the current Native grant before reusing an owned Runtime.
-    // Revocation or replacement of a per-launch bridge must retire the old
-    // process tree; an unchanged Device ID/source commit is not authorization.
+    // The Native Surface bridge is a per-launch capability, not a global
+    // Windows permission. Re-evaluate it BEFORE deciding to reuse a child:
+    // Vite/Native Host restarts can rotate the bridge token while the
+    // underlying Device identity and Runtime executable remain unchanged.
     let bridge=null;
     if(nativeBridge!==null){
       try{bridge=nativeBridge()}catch{}
@@ -342,18 +375,27 @@ export function createDesktopProductRuntimeSupervisor({
         return current=snapshot(ended?"blocked":"stopping","native_surface_bridge_unavailable",true);
       }
     }
-    // Bound reuse to the *current* credential and bridge grant, never only
-    // the device identifier or executable path. Digest prevents key leakage.
-    const bridgeBinding=bridge===null?"none":createHash("sha256")
-      .update(bridge.url).update(Buffer.from([0])).update(bridge.token).digest("hex");
+    // No token, transport authority or scoped Native grant is exposed to
+    // UI/status/logs. Changes in ANY of them require replacing the old child.
+    const bridgeDigest=bridge
+      ?createHash("sha256").update(bridge.url+"\n"+bridge.token).digest("hex")
+      :"no-native-bridge";
     const key=(plan.dev?"dev:":"signed:")+plan.executable+":"+
       plan.sourceCommit+":"+prepared.identity.deviceId+":"+
-      prepared.identity.tokenFingerprint+":"+bridgeBinding;
+      prepared.identity.transport+":"+prepared.identity.tokenFingerprint+":"+
+      bridgeDigest;
+    if(retryKey!==null&&retryKey!==key)resetRetry();
     if(active?.key===key&&!active.stopRequested&&active.child.exitCode===null&&active.child.signalCode===null)
       return current=snapshot("running",plan.dev?"dev_remote_attestation_pending":"remote_attestation_pending",true);
     if(!stopActive()){
       return current=snapshot("stopping","previous_instance_still_running",true);
     }
+    if(retryKey===key&&clock()<retryAt)
+      return current=snapshot("blocked","runtime_restart_backoff",true);
+    // Once the previous process has been reaped, a manual/automatic retry
+    // may proceed. Cancel any stale timer before starting the replacement.
+    cancelRetry();
+    retryAt=0;
     // Never inherit other Windows agent grants, secrets or interpreter overrides.
     const childEnv={};
     for(const [name,value] of Object.entries(env)){
@@ -369,9 +411,9 @@ export function createDesktopProductRuntimeSupervisor({
       ORDAX_PRODUCT_MCP_URL:prepared.identity.transport,
       PYTHONNOUSERSITE:"1",
     });
-    if(bridge!==null){
-      // The trusted Native host supplies the per-launch loopback channel.
-      // No bridge means no OS status action; never fall back to Windows APIs.
+    if(bridge){
+      // Only the validated, current Native loopback grant is passed to the
+      // owned child. Never reuse stale bridge credentials or Win32 APIs.
       childEnv.ORDAX_DESKTOP_SURFACE_BRIDGE_URL=bridge.url;
       childEnv.ORDAX_DESKTOP_SURFACE_BRIDGE_TOKEN=bridge.token;
     }
@@ -383,47 +425,67 @@ export function createDesktopProductRuntimeSupervisor({
       });
       if(!child?.pid||typeof child.kill!=="function")throw Error("Runtime process not started");
     }catch{
+      scheduleRecovery(key,clock());
       return current=snapshot("blocked","runtime_spawn_failed",true);
     }
-    active={key,child,stopRequested:false,
+    active={key,child,stopRequested:false,startedAt:clock(),
       tokenFingerprint:prepared.identity.tokenFingerprint};
     child.once?.("error",()=>{
-      if(active?.child===child){
-        active=null;
-        if(current.state==="running"||current.state==="stopping")
-          current=snapshot("blocked","runtime_spawn_failed",true);
+      if(active?.child!==child)return;
+      const owned=active;
+      if(Number.isSafeInteger(child.pid)&&child.pid>0){
+        // An asynchronous error does not prove process-tree exit. Keep the
+        // owned child until its exit event; otherwise an old PyInstaller
+        // child may overlap the replacement and retain stale Native grants.
+        owned.spawnFailed=true;
+        stopActive();
+        current=snapshot("stopping","runtime_spawn_failed",true);
+        return;
       }
+      // Spawn failed before the OS assigned a PID: no child can outlive us.
+      active=null;
+      if(!owned.stopRequested&&!closed)
+        scheduleRecovery(owned.key,owned.startedAt);
+      current=snapshot("blocked","runtime_spawn_failed",true);
     });
     child.once?.("exit",(code)=>{
       if(active?.child===child){
+        const owned=active;
         // An exit code is safe to publish; never log stderr, tokens, paths or
         // the remote control-plane payload as part of lifecycle diagnostics.
         log("Product Runtime exit code="+(Number.isInteger(code)?code:"signal"));
-        // Runtime exit 43 means the Device credential was rejected or its
-        // canonical store is unavailable. The only authorized recovery is
-        // owner re-enrollment, not infinite process restarts or bypasses.
-        const needsRecovery=code===43&&!active.stopRequested&&!closed;
-        if(needsRecovery)
-          credentialRecoveryFingerprint=active.tokenFingerprint;
+        // Exit 43 is the canonical credential rejection. It requires Owner
+        // re-enrollment, not a timer or an invented central session.
+        const needsRecovery=code===43&&!owned.stopRequested&&!closed;
+        if(needsRecovery){
+          credentialRecoveryFingerprint=owned.tokenFingerprint;
+          resetRetry();
+        }else if((!owned.stopRequested||owned.spawnFailed)&&!closed){
+          scheduleRecovery(owned.key,owned.startedAt,code===42&&!owned.spawnFailed);
+        }
         active=null;
         if(current.state==="running"||current.state==="stopping")
           current=needsRecovery
             ? snapshot("blocked","device_credential_recovery_required",true)
-            : snapshot("stopped","runtime_exited",true);
+            : owned.spawnFailed
+              ? snapshot("blocked","runtime_spawn_failed",true)
+              : snapshot("stopped","runtime_exited",true);
       }
     });
     log("OrdaX product runtime process owned by Native host; remote session not attested");
     return current=snapshot("running",plan.dev?"dev_remote_attestation_pending":"remote_attestation_pending",true);
   }
+  function reconcile(){
+    const op=transition.then(actuallyReconcile,actuallyReconcile);
+    transition=op.catch(()=>{});
+    return op;
+  }
   return Object.freeze({
     status(){return current},
-    reconcile(){
-      const op=transition.then(actuallyReconcile,actuallyReconcile);
-      transition=op.catch(()=>{});
-      return op;
-    },
+    reconcile,
     stop(){
       closed=true;
+      resetRetry();
       const ended=stopActive();
       current=snapshot(ended?"stopped":"stopping","supervisor_closed",false);
       return current;

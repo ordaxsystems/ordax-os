@@ -146,6 +146,25 @@ export function createEmulatorNativeHost({
   };
 }
 
+// Local HMR and immutable installed bundles share the same Electron-granted
+// session owner, but only an immutable source may write source-attributed
+// diagnostics. A malformed SHA must never become an HMR exemption.
+export function selectDesktopDiagnosticSessionMode({
+  desktopHost=false, platform=process.platform, userData="",
+  renderedSha="", localDevelopment=false, assetsRoot="",
+}={}) {
+  if(!desktopHost || platform!=="win32" ||
+     typeof userData!=="string" || !userData ||
+     typeof renderedSha!=="string")return null;
+  if(/^[0-9a-f]{40}$/.test(renderedSha))return Object.freeze({
+    sourceSha:renderedSha,allowUnversionedDevelopmentSession:false,
+  });
+  if(renderedSha==="" && localDevelopment===true && !assetsRoot)return Object.freeze({
+    sourceSha:null,allowUnversionedDevelopmentSession:true,
+  });
+  return null;
+}
+
 export function nativeEmulatorPlugin(stateDirectory, { desktopHost = false, accountGatewayOrigin = "" } = {}) {
   return {
     name: "ordax-native-emulator-host",
@@ -155,15 +174,22 @@ export function nativeEmulatorPlugin(stateDirectory, { desktopHost = false, acco
         ? createDesktopLocalSessionMiddleware(userData, {
             token:process.env.ORDAX_DESKTOP_LOCAL_SESSION_TOKEN,
           }) : null;
-      const diagnostics=desktopHost && process.platform==="win32" && userData &&
-        /^[0-9a-f]{40}$/.test(process.env.ORDAX_DESKTOP_RENDERED_SOURCE_SHA??"")
-          ? createDesktopClientDiagnosticsMiddleware(userData,{
-              sessionToken:process.env.ORDAX_DESKTOP_NATIVE_SESSION_TOKEN,
-              diagnosticToken:process.env.ORDAX_DESKTOP_DIAGNOSTIC_TOKEN,
-              sourceSha:process.env.ORDAX_DESKTOP_RENDERED_SOURCE_SHA,
-              networkToken:process.env.ORDAX_DESKTOP_NETWORK_TOKEN,
-              displayToken:process.env.ORDAX_DESKTOP_DISPLAY_TOKEN,
-            }):null;
+      // The same Electron-granted session works with an immutable release
+      // or direct HMR. Only an immutable source may persist diagnostics.
+      const diagnosticMode=selectDesktopDiagnosticSessionMode({
+        desktopHost,platform:process.platform,userData,
+        renderedSha:process.env.ORDAX_DESKTOP_RENDERED_SOURCE_SHA??"",
+        localDevelopment:process.env.ORDAX_DESKTOP_LOCAL_DEV==="1",
+        assetsRoot:process.env.ORDAX_DESKTOP_ASSETS_ROOT??"",
+      });
+      const diagnostics=diagnosticMode
+        ? createDesktopClientDiagnosticsMiddleware(userData,{
+            sessionToken:process.env.ORDAX_DESKTOP_NATIVE_SESSION_TOKEN,
+            diagnosticToken:process.env.ORDAX_DESKTOP_DIAGNOSTIC_TOKEN,
+            networkToken:process.env.ORDAX_DESKTOP_NETWORK_TOKEN,
+            displayToken:process.env.ORDAX_DESKTOP_DISPLAY_TOKEN,
+            ...diagnosticMode,
+          }):null;
       if (desktopHost && process.env.ORDAX_DESKTOP_ASSETS_ROOT) {
         // Same compiled Native composition, served before Vite source transforms.
         server.middlewares.use(createDesktopBuiltAssetsMiddleware(process.env.ORDAX_DESKTOP_ASSETS_ROOT));
