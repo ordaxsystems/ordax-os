@@ -648,6 +648,10 @@ class IndependentSurfaceRuntimeTests(unittest.TestCase):
         ):
             self.assertIn(marker, text)
         self.assertIn("restore-keys:", text)
+        # The pinned upstream Buildroot tarball and ordinary Buildroot downloads
+        # must survive on the same already configured persistent disk.
+        self.assertEqual(text.count('--cache "${BR2_DL_DIR:?}"'), 2)
+        self.assertNotIn('--cache "$RUNNER_TEMP/ordax-independent-surface-cache"', text)
         self.assertIn("-name '*.tmp'", text)
         self.assertIn("-name '*.part'", text)
         self.assertIn("-name '*.lock'", text)
