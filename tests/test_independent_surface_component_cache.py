@@ -145,6 +145,53 @@ class IndependentSurfaceComponentCacheTests(unittest.TestCase):
             self.assertFalse(receipt["provenance_rewritten"])
             self.assertEqual((out / "provenance.json").read_bytes(), original)
 
+    def test_linked_artifact_directory_fails_closed_before_resolve(self):
+        with tempfile.TemporaryDirectory() as td:
+            temp = Path(td)
+            root = self.make_root(temp / "repo")
+            actual = self.make_output(temp / "real-artifacts", "1" * 40)
+            self.mod.record(actual, "1" * 40, root)
+            manifest = (actual / self.mod.MANIFEST).read_bytes()
+            alias = temp / "linked-artifacts"
+            if os.name == "nt":
+                # Directory junctions do not need Windows developer-mode
+                # symlink privileges but redirect resolve() just the same.
+                linked = subprocess.run(
+                    ["cmd", "/c", "mklink", "/J", str(alias), str(actual)],
+                    capture_output=True, text=True,
+                )
+                self.assertEqual(linked.returncode, 0, linked.stderr)
+                self.assertTrue(alias.is_junction())
+            else:
+                alias.symlink_to(actual, target_is_directory=True)
+                self.assertTrue(alias.is_symlink())
+            with self.assertRaisesRegex(self.mod.CacheError, "output directory is missing or unsafe"):
+                self.mod.record(alias, "1" * 40, root)
+            receipt = temp / "receipt.json"
+            with self.assertRaisesRegex(self.mod.CacheError, "output directory is missing or unsafe"):
+                self.mod.verify(
+                    alias, "2" * 40, receipt, cache_hit=True, root=root
+                )
+            self.assertEqual((actual / self.mod.MANIFEST).read_bytes(), manifest)
+            self.assertFalse(receipt.exists())
+
+    @unittest.skipIf(os.name == "nt", "symlink creation needs Windows developer mode")
+    def test_linked_receipt_cannot_overwrite_external_file(self):
+        with tempfile.TemporaryDirectory() as td:
+            temp = Path(td)
+            root = self.make_root(temp / "repo")
+            out = self.make_output(temp / "out", "1" * 40)
+            self.mod.record(out, "1" * 40, root)
+            outside = temp / "external.txt"
+            outside.write_text("preserve-me\n", encoding="utf-8")
+            linked = temp / "receipt-link.json"
+            linked.symlink_to(outside)
+            with self.assertRaisesRegex(self.mod.CacheError, "receipt destination is unsafe"):
+                self.mod.verify(
+                    out, "2" * 40, linked, cache_hit=True, root=root
+                )
+            self.assertEqual(outside.read_text(encoding="utf-8"), "preserve-me\n")
+
     def test_fresh_build_must_match_current_commit(self):
         with tempfile.TemporaryDirectory() as td:
             temp = Path(td)

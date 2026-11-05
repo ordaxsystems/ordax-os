@@ -124,6 +124,15 @@ def fingerprint(
     return digest.hexdigest()
 
 
+def verified_output_dir(path: Path) -> Path:
+    # Path.resolve() follows symlinks and Windows directory junctions.
+    # Reject the untrusted artifact root BEFORE resolving it, otherwise
+    # a cached alias can redirect both provenance reads and manifest writes.
+    if path.is_symlink() or getattr(path, "is_junction", lambda: False)() or not path.is_dir():
+        raise CacheError("Surface output directory is missing or unsafe")
+    return path.resolve()
+
+
 def provenance(out_dir: Path) -> dict:
     path = out_dir / "provenance.json"
     if path.is_symlink() or not path.is_file():
@@ -149,9 +158,7 @@ def artifact_entries(out_dir: Path) -> dict[str, dict[str, object]]:
 
 def record(out_dir: Path, source_commit: str, root: Path = ROOT) -> dict:
     source_commit = exact_commit(source_commit, "source commit")
-    out_dir = out_dir.resolve()
-    if out_dir.is_symlink() or not out_dir.is_dir():
-        raise CacheError("Surface output directory is missing or unsafe")
+    out_dir = verified_output_dir(out_dir)
     manifest_path = out_dir / MANIFEST
     if manifest_path.exists() or manifest_path.is_symlink():
         raise CacheError("Surface cache manifest already exists")
@@ -181,7 +188,7 @@ def verify(
     root: Path = ROOT,
 ) -> dict:
     integration_commit = exact_commit(integration_commit, "integration commit")
-    out_dir = out_dir.resolve()
+    out_dir = verified_output_dir(out_dir)
     manifest_path = out_dir / MANIFEST
     if manifest_path.is_symlink() or not manifest_path.is_file():
         raise CacheError("Surface cache manifest is missing or unsafe")
@@ -234,6 +241,8 @@ def verify(
         "provenance_rewritten": False,
         "artifacts": actual,
     }
+    if receipt.is_symlink() or getattr(receipt, "is_junction", lambda: False)():
+        raise CacheError("Surface receipt destination is unsafe")
     receipt = receipt.resolve()
     receipt.parent.mkdir(parents=True, exist_ok=True)
     receipt.write_text(json.dumps(result, indent=2, sort_keys=True) + "\n", encoding="utf-8")
