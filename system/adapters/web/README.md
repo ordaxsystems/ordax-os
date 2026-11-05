@@ -34,6 +34,8 @@ This adapter deliberately does **not** claim that account or sync services are i
 
 The Web account composition now binds these same adapters to Central. Spaces is a read-only catalog from /account/spaces, refreshed only with an authenticated session and reset on subject changes. Explicit selection now composes the same ordax.space-selection/1 domain runtime used by Native with createWebSpaceSelectionStore. This adapter holds only a validated subject/Space record in session memory; it never grants access to devices/files, activates storage or enables inference. The unavailable port remains the fail-closed contract for hosts without this composition.
 
+Space member lists, actor capabilities and membership action receipts share one Web composition context revision. Any change of verified identity or Spaces catalog during an in-flight operation makes its result unavailable to the current UI, including when the same account refreshes its catalog. Mutations are never replayed: the server remains the authority for their outcome. This fence reuses the existing domain services and does not create a second member store or authorization contract.
+
 Central also consumes the existing ordax.surface-host/1 connectivity snapshot.
 Snapshots are stable across unchanged reads and subscriptions stop on disposal.
 Offline hints suppress account actions/refresh and abort/invalidate Spaces
