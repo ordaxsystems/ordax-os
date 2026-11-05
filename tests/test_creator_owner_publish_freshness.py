@@ -83,6 +83,21 @@ class CreatorMainFreshnessTests(unittest.TestCase):
             check_official_main(source, root=self.repo)
         self.assertEqual(MAIN_FETCH_DEPTH, 128)
 
+    def test_build_autonomy_contract_documents_safe_main_release_policy(self):
+        import json
+        contract = json.loads((ROOT / "docs/contracts/build-autonomy.json").read_text(encoding="utf-8"))
+        policy = contract["owner_dev_pull_ci"]["creator_main_freshness"]
+        self.assertEqual(policy["owner"], "tools/ci/creator_owner_publish_freshness.py")
+        for key in ("validate_before_expensive_main_build",
+                    "revalidate_immediately_before_release_upload",
+                    "newer_main_producer_change_blocks_stale_publication",
+                    "newer_main_nonproducer_only_change_may_reuse_proven_usb",
+                    "non_ancestor_or_unavailable_main_fails_closed",
+                    "do_not_cancel_in_progress_main_build",
+                    "do_not_disable_required_usb_qemu_proofs"):
+            self.assertTrue(policy[key])
+        self.assertFalse(policy["creator_media_release_changes_installed_git_pull"])
+
     def test_workflow_guards_work_before_heavy_job_and_before_upload(self):
         flow = WORKFLOW.read_text(encoding="utf-8")
         gate = "tools/ci/creator_owner_publish_freshness.py"
