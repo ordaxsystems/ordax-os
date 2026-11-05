@@ -54,12 +54,21 @@ e não foi reinstalado, desligado nem usado como origem de token.
 Não declarar `mcpReady`, `capability_digest` ou Aura↔Product por
 causa do boot Native local.
 
-**Próxima execução necessária:** reconciliar o Device Product já
-existente na Platform pelo fluxo canônico **Owner OAuth + PKCE**
-(aprovação explícita), evitando uma segunda matrícula silenciosa ou
-reutilização de credenciais do MCP auxiliar; instalar somente o
-candidato DEV do Runtime que passe pelos hashes/lock existentes,
-atestar heartbeat, capacidades e grant Product com recibo inócuo.
+**Próxima execução necessária — bloqueio concreto de matrícula:**
+corrigir no owner `ordax-runtime` a
+[issue #327](https://github.com/ordaxsystems/ordax-runtime/issues/327):
+`owner_device_connect_cli.py` configura o host
+`ordax-desktop` mas não transmite `desktop_machine_binding()`;
+`device_setup._configure` usa `machine_id()`, vinculando a
+matrícula ao **MCP auxiliar**. A Platform reutiliza o Device pela
+vinculação e pode rotacionar o token do auxiliar. **Não executar
+Owner OAuth/PKCE Product ou copiar credenciais até esse reparo**
+e confirmação de que o Device Product já existente será reutilizado,
+sem novo Device. Depois de aprovação Owner, instalar apenas
+o candidato DEV do Runtime que passe pelos hashes/lock existentes;
+atestar heartbeat, capacidades, grant e recibo remoto real.
+A questão separada de presença intermitente do auxiliar está em
+[Runtime #324](https://github.com/ordaxsystems/ordax-runtime/issues/324).
 Nenhuma nova ponte, workflow, branch, instalador paralelo ou
 autoridade duplicada é necessária. O histórico de PR aberta/Creator
 abaixo está superado para #2400; #2243 continua independente.
