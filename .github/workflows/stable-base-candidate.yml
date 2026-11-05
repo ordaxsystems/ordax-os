@@ -1,4 +1,4 @@
-name: Stable MVP Base Candidate
+name: Stable MVP Base Candidate (Buildroot verified reuse)
 
 on:
   push:
@@ -8,6 +8,8 @@ on:
       - '!bootstrap/base/**/*.md'
       - 'bootstrap/stable-base/**'
       - '!bootstrap/stable-base/**/*.md'
+      - 'bootstrap/independent-base/**'
+      - '!bootstrap/independent-base/**/*.md'
       - 'bootstrap/kernel/**'
       - '!bootstrap/kernel/candidates/**'
       - '!bootstrap/kernel/candidate_pipeline.py'
@@ -24,6 +26,8 @@ on:
       - '!bootstrap/base/**/*.md'
       - 'bootstrap/stable-base/**'
       - '!bootstrap/stable-base/**/*.md'
+      - 'bootstrap/independent-base/**'
+      - '!bootstrap/independent-base/**/*.md'
       - 'bootstrap/kernel/**'
       - '!bootstrap/kernel/candidates/**'
       - '!bootstrap/kernel/candidate_pipeline.py'
@@ -46,7 +50,7 @@ permissions:
 jobs:
   stable-base:
     runs-on: ubuntu-24.04
-    timeout-minutes: 120
+    timeout-minutes: 20
     steps:
       - name: Checkout exact source commit
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
@@ -60,32 +64,18 @@ jobs:
           python-version: '3.12'
           check-latest: false
 
+      - name: Validate Stable Buildroot source without compiling
+        run: |
+          set -euo pipefail
+          python3 bootstrap/independent-base/build.py check --profile stable-mvp
+          python3 -m unittest tests.test_independent_owner_profile -v
+
       - name: Resolve canonical kernel ABI for build artifacts
         run: |
           set -euo pipefail
           python3 bootstrap/kernel/ci_env.py --github-env "$GITHUB_ENV"
 
-      - name: Install kernel and Stable Base build dependencies
-        run: |
-          set -euo pipefail
-          sudo apt-get update
-          sudo apt-get install -y --no-install-recommends \
-            gcc-13 make bc perl bison flex openssl libssl-dev libelf-dev \
-            dwarves kmod xz-utils pkg-config musl-tools binutils bzip2 \
-            e2fsprogs util-linux proot erofs-utils
-          proot --version
-          command -v mkfs.erofs
-          command -v fsck.erofs
-
-      - name: Validate Stable Base contracts
-        run: |
-          set -euo pipefail
-          python bootstrap/stable-base/build.py check
-          python -m unittest \
-            tests.test_stable_base_contract \
-            tests.test_third_party_inventory -v
-
-      - name: Resolve reusable kernel fingerprint
+      - name: Resolve exact reusable kernel and Stable fingerprints
         id: component-fingerprints
         run: |
           set -euo pipefail
@@ -103,98 +93,74 @@ jobs:
           path: ${{ runner.temp }}/portable-v2-qemu/kernel
           key: ordax-portable-component-v1-${{ runner.os }}-${{ runner.arch }}-kernel-${{ steps.component-fingerprints.outputs.kernel }}
 
-      - name: Build exact kernel modules on verified cache miss
-        if: steps.kernel-cache.outputs.cache-hit != 'true'
+      - name: Verify previously built kernel; never rebuild on cache miss
         env:
           ORDAX_SOURCE_COMMIT: ${{ github.event.pull_request.head.sha || github.sha }}
+          ORDAX_KERNEL_CACHE_HIT: ${{ steps.kernel-cache.outputs.cache-hit }}
         run: |
           set -euo pipefail
-          python bootstrap/kernel/build.py check
-          python bootstrap/kernel/build.py build \
-            --jobs 4 \
-            --work-dir "$RUNNER_TEMP/ordax-kernel-work" \
-            --out-dir "$RUNNER_TEMP/portable-v2-qemu/kernel"
-
-      - name: Verify kernel component and exact integration binding
-        env:
-          ORDAX_SOURCE_COMMIT: ${{ github.event.pull_request.head.sha || github.sha }}
-        run: |
-          set -euo pipefail
-          kernel_dir="$RUNNER_TEMP/portable-v2-qemu/kernel"
-          metadata="$RUNNER_TEMP/portable-v2-qemu/metadata"
-          cache_hit='${{ steps.kernel-cache.outputs.cache-hit }}'
-          if [ "$cache_hit" != 'true' ]; then
-            cache_hit=false
+          if [ "$ORDAX_KERNEL_CACHE_HIT" != true ]; then
+            echo 'No verified kernel cache for Stable candidate; use the canonical independent producer first' >&2
+            exit 1
           fi
-          python bootstrap/kernel/verify.py "$kernel_dir"
+          kernel_dir="$RUNNER_TEMP/portable-v2-qemu/kernel"
           test -s "$kernel_dir/kernel-modules-$ORDAX_KERNEL_VERSION.tar"
-          if [ "$cache_hit" = 'false' ]; then
-            python3 tools/ci/portable_component_cache.py record \
-              --component kernel \
-              --out-dir "$kernel_dir" \
-              --source-commit "$ORDAX_SOURCE_COMMIT" \
-              > "$metadata/kernel-cache-record.json"
-          fi
+          test ! -L "$kernel_dir/kernel-modules-$ORDAX_KERNEL_VERSION.tar"
+          python3 bootstrap/kernel/verify.py "$kernel_dir"
           python3 tools/ci/portable_component_cache.py verify \
-            --component kernel \
-            --out-dir "$kernel_dir" \
-            --integration-commit "$ORDAX_SOURCE_COMMIT" \
-            --cache-hit "$cache_hit" \
-            --receipt "$metadata/kernel-component-reuse.json"
+            --component kernel --out-dir "$kernel_dir" \
+            --integration-commit "$ORDAX_SOURCE_COMMIT" --cache-hit true \
+            --receipt "$RUNNER_TEMP/portable-v2-qemu/metadata/kernel-component-reuse.json"
 
-      - name: Save verified kernel component
-        if: steps.kernel-cache.outputs.cache-hit != 'true'
-        uses: actions/cache/save@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
+      - name: Restore verified Stable Buildroot component
+        id: independent-stable-cache
+        uses: actions/cache/restore@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
         with:
-          path: ${{ runner.temp }}/portable-v2-qemu/kernel
-          key: ordax-portable-component-v1-${{ runner.os }}-${{ runner.arch }}-kernel-${{ steps.component-fingerprints.outputs.kernel }}
+          path: ${{ runner.temp }}/ordax-independent
+          key: ordax-portable-component-v1-${{ runner.os }}-${{ runner.arch }}-independent-base-stable-${{ steps.component-fingerprints.outputs.independent_base_stable }}
 
-      - name: Build and verify Stable Base candidate
+      - name: Verify Stable Buildroot candidate without rebuilding
         env:
           ORDAX_SOURCE_COMMIT: ${{ github.event.pull_request.head.sha || github.sha }}
+          ORDAX_STABLE_CACHE_HIT: ${{ steps.independent-stable-cache.outputs.cache-hit }}
         run: |
           set -euo pipefail
-          kernel_dir="$RUNNER_TEMP/portable-v2-qemu/kernel"
-          sudo -E env ORDAX_SOURCE_COMMIT="$ORDAX_SOURCE_COMMIT" \
-            python bootstrap/stable-base/build.py build \
-              --kernel-modules "$kernel_dir/kernel-modules-$ORDAX_KERNEL_VERSION.tar" \
-              --out-dir out/stable-base \
-              --cache-dir "$RUNNER_TEMP/stable-base-cache" \
-              | tee "$RUNNER_TEMP/stable-base-build.log"
-          sudo chown -R "$(id -u):$(id -g)" out/stable-base
-          python bootstrap/stable-base/build.py verify --out-dir out/stable-base
-
-          python - <<'PY'
-          import json, pathlib
-          p = json.loads(pathlib.Path('out/stable-base/provenance.json').read_text())
-          assert p['status'] == 'candidate-not-promotable'
-          assert p['git_client_preseeded'] is False
-          assert p['source_checkout_preseeded'] is False
-          assert p['development_helpers_preseeded'] is False
+          if [ "$ORDAX_STABLE_CACHE_HIT" != true ]; then
+            echo 'No verified stable-mvp Buildroot component; run the existing Independent Base producer first' >&2
+            exit 1
+          fi
+          sudo apt-get update
+          sudo apt-get install -y --no-install-recommends erofs-utils
+          base_dir="$RUNNER_TEMP/ordax-independent"
+          test -s "$base_dir/independent-base.erofs"
+          python3 bootstrap/independent-base/build.py verify --profile stable-mvp --out "$base_dir"
+          python3 tools/ci/portable_component_cache.py verify \
+            --component independent-base-stable --out-dir "$base_dir" \
+            --integration-commit "$ORDAX_SOURCE_COMMIT" --cache-hit true \
+            --receipt "$RUNNER_TEMP/portable-v2-qemu/metadata/stable-component-reuse.json"
+          python3 - "$base_dir/provenance.json" <<'PY'
+          import json
+          import pathlib
+          import sys
+          p = json.loads(pathlib.Path(sys.argv[1]).read_text(encoding='utf-8'))
+          assert p['$schema'] == 'prototype-ordax.independent-base-provenance/1'
+          assert p['status'] == 'candidate-build-only'
+          assert p['profile'] == 'stable-mvp'
+          assert p['owner_development_capabilities_verified'] is False
           assert p['physical_artifact_authorized'] is False
-          assert p['signed_update_integration_implemented'] is False
+          assert p['signed_release_equivalence_proven'] is False
           assert p['qemu_boot_proven'] is False
-          assert p['physical_boot_proven'] is False
-          assert p['alpine_archive_sha256_pinned_in_contract'] is True
-          assert p['apk_package_versions_pinned'] is True
-          assert p['apk_package_lock_matches_contract'] is True
-          assert p['exact_package_spec_count'] == p['installed_package_count']
-          print('STABLE_BASE_CANDIDATE=PASS')
-          print('STABLE_BASE_GIT=NO')
-          print('STABLE_BASE_ALPINE_PINNED=YES')
-          print('STABLE_BASE_APK_LOCKED=YES')
+          print('STABLE_BASE_BUILDROOT_VERIFIED=PASS')
           print('STABLE_BASE_PHYSICAL_AUTHORIZED=NO')
-          print('PINNED_ALPINE_SHA256=' + p['alpine_archive_sha256'])
           PY
 
-      - name: Upload candidate and provenance for review only
+      - name: Retain verified Stable receipts for review only
         uses: actions/upload-artifact@b7c566a772e6b6bfb58ed0dc250532a479d7789f # v6
         with:
-          name: stable-mvp-base-candidate-${{ github.event.pull_request.head.sha || github.sha }}
+          name: stable-mvp-buildroot-receipts-${{ github.event.pull_request.head.sha || github.sha }}
           path: |
-            out/stable-base/stable-base.erofs
-            out/stable-base/provenance.json
-            out/stable-base/SHA256SUMS
+            ${{ runner.temp }}/ordax-independent/provenance.json
             ${{ runner.temp }}/portable-v2-qemu/metadata/kernel-component-reuse.json
+            ${{ runner.temp }}/portable-v2-qemu/metadata/stable-component-reuse.json
           if-no-files-found: error
           retention-days: 7

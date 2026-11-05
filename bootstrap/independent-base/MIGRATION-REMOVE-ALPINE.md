@@ -500,6 +500,12 @@ Somente após todos os gates:
 - `ada00732`: fortalecida a semântica `If-None-Match: *` do manifest R2: HTTP **412** durante concorrência já não significa sucesso implícito. O produtor faz GET do manifest que venceu e exige **igualdade byte a byte** com o local; em caso de diferença ou indisponibilidade, recusa publicação. Os blobs permanecem content-addressed por SHA-256. Teste offline cobre publicação normal e corrida com manifest divergente: `Remove Alpine Fast Gate #41397687392` **PASS — 387 testes**.
 - Nenhuma credencial foi criada ou exibida, nenhuma escrita real foi feita no R2 e não foi acionado outro Buildroot, WebKit, kernel, EROFS, QEMU ou USB. **A Surface real continua ausente:** três variáveis do produtor GitHub (`ORDAX_SURFACE_RUNNER_LABEL`, `ORDAX_SURFACE_PERSISTENT_WORK_ROOT`, `ORDAX_SURFACE_PRODUCER_ENVIRONMENT`) seguem diagnosticadas como ausentes. O único produtor `independent-surface-runtime.yml` precisa de runner Linux confiável com workspace persistente antes de fabricar/publicar a candidata para a fingerprint exigida no Portable assinado. Sem isso, manter fail-closed e Alpine Stable/Windows Compat intactos.
 
+### Stable candidate without Alpine producer (2026-11-05)
+
+- The workflow .github/workflows/stable-base-candidate.yml no longer runs bootstrap/stable-base/build.py or installs APK packages. It only verifies immutable kernel and stable-mvp Buildroot components produced by the existing independent-base owner, using exact fingerprints, cache receipts, provenance and EROFS filesystem checks. Cache miss fails closed without compiling kernel or Buildroot.
+- The candidate workflow publishes verification receipts, not another copy of the heavy EROFS image. It grants no Stable promotion, signed-release equivalence, physical installation or USB boot.
+- The old bootstrap/stable-base/build.py and Windows Compat Alpine consumers remain active in other workflows; they cannot be deleted until their remaining users are migrated and the signed Portable/OVMF/rollback and hardware checks are genuinely proven. This cut does not claim complete Alpine removal.
+
 ## Regra de não bloqueio
 
 Mudanças normais do produto não devem depender da conclusão da migração. Uma mudança em `system/`, Surface, apps ou Web não deve reconstruir Buildroot/kernel se seus contratos não mudaram.
