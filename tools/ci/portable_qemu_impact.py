@@ -29,9 +29,11 @@ PRESENTATION_LIGHT_PREFIXES = (
     "system/surface/ui/",
     "system/surface/workspace/",
 )
-# The isolated /store-preview/ Vite entry contains only local demonstration
-# presentation. It never produces a Native boot, kernel or Portable rootfs.
-WEB_STORE_PREVIEW_LIGHT_PREFIX = "system/composition/web/store-preview/"
+# The browser-only Web composition is built and validated by the Surface Web
+# gates; it cannot change Native boot, kernel or Portable rootfs producer bytes.
+# Recheck Native startup reachability on each classification and fail closed if
+# a future Native entry imports a module from this Web-only owner.
+WEB_COMPOSITION_LIGHT_PREFIX = "system/composition/web/"
 HIGH_LEVEL_LIGHT_PREFIXES = (
     "system/apps/",
     "system/adapters/",
@@ -504,10 +506,12 @@ def classify_paths(
             or path in ACCOUNT_SPACE_SEMANTICS_LIGHT_EXACT
         ):
             continue
-        # The isolated Web Store presentation is proved by the Web candidate.
-        # If any of its files becomes Native-startup reachable in a later revision,
-        # fall through to the heavy native-runtime gate instead of skipping QEMU.
-        if path.startswith(WEB_STORE_PREVIEW_LIGHT_PREFIX) and path not in reachable:
+        # Web composition is owned by the browser product and its focused
+        # Surface Web / Chromium gates. Native-reachable Web sources fail closed
+        # instead of silently bypassing Portable boot proof.
+        if path.startswith(WEB_COMPOSITION_LIGHT_PREFIX):
+            if path in reachable:
+                reasons.append(f"native-runtime-reachable:{path}")
             continue
         # Markdown and Surface presentation sources cannot alter boot artifacts.
         # Classify them before the non-system fail-closed rule so docs/*.md do not
