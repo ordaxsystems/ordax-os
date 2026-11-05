@@ -3,6 +3,7 @@ import test from 'node:test';
 
 import {
   WEB_LOGIN_PATH,
+  createWebEntryLifecycle,
   decideWebEntry,
   isLocalWebLayoutPreview,
 } from '../system/composition/web/auth-entry-gate.mjs';
@@ -75,4 +76,51 @@ test('Web response mapping never broadens other redirects or ambiguous rewrites'
     { method: 'GET' },
   );
   assert.equal(mapWebAccountResponse(read, accountRedirect), accountRedirect);
+});
+
+test('Web entry awaits the first session read and recovers without a duplicate workspace', () => {
+  const events = [];
+  const lifecycle = createWebEntryLifecycle({
+    onWorkspace: () => events.push('mount'),
+    onLogin: () => events.push('login'),
+    onUnavailable: () => events.push('unavailable'),
+  });
+  assert.equal(lifecycle.update({ state: 'signed-in' }), null, 'No pre-verification mount');
+  assert.deepEqual(events, []);
+  lifecycle.start({ state: 'unavailable' });
+  assert.deepEqual(events, ['unavailable']);
+  lifecycle.update({ state: 'unavailable' });
+  assert.deepEqual(events, ['unavailable'], 'Equivalent failure does not re-render');
+  lifecycle.update({ state: 'signed-in' });
+  lifecycle.update({ state: 'signed-in' });
+  assert.deepEqual(events, ['unavailable', 'mount'], 'Verified reconnect mounts once');
+  lifecycle.update({ state: 'unavailable' });
+  lifecycle.update({ state: 'signed-in' });
+  lifecycle.update({ state: 'signed-out' });
+  assert.deepEqual(events, ['unavailable', 'mount', 'unavailable', 'mount', 'login']);
+  lifecycle.dispose();
+  assert.equal(lifecycle.update({ state: 'signed-in' }), null, 'Disposed gate must not remount');
+  assert.throws(() => lifecycle.start({ state: 'signed-in' }), /already started or disposed/);
+});
+
+test('Web entry lifecycle never treats a remote preview query as session authority', () => {
+  const remote = { location: { hostname: 'web.ordax.com.br', pathname: '/', search: '?preview=layout' } };
+  const local = { location: { hostname: 'localhost', pathname: '/', search: '?preview=layout' } };
+  assert.equal(isLocalWebLayoutPreview(remote), false);
+  assert.equal(isLocalWebLayoutPreview(local), true);
+  for (const [preview, expected] of [[false, 'login'], [true, 'workspace']]) {
+    const events = [];
+    const lifecycle = createWebEntryLifecycle({
+      allowLocalLayoutPreview: preview,
+      onWorkspace: () => events.push('workspace'),
+      onLogin: () => events.push('login'),
+      onUnavailable: () => events.push('unavailable'),
+    });
+    lifecycle.start({ state: 'signed-out' });
+    assert.deepEqual(events, [expected]);
+    lifecycle.dispose();
+  }
+  assert.throws(() => createWebEntryLifecycle({
+    onWorkspace: () => {}, onLogin: () => {},
+  }), /onUnavailable/);
 });
