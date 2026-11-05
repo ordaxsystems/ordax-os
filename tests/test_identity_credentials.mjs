@@ -352,7 +352,9 @@ test("post-credential session verification bounds stalled fetch and JSON body wi
     };
     const port = createSameOriginIdentityCredentials(windowRef);
     const pending = port.signIn({ email: "pessoa@example.com", password: "secret-1" });
-    for (let i = 0; i < 12 && timers.size === 0; i++) await Promise.resolve();
+    // The POST now has its own deadline; wait for the verification GET itself
+    // rather than stopping at the first timer (which belongs to the POST).
+    for (let i = 0; i < 40 && requests.length < 2; i++) await Promise.resolve();
     assert.equal(requests.length, 2, "Exactly one credential POST and one verification GET");
     assert.equal(timers.size, 1, "The canonical GET reader must install one deadline");
     assert.equal(requests[1].options.redirect, "error");
