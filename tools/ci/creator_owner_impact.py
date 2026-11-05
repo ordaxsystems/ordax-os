@@ -167,8 +167,8 @@ EXPECTED_IMPACT_JOB = """
       contents: read
     runs-on: ubuntu-24.04
     outputs:
-      required: __DOLLAR__{{ steps.scope.outputs.required }}
-      reason: __DOLLAR__{{ steps.scope.outputs.reason }}
+      required: __DOLLAR__{{ steps.scope.outputs.required == 'true' && steps.freshness.outputs.publish_allowed != 'false' }}
+      reason: __DOLLAR__{{ steps.freshness.outputs.reason || steps.scope.outputs.reason }}
     steps:
       - name: Checkout exact Creator candidate
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
@@ -197,6 +197,17 @@ EXPECTED_IMPACT_JOB = """
               exit 1
               ;;
           esac
+      # On a queued main push, avoid an expensive build that is already
+      # obsolete. PR proofs and explicit manual dispatch remain unaffected.
+      - name: Skip superseded main USB production
+        id: freshness
+        if: github.event_name == 'push' && steps.scope.outputs.required == 'true'
+        env:
+          ORDAX_SOURCE_SHA: __DOLLAR__{{ github.sha }}
+        run: |
+          set -euo pipefail
+          python3 tools/ci/creator_owner_publish_freshness.py \
+            --source "$ORDAX_SOURCE_SHA" --github-output "$GITHUB_OUTPUT"
 """.replace("__DOLLAR__", "$")
 
 
