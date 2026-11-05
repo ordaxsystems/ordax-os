@@ -436,7 +436,7 @@ test("older registration policy reply cannot re-enable or disable a newer decisi
     fetch: async () => ({
       ok: true,
       status: 200,
-      json:json: async () => ({
+      json: async () => ({
         $schema: "prototype-ordax.public-identity-session/1",
         authenticated: false, provider: "supabase", status: "anonymous",
       }),
