@@ -15,25 +15,54 @@ do classificador no Windows: **13/13 PASS**. Não há autorização geral
 para dispensar Creator/Buildroot, apenas a não incidência causal
 demonstrada para esse diff. A PR #2243 mantém missão Buildroot separada.
 
-**Implantação física NÃO concluída** em `DESKTOP-4UFL03B`: a instalação
-atual foi identificada com executável anterior (mtime 04/11 03:45) e
-ainda não foi atualizada para o NSIS do merge. O Device separado
-`OrdaX Desktop (DESKTOP-4UFL03B)` permanece offline/discovery-only,
-sem identidade/token Product e binário DEV preparados no perfil.
-O MCP auxiliar `DESKTOP-4UFL03B` é outra identidade, com grant próprio,
-e não deve ser reintegrado, duplicado ou usado como origem de token
-Product. `mcpReady` remoto e Aura↔Product **NÃO comprovados**.
+**Instalação física do Desktop concluída e inicialização comprovada — 04/11/2026:**
+no `DESKTOP-4UFL03B`, o artefato canônico do
+[Windows CI main #41932869697](https://github.com/ordaxsystems/ordax-os/actions/runs/41932869697)
+foi transferido pelo navegador autenticado (sem extrair tokens).
+ZIP: 680.449.830 bytes, SHA-256
+`d5b82019352ce91b37c6d8aa3e355374486a648e59fdc61d2eaef2ca37d66da3`.
+O instalador DEV alpha.20 interno tem SHA-256
+`3582a775a833897ca7c0bd9edd27e3c1842fe0fc72f9170388e65afacee8fcbe`.
+A atualização usou **somente o caminho canônico existente**
+`%LOCALAPPDATA%\\Programs\\OrdaX OS Desktop Dev`; o perfil Electron
+já existente foi preservado. O wrapper PowerShell atingiu limite de
+300 segundos durante a etapa de desinstalação da versão antiga e,
+portanto, **não há prova de código de saída zero do NSIS**. Contudo,
+após a saída do instalador, o journal continha
+`install-files-complete`; todos os quatro módulos Product/Native
+existiam e seus hashes de blob Git eram exatamente os de
+`ordax-os/main@5eb9e2f8`. O
+`desktop-assets/source-provenance.json` instalado publicou
+`os_sha=5eb9e2f8d6c95c457c307e872e6f953bd48e2a36`.
 
-**Próxima execução necessária:** adquirir pela conta GitHub autorizada
-o NSIS canônico do CI exato de main, validar SHA/proveniência, atualizar
-a instalação operacional única preservando perfil e processos remotos,
-provisionar somente a identidade Product pelo fluxo oficial e provar
-heartbeat, `capability_digest`, grants e uma ação inócua com recibo.
-O artefato CI de #2400 tem ~680 MB e não cabe no limite de transferência
-do conector GitHub de 512 MB; transferência direta de API sem login
-retornou HTTP 401. Não contornar com reutilização de segredos nem copiar
-módulos avulsos. Histórico de PR aberta e gate libexpat abaixo é apenas
-histórico e está SUPERADO para #2400.
+**Boot físico do Desktop comprovado:** após reiniciar somente o
+Desktop, cinco subprocessos da **única instalação** estavam ativos.
+O log real (`2026-11-05T00:02:36Z–00:02:52Z`) confirmou Native host
+loopback pronto, `Native Surface state reporter authenticated`,
+`Native Surface command polling authenticated`,
+`Native shell mounted and ready` e `Native Surface ready`.
+Um aviso não fatal de rede Native `503` ainda aparece nesse boot;
+não declarar a rede/Platform totalmente saudável por isso.
+
+**Product Device remoto NÃO pronto:** `OrdaX Desktop
+(DESKTOP-4UFL03B)` segue offline/discovery-only, último heartbeat
+`2026-11-04T07:59:32Z`; o perfil operacional **não tem**
+`native-state/product-runtime/agent-settings.json` nem
+`native-state/product-runtime-dev/ordax-product-agent.exe`.
+O MCP auxiliar `DESKTOP-4UFL03B` mantém identidade e grant próprios
+e não foi reinstalado, desligado nem usado como origem de token.
+Não declarar `mcpReady`, `capability_digest` ou Aura↔Product por
+causa do boot Native local.
+
+**Próxima execução necessária:** reconciliar o Device Product já
+existente na Platform pelo fluxo canônico **Owner OAuth + PKCE**
+(aprovação explícita), evitando uma segunda matrícula silenciosa ou
+reutilização de credenciais do MCP auxiliar; instalar somente o
+candidato DEV do Runtime que passe pelos hashes/lock existentes,
+atestar heartbeat, capacidades e grant Product com recibo inócuo.
+Nenhuma nova ponte, workflow, branch, instalador paralelo ou
+autoridade duplicada é necessária. O histórico de PR aberta/Creator
+abaixo está superado para #2400; #2243 continua independente.
 
 ---
 
