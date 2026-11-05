@@ -26,7 +26,11 @@ export function createWebRegistrationPolicyReader(windowRef = globalThis.window)
   return Object.freeze({
     async read() {
       const response = await reader.read("/auth/registration-policy");
-      if (!response.ok) throw new Error(`Registration policy request failed: ${response.status}`);
+      // A partial or otherwise noncanonical 2xx policy response must
+      // never enable public registration.
+      if (!response.ok || response.status !== 200) {
+        throw new Error(`Registration policy request failed: ${response.status}`);
+      }
       return validateRegistrationPolicy(response.value);
     },
     cancel: reader.cancel,

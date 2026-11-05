@@ -98,7 +98,9 @@ export function createWebIdentitySession(windowRef = globalThis.window) {
     );
     try {
       const response = await reader.read(SESSION_ENDPOINT);
-      if (!response.ok) {
+      // Identity is only authoritative for a complete gateway session
+      // response. Other 2xx statuses (e.g. 206 partial) cannot grant access.
+      if (!response.ok || response.status !== 200) {
         return apply({ state: "unavailable" });
       }
       return apply(interpretWebIdentityGatewaySession(response.value));
