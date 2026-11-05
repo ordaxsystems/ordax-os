@@ -67,6 +67,130 @@ test("Web identity actions follow the real gateway session state", async () => {
   session.dispose();
 });
 
+test("Web logout completes only after the canonical session confirms anonymous status", async () => {
+  const authenticated = {
+    $schema: "prototype-ordax.public-identity-session/1",
+    authenticated: true, status: "authenticated", provider: "supabase",
+    subject: "account-a", email: "person@example.invalid",
+  };
+  const anonymous = {
+    $schema: "prototype-ordax.public-identity-session/1",
+    authenticated: false, status: "anonymous", provider: "supabase",
+  };
+  for (const status of [303, 0, 200]) {
+    let current = authenticated;
+    const requests = [];
+    const windowRef = {
+      fetch: async (path, options) => {
+        requests.push({ path, options });
+        if (path === "/auth/session") return { ok: true, status: 200, json: async () => current };
+        if (path === "/auth/logout") {
+          current = anonymous;
+          return { ok: status === 200, status };
+        }
+        throw new Error("Unexpected identity endpoint");
+      },
+    };
+    const identity = createWebIdentitySession(windowRef);
+    await identity.refresh();
+    const actions = createWebIdentityActions(windowRef, identity);
+    try {
+      assert.deepEqual(actions.getSnapshot().supportedActions, ["sign-out"]);
+      await actions.execute("sign-out");
+      assert.equal(identity.getSnapshot().state, "signed-out");
+      assert.deepEqual(actions.getSnapshot().supportedActions, ["sign-in"]);
+      assert.deepEqual(requests.map(request => request.path), [
+        "/auth/session", "/auth/logout", "/auth/session",
+      ]);
+      assert.equal(requests[1].options.method, "POST");
+      assert.equal(requests[1].options.credentials, "same-origin");
+      assert.equal(requests[1].options.redirect, "manual");
+      assert.equal(requests[2].options.credentials, "same-origin");
+      assert.equal(requests[2].options.cache, "no-store");
+    } finally {
+      actions.dispose();
+      identity.dispose();
+    }
+  }
+});
+
+test("Web logout rejects unverified, stale or inconsistent sessions even after redirect", async () => {
+  const authenticated = {
+    $schema: "prototype-ordax.public-identity-session/1",
+    authenticated: true, status: "authenticated", provider: "supabase",
+    subject: "account-a", email: "person@example.invalid",
+  };
+  const anonymous = {
+    $schema: "prototype-ordax.public-identity-session/1",
+    authenticated: false, status: "anonymous", provider: "supabase",
+  };
+  for (const [name, logoutStatus, nextSession] of [
+    ["cookie-still-active", 303, authenticated],
+    ["opaque-redirect-still-active", 0, authenticated],
+    ["session-unavailable", 303, null],
+    ["contradictory-session", 303, { ...anonymous, status: "authenticated" }],
+    ["logout-rejected", 403, anonymous],
+  ]) {
+    let reads = 0;
+    const requests = [];
+    const windowRef = {
+      fetch: async (path) => {
+        requests.push(path);
+        if (path === "/auth/session") {
+          reads += 1;
+          if (reads === 1) return { ok: true, status: 200, json: async () => authenticated };
+          if (nextSession === null) return { ok: false, status: 503 };
+          return { ok: true, status: 200, json: async () => nextSession };
+        }
+        if (path === "/auth/logout") return { ok: false, status: logoutStatus };
+        throw new Error("Unexpected endpoint");
+      },
+    };
+    const identity = createWebIdentitySession(windowRef);
+    await identity.refresh();
+    const actions = createWebIdentityActions(windowRef, identity);
+    try {
+      await assert.rejects(actions.execute("sign-out"), /sign-out (not confirmed|failed)/, name);
+      assert.equal(identity.getSnapshot().state,
+        logoutStatus === 403 || nextSession === authenticated ? "signed-in" : "unavailable",
+        name);
+      assert.deepEqual(requests, logoutStatus === 403
+        ? ["/auth/session", "/auth/logout"]
+        : ["/auth/session", "/auth/logout", "/auth/session"], name);
+    } finally {
+      actions.dispose();
+      identity.dispose();
+    }
+  }
+});
+
+test("disposed Web identity actions do not verify an orphaned logout request", async () => {
+  const sessionPayload = {
+    $schema: "prototype-ordax.public-identity-session/1",
+    authenticated: true, status: "authenticated", provider: "supabase",
+    subject: "account-a", email: "person@example.invalid",
+  };
+  const requests = [];
+  let resolveLogout;
+  const windowRef = {
+    fetch(path) {
+      requests.push(path);
+      if (path === "/auth/session") return Promise.resolve({ ok: true, status: 200, json: async () => sessionPayload });
+      if (path === "/auth/logout") return new Promise(resolve => { resolveLogout = resolve; });
+      throw new Error("Unexpected endpoint");
+    },
+  };
+  const identity = createWebIdentitySession(windowRef);
+  await identity.refresh();
+  const actions = createWebIdentityActions(windowRef, identity);
+  const pending = actions.execute("sign-out");
+  actions.dispose();
+  resolveLogout({ ok: false, status: 303 });
+  await assert.rejects(pending, /disposed/);
+  assert.deepEqual(requests, ["/auth/session", "/auth/logout"]);
+  identity.dispose();
+});
+
 test("registration action requires an explicit legal-ready capability", async () => {
   const assigned = [];
   const windowRef = {
