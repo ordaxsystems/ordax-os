@@ -9,6 +9,7 @@ import {
 } from "../system/contracts/identity-actions.mjs";
 import { createWebIdentityActions } from "../system/adapters/web/identity-actions.mjs";
 import { createWebIdentitySession } from "../system/adapters/web/identity.mjs";
+import { WEB_JSON_READ_TIMEOUT_MS } from "../system/adapters/web/json-read.mjs";
 
 test("identity action contract normalizes supported command families", () => {
   const snapshot = validateIdentityActionsSnapshot({ supportedActions: ["sign-in", "register", "sign-out"] });
@@ -174,7 +175,7 @@ test("Web logout POST has the shared deadline and cannot falsely sign out after 
   let timerId = 0, resolveLate;
   const windowRef = {
     setTimeout(callback, delay) {
-      assert.equal(delay, 10_000);
+      assert.equal(delay, WEB_JSON_READ_TIMEOUT_MS);
       const id = ++timerId; timers.set(id, callback); return id;
     },
     clearTimeout(id) { timers.delete(id); },
