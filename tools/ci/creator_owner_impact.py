@@ -27,6 +27,7 @@ LIGHT_EXACT = frozenset({
     "tests/test_desktop_product_runtime_status_port.mjs",
     "tests/test_desktop_surface_runtime_bridge.mjs",
     "tests/test_desktop_surface_state_report.mjs",
+    "tests/test_windows_desktop_client_diagnostics.mjs",
     # Existing docs index + UX owner and archived historical reference:
     # no executable Native, USB, release, kernel or signing producer bytes.
     # Keep this exact allowlist; docs/contracts/** cannot be skipped wholesale.

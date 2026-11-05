@@ -58,10 +58,12 @@ function loopback(ip) {
 }
 export function createDesktopClientDiagnosticsMiddleware(userData,{
   sessionToken,diagnosticToken,sourceSha,networkToken=null,displayToken=null,
+  allowUnversionedDevelopmentSession=false,
 }={}) {
   if(typeof userData!=="string" || !userData ||
      !TOKEN.test(sessionToken) || !TOKEN.test(diagnosticToken) ||
-     sessionToken===diagnosticToken || !SHA.test(sourceSha) ||
+     sessionToken===diagnosticToken ||
+     (!SHA.test(sourceSha) && !(allowUnversionedDevelopmentSession===true && sourceSha===null)) ||
      (networkToken!==null && (!TOKEN.test(networkToken) ||
        [sessionToken,diagnosticToken].includes(networkToken))) ||
      (displayToken!==null && (!TOKEN.test(displayToken) ||
@@ -129,6 +131,10 @@ export function createDesktopClientDiagnosticsMiddleware(userData,{
           componentSlotReadAvailable:false,supportedActions:[],
         });
       }
+      // Live source has no immutable SHA receipt. It may read its own
+      // Electron-authorized session but cannot persist a diagnostic falsely
+      // attributed to a packaged revision.
+      if(sourceSha===null)return respond(404);
       if(req.method!=="POST")return respond(405);
       if(!matchSecret(req.headers["x-ordax-diagnostic-token"],expectedDiagnostic))return respond(403);
       if(req.headers.origin!==`http://${req.headers.host}`)return respond(403);
