@@ -58,7 +58,7 @@ class PortableQemuKernelSourceSSOTTests(unittest.TestCase):
                 'kernel-modules-$ORDAX_KERNEL_VERSION.tar': 2,
             },
             ".github/workflows/portable-v2-pinned-initramfs-proof.yml": {
-                'kernel-modules-$ORDAX_KERNEL_VERSION.tar': 2,
+                'kernel-modules-$ORDAX_KERNEL_VERSION.tar': 1,
             },
         }
         for name, occurrences in workflows.items():

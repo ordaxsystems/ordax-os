@@ -505,6 +505,7 @@ Somente após todos os gates:
 - The workflow .github/workflows/stable-base-candidate.yml no longer runs bootstrap/stable-base/build.py or installs APK packages. It only verifies immutable kernel and stable-mvp Buildroot components produced by the existing independent-base owner, using exact fingerprints, cache receipts, provenance and EROFS filesystem checks. Cache miss fails closed without compiling kernel or Buildroot.
 - The candidate workflow publishes verification receipts, not another copy of the heavy EROFS image. It grants no Stable promotion, signed-release equivalence, physical installation or USB boot.
 - The old bootstrap/stable-base/build.py and Windows Compat Alpine consumers remain active in other workflows; they cannot be deleted until their remaining users are migrated and the signed Portable/OVMF/rollback and hardware checks are genuinely proven. This cut does not claim complete Alpine removal.
+- The pinned-initramfs proof also consumes the same verified stable-mvp Buildroot cache, stages its byte-identical EROFS under the historical stable-base.erofs slot expected by the existing initramfs contracts, and continues the SHA-256 and tamper checks. It does not compile Alpine or an additional Buildroot instance; absent verified cache blocks the proof.
 
 ## Regra de não bloqueio
 

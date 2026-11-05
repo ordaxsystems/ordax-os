@@ -11,6 +11,8 @@ on:
       - '!bootstrap/kernel/update_engine.py'
       - '!bootstrap/kernel/module_archive.py'
       - 'bootstrap/stable-base/**'
+      - 'bootstrap/independent-base/**'
+      - 'tools/ci/portable_component_cache.py'
       - 'bootstrap/initramfs/**'
       - 'bootstrap/portable-v2/capsule/**'
       - 'bootstrap/release-acquisition/**'
@@ -32,6 +34,8 @@ on:
       - '!bootstrap/kernel/update_engine.py'
       - '!bootstrap/kernel/module_archive.py'
       - 'bootstrap/stable-base/**'
+      - 'bootstrap/independent-base/**'
+      - 'tools/ci/portable_component_cache.py'
       - 'bootstrap/initramfs/**'
       - 'bootstrap/portable-v2/capsule/**'
       - 'bootstrap/release-acquisition/**'
@@ -101,7 +105,7 @@ jobs:
           python -m unittest tests.test_portable_v2_pinned_initramfs_proof_contract -v
           python -m unittest tests.test_initramfs_upstream_authentication -v
           python bootstrap/initramfs/build.py check
-          python bootstrap/stable-base/build.py check
+          python bootstrap/independent-base/build.py check --profile stable-mvp
 
       - name: Build exact static release agent and bootstrap capsule
         run: |
@@ -137,23 +141,60 @@ jobs:
           python bootstrap/kernel/verify.py "$RUNNER_TEMP/portable-v2-pinned/kernel"
           test -s "$RUNNER_TEMP/portable-v2-pinned/kernel/kernel-modules-$ORDAX_KERNEL_VERSION.tar"
 
-      - name: Build and verify exact Stable Base
-        env:
-          ORDAX_SOURCE_COMMIT: ${{ github.event.pull_request.head.sha || github.sha }}
+      # Stable/mvp is a verified consumer, not a second Alpine or Buildroot
+      # producer. A cache miss must not silently create a different rootfs.
+      - name: Resolve exact Stable Buildroot component fingerprint
+        id: base-fingerprints
         run: |
           set -euo pipefail
+          test -n "${ImageOS:-}"
+          test -n "${ImageVersion:-}"
+          export ORDAX_COMPONENT_CACHE_ENVIRONMENT="${RUNNER_OS:?}/${RUNNER_ARCH:?}/${ImageOS}/${ImageVersion}"
+          printf 'ORDAX_COMPONENT_CACHE_ENVIRONMENT=%s\n' "$ORDAX_COMPONENT_CACHE_ENVIRONMENT" >> "$GITHUB_ENV"
+          python3 tools/ci/portable_component_cache.py fingerprints --github-output "$GITHUB_OUTPUT"
+
+      - name: Restore verified Stable Buildroot component
+        id: independent-stable-cache
+        uses: actions/cache/restore@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
+        with:
+          path: ${{ runner.temp }}/ordax-independent
+          key: ordax-portable-component-v1-${{ runner.os }}-${{ runner.arch }}-independent-base-stable-${{ steps.base-fingerprints.outputs.independent_base_stable }}
+
+      - name: Verify and stage exact Stable Buildroot EROFS
+        env:
+          ORDAX_SOURCE_COMMIT: ${{ github.event.pull_request.head.sha || github.sha }}
+          ORDAX_STABLE_CACHE_HIT: ${{ steps.independent-stable-cache.outputs.cache-hit }}
+        run: |
+          set -euo pipefail
+          if [ "$ORDAX_STABLE_CACHE_HIT" != true ]; then
+            echo 'Verified Stable Buildroot cache missing; run canonical independent-base stable-mvp producer first' >&2
+            exit 1
+          fi
+          source="$RUNNER_TEMP/ordax-independent"
           work="$RUNNER_TEMP/portable-v2-pinned"
-          sudo -E env ORDAX_SOURCE_COMMIT="$ORDAX_SOURCE_COMMIT" \
-            python bootstrap/stable-base/build.py build \
-              --kernel-modules "$work/kernel/kernel-modules-$ORDAX_KERNEL_VERSION.tar" \
-              --out-dir "$work/stable-base" \
-              --cache-dir "$work/stable-base-cache" \
-              > "$work/metadata/stable-base-build.json"
-          sudo chown -R "$(id -u):$(id -g)" "$work/stable-base"
-          python bootstrap/stable-base/build.py verify \
-            --out-dir "$work/stable-base" \
-            > "$work/metadata/stable-base-verify.json"
+          python3 bootstrap/independent-base/build.py verify \
+            --profile stable-mvp --out "$source" > "$work/metadata/stable-base-verify.json"
+          python3 tools/ci/portable_component_cache.py verify \
+            --component independent-base-stable --out-dir "$source" \
+            --integration-commit "$ORDAX_SOURCE_COMMIT" --cache-hit true \
+            --receipt "$work/metadata/stable-component-reuse.json"
+          python3 - "$source/provenance.json" <<'PY'
+          import json
+          import pathlib
+          import sys
+          p = json.loads(pathlib.Path(sys.argv[1]).read_text(encoding='utf-8'))
+          assert p['$schema'] == 'prototype-ordax.independent-base-provenance/1'
+          assert p['profile'] == 'stable-mvp'
+          assert p['status'] == 'candidate-build-only'
+          assert p['physical_artifact_authorized'] is False
+          assert p['signed_release_equivalence_proven'] is False
+          assert p['qemu_boot_proven'] is False
+          PY
+          mkdir -p "$work/stable-base"
+          cp --reflink=auto "$source/independent-base.erofs" "$work/stable-base/stable-base.erofs"
           test -s "$work/stable-base/stable-base.erofs"
+          cmp "$source/independent-base.erofs" "$work/stable-base/stable-base.erofs"
+          fsck.erofs "$work/stable-base/stable-base.erofs"
 
       - name: Build one initramfs pinned to both real EROFS artifacts
         env:
