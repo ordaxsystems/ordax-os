@@ -110,6 +110,63 @@ test("identity adapter ignores unsafe account display names and keeps its email 
   port.dispose();
 });
 
+test("inconsistent HTTP 200 gateway sessions are unavailable, never interpreted as logout", async () => {
+  const schema = "prototype-ordax.public-identity-session/1";
+  const authenticated = {
+    $schema: schema,
+    provider: "supabase",
+    authenticated: true,
+    status: "authenticated",
+    subject: "user-verified",
+    email: "pessoa@example.com",
+  };
+  const anonymous = {
+    $schema: schema,
+    provider: "supabase",
+    authenticated: false,
+    status: "anonymous",
+  };
+  let body = authenticated;
+  const port = createWebIdentitySession({
+    fetch: async () => ({ ok: true, status: 200, json: async () => body }),
+  });
+  try {
+    await port.refresh();
+    assert.equal(port.getSnapshot().state, "signed-in");
+    for (const invalid of [
+      { ...anonymous, status: "authenticated" },
+      { ...anonymous, status: "signed-out" },
+      { ...anonymous, status: "pending" },
+      { ...anonymous, authenticated: "false" },
+      { ...anonymous, authenticated: null },
+      { ...anonymous, provider: "gated" },
+      { ...anonymous, provider: "unconfigured" },
+      { ...anonymous, provider: "" },
+      { ...anonymous, provider: " supabase" },
+      { ...authenticated, authenticated: false },
+      { ...authenticated, provider: "gated" },
+      { ...authenticated, provider: null },
+      { ...authenticated, status: "anonymous" },
+      { ...authenticated, email: "x".repeat(121) + "@example.com", displayName: undefined },
+    ]) {
+      body = invalid;
+      await port.refresh();
+      assert.equal(port.getSnapshot().state, "unavailable",
+        "Invalid gateway status, provider or display identity must fail closed");
+      assert.equal(port.getSnapshot().subjectId, null);
+    }
+    body = authenticated;
+    await port.refresh();
+    assert.equal(port.getSnapshot().subjectId, "user-verified",
+      "A later verified gateway response restores the original session");
+    body = anonymous;
+    await port.refresh();
+    assert.equal(port.getSnapshot().state, "signed-out");
+  } finally {
+    port.dispose();
+  }
+});
+
 test("identity gateway failure remains explicitly unavailable", async () => {
   const port = createWebIdentitySession({
     fetch: async () => {

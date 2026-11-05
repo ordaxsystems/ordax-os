@@ -20,7 +20,7 @@ before(async () => {
 });
 after(async () => { await server?.close(); });
 
-const anonymous = {$schema: 'prototype-ordax.public-identity-session/1', provider: 'configured', authenticated: false, status: 'signed-out'};
+const anonymous = {$schema: 'prototype-ordax.public-identity-session/1', provider: 'configured', authenticated: false, status: 'anonymous'};
 const account = {$schema: 'prototype-ordax.public-identity-session/1', provider: 'configured', authenticated: true, status: 'authenticated', subject: 'account-a', email: 'account-a@example.invalid'};
 const space = (id = 'studio', overrides = {}) => ({id, name: 'Estúdio <real>', kind: 'work', state: 'active', ownerId: account.subject, ...overrides});
 function fixture({identity = account, spaces = [space()], failed = false, policy = null} = {}) {

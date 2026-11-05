@@ -20,7 +20,15 @@ function publicDisplayName(value, accountDisplayName = null) {
   if (profileName) return profileName;
   if (typeof value !== "string" || !value) return null;
   const at = value.indexOf("@");
-  return at > 0 ? value.slice(0, at) : value;
+  return safeDisplayName(at > 0 ? value.slice(0, at) : value);
+}
+
+function configuredSessionProvider(value) {
+  return typeof value === "string"
+    && value.length > 0
+    && value.trim() === value
+    && value !== "unconfigured"
+    && value !== "gated";
 }
 
 export function createWebIdentitySession(windowRef = globalThis.window) {
@@ -69,7 +77,7 @@ export function createWebIdentitySession(windowRef = globalThis.window) {
       if (!value || value.$schema !== SESSION_SCHEMA) {
         return apply({ state: "unavailable" });
       }
-      if (value.provider === "unconfigured") {
+      if (!configuredSessionProvider(value.provider)) {
         return apply({ state: "unavailable" });
       }
       if (value.authenticated === true && value.status === "authenticated") {
@@ -84,7 +92,12 @@ export function createWebIdentitySession(windowRef = globalThis.window) {
           email: value.email,
         });
       }
-      return apply({ state: "signed-out" });
+      // Only an explicit gateway-anonymous session proves signed-out. A 200
+      // response with mismatched flags/status is unavailable, not logout.
+      if (value.authenticated === false && value.status === "anonymous") {
+        return apply({ state: "signed-out" });
+      }
+      return apply({ state: "unavailable" });
     } catch {
       return apply({ state: "unavailable" });
     }
