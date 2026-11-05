@@ -72,7 +72,7 @@ jobs:
     if: ${{ github.event_name == 'workflow_dispatch' || (github.event_name == 'pull_request' && !github.event.pull_request.draft) || (github.event_name == 'push' && github.ref == 'refs/heads/integration/dev-usb-buildroot-surface-20261024' && contains(github.event.head_commit.message, '[stable-mvp-signed-boot]')) }}
     # Reuse the official pipeline, build/sign/release/mount/roll back in real
     # QEMU. The single parameter selects the isolated Buildroot candidate.
-    # Default portable-v2 workflow remains unchanged for Stable builds.
+    # The portable-v2 default is Buildroot minimal; Stable/MVP is explicit.
     uses: ./.github/workflows/portable-v2-qemu-boot-proof.yml
     with:
       base_source: independent

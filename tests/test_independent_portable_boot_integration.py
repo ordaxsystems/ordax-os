@@ -69,17 +69,19 @@ class IndependentPortableBootIntegrationTest(unittest.TestCase):
         self.assertIn('"busybox_handoff_config_sha256": digest(BUSYBOX_FRAGMENT)', build)
         self.assertIn('"busybox_handoff_runtime_features_verified": True', build)
 
-    def test_official_qemu_workflow_single_source_and_stable_default(self):
+    def test_official_qemu_workflow_is_buildroot_only_and_stable_mvp_is_explicit(self):
         official = (ROOT / ".github/workflows/portable-v2-qemu-boot-proof.yml").read_text()
         experimental = (ROOT / ".github/workflows/independent-portable-v2-integration.yml").read_text()
         self.assertIn("workflow_call:", official)
-        self.assertIn("default: stable", official)
+        self.assertIn("      base_source:\n        type: string\n        description: 'independent Buildroot candidate only (Stable signed proof must be explicitly requested)'\n        required: false\n        default: independent", official)
         self.assertIn('ORDAX_BASE_PROOF_SOURCE:', official)
         self.assertIn('case "$ORDAX_BASE_PROOF_SOURCE" in', official)
-        self.assertIn('stable)', official)
+        self.assertNotIn('            stable)', official)
         self.assertIn('independent)', official)
-        self.assertIn('bootstrap/stable-base/build.py build', official)
+        self.assertNotIn('bootstrap/stable-base/build.py', official)
         self.assertIn('bootstrap/independent-base/build.py build', official)
+        self.assertIn('case "$ORDAX_BASE_PROOF_SOURCE" in independent) ;; *)', official)
+        self.assertIn("(inputs.independent_base_profile || 'minimal') == 'stable-mvp'", official)
         self.assertIn("uses: ./.github/workflows/portable-v2-qemu-boot-proof.yml",
                       experimental)
         self.assertIn("base_source: independent", experimental)

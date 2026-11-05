@@ -136,9 +136,9 @@ on:
     inputs:
       base_source:
         type: string
-        description: 'stable (default) or isolated independent Buildroot candidate'
+        description: 'independent Buildroot candidate only (Stable signed proof must be explicitly requested)'
         required: false
-        default: stable
+        default: independent
       independent_base_profile:
         type: string
         description: 'Independent base only: minimal or explicit non-promotable stable-mvp'
@@ -166,8 +166,8 @@ on:
 concurrency:
   # The reusable proof inherits github.workflow from its caller. Its isolated
   # namespace avoids cancelling the parent workflow.
-  # The same canonical Surface EROFS is built for *both* base source choices.
-  # Group by Surface/PR, not base: two QEMU consumers must not race on a
+  # Canonical Surface EROFS is reused with the independent Buildroot base.
+  # Group by Surface/PR: QEMU consumers must not race on a
   # Buildroot cache miss for identical Surface inputs.
   # Keep an expensive current producer running across new PR revisions.
   group: canonical-portable-v2-${{ inputs.surface_source || 'stable' }}-${{ github.event_name == 'workflow_dispatch' && github.run_id || github.event.pull_request.number || github.ref }}
@@ -247,14 +247,14 @@ jobs:
 
       - name: Validate portable-v2 QEMU contract
         env:
-          ORDAX_BASE_PROOF_SOURCE: ${{ inputs.base_source || 'stable' }}
+          ORDAX_BASE_PROOF_SOURCE: ${{ inputs.base_source || 'independent' }}
           ORDAX_INDEPENDENT_BASE_PROFILE: ${{ inputs.independent_base_profile || 'minimal' }}
           ORDAX_PROOF_EVENT: ${{ github.event_name }}
           ORDAX_EXPLICIT_STABLE_SIGNED_BOOT: ${{ github.event_name == 'push' && github.ref == 'refs/heads/integration/dev-usb-buildroot-surface-20261024' && contains(github.event.head_commit.message, '[stable-mvp-signed-boot]') }}
           ORDAX_SURFACE_PROOF_SOURCE: ${{ inputs.surface_source || 'stable' }}
         run: |
           set -euo pipefail
-          case "$ORDAX_BASE_PROOF_SOURCE" in stable|independent) ;; *) echo 'unsupported portable base proof source' >&2; exit 1 ;; esac
+          case "$ORDAX_BASE_PROOF_SOURCE" in independent) ;; *) echo 'unsupported portable base proof source' >&2; exit 1 ;; esac
           case "$ORDAX_INDEPENDENT_BASE_PROFILE" in minimal|stable-mvp) ;; *) echo 'unsupported independent base proof profile' >&2; exit 1 ;; esac
           if [ "$ORDAX_INDEPENDENT_BASE_PROFILE" = stable-mvp ]; then
             if [ "$ORDAX_BASE_PROOF_SOURCE" != independent ] || {
@@ -514,7 +514,7 @@ jobs:
           key: ordax-portable-component-v1-${{ runner.os }}-${{ runner.arch }}-kernel-${{ steps.component-fingerprints.outputs.kernel }}
 
       - name: Require existing verified kernel for Stable/MVP proof
-        if: ${{ inputs.base_source == 'independent' && inputs.independent_base_profile == 'stable-mvp' }}
+        if: ${{ (inputs.base_source || 'independent') == 'independent' && inputs.independent_base_profile == 'stable-mvp' }}
         env:
           ORDAX_KERNEL_CACHE_HIT: ${{ steps.kernel-cache.outputs.cache-hit }}
         run: |
@@ -573,7 +573,7 @@ jobs:
           key: ordax-portable-component-v1-${{ runner.os }}-${{ runner.arch }}-kernel-${{ steps.component-fingerprints.outputs.kernel }}
 
       - name: Restore verified Stable Buildroot component for official signed boot
-        if: ${{ inputs.base_source == 'independent' && inputs.independent_base_profile == 'stable-mvp' }}
+        if: ${{ (inputs.base_source || 'independent') == 'independent' && inputs.independent_base_profile == 'stable-mvp' }}
         id: independent-stable-cache
         uses: actions/cache/restore@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
         with:
@@ -581,7 +581,7 @@ jobs:
           path: ${{ runner.temp }}/ordax-independent
           key: ordax-portable-component-v1-${{ runner.os }}-${{ runner.arch }}-independent-base-stable-${{ steps.component-fingerprints.outputs.independent_base_stable }}
       - name: Reuse canonical Buildroot sources and package downloads for Stable
-        if: ${{ inputs.base_source == 'independent' && inputs.independent_base_profile == 'stable-mvp' && steps.independent-stable-cache.outputs.cache-hit != 'true' }}
+        if: ${{ (inputs.base_source || 'independent') == 'independent' && inputs.independent_base_profile == 'stable-mvp' && steps.independent-stable-cache.outputs.cache-hit != 'true' }}
         id: independent-buildroot-download-cache
         uses: actions/cache/restore@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
         with:
@@ -589,30 +589,18 @@ jobs:
           # still authenticated by bootstrap/independent-base/build.py.
           path: ${{ runner.temp }}/ordax-independent-cache
           key: ordax-buildroot-download-v1-${{ runner.os }}-${{ hashFiles('bootstrap/independent-base/source.json', 'bootstrap/independent-base/configs/**', 'bootstrap/independent-base/patches/**') }}
-      - name: Build and verify exact Stable Base or experimental independent candidate
+      - name: Build and verify canonical independent Buildroot base
         env:
           ORDAX_SOURCE_COMMIT: ${{ github.event.pull_request.head.sha || github.sha }}
-          ORDAX_BASE_PROOF_SOURCE: ${{ inputs.base_source || 'stable' }}
+          ORDAX_BASE_PROOF_SOURCE: ${{ inputs.base_source || 'independent' }}
           ORDAX_INDEPENDENT_BASE_PROFILE: ${{ inputs.independent_base_profile || 'minimal' }}
           ORDAX_STABLE_BASE_CACHE_HIT: ${{ steps.independent-stable-cache.outputs.cache-hit }}
         run: |
           set -euo pipefail
           work="$RUNNER_TEMP/portable-v2-qemu"
           case "$ORDAX_BASE_PROOF_SOURCE" in
-            stable)
-              sudo -E env ORDAX_SOURCE_COMMIT="$ORDAX_SOURCE_COMMIT" \
-                python bootstrap/stable-base/build.py build \
-                  --kernel-modules "$work/kernel/kernel-modules-$ORDAX_KERNEL_VERSION.tar" \
-                  --out-dir "$work/stable-base" \
-                  --cache-dir "$work/stable-base-cache" \
-                  > "$work/metadata/stable-base-build.json"
-              sudo chown -R "$(id -u):$(id -g)" "$work/stable-base"
-              python bootstrap/stable-base/build.py verify \
-                --out-dir "$work/stable-base" \
-                > "$work/metadata/stable-base-verify.json"
-              ;;
             independent)
-              # Disposable CI adapter; the current Stable owner is never mutated.
+              # Consume the canonical independent Buildroot owner without altering signed Stable.
               # Reused Stable bytes still undergo full verification, but do not
               # reinstall Buildroot-only host tools when no build is required.
               if [ "$ORDAX_INDEPENDENT_BASE_PROFILE" != stable-mvp ] || [ "$ORDAX_STABLE_BASE_CACHE_HIT" != true ]; then
@@ -682,14 +670,14 @@ jobs:
           esac
 
       - name: Save canonical Buildroot downloads after Stable cache miss
-        if: ${{ inputs.base_source == 'independent' && inputs.independent_base_profile == 'stable-mvp' && steps.independent-stable-cache.outputs.cache-hit != 'true' && steps.independent-buildroot-download-cache.outputs.cache-hit != 'true' }}
+        if: ${{ (inputs.base_source || 'independent') == 'independent' && inputs.independent_base_profile == 'stable-mvp' && steps.independent-stable-cache.outputs.cache-hit != 'true' && steps.independent-buildroot-download-cache.outputs.cache-hit != 'true' }}
         uses: actions/cache/save@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
         with:
           path: ${{ runner.temp }}/ordax-independent-cache
           key: ordax-buildroot-download-v1-${{ runner.os }}-${{ hashFiles('bootstrap/independent-base/source.json', 'bootstrap/independent-base/configs/**', 'bootstrap/independent-base/patches/**') }}
 
       - name: Save verified Stable Buildroot component for signed Portable boot
-        if: ${{ inputs.base_source == 'independent' && inputs.independent_base_profile == 'stable-mvp' && steps.independent-stable-cache.outputs.cache-hit != 'true' }}
+        if: ${{ (inputs.base_source || 'independent') == 'independent' && inputs.independent_base_profile == 'stable-mvp' && steps.independent-stable-cache.outputs.cache-hit != 'true' }}
         uses: actions/cache/save@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
         with:
           path: ${{ runner.temp }}/ordax-independent
@@ -1091,7 +1079,7 @@ jobs:
           mkdir -p "$work/qemu-proof"
           proof_runner=bootstrap/portable-v2/qemu_boot.py
           proof_extra=()
-          if [ "${{ inputs.base_source || 'stable' }}" = independent ]; then
+          if [ "${{ inputs.base_source || 'independent' }}" = independent ]; then
             proof_runner=bootstrap/independent-base/portable_boot_proof.py
             proof_extra=(--base-out "${ORDAX_INDEPENDENT_BASE_OUT:?}" --base-profile "${{ inputs.independent_base_profile || 'minimal' }}" --output-dir "$work/qemu-proof/bridge")
             if [ "${{ inputs.independent_base_profile || 'minimal' }}" = stable-mvp ]; then
@@ -1140,7 +1128,7 @@ jobs:
           PY
 
       - name: Boot signed Portable v4 on transitional Dev geometry in QEMU
-        if: ${{ (inputs.base_source || 'stable') == 'stable' }}
+        if: ${{ (inputs.base_source || 'independent') == 'independent' && (inputs.independent_base_profile || 'minimal') == 'stable-mvp' }}
         run: |
           set -euo pipefail
           work="$RUNNER_TEMP/portable-v2-qemu"
@@ -1190,7 +1178,7 @@ jobs:
 
           proof_runner=bootstrap/portable-v2/qemu_boot.py
           proof_extra=()
-          if [ "${{ inputs.base_source || 'stable' }}" = independent ]; then
+          if [ "${{ inputs.base_source || 'independent' }}" = independent ]; then
             proof_runner=bootstrap/independent-base/portable_boot_proof.py
             proof_extra=(--base-out "${ORDAX_INDEPENDENT_BASE_OUT:?}" --base-profile "${{ inputs.independent_base_profile || 'minimal' }}" --output-dir "$work/qemu-one-shot-proof/bridge")
             if [ "${{ inputs.independent_base_profile || 'minimal' }}" = stable-mvp ]; then
@@ -1242,7 +1230,7 @@ jobs:
           PY
 
       - name: Prove invalid Ed25519 candidate, durable rollback and read-only rescue in QEMU
-        if: ${{ inputs.base_source == 'independent' }}
+        if: ${{ (inputs.base_source || 'independent') == 'independent' }}
         run: |
           set -euo pipefail
           work="$RUNNER_TEMP/portable-v2-qemu"

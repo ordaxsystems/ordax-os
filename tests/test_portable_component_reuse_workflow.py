@@ -94,12 +94,12 @@ class PortableComponentReuseWorkflowTests(unittest.TestCase):
         early_gate = workflow.index("Verify and bind canonical Surface EROFS for QEMU")
         self.assertLess(early_gate, workflow.index("Build and verify exact local AI runtime on cache miss"))
         self.assertLess(early_gate, workflow.index("Build exact kernel and kernel modules on cache miss"))
-        self.assertLess(early_gate, workflow.index("Build and verify exact Stable Base or experimental independent candidate"))
+        self.assertLess(early_gate, workflow.index("Build and verify canonical independent Buildroot base"))
         self.assertIn("exit 1", self.step_block("Verify and bind canonical Surface EROFS for QEMU"))
 
     def test_base_initramfs_and_runtime_proofs_remain_unconditional(self):
         for step in (
-            "Build and verify exact Stable Base or experimental independent candidate",
+            "Build and verify canonical independent Buildroot base",
             "Build one initramfs pinned to the exact capsule and Stable Base",
             "Boot portable-v2 candidate PID1 in QEMU",
             "Prove armed candidate one-shot fallback in QEMU",

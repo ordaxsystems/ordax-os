@@ -330,7 +330,7 @@ class PortableV2QEMUBootProofTests(unittest.TestCase):
     def test_workflow_builds_signed_release_real_base_capsule_and_pinned_initramfs(self):
         for marker in (
             "bootstrap/kernel/build.py build",
-            "bootstrap/stable-base/build.py build",
+            "bootstrap/independent-base/build.py build",
             "bootstrap/portable-v2/capsule/build.py build",
             "tools/portable-release-image/build.py build",
             "uses: ./.github/actions/prepare-verified-surface",
@@ -349,6 +349,14 @@ class PortableV2QEMUBootProofTests(unittest.TestCase):
             "bootstrap/portable-v2/qemu_boot.py",
         ):
             self.assertIn(marker, WORKFLOW)
+        self.assertNotIn("bootstrap/stable-base/build.py", WORKFLOW)
+        self.assertIn("default: independent", WORKFLOW)
+        self.assertIn("case \"$ORDAX_BASE_PROOF_SOURCE\" in independent) ;; *)", WORKFLOW)
+        self.assertIn("Build and verify canonical independent Buildroot base", WORKFLOW)
+        self.assertIn("Stable/MVP portable proof requires explicit dispatch", WORKFLOW)
+        self.assertIn("Prove invalid Ed25519 candidate, durable rollback and read-only rescue in QEMU", WORKFLOW)
+        self.assertIn("Boot signed Portable v4 on transitional Dev geometry in QEMU", WORKFLOW)
+        self.assertIn("(inputs.independent_base_profile || 'minimal') == 'stable-mvp'", WORKFLOW)
         direct = SCRIPT.read_text(encoding="utf-8")
         self.assertNotIn("OVMF", direct)
         self.assertIn("Boot portable-v2 candidate PID1 in QEMU", WORKFLOW)
