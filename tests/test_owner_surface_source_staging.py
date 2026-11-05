@@ -256,6 +256,71 @@ stage_candidate_release() {
         ], env=self.env, text=True, capture_output=True)
         return proc, receipt
 
+    def test_existing_release_reuse_is_canonical_and_uses_supervisor_git(self):
+        # Exercise the actual Supervisor candidate-reuse decision with a
+        # lightweight Git adapter, without constructing a bootable USB image.
+        supervisor = (ROOT / "system/supervisor").read_text(encoding="utf-8")
+        candidate = "stage_candidate_release() {" + supervisor.split(
+            "stage_candidate_release() {", 1)[1].split("\n}\n", 1)[0] + "\n}\n"
+        helper = self.root / "reuse-status-helper.sh"
+        helper.write_text(
+            '#!/bin/sh\n'
+            '[ "${ORDAX_GIT_BIN:-}" = /usr/bin/git ] || exit 11\n'
+            'case "$1" in\n'
+            '  status) printf "%s\\n" "$FIXTURE_STATUS";;\n'
+            '  ready) exit "$FIXTURE_READY_CODE";;\n'
+            '  *) exit 12;;\n'
+            'esac\n',
+            encoding="utf-8",
+        )
+        script = (
+            "set -eu\n"
+            "WORKTREE=$1\nRELEASES_DIR=$2\nUPDATE_RUN_DIR=$3\n"
+            "OWNER_SURFACE_STAGE_HELPER=$4\n"
+            "OWNER_INTELLIGENCE_STAGE_HELPER=$5\n"
+            "GIT_BIN=/usr/bin/git\n"
+            "UPDATE_LOG=$6\nSTAGED_RELEASE_FILE=$7\nLAST_STAGE_DURATION_FILE=$8\n"
+            "CANDIDATE_SHA=$9\nSTAGE_TIMEOUT=1\n"
+            "epoch_now() { printf '1\\n'; }\n"
+            "write_state_value() { printf '%s\\n' \"$2\" > \"$1\"; }\n"
+            "record_elapsed_seconds() { :; }\n"
+            "run_bounded_git() { return 1; }\n"
+            "log() { :; }\n"
+            + candidate + 'stage_candidate_release "$CANDIDATE_SHA" surface-restart\n'
+        )
+        for status, ready_code, should_reuse in (
+            ("canonical", 0, True),
+            ("integration-candidate", 0, False),
+            ("canonical", 1, False),
+        ):
+            with self.subTest(status=status, ready_code=ready_code):
+                root = self.root / f"candidate-{status}-{ready_code}"
+                releases = root / "releases"
+                stage = releases / self.os_sha
+                (stage / "system").mkdir(parents=True)
+                self.make_file(stage / ".ready", "ready\n")
+                update = root / "update"
+                update.mkdir()
+                log_file = root / "update.log"
+                marker = root / "staged.txt"
+                elapsed = root / "elapsed.txt"
+                env = dict(self.env, FIXTURE_STATUS=status,
+                           FIXTURE_READY_CODE=str(ready_code))
+                proc = subprocess.run(
+                    ["/bin/sh", "-c", script, "sh", str(self.os_root),
+                     str(releases), str(update), str(helper),
+                     str(root / "no-intelligence-helper"), str(log_file),
+                     str(marker), str(elapsed), self.os_sha],
+                    env=env, capture_output=True, text=True,
+                )
+                if should_reuse:
+                    self.assertEqual(proc.returncode, 0, proc.stderr)
+                    self.assertEqual(marker.read_text().strip(), self.os_sha)
+                    self.assertTrue((stage / ".ready").exists())
+                else:
+                    self.assertNotEqual(proc.returncode, 0)
+                    self.assertFalse(marker.exists())
+
     def test_clean_owner_install_can_stage_on_first_cold_boot(self):
         # No legacy source or slot is available; the original Supervisor
         # transaction must be invoked before launching the canonical Surface.

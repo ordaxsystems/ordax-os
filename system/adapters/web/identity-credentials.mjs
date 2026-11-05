@@ -4,7 +4,8 @@ import {
   validateIdentityRegistrationInput,
   validateRegistrationPolicy,
 } from "../../contracts/identity-credentials.mjs";
-import { createWebJsonReader } from "./json-read.mjs";
+import { createWebJsonReader, runWebRequestWithinDeadline } from "./json-read.mjs";
+import { configuredWebSessionProvider } from "./identity.mjs";
 import { rememberVerifiedLoginEmail } from "../../services/account/remembered-login-email.mjs";
 
 // Read-only lifecycle extension. The gateway owns activation and legal metadata.
@@ -41,17 +42,26 @@ async function submit(windowRef, path, credentials, { registration = false } = {
   body.set("email", value.email);
   body.set("password", value.password);
   if (registration) body.set("legal_acceptance", "accepted");
-  const response = await windowRef.fetch(path, {
-    method: "POST",
-    credentials: "same-origin",
-    cache: "no-store",
-    redirect: "manual",
-    headers: {
-      Accept: "application/json",
-      "Content-Type": "application/x-www-form-urlencoded;charset=UTF-8",
-    },
-    body: body.toString(),
-  });
+  // The credential POST has the same bounded fetch lifecycle as the
+  // canonical session GET. A timeout means the server outcome is unknown:
+  // never replay the POST or claim authentication without session proof.
+  const response = await runWebRequestWithinDeadline(
+    windowRef,
+    new AbortController(),
+    (signal) => windowRef.fetch(path, {
+      method: "POST",
+      credentials: "same-origin",
+      cache: "no-store",
+      redirect: "manual",
+      headers: {
+        Accept: "application/json",
+        "Content-Type": "application/x-www-form-urlencoded;charset=UTF-8",
+      },
+      body: body.toString(),
+      signal,
+    }),
+    "Web credential request",
+  );
   if (registration && response.status === 202) {
     return Object.freeze({ authenticated: false, confirmationRequired: true });
   }
@@ -61,26 +71,27 @@ async function submit(windowRef, path, credentials, { registration = false } = {
     // an independently verified same-origin session.
     throw new IdentityCredentialRequestError(response.status);
   }
-  const sessionResponse = await windowRef.fetch("/auth/session", {
-    method: "GET",
-    credentials: "same-origin",
-    cache: "no-store",
-    headers: { Accept: "application/json" },
-  });
-  if (!sessionResponse.ok || sessionResponse.status !== 200) {
-    throw new Error("Identity session verification unavailable");
+  // Reuse the one Web GET boundary for the post-credential session proof:
+  // same-origin, no-store, redirect rejection and a deadline for fetch+JSON.
+  // No credential POST is retried; a failed proof never activates an account.
+  const reader = createWebJsonReader(windowRef);
+  let session;
+  try {
+    const verification = await reader.read("/auth/session");
+    if (!verification.ok || verification.status !== 200) {
+      throw new Error("Identity session verification unavailable");
+    }
+    session = verification.value;
+  } finally {
+    reader.dispose();
   }
-  const session = await sessionResponse.json();
   if (!session || session.$schema !== "prototype-ordax.public-identity-session/1") {
     throw new Error("Identity session verification invalid");
   }
   if (
     session.authenticated === true
     && session.status === "authenticated"
-    && typeof session.provider === "string"
-    && session.provider.length > 0
-    && session.provider !== "unconfigured"
-    && session.provider !== "gated"
+    && configuredWebSessionProvider(session.provider)
     && typeof session.subject === "string"
     && session.subject.length > 0
     && typeof session.email === "string"
@@ -91,6 +102,7 @@ async function submit(windowRef, path, credentials, { registration = false } = {
   }
   if (
     registration
+    && configuredWebSessionProvider(session.provider)
     && session.authenticated === false
     && session.status === "anonymous"
   ) {

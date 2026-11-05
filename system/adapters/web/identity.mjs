@@ -23,7 +23,9 @@ function publicDisplayName(value, accountDisplayName = null) {
   return safeDisplayName(at > 0 ? value.slice(0, at) : value);
 }
 
-function configuredSessionProvider(value) {
+// Shared with the credential adapter: one provider-availability rule for
+// session presentation and post-login activation confirmation.
+export function configuredWebSessionProvider(value) {
   return typeof value === "string"
     && value.length > 0
     && value.trim() === value
@@ -77,7 +79,7 @@ export function createWebIdentitySession(windowRef = globalThis.window) {
       if (!value || value.$schema !== SESSION_SCHEMA) {
         return apply({ state: "unavailable" });
       }
-      if (!configuredSessionProvider(value.provider)) {
+      if (!configuredWebSessionProvider(value.provider)) {
         return apply({ state: "unavailable" });
       }
       if (value.authenticated === true && value.status === "authenticated") {
