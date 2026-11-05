@@ -5,6 +5,7 @@ import sys
 import subprocess
 import tempfile
 import unittest
+from unittest.mock import patch
 
 
 ROOT = Path(__file__).resolve().parents[1]
@@ -192,6 +193,17 @@ class PortableQemuImpactTests(unittest.TestCase):
                 self.assertTrue(impact.classify_paths(
                     desktop_paths + [critical], root=ROOT,
                 ).required)
+
+    def test_store_preview_with_unresolved_native_graph_fails_closed(self):
+        with patch.object(
+            impact, "native_startup_import_graph",
+            return_value=(frozenset(), ("unresolved:system/composition/native/main.mjs",)),
+        ):
+            result = impact.classify_paths(
+                ["system/composition/web/store-preview/app.js"], root=ROOT,
+            )
+        self.assertTrue(result.required)
+        self.assertTrue(any(reason.startswith("runtime-graph:") for reason in result.reasons))
 
     def test_boot_coupled_local_ai_runtime_requires_qemu(self):
         result = impact.classify_paths(["system/services/local-ai/runtime.mjs"], root=ROOT)

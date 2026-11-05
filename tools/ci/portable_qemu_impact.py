@@ -188,6 +188,7 @@ ALWAYS_HEAVY_EXACT = {
     "system/entrypoint",
     "system/supervisor",
     "system/surface/entrypoint",
+    "bootstrap/surface-runtime/source.json",
     "system/services/telemetry/base-agent.sh",
     "system/services/telemetry/relay.json",
     "system/services/base-update/agent.sh",
@@ -465,10 +466,26 @@ def classify_paths(
     if not changed:
         return ImpactResult(False, ("no-changes",), changed)
 
-    # A missing canonical Native entrypoint is always a broken source tree,
-    # even if the changed paths are otherwise classified as producer-neutral.
-    if not (root / NATIVE_COMPOSITION_MAIN).is_file():
-        return ImpactResult(True, ("runtime-graph:missing-native-entrypoint",), changed)
+    # Only an authenticated visual pin plus isolated impact-policy metadata
+    # can be classified without a Native checkout. Any actual boot/runtime
+    # change still fails closed when the Native source tree is incomplete.
+    verified_visual_metadata_only = (
+        surface_visual_lock_verified
+        and SURFACE_VISUAL_SOURCE_LOCK in changed
+        and all(
+            path == SURFACE_VISUAL_SOURCE_LOCK or path in IMPACT_POLICY_LIGHT_EXACT
+            for path in changed
+        )
+    )
+    if not (root / NATIVE_COMPOSITION_MAIN).is_file() and not verified_visual_metadata_only:
+        # A known boot-sensitive path has an exact fail-closed reason, even
+        # before graph discovery. Unknown paths fail closed as unresolved.
+        critical = tuple(
+            f"heavy-exact:{path}" for path in changed if path in ALWAYS_HEAVY_EXACT
+        )
+        return ImpactResult(
+            True, critical or ("runtime-graph:missing-native-entrypoint",), changed
+        )
 
     # Resolve the Native import graph only for a path that needs graph
     # classification. Producer-neutral source/docs changes must not trigger
@@ -531,8 +548,15 @@ def classify_paths(
         # The isolated Web Store presentation is proved by the Web candidate.
         # If any of its files becomes Native-startup reachable in a later revision,
         # fall through to the heavy native-runtime gate instead of skipping QEMU.
-        if path.startswith(WEB_STORE_PREVIEW_LIGHT_PREFIX) and path not in reachable:
-            continue
+        if path.startswith(WEB_STORE_PREVIEW_LIGHT_PREFIX):
+            if reachable is None:
+                reachable, graph_errors = native_startup_import_graph(root)
+                if graph_errors:
+                    return ImpactResult(
+                        True, tuple(f"runtime-graph:{item}" for item in graph_errors), changed
+                    )
+            if path not in reachable:
+                continue
         # Markdown and Surface presentation sources cannot alter boot artifacts.
         # Classify them before the non-system fail-closed rule so docs/*.md do not
         # accidentally rebuild kernel/initramfs/QEMU.

@@ -189,7 +189,7 @@ class IndependentPortableBootIntegrationTest(unittest.TestCase):
         official = (ROOT / ".github/workflows/portable-v2-qemu-boot-proof.yml").read_text()
         fault = (BASE / "signed_release_failure_qemu.py").read_text()
         self.assertIn("name: Prove invalid Ed25519 candidate, durable rollback and read-only rescue in QEMU", official)
-        self.assertIn("if: ${{ inputs.base_source == 'independent' }}", official)
+        self.assertIn("if: ${{ (inputs.base_source || 'independent') == 'independent' }}", official)
         self.assertIn("sudo -E python3 bootstrap/independent-base/signed_release_failure_qemu.py", official)
         self.assertIn("qemu-signed-fault-proof/proof.json", official)
         self.assertIn("import qemu_boot as qemu", fault)
