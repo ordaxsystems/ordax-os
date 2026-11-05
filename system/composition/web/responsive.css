@@ -11,3 +11,18 @@
 @media (max-width: 600px) {
   .window-workspace.meridian-workspace .ordax-product-sidebar { display: none !important; }
 }
+
+/* The ready boot overlay is terminal; loss of an authenticated session must
+   remain visible until a fresh authoritative session read restores the Web. */
+.ordax-web-recovery {
+  position: fixed;
+  inset: 0;
+  z-index: 10000;
+  display: grid;
+  place-items: center;
+  margin: 0;
+  padding: 2rem;
+  background: var(--ordax-bg, #141414);
+  color: var(--ordax-text, #fff);
+  text-align: center;
+}
