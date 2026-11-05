@@ -380,6 +380,7 @@ class IndependentSurfaceComponentCacheTests(unittest.TestCase):
         self.assertIn("steps.surface-artifact-cache.outputs.cache-hit != 'true'", block)
         self.assertIn("steps.surface-r2.outputs.hit != 'true'", block)
 
+    @unittest.skipIf(os.name == "nt", "R2 Bash curl mocks require POSIX execution")
     def test_r2_publish_rejects_corrupt_manifest_or_blobs_before_any_network_write(self):
         # Offline, mocked network: a bad manifest must not poison the immutable
         # content-addressed namespace even if a caller bypasses the producer.
@@ -454,6 +455,7 @@ printf 404
                     self.assertFalse(curl_log.exists(), "invalid Surface reached R2 network")
             self.assertNotIn("mapfile -t artifact_rows < <(", R2_SCRIPT.read_text(encoding="utf-8"))
 
+    @unittest.skipIf(os.name == "nt", "R2 Bash curl mocks require POSIX execution")
     def test_r2_restore_preserves_fail_closed_status_on_invalid_remote_manifest(self):
         with tempfile.TemporaryDirectory() as td:
             temp = Path(td)
@@ -502,6 +504,7 @@ exit 2
             self.assertEqual(output.read_text(encoding="utf-8"), "hit=false\n")
             self.assertEqual(curl_log.read_text(encoding="utf-8").count("request"), 1)
 
+    @unittest.skipIf(os.name == "nt", "R2 Bash curl mocks require POSIX execution")
     def test_r2_immutable_manifest_race_requires_identical_winning_bytes(self):
         # An R2 412 on manifest PUT can hide a different already-published
         # manifest. Do not claim success unless a subsequent GET matches.
