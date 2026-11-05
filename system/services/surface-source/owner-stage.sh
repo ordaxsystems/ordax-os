@@ -102,7 +102,12 @@ if [ "$command" = ready ]; then
     IFS= read -r actual_visual_sha < "$stage_dir/.surface-source-sha" || exit 1
     [ "$actual_os_sha" = "$os_sha" ] || exit 1
     [ "$actual_visual_sha" = "$visual_sha" ] || exit 1
-    [ -x "$stage_dir/system/surface/entrypoint" ] || exit 1
+    # Neither the Surface directory nor the native entrypoint may redirect
+    # execution outside the immutable candidate slot through a symlink.
+    [ -d "$stage_dir/system/surface" ] && [ ! -L "$stage_dir/system/surface" ] || exit 1
+    [ -f "$stage_dir/system/surface/entrypoint" ] &&
+        [ ! -L "$stage_dir/system/surface/entrypoint" ] &&
+        [ -x "$stage_dir/system/surface/entrypoint" ] || exit 1
     [ -f "$stage_dir/system/surface/ui/surface.mjs" ] || exit 1
     [ -d "$stage_dir/system/surface/workspace" ] || exit 1
     [ ! -L "$stage_dir/system/surface/ui" ] || exit 1

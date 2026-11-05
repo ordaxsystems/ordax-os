@@ -125,6 +125,34 @@ class OwnerSurfaceSourceTests(unittest.TestCase):
         self.assertNotIn(".surface-actual-paths.", integrity)
         self.assertNotIn("trap ", integrity)
 
+    def test_ready_rejects_linked_surface_root_and_native_entrypoint(self):
+        self.call("stage", check=True)
+        self.make_file(self.slot / ".sha", self.os_sha + "\n")
+        self.make_file(self.slot / ".ready", "ready\n")
+        self.call("ready", check=True)
+
+        # A linked parent preserves the manifest's relative filenames and
+        # contents but redirects the runtime to a mutable external directory.
+        surface = self.slot_system / "surface"
+        outside_surface = self.root / "mutable-external-surface"
+        surface.rename(outside_surface)
+        surface.symlink_to(outside_surface, target_is_directory=True)
+        self.assertNotEqual(self.call("ready").returncode, 0)
+        surface.unlink()
+        outside_surface.rename(surface)
+        self.call("ready", check=True)
+
+        # The native launcher is outside the visual hash manifest. An
+        # executable symlink must not pass readiness simply because -x does.
+        entrypoint = surface / "entrypoint"
+        outside_entrypoint = self.root / "mutable-native-entrypoint"
+        entrypoint.rename(outside_entrypoint)
+        entrypoint.symlink_to(outside_entrypoint)
+        self.assertNotEqual(self.call("ready").returncode, 0)
+        entrypoint.unlink()
+        outside_entrypoint.rename(entrypoint)
+        self.call("ready", check=True)
+
     def test_changed_or_injected_visual_file_blocks_reuse(self):
         self.call("stage", check=True)
         self.make_file(self.slot / ".sha", self.os_sha + "\n")
