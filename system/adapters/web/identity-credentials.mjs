@@ -4,7 +4,7 @@ import {
   validateIdentityRegistrationInput,
   validateRegistrationPolicy,
 } from "../../contracts/identity-credentials.mjs";
-import { createWebJsonReader } from "./json-read.mjs";
+import { createWebJsonReader, runWebRequestWithinDeadline } from "./json-read.mjs";
 import { configuredWebSessionProvider } from "./identity.mjs";
 import { rememberVerifiedLoginEmail } from "../../services/account/remembered-login-email.mjs";
 
@@ -42,17 +42,26 @@ async function submit(windowRef, path, credentials, { registration = false } = {
   body.set("email", value.email);
   body.set("password", value.password);
   if (registration) body.set("legal_acceptance", "accepted");
-  const response = await windowRef.fetch(path, {
-    method: "POST",
-    credentials: "same-origin",
-    cache: "no-store",
-    redirect: "manual",
-    headers: {
-      Accept: "application/json",
-      "Content-Type": "application/x-www-form-urlencoded;charset=UTF-8",
-    },
-    body: body.toString(),
-  });
+  // The credential POST has the same bounded fetch lifecycle as the
+  // canonical session GET. A timeout means the server outcome is unknown:
+  // never replay the POST or claim authentication without session proof.
+  const response = await runWebRequestWithinDeadline(
+    windowRef,
+    new AbortController(),
+    (signal) => windowRef.fetch(path, {
+      method: "POST",
+      credentials: "same-origin",
+      cache: "no-store",
+      redirect: "manual",
+      headers: {
+        Accept: "application/json",
+        "Content-Type": "application/x-www-form-urlencoded;charset=UTF-8",
+      },
+      body: body.toString(),
+      signal,
+    }),
+    "Web credential request",
+  );
   if (registration && response.status === 202) {
     return Object.freeze({ authenticated: false, confirmationRequired: true });
   }
