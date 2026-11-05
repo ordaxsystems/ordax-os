@@ -620,7 +620,9 @@ def build(out_dir: Path, cache_dir: Path, jobs: int, *, persistent_work_dir: Pat
         work = Path(tempfile.mkdtemp(prefix="ordax-independent-surface-"))
     else:
         work = Path(persistent_work_dir).absolute()
-        if work.is_symlink():
+        # The persistent O= tree must not be redirected through an ancestor
+        # symlink, either. Reject the original path before resolve() follows it.
+        if any(part.is_symlink() for part in (work, *work.parents)):
             raise SurfaceBuildError("persistent Surface workspace cannot be a symlink")
         work = work.resolve(strict=False)
         if work == out_dir or work == cache_dir or out_dir in work.parents or cache_dir in work.parents:
