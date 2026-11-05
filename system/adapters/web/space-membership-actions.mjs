@@ -15,7 +15,9 @@ export function createWebSpaceMembershipActions(windowRef = globalThis.window) {
   }
 
   let disposed = false;
-  const inFlightActions = new Set();
+  // The gateway's idempotency key is the authority for one logical command.
+  // Concurrent identical submissions share one request, not two POSTs.
+  const inFlightByKey = new Map();
   const listeners = new Set();
   const snapshot = validateSpaceMembershipActionsSnapshot({
     supportedActions: SPACE_MEMBERSHIP_ACTIONS,
@@ -31,12 +33,18 @@ export function createWebSpaceMembershipActions(windowRef = globalThis.window) {
     if (request.action !== expectedAction) {
       throw new TypeError(`Space membership method/action mismatch: ${expectedAction}`);
     }
+    const requestBody = JSON.stringify(request);
+    const inFlight = inFlightByKey.get(request.idempotencyKey);
+    if (inFlight) {
+      if (inFlight.requestBody !== requestBody) {
+        throw new Error("Space membership idempotency key is already in use for another request");
+      }
+      return inFlight.pending;
+    }
     const controller = new AbortController();
-    inFlightActions.add(controller);
-    try {
-      // Bound both the POST and its receipt JSON, without retries. The
-      // gateway remains authoritative if the browser loses the response.
-      return await runWebRequestWithinDeadline(windowRef, controller, async (signal) => {
+    // The server is still authoritative if a request times out: never
+    // automatically replay a mutation whose outcome may be unknown.
+    const pending = runWebRequestWithinDeadline(windowRef, controller, async (signal) => {
         const response = await windowRef.fetch(ACTION_PATH, {
           method: "POST",
           credentials: "same-origin",
@@ -46,7 +54,7 @@ export function createWebSpaceMembershipActions(windowRef = globalThis.window) {
             Accept: "application/json",
             "Content-Type": "application/json",
           },
-          body: JSON.stringify(request),
+          body: requestBody,
           signal,
         });
         if (signal.aborted) throw signal.reason;
@@ -77,10 +85,13 @@ export function createWebSpaceMembershipActions(windowRef = globalThis.window) {
         if (signal.aborted) throw signal.reason;
         if (disposed) throw new Error("Web Space membership actions are disposed");
         return result;
-      }, "Web Space membership action");
-    } finally {
-      inFlightActions.delete(controller);
-    }
+      }, "Web Space membership action").finally(() => {
+      if (inFlightByKey.get(request.idempotencyKey)?.controller === controller) {
+        inFlightByKey.delete(request.idempotencyKey);
+      }
+    });
+    inFlightByKey.set(request.idempotencyKey, { requestBody, pending, controller });
+    return pending;
   };
 
   return Object.freeze({
@@ -115,10 +126,10 @@ export function createWebSpaceMembershipActions(windowRef = globalThis.window) {
     dispose() {
       if (disposed) return;
       disposed = true;
-      for (const controller of inFlightActions) {
+      for (const { controller } of inFlightByKey.values()) {
         controller.abort(new Error("Web Space membership actions are disposed"));
       }
-      inFlightActions.clear();
+      inFlightByKey.clear();
       listeners.clear();
     },
   });

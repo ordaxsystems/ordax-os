@@ -115,6 +115,104 @@ test("Web logout completes only after the canonical session confirms anonymous s
   }
 });
 
+test("concurrent Web logout clicks share one POST and one verified session refresh", async () => {
+  const authenticated = {
+    $schema: "prototype-ordax.public-identity-session/1",
+    authenticated: true, status: "authenticated", provider: "supabase",
+    subject: "account-a", email: "person@example.invalid",
+  };
+  const anonymous = {
+    $schema: "prototype-ordax.public-identity-session/1",
+    authenticated: false, status: "anonymous", provider: "supabase",
+  };
+  let current = authenticated;
+  let releaseLogout, releaseVerification;
+  const requests = [];
+  let verificationStarted = false;
+  const windowRef = {
+    fetch(path, options) {
+      requests.push({ path, options });
+      if (path === "/auth/logout") {
+        return new Promise(resolve => { releaseLogout = resolve; });
+      }
+      if (path === "/auth/session") {
+        if (!verificationStarted) {
+          verificationStarted = true;
+          return Promise.resolve({ ok: true, status: 200, json: async () => current });
+        }
+        return new Promise(resolve => { releaseVerification = resolve; });
+      }
+      throw Error("Unexpected Web identity endpoint");
+    },
+  };
+  const identity = createWebIdentitySession(windowRef);
+  await identity.refresh();
+  const actions = createWebIdentityActions(windowRef, identity);
+  try {
+    const first = actions.execute("sign-out");
+    const duplicate = actions.execute("sign-out");
+    assert.equal(requests.filter(x => x.path === "/auth/logout").length, 1,
+      "Rapid clicks must not submit duplicate logout commands");
+    current = anonymous;
+    releaseLogout({ ok: false, status: 303 });
+    for (let i = 0; i < 20 && !releaseVerification; i++) await Promise.resolve();
+    assert.equal(typeof releaseVerification, "function");
+    const whileVerifying = actions.execute("sign-out");
+    assert.equal(requests.filter(x => x.path === "/auth/logout").length, 1,
+      "An outstanding session proof still belongs to the original logout");
+    releaseVerification({ ok: true, status: 200, json: async () => anonymous });
+    await Promise.all([first, duplicate, whileVerifying]);
+    assert.equal(identity.getSnapshot().state, "signed-out");
+    assert.deepEqual(requests.map(x => x.path), [
+      "/auth/session", "/auth/logout", "/auth/session",
+    ]);
+  } finally {
+    actions.dispose(); identity.dispose();
+  }
+});
+
+test("failed concurrent logout reports one failure without automatically retrying", async () => {
+  const authenticated = {
+    $schema: "prototype-ordax.public-identity-session/1",
+    authenticated: true, status: "authenticated", provider: "supabase",
+    subject: "account-a", email: "person@example.invalid",
+  };
+  let releaseLogout, postCount = 0;
+  const windowRef = {
+    fetch(path) {
+      if (path === "/auth/session") return Promise.resolve({
+        ok: true, status: 200, json: async () => authenticated,
+      });
+      if (path === "/auth/logout") {
+        postCount++;
+        return new Promise(resolve => { releaseLogout = resolve; });
+      }
+      throw Error("Unexpected endpoint");
+    },
+  };
+  const identity = createWebIdentitySession(windowRef);
+  await identity.refresh();
+  const actions = createWebIdentityActions(windowRef, identity);
+  try {
+    const first = actions.execute("sign-out");
+    const duplicate = actions.execute("sign-out");
+    assert.equal(postCount, 1);
+    releaseLogout({ ok: false, status: 503 });
+    const results = await Promise.allSettled([first, duplicate]);
+    assert.deepEqual(results.map(x => x.status), ["rejected", "rejected"]);
+    assert.match(results[0].reason.message, /sign-out failed: 503/);
+    assert.equal(postCount, 1);
+    assert.equal(identity.getSnapshot().state, "signed-in");
+    // Explicit later user action can retry; nothing retried automatically.
+    const later = actions.execute("sign-out");
+    assert.equal(postCount, 2);
+    releaseLogout({ ok: false, status: 403 });
+    await assert.rejects(later, /sign-out failed: 403/);
+  } finally {
+    actions.dispose(); identity.dispose();
+  }
+});
+
 test("Web logout rejects unverified, stale or inconsistent sessions even after redirect", async () => {
   const authenticated = {
     $schema: "prototype-ordax.public-identity-session/1",
