@@ -23,6 +23,22 @@ O contrato normativo está em
 `docs/contracts/build-autonomy.json#owner_dev_pull_ci`; o owner operacional
 está em `docs/contracts/distribution-profiles.json`.
 
+### Publicação de USB Dev sem sobrescrever revisões novas
+
+O canal mutável `creator-owner-prototype` continua exclusivo da produção
+física do Creator. O job serializado confere a `main` **antes do trabalho
+pesado e antes do upload**: se houver commit posterior com alterações
+reais no kernel, Base, Supervisor, auxiliares ou mídia USB, a publicação
+antiga é descartada e a revisão mais nova mantém a autoridade. Se o
+avanço for apenas documentação ou outra entrada não produtora, o ZIP
+já verificado pode ser publicado com seu SHA de origem explícito.
+
+A decisão é centralizada em `tools/ci/creator_owner_publish_freshness.py`
+e registrada em `docs/contracts/build-autonomy.json`. Falha de rede,
+origem diferente ou falta de ancestralidade Git interrompe o job em vez
+de anunciar atualização. Isso não executa Creator nos computadores
+instalados, não modifica o Pull e não substitui os testes offline/USB.
+
 ## Repetição inteligente após falhas de checkout
 
 Depois de uma falha **posterior ao fetch**, o Supervisor guarda um recibo
