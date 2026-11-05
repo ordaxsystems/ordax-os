@@ -175,6 +175,37 @@ class IndependentSurfaceComponentCacheTests(unittest.TestCase):
             self.assertEqual((actual / self.mod.MANIFEST).read_bytes(), manifest)
             self.assertFalse(receipt.exists())
 
+    def test_linked_parent_cannot_redirect_artifact_or_receipt(self):
+        with tempfile.TemporaryDirectory() as td:
+            temp = Path(td)
+            root = self.make_root(temp / "repo")
+            parent = temp / "real-parent"
+            out = self.make_output(parent / "out", "1" * 40)
+            self.mod.record(out, "1" * 40, root)
+            linked_parent = temp / "linked-parent"
+            if os.name == "nt":
+                link = subprocess.run(
+                    ["cmd", "/c", "mklink", "/J", str(linked_parent), str(parent)],
+                    capture_output=True, text=True,
+                )
+                self.assertEqual(link.returncode, 0, link.stderr)
+                self.assertTrue(linked_parent.is_junction())
+            else:
+                linked_parent.symlink_to(parent, target_is_directory=True)
+                self.assertTrue(linked_parent.is_symlink())
+            with self.assertRaisesRegex(self.mod.CacheError, "output directory is missing or unsafe"):
+                self.mod.verify(
+                    linked_parent / "out", "2" * 40, temp / "blocked.json",
+                    cache_hit=True, root=root,
+                )
+            receipt = linked_parent / "receipt.json"
+            with self.assertRaisesRegex(self.mod.CacheError, "receipt destination is unsafe"):
+                self.mod.verify(
+                    out, "2" * 40, receipt, cache_hit=True, root=root,
+                )
+            self.assertFalse((parent / "receipt.json").exists())
+            self.assertFalse((temp / "blocked.json").exists())
+
     @unittest.skipIf(os.name == "nt", "symlink creation needs Windows developer mode")
     def test_linked_receipt_cannot_overwrite_external_file(self):
         with tempfile.TemporaryDirectory() as td:
