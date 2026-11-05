@@ -164,6 +164,53 @@ test("Web logout rejects unverified, stale or inconsistent sessions even after r
   }
 });
 
+test("Web logout POST has the shared deadline and cannot falsely sign out after timeout", async () => {
+  const signedIn = {
+    $schema: "prototype-ordax.public-identity-session/1",
+    authenticated: true, status: "authenticated", provider: "supabase",
+    subject: "account-a", email: "pessoa@example.invalid",
+  };
+  const requests = [], timers = new Map();
+  let timerId = 0, resolveLate;
+  const windowRef = {
+    setTimeout(callback, delay) {
+      assert.equal(delay, 10_000);
+      const id = ++timerId; timers.set(id, callback); return id;
+    },
+    clearTimeout(id) { timers.delete(id); },
+    fetch(path, options) {
+      requests.push({path, options});
+      if (path === "/auth/session") return Promise.resolve({
+        ok: true, status: 200, json: async () => signedIn,
+      });
+      if (path === "/auth/logout") return new Promise(resolve => { resolveLate = resolve; });
+      throw new Error("Unexpected request");
+    },
+  };
+  const session = createWebIdentitySession(windowRef);
+  await session.refresh();
+  const actions = createWebIdentityActions(windowRef, session);
+  try {
+    const pending = actions.execute("sign-out");
+    assert.deepEqual(requests.map(x => x.path), ["/auth/session", "/auth/logout"]);
+    assert.equal(requests[1].options.method, "POST");
+    assert.equal(requests[1].options.signal instanceof AbortSignal, true);
+    assert.equal(timers.size, 1);
+    [...timers.values()][0]();
+    await assert.rejects(pending, {name: "TimeoutError", message: "Web logout request deadline exceeded"});
+    assert.equal(requests[1].options.signal.aborted, true);
+    assert.equal(timers.size, 0);
+    assert.equal(session.getSnapshot().state, "signed-in",
+      "Timeout cannot claim that the server revoked its session");
+    resolveLate({ok: true, status: 303});
+    await Promise.resolve();
+    assert.deepEqual(requests.map(x => x.path), ["/auth/session", "/auth/logout"],
+      "Late acknowledgement must not trigger verification or retry");
+  } finally {
+    actions.dispose(); session.dispose();
+  }
+});
+
 test("disposed Web identity actions do not verify an orphaned logout request", async () => {
   const sessionPayload = {
     $schema: "prototype-ordax.public-identity-session/1",
