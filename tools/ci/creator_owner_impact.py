@@ -206,7 +206,7 @@ EXPECTED_IMPACT_JOB = """
           ORDAX_SOURCE_SHA: __DOLLAR__{{ github.sha }}
         run: |
           set -euo pipefail
-          python3 tools/ci/creator_owner_publish_freshness.py \
+          python3 tools/ci/creator_owner_publish_freshness.py \\
             --source "$ORDAX_SOURCE_SHA" --github-output "$GITHUB_OUTPUT"
 """.replace("__DOLLAR__", "$")
 
