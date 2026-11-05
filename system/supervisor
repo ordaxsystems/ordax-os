@@ -1238,38 +1238,54 @@ start_surface_from_system() {
 
 start_surface() {
     active_os_sha=$(current_sha)
-    if [ "$DISTRIBUTION_PROFILE" = owner-development ] && [ -f "$OWNER_SURFACE_STAGE_HELPER" ]; then
-        source_status=$(ORDAX_GIT_BIN="$GIT_BIN" /bin/sh "$OWNER_SURFACE_STAGE_HELPER" status "$WORKTREE" "$active_os_sha" 2>>"$UPDATE_LOG") || return 1
-        if [ "$source_status" = canonical ]; then
-            active_slot=$RELEASES_DIR/$active_os_sha
-            # A clean Owner install can already start at a canonical SHA
-            # without a previous staged slot. Reuse the SAME Supervisor stage
-            # transaction before first boot, never a separate UI updater.
-            if [ ! -e "$active_slot" ] && [ ! -L "$active_slot" ]; then
-                log "provisioning missing canonical Surface slot for exact OS commit $active_os_sha"
-                if ! stage_candidate_release "$active_os_sha" surface-restart; then
-                    log "first-boot canonical Surface stage failed; no legacy visual fallback"
-                    return 1
-                fi
-            fi
-            if ORDAX_GIT_BIN="$GIT_BIN" /bin/sh "$OWNER_SURFACE_STAGE_HELPER" ready "$WORKTREE" "$active_os_sha" "$active_slot" >>"$UPDATE_LOG" 2>&1; then
-                if [ -f "${OWNER_INTELLIGENCE_STAGE_HELPER:-}" ]; then
-                    intel_status=$(ORDAX_GIT_BIN="$GIT_BIN" /bin/sh "$OWNER_INTELLIGENCE_STAGE_HELPER" status "$WORKTREE" "$active_os_sha" 2>>"$UPDATE_LOG") || return 1
-                    if [ "$intel_status" = canonical ]; then
-                        ORDAX_GIT_BIN="$GIT_BIN" /bin/sh "$OWNER_INTELLIGENCE_STAGE_HELPER" ready "$WORKTREE" "$active_os_sha" "$active_slot" >>"$UPDATE_LOG" 2>&1 || return 1
-                    elif [ "$intel_status" != integration-candidate ]; then
-                        return 1
-                    fi
-                fi
-                start_surface_from_system "$active_slot/system" "$active_os_sha"
-                return $?
-            fi
-            log "canonical Surface release for $active_os_sha was not fully staged; refusing legacy fallback"
+    case "$DISTRIBUTION_PROFILE" in
+        stable-mvp)
+            # Stable remains a signed-release owner, never a Git dependency.
+            start_surface_from_system "$SYSTEM_ROOT" "$(current_sha)"
+            return $?
+            ;;
+        owner-development) ;;
+        *)
+            log "Surface start rejected: unknown distribution profile"
+            return 1
+            ;;
+    esac
+
+    # Current Owner revisions have one visual authority: the verified slot.
+    # Never fall back to the unverified mutable OS Git /system tree.
+    if [ ! -f "$OWNER_SURFACE_STAGE_HELPER" ] || [ -L "$OWNER_SURFACE_STAGE_HELPER" ]; then
+        log "canonical Surface stage helper is absent or unsafe"
+        return 1
+    fi
+    source_status=$(ORDAX_GIT_BIN="$GIT_BIN" /bin/sh "$OWNER_SURFACE_STAGE_HELPER" status "$WORKTREE" "$active_os_sha" 2>>"$UPDATE_LOG") || return 1
+    if [ "$source_status" != canonical ]; then
+        log "Owner Surface source is not canonical: refusing legacy Git tree launch"
+        return 1
+    fi
+
+    active_slot=$RELEASES_DIR/$active_os_sha
+    # First boot stages the same verified candidate transaction as updates.
+    if [ ! -e "$active_slot" ] && [ ! -L "$active_slot" ]; then
+        log "provisioning missing canonical Surface slot for exact OS commit $active_os_sha"
+        if ! stage_candidate_release "$active_os_sha" surface-restart; then
+            log "first-boot canonical Surface stage failed; no legacy visual fallback"
             return 1
         fi
     fi
-    # Stable and noncanonical Owner remain on the active OS system root.
-    start_surface_from_system "$SYSTEM_ROOT" "$(current_sha)"
+    if ORDAX_GIT_BIN="$GIT_BIN" /bin/sh "$OWNER_SURFACE_STAGE_HELPER" ready "$WORKTREE" "$active_os_sha" "$active_slot" >>"$UPDATE_LOG" 2>&1; then
+        if [ -f "${OWNER_INTELLIGENCE_STAGE_HELPER:-}" ]; then
+            intel_status=$(ORDAX_GIT_BIN="$GIT_BIN" /bin/sh "$OWNER_INTELLIGENCE_STAGE_HELPER" status "$WORKTREE" "$active_os_sha" 2>>"$UPDATE_LOG") || return 1
+            if [ "$intel_status" = canonical ]; then
+                ORDAX_GIT_BIN="$GIT_BIN" /bin/sh "$OWNER_INTELLIGENCE_STAGE_HELPER" ready "$WORKTREE" "$active_os_sha" "$active_slot" >>"$UPDATE_LOG" 2>&1 || return 1
+            elif [ "$intel_status" != integration-candidate ]; then
+                return 1
+            fi
+        fi
+        start_surface_from_system "$active_slot/system" "$active_os_sha"
+        return $?
+    fi
+    log "canonical Surface release for $active_os_sha was not fully staged; refusing legacy fallback"
+    return 1
 }
 
 # Surface owns the Native HTTP process until the Supervisor/mount cutover.

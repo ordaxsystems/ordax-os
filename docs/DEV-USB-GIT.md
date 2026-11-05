@@ -39,6 +39,19 @@ origem diferente ou falta de ancestralidade Git interrompe o job em vez
 de anunciar atualização. Isso não executa Creator nos computadores
 instalados, não modifica o Pull e não substitui os testes offline/USB.
 
+### Surface do Owner sem árvore visual legada
+
+Na revisão canônica, o Supervisor só inicia a Surface Owner a partir do
+slot imutável `releases/<SHA>/system` previamente verificado pelo
+`system/services/surface-source/owner-stage.sh`. A revisão Git exata
+continua sendo a autoridade para o Pull, mas não é uma segunda fonte de
+execução gráfica. Falha do adapter, lock `integration-candidate`, slot
+sem recibos ou hash divergente bloqueiam o início; nunca executam
+`/workspace/ordax/system` como fallback. A transação existente do
+Supervisor providencia o slot no primeiro boot e nas atualizações.
+O perfil Stable continua usando seu sistema de release assinado, sem
+dependência de checkout Git ou do Creator para atualizações normais.
+
 ## Repetição inteligente após falhas de checkout
 
 Depois de uma falha **posterior ao fetch**, o Supervisor guarda um recibo

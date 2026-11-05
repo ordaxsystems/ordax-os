@@ -229,8 +229,9 @@ stage_candidate_release() {
         self.assertNotEqual(proc.returncode, 0)
         self.assertFalse(marker.exists(), "no fallback to tracked OS visuals")
 
-    def test_git_rollback_restores_exact_previous_legacy_source(self):
-        # Simulate two immutable OS revisions and a durable prepared slot.
+    def test_current_supervisor_rejects_rollback_to_noncanonical_source(self):
+        # Old committed source remains intact for an actual OS-version rollback,
+        # but the current Supervisor never launches unverified visual bytes.
         self.set_lock("integration-candidate")
         old_sha = self.os_sha
         for path in ("ui", "workspace"):
@@ -256,16 +257,26 @@ stage_candidate_release() {
         git(self.os_root, "checkout", "-q", "--detach", old_sha)
         self.os_sha = old_sha
         proc, marker = self.supervisor_start("owner-development")
-        self.assertEqual(proc.returncode, 0, proc.stderr)
-        self.assertEqual(marker.read_text().strip(), str(self.os_root / "system"))
+        self.assertNotEqual(proc.returncode, 0)
+        self.assertFalse(marker.exists(), "no mutable visual fallback after rollback")
         self.assertEqual((self.os_root / "system/surface/ui/surface.mjs").read_text(), "OLD_VISUAL\n")
         self.assertEqual((releases / new_sha / ".surface-source-sha").read_text().strip(), self.source_sha)
 
-    def test_legacy_owner_boot_remains_unmodified_before_cutover(self):
+    def test_noncanonical_owner_source_must_not_boot_from_git_tree(self):
         self.set_lock("integration-candidate")
         proc, marker = self.supervisor_start("owner-development")
-        self.assertEqual(proc.returncode, 0, proc.stderr)
-        self.assertEqual(marker.read_text().strip(), str(self.os_root / "system"))
+        self.assertNotEqual(proc.returncode, 0)
+        self.assertFalse(marker.exists())
+
+    def test_missing_stage_helper_must_not_boot_from_git_tree(self):
+        self.set_lock("canonical")
+        work = self.root / "update.log"
+        work.touch()
+        supervisor = (ROOT / "system/supervisor").read_text(encoding="utf-8")
+        section = "start_surface() {" + supervisor.split("start_surface() {", 1)[1].split("\n}\n", 1)[0] + "\n}\n"
+        self.assertIn('if [ ! -f "$OWNER_SURFACE_STAGE_HELPER" ] || [ -L "$OWNER_SURFACE_STAGE_HELPER" ]; then', section)
+        self.assertNotIn('start_surface_from_system "$SYSTEM_ROOT" "$(current_sha)"\n}', section)
+        self.assertIn('start_surface_from_system "$active_slot/system" "$active_os_sha"', section)
 
 
 if __name__ == "__main__":

@@ -1,3 +1,4 @@
+import { resolveWebLocalStorage } from "./local-storage.mjs";
 import {
   PREFERENCE_STORE_SCHEMA,
   assertPreferenceStore,
@@ -6,24 +7,8 @@ import {
 
 const STORAGE_KEY = "ordax.preferences.v1";
 
-function resolveStorage(windowRef) {
-  try {
-    const storage = windowRef?.localStorage;
-    if (
-      storage &&
-      typeof storage.getItem === "function" &&
-      typeof storage.setItem === "function"
-    ) {
-      return storage;
-    }
-  } catch {
-    // Browser privacy/security policy may deny storage access.
-  }
-  return null;
-}
-
 export function createWebPreferenceStore(windowRef = globalThis.window) {
-  const storage = resolveStorage(windowRef);
+  const storage = resolveWebLocalStorage(windowRef);
   let memory = validatePreferenceRecord({});
 
   const store = {

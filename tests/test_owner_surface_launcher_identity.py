@@ -29,6 +29,8 @@ class OwnerNativeSourceIdentityTests(unittest.TestCase):
         self.assertIn('resolve_owner_checkout_root', function("ensure_base_update_agent"))
         self.assertIn('resolve_owner_checkout_root', function("resolve_source_identity"))
         self.assertIn('/usr/bin/git -C "$repo_root" rev-parse HEAD', function("resolve_source_identity"))
+        self.assertNotIn('"$owner_worktree/system")', function("resolve_owner_checkout_root"))
+        self.assertIn('"$owner_release_root/$SOURCE_SHA_HINT/system")', function("resolve_owner_checkout_root"))
 
     def test_runtime_root_enumeration_nonmatching_last_process_is_success(self):
         # Execute the production shell function against hermetic proc/root
@@ -100,7 +102,7 @@ class OwnerNativeSourceIdentityTests(unittest.TestCase):
                 self.assertEqual(res.returncode, expected, res.stderr)
                 return res
             self.assertEqual(check(system, 0).stdout, str(worktree))
-            self.assertEqual(check(worktree / "system", 0).stdout, str(worktree))
+            check(worktree / "system", 3)
             check(root / "unexpected/system", 3)
             (slot / ".sha").write_text(OTHER_SHA + "\n")
             check(system, 3)

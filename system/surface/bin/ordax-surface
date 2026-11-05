@@ -277,11 +277,6 @@ ensure_base_update_agent() {
         echo "ordax-surface: Owner/Development Git root unavailable for base update owner" >>"$BASE_UPDATE_LOG"
         return 0
     fi
-    if [ "$DISTRIBUTION_PROFILE" = "stable-mvp" ] && ! is_source_sha "$SOURCE_SHA"; then
-        echo "ordax-surface: Stable/MVP source identity unavailable for base update owner" >>"$BASE_UPDATE_LOG"
-        return 0
-    fi
-
     owner_changed=1
     if [ -f "$BASE_UPDATE_AGENT" ] && /bin/busybox cmp "$BASE_UPDATE_SOURCE" "$BASE_UPDATE_AGENT" >/dev/null 2>&1; then
         owner_changed=0
@@ -790,9 +785,6 @@ resolve_owner_checkout_root() {
     [ ! -L "$owner_worktree/.git" ] || return 1
     owner_release_root=${ORDAX_RELEASES_DIR:-$STATE_ROOT/releases}
     case "$SYSTEM_ROOT" in
-        "$owner_worktree/system")
-            # Legacy Owner source remains executable until the cutover.
-            ;;
         "$owner_release_root/$SOURCE_SHA_HINT/system")
             owner_slot=${SYSTEM_ROOT%/system}
             for owner_marker in .sha .ready .surface-source-sha; do
