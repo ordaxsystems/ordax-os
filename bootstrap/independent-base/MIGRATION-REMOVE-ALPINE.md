@@ -500,6 +500,13 @@ Somente após todos os gates:
 - `ada00732`: fortalecida a semântica `If-None-Match: *` do manifest R2: HTTP **412** durante concorrência já não significa sucesso implícito. O produtor faz GET do manifest que venceu e exige **igualdade byte a byte** com o local; em caso de diferença ou indisponibilidade, recusa publicação. Os blobs permanecem content-addressed por SHA-256. Teste offline cobre publicação normal e corrida com manifest divergente: `Remove Alpine Fast Gate #41397687392` **PASS — 387 testes**.
 - Nenhuma credencial foi criada ou exibida, nenhuma escrita real foi feita no R2 e não foi acionado outro Buildroot, WebKit, kernel, EROFS, QEMU ou USB. **A Surface real continua ausente:** três variáveis do produtor GitHub (`ORDAX_SURFACE_RUNNER_LABEL`, `ORDAX_SURFACE_PERSISTENT_WORK_ROOT`, `ORDAX_SURFACE_PRODUCER_ENVIRONMENT`) seguem diagnosticadas como ausentes. O único produtor `independent-surface-runtime.yml` precisa de runner Linux confiável com workspace persistente antes de fabricar/publicar a candidata para a fingerprint exigida no Portable assinado. Sem isso, manter fail-closed e Alpine Stable/Windows Compat intactos.
 
+### Local AI host proof and Creator payload triggers (2026-11-05)
+
+- Removed the Alpine 3.22 minirootfs download, extract and chroot inference duplication from the Local AI candidate. Real read-only EROFS host inference, loopback-only listener, authentication-denial test, SSE, reproducibility, signed-v4 materialization and non-promotion remain.
+- Product/Buildroot ABI behavior is not established by the host AI test and remains a separate producer proof; no false Alpine compatibility claim is promoted.
+- Removed old Alpine Stable file triggers from the read-only Creator payload candidate. Its standalone Creator source pin, kernel, initramfs, assembler and physical-write denial are unchanged.
+- Physical media and historical signed release consumers still require separate migration before deleting their producers.
+
 ### QEMU default is Buildroot-only (2026-11-05)
 
 - The canonical Portable v2 QEMU workflow now defaults to the independent Buildroot minimal profile. The legacy Alpine stable base_source value is rejected rather than rebuilt; the former stable branch and its APK-driven producer were removed.

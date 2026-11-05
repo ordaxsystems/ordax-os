@@ -32,6 +32,14 @@ class CreatorPayloadExternalSourceTests(unittest.TestCase):
         self.assertNotIn("'tools/creator/core/**'", w)
         self.assertNotIn("'tools/creator/cmd/**'", w)
 
+    def test_payload_trigger_has_no_alpine_stable_dependency(self):
+        workflow = self.workflow
+        self.assertNotIn("bootstrap/base/alpine_core.py", workflow)
+        self.assertNotIn("bootstrap/stable-base/build.py", workflow)
+        self.assertIn("bootstrap/kernel/**", workflow)
+        self.assertIn("bootstrap/initramfs/**", workflow)
+        self.assertIn("tools/creator/assemble.py", workflow)
+
     def test_os_manifest_assembler_and_source_identity_remain_authoritative(self):
         w = self.workflow
         self.assertEqual(self.manifest["$schema"], "prototype-ordax.minimal-bootstrap/4")

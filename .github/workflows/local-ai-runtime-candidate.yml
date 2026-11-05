@@ -269,136 +269,9 @@ jobs:
           wait "$server_pid" || true
           server_pid=
 
-          alpine_root="$work/alpine-root"
-          alpine_archive="$work/alpine-minirootfs.tar.gz"
-          python - "$alpine_archive" <<'PY'
-          import hashlib
-          import json
-          import pathlib
-          import sys
-          import urllib.request
-
-          contract = json.loads(pathlib.Path("bootstrap/stable-base/source.json").read_text())
-          alpine = contract["alpine"]
-          expected = alpine["archive_sha256"]
-          target = pathlib.Path(sys.argv[1])
-          digest = hashlib.sha256()
-          request = urllib.request.Request(alpine["archive_url"], headers={"User-Agent":"OrdaX-local-ai-alpine-proof/1"})
-          with urllib.request.urlopen(request, timeout=120) as response, target.open("wb") as output:
-              while True:
-                  chunk = response.read(1024 * 1024)
-                  if not chunk:
-                      break
-                  digest.update(chunk)
-                  output.write(chunk)
-          actual = digest.hexdigest()
-          assert actual == expected, (expected, actual)
-          print("LOCAL_AI_ALPINE_BASE_ARCHIVE_SHA256=" + actual)
-          PY
-
-          mkdir -p "$alpine_root"
-          python - "$alpine_archive" "$alpine_root" <<'PY'
-          import importlib.util
-          import pathlib
-          import sys
-
-          archive = pathlib.Path(sys.argv[1]).resolve()
-          root = pathlib.Path(sys.argv[2]).resolve()
-          module_path = pathlib.Path("bootstrap/base/alpine_core.py").resolve()
-          spec = importlib.util.spec_from_file_location("ordax_alpine_core", module_path)
-          if spec is None or spec.loader is None:
-              raise SystemExit("cannot load OrdaX Alpine extraction policy")
-          module = importlib.util.module_from_spec(spec)
-          spec.loader.exec_module(module)
-          module.safe_extract(archive, root)
-          print("LOCAL_AI_ALPINE_EXTRACTION_POLICY=ORDAX_STABLE_BASE")
-          PY
-
-          mkdir -p "$alpine_root/opt/ordax-local-ai" "$alpine_root/run/ordax/local-ai-auth"
-          install -m 600 "$work/ai-auth-key" "$alpine_root/run/ordax/local-ai-auth/key"
-          sudo mount --bind "$mountpoint" "$alpine_root/opt/ordax-local-ai"
-          sudo mount -o remount,bind,ro,nodev,nosuid "$alpine_root/opt/ordax-local-ai"
-          mkdir -p "$alpine_root/proc"
-          sudo mount --bind /proc "$alpine_root/proc"
-          sudo mount -o remount,bind,ro,nodev,nosuid,noexec "$alpine_root/proc"
-
-          alpine_chroot_job=
-          alpine_server_pid=
-          cleanup_alpine() {
-            set +e
-            if [ -n "${alpine_server_pid:-}" ]; then
-              sudo kill "$alpine_server_pid" 2>/dev/null || true
-            fi
-            if [ -n "${alpine_chroot_job:-}" ]; then
-              wait "$alpine_chroot_job" 2>/dev/null || true
-            fi
-            sudo umount "$alpine_root/opt/ordax-local-ai" 2>/dev/null || true
-            sudo umount "$alpine_root/proc" 2>/dev/null || true
-          }
-          trap 'cleanup_alpine; cleanup' EXIT
-
-          sudo chroot "$alpine_root" /bin/sh -c \
-            'IFS=" " read -r pid _ </proc/self/stat; printf "%s\n" "$pid" >/tmp/ordax-local-ai.pid; LLAMA_ARG_API_KEY_FILE=/run/ordax/local-ai-auth/key ORDAX_LOCAL_AI_RUNTIME_ROOT=/opt/ordax-local-ai exec /opt/ordax-local-ai/bin/ordax-local-ai' \
-            >"$work/llama-server-alpine.log" 2>&1 &
-          alpine_chroot_job=$!
-
-          for _ in $(seq 1 30); do
-            if [ -s "$alpine_root/tmp/ordax-local-ai.pid" ]; then
-              alpine_server_pid="$(cat "$alpine_root/tmp/ordax-local-ai.pid")"
-              break
-            fi
-            sleep 1
-          done
-          test -n "$alpine_server_pid"
-
-          alpine_ready=0
-          for _ in $(seq 1 90); do
-            if curl -fsS http://127.0.0.1:17865/health >"$work/alpine-health.json"; then
-              alpine_ready=1
-              break
-            fi
-            if ! sudo kill -0 "$alpine_server_pid" 2>/dev/null; then
-              cat "$work/llama-server-alpine.log"
-              exit 1
-            fi
-            sleep 1
-          done
-          test "$alpine_ready" -eq 1
-
-          python - "$work/ai-auth-key" "$work/alpine-completion.json" <<'PY'
-          import pathlib, sys, urllib.request, urllib.error
-          key = pathlib.Path(sys.argv[1]).read_text(encoding="ascii").strip()
-          url = "http://127.0.0.1:17865/v1/chat/completions"
-          payload = b'{"model":"qwen3.5-0.8b-q4_0","messages":[{"role":"user","content":"Reply with exactly: OK"}],"temperature":0,"max_tokens":16,"stream":false}'
-          req = urllib.request.Request(url, data=payload, headers={"Content-Type": "application/json"})
-          try:
-              urllib.request.urlopen(req, timeout=90)
-          except urllib.error.HTTPError as exc:
-              assert exc.code == 401, f"Alpine backend unauthorized status: {exc.code}"
-              exc.close()
-          else:
-              raise AssertionError("Alpine backend accepted an unauthenticated completion")
-          req.add_header("Authorization", "Bearer " + key)
-          with urllib.request.urlopen(req, timeout=90) as response:
-              pathlib.Path(sys.argv[2]).write_bytes(response.read())
-          print("LOCAL_AI_ALPINE_UNAUTHENTICATED_COMPLETION=DENIED")
-          PY
-
-          python - "$work/alpine-completion.json" <<'PY'
-          import json, pathlib, sys
-          payload = json.loads(pathlib.Path(sys.argv[1]).read_text())
-          choices = payload.get("choices")
-          assert isinstance(choices, list) and choices, payload
-          content = choices[0].get("message", {}).get("content")
-          assert isinstance(content, str) and content.strip(), payload
-          usage = payload.get("usage", {})
-          assert isinstance(usage.get("completion_tokens"), int) and usage["completion_tokens"] > 0, payload
-          print("LOCAL_AI_ALPINE_3_22_5_COMPATIBILITY=PASS")
-          print("LOCAL_AI_ALPINE_REAL_INFERENCE=PASS")
-          PY
-
-          cleanup_alpine
-          trap cleanup EXIT
+          # Host inference, authentication, SSE and real EROFS are verified above.
+          # Product ABI compatibility is separately owned by the Buildroot
+          # producer; this workflow proves host inference and signed-v4 bytes.
 
       - name: Prove signed v4 materialization with real local AI bytes
         env:
@@ -566,7 +439,5 @@ jobs:
             ${{ runner.temp }}/local-ai-runtime/health.json
             ${{ runner.temp }}/local-ai-runtime/completion.json
             ${{ runner.temp }}/local-ai-runtime/real-sse-proof.txt
-            ${{ runner.temp }}/local-ai-runtime/alpine-health.json
-            ${{ runner.temp }}/local-ai-runtime/alpine-completion.json
           if-no-files-found: error
           retention-days: 14
