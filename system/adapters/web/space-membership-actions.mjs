@@ -51,29 +51,29 @@ export function createWebSpaceMembershipActions(windowRef = globalThis.window) {
         });
         if (signal.aborted) throw signal.reason;
 
-    if (response.status === 401) {
-      throw new Error("Space membership actions require an authenticated OrdaX account session");
-    }
-    if (response.status === 403) {
-      throw new Error("Space membership action is forbidden for the current account");
-    }
-    if (response.status === 409) {
-      throw new Error("Space membership action idempotency conflict");
-    }
-    if (!response.ok) {
-      throw new Error(`Space membership action failed: ${response.status}`);
-    }
+        if (response.status === 401) {
+          throw new Error("Space membership actions require an authenticated OrdaX account session");
+        }
+        if (response.status === 403) {
+          throw new Error("Space membership action is forbidden for the current account");
+        }
+        if (response.status === 409) {
+          throw new Error("Space membership action idempotency conflict");
+        }
+        if (!response.ok) {
+          throw new Error(`Space membership action failed: ${response.status}`);
+        }
 
-    let payload;
-    try {
-      payload = await response.json();
-    } catch {
-      throw new Error("Space membership action returned invalid JSON");
-    }
-    const result = validateSpaceMembershipActionResult(payload);
-    if (result.spaceId !== request.spaceId || result.targetUserId !== request.targetUserId) {
-      throw new Error("Space membership action response targets another membership");
-    }
+        let payload;
+        try {
+          payload = await response.json();
+        } catch {
+          throw new Error("Space membership action returned invalid JSON");
+        }
+        const result = validateSpaceMembershipActionResult(payload);
+        if (result.spaceId !== request.spaceId || result.targetUserId !== request.targetUserId) {
+          throw new Error("Space membership action response targets another membership");
+        }
         if (signal.aborted) throw signal.reason;
         if (disposed) throw new Error("Web Space membership actions are disposed");
         return result;
