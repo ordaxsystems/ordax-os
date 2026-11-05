@@ -44,7 +44,7 @@ visual_sha=$(field source_commit) || exit 2
 [ "$repository" = ordaxsystems/ordax-surface ] || exit 2
 case "$visual_sha" in ''|*[!0-9a-f]*) exit 2 ;; esac
 [ "${#visual_sha}" -eq 40 ] || exit 2
-case "$status" in integration-candidate|canonical) ;; *) exit 2 ;; esac
+[ "$status" = canonical ] || exit 2
 
 if [ "$command" = status ]; then
     printf '%s\n' "$status"
@@ -80,7 +80,6 @@ source_integrity() {
 }
 
 if [ "$command" = ready ]; then
-    [ "$status" = canonical ] || exit 1
     [ -f "$stage_dir/.ready" ] && [ ! -L "$stage_dir/.ready" ] || exit 1
     [ -f "$stage_dir/.surface-source-sha" ] && [ ! -L "$stage_dir/.surface-source-sha" ] || exit 1
     [ -f "$stage_dir/.sha" ] && [ ! -L "$stage_dir/.sha" ] || exit 1
@@ -98,7 +97,6 @@ if [ "$command" = ready ]; then
 fi
 
 [ "$command" = stage ] || usage
-[ "$status" = canonical ] || exit 0
 
 surface_root=$stage_dir/system/surface
 [ -d "$surface_root" ] && [ ! -L "$surface_root" ] || exit 2

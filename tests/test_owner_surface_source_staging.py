@@ -126,10 +126,13 @@ class OwnerSurfaceSourceTests(unittest.TestCase):
         self.assertEqual((self.os_root / "system/surface/ui/surface.mjs").read_text(), "OLD_VISUAL\n")
         self.assertFalse((self.slot / ".surface-source-sha").exists())
 
-    def test_integration_candidate_does_not_fetch_or_modify_source(self):
+    def test_retired_integration_candidate_is_rejected_without_mutation(self):
+        # A historical pre-cutover lock may not silently succeed or stage
+        # unverified visual bytes under the current canonical Supervisor.
         self.set_lock("integration-candidate")
-        self.assertEqual(self.call("status", check=True).stdout.strip(), "integration-candidate")
-        self.call("stage", check=True)
+        for action in ("status", "stage", "ready"):
+            with self.subTest(action=action):
+                self.assertNotEqual(self.call(action).returncode, 0)
         self.assertEqual((self.slot_system / "surface/ui/surface.mjs").read_text(), "OLD_VISUAL\n")
         self.assertFalse((self.slot / ".surface-source-sha").exists())
 
