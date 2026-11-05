@@ -128,7 +128,7 @@ WINDOWS_PRODUCT_SHARED_ADDITIONS = {
 WINDOWS_PRODUCT_PINNED_BLOBS = {
     "docs/evidence/desktop-runtime-windows-candidate-2026-10-31.json": "5f26c8d88b579fcaed95baceab0d197fdea31441",
     "system/adapters/native/desktop-product-runtime-status.mjs": "476ff188877cf7deb0dd52865d4e467d67d639bc",
-    "system/adapters/native/desktop-surface-state-report.mjs": "352f69a36e1b9f2f29d4b20cf453c5b3f15c301d",
+    "system/adapters/native/desktop-surface-state-report.mjs": "175f000801fd7953cec693e441a7ceb5107e9227",
 }
 
 PUSH_EXCLUDES = ("!system/adapters/desktop/**", "!system/surface/ui/**", "!system/surface/workspace/**")
@@ -314,6 +314,33 @@ def verified_windows_product_additions(base, head, path, *, root=ROOT):
         return False
 
 
+def verified_windows_semantic_surface_mount(base, head, *, root=ROOT):
+    """Prove only the existing Windows-guarded call uses Surface's read port.
+
+    No Native/Linux entrypoint, import, branch, boot path or other byte may
+    change under this exception. Unknown Native changes still require USB.
+    """
+    path = "system/composition/native/main.mjs"
+    original_call = (
+        "  const desktopSurfaceReporter = windowsDesktopHost\n"
+        "    ? mountNativeDesktopSurfaceStateReport(window, root, surface, appActivation)\n"
+        "    : null;"
+    )
+    semantic_call = (
+        "  const desktopSurfaceReporter = windowsDesktopHost\n"
+        "    ? mountNativeDesktopSurfaceStateReport(window, surface, appActivation)\n"
+        "    : null;"
+    )
+    try:
+        before = _git_show(base, path, root)
+        after = _git_show(head, path, root)
+        return before.count(original_call) == 1 and (
+            after == before.replace(original_call, semantic_call)
+        )
+    except (OSError, UnicodeError, ValueError, subprocess.SubprocessError):
+        return False
+
+
 def verified_windows_product_blob(head, path, *, root=ROOT):
     """Pin actual Native sidecar and DEV evidence bytes, not a filename claim."""
     expected = WINDOWS_PRODUCT_PINNED_BLOBS.get(path)
@@ -348,7 +375,12 @@ def classify(base, head, *, root=ROOT):
                 if not verified_legacy_profile_deletion(base, head, root=root):
                     return True, "legacy-profile-doc-not-verified-deletion"
             elif path in WINDOWS_PRODUCT_SHARED_ADDITIONS:
-                if not verified_windows_product_additions(base, head, path, root=root):
+                # Existing Windows additions and this exact guarded semantic
+                # port migration have independent content proofs.
+                proven = verified_windows_product_additions(base, head, path, root=root)
+                if path == "system/composition/native/main.mjs" and not proven:
+                    proven = verified_windows_semantic_surface_mount(base, head, root=root)
+                if not proven:
                     return True, "windows-product-shared-delta-not-proven:" + path
             elif path in WINDOWS_PRODUCT_PINNED_BLOBS:
                 if not verified_windows_product_blob(head, path, root=root):
