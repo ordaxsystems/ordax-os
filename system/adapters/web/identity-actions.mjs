@@ -124,7 +124,14 @@ export function createWebIdentityActions(
         if (!(response.ok || response.status === 303 || response.status === 0)) {
           throw new Error(`Identity sign-out failed: ${response.status}`);
         }
+        if (disposed) throw new Error("Identity actions are disposed");
+        // A 303 or opaque manual redirect only acknowledges the logout request.
+        // Never report completion until the canonical same-origin session read
+        // proves that cookies/grants no longer authenticate this browser.
         await session?.refresh?.();
+        if (disposed || session?.getSnapshot().state !== "signed-out") {
+          throw new Error("Identity sign-out not confirmed by the session gateway");
+        }
         return;
       }
       throw new Error(`Unsupported identity action: ${String(action)}`);
