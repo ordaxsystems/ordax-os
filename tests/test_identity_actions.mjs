@@ -435,7 +435,8 @@ test("older registration policy reply cannot re-enable or disable a newer decisi
   const windowRef = {
     fetch: async () => ({
       ok: true,
-      json: async () => ({
+      status: 200,
+      json:json: async () => ({
         $schema: "prototype-ordax.public-identity-session/1",
         authenticated: false, provider: "supabase", status: "anonymous",
       }),
@@ -482,7 +483,7 @@ test("disposed identity actions reject commands and do not query registration po
     location: { assign: path => assigned.push(path) },
     fetch: async path => {
       requests.push(path);
-      return { ok: true, json: async () => ({
+      return { ok: true, status: 200, json: async () => ({
         $schema: "prototype-ordax.public-identity-session/1",
         provider: "supabase", authenticated: true, status: "authenticated",
         subject: "account-a", email: "person@example.invalid",
