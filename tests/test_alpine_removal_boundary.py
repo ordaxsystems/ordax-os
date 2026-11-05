@@ -59,6 +59,31 @@ class AlpineRemovalBoundaryTests(unittest.TestCase):
         self.assertIn("LOCAL_AI_REAL_INFERENCE=PASS", ai)
         self.assertIn("LOCAL_AI_UNAUTHENTICATED_COMPLETION=DENIED", ai)
 
+    def test_physical_release_stable_cache_fails_before_kernel_build(self):
+        # No expensive kernel/capsule build when the exact signed-release
+        # Buildroot component is absent, invalid or belongs to another commit.
+        workflow = (ROOT / ".github/workflows/first-physical-usb-payload.yml").read_text(encoding="utf-8")
+        legacy = workflow.index("      - name: Block historical Alpine signed sources before any physical build")
+        authorization = workflow.index("      - name: Validate authorization, commits and target geometry")
+        kernel = workflow.index("      - name: Build and verify exact kernel")
+        fingerprint = workflow.index("      - name: Resolve exact Stable component fingerprint from authorized release")
+        restore = workflow.index("      - name: Restore exact signed-release Buildroot Stable component")
+        verify = workflow.index("      - name: Verify exact authorized Buildroot Stable Base without rebuilding")
+        capsule = workflow.index("      - name: Build and verify exact bootstrap capsule")
+        self.assertLess(legacy, authorization)
+        self.assertLess(authorization, fingerprint)
+        self.assertLess(fingerprint, restore)
+        self.assertLess(restore, verify)
+        self.assertLess(verify, kernel)
+        self.assertLess(kernel, capsule)
+        cache_check = workflow[verify:kernel]
+        self.assertIn('if [ "$ORDAX_STABLE_CACHE_HIT" != true ]; then', cache_check)
+        self.assertIn('mkdir -p "$work/metadata"', cache_check)
+        self.assertIn('bootstrap/independent-base/build.py verify', cache_check)
+        self.assertIn('portable_component_cache.py verify', cache_check)
+        self.assertIn('fsck.erofs "$work/stable-base/stable-base.erofs"', cache_check)
+        self.assertNotIn("bootstrap/independent-base/build.py build", cache_check)
+
     def test_physical_legacy_release_is_blocked_before_build(self):
         workflow = (ROOT / ".github/workflows/first-physical-usb-payload.yml").read_text(encoding="utf-8")
         self.assertIn("Block historical Alpine signed sources before any physical build", workflow)

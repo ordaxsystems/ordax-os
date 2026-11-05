@@ -440,22 +440,6 @@ jobs:
           python -m pip install --disable-pip-version-check --no-cache-dir \
             jinja2 pyelftools
 
-      - name: Build and verify exact kernel
-        shell: bash
-        working-directory: release-source
-        run: |
-          set -euo pipefail
-          work="$RUNNER_TEMP/first-physical-payload"
-          mkdir -p "$work/kernel" "$work/metadata"
-          export ORDAX_SOURCE_COMMIT="$RELEASE_SOURCE_COMMIT"
-          python bootstrap/kernel/build.py build \
-            --jobs 4 \
-            --work-dir "$work/kernel-work" \
-            --out-dir "$work/kernel"
-          python bootstrap/kernel/verify.py "$work/kernel"
-          test -s "$work/kernel/vmlinuz-$ORDAX_KERNEL_VERSION"
-          test -s "$work/kernel/kernel-modules-$ORDAX_KERNEL_VERSION.tar"
-
       - name: Resolve exact Stable component fingerprint from authorized release
         id: stable-fingerprint
         shell: bash
@@ -486,6 +470,7 @@ jobs:
             exit 1
           fi
           work="$RUNNER_TEMP/first-physical-payload"
+          mkdir -p "$work/metadata"
           base="$RUNNER_TEMP/ordax-independent"
           test -s "$base/independent-base.erofs"
           python3 bootstrap/independent-base/build.py verify             --profile stable-mvp --out "$base"             > "$work/metadata/stable-base-verify.json"
@@ -494,6 +479,22 @@ jobs:
           cp -- "$base/independent-base.erofs" "$work/stable-base/stable-base.erofs"
           cmp -- "$base/independent-base.erofs" "$work/stable-base/stable-base.erofs"
           fsck.erofs "$work/stable-base/stable-base.erofs"
+
+      - name: Build and verify exact kernel
+        shell: bash
+        working-directory: release-source
+        run: |
+          set -euo pipefail
+          work="$RUNNER_TEMP/first-physical-payload"
+          mkdir -p "$work/kernel" "$work/metadata"
+          export ORDAX_SOURCE_COMMIT="$RELEASE_SOURCE_COMMIT"
+          python bootstrap/kernel/build.py build \
+            --jobs 4 \
+            --work-dir "$work/kernel-work" \
+            --out-dir "$work/kernel"
+          python bootstrap/kernel/verify.py "$work/kernel"
+          test -s "$work/kernel/vmlinuz-$ORDAX_KERNEL_VERSION"
+          test -s "$work/kernel/kernel-modules-$ORDAX_KERNEL_VERSION.tar"
 
       - name: Build and verify exact bootstrap capsule
         shell: bash
