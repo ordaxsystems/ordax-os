@@ -273,6 +273,46 @@ class CreatorOwnerImpactTests(unittest.TestCase):
                 subprocess.check_output(["git", "-C", str(self.root),
                 "rev-parse", "HEAD"], text=True).strip(), root=self.root)[0])
 
+    def test_exact_freshness_only_workflow_migration_skips_physical_usb_producer(self):
+        current = WORKFLOW.read_text(encoding="utf-8")
+        old = current.replace(
+            "      required: ${{ steps.scope.outputs.required == 'true' && steps.freshness.outputs.publish_allowed != 'false' }}\n"
+            "      reason: ${{ steps.freshness.outputs.reason || steps.scope.outputs.reason }}",
+            "      required: ${{ steps.scope.outputs.required }}\n"
+            "      reason: ${{ steps.scope.outputs.reason }}",
+        )
+        self.assertNotEqual(old, current)
+        early = old.index("      # On a queued main push, avoid an expensive build")
+        early_end = old.index("  owner-dev-contract:", early)
+        old = old[:early] + old[early_end:]
+        late = old.index("          # Recheck immediately before mutating the rolling channel")
+        late_end = old.index("          if ! gh release view creator-owner-prototype", late)
+        old = old[:late] + old[late_end:]
+        base = self.commit(workflow=old, lock=VISUAL)
+        head = self.commit(workflow=current, path="tools/ci/creator_owner_publish_freshness.py")
+        self.assertTrue(impact.verified_creator_freshness_wiring_only(
+            base, head, root=self.root))
+        self.assertEqual(
+            impact.classify(base, head, root=self.root, event="pull_request"),
+            (False, "nonproducer-contract-only"),
+        )
+        self.assertEqual(
+            impact.classify(base, head, root=self.root, event="push"),
+            (False, "nonproducer-contract-only"),
+        )
+        # A changed publisher command, permissions, raw USB producer or unknown
+        # extension cannot be smuggled through this exact governance proof.
+        tampered = current.replace(
+            "gh release upload creator-owner-prototype",
+            "gh release upload untrusted-owner-prototype")
+        self.assertNotEqual(current, tampered)
+        bad = self.commit(workflow=tampered)
+        self.assertFalse(impact.verified_creator_freshness_wiring_only(
+            base, bad, root=self.root))
+        self.assertTrue(impact.classify(base, bad, root=self.root)[0])
+        mixed = self.commit(path="bootstrap/dev-base/ordax-main-watch")
+        self.assertTrue(impact.classify(base, mixed, root=self.root)[0])
+
     def test_new_workflow_producer_step_forces_usb(self):
         workflow = WORKFLOW.read_text(encoding="utf-8")
         base = self.commit(workflow, VISUAL)
