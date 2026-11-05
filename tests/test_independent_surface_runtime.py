@@ -117,6 +117,27 @@ class IndependentSurfaceRuntimeTests(unittest.TestCase):
                     with self.assertRaisesRegex(builder.SurfaceBuildError, "inputs changed"):
                         builder.materialize_surface_workspace(archive, base, work)
 
+    @unittest.skipUnless(sys.platform.startswith("linux"), "Buildroot producer runs on Linux")
+    def test_build_rejects_symlinked_persistent_workspace_parent(self):
+        # A fingerprint child of a linked directory must not redirect the
+        # resumable Buildroot O= tree to a different disk.
+        builder = self.builder
+        with tempfile.TemporaryDirectory() as td:
+            temp = Path(td)
+            real = temp / "real-root"
+            real.mkdir()
+            alias = temp / "linked-root"
+            alias.symlink_to(real, target_is_directory=True)
+            with mock.patch.object(builder.shutil, "which", return_value="/usr/bin/true"):
+                with self.assertRaisesRegex(
+                    builder.SurfaceBuildError, "workspace cannot be a symlink"
+                ):
+                    builder.build(
+                        temp / "artifacts", temp / "downloads", 1,
+                        persistent_work_dir=alias / "fingerprint",
+                    )
+            self.assertFalse((real / "fingerprint").exists())
+
     def test_incomplete_or_symlinked_workspace_is_rejected_without_cleanup(self):
         builder = self.builder
         with tempfile.TemporaryDirectory() as td:
