@@ -148,7 +148,11 @@ def compose_web_identity_bootstrap(source_commit: str) -> None:
     # Account creation/recovery, legal documents and portal-only destinations
     # keep their canonical public owner. Only password sign-in is hosted on Web
     # because its resulting cookie must be host-only for web.ordax.com.br.
-    # The public Site renders the brand and "Início" as /. On the Web host, /\n    # is the authenticated workspace; anonymous users would loop back to login.\n    # Keep the public-home navigation at the Site owner, not the product root.\n    login_html = login_html.replace('href="/"', f'href="{PUBLIC_ORIGIN}/"')\n    for route in ("cadastro", "recuperar", "privacidade", "termos", "download", "licencas"):
+    # The public Site renders the brand and "Início" as /. On the Web host, /
+    # is the authenticated workspace; anonymous users would loop back to login.
+    # Keep public-home links at the Site owner, not the product workspace root.
+    login_html = login_html.replace('href="/"', f'href="{PUBLIC_ORIGIN}/"')
+    for route in ("cadastro", "recuperar", "privacidade", "termos", "download", "licencas"):
         login_html = login_html.replace(
             f'href="/{route}/"',
             f'href="{PUBLIC_ORIGIN}/{route}/"',
