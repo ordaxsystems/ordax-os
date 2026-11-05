@@ -54,7 +54,7 @@ class AssembledSurfaceReleaseTests(unittest.TestCase):
     def write_lock(self):
         self.lock.write_text(json.dumps({
             "$schema": "prototype-ordax.surface-source/1",
-            "status": "integration-candidate",
+            "status": "canonical",
             "source_repository": "ordaxsystems/ordax-surface",
             "source_commit": git(self.ui, "rev-parse", "HEAD"),
             "visual_source_paths": list(module.source.VISUAL_PATHS),
@@ -97,6 +97,15 @@ class AssembledSurfaceReleaseTests(unittest.TestCase):
     def test_rejects_staging_inside_source_tree(self):
         with self.assertRaisesRegex(module.source.SurfaceSourceError, "cannot modify"):
             module.assemble(self.os, self.ui, self.os / "danger", self.lock)
+
+    def test_retired_integration_candidate_cannot_assemble_release(self):
+        old = json.loads(self.lock.read_text(encoding="utf-8"))
+        old["status"] = "integration-candidate"
+        self.lock.write_text(json.dumps(old), encoding="utf-8")
+        out = self.root / "retired-source-must-not-assemble"
+        with self.assertRaisesRegex(module.source.SurfaceSourceError, "not canonical"):
+            module.assemble(self.os, self.ui, out, self.lock)
+        self.assertFalse(out.exists())
 
     def test_wrong_surface_sha_fails_before_staging(self):
         j = json.loads(self.lock.read_text())
