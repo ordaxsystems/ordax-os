@@ -10,6 +10,9 @@ import {
 import {
   createNativeClientDiagnostics, renderedSourceSha,
 } from "../system/adapters/native/client-diagnostics.mjs";
+import {
+  selectDesktopDiagnosticSessionMode,
+} from "../tools/windows-emulator/native-host.mjs";
 
 const SOURCE="a".repeat(40);
 const SESSION="b".repeat(64);
@@ -92,6 +95,78 @@ test("real Windows diagnostic host shares canonical Native session and stores on
     assert.equal((await host.native.readLastReport()).sourceSha,SOURCE);
   }finally{if(host)await host.close();await rm(root,{recursive:true,force:true});}
 });
+test("Native Host grants local HMR session only for genuine unversioned Windows preview",()=>{
+  const base={
+    desktopHost:true,platform:"win32",userData:"C:\\Users\\ordax\\AppData\\Roaming\\OrdaX Local",
+    renderedSha:"",localDevelopment:true,assetsRoot:"",
+  };
+  assert.deepEqual(selectDesktopDiagnosticSessionMode(base),{
+    sourceSha:null,allowUnversionedDevelopmentSession:true,
+  });
+  const release=selectDesktopDiagnosticSessionMode({
+    ...base,renderedSha:SOURCE,localDevelopment:false,assetsRoot:"C:\\Program Files\\OrdaX\\assets",
+  });
+  assert.deepEqual(release,{
+    sourceSha:SOURCE,allowUnversionedDevelopmentSession:false,
+  });
+  assert.equal(selectDesktopDiagnosticSessionMode({...base,desktopHost:false}),null);
+  assert.equal(selectDesktopDiagnosticSessionMode({...base,platform:"linux"}),null);
+  assert.equal(selectDesktopDiagnosticSessionMode({...base,userData:""}),null);
+  assert.equal(selectDesktopDiagnosticSessionMode({...base,localDevelopment:false}),null);
+  assert.equal(selectDesktopDiagnosticSessionMode({...base,assetsRoot:"built-assets"}),null);
+  assert.equal(selectDesktopDiagnosticSessionMode({...base,renderedSha:"not-a-sha"}),null);
+  assert.equal(selectDesktopDiagnosticSessionMode({...base,renderedSha:"f".repeat(39)}),null);
+});
+
+test("local HMR receives only an authenticated ephemeral Native session, never a forged source receipt",async()=>{
+  const root=await mkdtemp(prefix);
+  const display="d".repeat(64),network="e".repeat(64);
+  assert.throws(()=>createDesktopClientDiagnosticsMiddleware(root,{
+    sessionToken:SESSION,diagnosticToken:REPORT,sourceSha:null,
+    displayToken:display,networkToken:network,
+  }),/Verified Desktop source/);
+  assert.throws(()=>createDesktopClientDiagnosticsMiddleware(root,{
+    sessionToken:SESSION,diagnosticToken:REPORT,sourceSha:"",
+    allowUnversionedDevelopmentSession:true,
+  }),/Verified Desktop source/);
+  const host=createDesktopClientDiagnosticsMiddleware(root,{
+    sessionToken:SESSION,diagnosticToken:REPORT,sourceSha:null,
+    allowUnversionedDevelopmentSession:true,displayToken:display,networkToken:network,
+  });
+  const server=createServer((req,res)=>host.middleware(req,res,()=>{
+    res.writeHead(404);res.end();
+  }));
+  await new Promise(resolve=>server.listen(0,"127.0.0.1",resolve));
+  const base="http://127.0.0.1:"+server.address().port;
+  try{
+    const sessionUrl=base+"/__ordax/native/session";
+    assert.equal((await fetch(sessionUrl)).status,401);
+    assert.equal((await fetch(sessionUrl,{headers:{"X-OrdaX-Session-Token":"f".repeat(64)}})).status,401);
+    const session=await fetch(sessionUrl,{headers:{"X-OrdaX-Session-Token":SESSION}});
+    assert.equal(session.status,200);
+    const payload=await session.json();
+    assert.equal(payload.displayOutputsToken,display);
+    assert.equal(payload.networkToken,network);
+    assert.equal(payload.diagnosticToken,REPORT);
+    assert.equal(payload.productMode,"desktop");
+    assert.equal(payload.nativeInstallAvailable,false);
+    assert.equal(payload.profileActivationAvailable,false);
+    assert.equal(payload.sourceSha,undefined);
+    const forbidden=await fetch(base+"/__ordax/native/client-diagnostic",{
+      method:"POST",headers:{"Origin":base,"Content-Type":"application/json",
+        "X-OrdaX-Diagnostic-Token":REPORT},
+      body:JSON.stringify({sourceSha:SOURCE,stage:"test",errorName:"Error",source:""}),
+    });
+    assert.equal(forbidden.status,404);
+    assert.deepEqual(await host.readLastReport(),null);
+    assert.deepEqual(await readdir(root),[]);
+  }finally{
+    server.closeAllConnections();
+    await new Promise(resolve=>server.close(resolve));
+    await rm(root,{recursive:true,force:true});
+  }
+});
+
 test("desktop diagnostics refuses corrupted journal without resetting it",async()=>{
   const root=await mkdtemp(prefix);
   let host;
