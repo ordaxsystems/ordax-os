@@ -1,3 +1,20 @@
+# Janela de entrega operacional — 06/11/2026
+
+**Status: prioridade de execução e checkpoint de fonte; NÃO é autorização de lançamento nem prova de instalação física da nova revisão.** O primeiro alvo utilizável é o **OrdaX Desktop Windows**: instalação/boot, Conta, Loja com catálogo verificado, pelo menos um app real instalado/aberto/atualizado e atualização confiável do host. USB/Creator/Buildroot e Native em disco seguem no Baseline, mas não bloqueiam este canal quando independentes. Política e critérios: [`MVP.md`](../MVP.md) e ADR-030 de [`docs/DECISIONS.md`](DECISIONS.md).
+
+| Frente | Evidência de integração em fonte | Disponibilidade real ainda não provada |
+| --- | --- | --- |
+| OS / composição | [OS PR #2440](https://github.com/ordaxsystems/ordax-os/pull/2440) integrada em `ordax-os/main@4c19b4efc761ec07c5a70abd660f3784076dba2d`; fixa `ordax-surface@9468eceed365431fcf2e906b0461a60de0f0486b` (Surface #84–#91). Gates aplicáveis da PR passaram. | Nova revisão visual **não** foi comprovada no Desktop instalado; `source_commit`/provenance e atualização física precisam ser verificados. O owner Surface pode avançar além desse pin sem ativação automática no host. |
+| Surface | Home sem demos, projeção de estados reais da Loja, seleção de Spaces e gestão de membros com verificação de permissões estão integradas no owner. | Renderização com dados reais depende dos ports e da sessão do host; código e checks não provam abertura, instalação ou atualização física de aplicativo. |
+| Apps / Aura | [Apps PR #475](https://github.com/ordaxsystems/ordax-apps/pull/475) integrada em `ordax-apps/main@dc8d6ec7bbf4be7f176b2f8973a785c591912ad8` com recuperação de inferência. | Instalação/ativação física desta revisão ainda não provada. Forge permanece com outro executor, separado. |
+| Loja Web | `system/composition/web/main.tsx` ainda usa `createUnavailableAppStoreCatalogPort('web-store-transport-unavailable')`. | Não existe transporte Web autorizado conectado nesta composição; UI e contrato isolados não constituem uma Loja utilizável. |
+| Seleção de Space Web | `system/adapters/web/space-selection.mjs` compõe `createWebSpaceSelectionStore()` somente em memória. | Seleção não persiste após recarga; persistência futura deve manter escopo por identidade e revalidar catálogo/permissões, sem criar segunda autoridade de Conta. |
+| Desktop Windows | Há prova física anterior da instalação/boot em `DESKTOP-4UFL03B` para uma revisão mais antiga, registrada abaixo. `ordax-desktop` e `ordax-os` têm fontes independentes. | Não há prova de que o novo conjunto OS/Surface/Apps esteja instalado, de que a Loja instale/execute um app real ou de que atualizações do host e app fechem o ciclo ponta a ponta. |
+
+**Fila causal, não lista de microtarefas:** (1) alinhar um conjunto de revisões/proveniência Windows verificáveis sem recompilar USB; (2) fechar transporte e lifecycle oficiais da Loja, instalação e execução de **um** aplicativo real; (3) provar atualização e recovery; (4) liberar primeiros usuários somente após os gates do canal. Uma falha independente não bloqueia a próxima implementação que não dependa dela; nenhuma falha é mascarada por estado de UI. A entrega é medida por experiência física funcional, não por quantidade de PRs integradas.
+
+---
+
 **ESTADO CANÔNICO ATUAL — Desktop Product MCP / 04-11-2026**
 
 A ponte Native Product Windows [OS #2400](https://github.com/ordaxsystems/ordax-os/pull/2400)
