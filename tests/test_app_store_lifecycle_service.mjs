@@ -478,8 +478,8 @@ test("signed module read alone cannot authorize Store install without Native pro
   };
   for (const operation of ["install", "update"]) {
     const projection = entry({
-      appId: "calculator",
-      title: "Calculadora",
+      appId: "assistant",
+      title: "Aura",
       state: operation === "install" ? "available" : "installed",
       installedVersion: operation === "install" ? null : "0.4.2",
       availableVersion: "0.4.3",
@@ -489,12 +489,12 @@ test("signed module read alone cannot authorize Store install without Native pro
     });
     const runtime = service({
       projection: ready(projection),
-      verified: verifiedReady([verifiedEntry({appId:"calculator"})]),
+      verified: verifiedReady([verifiedEntry({appId:"assistant"})]),
       executeLifecycle,
     });
     const ask = request(operation, {
-      appId:"calculator",
-      requestId:"store:" + operation + ":calculator:module-gate",
+      appId:"assistant",
+      requestId:"store:" + operation + ":assistant:module-gate",
     });
     const denied = await runtime.requestLifecycle(ask);
     assert.equal(denied.state,"rejected");

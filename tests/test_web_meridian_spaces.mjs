@@ -45,13 +45,13 @@ function render(session, withExamples = false) {
   return renderToStaticMarkup(createElement(WebAccountProvider, {session}, content));
 }
 
-test('real account view opens first while complete examples remain reachable', async () => {
+test('signed-out Spaces shows account access without fabricated examples', async () => {
   const f = fixture({identity: anonymous});
   try {
     await f.session.refresh();
     const html = render(f.session, true);
-    assert.match(html, /Ver exemplos completos/);
-    assert.match(html, /Entre na conta para consultar seus Spaces/);
+    assert.doesNotMatch(html, /Ver exemplos completos|Achegue|Bella Napoli/);
+    assert.match(html, /Entre na conta para consultar seus espaços/);
     assert.doesNotMatch(html, /Catálogo confirmado pelo serviço da conta/);
     assert.doesNotMatch(html, /Achegue|Bella Napoli|Consulta autorizada nesta sessão/);
   } finally { f.session.dispose(); }

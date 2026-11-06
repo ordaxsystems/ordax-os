@@ -137,6 +137,15 @@ ACCOUNT_GATEWAY_DEPLOY_LIGHT_EXACT = {
 NATIVE_ACCOUNT_TRANSPORT_LIGHT_EXACT = {
     "system/surface/runtime/native_account_gateway.py",
 }
+# Only the generated, declarative Store scope table. It is checked byte-for-
+# byte against docs/contracts/runtime-component-package.json by app-policy
+# generator and focused Native lifecycle/probation contracts. It does not
+# produce Linux kernel, initramfs, APK EROFS or portable boot source bytes.
+# Keep every other Native runtime path, probe implementation and orchestrator
+# under their existing heavy QEMU gate.
+NATIVE_COMPONENT_POLICY_LIGHT_EXACT = {
+    "system/surface/runtime/native_store_metadata_policy.py",
+}
 IMPACT_POLICY_LIGHT_EXACT = {
     ".github/workflows/portable-qemu-impact-contract.yml",
     "tools/ci/portable_qemu_impact.py",
@@ -480,6 +489,8 @@ def classify_paths(
             reasons.append(f"heavy-exact:{path}")
             continue
         if path in NATIVE_ACCOUNT_TRANSPORT_LIGHT_EXACT:
+            continue
+        if path in NATIVE_COMPONENT_POLICY_LIGHT_EXACT:
             continue
         if path.startswith(ALWAYS_HEAVY_PREFIXES):
             reasons.append(f"heavy-prefix:{path}")
