@@ -301,26 +301,8 @@ jobs:
           $desktopSha = $env:DESKTOP_SOURCE_SHA
           $osSha = $env:OS_SOURCE_SHA
           if ($repo -cne 'ordaxsystems/ordax-desktop' -or
-              $desktopSha -cnotmatch '^[a-f0-9]{40}
-      # Legacy Actions artifact remains mandatory if no durable Release was requested.
-      - uses: actions/upload-artifact@b7c566a772e6b6bfb58ed0dc250532a479d7789f # v6
-        if: ${{ !inputs.publish_dev_release }}
-        with:
-          name: ordax-desktop-dev-alpha-windows
-          path: out/windows-desktop-installer/*.exe
-          if-no-files-found: error
-          retention-days: 14
- -or
-              $osSha -cnotmatch '^[a-f0-9]{40}
-      # Legacy Actions artifact remains mandatory if no durable Release was requested.
-      - uses: actions/upload-artifact@b7c566a772e6b6bfb58ed0dc250532a479d7789f # v6
-        if: ${{ !inputs.publish_dev_release }}
-        with:
-          name: ordax-desktop-dev-alpha-windows
-          path: out/windows-desktop-installer/*.exe
-          if-no-files-found: error
-          retention-days: 14
- -or
+              $desktopSha -cnotmatch '^[a-f0-9]{40}$' -or
+              $osSha -cnotmatch '^[a-f0-9]{40}$' -or
               [string]::IsNullOrWhiteSpace($env:GH_TOKEN)) {
             throw 'Official Desktop caller, source SHAs and release authorization required'
           }
@@ -334,31 +316,13 @@ jobs:
               $stage.desktop_owner -cne 'ordaxsystems/ordax-desktop' -or
               $stage.runtime_owner -cne 'ordaxsystems/ordax-os' -or
               $surface.source_repository -cne 'ordaxsystems/ordax-surface' -or
-              $surface.source_commit -cnotmatch '^[a-f0-9]{40}
-      # Legacy Actions artifact remains mandatory if no durable Release was requested.
-      - uses: actions/upload-artifact@b7c566a772e6b6bfb58ed0dc250532a479d7789f # v6
-        if: ${{ !inputs.publish_dev_release }}
-        with:
-          name: ordax-desktop-dev-alpha-windows
-          path: out/windows-desktop-installer/*.exe
-          if-no-files-found: error
-          retention-days: 14
- -or
+              $surface.source_commit -cnotmatch '^[a-f0-9]{40}$' -or
               $receipt.source_repository -cne $surface.source_repository -or
               $receipt.source_commit -cne $surface.source_commit) {
             throw 'Desktop, OS or verified Surface provenance mismatch'
           }
           $version = (Get-Content -LiteralPath 'out/windows-desktop-standalone/shell/package.json' -Raw | ConvertFrom-Json).version
-          if ($version -cnotmatch '^0[.]1[.]0-alpha[.][0-9]+
-      # Legacy Actions artifact remains mandatory if no durable Release was requested.
-      - uses: actions/upload-artifact@b7c566a772e6b6bfb58ed0dc250532a479d7789f # v6
-        if: ${{ !inputs.publish_dev_release }}
-        with:
-          name: ordax-desktop-dev-alpha-windows
-          path: out/windows-desktop-installer/*.exe
-          if-no-files-found: error
-          retention-days: 14
-) { throw 'Only unsigned alpha Dev releases are eligible' }
+          if ($version -cnotmatch '^0[.]1[.]0-alpha[.][0-9]+$') { throw 'Only unsigned alpha Dev releases are eligible' }
           $exeName = "OrdaX-OS-Desktop-Dev-$version-x64.exe"
           $exePath = Join-Path $InstallerRoot $exeName
           $exe = Get-Item -LiteralPath $exePath -ErrorAction Stop
