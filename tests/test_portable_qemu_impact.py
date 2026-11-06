@@ -187,12 +187,32 @@ class PortableQemuImpactTests(unittest.TestCase):
         # expensive until explicitly classified with a separate owner proof.
         for critical in ("tests/test_unknown_boot_sensitive_owner.py",
                          "system/services/components/probation-orchestrator.mjs",
-                         "bootstrap/surface-runtime/source.json",
+                         "bootstrap/surface-runtime/build.py",
                          "system/supervisor"):
             with self.subTest(critical=critical):
                 self.assertTrue(impact.classify_paths(
                     desktop_paths + [critical], root=ROOT,
                 ).required)
+
+    def test_surface_source_pin_is_proven_by_single_independent_producer(self):
+        # The canonical Independent Surface workflow both builds verified
+        # EROFS and invokes Portable QEMU; the generic QEMU consumer must not
+        # duplicate those hours for the same exact source pin.
+        result = impact.classify_paths(
+            ["bootstrap/surface-runtime/source.json"], root=ROOT
+        )
+        self.assertFalse(result.required, result.reasons)
+
+    def test_store_preview_with_unresolved_native_graph_fails_closed(self):
+        with patch.object(
+            impact, "native_startup_import_graph",
+            return_value=(frozenset(), ("unresolved:system/composition/native/main.mjs",)),
+        ):
+            result = impact.classify_paths(
+                ["system/composition/web/store-preview/app.js"], root=ROOT,
+            )
+        self.assertTrue(result.required)
+        self.assertTrue(any(reason.startswith("runtime-graph:") for reason in result.reasons))
 
     def test_boot_coupled_local_ai_runtime_requires_qemu(self):
         result = impact.classify_paths(["system/services/local-ai/runtime.mjs"], root=ROOT)

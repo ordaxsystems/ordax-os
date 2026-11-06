@@ -215,6 +215,24 @@ EXPECTED_IMPACT_JOB = """
 """.replace("__DOLLAR__", "$")
 
 
+# The current Buildroot Owner branch retains its lightweight contract job.
+# Adding main's exact impact classifier must not delete that job or trigger
+# expensive Creator builds for draft PRs.
+BUILD_GUARD_OLD = (
+    "\n  build-and-publish:\n"
+    "    needs: owner-dev-contract\n"
+    "    # Draft PRs use fast contracts; full USB/QEMU only for a release candidate.\n"
+    "    # workflow_dispatch and main push remain explicit/full delivery entrypoints.\n"
+    "    if: github.event_name != 'pull_request' || !github.event.pull_request.draft\n"
+)
+BUILD_GUARD_NEW = (
+    "\n  build-and-publish:\n"
+    "    needs: [owner-dev-contract, impact]\n"
+    "    # Draft PRs use fast contracts; full USB/QEMU only for a release candidate.\n"
+    "    # workflow_dispatch and main push remain explicit/full delivery entrypoints.\n"
+    "    if: needs.impact.outputs.required == 'true' && (github.event_name != 'pull_request' || !github.event.pull_request.draft)\n"
+)
+
 def _git_show(sha, path, root):
     raw = subprocess.run(["git", "-C", str(root), "show", f"{sha}:{path}"],
                          check=True, capture_output=True, timeout=20).stdout
@@ -252,17 +270,15 @@ def workflow_trigger_only(base, head, *, root=ROOT):
             return False
         if old_body != body:
             start = body.find("\n  impact:\n")
-            end = body.find("\n  build-and-publish:\n", start)
+            end = body.find("\n  owner-dev-contract:\n", start)
             if start < 0 or end < 0 or "\n  impact:\n" in old_body:
                 return False
             if body[start:end] != EXPECTED_IMPACT_JOB.rstrip("\n"):
                 return False
             reduced = body[:start] + body[end:]
-            guard = ("\n  build-and-publish:\n    needs: impact\n"
-                     "    if: needs.impact.outputs.required == 'true'\n")
-            if reduced.count(guard) != 1:
+            if reduced.count(BUILD_GUARD_NEW) != 1:
                 return False
-            if reduced.replace(guard, "\n  build-and-publish:\n") != old_body:
+            if reduced.replace(BUILD_GUARD_NEW, BUILD_GUARD_OLD) != old_body:
                 return False
         if any(p not in push for p in REQUIRED_PUSH) or any(p not in pr for p in REQUIRED_PR):
             return False
@@ -306,7 +322,7 @@ def verified_creator_freshness_wiring_only(base, head, *, root=ROOT):
             ),
             (
                 """          esac
-  build-and-publish:""",
+  owner-dev-contract:""",
                 r"""          esac
       # On a queued main push, avoid an expensive build that is already
       # obsolete. PR proofs and explicit manual dispatch remain unaffected.
@@ -319,7 +335,7 @@ def verified_creator_freshness_wiring_only(base, head, *, root=ROOT):
           set -euo pipefail
           python3 tools/ci/creator_owner_publish_freshness.py \
             --source "$ORDAX_SOURCE_SHA" --github-output "$GITHUB_OUTPUT"
-  build-and-publish:""",
+  owner-dev-contract:""",
             ),
             (
                 """          repo='ordaxsystems/ordax-os'

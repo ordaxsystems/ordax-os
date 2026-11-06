@@ -43,10 +43,15 @@ class StableHardwareBaselineContractTests(unittest.TestCase):
         self.assertIn("iwlmvm", expected_modules)
         self.assertNotIn("iwlmvm", coldplug_modules)
 
-        self.assertEqual(
-            [package for package in source["packages"] if package.startswith("linux-firmware-")],
-            wifi["firmware_packages"],
-        )
+        fragment = (ROOT / "bootstrap/independent-base/configs/wifi-hardware.fragment").read_text(encoding="utf-8")
+        for flag in (
+            "BR2_PACKAGE_LINUX_FIRMWARE=y",
+            "BR2_PACKAGE_LINUX_FIRMWARE_IWLWIFI_22000=y",
+            "BR2_PACKAGE_LINUX_FIRMWARE_RTL_81XX=y",
+            "BR2_PACKAGE_LINUX_FIRMWARE_MEDIATEK_MT76X2E=y",
+            "BR2_PACKAGE_LINUX_FIRMWARE_ATHEROS_9271=y",
+        ):
+            self.assertIn(flag, fragment)
 
     def test_wifi_baseline_modules_are_modular_not_boot_critical_builtins(self):
         matrix = self.load_json(MATRIX)
@@ -77,15 +82,14 @@ class StableHardwareBaselineContractTests(unittest.TestCase):
         self.assertTrue(extension["known_good_and_rollback_required"])
         self.assertFalse(extension["driver_pack_presence_is_support_claim"])
 
-    def test_stable_base_size_and_package_lock_remain_fail_closed(self):
+    def test_stable_base_size_and_buildroot_only_source_remain_fail_closed(self):
         source = self.load_json(SOURCE)
         self.assertLessEqual(source["rootfs"]["maximum_unique_regular_bytes"], 256 * 1024 * 1024)
-        self.assertTrue(source["apk_package_versions_pinned"])
-        self.assertEqual(
-            source["apk_package_lock_count"],
-            len(source["apk_package_lock"]),
-        )
-        self.assertTrue(set(source["packages"]).issubset(source["apk_package_lock"]))
+        self.assertEqual(source["base_producer"]["entrypoint"], "bootstrap/independent-base/build.py")
+        self.assertEqual(source["base_producer"]["profile"], "stable-mvp")
+        self.assertFalse(source["base_producer"]["package_manager_in_runtime_allowed"])
+        self.assertFalse(source["base_producer"]["signed_release_equivalence_proven"])
+        self.assertNotIn("apk_package_lock", source)
 
 
 if __name__ == "__main__":

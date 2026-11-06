@@ -29,6 +29,21 @@ class PortableV4RealMaterializationContractTests(unittest.TestCase):
         self.assertNotIn("/dev/sd", step)
         self.assertNotIn("physical target", step.lower())
 
+    def test_real_host_inference_remains_but_alpine_chroot_is_retired(self):
+        workflow = WORKFLOW.read_text(encoding="utf-8")
+        self.assertIn("Mount candidate read-only and prove real local inference", workflow)
+        self.assertIn("LOCAL_AI_REAL_INFERENCE=PASS", workflow)
+        self.assertIn("LOCAL_AI_UNAUTHENTICATED_COMPLETION=DENIED", workflow)
+        self.assertIn("LOCAL_AI_LOOPBACK_ONLY=PASS", workflow)
+        self.assertIn("bootstrap/local-ai-runtime/prove_stream.py", workflow)
+        self.assertIn("Prove signed v4 materialization with real local AI bytes", workflow)
+        self.assertNotIn("alpine-minirootfs", workflow)
+        self.assertNotIn("bootstrap/base/alpine_core.py", workflow)
+        self.assertNotIn("sudo chroot", workflow)
+        self.assertNotIn("LOCAL_AI_ALPINE_", workflow)
+        self.assertNotIn("alpine-health.json", workflow)
+        self.assertNotIn("alpine-completion.json", workflow)
+
     def test_https_transport_is_local_and_ephemeral(self):
         text = WORKFLOW.read_text(encoding="utf-8")
         self.assertIn('https://127.0.0.1:18443/release-envelope-v4.json', text)

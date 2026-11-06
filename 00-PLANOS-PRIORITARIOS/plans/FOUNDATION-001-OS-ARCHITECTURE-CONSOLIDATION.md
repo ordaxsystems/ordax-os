@@ -338,7 +338,7 @@ A autorização física/trust/EFI é controlada exclusivamente por seus contrato
 
 **Fora desta janela:** a PR histórica Creator #2000, USB/QEMU, Buildroot, Kernel/Native físico e gates de gravação continuam sob seus owners e o `ROADMAP.md`, sem builds ou investigações físicas por impulso deste documento. Os checkpoints abaixo são **históricos de 2026-10-23**, não comandos atuais de execução; seus status devem ser revalidados antes de qualquer retomada.
 
-**Handoff para o chat/agente “remover pendências”:** "Leia `AGENTS.md`, `00-PLANOS-PRIORITARIOS/README.md`, `ROADMAP.md`, `REGISTRY.md` e este `FOUNDATION-001`. Siga primeiro a diretriz de 2026-11-01. Faça inventário real dos oito repos, reconcilie owners e locks, conclua cutovers sem código legado, teste o Desktop Windows instalado e atualize cada owner canônico com evidência. Não crie repos/SSOT/bridges/updaters paralelos, não mantenha implementações obsoletas e não reabra USB/Creator/Native sem nova janela. Nunca confunda CI, instalação Windows e prova física USB." 
+**Handoff para o chat/agente “remover pendências”:** "Leia `AGENTS.md`, `00-PLANOS-PRIORITARIOS/README.md`, `ROADMAP.md`, `REGISTRY.md` e este `FOUNDATION-001`. Siga primeiro a diretriz de 2026-11-01. Faça inventário real dos oito repos, reconcilie owners e locks, conclua cutovers sem código legado, teste o Desktop Windows instalado e atualize cada owner canônico com evidência. Não crie repos/SSOT/bridges/updaters paralelos, não mantenha implementações obsoletas e não reabra USB/Creator/Native sem nova janela. Nunca confunda CI, instalação Windows e prova física USB."
 
 ## Checkpoint de execução da Fase 1 — 2026-10-23
 

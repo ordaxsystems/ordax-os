@@ -1,0 +1,201 @@
+from __future__ import annotations
+
+from pathlib import Path
+import unittest
+
+
+ROOT = Path(__file__).resolve().parents[1]
+WORKFLOW = ROOT / ".github/workflows/independent-base-experiment.yml"
+
+
+class IndependentHeavyWorkflowTests(unittest.TestCase):
+    def text(self) -> str:
+        return WORKFLOW.read_text(encoding="utf-8")
+
+    def test_owner_base_reuse_is_profile_bound_and_verified(self) -> None:
+        text = self.text()
+        restore = text.index("- name: Restore verified independent base component")
+        build = text.index("- name: Build rootfs from official Buildroot source")
+        verify = text.index("- name: Verify independent base component and exact integration binding")
+        save = text.index("- name: Save verified independent base component")
+        bind = text.index("- name: Bind verified kernel modules to Independent Base")
+        prove = text.index("- name: Prove Owner rootfs against the real Dev Channel consumer")
+        self.assertLess(bind, restore)
+        self.assertLess(restore, build)
+        self.assertLess(build, verify)
+        self.assertLess(verify, save)
+        self.assertLess(save, prove)
+        self.assertEqual(sum(line.strip().startswith("python3 bootstrap/independent-base/build.py build ") for line in text.splitlines()), 1)
+        cache_restore = text[restore:build]
+        self.assertIn("if: env.ORDAX_INDEPENDENT_PROFILE == 'minimal'", cache_restore)
+        build_step = text[build:text.index("- name: Save Buildroot source/package download cache", build)]
+        self.assertIn("steps.independent-base-cache.outputs.cache-hit != 'true'", build_step)
+        self.assertIn("steps.independent-owner-cache.outputs.cache-hit != 'true'", build_step)
+        self.assertIn("env.ORDAX_INDEPENDENT_PROFILE == 'owner-development'", cache_restore)
+        self.assertIn("independent-base-owner-", cache_restore)
+        verify_step = text[verify:save]
+        self.assertIn('if [ "$ORDAX_INDEPENDENT_PROFILE" = minimal ]; then', verify_step)
+        self.assertIn("portable_component_cache.py verify", verify_step)
+        self.assertIn("--component independent-base-owner", verify_step)
+        self.assertIn("ORDAX_OWNER_BASE_CACHE_HIT=", verify_step)
+        save_step = text[save:prove]
+        self.assertIn("env.ORDAX_INDEPENDENT_PROFILE == 'minimal'", save_step)
+        self.assertIn("Save verified Owner Buildroot component", save_step)
+        self.assertIn("--reuse-receipt", text[text.index("- name: Prove Owner rootfs against") :])
+        self.assertIn("tests.test_independent_rootfs_inventory", text)
+
+    def test_stable_candidate_reuses_verified_kernel_and_separate_base_cache(self) -> None:
+        text = self.text()
+        self.assertIn("- stable-mvp", text)
+        self.assertIn("minimal|owner-development|stable-mvp", text)
+        self.assertIn("Require a previously verified kernel for Stable candidate", text)
+        self.assertIn("Stable candidate must reuse an existing verified kernel", text)
+        kernel_build = text[
+            text.index("- name: Build canonical OrdaX kernel on verified cache miss"):
+            text.index("- name: Verify kernel component and exact integration binding")
+        ]
+        self.assertIn("env.ORDAX_INDEPENDENT_PROFILE != 'stable-mvp'", kernel_build)
+        self.assertIn("contains(github.event.head_commit.message, '[stable-mvp-bootstrap-kernel]')", kernel_build)
+        self.assertIn("github.ref == 'refs/heads/integration/dev-usb-buildroot-surface-20261024'", kernel_build)
+        self.assertIn("ORDAX_EXPLICIT_STABLE_KERNEL_BOOTSTRAP", text)
+        self.assertIn("if [ \"$ORDAX_EXPLICIT_STABLE_KERNEL_BOOTSTRAP\" != true ]; then", text)
+        self.assertIn("ORDAX_EXPLICIT_STABLE_KERNEL_CACHE_SEED=AUTHORIZED", text)
+        self.assertEqual(text.count("python3 bootstrap/kernel/build.py build"), 1)
+        self.assertIn("--component kernel", text)
+        self.assertIn("--cache-hit \"$cache_hit\"", text)
+        restore = text[
+            text.index("- name: Restore verified Stable Buildroot component"):
+            text.index("- name: Build rootfs from official Buildroot source")
+        ]
+        self.assertIn("independent-base-stable-", restore)
+        self.assertIn("independent_base_stable", restore)
+        build_step = text[
+            text.index("- name: Build rootfs from official Buildroot source"):
+            text.index("- name: Save Buildroot source/package download cache")
+        ]
+        self.assertIn("steps.independent-stable-cache.outputs.cache-hit != 'true'", build_step)
+        verify = text[
+            text.index("- name: Verify independent base component and exact integration binding"):
+            text.index("- name: Save verified independent base component")
+        ]
+        self.assertIn("--component independent-base-stable", verify)
+        self.assertIn('elif [ "$ORDAX_INDEPENDENT_PROFILE" = owner-development ]; then', verify)
+        self.assertIn('elif [ "$ORDAX_INDEPENDENT_PROFILE" = stable-mvp ]; then', verify)
+        self.assertIn("independent-stable-component-reuse.json", verify)
+        self.assertIn("Save verified Stable Buildroot component", text)
+        self.assertIn("independent-stable-component-reuse.json", text[text.index("- name: Upload candidate/provenance"):])
+
+    def test_owner_profile_is_explicit_and_dispatchable(self) -> None:
+        text = self.text()
+        self.assertIn("workflow_dispatch:", text)
+        self.assertIn("profile:", text)
+        self.assertIn("- owner-development", text)
+        self.assertIn('elif [ "$EVENT_NAME" = pull_request ]; then', text)
+        self.assertNotIn('PR_HEAD_REF" = platform/remove-alpine', text)
+        self.assertIn("profile=owner-development", text)
+        self.assertIn("ORDAX_INDEPENDENT_PROFILE", text)
+
+    def test_push_and_dispatched_qemu_have_isolated_concurrency(self) -> None:
+        text = self.text()
+        group = next(line for line in text.splitlines() if line.startswith("  group:"))
+        self.assertIn("${{ github.event_name }}", group)
+        self.assertIn("${{ inputs.profile || 'none' }}", group)
+        self.assertIn("${{ github.event.pull_request.number || github.ref }}", group)
+        self.assertIn("  cancel-in-progress: false", text)
+        # All release-candidate heavy jobs for the same PR/ref serialize through
+        # one queue; a commit-SHA group would allow overlapping Buildroot jobs.
+        self.assertIn("ordax-surface-producer-${{ github.event.pull_request.number || github.ref }}", text)
+        self.assertIn("      queue: max", text)
+        self.assertNotIn("ordax-surface-producer-${{ github.event.pull_request.head.sha || github.sha }}", text)
+        self.assertIn("needs: independent-base-contract", text)
+        # Heavy proof requires dispatch, a ready PR, or exact migration-branch
+        # opt-in marker; draft PRs remain contract-only.
+        self.assertIn("github.event_name == 'workflow_dispatch'", text)
+        self.assertIn("github.event_name == 'pull_request' && !github.event.pull_request.draft", text)
+        self.assertEqual(text.count("contains(github.event.head_commit.message, '[stable-mvp-proof]')"), 2)
+        self.assertIn("branches: ['platform/remove-alpine', 'integration/dev-usb-buildroot-surface-20261024']", text)
+        self.assertIn("if: ${{ github.event_name != 'push' || github.ref == 'refs/heads/platform/remove-alpine'", text)
+        self.assertIn("github.ref == 'refs/heads/integration/dev-usb-buildroot-surface-20261024'", text)
+        self.assertIn('elif [ "$EVENT_NAME" = push ] && [ "$GITHUB_REF" = refs/heads/integration/dev-usb-buildroot-surface-20261024 ]; then', text)
+        self.assertIn("profile=stable-mvp", text)
+        self.assertIn("Stable candidate must reuse an existing verified kernel; no recompilation authorized", text)
+        self.assertNotIn("if: github.event_name != 'push'", text)
+        self.assertIn("github.event_name == 'push' && github.ref == 'refs/heads/platform/remove-alpine'", text)
+        self.assertIn("github.event_name == 'pull_request' && github.base_ref == 'platform/remove-alpine'", text)
+
+    def test_verified_kernel_precedes_rootfs_consumer_proof_and_qemu(self) -> None:
+        text = self.text()
+        verify = text.index("- name: Verify kernel component and exact integration binding")
+        bind = text.index("- name: Bind verified kernel modules to Independent Base")
+        rootfs = text.index("- name: Build rootfs from official Buildroot source")
+        consumer = text.index("- name: Prove Owner rootfs against the real Dev Channel consumer")
+        qemu = text.index("- name: QEMU real kernel, EROFS and ext4 persistence/recovery")
+        self.assertLess(verify, bind)
+        self.assertLess(bind, rootfs)
+        self.assertLess(rootfs, consumer)
+        self.assertLess(consumer, qemu)
+        self.assertEqual(text.count("python3 bootstrap/kernel/build.py build"), 1)
+
+    def test_module_binding_uses_exact_canonical_kernel_artifact(self) -> None:
+        text = self.text()
+        self.assertIn("kernel-modules-$kernel_version.tar", text)
+        self.assertIn("ORDAX_KERNEL_MODULES_ARCHIVE", text)
+        self.assertIn("ORDAX_KERNEL_MODULES_RECEIPT", text)
+        self.assertIn("kernel-module-payload.json", text)
+        self.assertIn('python3 -c \'import json; from pathlib import Path;', text)
+        self.assertNotIn("<<'PY'", text)
+
+    def test_owner_receipt_paths_are_explicit_and_external(self) -> None:
+        text = self.text()
+        self.assertIn("ORDAX_KERNEL_MODULES_RECEIPT", text)
+        self.assertIn("ORDAX_FIRMWARE_COVERAGE_RECEIPT", text)
+        # Receipt paths are deliberately assembled from a validated,
+        # non-symlink external root.  Require this binding rather than the
+        # obsolete literal paths, which the safer workflow does not emit.
+        binding = text[
+            text.index("- name: Bind verified kernel modules to Independent Base"):
+            text.index("- name: Restore verified independent base component")
+        ]
+        self.assertIn('receipt_root="$RUNNER_TEMP/ordax-independent"', binding)
+        self.assertIn('test ! -L "$receipt_root"', binding)
+        self.assertIn('install -d -m 0700 -- "$receipt_root"', binding)
+        self.assertIn(
+            '"$receipt_root/kernel-module-payload.json" >> "$GITHUB_ENV"',
+            binding,
+        )
+        self.assertIn(
+            '"$receipt_root/firmware-coverage.json" >> "$GITHUB_ENV"',
+            binding,
+        )
+
+    def test_rootfs_build_and_verify_use_same_profile(self) -> None:
+        text = self.text()
+        self.assertGreaterEqual(
+            text.count('--profile "$ORDAX_INDEPENDENT_PROFILE"'),
+            2,
+        )
+
+    def test_owner_rootfs_is_proved_by_real_dev_channel_consumer_without_publication(self) -> None:
+        text = self.text()
+        self.assertIn("tools/dev-base-channel/prove_independent_rootfs.py", text)
+        self.assertIn('if: env.ORDAX_INDEPENDENT_PROFILE == \'owner-development\'', text)
+        self.assertIn('--rootfs "$RUNNER_TEMP/ordax-independent/rootfs.tar"', text)
+        self.assertIn('--provenance "$RUNNER_TEMP/ordax-independent/provenance.json"', text)
+        self.assertIn('--expected-commit "$ORDAX_SOURCE_COMMIT"', text)
+        self.assertIn("dev-channel-rootfs-compatibility.json", text)
+        self.assertNotIn("dev-base-channel/build.py publish", text)
+        self.assertNotIn("publish-channel", text)
+
+    def test_evidence_upload_includes_owner_hardware_and_consumer_receipts(self) -> None:
+        text = self.text()
+        self.assertIn("kernel-module-payload.json", text)
+        self.assertIn("firmware-coverage.json", text)
+        self.assertIn("dev-channel-rootfs-compatibility.json", text)
+        self.assertIn("kernel-component-reuse.json", text)
+        self.assertIn("provenance.json", text)
+        upload = text[text.index("- name: Upload candidate/provenance and observed QEMU result") :]
+        self.assertNotIn("/rootfs.tar", upload)
+
+
+if __name__ == "__main__":
+    unittest.main()

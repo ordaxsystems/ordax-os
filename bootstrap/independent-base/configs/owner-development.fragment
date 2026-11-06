@@ -1,0 +1,7 @@
+# Additional Owner/Development-only capabilities, composed with the
+# canonical wifi-hardware.fragment by the single Independent Base builder.
+# Stable/MVP must never inherit Git or development helpers.
+BR2_PACKAGE_GIT=y
+
+# Clock/diagnostic applets are needed by the canonical Dev acquisition flow.
+BR2_PACKAGE_BUSYBOX_CONFIG_FRAGMENT_FILES="$(BR2_EXTERNAL_ORDAX_MINIMAL_PATH)/configs/portable-handoff.busybox.fragment $(BR2_EXTERNAL_ORDAX_MINIMAL_PATH)/configs/owner-development.busybox.fragment"

@@ -141,18 +141,23 @@ IMPACT_POLICY_LIGHT_EXACT = {
     ".github/workflows/portable-qemu-impact-contract.yml",
     "tools/ci/portable_qemu_impact.py",
     "tests/test_portable_qemu_impact.py",
+    "tests/test_independent_surface_portable_impact.py",
     "tests/test_heavy_workflow_path_scope.py",
     "tests/test_native_memory_integration.py",
     "tests/test_surface_boot_screen.py",
     "tests/test_power_actions.mjs",
     "tests/test_update_presentation_pinned.mjs",
     "tests/test_portable_qemu_high_level_light.py",
-    # Source-only Intelligence composition uses isolated Native/Owner/release
-    # gates. Kernel, rootfs and real Native boot changes still remain heavy.
+    # Source-only Intelligence composition remains covered by focused gates.
     "tools/intelligence-source/compose.py",
     "tests/test_native_release_intelligence_source.py",
     ".github/workflows/local-ai-runtime-candidate.yml",
 }
+# Dedicated producer owns expensive independent Surface byte validation.
+INDEPENDENT_SURFACE_POLICY_LIGHT_EXACT = {
+    ".github/workflows/independent-surface-runtime.yml",
+}
+
 PRODUCT_DEVICE_PRESENCE_LIGHT_EXACT = {
     "docs/contracts/product-device-presence.json",
     "system/services/device-agent/product-presence-report.sh",
@@ -462,10 +467,32 @@ def classify_paths(
     if not changed:
         return ImpactResult(False, ("no-changes",), changed)
 
-    reachable, graph_errors = native_startup_import_graph(root)
-    if graph_errors:
-        return ImpactResult(True, tuple(f"runtime-graph:{item}" for item in graph_errors), changed)
+    # Only an authenticated visual pin plus isolated impact-policy metadata
+    # can be classified without a Native checkout. Any actual boot/runtime
+    # change still fails closed when the Native source tree is incomplete.
+    verified_visual_metadata_only = (
+        surface_visual_lock_verified
+        and SURFACE_VISUAL_SOURCE_LOCK in changed
+        and all(
+            path == SURFACE_VISUAL_SOURCE_LOCK or path in IMPACT_POLICY_LIGHT_EXACT
+            for path in changed
+        )
+    )
+    if not (root / NATIVE_COMPOSITION_MAIN).is_file() and not verified_visual_metadata_only:
+        # A known boot-sensitive path has an exact fail-closed reason, even
+        # before graph discovery. Unknown paths fail closed as unresolved.
+        critical = tuple(
+            f"heavy-exact:{path}" for path in changed if path in ALWAYS_HEAVY_EXACT
+        )
+        return ImpactResult(
+            True, critical or ("runtime-graph:missing-native-entrypoint",), changed
+        )
 
+    # Resolve the Native import graph only for a path that needs graph
+    # classification. Producer-neutral source/docs changes must not trigger
+    # heavy QEMU merely because the external Surface UI is not hydrated.
+    # Unknown Native paths still fail closed if graph resolution is incomplete.
+    reachable: frozenset[str] | None = None
     reasons: list[str] = []
     for path in changed:
         # Verified visual-source lock updates do not change kernel, boot or
@@ -483,6 +510,19 @@ def classify_paths(
             continue
         if path.startswith(ALWAYS_HEAVY_PREFIXES):
             reasons.append(f"heavy-prefix:{path}")
+            continue
+        # The Buildroot source pin changes candidate bytes and must remain heavy.
+        if path == "bootstrap/independent-base/source.json":
+            reasons.append(f"independent-base-source-contract:{path}")
+            continue
+        # The dedicated Surface producer verifies EROFS bytes without a
+        # redundant generic QEMU rebuild. Its build.py is different: changes
+        # to the Linux runtime builder alter boot-coupled materialization and
+        # must retain the Portable/QEMU gate even in a Windows-only delta.
+        if (path.startswith("bootstrap/surface-runtime/")
+                and path != "bootstrap/surface-runtime/build.py"):
+            continue
+        if path in INDEPENDENT_SURFACE_POLICY_LIGHT_EXACT:
             continue
         if path in WINDOWS_DESKTOP_LIGHT_EXACT:
             continue
@@ -506,10 +546,16 @@ def classify_paths(
             or path in ACCOUNT_SPACE_SEMANTICS_LIGHT_EXACT
         ):
             continue
-        # Web composition is owned by the browser product and its focused
-        # Surface Web / Chromium gates. Native-reachable Web sources fail closed
-        # instead of silently bypassing Portable boot proof.
+        # Browser-only composition remains a Web/Chromium owner, unless a
+        # module becomes reachable from Native startup. Keep the branch's lazy
+        # graph-resolution contract and fail closed on graph errors.
         if path.startswith(WEB_COMPOSITION_LIGHT_PREFIX):
+            if reachable is None:
+                reachable, graph_errors = native_startup_import_graph(root)
+                if graph_errors:
+                    return ImpactResult(
+                        True, tuple(f"runtime-graph:{item}" for item in graph_errors), changed
+                    )
             if path in reachable:
                 reasons.append(f"native-runtime-reachable:{path}")
             continue
@@ -525,6 +571,10 @@ def classify_paths(
         # reserved for explicit boot/host-coupled owners above and unknown roots.
         if path.startswith(HIGH_LEVEL_LIGHT_PREFIXES):
             continue
+        if reachable is None:
+            reachable, graph_errors = native_startup_import_graph(root)
+            if graph_errors:
+                return ImpactResult(True, tuple(f"runtime-graph:{item}" for item in graph_errors), changed)
         if path in reachable:
             reasons.append(f"native-runtime-reachable:{path}")
             continue

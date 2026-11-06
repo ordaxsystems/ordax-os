@@ -1,4 +1,3 @@
-import ast
 import json
 import re
 import unittest
@@ -7,28 +6,11 @@ from pathlib import Path
 ROOT = Path(__file__).resolve().parents[1]
 INVENTORY_PATH = ROOT / "platform" / "compliance" / "declared-inputs.json"
 KERNEL_SOURCE = ROOT / "bootstrap" / "kernel" / "source.json"
-DEV_CORE = ROOT / "bootstrap" / "base" / "alpine_core.py"
-BASE_RUNTIME_POLICY = ROOT / "bootstrap" / "base" / "runtime_policy.py"
 DEV_BUILD = ROOT / "bootstrap" / "dev-base" / "build.py"
 STABLE_SOURCE = ROOT / "bootstrap" / "stable-base" / "source.json"
 INDEPENDENT_SOURCE = ROOT / "bootstrap" / "independent-base" / "source.json"
 INDEPENDENT_DEFCONFIG = ROOT / "bootstrap" / "independent-base" / "configs" / "ordax_minimal_defconfig"
 SURFACE = ROOT / "system" / "surface" / "bin" / "ordax-surface"
-
-
-def assignment_literals(path: Path):
-    tree = ast.parse(path.read_text(encoding="utf-8"))
-    values = {}
-    for node in tree.body:
-        if not isinstance(node, ast.Assign) or len(node.targets) != 1:
-            continue
-        target = node.targets[0]
-        if isinstance(target, ast.Name):
-            try:
-                values[target.id] = ast.literal_eval(node.value)
-            except (ValueError, TypeError):
-                pass
-    return values
 
 
 class ThirdPartyInventoryTests(unittest.TestCase):
@@ -53,32 +35,16 @@ class ThirdPartyInventoryTests(unittest.TestCase):
         for duplicated in ("version", "archive_url", "archive_sha256"):
             self.assertNotIn(duplicated, item)
 
-    def test_development_base_input_matches_selected_packages(self):
-        core = assignment_literals(DEV_CORE)
-        runtime = assignment_literals(BASE_RUNTIME_POLICY)
-        item = self.by_id["alpine-development-base"]
-        self.assertEqual(item["version"], core["ALPINE_VERSION"])
-        self.assertEqual(item["branch"], core["ALPINE_BRANCH"])
-        self.assertEqual(item["arch"], core["ARCH"])
-        self.assertEqual(item["packages"], core["PACKAGES"])
-        self.assertEqual(
-            item["build_only_packages"],
-            list(runtime["BUILD_ONLY_PACKAGES"]),
-        )
-
-    def test_stable_mvp_base_input_matches_candidate_contract(self):
+    def test_alpine_inputs_are_retired_without_removing_buildroot_or_wine(self):
+        self.assertNotIn("alpine-development-base", self.by_id)
+        self.assertNotIn("alpine-stable-mvp-base", self.by_id)
         source = json.loads(STABLE_SOURCE.read_text(encoding="utf-8"))
-        item = self.by_id["alpine-stable-mvp-base"]
-        self.assertEqual(item["version"], source["alpine"]["version"])
-        self.assertEqual(item["branch"], source["alpine"]["branch"])
-        self.assertEqual(item["arch"], source["alpine"]["arch"])
-        self.assertEqual(item["packages"], source["packages"])
-        self.assertEqual(item["build_only_packages"], source["build_only_packages"])
-        self.assertNotIn("git", item["packages"])
-        self.assertEqual(
-            item["promotion_status"],
-            "blocked-until-source-and-package-locks",
-        )
+        self.assertNotIn("alpine", source)
+        self.assertNotIn("apk_package_lock", source)
+        self.assertEqual(source["base_producer"]["profile"], "stable-mvp")
+        self.assertEqual(source["base_producer"]["entrypoint"], "bootstrap/independent-base/build.py")
+        self.assertIn("independent-buildroot-base-candidate", self.by_id)
+        self.assertIn("wine-windows-compat-runtime-source-candidate", self.by_id)
 
     def test_independent_base_input_matches_pinned_buildroot_profile(self):
         source = json.loads(INDEPENDENT_SOURCE.read_text(encoding="utf-8"))
@@ -110,22 +76,34 @@ class ThirdPartyInventoryTests(unittest.TestCase):
         for duplicated in ("version", "url", "sha256", "packages"):
             self.assertNotIn(duplicated, item)
 
-    def test_native_surface_runtime_matches_apk_request(self):
-        text = SURFACE.read_text(encoding="utf-8")
-        item = self.by_id["alpine-native-surface-runtime"]
-        self.assertEqual(item["source_authority"], "system/surface/runtime/packages.txt")
+    def test_native_surface_runtime_matches_canonical_buildroot_source(self):
+        item = self.by_id["buildroot-native-surface-runtime"]
+        self.assertEqual(item["kind"], "immutable-runtime-erofs")
+        self.assertEqual(item["source_authority"], "bootstrap/surface-runtime/source.json")
         self.assertNotIn("packages", item)
-        packages = (ROOT / item["source_authority"]).read_text().splitlines()
+        self.assertNotIn("branch", item)
+        source = json.loads((ROOT / item["source_authority"]).read_text(encoding="utf-8"))
+        profile = (ROOT / "bootstrap/surface-runtime/configs/ordax_surface_defconfig").read_text()
+        self.assertEqual(source["$schema"], "prototype-ordax.surface-runtime-source/1")
+        self.assertEqual(item["promotion_status"], source["status"])
+        self.assertEqual(source["libc"], "musl")
+        self.assertFalse(source["package_manager_in_runtime_allowed"])
+        self.assertEqual(source["buildroot_source_contract"], "bootstrap/independent-base/source.json")
+        self.assertEqual(source["artifact"]["name"], "native-surface-runtime.erofs")
+        self.assertFalse(source["artifact"]["physical_artifact_authorized"])
+        self.assertFalse(source["artifact"]["stable_promotion_authorized"])
+        self.assertIn("BR2_PACKAGE_WEBKITGTK=y", profile)
+        self.assertIn("BR2_PACKAGE_CAGE=y", profile)
+        self.assertIn("BR2_PACKAGE_PIPEWIRE=y", profile)
+        self.assertIn("BR2_PACKAGE_GST1_LIBAV=y", profile)
         self.assertTrue({
-            "webkit2gtk-4.1", "gst-plugins-good", "gst-libav", "pipewire-pulse",
-            "pipewire-alsa", "wireplumber", "gst-plugin-pipewire", "dbus",
-        }.issubset(packages))
-        self.assertIn("packages=$(runtime_packages)", text)
-        source = json.loads((ROOT / "bootstrap/surface-runtime/source.json").read_text())
-        self.assertEqual(source["packages_file"], item["source_authority"])
-        self.assertTrue(set(packages).issubset(source["apk_package_lock"]))
-        self.assertIn("https://dl-cdn.alpinelinux.org/alpine/v3.22/main", text)
-        self.assertIn("https://dl-cdn.alpinelinux.org/alpine/v3.22/community", text)
+            "usr/bin/cage", "usr/bin/pipewire", "usr/lib/gstreamer-1.0/libgstlibav.so",
+        }.issubset(source["required_runtime_paths"]))
+        text = SURFACE.read_text(encoding="utf-8")
+        self.assertNotIn("runtime_packages() {", text)
+        self.assertNotIn("packages=$(runtime_packages)", text)
+        self.assertNotIn("/sbin/apk", text)
+        self.assertIn("VERIFIED_RUNTIME_MODE", text)
 
     def test_unresolved_license_records_do_not_invent_spdx_ids(self):
         for item in self.inventory["inputs"]:

@@ -136,12 +136,6 @@
         "mt76x2u",
         "ath9k_htc"
       ],
-      "firmware_packages": [
-        "linux-firmware-other",
-        "linux-firmware-rtlwifi",
-        "linux-firmware-mediatek",
-        "linux-firmware-ath9k_htc"
-      ],
       "claim_limit": "Presence of these modules/firmware does not claim every adapter in the corresponding vendor families is supported.",
       "coldplug_entrypoints": [
         "iwlwifi",

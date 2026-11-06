@@ -301,18 +301,24 @@ class PortableV2QEMUBootProofTests(unittest.TestCase):
         self.assertNotIn("liblzma-dev", before_ai)
 
     def test_independent_base_path_binds_verified_kernel_module_inputs(self):
-        independent = WORKFLOW.split("            independent)", 1)[1].split(
-            "            *)", 1
+        # The independent branch contains its own nested profile case. The
+        # previous broad "*)" split stopped at that inner case and silently
+        # omitted the real module-binding and Buildroot-verification commands.
+        independent = WORKFLOW.split("            independent)\n", 1)[1].split(
+            "            *)\n", 1
         )[0]
         for marker in (
             'module_archive="$work/kernel/kernel-modules-$ORDAX_KERNEL_VERSION.tar"',
             'base_out="$work/independent-base"',
+            'base_out="$RUNNER_TEMP/ordax-independent"',
             'test -f "$module_archive"',
             'test ! -L "$module_archive"',
             'export ORDAX_HOST_PYTHON="$(command -v python3)"',
             'export ORDAX_KERNEL_MODULES_ARCHIVE="$module_archive"',
-            'export ORDAX_KERNEL_MODULES_RECEIPT="$base_out/kernel-module-selection.json"',
+            'export ORDAX_KERNEL_MODULES_RECEIPT="$base_out/kernel-module-payload.json"',
             '--out "$base_out"',
+            'python3 bootstrap/independent-base/build.py verify',
+            'portable_component_cache.py verify',
         ):
             self.assertIn(marker, independent)
         self.assertNotIn("bootstrap/kernel/build.py build", independent)
@@ -324,10 +330,11 @@ class PortableV2QEMUBootProofTests(unittest.TestCase):
     def test_workflow_builds_signed_release_real_base_capsule_and_pinned_initramfs(self):
         for marker in (
             "bootstrap/kernel/build.py build",
-            "bootstrap/stable-base/build.py build",
+            "bootstrap/independent-base/build.py build",
             "bootstrap/portable-v2/capsule/build.py build",
             "tools/portable-release-image/build.py build",
-            "bootstrap/surface-runtime/build.py build",
+            "uses: ./.github/actions/prepare-verified-surface",
+            "independent_surface_component_cache.py verify",
             "--manifest-schema 4",
             "--runtime-artifact",
             "--runtime-artifact-url",
@@ -342,6 +349,14 @@ class PortableV2QEMUBootProofTests(unittest.TestCase):
             "bootstrap/portable-v2/qemu_boot.py",
         ):
             self.assertIn(marker, WORKFLOW)
+        self.assertNotIn("bootstrap/stable-base/build.py", WORKFLOW)
+        self.assertIn("default: independent", WORKFLOW)
+        self.assertIn("case \"$ORDAX_BASE_PROOF_SOURCE\" in independent) ;; *)", WORKFLOW)
+        self.assertIn("Build and verify canonical independent Buildroot base", WORKFLOW)
+        self.assertIn("Stable/MVP portable proof requires explicit dispatch", WORKFLOW)
+        self.assertIn("Prove invalid Ed25519 candidate, durable rollback and read-only rescue in QEMU", WORKFLOW)
+        self.assertIn("Boot signed Portable v4 on transitional Dev geometry in QEMU", WORKFLOW)
+        self.assertIn("(inputs.independent_base_profile || 'minimal') == 'stable-mvp'", WORKFLOW)
         direct = SCRIPT.read_text(encoding="utf-8")
         self.assertNotIn("OVMF", direct)
         self.assertIn("Boot portable-v2 candidate PID1 in QEMU", WORKFLOW)

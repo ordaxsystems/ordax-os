@@ -5,12 +5,12 @@ import re
 from types import SimpleNamespace
 import unittest
 
-HOST = Path(__file__).resolve().parents[1] / "system/surface/runtime/ordax_browser_host.py"
+HOST = Path(__file__).resolve().parents[1] / "system/surface/runtime/native_internet_navigation.py"
 
 
 def load_capture_method():
     tree = ast.parse(HOST.read_text(encoding="utf-8"))
-    host = next(n for n in tree.body if isinstance(n, ast.ClassDef) and n.name == "OrdaXBrowserHost")
+    host = next(n for n in tree.body if isinstance(n, ast.ClassDef) and n.name == "InternetNavigationHost")
     method = next(n for n in host.body if isinstance(n, ast.FunctionDef) and n.name == "capture_page_selection")
     cls = ast.ClassDef(name="TestHost", bases=[], keywords=[], body=[method], decorator_list=[])
     code = ast.fix_missing_locations(ast.Module(body=[cls], type_ignores=[]))

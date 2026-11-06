@@ -113,6 +113,75 @@ class KernelAuthenticationGateTests(unittest.TestCase):
         self.set_contract()
         self.assertEqual(self.load()["version"], "6.6.52")
 
+    def test_pinned_authentication_input_reuses_cache_without_network(self):
+        import io
+        import urllib.error
+        destination = Path(self.tmp.name) / "kernel.tar.sign"
+        with mock.patch.object(BUILDER.urllib.request, "urlopen", return_value=io.BytesIO(b"sig")) as request:
+            self.assertEqual(
+                BUILDER.download_authentication_input(
+                    "https://cdn.kernel.org/test.tar.sign", destination, max_bytes=1024
+                ), b"sig"
+            )
+        request.assert_called_once()
+        with mock.patch.object(BUILDER.urllib.request, "urlopen", side_effect=AssertionError("unexpected network")):
+            self.assertEqual(
+                BUILDER.download_authentication_input(
+                    "https://cdn.kernel.org/test.tar.sign", destination, max_bytes=1024
+                ), b"sig"
+            )
+        destination.unlink()
+        destination.symlink_to(Path(self.tmp.name) / "external")
+        with self.assertRaisesRegex(BUILDER.BuildError, "unsafe"):
+            BUILDER.download_authentication_input("https://cdn.kernel.org/test.tar.sign", destination, max_bytes=1024)
+
+    def test_transient_upstream_503_has_bounded_retry_and_no_unverified_fallback(self):
+        import io
+        import urllib.error
+        url = "https://cdn.kernel.org/test.tar.sign"
+        destination = Path(self.tmp.name) / "retriable.tar.sign"
+        failure = urllib.error.HTTPError(url, 503, "Service Unavailable", {}, None)
+        with mock.patch.object(
+            BUILDER.urllib.request, "urlopen",
+            side_effect=[failure, io.BytesIO(b"gpg-detached-signature")],
+        ) as upstream, mock.patch.object(BUILDER.time, "sleep") as pause:
+            got = BUILDER.download_authentication_input(url, destination, max_bytes=1024)
+        self.assertEqual(got, b"gpg-detached-signature")
+        self.assertEqual(upstream.call_count, 2)
+        pause.assert_called_once_with(1)
+        self.assertEqual(destination.read_bytes(), got)
+        self.assertFalse(destination.with_name(destination.name + ".part").exists())
+
+    def test_repeated_upstream_503_fails_closed_without_unsigned_cache(self):
+        import urllib.error
+        url = "https://cdn.kernel.org/test.tar.sign"
+        destination = Path(self.tmp.name) / "no-source.tar.sign"
+        failure = urllib.error.HTTPError(url, 503, "Service Unavailable", {}, None)
+        with mock.patch.object(BUILDER.urllib.request, "urlopen", side_effect=failure) as upstream, mock.patch.object(
+            BUILDER.time, "sleep"
+        ) as pause, self.assertRaisesRegex(BUILDER.BuildError, "download failed"):
+            BUILDER.download_authentication_input(url, destination, max_bytes=1024)
+        self.assertEqual(upstream.call_count, 3)
+        self.assertEqual(pause.call_count, 2)
+        self.assertFalse(destination.exists())
+
+    def test_authentication_input_does_not_retry_untrusted_404_or_oversize(self):
+        import io
+        import urllib.error
+        url = "https://cdn.kernel.org/test.tar.sign"
+        destination = Path(self.tmp.name) / "invalid.tar.sign"
+        with mock.patch.object(BUILDER.urllib.request, "urlopen", side_effect=urllib.error.HTTPError(
+            url, 404, "Not Found", {}, None
+        )) as upstream, mock.patch.object(BUILDER.time, "sleep") as pause, self.assertRaises(BUILDER.BuildError):
+            BUILDER.download_authentication_input(url, destination, max_bytes=1024)
+        upstream.assert_called_once()
+        pause.assert_not_called()
+        with mock.patch.object(BUILDER.urllib.request, "urlopen", return_value=io.BytesIO(b"x" * 1025)), self.assertRaisesRegex(
+            BUILDER.BuildError, "oversized"
+        ):
+            BUILDER.download_authentication_input(url, destination, max_bytes=1024)
+        self.assertFalse(destination.exists())
+
     def test_signed_source_accepts_base64_newline_only_after_real_verification(self):
         archive = Path(self.tmp.name) / f"linux-{VERSION}.tar.xz"
         archive.write_bytes(b"fake compressed source")
