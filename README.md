@@ -8,6 +8,8 @@ Repositório oficial e canônico do sistema operacional OrdaX em `ordaxsystems/o
 >
 > `washingtonmsdj/novo-ordax-os` permanece referência histórica, não uma segunda fonte de verdade ou destino de publicação.
 
+A política de numeração estrutural de OS, componentes e apps está em [docs/VERSION-GOVERNANCE.md](docs/VERSION-GOVERNANCE.md), validada por contrato e CI. O protótipo OS existente mantém sua identidade `0.1.0` até uma mudança de produto versionada; `alpha/beta/rc` são permitidos para versões futuras, sem conceder publicação.
+
 ## MVP e canais de produto
 
 O alvo de lançamento, a divisão **Owner/Development vs Stable/MVP**, o modelo de atualização sem Git para usuário final e os gates mínimos de produto estão documentados em [MVP.md](MVP.md). Leia esse arquivo antes de trabalhar em pendrive público, Creator, releases, site, conta ou lançamento.

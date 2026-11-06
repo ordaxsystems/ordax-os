@@ -1,0 +1,46 @@
+name: OrdaX Product Version Governance
+
+on:
+  pull_request:
+    branches: [main]
+  push:
+    branches: [main]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  os-version:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 8
+    steps:
+      - name: Checkout exact OS source and base history
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
+        with:
+          persist-credentials: false
+          fetch-depth: 0
+      - name: Confirm Node availability on standard Ubuntu runner
+        run: node --version
+      - name: Verify syntax of canonical OS version owner and gate
+        run: |
+          node --check system/contracts/component-manifest.mjs
+          node --check system/contracts/product-version-governance.mjs
+          node --check system/contracts/product-version.mjs
+          node --check tools/verify/product_version_changes.mjs
+      - name: Validate SemVer channels and non-publication policy
+        run: node --test tests/test_product_version_governance.mjs tests/test_product_version_changes.mjs tests/test_product_family.mjs
+      - name: Reject unversioned runtime changes and downgrades
+        env:
+          BASE_SHA: ${{ github.event.pull_request.base.sha || github.event.before }}
+        run: |
+          set -euo pipefail
+          if [[ "${BASE_SHA}" =~ ^[0-9a-f]{40}$ ]] && [[ ! "${BASE_SHA}" =~ ^0{40}$ ]]; then
+            node tools/verify/product_version_changes.mjs "${BASE_SHA}"
+          else
+            # First push/dispatch has no meaningful predecessor; still verify identity.
+            node tools/verify/product_version_changes.mjs
+          fi
+
+# This gate does NOT change version numbers, publish releases, approve USB,
+# activate app slots, sign artifacts or write to attached devices.
