@@ -115,7 +115,7 @@ class RuntimeComponentTrustPromotionTests(unittest.TestCase):
             "#!/bin/sh\n"
             "printf '%s\\n' "
             "'RUNTIME_COMPONENT_ENVELOPE_VERIFIED=YES' "
-            "'COMPONENT_ID=internet' "
+            "'COMPONENT_ID=local-ai-service' "
             "'COMPONENT_VERSION=0.0.0-trust-proof' "
             f"'SOURCE_COMMIT={source_commit}' "
             "'PENDING_HEALTH_REQUIRED=YES'\n",
@@ -139,13 +139,13 @@ class RuntimeComponentTrustPromotionTests(unittest.TestCase):
             "source_commit": SOURCE_COMMIT,
             "created_from_ci_recipe": "runtime-component/package/1",
             "component": {
-                "id": "internet",
+                "id": "local-ai-service",
                 "version": "0.0.0-trust-proof",
-                "release_mode": "component-slot",
+                "release_mode": "bundled",
                 "package_schema": "prototype-ordax.runtime-component-package/1",
             },
             "package": {
-                "name": "internet.zip",
+                "name": "local-ai-service.zip",
                 "sha256": "0" * 64,
                 "size": 1,
                 "manifest_sha256": "1" * 64,
