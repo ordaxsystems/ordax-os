@@ -295,10 +295,13 @@ class IndependentSurfaceRuntimeTests(unittest.TestCase):
         self.assertIn('echo "BR2_CCACHE_DIR=$cache_root/ordax-independent-surface-ccache"', resolver)
         self.assertIn('echo "BR2_DL_DIR=$cache_root/ordax-independent-surface-dl"', resolver)
         self.assertIn("ORDAX_VERIFIED_RUNNER_ENVIRONMENT: ${{ runner.environment }}", resolver)
-        self.assertEqual(resolver.count('if [ "${ORDAX_VERIFIED_RUNNER_ENVIRONMENT:-}" != "self-hosted" ]; then'), 2)
+        self.assertEqual(resolver.count('if [ "${ORDAX_VERIFIED_RUNNER_ENVIRONMENT:-}" != "self-hosted" ]; then'), 1)
+        producer_identity = resolver.split('if [ -n "${ORDAX_SURFACE_PRODUCER_ENVIRONMENT:-}" ]; then', 1)[1].split('else', 1)[0]
+        self.assertNotIn('ORDAX_VERIFIED_RUNNER_ENVIRONMENT', producer_identity)
+        self.assertIn('export ORDAX_COMPONENT_CACHE_ENVIRONMENT="$ORDAX_SURFACE_PRODUCER_ENVIRONMENT"', producer_identity)
         self.assertNotIn('${RUNNER_ENVIRONMENT:-}', resolver)
-        # Neither pinned identity nor persistent workspace may be accepted on
-        # an untrusted or unknown runner, regardless of env injection.
+        # Hosted consumers may read a pinned producer identity to verify exact
+        # cached bytes; only persistent compilation requires self-hosted trust.
         self.assertIn('if [ -n "${ORDAX_SURFACE_PRODUCER_ENVIRONMENT:-}" ]; then', resolver)
         self.assertIn('if [ -n "${ORDAX_SURFACE_PERSISTENT_WORK_ROOT:-}" ]; then', resolver)
         self.assertIn('if [ -z "${ORDAX_SURFACE_PRODUCER_ENVIRONMENT:-}" ]; then', resolver)
@@ -321,6 +324,16 @@ class IndependentSurfaceRuntimeTests(unittest.TestCase):
             section = workflow.split("      - name: " + name, 1)[1].split("\n      - name:", 1)[0]
             self.assertIn("env.ORDAX_SURFACE_PERSISTENT_WORK_ROOT == ''", section)
         self.assertIn('find "${BR2_DL_DIR:-$RUNNER_TEMP/ordax-independent-surface-dl}"', workflow)
+
+    def test_public_pr_cannot_select_private_persistent_surface_runner(self):
+        workflow = WORKFLOW_PATH.read_text(encoding="utf-8")
+        build = workflow.split("  buildroot-surface:", 1)[1].split("\n  portable-qemu:", 1)[0]
+        trusted = "github.event_name == 'workflow_dispatch' && github.ref == 'refs/heads/integration/dev-usb-buildroot-surface-20261024'"
+        self.assertIn("runs-on: ${{ " + trusted + " && vars.ORDAX_SURFACE_RUNNER_LABEL || 'ubuntu-24.04' }}", build)
+        self.assertIn("ORDAX_SURFACE_PERSISTENT_WORK_ROOT: ${{ " + trusted + " && vars.ORDAX_SURFACE_PERSISTENT_WORK_ROOT || '' }}", build)
+        self.assertIn("timeout-minutes: ${{ " + trusted + " && vars.ORDAX_SURFACE_RUNNER_LABEL != ''", build)
+        self.assertIn("ORDAX_SURFACE_PRODUCER_ENVIRONMENT: ${{ vars.ORDAX_SURFACE_PRODUCER_ENVIRONMENT }}", build)
+        self.assertIn("Require persistent producer on verified Surface artifact miss", build)
 
     def test_builder_exposes_opt_in_persistent_workspace_without_changing_ephemeral_default(self):
         source = BUILDER_PATH.read_text(encoding="utf-8")

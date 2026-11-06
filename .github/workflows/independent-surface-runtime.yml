@@ -110,15 +110,16 @@ jobs:
   buildroot-surface:
     needs: [contract, impact]
     if: needs.impact.outputs.required == 'true' && (github.event_name != 'pull_request' || !github.event.pull_request.draft)
-    # A dedicated long-lived x86_64 runner may be opted in without changing
-    # the component contract; default stays hosted and disposable.
-    runs-on: ${{ vars.ORDAX_SURFACE_RUNNER_LABEL || 'ubuntu-24.04' }}
+    # This repository is public: PRs must not reach a private, persistent runner.
+    # A trusted maintainer may explicitly dispatch this integration branch.
+    # Never register a personal workstation as a repo-level public PR runner.
+    runs-on: ${{ github.event_name == 'workflow_dispatch' && github.ref == 'refs/heads/integration/dev-usb-buildroot-surface-20261024' && vars.ORDAX_SURFACE_RUNNER_LABEL || 'ubuntu-24.04' }}
     # Longer budget requires all three explicit persistent producer settings.
     # Preflight separately rejects hosted runners and unpinned environments.
-    timeout-minutes: ${{ vars.ORDAX_SURFACE_RUNNER_LABEL != '' && vars.ORDAX_SURFACE_PERSISTENT_WORK_ROOT != '' && vars.ORDAX_SURFACE_PRODUCER_ENVIRONMENT != '' && 720 || 360 }}
+    timeout-minutes: ${{ github.event_name == 'workflow_dispatch' && github.ref == 'refs/heads/integration/dev-usb-buildroot-surface-20261024' && vars.ORDAX_SURFACE_RUNNER_LABEL != '' && vars.ORDAX_SURFACE_PERSISTENT_WORK_ROOT != '' && vars.ORDAX_SURFACE_PRODUCER_ENVIRONMENT != '' && 720 || 360 }}
     env:
       ORDAX_SURFACE_PRODUCER_ENVIRONMENT: ${{ vars.ORDAX_SURFACE_PRODUCER_ENVIRONMENT }}
-      ORDAX_SURFACE_PERSISTENT_WORK_ROOT: ${{ vars.ORDAX_SURFACE_PERSISTENT_WORK_ROOT }}
+      ORDAX_SURFACE_PERSISTENT_WORK_ROOT: ${{ github.event_name == 'workflow_dispatch' && github.ref == 'refs/heads/integration/dev-usb-buildroot-surface-20261024' && vars.ORDAX_SURFACE_PERSISTENT_WORK_ROOT || '' }}
     # One actual EROFS producer for one exact source revision across both
     # Creator and Independent Surface workflows; don't compile it twice.
     concurrency:
@@ -146,10 +147,9 @@ jobs:
         run: |
           set -euo pipefail
           if [ -n "${ORDAX_SURFACE_PRODUCER_ENVIRONMENT:-}" ]; then
-            if [ "${ORDAX_VERIFIED_RUNNER_ENVIRONMENT:-}" != "self-hosted" ]; then
-              echo "::error::Explicit Surface producer identity requires a trusted self-hosted executor" >&2
-              exit 1
-            fi
+            # Exact producer identity is also needed by hosted read-only consumers.
+            # It never authorizes compilation: a cache miss still requires an
+            # independently verified persistent self-hosted workspace below.
             export ORDAX_COMPONENT_CACHE_ENVIRONMENT="$ORDAX_SURFACE_PRODUCER_ENVIRONMENT"
           else
             test -n "${ImageOS:-}"
