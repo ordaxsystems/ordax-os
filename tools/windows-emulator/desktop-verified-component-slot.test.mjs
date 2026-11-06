@@ -374,6 +374,38 @@ function signedCatalogFixture(sequence = 4, digest = "f".repeat(64)) {
   };
 }
 
+test("paired Store origin misconfiguration remains unavailable through the real Native route", async t => {
+  const f = setup(t);
+  f.policy.current_gates.component_publish_allowed = true;
+  writeFileSync(f.policyPath, JSON.stringify(f.policy));
+  let networkCalls = 0;
+  let verifierCalls = 0;
+  const split = resolveDesktopStoreHttpsOrigins(
+    "https://official.example.test/ordax/store/",
+    "https://different.example.test/ordax/store/",
+  );
+  const base = await serveVerifiedStore(t, f, () => {
+    verifierCalls++;
+    throw Error("no unsigned or misdirected Store verification");
+  }, {
+    catalogBaseOrigin: split.catalogBaseOrigin,
+    fetchImpl: async () => {
+      networkCalls++;
+      throw Error("no network request without consistent origins");
+    },
+  });
+  const response = await fetch(base + "/__ordax/native/store-catalog");
+  assert.equal(response.status, 200);
+  const body = await response.json();
+  assert.equal(body.schema, "ordax.verified-app-store-catalog/1");
+  assert.equal(body.state, "unavailable");
+  assert.equal(body.reason, "catalog-transport-invalid-origin");
+  assert.equal(body.authority, "none");
+  assert.deepEqual(body.entries, []);
+  assert.equal(networkCalls, 0);
+  assert.equal(verifierCalls, 0);
+});
+
 test("Desktop Store route is truthful and cannot run an unsigned or unpublished verifier", async t => {
   const f = setup(t);
   let invocations = 0;
