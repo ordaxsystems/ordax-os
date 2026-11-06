@@ -147,7 +147,7 @@ try {
       assert.equal(await evaluate("!document.querySelector('.home-overflow')"),true,'Home overflow button is removed');
       // The pinned Surface owner now renders a hero and a real Space-context
       // action instead of the retired, static #meridian-prompt placeholder.
-      assert.equal(await evaluate("!!document.querySelector('.meridian-hero[aria-label] img[alt]') && !!document.querySelector('button.meridian-context') && !!document.querySelector('.meridian-session-strip[aria-label]')"),true,'Meridian hero, Space context action and session state remain available');
+      assert.equal(await evaluate("!!document.querySelector('.meridian-hero[aria-label] img[alt]') && !!document.querySelector('.meridian-home-space-picker select[aria-label=\"Selecionar Space autorizado\"]') && !!document.querySelector('.meridian-session-strip[aria-label]')"),true,'Meridian hero, authorized Space picker and session state remain available');
       await click('.meridian-session-strip button');
       await until("!!document.querySelector('.meridian-account-panel')");
       assert.equal(await evaluate("(()=>{const panel=document.querySelector('.meridian-account-panel');return parseFloat(getComputedStyle(panel).paddingLeft)>=18&&panel.scrollWidth<=panel.clientWidth+1;})()"),true,'Account retains readable padding without horizontal overflow');
@@ -188,20 +188,13 @@ try {
       }
       if(width===1440){
         await openSidebarDestination('Loja');
-        await until("!!document.querySelector('.ordax-store-experience[data-meridian][data-store-mode]')");
-        // The official Store catalog takes precedence. Enter the explicitly
-        // labeled planned preview before asserting its isolated stylesheet.
-        if(await evaluate("document.querySelector('.ordax-store-experience')?.dataset.storeMode==='official'"))
-          // The official Store switch is a window action, mounted beside the
-          // titlebar controls rather than inside the Store content root.
-          await click('.workspace-window:has(.ordax-store-experience) [data-store-switch]');
-        await until("!!document.querySelector('.ordax-store-experience[data-store-mode=planned] [data-store-preview-host]')?.shadowRoot?.querySelector('[data-meridian]')");
-        assert.equal(await evaluate("(()=>{const root=document.querySelector('.ordax-store-experience [data-store-preview-host]').shadowRoot;return root.adoptedStyleSheets.length===1&&!root.querySelector('style')&&getComputedStyle(root.querySelector('[data-meridian]')).getPropertyValue('--md-canvas').trim()==='#f4f2ed';})()"),true,'Store planned preview uses the canonical bundled stylesheet without inline styles');
+        await until("!!document.querySelector('[data-store-session-state]') || !!document.querySelector('.ordax-store-experience[data-meridian]')");
+        assert.equal(await evaluate("!document.querySelector('[data-store-preview-host]') && !document.querySelector('[data-store-mode=planned]')"),true,'Store never falls back to retired demo preview');
+        assert.equal(await evaluate("(()=>{const gate=document.querySelector('[data-store-session-state]');return !gate || (gate.getAttribute('role')==='status' && !document.querySelector('.ordax-store-experience'));})()"),true,'Unauthorized Store does not mount previous catalog presentation');
         await click('[aria-label="Fechar Loja"]');
         await openSidebarDestination('Espaços');
-        await clickByText('.meridian-spaces-context-actions button','Ver exemplos completos');
-        await until("!!document.querySelector('.meridian-spaces-presentation')?.shadowRoot?.querySelector('[data-spaces-page]')");
-        assert.equal(await evaluate("(()=>{const root=document.querySelector('.meridian-spaces-presentation').shadowRoot;return root.adoptedStyleSheets.length===1&&!root.querySelector('style')&&getComputedStyle(root.querySelector('[data-meridian]')).getPropertyValue('--md-canvas').trim()==='#f4f2ed';})()"),true,'Space examples retain the shared tokens in their scoped stylesheet');
+        await until("!!document.querySelector('.meridian-spaces-experience')");
+        assert.equal(await evaluate("(()=>{const panel=document.querySelector('.meridian-spaces-experience');return panel.textContent.includes('Espaços da minha conta') && !panel.textContent.includes('Ver exemplos completos') && !document.querySelector('.meridian-spaces-presentation');})()"),true,'Spaces renders authorized account context without demo data');
         await click('[aria-label="Fechar Espaços"]');
       }
       const before=await evaluate("getComputedStyle(document.body).backgroundColor");
