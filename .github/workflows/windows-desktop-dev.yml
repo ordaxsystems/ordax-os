@@ -291,11 +291,160 @@ jobs:
           DESKTOP_SOURCE_SHA: ${{ inputs.desktop_sha }}
           OS_SOURCE_SHA: ${{ inputs.os_sha }}
         run: |
+          $InstallerRoot = 'out/windows-desktop-installer'
+          $StageManifest = 'out/windows-desktop-standalone/stage-manifest.json'
+          $SurfaceLock = 'docs/contracts/surface-source.json'
+          $SurfaceReceipt = Join-Path $env:RUNNER_TEMP 'ordax-desktop-verified-surface/surface-source-receipt.json'
+          Set-StrictMode -Version Latest
           $ErrorActionPreference = 'Stop'
-          $publisher = 'out/ordax-desktop-source/ci/publish-dev-release.ps1'
-          if (-not (Test-Path -LiteralPath $publisher -PathType Leaf)) { throw 'Canonical Desktop release publisher missing' }
-          & pwsh -NoProfile -File $publisher -InstallerRoot 'out/windows-desktop-installer' -StageManifest 'out/windows-desktop-standalone/stage-manifest.json' -SurfaceLock 'docs/contracts/surface-source.json' -SurfaceReceipt (Join-Path $env:RUNNER_TEMP 'ordax-desktop-verified-surface/surface-source-receipt.json')
-          if ($LASTEXITCODE -ne 0) { throw 'GitHub Desktop Dev Release publication or integrity verification failed' }
+          $repo = $env:GITHUB_REPOSITORY
+          $desktopSha = $env:DESKTOP_SOURCE_SHA
+          $osSha = $env:OS_SOURCE_SHA
+          if ($repo -cne 'ordaxsystems/ordax-desktop' -or
+              $desktopSha -cnotmatch '^[a-f0-9]{40}
+      # Legacy Actions artifact remains mandatory if no durable Release was requested.
+      - uses: actions/upload-artifact@b7c566a772e6b6bfb58ed0dc250532a479d7789f # v6
+        if: ${{ !inputs.publish_dev_release }}
+        with:
+          name: ordax-desktop-dev-alpha-windows
+          path: out/windows-desktop-installer/*.exe
+          if-no-files-found: error
+          retention-days: 14
+ -or
+              $osSha -cnotmatch '^[a-f0-9]{40}
+      # Legacy Actions artifact remains mandatory if no durable Release was requested.
+      - uses: actions/upload-artifact@b7c566a772e6b6bfb58ed0dc250532a479d7789f # v6
+        if: ${{ !inputs.publish_dev_release }}
+        with:
+          name: ordax-desktop-dev-alpha-windows
+          path: out/windows-desktop-installer/*.exe
+          if-no-files-found: error
+          retention-days: 14
+ -or
+              [string]::IsNullOrWhiteSpace($env:GH_TOKEN)) {
+            throw 'Official Desktop caller, source SHAs and release authorization required'
+          }
+          if (-not (Get-Command gh -ErrorAction SilentlyContinue)) { throw 'Official GitHub CLI unavailable' }
+          $osHead = (& git rev-parse HEAD).Trim()
+          if ($LASTEXITCODE -ne 0 -or $osHead -cne $osSha) { throw 'OS source checkout mismatch' }
+          $stage = Get-Content -LiteralPath $StageManifest -Raw | ConvertFrom-Json
+          $surface = Get-Content -LiteralPath $SurfaceLock -Raw | ConvertFrom-Json
+          $receipt = Get-Content -LiteralPath $SurfaceReceipt -Raw | ConvertFrom-Json
+          if ($stage.desktop_sha -cne $desktopSha -or
+              $stage.desktop_owner -cne 'ordaxsystems/ordax-desktop' -or
+              $stage.runtime_owner -cne 'ordaxsystems/ordax-os' -or
+              $surface.source_repository -cne 'ordaxsystems/ordax-surface' -or
+              $surface.source_commit -cnotmatch '^[a-f0-9]{40}
+      # Legacy Actions artifact remains mandatory if no durable Release was requested.
+      - uses: actions/upload-artifact@b7c566a772e6b6bfb58ed0dc250532a479d7789f # v6
+        if: ${{ !inputs.publish_dev_release }}
+        with:
+          name: ordax-desktop-dev-alpha-windows
+          path: out/windows-desktop-installer/*.exe
+          if-no-files-found: error
+          retention-days: 14
+ -or
+              $receipt.source_repository -cne $surface.source_repository -or
+              $receipt.source_commit -cne $surface.source_commit) {
+            throw 'Desktop, OS or verified Surface provenance mismatch'
+          }
+          $version = (Get-Content -LiteralPath 'out/windows-desktop-standalone/shell/package.json' -Raw | ConvertFrom-Json).version
+          if ($version -cnotmatch '^0[.]1[.]0-alpha[.][0-9]+
+      # Legacy Actions artifact remains mandatory if no durable Release was requested.
+      - uses: actions/upload-artifact@b7c566a772e6b6bfb58ed0dc250532a479d7789f # v6
+        if: ${{ !inputs.publish_dev_release }}
+        with:
+          name: ordax-desktop-dev-alpha-windows
+          path: out/windows-desktop-installer/*.exe
+          if-no-files-found: error
+          retention-days: 14
+) { throw 'Only unsigned alpha Dev releases are eligible' }
+          $exeName = "OrdaX-OS-Desktop-Dev-$version-x64.exe"
+          $exePath = Join-Path $InstallerRoot $exeName
+          $exe = Get-Item -LiteralPath $exePath -ErrorAction Stop
+          if ($exe.Length -lt 100MB) { throw 'Incomplete NSIS installer candidate' }
+          $sha256 = (Get-FileHash -LiteralPath $exe.FullName -Algorithm SHA256).Hash.ToLowerInvariant()
+          $tag = "desktop-dev-v$version-$($desktopSha.Substring(0,12))"
+          $dir = Join-Path $env:RUNNER_TEMP 'ordax-desktop-dev-release'
+          New-Item -Path $dir -ItemType Directory -Force | Out-Null
+          $checksumPath = Join-Path $dir "$exeName.sha256"
+          $provenancePath = Join-Path $dir "$exeName.provenance.json"
+          $notesPath = Join-Path $dir 'RELEASE_NOTES.md'
+          $utf8 = [Text.UTF8Encoding]::new($false)
+          [IO.File]::WriteAllText($checksumPath, "$sha256  $exeName" + [Environment]::NewLine, $utf8)
+          $provenance = [ordered]@{
+            schema = 'ordax.desktop-dev-release/1'
+            channel = 'development'
+            unsigned = $true
+            installer = $exeName
+            sha256 = $sha256
+            size_bytes = $exe.Length
+            desktop_repository = $repo
+            desktop_source_commit = $desktopSha
+            os_repository = 'ordaxsystems/ordax-os'
+            os_source_commit = $osSha
+            surface_repository = $surface.source_repository
+            surface_source_commit = $surface.source_commit
+            checks = @('desktop-source-contracts', 'canonical-NSIS', 'isolated-NSIS-and-Native-smoke')
+            component_trust = 'operator-ceremony-pending'
+          }
+          [IO.File]::WriteAllText($provenancePath, ($provenance | ConvertTo-Json -Depth 6) + [Environment]::NewLine, $utf8)
+          $notes = @(
+            "OrdaX Desktop Dev $version - UNSIGNED prerelease. NOT Stable.",
+            "Desktop: $desktopSha",
+            "OS: $osSha",
+            "Surface: $($surface.source_commit)",
+            "Installer SHA-256: $sha256",
+            "CI: $($env:GITHUB_SERVER_URL)/$repo/actions/runs/$($env:GITHUB_RUN_ID)",
+            'The canonical NSIS producer passed isolated Windows install/Native verification.',
+            'Component signing and Calculator activation remain separately gated.'
+          ) -join [Environment]::NewLine
+          [IO.File]::WriteAllText($notesPath, $notes + [Environment]::NewLine, $utf8)
+          # A rerun may adopt only a byte-for-byte matching existing release. Never
+          # silently overwrite another source revision or a partial asset publication.
+          $previous = & gh api "repos/$repo/releases/tags/$tag" 2>$null
+          $exists = ($LASTEXITCODE -eq 0)
+          if (-not $exists) {
+            & gh release create $tag $exe.FullName $checksumPath $provenancePath -R $repo --target $desktopSha --draft --prerelease --latest=false --title "OrdaX Desktop Dev $version (UNSIGNED)" --notes-file $notesPath
+            if ($LASTEXITCODE -ne 0) { throw 'GitHub Release asset upload failed' }
+          }
+          $release = (& gh api "repos/$repo/releases/tags/$tag" | ConvertFrom-Json)
+          if ($LASTEXITCODE -ne 0 -or $release.tag_name -cne $tag -or
+              $release.target_commitish -cne $desktopSha -or
+              $release.prerelease -ne $true) {
+            throw 'Release version, target commit or prerelease classification mismatch'
+          }
+          $ref = (& gh api "repos/$repo/git/ref/tags/$tag" | ConvertFrom-Json)
+          if ($LASTEXITCODE -ne 0 -or $ref.object.type -cne 'commit' -or $ref.object.sha -cne $desktopSha) {
+            throw 'Release tag does not point to the exact reviewed Desktop commit'
+          }
+          $files = @($exe.FullName, $checksumPath, $provenancePath)
+          if (@($release.assets).Count -ne $files.Count) { throw 'Unexpected Release asset inventory' }
+          foreach ($path in $files) {
+            $f = Get-Item -LiteralPath $path -ErrorAction Stop
+            $a = @($release.assets | Where-Object { $_.name -ceq $f.Name })
+            $digest = 'sha256:' + (Get-FileHash -LiteralPath $path -Algorithm SHA256).Hash.ToLowerInvariant()
+            if ($a.Count -ne 1 -or $a[0].size -ne $f.Length -or
+                $a[0].digest -cne $digest -or $a[0].state -cne 'uploaded') {
+              throw "Release digest, size, or upload state mismatch for $($f.Name)"
+            }
+          }
+          if ($release.draft) {
+            & gh release edit $tag -R $repo --draft=false
+            if ($LASTEXITCODE -ne 0) { throw 'Release publication failed' }
+          }
+          $published = (& gh api "repos/$repo/releases/tags/$tag" | ConvertFrom-Json)
+          if ($LASTEXITCODE -ne 0 -or $published.draft -or
+              $published.prerelease -ne $true -or @($published.assets).Count -ne 3) {
+            throw 'Public GitHub Dev Release verification failed'
+          }
+          Write-Output 'ORDAX_DESKTOP_DEV_RELEASE=VERIFIED'
+          Write-Output 'ORDAX_DESKTOP_DEV_UNSIGNED=YES'
+          Write-Output "ORDAX_DESKTOP_DEV_RELEASE_TAG=$tag"
+          Write-Output "ORDAX_DESKTOP_DEV_SHA256=$sha256"
+          Write-Output "ORDAX_DESKTOP_DEV_SOURCE_COMMIT=$desktopSha"
+          Write-Output "ORDAX_DESKTOP_DEV_OS_COMMIT=$osSha"
+          Write-Output "ORDAX_DESKTOP_DEV_SURFACE_COMMIT=$($surface.source_commit)"
       # Legacy Actions artifact remains mandatory if no durable Release was requested.
       - uses: actions/upload-artifact@b7c566a772e6b6bfb58ed0dc250532a479d7789f # v6
         if: ${{ !inputs.publish_dev_release }}
