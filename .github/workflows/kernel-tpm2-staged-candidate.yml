@@ -1,0 +1,93 @@
+name: Kernel TPM2 Staged Candidate
+
+on:
+  pull_request:
+    paths:
+      - 'bootstrap/kernel/build.py'
+      - 'bootstrap/kernel/config/overlays/tpm2.fragment'
+      - 'tests/test_kernel_tpm2_staged_overlay.py'
+      - '.github/workflows/kernel-tpm2-staged-candidate.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  staged-tpm2:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 90
+    steps:
+      - name: Checkout exact source commit
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
+        with:
+          ref: ${{ github.event.pull_request.head.sha || github.sha }}
+          persist-credentials: false
+
+      - name: Set up Python
+        uses: actions/setup-python@ece7cb06caefa5fff74198d8649806c4678c61a1 # v6
+        with:
+          python-version: '3.12'
+
+      - name: Install kernel candidate build dependencies
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y --no-install-recommends \
+            gcc-13 make bc perl bison flex openssl libssl-dev libelf-dev \
+            dwarves kmod xz-utils pkg-config gpg gpg-agent
+
+      - name: Check both production and isolated candidate contracts
+        run: |
+          python bootstrap/kernel/build.py check
+          python bootstrap/kernel/build.py check --config-overlay bootstrap/kernel/config/overlays/tpm2.fragment
+          python -m unittest discover -s tests -p 'test_kernel_tpm2_staged_overlay.py' -v
+
+      - name: Compile TPM2 candidate with authenticated canonical source
+        env:
+          ORDAX_SOURCE_COMMIT: ${{ github.event.pull_request.head.sha || github.sha }}
+        run: |
+          python bootstrap/kernel/build.py build --jobs 4 \
+            --config-overlay bootstrap/kernel/config/overlays/tpm2.fragment \
+            --work-dir out/kernel-tpm2-work \
+            --out-dir out/kernel-tpm2-candidate
+          python bootstrap/kernel/verify.py out/kernel-tpm2-candidate
+
+      - name: Verify TPM2 Kconfig and non-promotable provenance
+        env:
+          ORDAX_SOURCE_COMMIT: ${{ github.event.pull_request.head.sha || github.sha }}
+        run: |
+          python - <<'PY'
+          import hashlib, json, os, pathlib
+          root = pathlib.Path('.')
+          source = json.loads((root/'bootstrap/kernel/source.json').read_text())
+          out = root/'out/kernel-tpm2-candidate'
+          provenance = json.loads((out/'kernel-provenance.json').read_text())
+          assert provenance['source_commit'] == os.environ['ORDAX_SOURCE_COMMIT']
+          assert provenance['upstream_authentication']['status'] == 'verified'
+          assert provenance['status'] == 'candidate-config-overlay-unpromotable'
+          assert provenance['physical_artifact_authorized'] is False
+          assert provenance['promotable_to_physical'] is False
+          assert provenance['build_environment']['immutable_environment_pinned'] is False
+          overlay = root/'bootstrap/kernel/config/overlays/tpm2.fragment'
+          assert provenance['config_overlay']['sha256'] == hashlib.sha256(overlay.read_bytes()).hexdigest()
+          assert provenance['config_overlay']['promotable_to_physical'] is False
+          config = (out / ('kernel-' + source['version'] + '.config')).read_text().splitlines()
+          for selector in ('CONFIG_KEYS', 'CONFIG_TCG_TPM', 'CONFIG_TCG_TIS',
+                           'CONFIG_TCG_CRB', 'CONFIG_TRUSTED_KEYS', 'CONFIG_TRUSTED_KEYS_TPM'):
+              assert selector + '=y' in config, selector
+          baseline = (root/'bootstrap/kernel/config/ordax.fragment').read_text()
+          assert 'CONFIG_TCG_TPM=y' not in baseline
+          policy = json.loads((root/'docs/contracts/native-account-session.json').read_text())
+          assert policy['short_pin_reboot_gate']['enabled'] is False
+          assert policy['tpm2_foundation']['physical_proof_passed'] is False
+          print('STAGED_TPM2_KERNEL_CONFIG=PASS')
+          print('CURRENT_KERNEL_UNCHANGED=YES')
+          print('PHYSICAL_WRITE_AUTHORIZED=NO')
+          PY
+
+      - name: Upload experimental non-promotable candidate
+        uses: actions/upload-artifact@b7c566a772e6b6bfb58ed0dc250532a479d7789f # v6
+        with:
+          name: ordax-staged-tpm2-${{ github.event.pull_request.head.sha || github.sha }}
+          path: out/kernel-tpm2-candidate/
+          if-no-files-found: error
+          retention-days: 14

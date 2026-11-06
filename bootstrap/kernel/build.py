@@ -155,9 +155,26 @@ def parse_fragment(path: Path) -> dict[str, str]:
     return assignments
 
 
-def check_contract() -> dict:
+
+def resolve_config_overlay(path: Path | None, baseline: Path) -> Path | None:
+    """An isolated, additive candidate; never an alternate production fragment."""
+    if path is None:
+        return None
+    if SOURCE_CONTRACT.resolve() != (KERNEL_DIR / "source.json").resolve():
+        raise BuildError("staged config overlay requires canonical signed kernel source")
+    if path.is_symlink() or not path.is_file():
+        raise BuildError("kernel config overlay is missing, linked or not a file")
+    resolved = path.resolve()
+    if resolved.parent != (KERNEL_DIR / "config" / "overlays").resolve():
+        raise BuildError("kernel config overlay must live under config/overlays/")
+    if overlap := sorted(parse_fragment(resolved).keys() & parse_fragment(baseline).keys()):
+        raise BuildError(f"candidate overlay attempts to override canonical selectors: {overlap}")
+    return resolved
+
+def check_contract(config_overlay: Path | None = None) -> dict:
     contract = load_contract()
     fragment = fragment_path(contract)
+    overlay = resolve_config_overlay(config_overlay, fragment)
     text = fragment.read_text(encoding="utf-8")
     forbidden = (
         "ORDAX-PLATFORM",
@@ -171,6 +188,8 @@ def check_contract() -> dict:
     if found:
         raise BuildError(f"legacy/invalid kernel fragment content: {found}")
     assignments = parse_fragment(fragment)
+    if overlay is not None:
+        assignments.update(parse_fragment(overlay))
     for required in (
         "CONFIG_EFI_STUB",
         "CONFIG_POWER_SUPPLY",
@@ -198,8 +217,11 @@ def check_contract() -> dict:
         "archive_sha256": contract["archive_sha256"],
         "fragment": str(fragment.relative_to(ROOT)),
         "fragment_sha256": sha256_file(fragment),
+        "overlay_fragment": str(overlay.relative_to(ROOT)) if overlay else None,
+        "overlay_fragment_sha256": sha256_file(overlay) if overlay else None,
+        "candidate_config_only": overlay is not None,
         "assignment_count": len(assignments),
-        "pinned_environment_resolved": bool(contract["build"]["pinned_environment_resolved"]),
+        "pinned_environment_resolved": bool(contract["build"]["pinned_environment_resolved"]) and overlay is None,
         "physical_artifact_authorized": bool(contract["build"]["physical_artifact_authorized"]),
     }
     return result
@@ -527,10 +549,11 @@ def command_version(argv: list[str]) -> str:
     return output.splitlines()[0] if output else "unknown"
 
 
-def build(work_dir: Path, out_dir: Path, jobs: int) -> dict:
+def build(work_dir: Path, out_dir: Path, jobs: int, config_overlay: Path | None = None) -> dict:
     contract = load_contract()
     fragment = fragment_path(contract)
-    check_contract()
+    preflight = check_contract(config_overlay)
+    overlay = ROOT / preflight["overlay_fragment"] if preflight["overlay_fragment"] else None
     if platform.system() != "Linux" or platform.machine() not in {"x86_64", "amd64"}:
         raise BuildError("kernel candidate build currently requires an x86_64 Linux CI execution environment")
     for program in REQUIRED_PROGRAMS:
@@ -557,6 +580,8 @@ def build(work_dir: Path, out_dir: Path, jobs: int) -> dict:
 
     run(["make", "-C", str(source), f"O={build_dir}", "defconfig"], cwd=ROOT, env=env)
     requested = merge_fragment(build_dir / ".config", fragment)
+    if overlay is not None:
+        requested.update(merge_fragment(build_dir / ".config", overlay))
     run(["make", "-C", str(source), f"O={build_dir}", "olddefconfig"], cwd=ROOT, env=env)
     verify_resolved_config(build_dir / ".config", requested)
     observed_kernelrelease = subprocess.run(
@@ -601,13 +626,16 @@ def build(work_dir: Path, out_dir: Path, jobs: int) -> dict:
     final_config = out_dir / f"kernel-{contract['version']}.config"
     shutil.copy2(build_dir / ".config", final_config)
 
-    environment_pinned = bool(contract["build"]["pinned_environment_resolved"])
-    physical_authorized = bool(contract["build"]["physical_artifact_authorized"])
+    # An opt-in Kconfig overlay has not passed the pinned-environment repeat proof.
+    # Do not inherit production reproducibility evidence for different bytes.
+    environment_pinned = bool(contract["build"]["pinned_environment_resolved"]) and overlay is None
+    physical_authorized = bool(contract["build"]["physical_artifact_authorized"]) and overlay is None
     provenance = {
         "$schema": "prototype-ordax.kernel-provenance/1",
-        "status": "verified-build-environment"
-        if environment_pinned
-        else "candidate-unpinned-build-environment",
+        "status": "candidate-config-overlay-unpromotable" if overlay is not None else (
+            "verified-build-environment" if environment_pinned
+            else "candidate-unpinned-build-environment"
+        ),
         "promotable_to_physical": environment_pinned and physical_authorized,
         "physical_artifact_authorized": physical_authorized,
         "source_commit": repository_source_commit(),
@@ -617,6 +645,11 @@ def build(work_dir: Path, out_dir: Path, jobs: int) -> dict:
         "upstream_authentication": signature_receipt,
         "source_contract_sha256": sha256_file(SOURCE_CONTRACT),
         "fragment_sha256": sha256_file(fragment),
+        "config_overlay": {
+            "path": str(overlay.relative_to(ROOT)),
+            "sha256": sha256_file(overlay),
+            "promotable_to_physical": False,
+        } if overlay is not None else None,
         "resolved_config_sha256": sha256_file(final_config),
         "build_environment": {
             "system": platform.system(),
@@ -658,7 +691,9 @@ def main() -> int:
         "--source-contract", type=Path, default=SOURCE_CONTRACT,
         help="canonical pin or explicitly reviewed staged kernel source contract",
     )
+    check_parser.add_argument("--config-overlay", type=Path, help="candidate-only Kconfig delta")
     build_parser = sub.add_parser("build", help="build kernel candidate and provenance")
+    build_parser.add_argument("--config-overlay", type=Path, help="candidate-only Kconfig delta")
     build_parser.add_argument("--work-dir", type=Path, default=ROOT / "out" / "kernel-work")
     build_parser.add_argument("--out-dir", type=Path, default=ROOT / "out" / "kernel")
     build_parser.add_argument("--jobs", type=int, default=max(1, os.cpu_count() or 1))
@@ -678,9 +713,9 @@ def main() -> int:
             raise BuildError("kernel source contract must be canonical or a reviewed staging candidate")
         SOURCE_CONTRACT = selected
         if args.command == "check":
-            print(json.dumps(check_contract(), indent=2, sort_keys=True))
+            print(json.dumps(check_contract(args.config_overlay), indent=2, sort_keys=True))
         else:
-            print(json.dumps(build(args.work_dir, args.out_dir, args.jobs), indent=2, sort_keys=True))
+            print(json.dumps(build(args.work_dir, args.out_dir, args.jobs, args.config_overlay), indent=2, sort_keys=True))
         return 0
     except (BuildError, subprocess.CalledProcessError, OSError) as exc:
         print(f"kernel-build: ERROR: {exc}", file=sys.stderr)
