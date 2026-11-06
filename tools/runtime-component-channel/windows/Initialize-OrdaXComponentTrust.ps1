@@ -227,13 +227,13 @@ $Proof = [ordered]@{
     source_commit = $SourceCommit
     created_from_ci_recipe = 'runtime-component/package/1'
     component = [ordered]@{
-        id = 'internet'
+        id = 'local-ai-service'
         version = '0.0.0-trust-proof'
-        release_mode = 'component-slot'
+        release_mode = 'bundled'
         package_schema = 'prototype-ordax.runtime-component-package/1'
     }
     package = [ordered]@{
-        name = 'internet.zip'
+        name = 'local-ai-service.zip'
         sha256 = ('0' * 64)
         size = 1
         manifest_sha256 = ('1' * 64)

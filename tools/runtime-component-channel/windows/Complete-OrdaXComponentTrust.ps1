@@ -157,8 +157,10 @@ if ($ProofRelease.'$schema' -ne 'prototype-ordax.runtime-component-release/1' -o
     $ProofRelease.source_repository -ne 'ordaxsystems/ordax-os' -or
     [string]$ProofRelease.source_commit -ne $SourceCommit -or
     $ProofRelease.created_from_ci_recipe -ne 'runtime-component/package/1' -or
-    $ProofRelease.component.id -ne 'internet' -or
-    $ProofRelease.component.release_mode -ne 'component-slot' -or
+    $ProofRelease.component.id -ne 'local-ai-service' -or
+    $ProofRelease.component.version -ne '0.0.0-trust-proof' -or
+    $ProofRelease.package.name -ne 'local-ai-service.zip' -or
+    $ProofRelease.component.release_mode -ne 'bundled' -or
     $ProofRelease.activation.direct_activation_allowed -ne $false -or
     $ProofRelease.activation.pending_health_required -ne $true) {
     throw 'Component trust proof release no longer matches toolkit source identity and fail-closed policy.'

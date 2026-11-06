@@ -2,6 +2,7 @@
 """Source-level guards for the runtime-component trust toolkit."""
 
 from pathlib import Path
+import json
 import unittest
 
 ROOT = Path(__file__).resolve().parents[1]
@@ -22,6 +23,17 @@ FINALIZER = (
     / "windows"
     / "Complete-OrdaXComponentTrust.ps1"
 ).read_text(encoding="utf-8")
+
+
+PROMOTER = (
+    ROOT / "tools" / "runtime-component-channel" / "promote_public_trust.py"
+).read_text(encoding="utf-8")
+PACKAGE_POLICY = json.loads(
+    (ROOT / "docs" / "contracts" / "runtime-component-package.json").read_text(
+        encoding="utf-8"
+    )
+)
+
 
 
 class ComponentTrustToolkitTests(unittest.TestCase):
@@ -85,11 +97,30 @@ class ComponentTrustToolkitTests(unittest.TestCase):
         self.assertIn("system/trust/runtime-components-ed25519.json", INITIALIZER)
         self.assertIn("^[0-9a-f]{40}$", INITIALIZER)
 
+    def test_protocol_proof_is_an_os_owned_packaging_only_component(self):
+        self.assertIn("local-ai-service", PACKAGE_POLICY["supported_components"])
+        self.assertIn("local-ai-service", PACKAGE_POLICY["packaging_only_components"])
+        self.assertNotIn(
+            "local-ai-service",
+            PACKAGE_POLICY["canonical_package_source_repository_by_component"],
+        )
+        self.assertEqual(PACKAGE_POLICY["default_source_repository"], "ordaxsystems/ordax-os")
+        self.assertEqual(
+            PACKAGE_POLICY["canonical_package_source_repository_by_component"]["internet"],
+            "ordaxsystems/ordax-apps",
+        )
+        self.assertIn('PROOF_COMPONENT_ID = "local-ai-service"', PROMOTER)
+        self.assertIn('"release_mode": "bundled"', PROMOTER)
+        self.assertNotIn('PROOF_COMPONENT_ID = "internet"', PROMOTER)
+
     def test_initializer_proves_independent_derivation_and_real_protocol_signature(self):
         self.assertIn("ordax-runtime-components-v1", INITIALIZER)
         self.assertIn("prototype-ordax.runtime-component-trust/1", INITIALIZER)
         self.assertIn("prototype-ordax.runtime-component-release/1", INITIALIZER)
-        self.assertIn("release_mode = 'component-slot'", INITIALIZER)
+        self.assertIn("release_mode = 'bundled'", INITIALIZER)
+        self.assertIn("id = 'local-ai-service'", INITIALIZER)
+        self.assertIn("name = 'local-ai-service.zip'", INITIALIZER)
+        self.assertNotIn("id = 'internet'", INITIALIZER)
         self.assertIn("pending_health_required = $true", INITIALIZER)
         self.assertIn("& $Signer derive-trust", INITIALIZER)
         self.assertIn("& $Signer sign", INITIALIZER)
@@ -111,6 +142,8 @@ class ComponentTrustToolkitTests(unittest.TestCase):
         self.assertIn("proof_envelope_sha256", FINALIZER)
         self.assertIn("Initial component trust ceremony files changed", FINALIZER)
         self.assertIn("Initial component trust envelope no longer verifies", FINALIZER)
+        self.assertIn("$ProofRelease.component.id -ne 'local-ai-service'", FINALIZER)
+        self.assertIn("$ProofRelease.component.release_mode -ne 'bundled'", FINALIZER)
         self.assertIn("Expand-Archive", FINALIZER)
         self.assertIn("handoff ZIP changed bytes", FINALIZER)
         self.assertIn("component-trust-policy.json", FINALIZER)
