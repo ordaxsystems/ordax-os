@@ -15,6 +15,7 @@ import {
 } from "../../contracts/model-router.mjs";
 import { createModelRouterRuntime } from "./model-router.mjs";
 import { regionalLocalePreference } from "../preferences/regional.mjs";
+import { solveExactArithmetic } from "./exact-arithmetic.mjs";
 
 const PURPOSE_BY_INTENT = Object.freeze({
   ask: "general",
@@ -186,6 +187,23 @@ export function createIntelligenceRuntime({ inferencePort, modelRouterPort = nul
       }
       if (snapshot.state !== "ready") {
         throw new Error("Ordax Intelligence local inference is not ready");
+      }
+      // Exact, context-free arithmetic uses the SAME consultative Intelligence
+      // port. It never invokes a model and never claims llama.cpp provenance.
+      // Contextual requests and unsupported expressions still use routing.
+      if (request.intent === "ask" && request.context.length === 0) {
+        const locale = getLocale === null ? "en-US" : regionalLocalePreference.validate(getLocale());
+        const arithmetic = solveExactArithmetic(request.prompt, { locale });
+        if (arithmetic !== null) {
+          if (onDelta !== null) await onDelta(arithmetic.text);
+          assertAlive();
+          if (signal?.aborted) throw new Error("Intelligence request cancelled");
+          return validateIntelligenceResponse({
+            schema: INTELLIGENCE_RESPONSE_SCHEMA, text: arithmetic.text,
+            engineId: arithmetic.engineId, modelId: arithmetic.modelId,
+            authority: "none",
+          });
+        }
       }
       const route = validateModelRoute(router.route({
         provider: "local",
