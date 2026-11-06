@@ -104,7 +104,7 @@ async function boundedRequestBody(req: Request) {
   return readBoundedBody(req.body, req.headers.get("content-length"), MAX_BODY);
 }
 
-function upstreamHeaders(req: Request, serverSecret: string) {
+function upstreamHeaders(req: Request, serverSecret: string, trustedOrigin: string, trustedHost: string) {
   const headers = new Headers();
   for (const name of REQUEST_HEADERS) {
     const value = req.headers.get(name);
@@ -114,6 +114,11 @@ function upstreamHeaders(req: Request, serverSecret: string) {
   // only after matching the dedicated, named backend bridge secret.
   headers.set("apikey", serverSecret);
   headers.set("x-ordax-public-site", "1");
+  // Mint the canonical authority only after the public OIDC/context verifier
+  // has succeeded. Supabase may replace x-forwarded-host at either edge hop.
+  headers.set("x-ordax-public-origin", trustedOrigin);
+  headers.set("x-ordax-public-host", trustedHost);
+  headers.set("x-ordax-public-proto", "https");
   return headers;
 }
 
@@ -252,7 +257,7 @@ Deno.serve(async (req: Request) => {
   try {
     upstream = await fetch(innerTarget, {
       method: req.method,
-      headers: upstreamHeaders(req, bridgeKey),
+      headers: upstreamHeaders(req, bridgeKey, requestContext.origin, requestContext.host),
       body,
       redirect: "manual",
       signal: AbortSignal.timeout(15_000),

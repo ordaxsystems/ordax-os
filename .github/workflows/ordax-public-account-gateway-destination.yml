@@ -1,22 +1,18 @@
 name: OrdaX Public Account Gateway Destination
 
 on:
-  push:
-    branches: [main]
-    paths:
-      - '.github/workflows/ordax-public-account-gateway-destination.yml'
-      - 'infra/supabase/functions/ordax-public-account-gateway/**'
-      - 'infra/supabase/functions/_shared/auth_rate_limit.mjs'
-      - 'infra/supabase/functions/_shared/bounded_body.mjs'
-      - 'infra/supabase/functions/_shared/account_privileged_rpc.mjs'
-      - 'infra/supabase/functions/_shared/account_transport_admission.mjs'
-      - 'infra/supabase/functions/_shared/account_service_bridge.mjs'
-      - 'infra/supabase/functions/_shared/account_cookie_policy.mjs'
-      - 'tools/account/resolve_account_gateway_destination.py'
-      - 'tools/account/ensure_public_account_bridge.py'
-      - 'tests/test_public_account_bridge_provisioning.py'
-      - 'tests/test_public_proxy_vercel_oidc.mjs'
+  # Production deployment is NEVER triggered by merging code into main.
+  # The Owner must explicitly approve the exact already-reviewed main SHA.
   workflow_dispatch:
+    inputs:
+      approved_sha:
+        description: 'Exact reviewed main commit SHA (40 hex characters)'
+        required: true
+        type: string
+      release_confirmation:
+        description: 'Type DEPLOY_PUBLIC_ACCOUNT_GATEWAY_PRODUCTION after Owner E2E and release approval'
+        required: true
+        type: string
 
 permissions:
   contents: read
@@ -27,7 +23,12 @@ concurrency:
 
 jobs:
   deploy-destination:
-    if: github.repository == 'ordaxsystems/ordax-os' && github.ref == 'refs/heads/main'
+    if: >-
+      github.repository == 'ordaxsystems/ordax-os'
+      && github.event_name == 'workflow_dispatch'
+      && github.ref == 'refs/heads/main'
+      && inputs.approved_sha == github.sha
+      && inputs.release_confirmation == 'DEPLOY_PUBLIC_ACCOUNT_GATEWAY_PRODUCTION'
     runs-on: ubuntu-24.04
     timeout-minutes: 10
     steps:

@@ -268,3 +268,43 @@ existing Dev channel before the client behavior changes on the device.
 ## Device-private account session
 
 On Native/USB, provider bearer tokens never enter Surface JavaScript. The **Native Host process** is the sole owner of access/refresh cookies **in memory** and exposes only sanitized `/auth/*` and `/sync/*` responses to the loopback Surface. Login is accepted only after a fresh authenticated `/auth/session` proof from the configured HTTPS gateway. A Native Host restart during the same Linux boot can recover the current session from the kernel user keyring when supported; unsupported kernels fail closed to signed-out, not plaintext disk storage. A full notebook reboot clears the kernel session and requires authentication again. The retired `0600` on-disk `account/session.json` is cleanup-only and must never be loaded. Long-lived credentials on removable media remain prohibited until the versioned encrypted-vault, local-unlock and anti-rollback proof gate is approved in `docs/contracts/native-account-session.json`. This session is outside the sync data model, and local-only OS use must continue when no cloud session exists.
+
+## Account MCP Owner gateway — controlled release (2026-11-04)
+
+O candidato de integração [ordax-os #2405](https://github.com/ordaxsystems/ordax-os/pull/2405)
+transporta **apenas** a autoridade Owner MCP existente da Platform para a Conta
+Supabase autenticada e para o proxy público OIDC/same-origin. O navegador nunca
+recebe o bearer MCP; o gateway não mantém ACL, grants ou tokens paralelos.
+A interface consumidora é [ordax-site #38](https://github.com/ordaxsystems/ordax-site/pull/38)
+(draft). `/account/mcp/devices`, `/account/mcp/authority` e
+`/account/mcp/revoke` permanecem fechadas em produção enquanto
+`ORDAX_MCP_OWNER_ACCOUNT_ENABLED` não estiver explicitamente definida como
+`1`. `PUBLIC_SITE_ACCOUNT_ENABLED=false` e os gates públicos anteriores
+continuam independentes.
+
+**Gates de entrega — código não é deploy:** os dois workflows existentes
+`.github/workflows/ordax-account-gateway-destination.yml` e
+`.github/workflows/ordax-public-account-gateway-destination.yml` têm, no
+candidato #2405, somente `workflow_dispatch` (não `push`); exigem `main`
+revista, `approved_sha` exatamente igual ao `github.sha` e confirmação
+específica de produção. Os testes `tests/test_account_mcp_owner_bridge.mjs`
+e `tests/test_account_gateway_destination_deploy.py` bloqueiam regressões
+dessa política. Esse despacho manual **não** autoriza, por si só, habilitar
+o console ou os grants: requer aprovação de release e os respectivos E2E.
+
+**Atenção ao Vercel:** `vercel.json` habilita Git deployment na `main` e
+`tools/vercel/should_skip_build.sh` observa `lib/account-proxy-core.mjs` e
+as funções/proxies do gateway. Assim, **mesmo com Supabase manual**, um merge
+pode provocar build/deploy Vercel. Não afirmar merge sem efeito em produção;
+validar o escopo do projeto e obter aprovação de publicação antes de integrar
+este candidato. Não alterar silenciosamente o filtro de build nem desativar
+um projeto público operacional.
+
+A ordem de liberação é: CI íntegro no SHA final → prova de autenticação Owner,
+seleção client/device consentida e E2E/receipts sem bypass → plano revisado
+para Vercel e Supabase → integração/publicação expressamente aprovada →
+smoke de rotas públicas com gates fechados → ativação separada do console
+Owner e validação da revogação isolada. A promoção do Worker MCP Cloudflare
+é outro release gate da Platform, não consequência da integração do OS.
+Até essa prova, não revogar consentimentos reais, transferir grants, nem
+relatar `central_session_owner_selection_required` como sucesso remoto.

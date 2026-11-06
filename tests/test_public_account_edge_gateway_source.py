@@ -108,7 +108,9 @@ class PublicAccountEdgeGatewaySourceTests(unittest.TestCase):
         self.assertNotIn('Deno.env.get("SUPABASE_SERVICE_ROLE_KEY") ?? ""', self.bridge)
         self.assertIn('accountBridgeSecret(Deno.env.get("SUPABASE_SECRET_KEYS")', self.edge)
         self.assertIn('headers.set("apikey", serverSecret)', self.edge)
-        self.assertIn("headers: upstreamHeaders(req, bridgeKey)", self.edge)
+        self.assertIn("headers: upstreamHeaders(req, bridgeKey, requestContext.origin, requestContext.host)", self.edge)
+        self.assertIn('headers.set("x-ordax-public-origin", trustedOrigin)', self.edge)
+        self.assertIn('headers.set("x-ordax-public-host", trustedHost)', self.edge)
         self.assertNotIn('headers.set("authorization",', self.edge)
 
     def test_transport_admission_precedes_privileged_handlers(self):

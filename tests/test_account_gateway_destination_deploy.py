@@ -43,7 +43,11 @@ class AccountGatewayDestinationDeployTests(unittest.TestCase):
 
     def test_workflow_deploys_only_reviewed_main_gateway_to_destination(self):
         text = WORKFLOW.read_text(encoding="utf-8")
-        self.assertIn("branches: [main]", text)
+        self.assertIn("  workflow_dispatch:", text)
+        self.assertNotIn("\n  push:\n", text)
+        self.assertIn("github.event_name == 'workflow_dispatch'", text)
+        self.assertIn("inputs.approved_sha == github.sha", text)
+        self.assertIn("inputs.release_confirmation == 'DEPLOY_ACCOUNT_GATEWAY_PRODUCTION'", text)
         self.assertIn("github.ref == 'refs/heads/main'", text)
         self.assertIn('test "${CURRENT}" = "${GITHUB_SHA}"', text)
         self.assertIn("resolve_account_gateway_destination.py", text)
@@ -89,19 +93,22 @@ class AccountGatewayDestinationDeployTests(unittest.TestCase):
         }
         self.assertIn(("supabase/setup-cli", sha, "v3.0.1"), approved)
 
-    def test_workflow_trigger_is_narrow_and_self_bootstrapping(self):
+    def test_workflow_release_is_manual_and_self_bootstrapping(self):
         text = WORKFLOW.read_text(encoding="utf-8")
-        for required in (
-            ".github/workflows/ordax-account-gateway-destination.yml",
-            "infra/supabase/functions/ordax-account-gateway/**",
-            "infra/supabase/functions/_shared/account_transport_admission.mjs",
-            "infra/supabase/functions/_shared/space_create_contract.mjs",
-            "infra/supabase/functions/_shared/account_mcp_usage.mjs",
-            "tests/test_account_mcp_usage_bridge.mjs",
-            "tools/account/resolve_account_gateway_destination.py",
-        ):
-            self.assertIn(required, text)
-        self.assertNotIn("system/**", text)
+        # A reviewed code merge cannot implicitly mutate the Supabase Edge.
+        self.assertNotIn("\n  push:\n", text)
+        self.assertIn("  workflow_dispatch:", text)
+        self.assertIn("      approved_sha:", text)
+        self.assertIn("      release_confirmation:", text)
+        self.assertIn("github.event_name == 'workflow_dispatch'", text)
+        self.assertIn("github.ref == 'refs/heads/main'", text)
+        self.assertIn("inputs.approved_sha == github.sha", text)
+        self.assertIn("inputs.release_confirmation == 'DEPLOY_ACCOUNT_GATEWAY_PRODUCTION'", text)
+        self.assertIn('test "${ACTUAL}" = "${GITHUB_SHA}"', text)
+        self.assertIn('test "${CURRENT}" = "${GITHUB_SHA}"', text)
+        self.assertIn("resolve_account_gateway_destination.py", text)
+        self.assertIn("account_transport_admission.mjs", text)
+        self.assertIn("node --test tests/test_account_mcp_owner_bridge.mjs", text)
         self.assertNotIn("infra/supabase/product/migrations/**", text)
 
 
