@@ -194,6 +194,34 @@ class PortableQemuImpactTests(unittest.TestCase):
                     desktop_paths + [critical], root=ROOT,
                 ).required)
 
+    def test_generated_calculator_store_policy_uses_native_app_gates_not_linux_qemu(self):
+        """Declarative SSOT-generated read/health scope changes no boot image bytes."""
+        path = "system/surface/runtime/native_store_metadata_policy.py"
+        source = (ROOT / path).read_text(encoding="utf-8")
+        self.assertTrue(source.startswith("# GENERATED FILE. DO NOT EDIT BY HAND."))
+        self.assertIn("tools/app-policy/render_native_store_metadata_policy.py", source)
+        self.assertIn("NATIVE_PROBATION_COMPONENT_IDS", source)
+        self.assertIn('"calculator"', source)
+        light = [path, "tools/ci/portable_qemu_impact.py",
+                 "tests/test_portable_qemu_impact.py"]
+        classified = impact.classify_paths(light, root=ROOT)
+        self.assertFalse(classified.required, classified.reasons)
+        # Workflow-scoped impact must agree with direct causal classification.
+        workflow = impact.classify_workflow_paths(light, root=ROOT)
+        self.assertFalse(workflow.required, workflow.reasons)
+        # The generated metadata exception must not spread to Native runtime
+        # implementations, mutable health, kernel, Alpine EROFS or boot.
+        for critical in (
+            "system/surface/runtime/ordax_browser_host.py",
+            "system/surface/runtime/native_component_probation.py",
+            "system/services/components/probation-orchestrator.mjs",
+            "bootstrap/surface-runtime/source.json",
+            "bootstrap/kernel/source.json",
+        ):
+            with self.subTest(critical=critical):
+                heavy = impact.classify_paths(light + [critical], root=ROOT)
+                self.assertTrue(heavy.required, heavy.reasons)
+
     def test_boot_coupled_local_ai_runtime_requires_qemu(self):
         result = impact.classify_paths(["system/services/local-ai/runtime.mjs"], root=ROOT)
         self.assertTrue(result.required)

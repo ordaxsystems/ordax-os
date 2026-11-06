@@ -63,7 +63,7 @@ class NativeComponentProbationTests(unittest.TestCase):
             frozenset(policy["runtime_health_bridge_supported_components"]),
         )
         self.assertTrue(probation.SUPPORTED_COMPONENTS.issubset(NATIVE_HEALTH_MUTATION_COMPONENT_IDS))
-        self.assertNotIn("calculator", probation.SUPPORTED_COMPONENTS)
+        self.assertIn("calculator", probation.SUPPORTED_COMPONENTS)
         self.assertNotIn("studio", probation.SUPPORTED_COMPONENTS)
         self.assertNotIn("internet", probation.SUPPORTED_COMPONENTS)
         self.assertIn("files", probation.SUPPORTED_COMPONENTS)
@@ -76,6 +76,7 @@ class NativeComponentProbationTests(unittest.TestCase):
             policy["runtime_health_bridge_probe_mode_by_component"],
         )
         self.assertEqual(probation.PROBE_MODE_BY_COMPONENT["files"], "mount-contract")
+        self.assertEqual(probation.PROBE_MODE_BY_COMPONENT["calculator"], "import-contract")
 
     def test_exact_nonce_and_receipt_record_health_once(self):
         record = slots.ComponentHealthRecord(

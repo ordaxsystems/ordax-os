@@ -19,8 +19,18 @@ LEGACY_PROFILE_DOC = "PLANO-06-PERFIS-PROFISSIONAIS-E-DISTRIBUICAO-SOB-DEMANDA.m
 CURRENT_PROFILE_KNOWLEDGE_DOC = "docs/PROFILE-INTELLIGENCE-ARCHITECTURE.md"
 LEGACY_PROFILE_TRIGGER = f"      - '{LEGACY_PROFILE_DOC}'"
 CURRENT_PROFILE_TRIGGER = f"      - '{CURRENT_PROFILE_KNOWLEDGE_DOC}'"
+DESKTOP_TRIGGER_WORKFLOW = ".github/workflows/external-source-lock-integration.yml"
+DESKTOP_DISTRIBUTION_CONTRACT = "docs/contracts/distribution-profiles.json"
+RETIRED_DESKTOP_ROOT = "tools/windows-desktop/"
+
 LIGHT_EXACT = frozenset({
     "docs/BUILD-AUTONOMY.md",
+    # Desktop-only owner cutover documentation and isolated contract regressions.
+    "docs/EXTERNAL-SOURCE-INTEGRATION.md",
+    "tests/test_desktop_source_owner.py",
+    "tests/test_desktop_update_status.mjs",
+    "tests/test_distribution_profiles_contract.py",
+    "tests/test_windows_desktop_observation_grants.mjs",
     "docs/DEV-USB-GIT.md",
     "docs/DECISIONS.md",
     "docs/CURRENT-STATE.md",
@@ -460,6 +470,62 @@ def verified_windows_product_blob(head, path, *, root=ROOT):
         return False
 
 
+def verified_desktop_trigger_detachment(base, head, *, root=ROOT):
+    """Allow ONLY removing Windows NSIS from an unrelated Surface lock trigger."""
+    previous = "              workflows+=(surface-source-consumer.yml owner-surface-source.yml windows-desktop-dev.yml)"
+    current = "              workflows+=(surface-source-consumer.yml owner-surface-source.yml)"
+    try:
+        before = _git_show(base, DESKTOP_TRIGGER_WORKFLOW, root)
+        after = _git_show(head, DESKTOP_TRIGGER_WORKFLOW, root)
+        return before.count(previous) == 1 and after == before.replace(previous, current)
+    except (OSError, UnicodeError, ValueError, subprocess.SubprocessError):
+        return False
+
+
+def verified_desktop_distribution_owner_cutover(base, head, *, root=ROOT):
+    """Retarget only three Windows Electron ownership fields, not USB hosts."""
+    replacements = (
+        ('"git_main_materializer": "tools/windows-desktop/dev-update.cjs"',
+         '"git_main_materializer": "ordaxsystems/ordax-desktop/dev-update.cjs"'),
+        ('"health_promotion_owner": "tools/windows-desktop/dev-update.cjs"',
+         '"health_promotion_owner": "ordaxsystems/ordax-desktop/dev-update.cjs"'),
+        ('"application_relaunch_owner": "tools/windows-desktop/main.cjs"',
+         '"application_relaunch_owner": "ordaxsystems/ordax-desktop/main.cjs"'),
+    )
+    try:
+        before = _git_show(base, DESKTOP_DISTRIBUTION_CONTRACT, root)
+        after = _git_show(head, DESKTOP_DISTRIBUTION_CONTRACT, root)
+        expected = before
+        for old, new in replacements:
+            if expected.count(old) != 1:
+                return False
+            expected = expected.replace(old, new)
+        return after == expected
+    except (OSError, UnicodeError, ValueError, subprocess.SubprocessError):
+        return False
+
+
+def verified_retired_desktop_shell_deletion(base, head, name, *, root=ROOT):
+    """Deleted Git-tracked Electron source cannot become a USB producer.
+
+    Modifying, adding or resurrecting ANY file in this owner still requires
+    a full Creator gate. Git operations are argv-only, no shell evaluation.
+    """
+    if not name.startswith(RETIRED_DESKTOP_ROOT):
+        return False
+    try:
+        def exists(revision):
+            result = subprocess.run(
+                ["git", "-C", str(root), "cat-file", "-e", f"{revision}:{name}"],
+                stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL,
+                timeout=20, check=False,
+            )
+            return result.returncode == 0
+        return exists(base) and not exists(head)
+    except (OSError, ValueError, subprocess.SubprocessError):
+        return False
+
+
 def classify(base, head, *, root=ROOT, event="push"):
     try:
         if event not in ("pull_request", "push"):
@@ -487,6 +553,15 @@ def classify(base, head, *, root=ROOT, event="push"):
             elif path == INTELLIGENCE_WORKFLOW:
                 if not verified_legacy_profile_trigger_migration(base, head, root=root):
                     return True, "intelligence-workflow-not-exact-profile-doc-migration"
+            elif path == DESKTOP_TRIGGER_WORKFLOW:
+                if not verified_desktop_trigger_detachment(base, head, root=root):
+                    return True, "desktop-trigger-detachment-unverified"
+            elif path == DESKTOP_DISTRIBUTION_CONTRACT:
+                if not verified_desktop_distribution_owner_cutover(base, head, root=root):
+                    return True, "desktop-owner-cutover-unverified"
+            elif path.startswith(RETIRED_DESKTOP_ROOT):
+                if not verified_retired_desktop_shell_deletion(base, head, path, root=root):
+                    return True, "retired-desktop-source-not-deletion:" + path
             elif path == LEGACY_PROFILE_DOC:
                 if not verified_legacy_profile_deletion(base, head, root=root):
                     return True, "legacy-profile-doc-not-verified-deletion"
