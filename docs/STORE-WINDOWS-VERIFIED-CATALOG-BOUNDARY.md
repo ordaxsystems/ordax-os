@@ -72,6 +72,25 @@ have independent, verifiable evidence.
   process environment**, never in a Store request or Surface UI. With no
   configured origin, the existing offline signed-envelope flow is unchanged.
   No production origin is currently configured by this repository.
+- **Preparatory HTTPS origin (no publication):** the already-existing
+  Native-only environment variables `ORDAX_DESKTOP_STORE_CATALOG_BASE_ORIGIN`
+  and `ORDAX_DESKTOP_STORE_ARTIFACT_BASE_ORIGIN` must both be absent/empty or
+  both resolve to the **same** canonical HTTPS base prefix. The paired
+  preflight is enforced before the signed catalog reader and CAS lifecycle
+  adapter are mounted. A half-configured, malformed, or divergent pair
+  disables both transports (fail-closed) rather than mixing two publishers.
+  The configured prefix serves the fixed `catalog-envelope.json` alongside
+  `sha256/<first-2>/<64-character-sha256>` objects from the **same already
+  verified, atomically staged bundle** owned by `ordax-apps`. It does not
+  embed catalog entries, asset URLs, a trust anchor or a signing key.
+  **No production HTTPS origin is prescribed or enabled here.** After the
+  official operator public-trust handoff and independent publication approval,
+  the operator must provision a real HTTPS origin hosting the signed output,
+  then set the two variables in the installed Native host environment and
+  verify the published bytes with the installed Go verifier. Environment
+  settings cannot pin the immutable Electron trust anchor or enable
+  publication: `catalog-publication-disabled` and empty catalog remain the
+  expected response until the genuine gates are satisfied.
 - The byte transport rejects redirects, non-200 responses, unexpected
   content encoding, wrong final URL, mismatched Content-Length, query, fragment,
   credentials, ambiguous path segments and envelopes over 4 MiB. Requests
