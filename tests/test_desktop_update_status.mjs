@@ -197,13 +197,9 @@ test("update history contains only actual recorded deliveries, never fabricated 
   assert.equal(value.releases.length,0);
 });
 
-test("the packaged host is configured to read the same journal used by Desktop Dev",async()=>{
+test("OS native update provider uses the canonical Desktop journal",async()=>{
   const {readFileSync} = await import("node:fs");
-  const host = readFileSync(new URL("../tools/windows-desktop/host.cjs", import.meta.url),"utf8");
-  const main = readFileSync(new URL("../tools/windows-desktop/main.cjs", import.meta.url),"utf8");
   const nativeHost = readFileSync(new URL("../tools/windows-emulator/native-host.mjs", import.meta.url),"utf8");
-  assert.ok(host.includes("ORDAX_DESKTOP_UPDATE_USER_DATA:userData"));
-  assert.ok(main.includes("userData,log"));
   // The Native HTTP paths now have a single authorization owner.
   // Keep proving their actual providers use this same Desktop journal.
   assert.ok(observationPolicy.OBSERVATION_ROUTES.includes("/__ordax/native/update"));

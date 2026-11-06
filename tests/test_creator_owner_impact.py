@@ -335,7 +335,7 @@ class CreatorOwnerImpactTests(unittest.TestCase):
             "system/adapters/desktop/space-create.mjs",
             "system/adapters/desktop/display-current-mode-host.mjs",
             "system/composition/web/account-session.mjs",
-            "tools/windows-desktop/native-build.cjs",
+            "system/adapters/desktop/local-ai-package.mjs",
             "tools/windows-emulator/account-gateway.mjs",
             "system/contracts/space-create-port.mjs",
             "tests/test_space_create_bridge.mjs",
@@ -396,6 +396,54 @@ class CreatorOwnerImpactTests(unittest.TestCase):
         self.assertTrue(impact.classify(base, restored, root=self.root)[0])
         extended = self.commit(intelligence_workflow=source + "\\n# unrelated")
         self.assertTrue(impact.classify(restored, extended, root=self.root)[0])
+
+    def test_verified_detached_windows_source_cutover_skips_usb_without_bypassing_boot(self):
+        """Exact owner migration, not an arbitrary workflow/Native code exemption."""
+        trigger = impact.DESKTOP_TRIGGER_WORKFLOW
+        distribution = impact.DESKTOP_DISTRIBUTION_CONTRACT
+        old_trigger = "              workflows+=(surface-source-consumer.yml owner-surface-source.yml windows-desktop-dev.yml)"
+        new_trigger = "              workflows+=(surface-source-consumer.yml owner-surface-source.yml)"
+        before = "first\n" + old_trigger + "\nlast\n"
+        original = (
+            '{\n  "git_main_materializer": "tools/windows-desktop/dev-update.cjs",\n'
+            '  "health_promotion_owner": "tools/windows-desktop/dev-update.cjs",\n'
+            '  "application_relaunch_owner": "tools/windows-desktop/main.cjs"\n}\n'
+        )
+        for name, contents in ((trigger, before), (distribution, "".join(original)),
+                               ("tools/windows-desktop/main.cjs", "old Electron bytes\n")):
+            file = self.root / name
+            file.parent.mkdir(parents=True, exist_ok=True)
+            file.write_text(contents, encoding="utf-8")
+        base = self.commit()
+        (self.root / trigger).write_text(before.replace(old_trigger, new_trigger), encoding="utf-8")
+        dist = "".join(original)
+        dist = dist.replace("tools/windows-desktop/dev-update.cjs",
+                            "ordaxsystems/ordax-desktop/dev-update.cjs")
+        dist = dist.replace("tools/windows-desktop/main.cjs",
+                            "ordaxsystems/ordax-desktop/main.cjs")
+        (self.root / distribution).write_text(dist, encoding="utf-8")
+        migrated = self.commit(delete_path="tools/windows-desktop/main.cjs")
+        self.assertEqual(impact.classify(base, migrated, root=self.root),
+                         (False, "nonproducer-contract-only"))
+        self.assertEqual(impact.classify(base, migrated, root=self.root, event="pull_request"),
+                         (False, "nonproducer-contract-only"))
+        # Extra workflow or distribution changes invalidate the exact proof.
+        (self.root / trigger).write_text(before.replace(old_trigger, new_trigger) +
+                                          "another: command\n", encoding="utf-8")
+        invalid_workflow = self.commit()
+        self.assertTrue(impact.classify(base, invalid_workflow, root=self.root)[0])
+        (self.root / trigger).write_text(before.replace(old_trigger, new_trigger), encoding="utf-8")
+        (self.root / distribution).write_text(dist + "\nextra", encoding="utf-8")
+        invalid_distribution = self.commit()
+        self.assertTrue(impact.classify(base, invalid_distribution, root=self.root)[0])
+        # A changed or newly introduced Desktop implementation is not a deletion.
+        (self.root / trigger).write_text(before.replace(old_trigger, new_trigger), encoding="utf-8")
+        (self.root / distribution).write_text(dist, encoding="utf-8")
+        changed_shell = self.commit(path="tools/windows-desktop/main.cjs")
+        self.assertTrue(impact.classify(base, changed_shell, root=self.root)[0])
+        # Actual boot and USB bytes always trigger Creator.
+        actual_boot = self.commit(path="bootstrap/kernel/source.json")
+        self.assertTrue(impact.classify(base, actual_boot, root=self.root)[0])
 
     def test_build_autonomy_has_no_creator_dependency_for_web_or_desktop(self):
         contract = json.loads((ROOT / "docs/contracts/build-autonomy.json").read_text(encoding="utf-8"))

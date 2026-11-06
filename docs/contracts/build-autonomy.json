@@ -126,8 +126,8 @@
     "desktop-client": {
       "requires_creator": false,
       "requires_usb_producer": false,
-      "producer": "tools/windows-desktop/",
-      "validation_owner": "Windows Desktop Dev (SSOT)"
+      "producer": "ordaxsystems/ordax-desktop",
+      "validation_owner": "Desktop Source Contracts"
     },
     "web-client": {
       "requires_creator": false,
@@ -138,7 +138,6 @@
     "client_only_source_prefixes": [
       "system/adapters/desktop/",
       "system/composition/web/",
-      "tools/windows-desktop/",
       "tools/windows-emulator/"
     ],
     "shared_native_changes_require_usb_proof": true,
