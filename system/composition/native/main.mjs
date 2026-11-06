@@ -88,19 +88,19 @@ import { createLocalAiRuntime } from "../../services/local-ai/runtime.mjs";
 import { createLocalAiProbeSupervisor } from "../../services/local-ai/probe-supervisor.mjs";
 import { LOCAL_AI_NATIVE_ENDPOINT } from "../../contracts/local-ai.mjs";
 import { createIntelligenceRuntime } from "../../services/intelligence/runtime.mjs";
-import { createApplicationIntelligenceAwareness } from "../../services/intelligence/application-awareness.mjs";
 import { createApplicationContextIntelligence } from "../../services/intelligence/application-context.mjs";
-import { createApplicationActionCapabilityRegistry } from "../../services/intelligence/application-action-capabilities.mjs";
-import { createApplicationSemanticRouter } from "../../services/intelligence/application-semantic-router.mjs";
+import {
+  createLiveVerifiedApplicationSemantics,
+  createVerifiedSemanticsRefresh,
+} from "../../services/intelligence/live-verified-app-semantics.mjs";
+import { createCapabilityDiscovery } from "../../services/system-foundation/capability-discovery.mjs";
+
 import {
   EXTERNAL_FIRST_PARTY_COMPONENT_IDS,
   EXTERNAL_FIRST_PARTY_OWNER,
   hasNativeExternalFirstPartyModuleRead,
 } from "../../services/apps/external-first-party-policy.mjs";
-import {
-  loadVerifiedFirstPartyApplicationSemantics,
-  overlayVerifiedFirstPartyApplications,
-} from "../../services/intelligence/verified-app-semantics.mjs";
+import { loadVerifiedFirstPartyApplicationSemantics } from "../../services/intelligence/verified-app-semantics.mjs";
 import { createSelectedSpaceProfileContentIntelligence } from "../../services/intelligence/profile-content.mjs";
 import { createMemoryRuntime } from "../../services/memory/runtime.mjs";
 import { createMemoryMutationPort } from "../../services/memory/mutation-port.mjs";
@@ -151,6 +151,8 @@ import { mountLocalSessionLock } from "../../surface/ui/local-session-lock.mjs";
 import { mountSettingsOverviewControls } from "../../surface/ui/settings-overview-controls.mjs";
 import { mountStoreWindows } from "../../surface/ui/store-experience.mjs";
 import { mountSystemOverviewControls } from "../../surface/ui/system-overview-controls.mjs";
+import { createNativeDesktopProductRuntimeStatus } from "../../adapters/native/desktop-product-runtime-status.mjs";
+import { mountNativeDesktopSurfaceStateReport } from "../../adapters/native/desktop-surface-state-report.mjs";
 import { mountSystemTrayQuickPanels } from "../../surface/ui/system-tray-quick-panels.mjs";
 import { mountUpdateControls } from "../../surface/ui/update-controls.mjs";
 
@@ -206,7 +208,12 @@ async function start() {
   const verifiedAppSemanticsPromise = optionalNativeProbe(
     "OrdaX verified App Intelligence semantics unavailable",
     () => loadVerifiedFirstPartyApplicationSemantics({
-      appIds: EXTERNAL_FIRST_PARTY_COMPONENT_IDS,
+      // The Native component-module broker can verify/read only the
+      // policy-authorized subset. Asking it for other component ids returns
+      // 404 and would suppress every boot-time verified App semantic.
+      appIds: EXTERNAL_FIRST_PARTY_COMPONENT_IDS.filter(
+        hasNativeExternalFirstPartyModuleRead,
+      ),
       source: verifiedComponentPackageSource,
       fetchImpl: verifiedComponentFetch,
     }),
@@ -543,43 +550,35 @@ async function start() {
     store: createNativeSpaceSelectionStore(window),
   });
   const verifiedAppSemantics = await verifiedAppSemanticsPromise ?? [];
-  const firstPartyApplications = overlayVerifiedFirstPartyApplications(
-    listFirstPartyApps(),
-    verifiedAppSemantics,
-  );
-  const semanticManifestsByAppId = new Map(
-    listBundledFirstPartyIntelligenceManifests().map(
-      (manifest) => [manifest.appId, manifest],
-    ),
-  );
-  for (const entry of verifiedAppSemantics) {
-    semanticManifestsByAppId.set(entry.intelligenceManifest.appId, entry.intelligenceManifest);
-  }
-  const firstPartyIntelligenceManifests = Object.freeze(
-    [...semanticManifestsByAppId.values()],
-  );
-  const appAwareness = createApplicationIntelligenceAwareness({
-    firstPartyApplications,
-    firstPartyIntelligenceManifests,
+  // One verified generation supplies the SAME stable Awareness, Actions and
+  // semantic router ports. Store events can replace it atomically after
+  // re-verifying signed CURRENT packages; a boot-time frozen list cannot.
+  let storeCatalogComposition = null;
+  const liveAppSemantics = createLiveVerifiedApplicationSemantics({
+    initialVerifiedSemantics: verifiedAppSemantics,
+    baseApplications: listFirstPartyApps(),
+    bundledManifests: listBundledFirstPartyIntelligenceManifests(),
+    getCurrentObservations: () =>
+      storeCatalogComposition?.getCurrentObservations() ?? [],
   });
-  const verifiedActionCapabilities = verifiedAppSemantics.flatMap(
-    (entry) => entry.actionManifest?.capabilities ?? [],
-  );
-  const appActionCapabilities = verifiedActionCapabilities.length === 0
-    ? null
-    : createApplicationActionCapabilityRegistry({
-        awareness: appAwareness,
-        capabilities: verifiedActionCapabilities,
-      });
-  const appSemanticRouter = createApplicationSemanticRouter({
-    awareness: appAwareness,
-    manifests: firstPartyIntelligenceManifests,
-  });
+  const appAwareness = liveAppSemantics.awarenessPort;
+  const appActionCapabilities = liveAppSemantics.actionRegistryPort;
+  const appSemanticRouter = liveAppSemantics.semanticRouterPort;
+  // Declared before Intelligence composition, mounted later from the real
+  // Surface Host. Aura and Personal read the SAME live discovery instance.
+  let nativeCapabilityDiscovery = null;
   const appAwareIntelligence = createApplicationContextIntelligence({
     intelligencePort: intelligence,
     awarenessPort: appAwareness,
     actionCapabilityRegistryPort: appActionCapabilities,
     semanticRouterPort: appSemanticRouter,
+    getCapabilityDiscovery: () => nativeCapabilityDiscovery,
+    // An AI manifest can change without changing the public action catalog.
+    // Fence in-flight inference against the SAME verified semantic owner.
+    getApplicationSemanticsGeneration: () => liveAppSemantics.getGeneration(),
+    // Capture one CURRENT view for the whole synchronous Aura context.
+    // Pending inference and consent checks still re-attest the live Store.
+    withCurrentAppSnapshot: callback => liveAppSemantics.withCurrentSnapshot(callback),
   });
   const consumerIntelligence = (
     profileContentContextCapability?.available === true && profileActivationState !== null
@@ -616,16 +615,9 @@ async function start() {
     spaceSelectionPort: spaceSelection,
     spacesPort: spaces,
   });
-  // The shared Native UI may run in an unprivileged development browser.
-  // Only a real host bridge may expose Intelligence to privileged consumers.
-  if (hasNativeHostBridge(window)) {
-    installNativeIntelligenceHostBridge({
-      windowRef: window,
-      intelligencePort: selectedSpaceIntelligence,
-      identitySessionPort: identitySession,
-      spaceSelectionPort: spaceSelection,
-    });
-  }
+  // The privileged Intelligence bridge is installed only after the same
+  // Fabric source used by Aura and Personal has mounted. Announcing ready
+  // here would permit a host request before live Native capabilities exist.
   const personalOrdaxFileActions = fileSpace === null
     ? null
     : await optionalNativeProbe(
@@ -638,6 +630,10 @@ async function start() {
   const personalOrdaxActionCatalog = createPersonalActionCatalog({
     registrations: personalOrdaxFileActions?.actionRegistrations ?? [],
   });
+  // Created after the real Native Surface Host has mounted. Personal OrdaX
+  // obtains only a resolver to this same read-only source, never another
+  // registry, executor, grant store or independently inferred capability.
+  let unsubscribeStoreCapabilityDiscovery = null;
   const personalOrdax = await optionalNativeProbe(
     "OrdaX Personal runtime unavailable",
     () => createNativePersonalOrdaxComposition({
@@ -650,6 +646,7 @@ async function start() {
       adapterResolver: personalOrdaxFileActions?.adapterResolver ?? (() => null),
       actionCatalog: personalOrdaxActionCatalog,
       applicationActionCapabilityRegistry: appActionCapabilities,
+      getCapabilityDiscovery: () => nativeCapabilityDiscovery,
       applicationSemanticRouter: appSemanticRouter,
       resolveVerifiedApplicationSemantics: async (appId) => {
         const entries = await loadVerifiedFirstPartyApplicationSemantics({
@@ -808,6 +805,67 @@ async function start() {
     workspaceStore,
     appActivation,
   );
+  let unsubscribeCapabilityDiscovery = null;
+  const reportCapabilityFabricFailure = (stage, error) => {
+    // Failed source reads cannot emit a valid catalog revision. Invalidate
+    // already-approved grants through the existing Personal authority
+    // reconciler rather than waiting for a user to attempt execution.
+    try {
+      personalOrdax?.reconcileApprovedAuthority();
+    } catch (revocationError) {
+      reportClientDiagnostic("capability-fabric-revocation", revocationError);
+    }
+    reportClientDiagnostic(stage, error);
+  };
+  try {
+    nativeCapabilityDiscovery = createCapabilityDiscovery({
+      getSurfaceHost: () => host,
+      // This is the SAME live-verified registry passed to Personal and Aura.
+      // Do not check Native current metadata twice for each catalog read.
+      getApplicationActions: () => appActionCapabilities,
+      // Project the already-registered Native file action; the real catalog,
+      // approval flow and typed executor remain owned by Personal OrdaX.
+      getNativeActions: () => personalOrdaxActionCatalog,
+    });
+    // Validate the same bounded projection exposed to the read-only Personal
+    // OS consumer. Declared actions remain non-executable without the Gateway.
+    const snapshot = personalOrdax?.discoverCapabilities()
+      ?? nativeCapabilityDiscovery.snapshot();
+    console.info("OrdaX Capability Fabric mounted", {
+      observedHost: snapshot.entries.filter(item => item.kind === "system-state").length,
+      declaredActions: snapshot.entries.filter(item => item.kind === "application-action").length,
+      toolExecution: snapshot.toolExecution,
+    });
+    unsubscribeCapabilityDiscovery = nativeCapabilityDiscovery.subscribe(
+      (current) => {
+        // Native Host notifications drive only changed catalog revisions.
+        // No second polling loop, app inventory or grant authority is added.
+        if (current.toolExecution !== false) {
+          throw new Error("Native Capability Fabric cannot grant execution");
+        }
+        // This is the SAME Personal grant reconciler already used before
+        // foreground dispatch. Store/Host notifications proactively revoke
+        // stale Native grants through its canonical Work lifecycle.
+        personalOrdax?.reconcileApprovedAuthority();
+      },
+      (error) => reportCapabilityFabricFailure("capability-fabric-discovery", error),
+    );
+  } catch (error) {
+    nativeCapabilityDiscovery = null;
+    reportCapabilityFabricFailure("capability-fabric-mount", error);
+  }
+  // The Native host readiness event is an Intelligence transport signal,
+  // never MCP attestation. Do not send it until the Fabric mounting decision
+  // is complete. When discovery is unavailable, Aura can still answer without
+  // falsely advertising Native capabilities or executable tools.
+  const nativeIntelligenceHostBridge = hasNativeHostBridge(window)
+    ? installNativeIntelligenceHostBridge({
+        windowRef: window,
+        intelligencePort: selectedSpaceIntelligence,
+        identitySessionPort: identitySession,
+        spaceSelectionPort: spaceSelection,
+      })
+    : null;
   const sidebarAccount = mountNativeSidebarAccount(root, identitySession, host, surface);
   bootLocale = surface.localization.getLocale();
   const notificationCenter = mountNotificationCenterControls(root, notifications, appActivation, surface);
@@ -1015,9 +1073,11 @@ async function start() {
   }
   // Store is optional: its asynchronous verified projection must not prevent
   // the visible shell from requesting legitimate Surface health.
-  let storeCatalogComposition = null;
   let storeCatalog = createUnavailableAppStoreCatalogPort();
   let storeOverviewControls = null;
+  const desktopProductRuntimeStatus = windowsDesktopHost
+    ? createNativeDesktopProductRuntimeStatus(window)
+    : null;
   const systemOverviewControls = mountSystemOverviewControls(
     root,
     host,
@@ -1030,6 +1090,7 @@ async function start() {
     componentManager,
     selectedSpaceIntelligence,
     recoveryStatus,
+    desktopProductRuntimeStatus,
   );
   const updateControls = mountUpdateControls(root, updateWatcher, appActivation, surface);
   const powerControls = mountPowerControls(root, powerActions, surface, updateWatcher);
@@ -1040,6 +1101,9 @@ async function start() {
   // The already-mounted shell is visible before asking the official
   // Supervisor to acknowledge its identity. No synthetic heartbeat is sent.
   bootScreen.ready();
+  const desktopSurfaceReporter = windowsDesktopHost
+    ? mountNativeDesktopSurfaceStateReport(window, surface, appActivation)
+    : null;
   componentManager.setCurrentHealth("surface-shell", "healthy");
   void updateWatcher.markHealthy();
   const surfaceHeartbeat = createNativeSurfaceHeartbeat(window);
@@ -1073,6 +1137,53 @@ async function start() {
   // Optional catalog failure stays isolated from the signed boot gate.
   storeCatalogComposition = await storeCatalogCompositionPromise;
   storeCatalog = storeCatalogComposition?.port ?? createUnavailableAppStoreCatalogPort();
+  // Store CURRENT is still the only authority for installed component slots.
+  // Re-verify an updated signed package and atomically replace the ONE
+  // Awareness/Action/Router generation. Current-slot withdrawal happens
+  // immediately, even while package verification is in flight.
+  // One fail-closed notification path for normal signed publication and
+  // malformed/withdrawn CURRENT. A descriptive projection failure must
+  // never prevent Personal from reconciling its existing approvals.
+  const reconcileCurrentStoreActionAuthority = () => {
+    try {
+      nativeCapabilityDiscovery?.refresh();
+    } catch (error) {
+      reportCapabilityFabricFailure("capability-fabric-current-slot", error);
+    }
+    try {
+      personalOrdax?.reconcileApprovedAuthority();
+    } catch (error) {
+      reportCapabilityFabricFailure("capability-fabric-authority-reconcile", error);
+    }
+  };
+  let verifiedSemanticsRefresh = null;
+  try {
+    verifiedSemanticsRefresh = createVerifiedSemanticsRefresh({
+      liveSemantics: liveAppSemantics,
+      getCurrentObservations: () =>
+        storeCatalogComposition?.getCurrentObservations() ?? [],
+      source: verifiedComponentPackageSource,
+      fetchImpl: verifiedComponentFetch,
+      initialVerifiedSemantics: verifiedAppSemantics,
+      onPublished() {
+        reconcileCurrentStoreActionAuthority();
+      },
+      onError(error) {
+        reportCapabilityFabricFailure("capability-fabric-verified-semantics", error);
+      },
+    });
+    const onStoreCurrentChanged = () => {
+      // Withdraw and reconcile synchronously before any new signed load.
+      reconcileCurrentStoreActionAuthority();
+      verifiedSemanticsRefresh?.refresh();
+    };
+    if (typeof storeCatalog.subscribe === "function") {
+      unsubscribeStoreCapabilityDiscovery = storeCatalog.subscribe(onStoreCurrentChanged);
+    }
+    onStoreCurrentChanged();
+  } catch (error) {
+    reportCapabilityFabricFailure("capability-fabric-current-slot", error);
+  }
   let storeLifecycleRequests = null;
   if (storeCatalogComposition?.verifiedCatalogPort) {
     try {
@@ -1082,7 +1193,15 @@ async function start() {
         // Read the exact ephemeral Native observations belonging to the
         // currently published Store projection, never a second inventory.
         getCurrentObservations: () => storeCatalogComposition.getCurrentObservations(),
-        lifecycleDelegate: createNativeAppLifecycleDelegate(window),
+        lifecycleDelegate: createNativeAppLifecycleDelegate(window, {
+          // The Go receipt may reflect a removal immediately or a staged
+          // install/update still pending Supervisor health. Re-read the SAME
+          // signed Store/current-slot source; never assume CURRENT from
+          // acceptance or create a second installed-app inventory.
+          onAccepted() {
+            return storeCatalogComposition.refresh();
+          },
+        }),
       });
     } catch (error) {
       reportClientDiagnostic("store-lifecycle-composition", error);
@@ -1206,9 +1325,15 @@ async function start() {
       window.removeEventListener("unhandledrejection", onUnhandledRejection);
       window.removeEventListener("online", onOnline);
       unsubscribeHostIdentity();
+      nativeIntelligenceHostBridge?.dispose();
+      unsubscribeCapabilityDiscovery?.();
+      unsubscribeStoreCapabilityDiscovery?.();
+      verifiedSemanticsRefresh?.dispose();
+      nativeCapabilityDiscovery = null;
       localSessionLock?.destroy();
       firstRun?.destroy();
       surfaceHeartbeat.dispose();
+      desktopSurfaceReporter?.dispose();
       homePending.dispose();
       homeContinuation.dispose();
       homeStatus.dispose();
@@ -1253,6 +1378,7 @@ async function start() {
       unsubscribeLocalAiHealth();
       localAiProbeSupervisor.dispose();
       intelligence.dispose();
+      liveAppSemantics.dispose();
       localAi.dispose();
       localSession?.dispose();
       componentManager.destroy();

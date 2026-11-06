@@ -2,6 +2,43 @@
 
 Status: **CANONICAL FOR THE CURRENT DEVELOPMENT USB**
 
+## Fronteira entre o Creator USB e o ordax-pull
+
+O Creator independente prepara uma **nova mídia USB**; durante a produção
+`creator-owner-dev-git.yml` instala o `ordax-pull` e inicia o checkout Git
+via `--seed-from-local`. **Depois da instalação, o Pull não depende do
+Creator, de QEMU ou de recompilar kernel/Buildroot**. O Supervisor coordena
+a atualização Git no Linux, com preflight, saúde e rollback; no Windows, a
+materialização do canal Dev pertence a
+`tools/windows-desktop/dev-update.cjs`, não ao script Linux.
+
+Mudanças restritas ao script `bootstrap/dev-base/ordax-pull` em uma PR são
+validadas pelo workflow já existente **Owner Development Preflight**,
+com testes de transação/recuperação. O classificador causal evita montar
+uma segunda imagem USB nessa PR. Alterações mistas em Base, boot,
+Supervisor, helper nativo ou entrada desconhecida exigem o gate USB.
+Quando o Pull modificado entra na `main`, a publicação normal do USB
+continua ativa até uma decisão explícita sobre o canal de distribuição.
+O contrato normativo está em
+`docs/contracts/build-autonomy.json#owner_dev_pull_ci`; o owner operacional
+está em `docs/contracts/distribution-profiles.json`.
+
+### Publicação de USB Dev sem sobrescrever revisões novas
+
+O canal mutável `creator-owner-prototype` continua exclusivo da produção
+física do Creator. O job serializado confere a `main` **antes do trabalho
+pesado e antes do upload**: se houver commit posterior com alterações
+reais no kernel, Base, Supervisor, auxiliares ou mídia USB, a publicação
+antiga é descartada e a revisão mais nova mantém a autoridade. Se o
+avanço for apenas documentação ou outra entrada não produtora, o ZIP
+já verificado pode ser publicado com seu SHA de origem explícito.
+
+A decisão é centralizada em `tools/ci/creator_owner_publish_freshness.py`
+e registrada em `docs/contracts/build-autonomy.json`. Falha de rede,
+origem diferente ou falta de ancestralidade Git interrompe o job em vez
+de anunciar atualização. Isso não executa Creator nos computadores
+instalados, não modifica o Pull e não substitui os testes offline/USB.
+
 ## Repetição inteligente após falhas de checkout
 
 Depois de uma falha **posterior ao fetch**, o Supervisor guarda um recibo
@@ -45,6 +82,17 @@ um checkout com alterações locais, release Stable, outra origem, histórico
 inteiramente desconectado ou candidato de downgrade. O marcador histórico
 de divergência não impede a reavaliação quando o Supervisor comprova que
 as condições de recuperação mudaram.
+
+**Recuperação de transação interrompida (05/11/2026):** o contrato de motivos
+do recibo `/state/ordax/pull-transaction.tsv` pertence exclusivamente a
+`bootstrap/dev-base/ordax-pull:transaction_reason_valid` e é usado tanto na
+gravação quanto na leitura. Uma reconciliação autenticada pode registrar
+`reconciled`; esse motivo não deve ser confundido com um erro nem rejeitado
+durante a recuperação offline após a troca atômica. Motivos desconhecidos
+continuam bloqueados, preservando o checkout para diagnóstico. O `current-commit`
+não é regravado quando já coincide com o HEAD confirmado; o refresh de helpers
+e os controles de saúde/rollback do Supervisor continuam obrigatórios. Teste
+direcionado: `tests/test_dev_pull_expected_sha.py`.
 
 **Prevenção na origem:** agentes e mantenedores devem preservar a
 ancestralidade de commits da `main` que podem ter alcançado dispositivos

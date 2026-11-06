@@ -353,3 +353,83 @@ test("provider binding and resolver contracts reject authority escalation", () =
     );
   }
 });
+
+test("provider resolver rejects a preparation revoked while signed semantics are loading", async () => {
+  const registry = capabilityRegistry();
+  const { preparation, preparations } = prepared(registry);
+  let resolveSigned;
+  let began;
+  const started = new Promise(resolve => { began = resolve; });
+  const resolver = providerResolver({
+    registry,
+    preparations,
+    resolveVerifiedSemantics: async () => {
+      began();
+      return new Promise(resolve => { resolveSigned = resolve; });
+    },
+  });
+  const pending = resolver.resolve(preparation.resourceRef);
+  await started;
+  assert.equal(preparations.revoke(preparation.resourceRef), true);
+  resolveSigned(semantics());
+  await assert.rejects(pending, /revoked|disappeared|stale/i,
+    "revocation while awaiting signed manifests must deny the old preparation binding");
+  assert.equal(await resolver.resolve(preparation.resourceRef), null);
+});
+
+test("provider resolver denies an A-B-A reissued opaque preparation while signed verification is pending", async () => {
+  const registry = capabilityRegistry();
+  const { preparation, preparations } = prepared(registry);
+  let resolveSigned;
+  let began;
+  const started = new Promise(resolve => { began = resolve; });
+  const resolver = providerResolver({
+    registry, preparations,
+    resolveVerifiedSemantics: async () => {
+      began();
+      return new Promise(resolve => { resolveSigned = resolve; });
+    },
+  });
+  const pending = resolver.resolve(preparation.resourceRef);
+  await started;
+  assert.equal(preparations.revoke(preparation.resourceRef), true);
+  const replacement = preparations.prepare("work-1", preparation.proposal);
+  assert.equal(replacement.resourceRef, preparation.resourceRef,
+    "the same deterministic fixture id must be reissued for A-B-A");
+  assert.notEqual(replacement, preparation);
+  resolveSigned(semantics());
+  await assert.rejects(pending, /revoked or replaced/,
+    "the old binding must not borrow authority from a new preparation with the same ref");
+});
+
+test("provider resolver denies a live capability removed during asynchronous verification", async () => {
+  const canonical = capabilityRegistry();
+  let present = true;
+  const live = Object.freeze({
+    ...canonical,
+    get(appId, actionId) {
+      return present ? canonical.get(appId, actionId) : null;
+    },
+    propose(appId, actionId, args) {
+      if (!present) throw new Error("Action no longer CURRENT");
+      return canonical.propose(appId, actionId, args);
+    },
+  });
+  const { preparation, preparations } = prepared(live);
+  let resolveSigned;
+  let began;
+  const started = new Promise(resolve => { began = resolve; });
+  const resolver = providerResolver({
+    registry: live, preparations,
+    resolveVerifiedSemantics: async () => {
+      began();
+      return new Promise(resolve => { resolveSigned = resolve; });
+    },
+  });
+  const pending = resolver.resolve(preparation.resourceRef);
+  await started;
+  present = false;
+  resolveSigned(semantics());
+  await assert.rejects(pending, /capability became stale/,
+    "the post-await live capability gate must reject a removed app Action");
+});

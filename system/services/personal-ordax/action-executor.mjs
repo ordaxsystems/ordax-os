@@ -25,11 +25,15 @@ function readClock(now) {
 export function createPersonalOrdaxActionExecutor({
   actionGateway: actionGatewayValue,
   adapterResolver,
+  verifyBeforeAdapter = null,
   now = Date.now,
 } = {}) {
   const actionGateway = assertActionGateway(actionGatewayValue);
   if (typeof adapterResolver !== "function") {
     throw new TypeError("Action Executor requires an adapter resolver");
+  }
+  if (verifyBeforeAdapter !== null && typeof verifyBeforeAdapter !== "function") {
+    throw new TypeError("Action Executor optional pre-adapter verifier must be a function");
   }
   if (typeof now !== "function") {
     throw new TypeError("Action Executor requires a clock function");
@@ -65,6 +69,14 @@ export function createPersonalOrdaxActionExecutor({
           || adapter.effect !== request.effect
         ) {
           throw new TypeError("Action Adapter does not match the authorized request");
+        }
+        // Adapter resolution can synchronously trigger Store/Owner changes.
+        // Consult the composition's live provenance after that callback and
+        // immediately before entering the ONE canonical typed adapter.
+        // This is a denial-only guard; it cannot create grants or tools.
+        if (verifyBeforeAdapter !== null &&
+            verifyBeforeAdapter(request) !== true) {
+          throw new Error("Action authority changed before typed adapter entry");
         }
       } catch (error) {
         throw new PersonalActionExecutionError(

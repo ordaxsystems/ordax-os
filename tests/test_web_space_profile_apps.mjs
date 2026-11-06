@@ -82,7 +82,7 @@ test('legacy unpinned and missing Profile version stay unresolved in UI', () => 
 const signedIn = {$schema: 'prototype-ordax.public-identity-session/1', provider: 'configured',
   authenticated: true, status: 'authenticated', subject: 'account-a', email: 'a@example.invalid'};
 const signedOut = {$schema: 'prototype-ordax.public-identity-session/1', provider: 'configured',
-  authenticated: false, status: 'signed-out'};
+  authenticated: false, status: 'anonymous'};
 function accountFixture() {
   const windowRef = Object.assign(new EventTarget(), {
     navigator: { onLine: true },

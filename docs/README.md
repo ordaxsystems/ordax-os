@@ -32,6 +32,7 @@ Historical wording inside a root `PLANO-*` such as `CANONICAL`, `P0`, `mandatory
 | Current state / handoff | `docs/CURRENT-STATE.md` |
 | Architecture | `docs/ARCHITECTURE.md` |
 | Personal OrdaX orchestration | `docs/PERSONAL-ORDAX.md` |
+| Capability Fabric — arquitetura, implementação, gates e retomada | `docs/CAPABILITY-FABRIC.md` (guia canônico); `docs/plans/CAPABILITY-FABRIC-V1.md` (histórico) |
 | Spaces + professional composition (single user journey) | `docs/SPACES-AND-PROFILES.md` + `docs/contracts/spaces-and-profile-packs.json` |
 | Profile knowledge and Intelligence | `docs/PROFILE-INTELLIGENCE-ARCHITECTURE.md` + canonical Profile manifests |
 | Decisions / ADRs | `docs/DECISIONS.md` |

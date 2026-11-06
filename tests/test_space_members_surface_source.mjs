@@ -45,14 +45,21 @@ test('Surface consumes target-specific server projection instead of inferring au
 test('Space members Surface invalidates stale same-Space reads and refreshes server authority after mutations', () => {
   assert.match(membersSurface, /const membersReadGeneration = useRef\(0\)/);
   assert.match(membersSurface, /const capabilityReadGeneration = useRef\(0\)/);
-  assert.match(membersSurface, /membersReadGeneration\.current !== generation/);
-  assert.match(membersSurface, /capabilityReadGeneration\.current !== generation/);
+  assert.match(membersSurface, /membersReadGeneration\.current === generation/);
+  assert.match(membersSurface, /current\.subjectId === subjectId/);
+  assert.match(membersSurface, /current\.spaceId === targetSpaceId/);
+  assert.match(membersSurface, /current\.members === members/);
+  assert.match(membersSurface, /!current\.offline/);
+  assert.match(membersSurface, /capabilityReadGeneration\.current === generation/);
+  assert.match(membersSurface, /current\.actorCapability === actorCapability/);
   assert.match(membersSurface, /await Promise\.all\(\[\s*readPage\(targetSpaceId, cursor, false\),\s*readCapability\(targetSpaceId\),\s*\]\)/);
   assert.match(membersSurface, /setActionError\([\s\S]*?await readCapability\(spaceId\)/);
 });
 
 test('Space members Surface isolates stale mutation completions and retains uncertain scoped retries', () => {
-  assert.match(membersSurface, /currentSpace\.current = spaceId/);
+  assert.match(membersSurface, /currentContext\.current = \{ subjectId, spaceId, offline, members, actorCapability, membershipActions \}/);
+  assert.match(membersSurface, /current\.membershipActions === membershipActions/);
+  assert.match(membersSurface, /current\.spaceId === spaceId/);
   assert.match(membersSurface, /membersReadGeneration\.current \+= 1/);
   assert.match(membersSurface, /capabilityReadGeneration\.current \+= 1/);
   assert.match(membersSurface, /actionGeneration\.current \+= 1/);
@@ -71,7 +78,7 @@ test('Space members list serializes duplicate page requests and recovers a faile
   assert.match(membersSurface, /const membersReadInFlight = useRef</);
   assert.match(membersSurface, /pending\?\.spaceId === targetSpaceId && pending\.cursor === cursor && pending\.append === append\) return/);
   assert.match(membersSurface, /membersReadInFlight\.current = \{ spaceId: targetSpaceId, cursor, append \}/);
-  assert.match(membersSurface, /finally \{\s*if \(membersReadGeneration\.current === generation\) membersReadInFlight\.current = null/);
+  assert.match(membersSurface, /finally \{\s*if \(isCurrent\(\)\) membersReadInFlight\.current = null/);
   assert.match(membersSurface, /membersReadGeneration\.current \+= 1;\s*membersReadInFlight\.current = null;\s*pageAnchors\.current\.reset\(\);\s*setWindowCursor\(cursor\);\s*setItems\(\[\]\)/);
   assert.match(membersSurface, /loadState === 'error' && items\.length > 0 && <span role="alert">/);
   assert.match(membersSurface, /Os membros já carregados foram preservados/);

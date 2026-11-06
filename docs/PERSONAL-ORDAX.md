@@ -1,5 +1,13 @@
 # Personal OrdaX Runtime
 
+**Capability Fabric v1 (integrado, 2026-11-04):** Personal consome a mesma
+projeção Native de leitura (`discoverCapabilities()`); uma ação Native
+selecionada usa `requestDiscoveredNativeAction()` com revisão e identidade
+vigentes para **solicitar aprovação**, não para executar. O único caminho
+com efeito é a aprovação/grant e Action Gateway/Executor já existente.
+Remoção, troca de provedor, Work ou owner invalidam a aprovação.
+Ver [Capability Fabric — fluxo e estado](CAPABILITY-FABRIC.md).
+
 Status: **CANONICAL FOUNDATION / PUBLIC RUNTIME DISABLED**
 
 ## Goal

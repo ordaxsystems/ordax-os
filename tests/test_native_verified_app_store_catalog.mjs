@@ -310,3 +310,43 @@ test("timed-out revalidation cannot resurrect signed install candidates, but a l
   assert.equal(runtime.port.getSnapshot().sequence, 6);
   runtime.destroy();
 });
+
+test("Native signed Store reader delivers withdrawal and restoration to healthy subscribers despite a broken listener", async t => {
+  let current = ready(4);
+  const runtime = await createNativeVerifiedAppStoreCatalog({
+    async fetch() { return response(current); },
+  });
+  t.after(() => runtime.destroy());
+  const delivered = [];
+  runtime.port.subscribe(() => { throw new Error("broken signed catalog display subscriber"); });
+  runtime.port.subscribe(next => delivered.push([next.state, next.sequence]));
+
+  current = ready(5);
+  await assert.doesNotReject(runtime.refresh(),
+    "the host's verified Store state must not depend on an unrelated subscriber callback");
+  assert.deepEqual(delivered, [["unavailable", null], ["ready", 5]]);
+  assert.equal(runtime.port.getSnapshot().sequence, 5);
+  runtime.destroy();
+  assert.deepEqual(delivered.at(-1), ["unavailable", null]);
+});
+
+test("reentrant Native signed Store refresh cannot deliver an older ready event after newer revocation", async t => {
+  let sequence = 4;
+  const runtime = await createNativeVerifiedAppStoreCatalog({
+    async fetch() { return response(ready(++sequence)); },
+  });
+  t.after(() => runtime.destroy());
+  let nested = null;
+  const delivered = [];
+  runtime.port.subscribe(next => {
+    if (next.state === "ready" && nested === null) {
+      nested = runtime.refresh();
+    }
+  });
+  runtime.port.subscribe(next => delivered.push(next.state));
+  await runtime.refresh();
+  assert.ok(nested);
+  await nested;
+  assert.deepEqual(delivered, ["unavailable", "unavailable", "ready"]);
+  assert.equal(runtime.port.getSnapshot().sequence, 7);
+});

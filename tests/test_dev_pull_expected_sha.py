@@ -229,6 +229,63 @@ class DevPullExpectedShaTests(unittest.TestCase):
         run_git("reset", "--hard", old, cwd=self.worktree)
         self.assertEqual(run_git("rev-parse", "HEAD", cwd=self.worktree), old)
 
+    def test_interrupted_reconciled_transaction_recovers_without_remote(self):
+        old, new = self._diverged_main_fixture()
+        # Reproduce a real Supervisor-authorized non-fast-forward candidate:
+        # an isolated checkout retains the former known-good Git object.
+        candidate = self.worktree.parent / ".ordax-staging.4242"
+        subprocess.run(
+            ["git", "clone", "--no-checkout", "--no-hardlinks",
+             str(self.worktree), str(candidate)],
+            check=True, capture_output=True, text=True,
+        )
+        run_git("remote", "set-url", "origin", self.remote.as_uri(), cwd=candidate)
+        run_git(
+            "fetch", "--no-tags", str(self.worktree),
+            "refs/remotes/origin/main", cwd=candidate,
+        )
+        run_git("checkout", "-B", "main", new, cwd=candidate)
+        run_git("update-ref", "refs/remotes/origin/main", new, cwd=candidate)
+        run_git("update-ref", "refs/ordax/known-good", old, cwd=candidate)
+
+        # An interruption between the atomic exchange and the durable commit
+        # must not reject a journal written by the Pull's own reconciled mode.
+        journal = self.state / "pull-transaction.tsv"
+        journal.write_text(f"4242|prepared|{new}|{old}|reconciled\n", encoding="ascii")
+        subprocess.run(
+            [str(self.exchange_binary), "--exchange",
+             str(self.worktree), str(candidate), str(journal)],
+            check=True, capture_output=True, text=True,
+        )
+        offline = self.root / "disconnected-origin.git"
+        self.remote.rename(offline)
+        try:
+            recovered = self._pull(new)
+        finally:
+            offline.rename(self.remote)
+
+        self.assertEqual(recovered.returncode, 0, recovered.stderr)
+        self.assertIn("interrupted exchange already activated", recovered.stderr)
+        self.assertFalse(journal.exists())
+        self.assertFalse(candidate.exists())
+        self.assertEqual(run_git("rev-parse", "HEAD", cwd=self.worktree), new)
+        self.assertEqual(
+            run_git("rev-parse", "refs/ordax/known-good", cwd=self.worktree), old,
+        )
+        self.assertEqual((self.state / "previous-commit").read_text().strip(), old)
+        self.assertEqual((self.state / "current-commit").read_text().strip(), new)
+
+    def test_unsupported_pull_transaction_reason_fails_closed(self):
+        journal = self.state / "pull-transaction.tsv"
+        journal.write_text(
+            f"4242|prepared|{self.first}|{self.first}|unsupported\n", encoding="ascii",
+        )
+        refused = self._pull(self.first)
+        self.assertNotEqual(refused.returncode, 0)
+        self.assertIn("invalid update transaction", refused.stderr)
+        self.assertTrue(journal.exists())
+        self.assertEqual(run_git("rev-parse", "HEAD", cwd=self.worktree), self.first)
+
     def test_lineage_recovery_refuses_missing_provenance_and_dirty_checkout(self):
         old, new = self._diverged_main_fixture()
         (self.state / "current-commit").write_text(self.first + "\n", encoding="ascii")

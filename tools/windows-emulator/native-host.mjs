@@ -1,7 +1,7 @@
 // Development host for Native contracts. Account authority stays in the HTTPS gateway.
 import { mkdir, readFile, writeFile, rename } from "node:fs/promises";
 import { join } from "node:path";
-import { timingSafeEqual } from "node:crypto";
+import { timingSafeEqual, randomBytes } from "node:crypto";
 import { readDesktopNetworkStatus } from "../../system/adapters/desktop/network-status.mjs";
 import { readDesktopSystemMetrics } from "../../system/adapters/desktop/system-metrics.mjs";
 import { readDesktopPowerStatus } from "../../system/adapters/desktop/power-status.mjs";
@@ -19,6 +19,7 @@ import { createDesktopVerifiedComponentSlotMiddleware } from "../../system/adapt
 import { createDesktopVerifiedStoreCatalogMiddleware } from "../../system/adapters/desktop/verified-store-catalog-host.mjs";
 import { createDesktopStoreLifecycleMiddleware } from "../../system/adapters/desktop/store-lifecycle-host.mjs";
 import { createDesktopProductRuntimeSupervisor, createDesktopSignedRuntimeHandoff } from "../../system/adapters/desktop/product-runtime-supervisor.mjs";
+import { createDesktopSurfaceRuntimeBridge, DESKTOP_SURFACE_BRIDGE_PATH } from "../../system/adapters/desktop/surface-runtime-bridge.mjs";
 import { createDesktopDisplayCurrentModeMiddleware } from "../../system/adapters/desktop/display-current-mode-host.mjs";
 import observationPolicy from "../../system/adapters/desktop/observation-grant.cjs";
 const { OBSERVATION_ROUTES, createDesktopObservationGrantMiddleware }=observationPolicy;
@@ -145,6 +146,25 @@ export function createEmulatorNativeHost({
   };
 }
 
+// Local HMR and immutable installed bundles share the same Electron-granted
+// session owner, but only an immutable source may write source-attributed
+// diagnostics. A malformed SHA must never become an HMR exemption.
+export function selectDesktopDiagnosticSessionMode({
+  desktopHost=false, platform=process.platform, userData="",
+  renderedSha="", localDevelopment=false, assetsRoot="",
+}={}) {
+  if(!desktopHost || platform!=="win32" ||
+     typeof userData!=="string" || !userData ||
+     typeof renderedSha!=="string")return null;
+  if(/^[0-9a-f]{40}$/.test(renderedSha))return Object.freeze({
+    sourceSha:renderedSha,allowUnversionedDevelopmentSession:false,
+  });
+  if(renderedSha==="" && localDevelopment===true && !assetsRoot)return Object.freeze({
+    sourceSha:null,allowUnversionedDevelopmentSession:true,
+  });
+  return null;
+}
+
 export function nativeEmulatorPlugin(stateDirectory, { desktopHost = false, accountGatewayOrigin = "" } = {}) {
   return {
     name: "ordax-native-emulator-host",
@@ -154,15 +174,22 @@ export function nativeEmulatorPlugin(stateDirectory, { desktopHost = false, acco
         ? createDesktopLocalSessionMiddleware(userData, {
             token:process.env.ORDAX_DESKTOP_LOCAL_SESSION_TOKEN,
           }) : null;
-      const diagnostics=desktopHost && process.platform==="win32" && userData &&
-        /^[0-9a-f]{40}$/.test(process.env.ORDAX_DESKTOP_RENDERED_SOURCE_SHA??"")
-          ? createDesktopClientDiagnosticsMiddleware(userData,{
-              sessionToken:process.env.ORDAX_DESKTOP_NATIVE_SESSION_TOKEN,
-              diagnosticToken:process.env.ORDAX_DESKTOP_DIAGNOSTIC_TOKEN,
-              sourceSha:process.env.ORDAX_DESKTOP_RENDERED_SOURCE_SHA,
-              networkToken:process.env.ORDAX_DESKTOP_NETWORK_TOKEN,
-              displayToken:process.env.ORDAX_DESKTOP_DISPLAY_TOKEN,
-            }):null;
+      // The same Electron-granted session works with an immutable release
+      // or direct HMR. Only an immutable source may persist diagnostics.
+      const diagnosticMode=selectDesktopDiagnosticSessionMode({
+        desktopHost,platform:process.platform,userData,
+        renderedSha:process.env.ORDAX_DESKTOP_RENDERED_SOURCE_SHA??"",
+        localDevelopment:process.env.ORDAX_DESKTOP_LOCAL_DEV==="1",
+        assetsRoot:process.env.ORDAX_DESKTOP_ASSETS_ROOT??"",
+      });
+      const diagnostics=diagnosticMode
+        ? createDesktopClientDiagnosticsMiddleware(userData,{
+            sessionToken:process.env.ORDAX_DESKTOP_NATIVE_SESSION_TOKEN,
+            diagnosticToken:process.env.ORDAX_DESKTOP_DIAGNOSTIC_TOKEN,
+            networkToken:process.env.ORDAX_DESKTOP_NETWORK_TOKEN,
+            displayToken:process.env.ORDAX_DESKTOP_DISPLAY_TOKEN,
+            ...diagnosticMode,
+          }):null;
       if (desktopHost && process.env.ORDAX_DESKTOP_ASSETS_ROOT) {
         // Same compiled Native composition, served before Vite source transforms.
         server.middlewares.use(createDesktopBuiltAssetsMiddleware(process.env.ORDAX_DESKTOP_ASSETS_ROOT));
@@ -251,6 +278,14 @@ export function nativeEmulatorPlugin(stateDirectory, { desktopHost = false, acco
         ));
       }
       if (desktopHost) {
+        const bridgeRuntimeToken = randomBytes(32).toString("hex");
+        const surfaceBridge = createDesktopSurfaceRuntimeBridge({
+          reportToken: process.env.ORDAX_DESKTOP_SURFACE_REPORT_TOKEN,
+          runtimeToken: bridgeRuntimeToken,
+          onFirstReport: () => console.info("runtime: Native Surface state reporter authenticated"),
+          onFirstCommandPoll: () => console.info("runtime: Native Surface command polling authenticated"),
+        });
+        server.middlewares.use(surfaceBridge.middleware);
         // No localhost process may inspect network, power, recovery or
         // storage/update observations without the owning Electron grant.
         server.middlewares.use(createDesktopObservationGrantMiddleware({
@@ -262,6 +297,12 @@ export function nativeEmulatorPlugin(stateDirectory, { desktopHost = false, acco
           // Current unsigned component policy intentionally leaves it blocked.
           const productRuntime = createDesktopProductRuntimeSupervisor({
             systemRoot:process.cwd(),userData,
+            nativeBridge:()=>{
+              const port=Number(process.env.ORDAX_EMULATOR_PORT);
+              if(!Number.isInteger(port)||port<1||port>65535)return null;
+              return {url:"http://127.0.0.1:"+port+DESKTOP_SURFACE_BRIDGE_PATH,
+                token:bridgeRuntimeToken};
+            },
             verifiedHandoff:process.env.ORDAX_DESKTOP_COMPONENT_VERIFIER_ROOT
               ? createDesktopSignedRuntimeHandoff({
                   verifierRoot:process.env.ORDAX_DESKTOP_COMPONENT_VERIFIER_ROOT,
@@ -282,13 +323,22 @@ export function nativeEmulatorPlugin(stateDirectory, { desktopHost = false, acco
           productRuntimeTimer.unref?.();
           // Stop the owned child on the normal Native Host shutdown signals,
           // not only in the final process exit callback (too late to reap).
+          let productRuntimeStopped=false;
           const stopProductRuntime=()=>{
+            if(productRuntimeStopped)return;
+            productRuntimeStopped=true;
             clearInterval(productRuntimeTimer);
             productRuntime.stop();
+            process.off("SIGINT",stopProductRuntime);
+            process.off("SIGTERM",stopProductRuntime);
+            process.off("exit",stopProductRuntime);
           };
           process.once("SIGINT",stopProductRuntime);
           process.once("SIGTERM",stopProductRuntime);
           process.once("exit",stopProductRuntime);
+          // A Vite config reload closes this HTTP server without exiting
+          // the Node host. Its old Runtime must end before a new owner starts.
+          server.httpServer?.once?.("close",stopProductRuntime);
           server.middlewares.use((request,response,next) => {
             if (request.url?.split("?")[0]!=="/__ordax/native/product-runtime-status")
               return next();

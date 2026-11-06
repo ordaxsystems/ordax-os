@@ -5,6 +5,7 @@ import sys
 import subprocess
 import tempfile
 import unittest
+from unittest.mock import patch
 
 
 ROOT = Path(__file__).resolve().parents[1]
@@ -219,20 +220,59 @@ class PortableQemuImpactTests(unittest.TestCase):
         self.assertFalse(result.required, result.reasons)
         self.assertEqual(result.reasons, ("no-heavy-portable-impact",))
 
-        # A neighboring production Web composition is not implicitly exempted.
-        neighbor = impact.classify_paths(
+        # The production Web compositor is browser-only too. The shared
+        # Surface Web and Chromium suites own its validation.
+        web = impact.classify_paths(
             light + ["system/composition/web/main.tsx"], root=ROOT
         )
-        self.assertTrue(neighbor.required)
-        self.assertIn(
-            "heavy-unclassified-system:system/composition/web/main.tsx",
-            neighbor.reasons,
-        )
+        self.assertFalse(web.required, web.reasons)
+        self.assertEqual(web.reasons, ("no-heavy-portable-impact",))
         # Kernel and Native boot mutations must still require QEMU.
         for critical in ("bootstrap/kernel/source.json", "system/entrypoint"):
             result = impact.classify_paths(light + [critical], root=ROOT)
             self.assertTrue(result.required)
             self.assertNotEqual(result.reasons, ("no-heavy-portable-impact",))
+
+    def test_real_web_session_change_is_scoped_to_web_gates_not_portable_qemu(self):
+        # Exact files from PR #2423 previously caused an unrelated heavy
+        # local-AI/Portable/QEMU build through heavy-unclassified-system.
+        web_delta = [
+            "system/composition/web/auth-entry-gate.mjs",
+            "system/composition/web/main.tsx",
+            "system/composition/web/responsive.css",
+        ]
+        self.assertEqual(
+            impact.workflow_scoped_paths(web_delta, root=ROOT),
+            tuple(sorted(web_delta)),
+            "The broad QEMU workflow still routes this delta to impact classification",
+        )
+        result = impact.classify_paths(web_delta, root=ROOT)
+        self.assertFalse(result.required, result.reasons)
+        self.assertEqual(result.reasons, ("no-heavy-portable-impact",))
+
+        # The Web-only exception is never a blanket skip for mixed changes.
+        for boot_change in (
+            "system/entrypoint",
+            "system/surface/runtime/ordax_browser_host.py",
+            "bootstrap/kernel/source.json",
+            "bootstrap/surface-runtime/build.py",
+            "system/composition/native/component-probation.mjs",
+            "system/new-kernel-facing-owner/config.bin",
+        ):
+            with self.subTest(boot_change=boot_change):
+                mixed = impact.classify_paths(web_delta + [boot_change], root=ROOT)
+                self.assertTrue(mixed.required, mixed.reasons)
+
+    def test_web_source_becoming_native_startup_reachable_fails_closed(self):
+        # A future Native import may not silently inherit the Web exemption.
+        path = "system/composition/web/auth-entry-gate.mjs"
+        with patch.object(
+            impact, "native_startup_import_graph",
+            return_value=(frozenset({path}), ()),
+        ):
+            result = impact.classify_paths([path], root=ROOT)
+        self.assertTrue(result.required)
+        self.assertEqual(result.reasons, (f"native-runtime-reachable:{path}",))
 
     def test_presentation_stays_light_even_when_native_composition_imports_it(self):
         result = impact.classify_paths(["system/surface/ui/network-quick-panel.mjs"], root=ROOT)

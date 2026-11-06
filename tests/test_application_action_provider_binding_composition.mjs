@@ -539,3 +539,22 @@ test("explicit revocation during artifact hashing cannot leak an obsolete resolu
     runtime.dispose();
   }
 });
+
+test("disposed Personal composition cannot resolve a previously prepared provider binding", async () => {
+  const runtime = composition();
+  const { preparation } = prepare(runtime);
+  runtime.dispose();
+  assert.equal(runtime.resolveApplicationActionPreparation(preparation.resourceRef), null);
+  await assert.rejects(
+    () => runtime.resolveApplicationActionProviderBinding(preparation.resourceRef),
+    /disposed|unavailable|closed/i,
+  );
+  await assert.rejects(
+    () => runtime.resolveApplicationActionProviderArtifact(preparation.resourceRef),
+    /disposed|unavailable|closed/i,
+  );
+  await assert.rejects(
+    () => runtime.resolveApplicationActionProviderActivation(preparation.resourceRef),
+    /disposed|unavailable|closed/i,
+  );
+});

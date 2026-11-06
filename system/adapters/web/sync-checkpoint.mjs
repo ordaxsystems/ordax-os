@@ -1,3 +1,4 @@
+import { resolveWebLocalStorage } from "./local-storage.mjs";
 import {
   SYNC_CHECKPOINT_STORE_SCHEMA,
   assertSyncCheckpointStore,
@@ -6,20 +7,8 @@ import {
 
 const STORAGE_KEY = "ordax.account-sync-checkpoint.v1";
 
-function resolveStorage(windowRef) {
-  try {
-    const storage = windowRef?.localStorage;
-    if (storage && typeof storage.getItem === "function" && typeof storage.setItem === "function") {
-      return storage;
-    }
-  } catch {
-    // Browser policy may deny storage. Session memory remains safe.
-  }
-  return null;
-}
-
 export function createWebSyncCheckpointStore(windowRef = globalThis.window) {
-  const storage = resolveStorage(windowRef);
+  const storage = resolveWebLocalStorage(windowRef);
   let memory = null;
   let lastSaveConfirmed = true;
 
