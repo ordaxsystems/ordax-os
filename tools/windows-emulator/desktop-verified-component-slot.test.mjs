@@ -6,9 +6,38 @@ import { mkdtempSync, mkdirSync, writeFileSync, readFileSync, rmSync, existsSync
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { createDesktopVerifiedComponentSlotMiddleware } from "../../system/adapters/desktop/verified-component-slot-host.mjs";
-import { createDesktopVerifiedStoreCatalogMiddleware, desktopStoreCatalogEnvelopeUrl } from "../../system/adapters/desktop/verified-store-catalog-host.mjs";
+import { createDesktopVerifiedStoreCatalogMiddleware, desktopStoreCatalogEnvelopeUrl, resolveDesktopStoreHttpsOrigins } from "../../system/adapters/desktop/verified-store-catalog-host.mjs";
 import { createDesktopStoreLifecycleMiddleware } from "../../system/adapters/desktop/store-lifecycle-host.mjs";
 import { nativeEmulatorPlugin } from "./native-host.mjs";
+
+test("Native Store HTTPS preflight requires one canonical paired origin", () => {
+  assert.deepEqual(resolveDesktopStoreHttpsOrigins(), {
+    catalogBaseOrigin: "", artifactBaseOrigin: "",
+  });
+  const origin = "https://releases.example.test/ordax/store/v1/";
+  assert.deepEqual(resolveDesktopStoreHttpsOrigins(origin, origin), {
+    catalogBaseOrigin: origin, artifactBaseOrigin: origin,
+  });
+  assert.deepEqual(
+    resolveDesktopStoreHttpsOrigins(origin.slice(0, -1), origin), {
+      catalogBaseOrigin: origin.slice(0, -1), artifactBaseOrigin: origin,
+    },
+  );
+  for (const pair of [
+    [origin, ""], ["", origin],
+    [origin, "https://elsewhere.example.test/ordax/store/v1/"],
+    [origin, "https://releases.example.test/ordax/store/v2/"],
+    ["http://releases.example.test/ordax/store/v1/", origin],
+    [origin, origin + "?unsigned=1"],
+    [origin, "https://user:password@releases.example.test/ordax/store/v1/"],
+    ["https://releases.example.test/ordax/%2e%2e/v1/", origin],
+    [origin, null],
+  ]) {
+    assert.deepEqual(resolveDesktopStoreHttpsOrigins(...pair), {
+      catalogBaseOrigin: null, artifactBaseOrigin: null,
+    }, "invalid or split transport must fail closed");
+  }
+});
 
 const SHA = "a".repeat(40);
 const SOURCE = "578d38256fc906e7208764ef0b2616c8d64b784f";
@@ -344,6 +373,38 @@ function signedCatalogFixture(sequence = 4, digest = "f".repeat(64)) {
     reason: null, authority: "none",
   };
 }
+
+test("paired Store origin misconfiguration remains unavailable through the real Native route", async t => {
+  const f = setup(t);
+  f.policy.current_gates.component_publish_allowed = true;
+  writeFileSync(f.policyPath, JSON.stringify(f.policy));
+  let networkCalls = 0;
+  let verifierCalls = 0;
+  const split = resolveDesktopStoreHttpsOrigins(
+    "https://official.example.test/ordax/store/",
+    "https://different.example.test/ordax/store/",
+  );
+  const base = await serveVerifiedStore(t, f, () => {
+    verifierCalls++;
+    throw Error("no unsigned or misdirected Store verification");
+  }, {
+    catalogBaseOrigin: split.catalogBaseOrigin,
+    fetchImpl: async () => {
+      networkCalls++;
+      throw Error("no network request without consistent origins");
+    },
+  });
+  const response = await fetch(base + "/__ordax/native/store-catalog");
+  assert.equal(response.status, 200);
+  const body = await response.json();
+  assert.equal(body.schema, "ordax.verified-app-store-catalog/1");
+  assert.equal(body.state, "unavailable");
+  assert.equal(body.reason, "catalog-transport-invalid-origin");
+  assert.equal(body.authority, "none");
+  assert.deepEqual(body.entries, []);
+  assert.equal(networkCalls, 0);
+  assert.equal(verifierCalls, 0);
+});
 
 test("Desktop Store route is truthful and cannot run an unsigned or unpublished verifier", async t => {
   const f = setup(t);
