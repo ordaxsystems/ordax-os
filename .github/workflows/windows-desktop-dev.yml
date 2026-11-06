@@ -10,6 +10,10 @@ on:
         description: Exact canonical Electron owner commit
         type: string
         required: true
+      publish_dev_release:
+        description: Publish verified unsigned NSIS to the caller Desktop GitHub prerelease
+        type: boolean
+        default: false
 
 # On fast-moving main, do not rebuild an already superseded source commit.
 concurrency:
@@ -17,7 +21,9 @@ concurrency:
   cancel-in-progress: true
 
 permissions:
-  contents: read
+  # The Desktop caller supplies an explicit write grant for opt-in Dev Release.
+  # GitHub never permits a reusable workflow to elevate the caller's token.
+  contents: write
 jobs:
   desktop-dev:
     # The pinned Intelligence builder uses Visual Studio 17 2022 / MSVC x64.
@@ -275,7 +281,24 @@ jobs:
           $version = (Get-Content out/windows-desktop-standalone/shell/package.json -Raw | ConvertFrom-Json).version
           $installer = "out/windows-desktop-installer/OrdaX-OS-Desktop-Dev-$version-x64.exe"
           pwsh -NoProfile -File out/ordax-desktop-source/install-smoke.ps1 -Installer $installer
+      # Same canonical NSIS producer, independent durable release gate.
+      # This step runs only AFTER the isolated NSIS/Native installation proof.
+      - name: Publish and verify official unsigned Desktop Dev prerelease
+        if: inputs.publish_dev_release
+        shell: pwsh
+        env:
+          GH_TOKEN: ${{ github.token }}
+          DESKTOP_SOURCE_SHA: ${{ inputs.desktop_sha }}
+          OS_SOURCE_SHA: ${{ inputs.os_sha }}
+        run: |
+          $ErrorActionPreference = 'Stop'
+          $publisher = 'out/ordax-desktop-source/ci/publish-dev-release.ps1'
+          if (-not (Test-Path -LiteralPath $publisher -PathType Leaf)) { throw 'Canonical Desktop release publisher missing' }
+          & pwsh -NoProfile -File $publisher -InstallerRoot 'out/windows-desktop-installer' -StageManifest 'out/windows-desktop-standalone/stage-manifest.json' -SurfaceLock 'docs/contracts/surface-source.json' -SurfaceReceipt (Join-Path $env:RUNNER_TEMP 'ordax-desktop-verified-surface/surface-source-receipt.json')
+          if ($LASTEXITCODE -ne 0) { throw 'GitHub Desktop Dev Release publication or integrity verification failed' }
+      # Legacy Actions artifact remains mandatory if no durable Release was requested.
       - uses: actions/upload-artifact@b7c566a772e6b6bfb58ed0dc250532a479d7789f # v6
+        if: ${{ !inputs.publish_dev_release }}
         with:
           name: ordax-desktop-dev-alpha-windows
           path: out/windows-desktop-installer/*.exe
