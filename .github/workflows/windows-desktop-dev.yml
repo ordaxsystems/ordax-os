@@ -366,21 +366,24 @@ jobs:
           [IO.File]::WriteAllText($notesPath, $notes + [Environment]::NewLine, $utf8)
           # A rerun may adopt only a byte-for-byte matching existing release. Never
           # silently overwrite another source revision or a partial asset publication.
-          $previous = & gh api "repos/$repo/releases/tags/$tag" 2>$null
-          $exists = ($LASTEXITCODE -eq 0)
-          if (-not $exists) {
+          # GitHub deliberately returns 404 for draft releases by tag.
+          # List releases using the caller's write-granted token, including drafts.
+          $releases = @(& gh api "repos/$repo/releases?per_page=100" | ConvertFrom-Json)
+          if ($LASTEXITCODE -ne 0) { throw 'Cannot inspect Desktop Dev Releases' }
+          $found = @($releases | Where-Object { $_.tag_name -ceq $tag })
+          if ($found.Count -gt 1) { throw 'Ambiguous Dev Release tag' }
+          if ($found.Count -eq 0) {
             & gh release create $tag $exe.FullName $checksumPath $provenancePath -R $repo --target $desktopSha --draft --prerelease --latest=false --title "OrdaX Desktop Dev $version (UNSIGNED)" --notes-file $notesPath
             if ($LASTEXITCODE -ne 0) { throw 'GitHub Release asset upload failed' }
+            $releases = @(& gh api "repos/$repo/releases?per_page=100" | ConvertFrom-Json)
+            if ($LASTEXITCODE -ne 0) { throw 'Cannot inspect uploaded draft Release' }
+            $found = @($releases | Where-Object { $_.tag_name -ceq $tag })
           }
-          $release = (& gh api "repos/$repo/releases/tags/$tag" | ConvertFrom-Json)
-          if ($LASTEXITCODE -ne 0 -or $release.tag_name -cne $tag -or
-              $release.target_commitish -cne $desktopSha -or
+          if ($found.Count -ne 1) { throw 'Dev Release not found in authenticated inventory' }
+          $release = $found[0]
+          if ($release.target_commitish -cne $desktopSha -or
               $release.prerelease -ne $true) {
-            throw 'Release version, target commit or prerelease classification mismatch'
-          }
-          $ref = (& gh api "repos/$repo/git/ref/tags/$tag" | ConvertFrom-Json)
-          if ($LASTEXITCODE -ne 0 -or $ref.object.type -cne 'commit' -or $ref.object.sha -cne $desktopSha) {
-            throw 'Release tag does not point to the exact reviewed Desktop commit'
+            throw 'Release target commit or prerelease classification mismatch'
           }
           $files = @($exe.FullName, $checksumPath, $provenancePath)
           if (@($release.assets).Count -ne $files.Count) { throw 'Unexpected Release asset inventory' }
@@ -399,8 +402,13 @@ jobs:
           }
           $published = (& gh api "repos/$repo/releases/tags/$tag" | ConvertFrom-Json)
           if ($LASTEXITCODE -ne 0 -or $published.draft -or
+              $published.target_commitish -cne $desktopSha -or
               $published.prerelease -ne $true -or @($published.assets).Count -ne 3) {
             throw 'Public GitHub Dev Release verification failed'
+          }
+          $ref = (& gh api "repos/$repo/git/ref/tags/$tag" | ConvertFrom-Json)
+          if ($LASTEXITCODE -ne 0 -or $ref.object.type -cne 'commit' -or $ref.object.sha -cne $desktopSha) {
+            throw 'Published release tag does not point to the exact Desktop source commit'
           }
           Write-Output 'ORDAX_DESKTOP_DEV_RELEASE=VERIFIED'
           Write-Output 'ORDAX_DESKTOP_DEV_UNSIGNED=YES'
