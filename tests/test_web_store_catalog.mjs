@@ -107,6 +107,8 @@ test('one Web Store renderer mounts shared Native presentation without demo or s
   try {
     const load = path => server.ssrLoadModule('/@fs/' + new URL('../' + path, import.meta.url).pathname.replace(/^\/([A-Za-z]:)/, '$1'));
     const { StoreCatalogProvider } = await load('system/surface/workspace/components/store/catalog-context.tsx');
+    const { WebAccountProvider } = await load('system/surface/workspace/components/central/account-context.tsx');
+    const { createWebAccountSession } = await import('../system/composition/web/account-session.mjs');
     const { WebPreferencesProvider } = await load('system/surface/workspace/components/central/preferences-context.tsx');
     const { createPreferenceRuntime } = await import('../system/services/preferences/runtime.mjs');
     const { DesktopContent } = await load('system/surface/workspace/components/central/desktop.tsx');
@@ -118,15 +120,35 @@ test('one Web Store renderer mounts shared Native presentation without demo or s
     };
     assert.equal(createStoreSnapshotSource(port).getSnapshot().entries[0].title, 'APP DO HOST');
     const preferences = createPreferenceRuntime({ schema:'ordax.preference-store/1', load:()=>({}), save:()=>{} });
+    const windowRef = Object.assign(new EventTarget(), {
+      navigator: { onLine: true },
+      document: Object.assign(new EventTarget(), { visibilityState: 'visible' }),
+      fetch: async path => {
+        if (path === '/auth/session') return new Response(JSON.stringify({
+          $schema: 'prototype-ordax.public-identity-session/1', provider: 'configured',
+          authenticated: true, status: 'authenticated', subject: 'account-store',
+          email: 'account-store@example.invalid',
+        }));
+        if (path === '/account/spaces') return new Response(JSON.stringify({
+          $schema: 'prototype-ordax.account-spaces/1', spaces: [],
+        }));
+        throw Error('Unexpected account request: ' + path);
+      },
+    });
+    const accountSession = createWebAccountSession(windowRef);
+    await accountSession.refresh();
     let opens = 0;
-    const stream = await renderToReadableStream(createElement(WebPreferencesProvider, {port:preferences}, createElement(StoreCatalogProvider, { port },
-      createElement(DesktopContent, { title: 'Loja', open: () => { opens++; }, onCentral: () => {} }))));
+    const stream = await renderToReadableStream(createElement(WebPreferencesProvider, {port:preferences},
+      createElement(WebAccountProvider, {session:accountSession},
+        createElement(StoreCatalogProvider, { port },
+          createElement(DesktopContent, { title: 'Loja', open: () => { opens++; }, onCentral: () => {} })) )));
     await stream.allReady;
     const html = await new Response(stream).text();
     assert.match(html, /data-store-shared="true"/);
     assert.doesNotMatch(html, /OrdaX Studio|Llama 3\.1/, 'Demo fixtures must not leak into the canonical Store');
     assert.ok(!html.includes('Este aplicativo ainda não está conectado.'), 'Central mounts the actual Store');
     assert.equal(opens, 0, 'Rendering Store never executes or opens an app');
+    accountSession.dispose();
     // The shared Native mount owns DOM lifecycle; SSR deliberately does not
     // claim a verified installation until the host-backed catalog is consumed.
   } finally { await server.close(); }

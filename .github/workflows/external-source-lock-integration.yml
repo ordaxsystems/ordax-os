@@ -266,7 +266,7 @@ jobs:
           workflows=(foundation.yml)
           case "$OWNER" in
             surface)
-              workflows+=(surface-source-consumer.yml owner-surface-source.yml windows-desktop-dev.yml)
+              workflows+=(surface-source-consumer.yml owner-surface-source.yml)
               ;;
             intelligence)
               workflows+=(intelligence-source.yml owner-intelligence-source.yml)

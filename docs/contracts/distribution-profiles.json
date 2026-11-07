@@ -23,9 +23,9 @@
           "health_promotion_owner": "system/supervisor"
         },
         "windows-desktop": {
-          "git_main_materializer": "tools/windows-desktop/dev-update.cjs",
-          "health_promotion_owner": "tools/windows-desktop/dev-update.cjs",
-          "application_relaunch_owner": "tools/windows-desktop/main.cjs",
+          "git_main_materializer": "ordaxsystems/ordax-desktop/dev-update.cjs",
+          "health_promotion_owner": "ordaxsystems/ordax-desktop/dev-update.cjs",
+          "application_relaunch_owner": "ordaxsystems/ordax-desktop/main.cjs",
           "automatic_idle_activation": true,
           "operates_only_while_electron_is_running": true,
           "electron_shell_self_update_implemented": false

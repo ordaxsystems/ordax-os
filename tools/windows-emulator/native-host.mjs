@@ -16,7 +16,7 @@ import { createDesktopDeviceProfileMiddleware } from "../../system/adapters/desk
 import { createDesktopWlanMiddleware } from "../../system/adapters/desktop/wifi-radio-host.mjs";
 import { createDesktopLocalAiMiddleware } from "../../system/adapters/desktop/local-ai-host.mjs";
 import { createDesktopVerifiedComponentSlotMiddleware } from "../../system/adapters/desktop/verified-component-slot-host.mjs";
-import { createDesktopVerifiedStoreCatalogMiddleware } from "../../system/adapters/desktop/verified-store-catalog-host.mjs";
+import { createDesktopVerifiedStoreCatalogMiddleware, resolveDesktopStoreHttpsOrigins } from "../../system/adapters/desktop/verified-store-catalog-host.mjs";
 import { createDesktopStoreLifecycleMiddleware } from "../../system/adapters/desktop/store-lifecycle-host.mjs";
 import { createDesktopProductRuntimeSupervisor, createDesktopSignedRuntimeHandoff } from "../../system/adapters/desktop/product-runtime-supervisor.mjs";
 import { createDesktopSurfaceRuntimeBridge, DESKTOP_SURFACE_BRIDGE_PATH } from "../../system/adapters/desktop/surface-runtime-bridge.mjs";
@@ -231,6 +231,12 @@ export function nativeEmulatorPlugin(stateDirectory, { desktopHost = false, acco
       // No preview can activate Windows signature verification by setting env.
       const installedStoreTrust = desktopHost && process.platform === "win32"
         && Boolean(userData) && Boolean(process.env.ORDAX_DESKTOP_COMPONENT_VERIFIER_ROOT);
+      const storeHttpsOrigins = installedStoreTrust
+        ? resolveDesktopStoreHttpsOrigins(
+            process.env.ORDAX_DESKTOP_STORE_CATALOG_BASE_ORIGIN ?? "",
+            process.env.ORDAX_DESKTOP_STORE_ARTIFACT_BASE_ORIGIN ?? "",
+          )
+        : resolveDesktopStoreHttpsOrigins();
       const signedStoreCatalog = createDesktopVerifiedStoreCatalogMiddleware({
         systemRoot: process.cwd(),
         verifierRoot: installedStoreTrust ? process.env.ORDAX_DESKTOP_COMPONENT_VERIFIER_ROOT : "",
@@ -238,8 +244,7 @@ export function nativeEmulatorPlugin(stateDirectory, { desktopHost = false, acco
         platform: installedStoreTrust ? "win32" : "unavailable",
         // Operator-selected HTTPS byte origin only for the installed Native host.
         // Preview, renderer and HTTP requests never supply a catalog source.
-        catalogBaseOrigin: installedStoreTrust
-          ? process.env.ORDAX_DESKTOP_STORE_CATALOG_BASE_ORIGIN ?? "" : "",
+        catalogBaseOrigin: storeHttpsOrigins.catalogBaseOrigin,
       });
       server.middlewares.use(signedStoreCatalog);
       if (installedStoreTrust) {
@@ -252,8 +257,7 @@ export function nativeEmulatorPlugin(stateDirectory, { desktopHost = false, acco
           catalogReader: signedStoreCatalog.readVerifiedLocalCatalog,
           // Only the installed Native process may select the signed
           // content-addressed artifact origin; no Store UI URLs are accepted.
-          artifactBaseOrigin:
-            process.env.ORDAX_DESKTOP_STORE_ARTIFACT_BASE_ORIGIN ?? "",
+          artifactBaseOrigin: storeHttpsOrigins.artifactBaseOrigin,
         }));
       }
       if (desktopHost && process.platform === "win32" && userData &&

@@ -94,6 +94,32 @@ export function desktopStoreCatalogEnvelopeUrl(baseOrigin) {
   return new URL("catalog-envelope.json", url).href;
 }
 
+// Operator prepares one immutable HTTPS prefix for the signed catalog and its
+// content-addressed artifacts. Existing Native environment variables remain
+// the sole configuration; neither the renderer nor a request may override them.
+// Half-configured or divergent origins must never expose a verified candidate
+// whose artifacts would be fetched from another authority.
+export function resolveDesktopStoreHttpsOrigins(catalogOrigin = "", artifactOrigin = "") {
+  if (catalogOrigin === "" && artifactOrigin === "") {
+    return Object.freeze({ catalogBaseOrigin: "", artifactBaseOrigin: "" });
+  }
+  try {
+    const catalogUrl = desktopStoreCatalogEnvelopeUrl(catalogOrigin);
+    const artifactUrl = desktopStoreCatalogEnvelopeUrl(artifactOrigin);
+    if (!catalogUrl || !artifactUrl || catalogUrl !== artifactUrl) {
+      throw Error("Store HTTPS origins are incomplete or divergent");
+    }
+    return Object.freeze({
+      catalogBaseOrigin: catalogOrigin,
+      artifactBaseOrigin: artifactOrigin,
+    });
+  } catch {
+    // null is rejected by both existing transport validators. Do not fall
+    // back to an unsigned catalog, a second origin or local candidate bytes.
+    return Object.freeze({ catalogBaseOrigin: null, artifactBaseOrigin: null });
+  }
+}
+
 async function fetchRemoteEnvelope(url, fetchImpl) {
   const controller = new AbortController();
   const deadline = setTimeout(() => controller.abort(), FETCH_TIMEOUT_MS);

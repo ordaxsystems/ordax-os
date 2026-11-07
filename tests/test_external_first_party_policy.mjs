@@ -47,14 +47,14 @@ test("generated external first-party runtime policy exposes one canonical owner 
   assert.equal(packagePolicy.native_files_slot_bound_file_space_enforced, true);
   assert.equal(hasNativeExternalFirstPartyModuleRead("files"), true);
   assert.equal(isNativeExternalFirstPartyCurrentSlotBlockedByBundledOwner("files"), false);
-  assert.deepEqual(EXTERNAL_FIRST_PARTY_NATIVE_PROBATION_IDS, ["files", "notes"]);
+  assert.deepEqual(EXTERNAL_FIRST_PARTY_NATIVE_PROBATION_IDS, ["calculator", "files", "notes"]);
   assert.deepEqual(
     EXTERNAL_FIRST_PARTY_BUNDLED_SOURCE_BLOCKED_IDS,
     packagePolicy.native_external_current_slot_blocked_by_bundled_owner_components,
   );
   assert.equal(hasNativeExternalFirstPartyProbation("files"), true);
   assert.equal(hasNativeExternalFirstPartyProbation("notes"), true);
-  assert.equal(hasNativeExternalFirstPartyProbation("calculator"), false);
+  assert.equal(hasNativeExternalFirstPartyProbation("calculator"), true);
   assert.equal(hasNativeExternalFirstPartyProbation("studio"), false);
   assert.equal(hasNativeExternalFirstPartyProbation("unknown"), false);
   assert.equal(isNativeExternalFirstPartyCurrentSlotBlockedByBundledOwner("notes"), false);
