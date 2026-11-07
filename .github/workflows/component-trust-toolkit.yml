@@ -162,6 +162,7 @@ jobs:
           )
           cp tools/runtime-component-channel/windows/1-Verify-OrdaXComponentTrustToolkit.cmd "$out/"
           cp tools/runtime-component-channel/windows/2-Initialize-OrdaXComponentTrust.cmd "$out/"
+          cp tools/runtime-component-channel/windows/2-Resume-OrdaXComponentTrust.cmd "$out/"
           cp tools/runtime-component-channel/windows/3-Verify-OrdaXComponentTrustRecovery.cmd "$out/"
           cp tools/runtime-component-channel/windows/Initialize-OrdaXComponentTrust.ps1 "$out/"
           cp tools/runtime-component-channel/windows/Complete-OrdaXComponentTrust.ps1 "$out/"
@@ -178,6 +179,7 @@ jobs:
               ordax-runtime-component-channel.exe \
               1-Verify-OrdaXComponentTrustToolkit.cmd \
               2-Initialize-OrdaXComponentTrust.cmd \
+              2-Resume-OrdaXComponentTrust.cmd \
               3-Verify-OrdaXComponentTrustRecovery.cmd \
               Initialize-OrdaXComponentTrust.ps1 \
               Complete-OrdaXComponentTrust.ps1 \
