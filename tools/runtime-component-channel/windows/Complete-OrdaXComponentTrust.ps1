@@ -100,6 +100,14 @@ if ($Policy.'$schema' -ne 'prototype-ordax.runtime-component-trust-policy/1' -or
 }
 
 $ReviewDirectory = [IO.Path]::GetFullPath($ReviewDirectory)
+$ResumeDirectory = Join-Path $ReviewDirectory 'resumed-current-toolkit'
+if (Test-Path -LiteralPath $ResumeDirectory) {
+    if (-not (Test-Path -LiteralPath $ResumeDirectory -PathType Container) -or
+        ((Get-Item -LiteralPath $ResumeDirectory -Force).Attributes -band [IO.FileAttributes]::ReparsePoint) -ne 0) {
+        throw 'Resumed component review directory is invalid.'
+    }
+    $ReviewDirectory = $ResumeDirectory
+}
 $TrustPath = Join-Path $ReviewDirectory 'runtime-components-ed25519.json'
 $PrimaryDerivedPath = Join-Path $ReviewDirectory 'runtime-components-ed25519-derived.json'
 $ProofReleasePath = Join-Path $ReviewDirectory 'component-trust-proof-release.json'
@@ -150,6 +158,22 @@ if ([string]$InitialResult.public_trust_sha256 -ne $CurrentTrustHash -or
     [string]$InitialResult.proof_release_sha256 -ne $CurrentProofReleaseHash -or
     [string]$InitialResult.proof_envelope_sha256 -ne $CurrentInitialEnvelopeHash) {
     throw 'Initial component trust ceremony files changed after the initialization proof.'
+}
+
+if ($InitialResult.existing_key_resumed -eq $true) {
+    $LegacyReview = Split-Path -Parent $ReviewDirectory
+    $LegacyTrust = Join-Path $LegacyReview 'runtime-components-ed25519.json'
+    $LegacyDerived = Join-Path $LegacyReview 'runtime-components-ed25519-derived.json'
+    Assert-RegularFile $LegacyTrust 'original public trust for resumed ceremony'
+    Assert-RegularFile $LegacyDerived 'original public derivation for resumed ceremony'
+    $legacyTrustHash = (Get-FileHash -Algorithm SHA256 -LiteralPath $LegacyTrust).Hash.ToLowerInvariant()
+    $legacyDerivedHash = (Get-FileHash -Algorithm SHA256 -LiteralPath $LegacyDerived).Hash.ToLowerInvariant()
+    if ($legacyTrustHash -cne $CurrentTrustHash -or
+        $legacyTrustHash -cne [string]$InitialResult.prior_review_trust_sha256 -or
+        $legacyDerivedHash -cne [string]$InitialResult.prior_review_derived_sha256 -or
+        $legacyDerivedHash -cne $CurrentTrustHash) {
+        throw 'Resumed component ceremony no longer matches both preserved original public identities.'
+    }
 }
 
 $ProofRelease = Get-Content -LiteralPath $ProofReleasePath -Raw | ConvertFrom-Json
