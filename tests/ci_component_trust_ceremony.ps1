@@ -95,6 +95,79 @@ try {
     if (-not (Test-Path $handoff)) { throw 'Public-only handoff missing' }
     & python (Join-Path $repoRoot 'tools/runtime-component-channel/promote_public_trust.py') check --repo-root $repoRoot --promotion-zip $handoff --verifier $verifier | Out-Host
     if ($LASTEXITCODE -ne 0) { throw 'Canonical public handoff promotion check failed' }
+
+    # Simulate a legacy attempt interrupted after generating the SAME disposable key.
+    $legacyReview = Join-Path $sandbox 'interrupted-legacy-review'
+    New-Item -ItemType Directory -Path $legacyReview | Out-Null
+    foreach ($n in @('runtime-components-ed25519.json', 'runtime-components-ed25519-derived.json')) {
+        Copy-Item -LiteralPath (Join-Path $review $n) -Destination (Join-Path $legacyReview $n)
+    }
+    $legacyProof = Join-Path $legacyReview 'component-trust-proof-release.json'
+    $legacyDescriptor = Get-Content (Join-Path $review 'component-trust-proof-release.json') -Raw | ConvertFrom-Json
+    $legacyDescriptor.component.id = 'internet'
+    $legacyDescriptor.component.release_mode = 'component-slot'
+    $legacyDescriptor.package.name = 'internet.zip'
+    [IO.File]::WriteAllText($legacyProof, ($legacyDescriptor | ConvertTo-Json -Depth 8), [Text.UTF8Encoding]::new($false))
+    $originalKeyHash = SHA $original
+    $originalTrustHash = SHA (Join-Path $legacyReview 'runtime-components-ed25519.json')
+    $originalDerivedHash = SHA (Join-Path $legacyReview 'runtime-components-ed25519-derived.json')
+    $originalProofHash = SHA $legacyProof
+
+    & pwsh -NoProfile -File $init -ResumeExistingKey -PrivateKeyPath $original -ReviewDirectory $legacyReview -ToolkitProvenancePath $provenancePath | Out-Host
+    if ($LASTEXITCODE -ne 0) { throw 'Interrupted component trust resume failed' }
+    $resumed = Join-Path $legacyReview 'resumed-current-toolkit'
+    $proofResumed = Get-Content (Join-Path $resumed 'component-trust-proof-release.json') -Raw | ConvertFrom-Json
+    $resultResumed = Get-Content (Join-Path $resumed 'ceremony-result.json') -Raw | ConvertFrom-Json
+    if ($proofResumed.component.id -cne 'local-ai-service' -or
+        $proofResumed.component.release_mode -cne 'bundled' -or
+        $resultResumed.existing_key_resumed -ne $true -or
+        $resultResumed.source_commit -cne $env:GITHUB_SHA -or
+        $resultResumed.ready_to_pin_public_anchor -ne $false) {
+        throw 'Resumed proof or toolkit provenance was incorrect'
+    }
+    $resumedHash = SHA (Join-Path $resumed 'ceremony-result.json')
+    & pwsh -NoProfile -File $init -ResumeExistingKey -PrivateKeyPath $original -ReviewDirectory $legacyReview -ToolkitProvenancePath $provenancePath | Out-Host
+    if ($LASTEXITCODE -ne 0 -or (SHA (Join-Path $resumed 'ceremony-result.json')) -cne $resumedHash) {
+        throw 'Repeat resume was not idempotent'
+    }
+    if ((SHA $original) -cne $originalKeyHash -or
+        (SHA (Join-Path $legacyReview 'runtime-components-ed25519.json')) -cne $originalTrustHash -or
+        (SHA (Join-Path $legacyReview 'runtime-components-ed25519-derived.json')) -cne $originalDerivedHash -or
+        (SHA $legacyProof) -cne $originalProofHash) {
+        throw 'Resume overwrote original key or legacy review'
+    }
+
+    foreach ($scenario in @('mismatch', 'partial-stage', 'missing-key')) {
+        $badReview = Join-Path $sandbox "negative-$scenario"
+        New-Item -ItemType Directory -Path $badReview | Out-Null
+        foreach ($n in @('runtime-components-ed25519.json', 'runtime-components-ed25519-derived.json')) {
+            Copy-Item -LiteralPath (Join-Path $legacyReview $n) -Destination (Join-Path $badReview $n)
+        }
+        $badKey = $original
+        if ($scenario -eq 'mismatch') {
+            Add-Content -LiteralPath (Join-Path $badReview 'runtime-components-ed25519-derived.json') -Value 'tampered'
+        }
+        if ($scenario -eq 'partial-stage') {
+            New-Item -ItemType Directory -Path (Join-Path $badReview 'resumed-current-toolkit') | Out-Null
+        }
+        if ($scenario -eq 'missing-key') {
+            $badKey = Join-Path $identity 'missing-private.pem'
+        }
+        & pwsh -NoProfile -File $init -ResumeExistingKey -PrivateKeyPath $badKey -ReviewDirectory $badReview -ToolkitProvenancePath $provenancePath 2>&1 | Out-Null
+        if ($LASTEXITCODE -eq 0) { throw "Resume accepted invalid scenario: $scenario" }
+    }
+    & pwsh -NoProfile -File $init -GenerateKey -ResumeExistingKey -PrivateKeyPath $original -ReviewDirectory $legacyReview -ToolkitProvenancePath $provenancePath 2>&1 | Out-Null
+    if ($LASTEXITCODE -eq 0) { throw 'GenerateKey + ResumeExistingKey accepted together' }
+
+    # The existing finalizer must recover from encrypted restored key and produce only public data.
+    & pwsh -NoProfile -File $finalize -RecoveredPrivateKeyPath $recovered -PrimaryPrivateKeyPath $original -ReviewDirectory $legacyReview -ToolkitProvenancePath $provenancePath | Out-Host
+    if ($LASTEXITCODE -ne 0) { throw 'Resumed recovery verification failed' }
+    $resumedHandoff = Join-Path $resumed 'OrdaX-Component-Public-Trust-Handoff.zip'
+    & python (Join-Path $repoRoot 'tools/runtime-component-channel/promote_public_trust.py') check --repo-root $repoRoot --promotion-zip $resumedHandoff --verifier $verifier | Out-Host
+    if ($LASTEXITCODE -ne 0) { throw 'Resumed public-only handoff failed promoter check' }
+    Write-Host 'CI_COMPONENT_TRUST_RESUME_EXISTING_KEY=PASS'
+    Write-Host 'CI_COMPONENT_TRUST_RESUME_NEGATIVE_CASES=PASS'
+    Write-Host 'CI_COMPONENT_TRUST_RESUMED_RECOVERY_HANDOFF=PASS'
     Write-Host 'CI_DISPOSABLE_TRUST_INITIALIZATION=PASS'
     Write-Host 'CI_DISPOSABLE_ENCRYPTED_RECOVERY=PASS'
     Write-Host 'CI_PUBLIC_HANDOFF_PROMOTION_CHECK=PASS'
