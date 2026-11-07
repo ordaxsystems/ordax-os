@@ -67,20 +67,32 @@ class ComponentTrustToolkitTests(unittest.TestCase):
     def test_initializer_preflight_is_read_only_and_generation_is_explicit(self):
         self.assertIn("[switch]$PreflightOnly", INITIALIZER)
         self.assertIn("[switch]$GenerateKey", INITIALIZER)
+        self.assertIn("[switch]$ResumeExistingKey", INITIALIZER)
         self.assertIn("COMPONENT_TRUST_TOOLKIT_PREFLIGHT=PASS", INITIALIZER)
         self.assertIn("PRIVATE_KEY_TOUCHED=NO", INITIALIZER)
         self.assertIn("FILESYSTEM_MUTATION=NO", INITIALIZER)
         self.assertIn("if ($PreflightOnly)", INITIALIZER)
-        self.assertIn("if (-not $GenerateKey)", INITIALIZER)
+        self.assertIn("if (-not $GenerateKey -and -not $ResumeExistingKey)", INITIALIZER)
         self.assertIn("Refusing key generation without explicit -GenerateKey", INITIALIZER)
         self.assertLess(
             INITIALIZER.index("if ($PreflightOnly)"),
             INITIALIZER.index("New-Item -ItemType Directory"),
         )
         self.assertLess(
-            INITIALIZER.index("if (-not $GenerateKey)"),
+            INITIALIZER.index("if (-not $GenerateKey -and -not $ResumeExistingKey)"),
             INITIALIZER.index("& $Signer generate-key"),
         )
+
+    def test_resume_preserves_legacy_public_files_and_is_explicit(self):
+        self.assertIn("GenerateKey and ResumeExistingKey are mutually exclusive", INITIALIZER)
+        self.assertIn("Assert-PublicBytesEqual $OldTrust $OldDerived", INITIALIZER)
+        self.assertIn("Assert-PublicBytesEqual $OldDerived $DerivedPath", INITIALIZER)
+        self.assertIn("resumed-current-toolkit", INITIALIZER)
+        self.assertIn("Move-Item -LiteralPath $ResumeStage -Destination $ResumeTarget", INITIALIZER)
+        self.assertIn("COMPONENT_TRUST_RESUME=ALREADY_COMPLETE", INITIALIZER)
+        self.assertIn("production_authority = $false", INITIALIZER)
+        self.assertIn("Resumed component ceremony no longer matches", FINALIZER)
+        self.assertIn("2-Resume-OrdaXComponentTrust.cmd", WORKFLOW)
 
     def test_initializer_binds_toolkit_hashes_and_source_commit(self):
         self.assertIn("prototype-ordax.component-trust-toolkit/1", INITIALIZER)
@@ -163,6 +175,7 @@ class ComponentTrustToolkitTests(unittest.TestCase):
         self.assertIn("runs-on: windows-latest", WORKFLOW)
         self.assertIn("Initialize-OrdaXComponentTrust.ps1", WORKFLOW)
         self.assertIn("Complete-OrdaXComponentTrust.ps1", WORKFLOW)
+        self.assertIn("2-Resume-OrdaXComponentTrust.cmd", WORKFLOW)
         self.assertIn("COMPONENT_TRUST_POWERSHELL_PARSE=PASS", WORKFLOW)
 
 
