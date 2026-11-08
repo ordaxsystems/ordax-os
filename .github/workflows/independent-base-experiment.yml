@@ -43,6 +43,7 @@ on:
 
 permissions:
   contents: read
+  actions: read  # Read only exact successful kernel artifact from existing canonical workflow.
 
 concurrency:
   group: ${{ github.workflow }}-${{ github.event_name }}-${{ github.event.pull_request.number || github.ref }}-${{ inputs.profile || 'none' }}
@@ -186,17 +187,87 @@ jobs:
         with:
           path: ${{ runner.temp }}/portable-v2-qemu/kernel
           key: ordax-portable-component-v1-${{ runner.os }}-${{ runner.arch }}-kernel-${{ steps.component-fingerprints.outputs.kernel }}
+      - name: Reuse exact successful kernel candidate artifact on scoped cache miss
+        id: kernel-artifact
+        if: ${{ steps.kernel-cache.outputs.cache-hit != 'true' && env.ORDAX_INDEPENDENT_PROFILE == 'stable-mvp' && github.event_name == 'workflow_dispatch' }}
+        env:
+          GH_TOKEN: ${{ github.token }}
+          ORDAX_SOURCE_COMMIT: ${{ github.event.pull_request.head.sha || github.sha }}
+        run: |
+          set -euo pipefail
+          # A PR-scoped cache is intentionally invisible to workflow_dispatch.
+          # Reuse only an artifact from the successful canonical kernel workflow
+          # for this exact source commit, never an arbitrary archive or tag.
+          artifact_name="ordax-kernel-${ORDAX_SOURCE_COMMIT}"
+          artifact_list="$(gh api --method GET "repos/${GITHUB_REPOSITORY}/actions/artifacts" -f "name=${artifact_name}" -F per_page=100)"
+          export ORDAX_KERNEL_ARTIFACT_NAME="$artifact_name"
+          run_id="$(printf '%s' "$artifact_list" | python3 -c '
+          import json, os, sys
+          matches = [a for a in json.load(sys.stdin).get("artifacts", [])
+                     if a.get("name") == os.environ["ORDAX_KERNEL_ARTIFACT_NAME"]
+                     and a.get("expired") is False
+                     and (a.get("workflow_run") or {}).get("head_sha") == os.environ["ORDAX_SOURCE_COMMIT"]]
+          if len(matches) != 1:
+              raise SystemExit("exact kernel artifact must exist once for the current source commit")
+          print(matches[0]["workflow_run"]["id"])
+          ')"
+          run_info="$(gh api --method GET "repos/${GITHUB_REPOSITORY}/actions/runs/${run_id}")"
+          printf '%s' "$run_info" | python3 -c '
+          import json, os, sys
+          run = json.load(sys.stdin)
+          if (run.get("head_sha") != os.environ["ORDAX_SOURCE_COMMIT"]
+              or run.get("path") != ".github/workflows/kernel-candidate.yml"
+              or run.get("conclusion") != "success"
+              or run.get("status") != "completed"):
+              raise SystemExit("kernel artifact source run is not the exact successful canonical producer")
+          '
+          kernel_dir="$RUNNER_TEMP/portable-v2-qemu/kernel"
+          test ! -e "$kernel_dir" && test ! -L "$kernel_dir"
+          gh run download "$run_id" --repo "$GITHUB_REPOSITORY" --name "$artifact_name" --dir "$kernel_dir"
+          python3 bootstrap/kernel/verify.py "$kernel_dir"
+          export ORDAX_KERNEL_ARTIFACT_DIR="$kernel_dir"
+          python3 -c '
+          import hashlib
+          import json
+          import os
+          from pathlib import Path
+
+          root = Path.cwd()
+          out = Path(os.environ["ORDAX_KERNEL_ARTIFACT_DIR"])
+          source_path = root / "bootstrap/kernel/source.json"
+          source = json.loads(source_path.read_text(encoding="utf-8"))
+          provenance = json.loads((out / "kernel-provenance.json").read_text(encoding="utf-8"))
+          fragment = root / source["configuration"]["fragment"]
+          sha = lambda path: hashlib.sha256(path.read_bytes()).hexdigest()
+          version = source["version"]
+          expected_files = {
+              "kernel-provenance.json", "SHA256SUMS",
+              f"vmlinuz-{version}", f"kernel-modules-{version}.tar",
+              f"kernel-{version}.config",
+          }
+          if (set(path.name for path in out.iterdir()) != expected_files
+              or any(path.is_symlink() or not path.is_file() for path in out.iterdir())
+              or provenance.get("source_commit") != os.environ["ORDAX_SOURCE_COMMIT"]
+              or provenance.get("source_contract_sha256") != sha(source_path)
+              or provenance.get("fragment_sha256") != sha(fragment)
+              or provenance.get("kernel_version") != version
+              or provenance.get("upstream_authentication", {}).get("status") != "verified"
+              or provenance.get("physical_artifact_authorized") is not False):
+              raise SystemExit("kernel artifact identity, source lock, or authenticated provenance mismatch")
+          '
+          printf 'reused=true\n' >> "$GITHUB_OUTPUT"
       - name: Require a previously verified kernel for Stable candidate
         if: env.ORDAX_INDEPENDENT_PROFILE == 'stable-mvp'
         env:
           ORDAX_STABLE_KERNEL_CACHE_HIT: ${{ steps.kernel-cache.outputs.cache-hit }}
+          ORDAX_VERIFIED_KERNEL_ARTIFACT_REUSED: ${{ steps.kernel-artifact.outputs.reused }}
           # Only this explicitly marked integration-branch commit may seed a
           # missing kernel cache once. Ordinary Stable, dispatch, PR and
           # subsequent unmarked commits remain strictly cache-only.
           ORDAX_EXPLICIT_STABLE_KERNEL_BOOTSTRAP: ${{ github.event_name == 'push' && github.ref == 'refs/heads/integration/dev-usb-buildroot-surface-20261024' && contains(github.event.head_commit.message, '[stable-mvp-bootstrap-kernel]') }}
         run: |
           set -euo pipefail
-          if [ "$ORDAX_STABLE_KERNEL_CACHE_HIT" != true ]; then
+          if [ "$ORDAX_STABLE_KERNEL_CACHE_HIT" != true ] && [ "$ORDAX_VERIFIED_KERNEL_ARTIFACT_REUSED" != true ]; then
             if [ "$ORDAX_EXPLICIT_STABLE_KERNEL_BOOTSTRAP" != true ]; then
               echo 'Stable candidate must reuse an existing verified kernel; no recompilation authorized' >&2
               exit 1
@@ -204,7 +275,7 @@ jobs:
             echo 'ORDAX_EXPLICIT_STABLE_KERNEL_CACHE_SEED=AUTHORIZED'
           fi
       - name: Build canonical OrdaX kernel on verified cache miss
-        if: ${{ steps.kernel-cache.outputs.cache-hit != 'true' && (env.ORDAX_INDEPENDENT_PROFILE != 'stable-mvp' || (github.event_name == 'push' && github.ref == 'refs/heads/integration/dev-usb-buildroot-surface-20261024' && contains(github.event.head_commit.message, '[stable-mvp-bootstrap-kernel]'))) }}
+        if: ${{ steps.kernel-cache.outputs.cache-hit != 'true' && steps.kernel-artifact.outputs.reused != 'true' && (env.ORDAX_INDEPENDENT_PROFILE != 'stable-mvp' || (github.event_name == 'push' && github.ref == 'refs/heads/integration/dev-usb-buildroot-surface-20261024' && contains(github.event.head_commit.message, '[stable-mvp-bootstrap-kernel]'))) }}
         env:
           ORDAX_SOURCE_COMMIT: ${{ github.event.pull_request.head.sha || github.sha }}
         run: |
@@ -229,6 +300,11 @@ jobs:
               --out-dir "$kernel_dir" \
               --source-commit "$ORDAX_SOURCE_COMMIT" \
               > "$metadata/kernel-cache-record.json"
+          fi
+          # The reused CI artifact was independently verified, but did not
+          # come from actions/cache; record its true reuse in the SSOT receipt.
+          if [ '${{ steps.kernel-artifact.outputs.reused }}' = 'true' ]; then
+            cache_hit=true
           fi
           python3 tools/ci/portable_component_cache.py verify \
             --component kernel \
