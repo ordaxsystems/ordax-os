@@ -96,6 +96,12 @@ class PortableV2PinnedInitramfsProofTests(unittest.TestCase):
         self.assertLess(kernel_verify, capsule)
         self.assertLess(capsule, initramfs)
         kernel_block = WORKFLOW[kernel_verify:capsule]
+        self.assertIn(
+            'path: ${{ runner.temp }}/portable-v2-qemu/kernel',
+            WORKFLOW[kernel_restore:kernel_verify],
+        )
+        self.assertIn('kernel_dir="$RUNNER_TEMP/portable-v2-qemu/kernel"', kernel_block)
+        self.assertNotIn('portable-v2-pinned/kernel', WORKFLOW)
         self.assertIn('if [ "$ORDAX_KERNEL_CACHE_HIT" != true ]; then', kernel_block)
         self.assertIn('--component kernel', kernel_block)
         self.assertIn('--cache-hit true', kernel_block)

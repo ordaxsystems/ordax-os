@@ -170,7 +170,7 @@ jobs:
         id: kernel-cache
         uses: actions/cache/restore@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
         with:
-          path: ${{ runner.temp }}/portable-v2-pinned/kernel
+          path: ${{ runner.temp }}/portable-v2-qemu/kernel
           key: ordax-portable-component-v1-${{ runner.os }}-${{ runner.arch }}-kernel-${{ steps.base-fingerprints.outputs.kernel }}
 
       - name: Verify exact cached kernel modules without rebuilding
@@ -183,7 +183,7 @@ jobs:
             echo 'Verified canonical kernel cache missing; run existing Kernel Candidate/Independent Base producer first' >&2
             exit 1
           fi
-          kernel_dir="$RUNNER_TEMP/portable-v2-pinned/kernel"
+          kernel_dir="$RUNNER_TEMP/portable-v2-qemu/kernel"
           test ! -L "$kernel_dir"
           test -s "$kernel_dir/kernel-modules-$ORDAX_KERNEL_VERSION.tar"
           # bootstrap/kernel/verify.py rejects symlink entries and mismatched
