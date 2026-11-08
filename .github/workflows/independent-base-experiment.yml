@@ -458,6 +458,18 @@ jobs:
         with:
           path: ${{ runner.temp }}/ordax-independent
           key: ordax-portable-component-v1-${{ runner.os }}-${{ runner.arch }}-independent-base-stable-${{ steps.component-fingerprints.outputs.independent_base_stable }}
+      - name: Export complete verified Stable component for PR cache reuse
+        if: env.ORDAX_INDEPENDENT_PROFILE == 'stable-mvp' && github.event_name == 'workflow_dispatch'
+        uses: actions/upload-artifact@b7c566a772e6b6bfb58ed0dc250532a479d7789f # v6
+        with:
+          # A pull_request cannot see the integration-branch actions/cache entry.
+          # Export the exact already verified bytes, including the immutable
+          # .ordax-component-cache.json, without producing a second Buildroot.
+          name: ordax-stable-cache-${{ steps.component-fingerprints.outputs.independent_base_stable }}-${{ github.sha }}
+          path: ${{ runner.temp }}/ordax-independent/
+          include-hidden-files: true
+          if-no-files-found: error
+          retention-days: 7
       - name: Prove Owner rootfs against the real Dev Channel consumer
         if: env.ORDAX_INDEPENDENT_PROFILE == 'owner-development'
         env:

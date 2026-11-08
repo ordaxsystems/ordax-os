@@ -46,6 +46,7 @@ concurrency:
 
 permissions:
   contents: read
+  actions: read  # Only to fetch a canonical successful Stable producer artifact.
 
 jobs:
   stable-base:
@@ -119,13 +120,60 @@ jobs:
           path: ${{ runner.temp }}/ordax-independent
           key: ordax-portable-component-v1-${{ runner.os }}-${{ runner.arch }}-independent-base-stable-${{ steps.component-fingerprints.outputs.independent_base_stable }}
 
+      - name: Restore verified Stable producer artifact on scoped cache miss
+        id: stable-artifact
+        if: steps.independent-stable-cache.outputs.cache-hit != 'true'
+        env:
+          GH_TOKEN: ${{ github.token }}
+          ORDAX_SOURCE_COMMIT: ${{ github.event.pull_request.head.sha || github.sha }}
+          ORDAX_STABLE_FINGERPRINT: ${{ steps.component-fingerprints.outputs.independent_base_stable }}
+        run: |
+          set -euo pipefail
+          # A full producer artifact is required: a partial evidence export
+          # cannot substitute for the canonical cache manifest and all bytes.
+          artifact_name="ordax-stable-cache-${ORDAX_STABLE_FINGERPRINT}-${ORDAX_SOURCE_COMMIT}"
+          export ORDAX_STABLE_ARTIFACT_NAME="$artifact_name"
+          artifact_list="$(gh api --method GET "repos/${GITHUB_REPOSITORY}/actions/artifacts" -f "name=${artifact_name}" -F per_page=100)"
+          run_id="$(printf '%s' "$artifact_list" | python3 -c '
+          import json, os, sys
+          records = json.load(sys.stdin).get("artifacts", [])
+          matches = [a for a in records
+                     if a.get("name") == os.environ["ORDAX_STABLE_ARTIFACT_NAME"]
+                     and a.get("expired") is False
+                     and (a.get("workflow_run") or {}).get("head_sha") == os.environ["ORDAX_SOURCE_COMMIT"]]
+          if len(matches) != 1:
+              raise SystemExit("need exactly one unexpired exact stable producer artifact")
+          print(matches[0]["workflow_run"]["id"])
+          ')"
+          run_info="$(gh api --method GET "repos/${GITHUB_REPOSITORY}/actions/runs/${run_id}")"
+          printf '%s' "$run_info" | python3 -c '
+          import json, os, sys
+          run = json.load(sys.stdin)
+          if (run.get("head_sha") != os.environ["ORDAX_SOURCE_COMMIT"]
+              or run.get("path") != ".github/workflows/independent-base-experiment.yml"
+              or run.get("event") != "workflow_dispatch"
+              or run.get("status") != "completed"
+              or run.get("conclusion") != "success"
+              or (run.get("repository") or {}).get("full_name") != os.environ["GITHUB_REPOSITORY"]):
+              raise SystemExit("Stable artifact did not come from successful canonical producer")
+          '
+          base_dir="$RUNNER_TEMP/ordax-independent"
+          test ! -e "$base_dir" && test ! -L "$base_dir"
+          gh run download "$run_id" --repo "$GITHUB_REPOSITORY" --name "$artifact_name" --dir "$base_dir"
+          python3 tools/ci/portable_component_cache.py verify \
+            --component independent-base-stable --out-dir "$base_dir" \
+            --integration-commit "$ORDAX_SOURCE_COMMIT" --cache-hit true \
+            --receipt "$RUNNER_TEMP/portable-v2-qemu/metadata/stable-artifact-reuse.json"
+          printf 'reused=true\n' >> "$GITHUB_OUTPUT"
+
       - name: Verify Stable Buildroot candidate without rebuilding
         env:
           ORDAX_SOURCE_COMMIT: ${{ github.event.pull_request.head.sha || github.sha }}
           ORDAX_STABLE_CACHE_HIT: ${{ steps.independent-stable-cache.outputs.cache-hit }}
+          ORDAX_STABLE_ARTIFACT_REUSED: ${{ steps.stable-artifact.outputs.reused }}
         run: |
           set -euo pipefail
-          if [ "$ORDAX_STABLE_CACHE_HIT" != true ]; then
+          if [ "$ORDAX_STABLE_CACHE_HIT" != true ] && [ "$ORDAX_STABLE_ARTIFACT_REUSED" != true ]; then
             echo 'No verified stable-mvp Buildroot component; run the existing Independent Base producer first' >&2
             exit 1
           fi
@@ -153,6 +201,13 @@ jobs:
           print('STABLE_BASE_BUILDROOT_VERIFIED=PASS')
           print('STABLE_BASE_PHYSICAL_AUTHORIZED=NO')
           PY
+
+      - name: Save verified Stable component into current PR cache scope
+        if: steps.stable-artifact.outputs.reused == 'true'
+        uses: actions/cache/save@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
+        with:
+          path: ${{ runner.temp }}/ordax-independent
+          key: ordax-portable-component-v1-${{ runner.os }}-${{ runner.arch }}-independent-base-stable-${{ steps.component-fingerprints.outputs.independent_base_stable }}
 
       - name: Retain verified Stable receipts for review only
         uses: actions/upload-artifact@b7c566a772e6b6bfb58ed0dc250532a479d7789f # v6
