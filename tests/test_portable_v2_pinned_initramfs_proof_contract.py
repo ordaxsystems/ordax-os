@@ -52,7 +52,11 @@ class PortableV2PinnedInitramfsProofTests(unittest.TestCase):
         self.assertNotIn("bootstrap/stable-base/build.py", WORKFLOW)
         self.assertNotIn("bootstrap/independent-base/build.py build", WORKFLOW)
         self.assertNotIn("apk add", WORKFLOW)
-        self.assertIn("bootstrap/kernel/build.py build", WORKFLOW)
+        self.assertNotIn("bootstrap/kernel/build.py build", WORKFLOW)
+        self.assertIn("Restore verified kernel component", WORKFLOW)
+        self.assertIn("Verify exact cached kernel modules without rebuilding", WORKFLOW)
+        self.assertIn("--component kernel", WORKFLOW)
+        self.assertIn("bootstrap/kernel/verify.py", WORKFLOW)
         self.assertIn("--portable-bootstrap-capsule", WORKFLOW)
         self.assertIn("--portable-stable-base", WORKFLOW)
         self.assertIn("portable_bootstrap_capsule_pin", WORKFLOW)
@@ -75,17 +79,30 @@ class PortableV2PinnedInitramfsProofTests(unittest.TestCase):
         capsule = WORKFLOW.index(
             "      - name: Build exact static release agent and bootstrap capsule"
         )
-        kernel = WORKFLOW.index("      - name: Build exact kernel modules")
+        kernel_restore = WORKFLOW.index(
+            "      - name: Restore verified kernel component"
+        )
+        kernel_verify = WORKFLOW.index(
+            "      - name: Verify exact cached kernel modules without rebuilding"
+        )
         initramfs = WORKFLOW.index(
             "      - name: Build one initramfs pinned to both real EROFS artifacts"
         )
         self.assertLess(WORKFLOW.index("      - name: Install exact-artifact build dependencies"), fingerprint)
         self.assertLess(fingerprint, restore)
         self.assertLess(restore, verified)
-        self.assertLess(verified, capsule)
-        self.assertLess(verified, kernel)
-        self.assertLess(kernel, initramfs)
-        stable_block = WORKFLOW[verified:capsule]
+        self.assertLess(verified, kernel_restore)
+        self.assertLess(kernel_restore, kernel_verify)
+        self.assertLess(kernel_verify, capsule)
+        self.assertLess(capsule, initramfs)
+        kernel_block = WORKFLOW[kernel_verify:capsule]
+        self.assertIn('if [ "$ORDAX_KERNEL_CACHE_HIT" != true ]; then', kernel_block)
+        self.assertIn('--component kernel', kernel_block)
+        self.assertIn('--cache-hit true', kernel_block)
+        self.assertIn('kernel-component-reuse.json', kernel_block)
+        self.assertIn('bootstrap/kernel/verify.py', kernel_block)
+        self.assertNotIn('bootstrap/kernel/build.py build', kernel_block)
+        stable_block = WORKFLOW[verified:kernel_restore]
         self.assertIn('mkdir -p "$work/metadata"', stable_block)
         self.assertIn('if [ "$ORDAX_STABLE_CACHE_HIT" != true ]; then', stable_block)
         self.assertIn('bootstrap/independent-base/build.py verify', stable_block)

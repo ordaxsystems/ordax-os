@@ -163,6 +163,38 @@ jobs:
           cmp "$source/independent-base.erofs" "$work/stable-base/stable-base.erofs"
           fsck.erofs "$work/stable-base/stable-base.erofs"
 
+      # A verified kernel already exists at the canonical fingerprint.
+      # The pinned-initramfs proof consumes it; it never compiles the same
+      # kernel again merely because the Stable rootfs is being verified.
+      - name: Restore verified kernel component
+        id: kernel-cache
+        uses: actions/cache/restore@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
+        with:
+          path: ${{ runner.temp }}/portable-v2-pinned/kernel
+          key: ordax-portable-component-v1-${{ runner.os }}-${{ runner.arch }}-kernel-${{ steps.base-fingerprints.outputs.kernel }}
+
+      - name: Verify exact cached kernel modules without rebuilding
+        env:
+          ORDAX_SOURCE_COMMIT: ${{ github.event.pull_request.head.sha || github.sha }}
+          ORDAX_KERNEL_CACHE_HIT: ${{ steps.kernel-cache.outputs.cache-hit }}
+        run: |
+          set -euo pipefail
+          if [ "$ORDAX_KERNEL_CACHE_HIT" != true ]; then
+            echo 'Verified canonical kernel cache missing; run existing Kernel Candidate/Independent Base producer first' >&2
+            exit 1
+          fi
+          kernel_dir="$RUNNER_TEMP/portable-v2-pinned/kernel"
+          test ! -L "$kernel_dir"
+          test -s "$kernel_dir/kernel-modules-$ORDAX_KERNEL_VERSION.tar"
+          # bootstrap/kernel/verify.py rejects symlink entries and mismatched
+          # SHA256SUMS/provenance; this is an exact verified artifact.
+          python3 bootstrap/kernel/build.py check
+          python3 bootstrap/kernel/verify.py "$kernel_dir"
+          python3 tools/ci/portable_component_cache.py verify \
+            --component kernel --out-dir "$kernel_dir" \
+            --integration-commit "$ORDAX_SOURCE_COMMIT" --cache-hit true \
+            --receipt "$RUNNER_TEMP/portable-v2-pinned/metadata/kernel-component-reuse.json"
+
       - name: Build exact static release agent and bootstrap capsule
         run: |
           set -euo pipefail
@@ -183,19 +215,6 @@ jobs:
             --release-agent "$work/bin/ordax-release-agent" \
             --image "$work/capsule/bootstrap.erofs" \
             > "$work/metadata/capsule-verify.json"
-
-      - name: Build exact kernel modules
-        env:
-          ORDAX_SOURCE_COMMIT: ${{ github.event.pull_request.head.sha || github.sha }}
-        run: |
-          set -euo pipefail
-          python bootstrap/kernel/build.py check
-          python bootstrap/kernel/build.py build \
-            --jobs 4 \
-            --work-dir "$RUNNER_TEMP/portable-v2-pinned/kernel-work" \
-            --out-dir "$RUNNER_TEMP/portable-v2-pinned/kernel"
-          python bootstrap/kernel/verify.py "$RUNNER_TEMP/portable-v2-pinned/kernel"
-          test -s "$RUNNER_TEMP/portable-v2-pinned/kernel/kernel-modules-$ORDAX_KERNEL_VERSION.tar"
 
       - name: Build one initramfs pinned to both real EROFS artifacts
         env:
