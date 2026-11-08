@@ -107,6 +107,46 @@ class CreatorOwnerImpactTests(unittest.TestCase):
         self.assertTrue(impact.classify(light, boot, root=self.root)[0])
         self.assertTrue(impact.classify("0" * 40, boot, root=self.root)[0])
 
+    def test_pull_script_only_pr_uses_owner_preflight_main_still_produces_usb(self):
+        workflow = WORKFLOW.read_text(encoding="utf-8")
+        preflight = (ROOT / ".github/workflows/owner-dev-preflight.yml").read_text(encoding="utf-8")
+        inventory = (ROOT / "tools/ci/preflight_owner_dev.py").read_text(encoding="utf-8")
+        self.assertIn("'bootstrap/dev-base/**'", preflight)
+        self.assertIn('"tests/test_dev_pull_expected_sha.py"', inventory)
+        self.assertIn('"tests/test_dev_checkout_exchange.py"', inventory)
+        self.assertIn('GITHUB_EVENT_NAME', (ROOT / "tools/ci/creator_owner_impact.py").read_text())
+
+        base = self.commit(workflow, VISUAL)
+        pull = self.commit(path="bootstrap/dev-base/ordax-pull")
+        self.assertEqual(impact.classify(base, pull, root=self.root, event="pull_request"),
+                         (False, "pull-pr-owner-preflight"))
+        self.assertEqual(impact.classify(base, pull, root=self.root, event="push"),
+                         (True, "real-or-unknown-usb-producer:bootstrap/dev-base/ordax-pull"))
+        self.assertTrue(impact.classify(base, pull, root=self.root, event="workflow_dispatch")[0])
+        self.assertTrue(impact.classify(base, pull, root=self.root, event="unknown")[0])
+
+        # A reviewed Pull change and its own regression tests/docs are light;
+        # the same merged main payload is still published with full USB proof.
+        for path in ("tests/test_dev_pull_expected_sha.py",
+                     "tests/test_dev_checkout_exchange.py",
+                     "docs/DEV-USB-GIT.md"):
+            head = self.commit(path=path)
+            self.assertEqual(impact.classify(base, head, root=self.root, event="pull_request"),
+                             (False, "pull-pr-owner-preflight"))
+            self.assertTrue(impact.classify(base, head, root=self.root, event="push")[0])
+
+        # A mixed Native, Base, boot or untrusted delta must never be hidden
+        # behind the otherwise eligible Pull script.
+        for path in ("bootstrap/dev-base/ordax-main-watch",
+                     "bootstrap/dev-base/ordax_checkout_exchange.c",
+                     "bootstrap/dev-base/build.py",
+                     "system/supervisor",
+                     "bootstrap/initramfs/build.py",
+                     "docs/contracts/unowned-release.json"):
+            head = self.commit(path=path)
+            self.assertTrue(impact.classify(base, head, root=self.root, event="pull_request")[0],
+                            path)
+
     def test_boot_and_unknown_owner_changes_require_real_usb(self):
         base = self.commit(WORKFLOW.read_text(encoding="utf-8"), VISUAL)
         for path in ("bootstrap/initramfs/build.py", "bootstrap/surface-runtime/build.py",
@@ -126,6 +166,7 @@ class CreatorOwnerImpactTests(unittest.TestCase):
             "tests/test_native_verified_installed_apps.mjs",
             "tools/windows-emulator/desktop-verified-component-slot.test.mjs",
             "tools/surface-web/browser-smoke.mjs",
+            "tests/test_windows_desktop_client_diagnostics.mjs",
         )
         for path in desktop_only:
             current = self.commit(path=path)
@@ -139,6 +180,139 @@ class CreatorOwnerImpactTests(unittest.TestCase):
         # Fail closed if a Windows path change accompanies a real OS producer.
         boot = self.commit(path="bootstrap/surface-runtime/build.py")
         self.assertTrue(impact.classify(base, boot, root=self.root)[0])
+
+    def test_exact_windows_product_bridge_has_no_usb_producer_delta(self):
+        # This is an exact *source-diff* proof, never a wildcard exclusion:
+        # shared Native modules are additive and Windows-guarded, translations
+        # contain only added data, and sidecar/evidence bytes are pinned.
+        native, catalog = tuple(impact.WINDOWS_PRODUCT_SHARED_ADDITIONS)
+        for path in (native, catalog):
+            target = self.root / path
+            target.parent.mkdir(parents=True, exist_ok=True)
+            target.write_text("// existing shared native data\n", encoding="utf-8")
+        base = self.commit(workflow=WORKFLOW.read_text(encoding="utf-8"), lock=VISUAL)
+        for path, additions in impact.WINDOWS_PRODUCT_SHARED_ADDITIONS.items():
+            target = self.root / path
+            with target.open("a", encoding="utf-8") as output:
+                output.write("\n".join(additions) + "\n")
+        for path in impact.WINDOWS_PRODUCT_PINNED_BLOBS:
+            target = self.root / path
+            target.parent.mkdir(parents=True, exist_ok=True)
+            target.write_bytes((ROOT / path).read_bytes())
+        head = self.commit(path="docs/DEVELOPMENT-WORKFLOW.md")
+        for path in impact.WINDOWS_PRODUCT_SHARED_ADDITIONS:
+            self.assertTrue(impact.verified_windows_product_additions(
+                base, head, path, root=self.root), path)
+        for path in impact.WINDOWS_PRODUCT_PINNED_BLOBS:
+            self.assertTrue(impact.verified_windows_product_blob(
+                head, path, root=self.root), path)
+        self.assertEqual(impact.classify(base, head, root=self.root),
+                         (False, "nonproducer-contract-only"))
+        # An actual boot-side edit cannot piggyback on the approved lines.
+        bad = self.commit(path="system/composition/native/main.mjs")
+        self.assertEqual(impact.classify(base, bad, root=self.root)[0], True)
+        self.assertFalse(impact.verified_windows_product_additions(
+            base, bad, native, root=self.root))
+        # A candidate's signature or authority cannot change under a stale
+        # content pin, even if its path looks Windows-only.
+        suspect = self.commit(path="docs/evidence/desktop-runtime-windows-candidate-2026-10-31.json")
+        self.assertEqual(impact.classify(base, suspect, root=self.root)[0], True)
+
+    def test_exact_windows_semantic_surface_mount_is_not_a_usb_producer(self):
+        # Exact source-diff proof: the same Linux Native composition remains
+        # byte-identical except for one call inside an existing Windows guard.
+        path = "system/composition/native/main.mjs"
+        source = self.root / path
+        source.parent.mkdir(parents=True, exist_ok=True)
+        old = (
+            "const something = true;\n"
+            "  const desktopSurfaceReporter = windowsDesktopHost\n"
+            "    ? mountNativeDesktopSurfaceStateReport(window, root, surface, appActivation)\n"
+            "    : null;\n"
+        )
+        source.write_text(old, encoding="utf-8")
+        base = self.commit(workflow=WORKFLOW.read_text(encoding="utf-8"), lock=VISUAL)
+        new = old.replace(
+            "mountNativeDesktopSurfaceStateReport(window, root, surface, appActivation)",
+            "mountNativeDesktopSurfaceStateReport(window, surface, appActivation)",
+        )
+        source.write_text(new, encoding="utf-8")
+        head = self.commit()
+        self.assertTrue(impact.verified_windows_semantic_surface_mount(
+            base, head, root=self.root
+        ))
+        self.assertEqual(impact.classify(base, head, root=self.root),
+                         (False, "nonproducer-contract-only"))
+        # Any extra Native or USB mutation invalidates the exception.
+        source.write_text(new + "\nconst unexpectedNativeChange = true;\n", encoding="utf-8")
+        bad = self.commit()
+        self.assertFalse(impact.verified_windows_semantic_surface_mount(
+            base, bad, root=self.root
+        ))
+        self.assertTrue(impact.classify(base, bad, root=self.root)[0])
+        # Even if the same call text is moved out of the Windows guard, no skip.
+        source.write_text(old.replace(
+            "const desktopSurfaceReporter = windowsDesktopHost",
+            "const desktopSurfaceReporter = true",
+        ).replace(
+            "mountNativeDesktopSurfaceStateReport(window, root, surface, appActivation)",
+            "mountNativeDesktopSurfaceStateReport(window, surface, appActivation)",
+        ), encoding="utf-8")
+        unguarded = self.commit()
+        self.assertTrue(impact.classify(base, unguarded, root=self.root)[0])
+
+    def test_unrecognized_native_and_catalog_additions_remain_usb_gated(self):
+        native, catalog = tuple(impact.WINDOWS_PRODUCT_SHARED_ADDITIONS)
+        for path in (native, catalog):
+            target = self.root / path
+            target.parent.mkdir(parents=True, exist_ok=True)
+            target.write_text("baseline\n", encoding="utf-8")
+        base = self.commit(workflow=WORKFLOW.read_text(encoding="utf-8"), lock=VISUAL)
+        for path in (native, catalog):
+            self.commit(path=path)
+            self.assertTrue(impact.classify(base,
+                subprocess.check_output(["git", "-C", str(self.root),
+                "rev-parse", "HEAD"], text=True).strip(), root=self.root)[0])
+
+    def test_exact_freshness_only_workflow_migration_skips_physical_usb_producer(self):
+        current = WORKFLOW.read_text(encoding="utf-8")
+        old = current.replace(
+            "      required: ${{ steps.scope.outputs.required == 'true' && steps.freshness.outputs.publish_allowed != 'false' }}\n"
+            "      reason: ${{ steps.freshness.outputs.reason || steps.scope.outputs.reason }}",
+            "      required: ${{ steps.scope.outputs.required }}\n"
+            "      reason: ${{ steps.scope.outputs.reason }}",
+        )
+        self.assertNotEqual(old, current)
+        early = old.index("      # On a queued main push, avoid an expensive build")
+        early_end = old.index("  build-and-publish:", early)
+        old = old[:early] + old[early_end:]
+        late = old.index("          # Recheck immediately before mutating the rolling channel")
+        late_end = old.index("          if ! gh release view creator-owner-prototype", late)
+        old = old[:late] + old[late_end:]
+        base = self.commit(workflow=old, lock=VISUAL)
+        head = self.commit(workflow=current, path="tools/ci/creator_owner_publish_freshness.py")
+        self.assertTrue(impact.verified_creator_freshness_wiring_only(
+            base, head, root=self.root))
+        self.assertEqual(
+            impact.classify(base, head, root=self.root, event="pull_request"),
+            (False, "nonproducer-contract-only"),
+        )
+        self.assertEqual(
+            impact.classify(base, head, root=self.root, event="push"),
+            (False, "nonproducer-contract-only"),
+        )
+        # A changed publisher command, permissions, raw USB producer or unknown
+        # extension cannot be smuggled through this exact governance proof.
+        tampered = current.replace(
+            "gh release upload creator-owner-prototype",
+            "gh release upload untrusted-owner-prototype")
+        self.assertNotEqual(current, tampered)
+        bad = self.commit(workflow=tampered)
+        self.assertFalse(impact.verified_creator_freshness_wiring_only(
+            base, bad, root=self.root))
+        self.assertTrue(impact.classify(base, bad, root=self.root)[0])
+        mixed = self.commit(path="bootstrap/dev-base/ordax-main-watch")
+        self.assertTrue(impact.classify(base, mixed, root=self.root)[0])
 
     def test_new_workflow_producer_step_forces_usb(self):
         workflow = WORKFLOW.read_text(encoding="utf-8")
@@ -161,7 +335,7 @@ class CreatorOwnerImpactTests(unittest.TestCase):
             "system/adapters/desktop/space-create.mjs",
             "system/adapters/desktop/display-current-mode-host.mjs",
             "system/composition/web/account-session.mjs",
-            "tools/windows-desktop/native-build.cjs",
+            "system/adapters/desktop/local-ai-package.mjs",
             "tools/windows-emulator/account-gateway.mjs",
             "system/contracts/space-create-port.mjs",
             "tests/test_space_create_bridge.mjs",
@@ -223,6 +397,54 @@ class CreatorOwnerImpactTests(unittest.TestCase):
         extended = self.commit(intelligence_workflow=source + "\\n# unrelated")
         self.assertTrue(impact.classify(restored, extended, root=self.root)[0])
 
+    def test_verified_detached_windows_source_cutover_skips_usb_without_bypassing_boot(self):
+        """Exact owner migration, not an arbitrary workflow/Native code exemption."""
+        trigger = impact.DESKTOP_TRIGGER_WORKFLOW
+        distribution = impact.DESKTOP_DISTRIBUTION_CONTRACT
+        old_trigger = "              workflows+=(surface-source-consumer.yml owner-surface-source.yml windows-desktop-dev.yml)"
+        new_trigger = "              workflows+=(surface-source-consumer.yml owner-surface-source.yml)"
+        before = "first\n" + old_trigger + "\nlast\n"
+        original = (
+            '{\n  "git_main_materializer": "tools/windows-desktop/dev-update.cjs",\n'
+            '  "health_promotion_owner": "tools/windows-desktop/dev-update.cjs",\n'
+            '  "application_relaunch_owner": "tools/windows-desktop/main.cjs"\n}\n'
+        )
+        for name, contents in ((trigger, before), (distribution, "".join(original)),
+                               ("tools/windows-desktop/main.cjs", "old Electron bytes\n")):
+            file = self.root / name
+            file.parent.mkdir(parents=True, exist_ok=True)
+            file.write_text(contents, encoding="utf-8")
+        base = self.commit()
+        (self.root / trigger).write_text(before.replace(old_trigger, new_trigger), encoding="utf-8")
+        dist = "".join(original)
+        dist = dist.replace("tools/windows-desktop/dev-update.cjs",
+                            "ordaxsystems/ordax-desktop/dev-update.cjs")
+        dist = dist.replace("tools/windows-desktop/main.cjs",
+                            "ordaxsystems/ordax-desktop/main.cjs")
+        (self.root / distribution).write_text(dist, encoding="utf-8")
+        migrated = self.commit(delete_path="tools/windows-desktop/main.cjs")
+        self.assertEqual(impact.classify(base, migrated, root=self.root),
+                         (False, "nonproducer-contract-only"))
+        self.assertEqual(impact.classify(base, migrated, root=self.root, event="pull_request"),
+                         (False, "nonproducer-contract-only"))
+        # Extra workflow or distribution changes invalidate the exact proof.
+        (self.root / trigger).write_text(before.replace(old_trigger, new_trigger) +
+                                          "another: command\n", encoding="utf-8")
+        invalid_workflow = self.commit()
+        self.assertTrue(impact.classify(base, invalid_workflow, root=self.root)[0])
+        (self.root / trigger).write_text(before.replace(old_trigger, new_trigger), encoding="utf-8")
+        (self.root / distribution).write_text(dist + "\nextra", encoding="utf-8")
+        invalid_distribution = self.commit()
+        self.assertTrue(impact.classify(base, invalid_distribution, root=self.root)[0])
+        # A changed or newly introduced Desktop implementation is not a deletion.
+        (self.root / trigger).write_text(before.replace(old_trigger, new_trigger), encoding="utf-8")
+        (self.root / distribution).write_text(dist, encoding="utf-8")
+        changed_shell = self.commit(path="tools/windows-desktop/main.cjs")
+        self.assertTrue(impact.classify(base, changed_shell, root=self.root)[0])
+        # Actual boot and USB bytes always trigger Creator.
+        actual_boot = self.commit(path="bootstrap/kernel/source.json")
+        self.assertTrue(impact.classify(base, actual_boot, root=self.root)[0])
+
     def test_build_autonomy_has_no_creator_dependency_for_web_or_desktop(self):
         contract = json.loads((ROOT / "docs/contracts/build-autonomy.json").read_text(encoding="utf-8"))
         graph = contract["target_relationships"]
@@ -237,6 +459,18 @@ class CreatorOwnerImpactTests(unittest.TestCase):
         self.assertTrue(independent["unknown_owner_changes_fail_closed"])
         self.assertEqual(tuple(impact.CLIENT_ONLY_PREFIXES),
                          tuple(independent["client_only_source_prefixes"]))
+        pull = contract["owner_dev_pull_ci"]
+        self.assertEqual(pull["distribution_owner_ssot"],
+                         "docs/contracts/distribution-profiles.json#profiles.owner-development")
+        self.assertEqual(pull["pull_review_fast_path_scope"],
+                         "tools/ci/creator_owner_impact.py#PULL_REVIEW_ONLY_PATHS")
+        self.assertEqual(pull["pull_review_validation_owner"], "Owner Development Preflight")
+        self.assertTrue(pull["pull_only_pull_request_skips_creator_usb_build"])
+        self.assertTrue(pull["pull_source_change_on_main_preserves_creator_usb_publish"])
+        self.assertTrue(pull["mixed_boot_base_native_or_unknown_changes_require_full_usb_proof"])
+        self.assertTrue(pull["manual_creator_usb_production_requires_full_proof"])
+        self.assertFalse(pull["installed_git_updates_require_creator"])
+        self.assertIn("docs/DEV-USB-GIT.md", impact.LIGHT_EXACT)
 
 if __name__ == "__main__":
     unittest.main()

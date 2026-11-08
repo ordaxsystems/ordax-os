@@ -337,3 +337,51 @@ test("mismatched typed adapter fails closed after authority revalidation", async
     /does not match/,
   );
 });
+
+test("execution provenance verifier runs after adapter resolution but before any effect", async () => {
+  const { gateway } = setup();
+  const actionRequest = request();
+  const decision = gateway.decide(actionRequest, { grantRef: "grant-1" });
+  const order = [];
+  const executor = createPersonalOrdaxActionExecutor({
+    actionGateway: gateway,
+    adapterResolver(toolId, actionId) {
+      order.push("resolved");
+      return {
+        schema: ACTION_ADAPTER_SCHEMA,
+        toolId,
+        artifactSha256: "a".repeat(64),
+        actionId,
+        effect: "write",
+        async execute() {
+          order.push("entered");
+          return { status: "succeeded", summary: "Unexpected side effect", artifactRefs: [] };
+        },
+      };
+    },
+    verifyBeforeAdapter(approvedRequest) {
+      assert.equal(approvedRequest.workItemId, actionRequest.workItemId);
+      assert.equal(approvedRequest.approvalId, actionRequest.approvalId);
+      assert.equal(approvedRequest.resourceRef, actionRequest.resourceRef);
+      order.push("verified-stale");
+      return false;
+    },
+    now: () => NOW,
+  });
+  await assert.rejects(
+    () => executor.execute({ request: actionRequest, decision }),
+    error => error instanceof PersonalActionExecutionError
+      && error.phase === "pre-side-effect"
+      && /authority changed/.test(error.message),
+  );
+  assert.deepEqual(order, ["resolved", "verified-stale"]);
+  assert.throws(
+    () => createPersonalOrdaxActionExecutor({
+      actionGateway: gateway,
+      adapterResolver() { return null; },
+      verifyBeforeAdapter: true,
+    }),
+    /pre-adapter verifier/,
+    "only a real synchronous verifier can satisfy the pre-effect boundary",
+  );
+});

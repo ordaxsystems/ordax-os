@@ -6,7 +6,7 @@ import argparse
 import hashlib
 import json
 import os
-from pathlib import Path
+from pathlib import Path, PurePosixPath
 import re
 import shutil
 import stat
@@ -19,16 +19,14 @@ SHA40 = re.compile(r"[0-9a-f]{40}\Z")
 SCHEMA = "prototype-ordax.intelligence-source/1"
 REPO = "ordaxsystems/ordax-intelligence"
 TARGET = "system/intelligence-source/src"
-EXPECTED = frozenset((
+SOURCE_ROOT = "src"
+BUILDER_PATH = "tools/inference-builder/build.py"
+REQUIRED_SOURCE_PATHS = frozenset((
     "src/index.mjs",
     "src/contract-bindings.mjs",
-    "src/intelligence/runtime.mjs",
-    "src/intelligence/model-router.mjs",
-    "src/local-ai/runtime.mjs",
-    "src/local-ai/completion-stream.mjs",
-    "src/local-ai/model-compatibility.mjs",
-    "tools/inference-builder/build.py",
+    BUILDER_PATH,
 ))
+MAX_SOURCE_FILES = 64
 MAX_FILE_BYTES = 256 * 1024
 MAX_TOTAL_BYTES = 1024 * 1024
 
@@ -40,6 +38,58 @@ def git(root: Path, *args: str) -> bytes:
     if p.returncode:
         raise IntelligenceSourceError("immutable Intelligence Git checkout cannot be verified")
     return p.stdout
+
+def _portable_source_path(value: object) -> bool:
+    if not isinstance(value, str):
+        return False
+    path = PurePosixPath(value)
+    return (
+        str(path) == value
+        and not path.is_absolute()
+        and ".." not in path.parts
+        and (
+            value == BUILDER_PATH
+            or (value.startswith(SOURCE_ROOT + "/") and path.suffix == ".mjs")
+        )
+    )
+
+def source_tree_blobs(root: Path, revision: str = "HEAD") -> dict[str, str]:
+    """Return the complete portable source graph at one immutable Git tree.
+
+    Every tracked module below ``src/`` is product source and must be pinned.
+    The technical inference builder is the only consumed file below its tools
+    directory; optional platform-specific builders remain independently owned.
+    """
+    raw = git(
+        root, "ls-tree", "-rz", "-r", revision, "--", SOURCE_ROOT, BUILDER_PATH,
+    )
+    result: dict[str, str] = {}
+    for entry in raw.split(b"\0"):
+        if not entry:
+            continue
+        try:
+            meta, relative = entry.split(b"\t", 1)
+            mode, kind, blob = meta.decode("ascii").split()
+            filename = relative.decode("utf-8")
+        except (ValueError, UnicodeDecodeError) as exc:
+            raise IntelligenceSourceError("malformed portable Intelligence Git tree") from exc
+        if (
+            not _portable_source_path(filename)
+            or filename in result
+            or mode != "100644"
+            or kind != "blob"
+            or not SHA40.fullmatch(blob)
+        ):
+            raise IntelligenceSourceError(
+                "unexpected, linked or executable portable Intelligence source: " + filename
+            )
+        result[filename] = blob
+    if (
+        not REQUIRED_SOURCE_PATHS.issubset(result)
+        or len(result) > MAX_SOURCE_FILES
+    ):
+        raise IntelligenceSourceError("portable Intelligence source graph is incomplete or unbounded")
+    return result
 
 def load_lock(path: Path = LOCK_PATH) -> dict:
     try:
@@ -57,8 +107,14 @@ def load_lock(path: Path = LOCK_PATH) -> dict:
     if value.get("public_ports") != ["ordax.intelligence/1", "ordax.model-router/1", "ordax.local-ai/1"]:
         raise IntelligenceSourceError("public port contract changed without versioning")
     expected = value.get("source_paths")
-    if not isinstance(expected, dict) or set(expected) != EXPECTED:
-        raise IntelligenceSourceError("Intelligence source graph must be exact and complete")
+    if (
+        not isinstance(expected, dict)
+        or not REQUIRED_SOURCE_PATHS.issubset(expected)
+        or not expected
+        or len(expected) > MAX_SOURCE_FILES
+        or not all(_portable_source_path(path) for path in expected)
+    ):
+        raise IntelligenceSourceError("Intelligence source pin has an invalid portable graph")
     if not all(isinstance(v, str) and SHA40.fullmatch(v) for v in expected.values()):
         raise IntelligenceSourceError("unverified Git blob in source pin")
     return value
@@ -75,27 +131,29 @@ def verify_source(root: Path, lock: dict) -> tuple[list[tuple[str, bytes]], dict
         raise IntelligenceSourceError("checkout revision does not match immutable OS source lock")
     if git(root, "status", "--porcelain", "--untracked-files=all", "--", "src", "tools/inference-builder"):
         raise IntelligenceSourceError("tracked/untracked Intelligence source is modified")
-    # The Intelligence repository may evolve independently (e.g. Windows-only
-    # builders). Verify and materialize ONLY the eight OS-pinned source files;
-    # unrelated tracked files never enter the immutable OS release slot.
-    raw_tree = git(root, "ls-tree", "-rz", "HEAD", "--", *sorted(EXPECTED))
+    # Pin every portable module in the immutable commit. Files outside the
+    # portable graph (for example a Windows-only builder) never enter the OS
+    # release slot, while a newly imported src module cannot be omitted.
+    tree = source_tree_blobs(root)
+    expected = set(lock["source_paths"])
+    if tree != lock["source_paths"]:
+        raise IntelligenceSourceError("portable source graph differs from immutable OS pin")
     result = []
     total = 0
     fingerprint = hashlib.sha256()
-    found = set()
-    for entry in raw_tree.split(b"\0"):
-        if not entry:
-            continue
-        try:
-            meta, relative = entry.split(b"\t", 1)
-            mode, kind, expected_sha = meta.decode("ascii").split()
-            filename = relative.decode("utf-8")
-        except (ValueError, UnicodeDecodeError) as exc:
-            raise IntelligenceSourceError("malformed pinned source Git tree") from exc
-        if filename not in EXPECTED or mode != "100644" or kind != "blob":
-            raise IntelligenceSourceError("unexpected, linked or executable Intelligence source: " + filename)
+    for filename in sorted(expected):
+        expected_sha = tree[filename]
         path = root / filename
-        if path.is_symlink() or not path.is_file() or stat.S_IMODE(path.stat().st_mode) not in (0o644, 0o664, 0o600):
+        file_stat = path.lstat()
+        # The Git tree mode above is the executable-bit authority. Windows
+        # represents writable/read-only regular files as 0666/0444 instead of
+        # POSIX 0644/0444, so accept those native modes while preserving the
+        # exact 100644 Git mode and normalizing every staged file to 0644.
+        allowed_modes = (0o644, 0o664, 0o600)
+        if os.name == "nt":
+            allowed_modes += (0o666, 0o444)
+        if (path.is_symlink() or not stat.S_ISREG(file_stat.st_mode)
+                or stat.S_IMODE(file_stat.st_mode) not in allowed_modes):
             raise IntelligenceSourceError("source file must be a regular readable Git blob")
         payload = path.read_bytes()
         total += len(payload)
@@ -104,10 +162,9 @@ def verify_source(root: Path, lock: dict) -> tuple[list[tuple[str, bytes]], dict
         actual = git_blob_sha(payload)
         if actual != expected_sha or actual != lock["source_paths"][filename]:
             raise IntelligenceSourceError("Git content does not match pinned source blob: " + filename)
-        found.add(filename)
         fingerprint.update(filename.encode("utf-8") + b"\0" + hashlib.sha256(payload).digest())
         result.append((filename, payload))
-    if found != EXPECTED or len(result) != len(EXPECTED):
+    if len(result) != len(expected):
         raise IntelligenceSourceError("missing Intelligence source files")
     receipt = {
         "$schema":"ordax.intelligence-source-materialization/1",

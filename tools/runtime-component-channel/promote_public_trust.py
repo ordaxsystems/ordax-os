@@ -36,7 +36,7 @@ RESULT_SCHEMA = "prototype-ordax.runtime-component-trust-public-promotion/1"
 
 KEY_ID = "ordax-runtime-components-v1"
 SOURCE_REPOSITORY = "ordaxsystems/ordax-os"
-PROOF_COMPONENT_ID = "internet"
+PROOF_COMPONENT_ID = "local-ai-service"
 PROOF_COMPONENT_VERSION = "0.0.0-trust-proof"
 HEX40 = re.compile(r"^[0-9a-f]{40}$")
 HEX64 = re.compile(r"^[0-9a-f]{64}$")
@@ -235,7 +235,7 @@ def _validate_release(
     if component != {
         "id": PROOF_COMPONENT_ID,
         "version": PROOF_COMPONENT_VERSION,
-        "release_mode": "component-slot",
+        "release_mode": "bundled",
         "package_schema": "prototype-ordax.runtime-component-package/1",
     }:
         raise PromotionError("component proof release component identity is invalid")
@@ -249,7 +249,7 @@ def _validate_release(
     }:
         raise PromotionError("component proof release package binding is invalid")
     if (
-        package.get("name") != "internet.zip"
+        package.get("name") != PROOF_COMPONENT_ID + ".zip"
         or package.get("sha256") != "0" * 64
         or package.get("size") != 1
         or package.get("manifest_sha256") != "1" * 64

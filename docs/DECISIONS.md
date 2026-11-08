@@ -483,3 +483,13 @@ The authoritative dependency relationship is
 exclusive client owners as lightweight; unknown and mixed deltas fail
 closed. Neither the client classifications nor the absence of a Creator
 build proves a released Desktop, Web login, Space creation UI, or Profile Pack.
+
+## ADR-030 - First usable integrated Windows delivery before independent USB completion (2026-11-06)
+
+**Decision:** Prioritize one verified **operational first-user release** of OrdaX Desktop Windows, rather than counting isolated repository PRs as product completion or waiting for the separate USB/Buildroot/Creator path. “MVP operacional” means a complete, honest vertical journey for the declared channel, **not** a fork, a second product, a simulated feature or removal of started capabilities from the integrated launch baseline (ADR-026 and `MVP.md`).
+
+**First-channel acceptance:** One canonical installer and actually running Surface; real Account and authorized Space; Store reading the official verified catalog; at least one actual first-party app installed, launched with its own authority, updated and removable; compatible host/app update with appropriate health/recovery; exact source/provenance and physical Windows proof. Source, CI, preview and declared version are not equivalent to installed execution. A controlled early-user cohort may receive only the capabilities actually proven and advertised. Unproven features remain fail-closed and visible as unavailable when relevant.
+
+**Execution/ownership:** `ordax-desktop` owns its Desktop packaging/delivery responsibility; `ordax-os` owns host composition, lifecycle and update boundaries; `ordax-surface` owns shared UI; `ordax-apps` owns removable apps; `ordax-platform` owns identity/grants; `ordax-site` owns public distribution. Use immutable compatible revision pins and verified receipts across owners, **not duplicate modules** or forced identical repository HEADs. Reuse existing PRs, tests and CI by impact; changes confined to Windows/Web must not trigger USB/kernel builds without a causal requirement (ADR-029).
+
+**Scope retained:** USB, Native disk, Runtime/MCP and already started product capabilities remain in their current owners and baseline. They are not prerequisites for an independent Windows release unless they are part of that release's declared user journey or a real safety dependency. Security, isolation, signing, authorization, honest status, update and rollback/recovery gates cannot be deferred merely to claim launch. Record proven state in `docs/CURRENT-STATE.md`; use `MVP.md` as the single scope/acceptance SSOT, not another roadmap or per-repository MVP.

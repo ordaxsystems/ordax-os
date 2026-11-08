@@ -19,3 +19,55 @@ export function decideWebEntry(snapshot, { allowLocalLayoutPreview = false } = {
   if (snapshot?.state === "signed-out") return "login";
   return "unavailable";
 }
+
+/**
+ * One fail-closed entry lifecycle for initial session validation and subsequent
+ * reconnects. The authenticated workspace is never retained across an
+ * unavailable or signed-out transition. The owning session adapter supplies
+ * refresh events; this adds no network reader or retry loop.
+ *
+ * @param {{
+ *   onWorkspace: () => void,
+ *   onLogin: () => void,
+ *   onUnavailable: () => void,
+ *   allowLocalLayoutPreview?: boolean,
+ * }} options
+ */
+export function createWebEntryLifecycle({
+  onWorkspace,
+  onLogin,
+  onUnavailable,
+  allowLocalLayoutPreview = false,
+} = {}) {
+  for (const [name, callback] of Object.entries({ onWorkspace, onLogin, onUnavailable })) {
+    if (typeof callback !== "function") {
+      throw new TypeError(`Web entry lifecycle requires ${name}()`);
+    }
+  }
+  let started = false;
+  let disposed = false;
+  let lastDecision = null;
+
+  function transition(snapshot) {
+    if (disposed || !started) return null;
+    const decision = decideWebEntry(snapshot, { allowLocalLayoutPreview });
+    if (decision === lastDecision) return decision;
+    if (decision === "workspace") onWorkspace();
+    else if (decision === "login") onLogin();
+    else onUnavailable();
+    lastDecision = decision;
+    return decision;
+  }
+
+  return Object.freeze({
+    start(snapshot) {
+      if (disposed || started) throw new Error("Web entry lifecycle already started or disposed");
+      started = true;
+      return transition(snapshot);
+    },
+    update: transition,
+    dispose() {
+      disposed = true;
+    },
+  });
+}

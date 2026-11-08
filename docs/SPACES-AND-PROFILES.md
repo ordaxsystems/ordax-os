@@ -6,7 +6,7 @@ This document is the **single user-facing UX authority** for Spaces and professi
 
 **Normative rule:** the ordinary user creates, switches and manages a **Space**. A professional type automatically resolves its exact, approved Profile Pack as a versioned composition under that Space. Profile Pack catalogs, installation reviews, advanced version/rollback controls and manifest editing may exist for authorized administrators/developers **inside Space configuration**, never as a competing primary product journey.
 
-**Implementation reality (2026-10-31):** the OS Windows gateway and command port exist (#2360, #2361), but the Surface still exposes separate `spaces` and `profiles` Account sections and has no completed authenticated create→provision→open E2E. The visual owner is `ordaxsystems/ordax-surface` issue #33. Do not label this UX shipped until that implementation and the platform-specific proof pass.
+**Implementation reality (2026-10-31 — source integration, not physical acceptance):** Surface #34 and #35 are integrated and the OS #2369 pins Surface `56e63bc14e7df964beb293bc1d05843b80ebc0c6`. The OS Meridian sidebar now exposes only `spaces`; legacy `profiles` destinations resolve to Spaces. The existing authenticated Windows Space-create port is composed only when the Desktop browser transport is verified. This removes the competing primary journey in source, but **does not** prove delivery to the installed Electron, real account login→create→provision→activate→select→restart, or a healthy Profile Pack lifecycle. Visual acceptance remains tracked by `ordaxsystems/ordax-surface` issue #33; the OS retains its own Native host/contracts. Do not label the full product journey shipped before these operational gates pass.
 
 ## Core distinction
 

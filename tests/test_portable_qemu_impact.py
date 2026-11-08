@@ -5,6 +5,7 @@ import sys
 import subprocess
 import tempfile
 import unittest
+from unittest.mock import patch
 
 
 ROOT = Path(__file__).resolve().parents[1]
@@ -193,6 +194,34 @@ class PortableQemuImpactTests(unittest.TestCase):
                     desktop_paths + [critical], root=ROOT,
                 ).required)
 
+    def test_generated_calculator_store_policy_uses_native_app_gates_not_linux_qemu(self):
+        """Declarative SSOT-generated read/health scope changes no boot image bytes."""
+        path = "system/surface/runtime/native_store_metadata_policy.py"
+        source = (ROOT / path).read_text(encoding="utf-8")
+        self.assertTrue(source.startswith("# GENERATED FILE. DO NOT EDIT BY HAND."))
+        self.assertIn("tools/app-policy/render_native_store_metadata_policy.py", source)
+        self.assertIn("NATIVE_PROBATION_COMPONENT_IDS", source)
+        self.assertIn('"calculator"', source)
+        light = [path, "tools/ci/portable_qemu_impact.py",
+                 "tests/test_portable_qemu_impact.py"]
+        classified = impact.classify_paths(light, root=ROOT)
+        self.assertFalse(classified.required, classified.reasons)
+        # Workflow-scoped impact must agree with direct causal classification.
+        workflow = impact.classify_workflow_paths(light, root=ROOT)
+        self.assertFalse(workflow.required, workflow.reasons)
+        # The generated metadata exception must not spread to Native runtime
+        # implementations, mutable health, kernel, Alpine EROFS or boot.
+        for critical in (
+            "system/surface/runtime/ordax_browser_host.py",
+            "system/surface/runtime/native_component_probation.py",
+            "system/services/components/probation-orchestrator.mjs",
+            "bootstrap/surface-runtime/source.json",
+            "bootstrap/kernel/source.json",
+        ):
+            with self.subTest(critical=critical):
+                heavy = impact.classify_paths(light + [critical], root=ROOT)
+                self.assertTrue(heavy.required, heavy.reasons)
+
     def test_boot_coupled_local_ai_runtime_requires_qemu(self):
         result = impact.classify_paths(["system/services/local-ai/runtime.mjs"], root=ROOT)
         self.assertTrue(result.required)
@@ -208,6 +237,70 @@ class PortableQemuImpactTests(unittest.TestCase):
             "heavy-exact:system/services/components/probation-orchestrator.mjs",
             result.reasons,
         )
+
+    def test_isolated_web_store_preview_does_not_trigger_portable_kernel_build(self):
+        # These exact files caused an unrelated kernel/QEMU build in PR #2372.
+        light = [
+            "system/composition/web/store-preview/app.js",
+            "system/composition/web/store-preview/preview-origin.js",
+        ]
+        result = impact.classify_paths(light, root=ROOT)
+        self.assertFalse(result.required, result.reasons)
+        self.assertEqual(result.reasons, ("no-heavy-portable-impact",))
+
+        # The production Web compositor is browser-only too. The shared
+        # Surface Web and Chromium suites own its validation.
+        web = impact.classify_paths(
+            light + ["system/composition/web/main.tsx"], root=ROOT
+        )
+        self.assertFalse(web.required, web.reasons)
+        self.assertEqual(web.reasons, ("no-heavy-portable-impact",))
+        # Kernel and Native boot mutations must still require QEMU.
+        for critical in ("bootstrap/kernel/source.json", "system/entrypoint"):
+            result = impact.classify_paths(light + [critical], root=ROOT)
+            self.assertTrue(result.required)
+            self.assertNotEqual(result.reasons, ("no-heavy-portable-impact",))
+
+    def test_real_web_session_change_is_scoped_to_web_gates_not_portable_qemu(self):
+        # Exact files from PR #2423 previously caused an unrelated heavy
+        # local-AI/Portable/QEMU build through heavy-unclassified-system.
+        web_delta = [
+            "system/composition/web/auth-entry-gate.mjs",
+            "system/composition/web/main.tsx",
+            "system/composition/web/responsive.css",
+        ]
+        self.assertEqual(
+            impact.workflow_scoped_paths(web_delta, root=ROOT),
+            tuple(sorted(web_delta)),
+            "The broad QEMU workflow still routes this delta to impact classification",
+        )
+        result = impact.classify_paths(web_delta, root=ROOT)
+        self.assertFalse(result.required, result.reasons)
+        self.assertEqual(result.reasons, ("no-heavy-portable-impact",))
+
+        # The Web-only exception is never a blanket skip for mixed changes.
+        for boot_change in (
+            "system/entrypoint",
+            "system/surface/runtime/ordax_browser_host.py",
+            "bootstrap/kernel/source.json",
+            "bootstrap/surface-runtime/build.py",
+            "system/composition/native/component-probation.mjs",
+            "system/new-kernel-facing-owner/config.bin",
+        ):
+            with self.subTest(boot_change=boot_change):
+                mixed = impact.classify_paths(web_delta + [boot_change], root=ROOT)
+                self.assertTrue(mixed.required, mixed.reasons)
+
+    def test_web_source_becoming_native_startup_reachable_fails_closed(self):
+        # A future Native import may not silently inherit the Web exemption.
+        path = "system/composition/web/auth-entry-gate.mjs"
+        with patch.object(
+            impact, "native_startup_import_graph",
+            return_value=(frozenset({path}), ()),
+        ):
+            result = impact.classify_paths([path], root=ROOT)
+        self.assertTrue(result.required)
+        self.assertEqual(result.reasons, (f"native-runtime-reachable:{path}",))
 
     def test_presentation_stays_light_even_when_native_composition_imports_it(self):
         result = impact.classify_paths(["system/surface/ui/network-quick-panel.mjs"], root=ROOT)
@@ -452,11 +545,6 @@ class PortableQemuImpactTests(unittest.TestCase):
     def test_windows_only_native_owners_use_installed_desktop_ci_not_qemu(self):
         desktop_paths = [
             ".github/workflows/windows-desktop-dev.yml",
-            "tools/windows-desktop/main.cjs",
-            "tools/windows-desktop/host.cjs",
-            "tools/windows-desktop/materialize-local-ai.cjs",
-            "tools/windows-desktop/package.json",
-            "tools/windows-desktop/install-smoke.ps1",
             "tools/windows-emulator/native-host.mjs",
             "tools/windows-emulator/desktop-native-server.test.mjs",
             "tests/test_windows_desktop_local_ai_host.mjs",

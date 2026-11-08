@@ -140,6 +140,15 @@ They share account model, Surface source, app source and compatible service cont
 
 ### Capability evolution
 
+**Distinção de contratos (2026-11-04):** os capability IDs de modo do produto
+em `docs/contracts/product-capabilities.json` definem **compatibilidade de
+ambiente**. Eles não são a projeção semântica dinâmica
+`ordax.capability-discovery/1` do [Capability Fabric](CAPABILITY-FABRIC.md),
+que agrega metadados verificados do Host/Store/Personal, sem grants ou tools.
+A lista executável de um Device MCP pertence ao Runtime e às permissões
+atestadas da Platform. Não unir esses três contratos nem derivar autorização
+remota de uma capacidade de modo ou de uma descoberta da Aura.
+
 Shared code depends on stable capability IDs, not platform-name conditionals. The compatibility rules are deliberately asymmetric:
 
 - adding a new capability definition is backward-compatible;

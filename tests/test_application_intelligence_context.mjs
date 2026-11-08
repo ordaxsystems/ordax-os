@@ -93,7 +93,7 @@ test("application context wrapper appends awareness as system context without ch
   assert.equal(intelligence.getSnapshot().toolExecution, false);
 });
 
-test("application system context is resolved once when the wrapper is composed", async () => {
+test("awareness is composed once but current Application Actions are re-read per request", async () => {
   let awarenessReads = 0;
   let capabilityReads = 0;
   const awarenessBase = createApplicationIntelligenceAwareness({
@@ -123,14 +123,54 @@ test("application system context is resolved once when the wrapper is composed",
     actionCapabilityRegistryPort: capabilities,
   });
 
-  assert.equal(awarenessReads, 1);
-  assert.equal(capabilityReads, 1);
+  assert.equal(awarenessReads, 0);
+  assert.equal(capabilityReads, 0);
   await intelligence.respond({ prompt: "primeira" });
   await intelligence.respond({ prompt: "segunda" });
-  assert.equal(awarenessReads, 1);
-  assert.equal(capabilityReads, 1);
+  assert.equal(awarenessReads, 2,
+    "app availability must be re-read per inference request");
+  assert.equal(capabilityReads, 2,
+    "Native slot actions must not be cached across inference requests");
 });
 
+test("Aura inference context immediately withdraws a removed or unverified Native action",async()=>{
+  let current=false;
+  let request=null;
+  const awareness=createApplicationIntelligenceAwareness({
+    firstPartyApplications:[firstPartyApp()],
+  });
+  const registry=createApplicationActionCapabilityRegistry({
+    awareness,
+    capabilities:[{
+      schema:"ordax.application-action-capability/1",
+      appId:"notes",actionId:"notes.create-note",
+      title:"Criar nota",description:"Criar nota.",
+      sourceClass:"first-party",platform:"ordax",
+      provider:{kind:"first-party-native",adapterId:"notes-native",revision:"1"},
+      binding:{payloadSha256:null},parameters:[],
+      riskClass:"local-change",confirmation:"policy-gated",
+      executionAuthorized:false,modelDirectExecutionAuthorized:false,
+      provenance:"test:notes",
+    }],
+    isCurrent:()=>current,
+  });
+  const intelligence=createApplicationContextIntelligence({
+    intelligencePort:intelligenceStub(value=>{request=value}),
+    awarenessPort:awareness,actionCapabilityRegistryPort:registry,
+  });
+  const actions=()=>JSON.parse(request.context.find(item=>
+    item.id==="ordax-application-action-capabilities").text).actions;
+  await intelligence.respond({prompt:"Criar nota"});
+  assert.equal(actions().length,0,"absent slot cannot enter model context");
+  current=true;
+  await intelligence.respond({prompt:"Criar nota"});
+  assert.equal(actions().length,1,"verified current slot is visible");
+  current=false;
+  await intelligence.respond({prompt:"Criar nota"});
+  assert.equal(actions().length,0,"removed slot disappears on next inference");
+  assert.equal(registry.list().length,0);
+  assert.equal(intelligence.getSnapshot().toolExecution,false);
+});
 test("semantic router adds detail only for locally matched apps", async () => {
   let request = null;
   const manifest = {

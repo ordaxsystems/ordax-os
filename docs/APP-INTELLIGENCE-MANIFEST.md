@@ -55,6 +55,31 @@ studio.open-project
 commerce.publish-product
 ```
 
+## Padrão de reconhecimento para todos os apps oficiais
+
+Este manifesto é **obrigatório para cada app first-party distribuível** e é
+validado contra `app.json`. O mínimo é a **mesma estrutura pública de
+identidade, versão, instruções e lista de intents** em todos os apps; não
+exigir que apps diferentes implementem as mesmas funções. A lista `intents`
+pode estar vazia quando nenhuma intenção for comprovada. Para ações
+semânticas, `actions/manifest.json` segue o contrato já existente e
+referencia somente intents reais; não concede execução. O App SDK pinado,
+compatibilidade, provider e lifecycle continuam nos respectivos SSOTs.
+
+Uma nova intenção, por exemplo `exemplo.az`, pode ser validada sem
+alterar o OS desde que use os campos/efeitos/parâmetros aceitos por
+`ordax.app-intelligence-manifest/1`. O Fabric projeta apenas Action
+capabilities realmente declaradas e verificadas do slot `CURRENT` e
+não precisa de um case especial para cada ID. Um novo **tipo de contrato**
+(ao contrário de uma nova instância de intent) exige versão/migração
+explícita; um novo efeito executável exige suporte do provider,
+consentimento e política. A publicação como ferramenta MCP é **separada**:
+Runtime e Platform não recebem authority pelo manifesto.
+
+Veja [guia canônico do Capability Fabric](CAPABILITY-FABRIC.md)
+para owners, revogação, evolução e exemplos de conexão. O owner do app
+não deve criar `fabric.json` ou duplicar a Store.
+
 ## Apps externos
 
 Instagram, Shopee, Photoshop e outros produtos externos não precisam implementar um arquivo do OrdaX.

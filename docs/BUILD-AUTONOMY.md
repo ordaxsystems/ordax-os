@@ -128,6 +128,59 @@ body. This prevents CI governance merges from invoking the known-broken
 legacy Alpine/APK Surface builder merely because the Creator YAML changed,
 without weakening physical release requirements.
 
+### Owner/Development Git Pull is not a Creator build dependency
+
+`bootstrap/dev-base/ordax-pull` updates an **already installed** Owner/Dev
+Linux checkout. The standalone Creator only consumes the Pull when **producing
+new physical USB media**, including seeding the initial Git checkout with
+`--seed-from-local`. The installed updater never invokes the Creator.
+
+For an exact Pull-script-only pull request (optionally accompanied by its own
+tests, documentation and approved non-producer contracts), the existing
+`Owner Development Preflight` is the required code/recovery validation.
+`tools/ci/creator_owner_impact.py` suppresses only the redundant **Creator
+USB build-and-publish job on that PR**. Mixed changes affecting boot, Base,
+Supervisor, native helpers, physical media or unknown owners still fail
+closed to full USB proof. The same Pull source change on a `main` push
+**continues to produce/validate a new USB image** under the existing
+distribution policy, and manual Creator dispatch also forces full proof.
+This is review-time CI isolation, not an unreviewed change to USB publication.
+
+The policy is recorded in
+`docs/contracts/build-autonomy.json#owner_dev_pull_ci`, with ownership and
+runtime boundaries remaining in
+`docs/contracts/distribution-profiles.json#profiles.owner-development`.
+
+### Publication freshness of the rolling Creator USB release
+
+The Owner/Dev Creator channel publishes mutable assets at
+`creator-owner-prototype`, while each built ZIP is bound to its immutable OS
+source SHA. Serialized GitHub Actions builds are **not** sufficient proof that
+an older completed job may clobber that rolling channel: the official `main`
+may advance during compilation or offline QEMU proof.
+
+`tools/ci/creator_owner_publish_freshness.py` is the sole freshness decision
+owner. It validates the official repository origin and exact checked-out SHA,
+reads the latest `main` Git SHA, fetches that immutable revision and proves
+ancestry. Using the existing Creator producer-impact classifier, it allows
+the candidate only when the latest main has the **same revision** or has
+advanced exclusively through **non-producer** changes. A newer kernel, boot,
+Base, Native/USB source or unknown change makes the older candidate obsolete.
+
+The check is performed twice: before admitting an expensive queued
+`main` build, and again immediately before the release asset upload.
+Superseded jobs skip work/publication; inaccessible Git refs, unverified
+ancestry, unexpected source identity or network errors fail closed.
+Prebuilt candidate review, manual Creator invocation, cryptographic trust,
+QEMU/boot proof and cleanup are unaffected. Running builds are not
+cancelled, and no additional scheduler or publication authority is created.
+
+SSOT: `docs/contracts/build-autonomy.json#owner_dev_pull_ci.creator_main_freshness`.
+This prevents *known-stale* releases but does not claim GitHub's mutable
+multi-asset upload is an atomic cross-asset transaction. The published
+`creator-owner-update.json` receipt and ZIP/hash verification remain
+mandatory.
+
 The Portable/QEMU causal impact policy treats changes to the standalone Creator
 workflow routing and its contract tests as CI governance, not as changes to the
 Portable boot artifact. Creator still runs its own full USB/boot tests when its
@@ -211,7 +264,7 @@ If CI is unavailable, source must remain reproducible from the versioned build r
 
 This is an artifact and release gate boundary, **not a fork of the product**:
 
-- **Desktop Windows:** `tools/windows-desktop/`, `tools/windows-emulator/` and `system/adapters/desktop/` are owned by the installed Windows Desktop/NSIS gates. The Desktop consumes shared versioned OS contracts and the separately pinned Surface; it never consumes or builds a Creator USB image, Buildroot, kernel or initramfs to deliver Windows-only code.
+- **Desktop Windows:** Electron and its NSIS build policy are owned by `ordaxsystems/ordax-desktop`; OS-side Native adapters `tools/windows-emulator/` and `system/adapters/desktop/` remain owned by `ordax-os` and are validated through the single reusable Windows NSIS producer. The Desktop consumes shared versioned OS contracts and the separately pinned Surface; it never consumes or builds a Creator USB image, Buildroot, kernel or initramfs to deliver Windows-only code.
 - **OrdaX Web:** `system/composition/web/` is owned by Surface Web/Chromium client gates. It does not consume Creator, Native Linux releases, or USB installation. Shared Account/Platform semantics remain authoritative; no shadow backend is allowed.
 - **Shared Native / USB:** `system/composition/native/`, `system/adapters/native/`, `system/adapters/web/` (also imported by Native), shared nontrivial contracts, system runtime/hosts and boot/USB producer sources remain fail-closed. A change to `system/composition/native/main.mjs` is **not Windows-only** merely because a runtime branch checks `windowsDesktopHost`; it still reaches the USB entrypoint and requires a valid Native/Creator proof or a real architectural refactor.
 - **CI ownership:** `tools/ci/creator_owner_impact.py` recognizes only the exact client-exclusive roots and reviewed pure client contracts/tests. Web/Windows still run their respective builds and tests. Unknown or mixed deltas trigger the USB producer; the classifier cannot replace product tests, disable required checks or claim runtime availability.

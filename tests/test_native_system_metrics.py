@@ -84,7 +84,10 @@ class NativeSystemMetricsTests(unittest.TestCase):
         self.assertIn("metricsReadFailed", controls)
         self.assertIn("metricsLastSuccessAt", controls)
         self.assertIn('"system.resources.readFailedPrevious"', controls)
-        self.assertIn("formatOverviewReceivedAt(metricsLastSuccessAt, localization.getLocale())", controls)
+        self.assertRegex(
+            controls,
+            r"formatOverviewReceivedAt\(\s*metricsLastSuccessAt,\s*localization\.getLocale\(\),\s*regionalTimeZone\(\)\s*\)",
+        )
         self.assertNotIn("adapters/native", controls)
         self.assertNotIn("/__ordax/native/", controls)
         self.assertNotIn("/proc", controls)

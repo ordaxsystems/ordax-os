@@ -70,7 +70,7 @@ def verify_intelligence_stage(root: Path, lock:dict) -> dict:
     if (receipt.get("$schema")!="ordax.intelligence-source-materialization/1"
         or receipt.get("source_repository")!=source.REPO
         or receipt.get("source_commit")!=lock["source_commit"]
-        or receipt.get("source_file_count")!=len(source.EXPECTED)
+        or receipt.get("source_file_count")!=len(lock["source_paths"])
         or receipt.get("target")!=source.TARGET
         or receipt.get("source_only") is not True
         or receipt.get("activation_authorized") is not False
@@ -82,7 +82,7 @@ def verify_intelligence_stage(root: Path, lock:dict) -> dict:
         raise CompositionError("external module staging target missing")
     files=[p for p in base.rglob("*") if p.is_file()]
     names={p.relative_to(base).as_posix() for p in files}
-    expected=set(source.EXPECTED)
+    expected=set(lock["source_paths"])
     if names != expected:
         raise CompositionError("staged Intelligence source graph differs from pin")
     digest=hashlib.sha256()

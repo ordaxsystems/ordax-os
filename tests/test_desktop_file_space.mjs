@@ -3,7 +3,7 @@ import assert from "node:assert/strict";
 import { createServer } from "node:http";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
-import { mkdtemp, rm, readdir, readFile, symlink } from "node:fs/promises";
+import { mkdtemp, rm, readdir, readFile, writeFile, symlink } from "node:fs/promises";
 import { createDesktopFileSpaceMiddleware } from "../system/adapters/desktop/file-space-host.mjs";
 import { createNativeFileSpace } from "../system/adapters/native/file-space.mjs";
 async function harness(t) {
@@ -83,6 +83,36 @@ test("Windows files refuse traversal, ADS, symlinks, unsafe writes, and overwrit
   }
   assert.equal((await readdir(h.userFolder)).includes("csrf"),false);
 });
+test("Windows private trash refuses junctions without touching external folders",async t=>{
+  const h=await harness(t);
+  const outside=await mkdtemp(join(tmpdir(),"ordax-files-outside-"));
+  t.after(async()=>rm(outside,{recursive:true,force:true}));
+  await writeFile(join(outside,"sentinel.txt"),"external-intact");
+  // The trusted root already exists before the attacker-controlled link.
+  assert.equal((await h.request("/__ordax/native/files?path=%2F")).status,200);
+  const imported=await h.request("/__ordax/native/file-import?path=%2F&name=owned.txt",{
+    method:"POST",headers:{"Content-Type":"application/octet-stream"},body:"private-intact",
+  });
+  assert.equal(imported.status,200);
+  try {
+    await symlink(outside,join(h.userFolder,".ordax-trash"),
+      process.platform==="win32"?"junction":"dir");
+  } catch(error) {
+    if(["EPERM","EACCES","UNKNOWN","ENOSYS"].includes(error?.code)) {
+      t.skip("Host cannot create directory junction/symlink");
+      return;
+    }
+    throw error;
+  }
+  // Neither read, trash nor restore may traverse a private trash junction.
+  assert.equal((await h.request("/__ordax/native/trash")).status,503);
+  assert.equal((await h.post({action:"trash-entry",path:"/",name:"owned.txt"})).status,503);
+  assert.equal((await h.post({action:"restore-trash-entry",id:"a".repeat(32)})).status,503);
+  assert.equal(await readFile(join(h.userFolder,"owned.txt"),"utf8"),"private-intact");
+  assert.equal(await readFile(join(outside,"sentinel.txt"),"utf8"),"external-intact");
+  assert.deepEqual(await readdir(outside),["sentinel.txt"]);
+});
+
 test("Windows files serve bounded binary previews and reject unsupported previews",async t=>{
   const h=await harness(t);
   const content=Buffer.from([0x89,0x50,0x4e,0x47,0x0d,0x0a]);

@@ -552,7 +552,43 @@ test("artifact resolver fails closed if verified provider semantics change durin
     () => resolver.resolve(RESOURCE_REF),
     /verified semantics changed during artifact resolution/,
   );
-  assert.equal(bindings.calls, 3);
+  assert.equal(bindings.calls, 2,
+    "verified manifest drift denies before a needless final binding lookup");
   assert.equal(semantics.calls, 2);
   assert.equal(artifactReads, 1);
+});
+
+test("artifact resolution denies a binding revoked during the final verified semantics read", async () => {
+  let calls = 0;
+  let retained = true;
+  const bindings = {
+    schema: PROVIDER_BINDING_RESOLVER_SCHEMA,
+    async resolve(resourceRef) {
+      if (resourceRef !== RESOURCE_REF) return null;
+      calls++;
+      return retained ? providerBinding() : null;
+    },
+  };
+  let releaseLastRead;
+  let enteredLastRead;
+  const finalReadEntered = new Promise(resolve => { enteredLastRead = resolve; });
+  const lastRead = new Promise(resolve => { releaseLastRead = resolve; });
+  let semanticReads = 0;
+  const semantics = {
+    async resolve() {
+      semanticReads++;
+      if (semanticReads === 1) return verifiedEntry();
+      enteredLastRead();
+      return lastRead;
+    },
+  };
+  const resolver = artifactResolver({ bindings, semantics });
+  const pending = resolver.resolve(RESOURCE_REF);
+  await finalReadEntered;
+  retained = false;
+  releaseLastRead(verifiedEntry());
+  await assert.rejects(pending, /binding changed|revoked|current/i,
+    "a final async semantic read must not let an earlier approved binding survive revocation");
+  assert.equal(semanticReads, 2);
+  assert.equal(calls, 3, "the three canonical binding checks should be sufficient");
 });

@@ -39,6 +39,22 @@ SEMVER_RE = re.compile(
 MAX_FILES = 256
 MAX_FILE_BYTES = 2 * 1024 * 1024
 MAX_TOTAL_BYTES = 16 * 1024 * 1024
+COMPONENT_FIELDS = frozenset({
+    "id", "title", "kind", "version", "releaseMode", "criticality",
+    "failureDomain", "restartScope", "healthMode", "owner", "dependencies",
+})
+# This is an offline transport-shape check. The canonical source of component
+# identity and policy remains system/contracts/component-manifest.mjs;
+# never load the mutable local component catalog to verify a signed archive.
+COMPONENT_ENUMS = {
+    "kind": {"base", "shell", "service", "app"},
+    "releaseMode": {"bundled", "git-app", "component-slot"},
+    "criticality": {"boot-critical", "system", "optional"},
+    "failureDomain": {"boot", "surface", "service", "app"},
+    "restartScope": {"reboot", "surface", "component", "none"},
+    "healthMode": {"boot", "surface", "process", "runtime", "none"},
+}
+COMPONENT_ID_RE = re.compile(r"^[a-z][a-z0-9-]{0,63}$")
 FORBIDDEN_PREFIXES = (
     "system/adapters/",
     "system/composition/",
@@ -48,6 +64,40 @@ FORBIDDEN_PREFIXES = (
 
 class ComponentPackageError(RuntimeError):
     pass
+
+
+def validate_component_identity(component: object) -> dict:
+    """Check the immutable manifest's complete identity, not the live catalog."""
+    if not isinstance(component, dict) or set(component) != COMPONENT_FIELDS:
+        raise ComponentPackageError("component package identity fields are invalid")
+    component_id = component["id"]
+    if not isinstance(component_id, str) or not COMPONENT_ID_RE.fullmatch(component_id):
+        raise ComponentPackageError("component package id is invalid")
+    version = component["version"]
+    if not isinstance(version, str) or not SEMVER_RE.fullmatch(version) or len(version) > 128:
+        raise ComponentPackageError("component package version is invalid")
+    for field, maximum in (("title", 120), ("owner", 220)):
+        value = component[field]
+        if (not isinstance(value, str) or not value or value != value.strip()
+                or "\0" in value or len(value) > maximum):
+            raise ComponentPackageError(f"component package {field} is invalid")
+    for field, allowed in COMPONENT_ENUMS.items():
+        if not isinstance(component[field], str) or component[field] not in allowed:
+            raise ComponentPackageError(f"component package {field} is invalid")
+    dependencies = component["dependencies"]
+    if (not isinstance(dependencies, list) or len(dependencies) > 128
+            or any(not isinstance(item, str) or not COMPONENT_ID_RE.fullmatch(item)
+                   for item in dependencies)
+            or len(set(dependencies)) != len(dependencies)
+            or component_id in dependencies):
+        raise ComponentPackageError("component package dependencies are invalid")
+    if (component["kind"] == "base"
+            or component["releaseMode"] == "git-app" and component["kind"] != "app"
+            or component["kind"] == "app" and component["failureDomain"] != "app"
+            or component["releaseMode"] in {"component-slot", "git-app"}
+            and component["restartScope"] == "reboot"):
+        raise ComponentPackageError("component package release identity is inconsistent")
+    return component
 
 
 def sha256_bytes(payload: bytes) -> str:
@@ -81,29 +131,9 @@ def load_component_metadata(component_id: str, root: Path = ROOT) -> dict:
     if set(metadata) != {"component", "entrypoint"}:
         raise ComponentPackageError("component metadata has unexpected fields")
     component = metadata["component"]
-    expected_component_keys = {
-        "id",
-        "title",
-        "kind",
-        "version",
-        "releaseMode",
-        "criticality",
-        "failureDomain",
-        "restartScope",
-        "healthMode",
-        "owner",
-        "dependencies",
-    }
-    if not isinstance(component, dict) or set(component) != expected_component_keys:
-        raise ComponentPackageError("component metadata identity is malformed")
+    validate_component_identity(component)
     if component["id"] != component_id:
         raise ComponentPackageError("component metadata id mismatch")
-    if not SEMVER_RE.fullmatch(str(component["version"])):
-        raise ComponentPackageError("component metadata version is not semantic")
-    if component["releaseMode"] not in {"bundled", "git-app", "component-slot"}:
-        raise ComponentPackageError("component package source has unsupported release mode")
-    if not isinstance(component["dependencies"], list):
-        raise ComponentPackageError("component dependencies must be a list")
     entrypoint = PurePosixPath(str(metadata["entrypoint"]))
     if entrypoint.is_absolute() or ".." in entrypoint.parts:
         raise ComponentPackageError("component entrypoint is unsafe")
@@ -207,6 +237,8 @@ def safe_zip_name(name: str) -> PurePosixPath:
     path = PurePosixPath(name)
     if path.is_absolute() or ".." in path.parts or "." in path.parts:
         raise ComponentPackageError(f"unsafe package path: {name!r}")
+    if path.as_posix() != name or not path.parts:
+        raise ComponentPackageError(f"non-canonical package path: {name!r}")
     return path
 
 
@@ -276,15 +308,7 @@ def validate_manifest_shape(manifest: object) -> dict:
     ):
         raise ComponentPackageError("component package safety policy is invalid")
 
-    component = manifest["component"]
-    if not isinstance(component, dict):
-        raise ComponentPackageError("component package identity is invalid")
-    if not re.fullmatch(r"[a-z][a-z0-9-]{0,63}", str(component.get("id", ""))):
-        raise ComponentPackageError("component package id is invalid")
-    if not SEMVER_RE.fullmatch(str(component.get("version", ""))):
-        raise ComponentPackageError("component package version is invalid")
-    if component.get("releaseMode") not in {"bundled", "git-app", "component-slot"}:
-        raise ComponentPackageError("component package release mode is invalid")
+    component = validate_component_identity(manifest["component"])
 
     entrypoint = safe_zip_name(str(manifest["entrypoint"]))
     if not entrypoint.as_posix().startswith(
@@ -391,8 +415,10 @@ def verify_package(package: Path) -> dict:
         for info in infos:
             safe_zip_name(info.filename)
             mode = (info.external_attr >> 16) & 0o170000
-            if info.is_dir() or mode == stat.S_IFLNK:
+            if info.is_dir() or mode != stat.S_IFREG:
                 raise ComponentPackageError("component package archive contains unsafe entry type")
+            if info.compress_type != zipfile.ZIP_STORED:
+                raise ComponentPackageError("component package archive uses non-canonical compression")
             if info.file_size > max(MAX_FILE_BYTES, 1024 * 1024):
                 raise ComponentPackageError("component package archive entry is too large")
         if MANIFEST_NAME not in names:

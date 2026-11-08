@@ -150,7 +150,7 @@ test("verified Store projection offers install only from verified catalog plus e
   projection.destroy();
 });
 
-test("calculator module read is ready while unsupported Native probation keeps Store installs blocked", async () => {
+test("calculator signed module read and probation permit only verified Store proposal", async () => {
   const catalog = catalogPort(ready([
     candidate("calculator", "0.2.0", "Calculadora"),
     candidate("unapproved-product", "0.1.0", "Unapproved"),
@@ -167,9 +167,9 @@ test("calculator module read is ready while unsupported Native probation keeps S
   const snapshot = projection.port.getSnapshot();
   assert.equal(snapshot.state, "ready");
   const calculator = snapshot.entries.find(item => item.appId === "calculator");
-  assert.equal(calculator.state, "blocked");
-  assert.equal(calculator.blockedReason, "runtime-probation-unavailable");
-  assert.equal(calculator.installable, false);
+  assert.equal(calculator.state, "available");
+  assert.equal(calculator.blockedReason, null);
+  assert.equal(calculator.installable, true);
   assert.equal(calculator.updatable, false);
   assert.equal(calculator.artifactIdentityVerified, true);
   assert.equal(calculator.provenanceVerified, true);
@@ -402,8 +402,8 @@ test("Native status reads use bounded concurrency and deterministic catalog orde
   assert.deepEqual(snapshot.entries.map((entry) => entry.appId), ["calculator", "notes"]);
   assert.equal(snapshot.entries.find((entry) => entry.appId === "notes").installable, true);
   const calculator = snapshot.entries.find((entry) => entry.appId === "calculator");
-  assert.equal(calculator.installable, false);
-  assert.equal(calculator.blockedReason, "runtime-probation-unavailable");
+  assert.equal(calculator.installable, true);
+  assert.equal(calculator.blockedReason, null);
   projection.destroy();
 });
 
@@ -525,18 +525,18 @@ test("destroy aborts outstanding Native queries and invalid timeouts fail closed
 
 
 test("Native probation gate blocks upgrades without blocking verified uninstall", async () => {
-  const catalog = catalogPort(ready([candidate("calculator", "0.4.3", "Calculadora")]));
+  const catalog = catalogPort(ready([candidate("assistant", "0.4.3", "Aura")]));
   const projection = createVerifiedAppStoreProjection({
     verifiedCatalogPort: catalog.port,
     componentSource: source(),
     fetchImpl: fetchFrom({
-      calculator: metadata("calculator", {
+      assistant: metadata("assistant", {
         source: "slot", version: "0.4.2", sourceCommit: "a".repeat(40),
       }),
     }),
   });
   await projection.refresh();
-  const value = projection.port.getSnapshot().entries.find((item) => item.appId === "calculator");
+  const value = projection.port.getSnapshot().entries.find((item) => item.appId === "assistant");
   assert.equal(value.state, "blocked");
   assert.equal(value.blockedReason, "runtime-probation-unavailable");
   assert.equal(value.installedVersion, "0.4.2");
@@ -612,4 +612,55 @@ test("disposing a ready Store projection revokes installable candidates for all 
   await projection.refresh();
   assert.equal(projection.port.getSnapshot(), closed);
   assert.deepEqual(seen, ["unavailable"], "a disposed projection never publishes another candidate");
+});
+
+test("one failing Store subscriber cannot suppress CURRENT revocation or notify the next reader", async t => {
+  const catalog = catalogPort(ready());
+  const projection = createVerifiedAppStoreProjection({
+    verifiedCatalogPort: catalog.port,
+    componentSource: source(),
+    fetchImpl: fetchFrom({ notes: metadata("notes") }),
+  });
+  t.after(() => projection.destroy());
+  await projection.waitForCurrentRefresh();
+  assert.equal(projection.port.getSnapshot().state, "ready");
+  const delivered = [];
+  projection.port.subscribe(() => { throw new Error("broken Store UI subscriber"); });
+  projection.port.subscribe(value => delivered.push(value.state));
+
+  await assert.doesNotReject(projection.refresh(),
+    "the first subscriber must not prevent Native CURRENT reconciliation");
+  assert.deepEqual(delivered, ["unavailable", "ready"],
+    "the next subscriber must observe both fail-closed withdrawal and attested restoration");
+  assert.equal(projection.port.getSnapshot().state, "ready");
+  assert.ok(projection.getCurrentObservations().length > 0);
+
+  projection.destroy();
+  assert.equal(delivered.at(-1), "unavailable",
+    "even dispose must notify healthy consumers after a subscriber throws");
+});
+
+test("reentrant Store refresh never sends a superseded ready snapshot after newer withdrawal", async t => {
+  const catalog = catalogPort(ready());
+  const projection = createVerifiedAppStoreProjection({
+    verifiedCatalogPort: catalog.port,
+    componentSource: source(),
+    fetchImpl: fetchFrom({ notes: metadata("notes") }),
+  });
+  t.after(() => projection.destroy());
+  await projection.waitForCurrentRefresh();
+  const delivered = [];
+  let nested = null;
+  projection.port.subscribe(value => {
+    if (value.state === "ready" && nested === null) {
+      nested = projection.refresh();
+    }
+  });
+  projection.port.subscribe(value => delivered.push(value.state));
+  await projection.refresh();
+  assert.ok(nested, "the first Store reader must initiate the one nested reconciliation");
+  await nested;
+  assert.deepEqual(delivered, ["unavailable", "unavailable", "ready"],
+    "the superseded ready emission must not reach later readers after nested withdrawal");
+  assert.equal(projection.port.getSnapshot().state, "ready");
 });

@@ -64,9 +64,9 @@ test("Web and Native share the Meridian rail destination order and grouping", as
     readFile(new URL("../system/surface/ui/sidebar-layout.css", import.meta.url), "utf8"),
     readFile(new URL("../system/surface/ui/meridian.tokens.css", import.meta.url), "utf8"),
   ]);
-  assert.deepEqual(MERIDIAN_RAIL_DESTINATIONS.map(item => item.key), ["home", "intelligence", "spaces", "apps", "profiles", "devices", "store"]);
+  assert.deepEqual(MERIDIAN_RAIL_DESTINATIONS.map(item => item.key), ["home", "intelligence", "spaces", "apps", "devices", "store"]);
   assert.deepEqual(MERIDIAN_RAIL_DESTINATIONS.filter(item => item.group === "principal").map(item => item.key), ["intelligence", "spaces", "apps"]);
-  assert.deepEqual(MERIDIAN_RAIL_DESTINATIONS.filter(item => item.group === "ecossistema").map(item => item.key), ["profiles", "devices", "store"]);
+  assert.deepEqual(MERIDIAN_RAIL_DESTINATIONS.filter(item => item.group === "ecossistema").map(item => item.key), ["devices", "store"]);
   assert.match(webConfig, /MERIDIAN_RAIL_DESTINATIONS/);
   assert.match(nativeShell, /MERIDIAN_RAIL_DESTINATIONS/);
   assert.equal((nativeShell.match(/ICONS\[destination\.glyph\]/g) ?? []).length, 3, "Native home, navigation, and overflow menu use canonical Meridian glyph metadata");
@@ -81,10 +81,7 @@ test("OS Surface intelligence presentation reuses its canonical destination titl
   assert.equal(rail.englishName, title);
   for (const path of [
     "../system/surface/workspace/components/intelligence/aura-content.tsx",
-    "../system/surface/workspace/components/central/window-content.tsx",
     "../system/surface/workspace/lib/web/model.ts",
-    "../system/surface/workspace/components/central/desktop.tsx",
-    "../system/surface/workspace/components/central/meridian-home.tsx",
   ]) {
     const source = await readFile(new URL(path, import.meta.url), "utf8");
     assert.match(source, /getSurfaceWindowTitle|getSurfaceDestination/, path);
@@ -331,7 +328,8 @@ test("equivalent desktop shortcuts share Meridian identity colors without removi
   assert.ok(shortcutCatalog.includes('appId: "settings"'));
   assert.ok(webConfig.includes("id: 'projects'"));
   assert.ok(webConfig.includes("id: 'internet'"));
-  assert.ok(webDesktop.includes("id: 'aura'"));
+  // Aura is a system destination, not a duplicate disconnected desktop shortcut.
+  assert.ok(!webDesktop.includes("id: 'aura'"));
   assert.ok(webDesktop.includes("open(item.name)"));
 });
 test("Web and Native desktop shortcuts consume one canonical glyph source", async () => {

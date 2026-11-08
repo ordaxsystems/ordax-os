@@ -65,7 +65,9 @@ export function installNativeIntelligenceHostBridge({
     spaceSelectionPort,
   });
 
+  let active = true;
   const onRequest = async (event) => {
+    if (!active) return;
     let envelope;
     try {
       envelope = validateHostRequest(event?.detail);
@@ -76,6 +78,9 @@ export function installNativeIntelligenceHostBridge({
 
     try {
       const response = await service.respond(envelope.request);
+      // The request can finish after pagehide/remount. The old Surface no
+      // longer owns this host listener, so never publish a stale response.
+      if (!active) return;
       postMessage(windowRef, {
         type: NATIVE_INTELLIGENCE_HOST_RESULT_TYPE,
         nonce: envelope.nonce,
@@ -84,6 +89,7 @@ export function installNativeIntelligenceHostBridge({
         response,
       });
     } catch {
+      if (!active) return;
       // The bridge deliberately does not claim whether model execution started.
       // Upstream transport must treat this as unknown outcome and must not retry
       // automatically until the canonical idempotency/receipt path is composed.
@@ -102,13 +108,18 @@ export function installNativeIntelligenceHostBridge({
   try {
     postMessage(windowRef, { type: NATIVE_INTELLIGENCE_HOST_READY_TYPE });
   } catch (error) {
+    active = false;
     windowRef.removeEventListener(NATIVE_INTELLIGENCE_HOST_REQUEST_EVENT, onRequest);
+    service.dispose();
     throw error;
   }
 
   return Object.freeze({
     dispose() {
+      if (!active) return;
+      active = false;
       windowRef.removeEventListener(NATIVE_INTELLIGENCE_HOST_REQUEST_EVENT, onRequest);
+      service.dispose();
     },
   });
 }

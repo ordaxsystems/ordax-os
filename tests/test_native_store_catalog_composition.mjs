@@ -7,6 +7,8 @@ import {
 import {
   createNativeStoreCatalogComposition,
 } from "../system/composition/native/store-catalog.mjs";
+import { createNativeAppLifecycleDelegate } from "../system/adapters/native/app-lifecycle-delegate.mjs";
+import { createAppLifecycleRequestService } from "../system/services/apps/store-lifecycle-request-service.mjs";
 import { listFirstRunDefaultAppIds, planFirstRunAppSelectionFromStore } from "../system/services/apps/first-run-selection.mjs";
 import { listExternalFirstPartyComponentIds } from "../system/services/apps/external-first-party-policy.mjs";
 
@@ -273,4 +275,100 @@ test("Native Store revokes install actions and transient current observations wh
   composition.destroy();
   assert.equal(composition.port.getSnapshot().state, "unavailable");
   assert.equal(composition.verifiedCatalogPort.getSnapshot().state, "unavailable");
+});
+
+test("accepted signed Go remove receipt refreshes the SAME Native Store and CURRENT observation without page restart", { timeout: 8000 }, async t => {
+  let installed = true;
+  let goMutations = 0;
+  let storeReads = 0;
+  const windowRef = {
+    async fetch(url, options = {}) {
+      if (url === "/__ordax/native/store-catalog") {
+        storeReads += 1;
+        return response(verifiedCatalog());
+      }
+      if (url === "/__ordax/native/store-lifecycle") {
+        goMutations += 1;
+        const plan = JSON.parse(options.body);
+        assert.equal(plan.request.operation, "remove");
+        assert.equal(plan.candidate, null);
+        assert.deepEqual(plan.expectedActivation, {
+          source: "slot", revision: 7, version: "0.4.3", sourceCommit: COMMIT,
+        });
+        installed = false;
+        return response({
+          schema: "ordax.app-lifecycle-request-result/1",
+          requestId: plan.request.requestId,
+          appId: plan.request.appId,
+          operation: plan.request.operation,
+          source: plan.request.source,
+          state: "accepted", reason: null, authority: "none",
+        });
+      }
+      const parsed = new URL(url);
+      if (parsed.pathname === "/__ordax/native/component-runtime") {
+        const appId = parsed.searchParams.get("component");
+        if (appId === "notes") {
+          return response(installed ? {
+            componentId: appId, state: "current", source: "slot",
+            revision: 7, version: "0.4.3", sourceCommit: COMMIT,
+            entrypoint: "system/apps/notes/src/runtime.mjs", pendingHealth: null,
+          } : {
+            componentId: appId, state: "current", source: "removed",
+            revision: 8, version: null, sourceCommit: null,
+            entrypoint: null, pendingHealth: null,
+          });
+        }
+        return response(metadata(appId));
+      }
+      return response({}, 404);
+    },
+  };
+  const store = await createNativeStoreCatalogComposition({
+    windowRef, componentSource: componentSource(),
+  });
+  t.after(() => store.destroy());
+  const before = store.port.getSnapshot().entries.find(item => item.appId === "notes");
+  assert.equal(before.state, "installed");
+  assert.equal(before.removable, true);
+  assert.equal(store.getCurrentObservations().find(item => item.componentId === "notes").source, "slot");
+
+  let resolveUpdated;
+  const updated = new Promise(resolve => { resolveUpdated = resolve; });
+  const visibleStates = [];
+  const unsubscribe = store.port.subscribe(snapshot => {
+    visibleStates.push(snapshot.state);
+    const notes = snapshot.entries.find(item => item.appId === "notes");
+    if (snapshot.state === "ready" && notes?.installedVersion === null &&
+        store.getCurrentObservations().find(item => item.componentId === "notes")?.source === "removed") {
+      resolveUpdated();
+    }
+  });
+  t.after(unsubscribe);
+  const service = createAppLifecycleRequestService({
+    catalogPort: store.port,
+    verifiedCatalogPort: store.verifiedCatalogPort,
+    getCurrentObservations: () => store.getCurrentObservations(),
+    lifecycleDelegate: createNativeAppLifecycleDelegate(windowRef, {
+      onAccepted() { return store.refresh(); },
+    }),
+  });
+  const request = {
+    schema: "ordax.app-lifecycle-request/1",
+    requestId: "store:remove:notes:integrated-observation",
+    appId: "notes", operation: "remove", source: "store", authority: "none",
+  };
+  const receipt = await service.requestLifecycle(request);
+  assert.equal(receipt.state, "accepted", JSON.stringify({reason: receipt.reason, goMutations, storeReads, state: store.port.getSnapshot().state}));
+  await updated;
+  const after = store.port.getSnapshot().entries.find(item => item.appId === "notes");
+  assert.equal(after.installedVersion, null);
+  assert.equal(after.installable, true, "signed catalog may still offer explicit reinstallation");
+  assert.equal(goMutations, 1);
+  assert.equal(storeReads, 2, "one bootstrap read and one accepted-receipt refresh");
+  assert.ok(visibleStates.includes("unavailable"),
+    "the native Store revokes old UI affordances before observing post-Go state");
+  assert.equal((await service.requestLifecycle(request)).state, "accepted");
+  assert.equal(goMutations, 1, "replaying an identical request cannot mutate again");
+  assert.equal(storeReads, 2, "replay cannot start another Store refresh");
 });

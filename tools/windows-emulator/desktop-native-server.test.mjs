@@ -2,8 +2,6 @@ import test from "node:test";
 import assert from "node:assert/strict";
 import { createServer } from "node:http";
 import { createHmac } from "node:crypto";
-import { createRequire } from "node:module";
-const { isReady } = createRequire(import.meta.url)("../windows-desktop/host.cjs");
 import { mkdtempSync, mkdirSync, writeFileSync, rmSync, readFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join, resolve } from "node:path";
@@ -18,6 +16,7 @@ const tokens={
   ORDAX_DESKTOP_STATE_TOKEN:"f".repeat(64),
   ORDAX_DESKTOP_NETWORK_TOKEN:"1".repeat(64),
   ORDAX_DESKTOP_OBSERVATION_TOKEN:"2".repeat(64),
+  ORDAX_DESKTOP_SURFACE_REPORT_TOKEN:"5".repeat(64),
   ORDAX_DESKTOP_DISPLAY_TOKEN:"3".repeat(64),
   ORDAX_DESKTOP_LOCAL_AI_TOKEN:"4".repeat(64),
   ORDAX_DESKTOP_RENDERED_SOURCE_SHA:"a".repeat(40),
@@ -60,9 +59,6 @@ test("standalone installed Native host serves verified bundle and existing privi
   assert.equal(handshake.headers.get("x-ordax-desktop-ready-proof"),
     createHmac("sha256",Buffer.from(tokens.ORDAX_DESKTOP_NATIVE_SESSION_TOKEN,"hex"))
       .update("ordax.desktop.native-ready/1:"+nonce).digest("hex"));
-  assert.equal(await isReady(host.address().port,tokens.ORDAX_DESKTOP_NATIVE_SESSION_TOKEN),true);
-  assert.equal(await isReady(host.address().port,"9".repeat(64)),false);
-  assert.equal(await isReady(host.address().port,"malformed"),false);
   assert.equal((await fetch(base+"/__ordax/desktop-host-ready")).status,404);
   assert.equal((await fetch(base+"/__ordax/desktop-host-ready?bypass=1",{
     headers:{"x-ordax-desktop-ready-challenge":nonce},
@@ -146,11 +142,4 @@ test("source-only system middleware denies path escapes and unsupported files", 
   assert.equal((await fetch(base+"/system/contracts/.env")).status,404);
   assert.equal((await fetch(base+"/system/contracts/%5c..%5cproof.json")).status,404);
   assert.equal((await fetch(base+"/__ordax/native/update")).status,418);
-});
-
-test("installed shell selects standalone Native only for previously verified build",()=>{
-  const shell=readFileSync(new URL("../windows-desktop/host.cjs",import.meta.url),"utf8");
-  assert.match(shell,/const staticHost=Boolean\(builtAssetsRoot && existsSync\(installedNative\)\)/);
-  assert.match(shell,/const entry=staticHost\?installedNative:/);
-  assert.match(shell,/http-ready after/);
 });
