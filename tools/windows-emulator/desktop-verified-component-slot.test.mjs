@@ -1,6 +1,6 @@
 import test from "node:test";
 import assert from "node:assert/strict";
-import { createServer } from "node:http";
+import { createServer, request as httpRequest } from "node:http";
 import { createHash } from "node:crypto";
 import { mkdtempSync, mkdirSync, writeFileSync, readFileSync, rmSync, existsSync, unlinkSync, symlinkSync } from "node:fs";
 import { tmpdir } from "node:os";
@@ -1091,6 +1091,57 @@ test("Windows Store removes only after Go commits exact signed uninstall and rea
     ["verify-store-catalog", "uninstall-state", "status"]);
   assert.equal((await (await fetch(base + "/__ordax/native/store-catalog")).json()).state,
     "ready", "Catalog remains available after its lock is released");
+});
+
+test("Windows Store incomplete body cannot block an independent completed lifecycle request", async t => {
+  // The untrusted client holds one keep-alive request open after the headers.
+  // No installed trust exists, so a complete request must reject with 503
+  // promptly; the test does not install, mutate slots or call a Go writer.
+  const middleware = createDesktopStoreLifecycleMiddleware({
+    systemRoot: join(tmpdir(), "ordax-absent-os-store-test"),
+    verifierRoot: join(tmpdir(), "ordax-absent-verifier-store-test"),
+    userData: join(tmpdir(), "ordax-absent-profile-store-test"),
+    catalogReader: async () => { throw new Error("must not be read without trust"); },
+    platform: "win32",
+    execFileImpl: () => { throw new Error("must not call Go without trust"); },
+    fetchImpl: async () => { throw new Error("must not download without trust"); },
+  });
+  let signalSlow;
+  const sawSlow = new Promise(resolve => { signalSlow = resolve; });
+  const server = createServer((req, res) => {
+    if (req.headers["x-ordax-test-slow"] === "yes") signalSlow();
+    middleware(req, res, () => { res.writeHead(418); res.end(); });
+  });
+  await new Promise(resolve => server.listen(0, "127.0.0.1", resolve));
+  t.after(() => new Promise(resolve => server.close(resolve)));
+  const base = "http://127.0.0.1:" + server.address().port;
+  const stalled = httpRequest(base + "/__ordax/native/store-lifecycle", {
+    method: "POST", agent: false,
+    headers: { Origin: base, "Content-Type": "application/json",
+      "Content-Length": "300", "X-OrdaX-Test-Slow": "yes" },
+  });
+  stalled.on("error", () => {}); // Disconnected intentionally in cleanup.
+  stalled.on("response", response => response.resume());
+  t.after(() => stalled.destroy());
+  stalled.write('{"schema":"ordax.app-lifecycle-plan/2",');
+  await sawSlow;
+  // A complete plan must reach the serialized executor even while the first
+  // peer has not ended its body. An obsolete design would stall until timeout.
+  const fast = await fetch(base + "/__ordax/native/store-lifecycle", {
+    method: "POST",
+    headers: { Origin: base, "Content-Type": "application/json" },
+    body: JSON.stringify(windowsRemovePlan()),
+    signal: AbortSignal.timeout(3_000),
+  });
+  assert.equal(fast.status, 503, "untrusted incomplete body must not block valid request parsing");
+  stalled.destroy();
+  const tooLarge = await fetch(base + "/__ordax/native/store-lifecycle", {
+    method: "POST",
+    headers: { Origin: base, "Content-Type": "application/json" },
+    body: "x".repeat(33 * 1024),
+    signal: AbortSignal.timeout(3_000),
+  });
+  assert.equal(tooLarge.status, 400, "oversized plans remain rejected before any Go handoff");
 });
 
 test("Windows Store never grants installs, unsigned plans or foreign-origin uninstall", async t => {
