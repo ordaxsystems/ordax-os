@@ -252,14 +252,14 @@ fi
                 return {"number": number, "head": {
                     "repo": {"full_name": repo}, "ref": branch,
                     "sha": "a" * 40}, "base": {"ref": base}}
-            def run(pages, files=None):
+            def run(pages, files=None, owner="surface"):
                 out = folder / "out"
                 out.write_text("")
                 env = dict(os.environ, PATH=str(folder) + os.pathsep + os.environ["PATH"],
                            TEST_PAGES=json.dumps(pages),
                            TEST_PR_FILES=json.dumps(files or {"files": [
-                               {"path": "docs/contracts/surface-source.json"}]}),
-                           OWNER="surface", LOCK="docs/contracts/surface-source.json",
+                               {"path": f"docs/contracts/{owner}-source.json"}]}),
+                           OWNER=owner, LOCK=f"docs/contracts/{owner}-source.json",
                            GITHUB_REPOSITORY="ordaxsystems/ordax-os",
                            GITHUB_OUTPUT=str(out))
                 result = subprocess.run(["bash", "-e"], input=script, text=True,
@@ -276,6 +276,21 @@ fi
             self.assertIn("existing=true", output)
             self.assertIn("number=9", output)
             self.assertIn("branch=automation/advance-surface", output)
+            self.assertIn("manual=false", output)
+            manual, output = run([[
+                pr(21, "fix/intelligence-source-lock-91de8cd-20261104"),
+                pr(22, "automation/advance-surface"),
+            ]], owner="intelligence")
+            self.assertEqual(manual.returncode, 0, manual.stderr)
+            self.assertIn("existing=true", output)
+            self.assertIn("number=21", output)
+            self.assertIn("manual=true", output)
+            competing, _ = run([[
+                pr(21, "fix/intelligence-source-lock-91de8cd-20261104"),
+                pr(22, "automation/advance-intelligence"),
+            ]], owner="intelligence")
+            self.assertNotEqual(competing.returncode, 0)
+            self.assertIn("Multiple owner integration PRs", competing.stdout)
             duplicate, _ = run([[
                 pr(9, "automation/advance-surface"),
                 pr(10, "automation/advance-surface-deadbeef1234"),
@@ -296,6 +311,13 @@ fi
         self.assertNotIn("git push --force", workflow)
         self.assertNotIn("git push -f", workflow)
         self.assertNotIn("gh pr merge", workflow)
+        # Human-reviewed owner PRs are never silently rewritten by CI.
+        self.assertIn('if [ "$EXISTING" = true ] && [ "$MANUAL" = true ]; then', workflow)
+        self.assertIn('"repos/$GITHUB_REPOSITORY/contents/$LOCK?ref=$PR_HEAD_SHA"', workflow)
+        self.assertIn('base64 --decode | cmp - "$candidate_lock"', workflow)
+        self.assertIn("Manual owner source-lock PR differs", workflow)
+        self.assertLess(workflow.index('if [ "$EXISTING" = true ] && [ "$MANUAL" = true ]; then'),
+                        workflow.index('git switch -c "$branch" "refs/remotes/origin/$branch"'))
 
     def test_merged_owner_branch_can_fast_forward_without_force(self):
         # The repo intentionally keeps merged branches. Prove the second
