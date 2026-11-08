@@ -1113,7 +1113,11 @@ test("Windows Store incomplete body cannot block an independent completed lifecy
     middleware(req, res, () => { res.writeHead(418); res.end(); });
   });
   await new Promise(resolve => server.listen(0, "127.0.0.1", resolve));
-  t.after(() => new Promise(resolve => server.close(resolve)));
+  t.after(() => {
+    // Close the malicious half-written request even if the assertion fails.
+    server.closeAllConnections();
+    return new Promise(resolve => server.close(resolve));
+  });
   const base = "http://127.0.0.1:" + server.address().port;
   const stalled = httpRequest(base + "/__ordax/native/store-lifecycle", {
     method: "POST", agent: false,
