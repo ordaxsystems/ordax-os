@@ -16,6 +16,7 @@ import { withDesktopStoreCatalogWatermark } from "./verified-store-catalog-host.
 
 const ENDPOINT = "/__ordax/native/store-lifecycle";
 const MAX_BODY = 32 * 1024;
+const BODY_READ_TIMEOUT_MS = 15_000;
 const MAX_GO_OUTPUT = 64 * 1024;
 const LOOPBACK = new Set(["127.0.0.1", "::1", "::ffff:127.0.0.1"]);
 const HOST = /^(?:127\.0\.0\.1|\[::1\]):[1-9][0-9]{0,4}$/;
@@ -100,15 +101,23 @@ async function readBody(req) {
     && (!/^[0-9]+$/.test(length) || Number(length) > MAX_BODY)) {
     throw Error("Store lifecycle request too large");
   }
-  const chunks = [];
-  let lengthRead = 0;
-  for await (const chunk of req) {
-    lengthRead += chunk.length;
-    if (lengthRead > MAX_BODY) throw Error("Store lifecycle request too large");
-    chunks.push(chunk);
+  // A partial body must not hold the Windows lifecycle connection forever.
+  // A timed-out socket is closed rather than pretending a truncated plan is valid.
+  const deadline = setTimeout(() => req.destroy(), BODY_READ_TIMEOUT_MS);
+  deadline.unref?.();
+  try {
+    const chunks = [];
+    let lengthRead = 0;
+    for await (const chunk of req) {
+      lengthRead += chunk.length;
+      if (lengthRead > MAX_BODY) throw Error("Store lifecycle request too large");
+      chunks.push(chunk);
+    }
+    if (lengthRead === 0) throw Error("Missing Store lifecycle request");
+    return JSON.parse(decode(Buffer.concat(chunks, lengthRead)));
+  } finally {
+    clearTimeout(deadline);
   }
-  if (lengthRead === 0) throw Error("Missing Store lifecycle request");
-  return JSON.parse(decode(Buffer.concat(chunks, lengthRead)));
 }
 
 export function createDesktopStoreLifecycleMiddleware({
@@ -214,16 +223,21 @@ export function createDesktopStoreLifecycleMiddleware({
       || req.headers.origin !== "http://" + req.headers.host)
       return reply(403);
     if (req.headers["content-type"] !== "application/json") return reply(415);
-    const run = queue.then(async () => {
+    // Read and validate untrusted HTTP bytes outside the privileged mutation
+    // queue. A client that stalls midway through a body cannot block valid
+    // Store install/update/remove requests from other connections.
+    void (async () => {
       let plan;
       try { plan = validateAppLifecyclePlan(await readBody(req)); }
       catch { return reply(400); }
-      // A successful stage is not activation; the Go readback proves only
-      // pending-health. Actual health and promotion remain independent.
-      try { return reply(200, await execute(plan)); }
-      catch { return reply(503); }
-    }, () => reply(503));
-    queue = run.then(() => {}, () => {});
-    void run.catch(() => reply(503));
+      // Completed and validated plans still execute one at a time. Go remains
+      // the sole activation-state writer; this changes no trust or receipt gate.
+      const run = queue.then(async () => {
+        try { return reply(200, await execute(plan)); }
+        catch { return reply(503); }
+      }, () => reply(503));
+      queue = run.then(() => {}, () => {});
+      void run.catch(() => reply(503));
+    })().catch(() => reply(503));
   };
 }
