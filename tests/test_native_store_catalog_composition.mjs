@@ -87,6 +87,107 @@ function response(value, status = 200) {
   };
 }
 
+test("Windows Store rechecks staged app on foreground return and only shows signed CURRENT after promotion", async () => {
+  let source = "absent", currentRevision = 1, pending = true;
+  let catalogReads = 0, currentReads = 0, pendingReads = 0;
+  const listeners = new Map();
+  const documentListeners = new Map();
+  const doc = {
+    visibilityState: "visible",
+    addEventListener(name, fn) { documentListeners.set(name, fn); },
+    removeEventListener(name, fn) {
+      if (documentListeners.get(name) === fn) documentListeners.delete(name);
+    },
+  };
+  const windowRef = {
+    location: { protocol: "http:", hostname: "127.0.0.1" },
+    ordaxDesktopBrowser: { postMessage() { return true; } },
+    document: doc,
+    addEventListener(name, fn) { listeners.set(name, fn); },
+    removeEventListener(name, fn) {
+      if (listeners.get(name) === fn) listeners.delete(name);
+    },
+    async fetch(url) {
+      if (url === "/__ordax/native/store-catalog") {
+        catalogReads++;
+        return response(verifiedCatalog());
+      }
+      const parsed = new URL(url);
+      if (parsed.pathname !== "/__ordax/native/component-runtime") {
+        throw Error("Unknown Native source read");
+      }
+      const id = parsed.searchParams.get("component");
+      if (parsed.searchParams.get("state") === "pending") {
+        pendingReads++;
+        if (id === "notes" && pending) {
+          return response({
+            componentId: id, state: "pending", source: "slot",
+            revision: currentRevision, version: "0.4.3", sourceCommit: COMMIT,
+            entrypoint: "system/apps/notes/src/runtime.mjs",
+            pendingHealth: "healthy",
+          });
+        }
+        return response(null, 204);
+      }
+      currentReads++;
+      return response(id !== "notes" ? metadata(id) : {
+        componentId: id, state: "current", source,
+        revision: currentRevision,
+        version: source === "slot" ? "0.4.3" : null,
+        sourceCommit: source === "slot" ? COMMIT : null,
+        entrypoint: source === "slot" ? "system/apps/notes/src/runtime.mjs" : null,
+        pendingHealth: null,
+      });
+    },
+  };
+  const composition = await createNativeStoreCatalogComposition({
+    windowRef, componentSource: componentSource(),
+  });
+  const state = () => composition.port.getSnapshot().entries.find(
+    item => item.appId === "notes");
+  assert.equal(state().state, "staged",
+    "Even a healthy pending candidate is not promoted");
+  assert.equal(state().installable, false);
+  assert.equal(catalogReads, 1);
+  assert.ok(pendingReads > 0);
+  assert.ok(listeners.has("focus"));
+  assert.ok(documentListeners.has("visibilitychange"));
+
+  doc.visibilityState = "hidden";
+  documentListeners.get("visibilitychange")();
+  assert.equal(catalogReads, 1, "Hidden document cannot trigger a network read");
+
+  // Native Go promotes the candidate independently while the user is away.
+  source = "slot"; currentRevision = 2; pending = false;
+  doc.visibilityState = "visible";
+  const installed = new Promise(resolve => {
+    const unsubscribe = composition.port.subscribe(snapshot => {
+      if (snapshot.entries.find(item =>
+        item.appId === "notes" && item.state === "installed")) {
+        unsubscribe();
+        resolve();
+      }
+    });
+  });
+  documentListeners.get("visibilitychange")();
+  await installed;
+  assert.equal(catalogReads, 2);
+  assert.equal(state().state, "installed");
+  assert.equal(state().installedVersion, "0.4.3");
+  assert.equal(state().installable, false);
+
+  // Repeated focus with no pending candidate cannot repoll the catalog.
+  const currentCalls = currentReads;
+  listeners.get("focus")();
+  assert.equal(catalogReads, 2);
+  assert.equal(currentReads, currentCalls);
+
+  composition.destroy();
+  assert.equal(listeners.has("focus"), false);
+  assert.equal(documentListeners.has("visibilitychange"), false);
+  assert.equal(composition.port.getSnapshot().state, "unavailable");
+});
+
 test("Native Store composition derives installability only from verified catalog plus activation SSOT", async () => {
   const calls = [];
   const windowRef = {
