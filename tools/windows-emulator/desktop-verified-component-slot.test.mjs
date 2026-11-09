@@ -8,6 +8,7 @@ import { join } from "node:path";
 import { createDesktopVerifiedComponentSlotMiddleware } from "../../system/adapters/desktop/verified-component-slot-host.mjs";
 import { createDesktopVerifiedStoreCatalogMiddleware, desktopStoreCatalogEnvelopeUrl, resolveDesktopStoreHttpsOrigins } from "../../system/adapters/desktop/verified-store-catalog-host.mjs";
 import { createDesktopStoreLifecycleMiddleware } from "../../system/adapters/desktop/store-lifecycle-host.mjs";
+import { acquireDesktopStoreArtifacts } from "../../system/adapters/desktop/store-artifact-transport.mjs";
 import { nativeEmulatorPlugin } from "./native-host.mjs";
 
 test("Native Store HTTPS preflight requires one canonical paired origin", () => {
@@ -888,6 +889,54 @@ function signedWindowsStageFixture() {
   snapshot.entries[0].artifacts = identities;
   return {contents, identities, snapshot};
 }
+
+test("Windows Store artifact acquisition aborts a non-cooperative HTTPS peer without caching its late bytes", async t => {
+  const f = setup(t);
+  const store = join(f.userData, "Store");
+  mkdirSync(store);
+  const fixture = signedWindowsStageFixture();
+  const candidate = { artifacts: fixture.identities };
+  const bytesByHash = new Map(Object.keys(fixture.identities).map(role =>
+    [fixture.identities[role].sha256, fixture.contents[role]]));
+  const origin = "https://catalog.test/release/";
+  let releaseSlow;
+  const read = (url) => {
+    const id = new URL(url).pathname.split("/").at(-1);
+    const bytes = bytesByHash.get(id);
+    assert.ok(bytes);
+    return remoteCatalogResponse(url, bytes, { "content-length": String(bytes.length) });
+  };
+  const unfinished = acquireDesktopStoreArtifacts({
+    userData: f.userData,
+    baseOrigin: origin,
+    candidate,
+    fetchTimeoutMs: 100,
+    fetchImpl: async url => new Promise(resolve => {
+      releaseSlow = () => resolve(read(url)); // Intentionally ignores AbortSignal.
+    }),
+  });
+  await assert.rejects(unfinished, /exceeded deadline/);
+  const artifact = fixture.identities.package;
+  const cachePath = join(store, "artifacts", "v1", "sha256",
+    artifact.sha256.slice(0, 2), artifact.sha256);
+  assert.equal(existsSync(cachePath), false, "Timed-out HTTP bytes cannot enter the signed cache");
+
+  const recovered = await acquireDesktopStoreArtifacts({
+    userData: f.userData, baseOrigin: origin, candidate,
+    fetchImpl: async url => read(url),
+  });
+  for (const [role, path] of Object.entries(recovered)) {
+    assert.deepEqual(readFileSync(path), fixture.contents[role]);
+  }
+  releaseSlow?.();
+  await new Promise(resolve => setImmediate(resolve));
+  assert.deepEqual(readFileSync(cachePath), fixture.contents.package,
+    "Late HTTP completion must not replace the recovered signed artifact");
+  await assert.rejects(acquireDesktopStoreArtifacts({
+    userData: f.userData, baseOrigin: origin, candidate,
+    fetchTimeoutMs: 20001, fetchImpl: async url => read(url),
+  }), /deadline must be bounded/);
+});
 
 test("Windows Store stages signed install/update only as durable Go pending-health", async t => {
   for (const operation of ["install", "update"]) {
