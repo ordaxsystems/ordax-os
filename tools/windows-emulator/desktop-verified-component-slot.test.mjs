@@ -653,7 +653,7 @@ test("Windows Store HTTPS deadline releases its reader queue even when fetch ign
     cb(null, Buffer.alloc(0));
   }, {
     catalogBaseOrigin: "https://catalog.test/",
-    fetchTimeoutMs: 35,
+    fetchTimeoutMs: 100,
     fetchImpl: async url => {
       reads++;
       if (reads === 2) {
