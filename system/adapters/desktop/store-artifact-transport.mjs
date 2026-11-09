@@ -50,15 +50,21 @@ async function verifiedCached(path, identity) {
   return path;
 }
 
-async function download(identity, url, fetchImpl) {
+async function download(identity, url, fetchImpl, timeoutMs) {
   const abort = new AbortController();
-  const timer = setTimeout(() => abort.abort(), TIMEOUT_MS);
-  try {
+  let rejectDeadline;
+  const expired = new Promise((_, reject) => { rejectDeadline = reject; });
+  const timer = setTimeout(() => {
+    abort.abort();
+    rejectDeadline(Error("Store artifact HTTPS read exceeded deadline"));
+  }, timeoutMs);
+  const reading = (async () => {
     const result = await fetchImpl(url, {
       method: "GET", redirect: "error", credentials: "omit", cache: "no-store",
       headers: { Accept: "application/octet-stream", "Accept-Encoding": "identity" },
       signal: abort.signal,
     });
+    if (abort.signal.aborted) throw Error("Store artifact HTTPS read cancelled");
     if (result?.status !== 200 || result.redirected || result.url !== url
       || !result.headers || !result.body)
       throw Error("Store artifact response is not canonical");
@@ -72,17 +78,24 @@ async function download(identity, url, fetchImpl) {
     const chunks = [];
     let count = 0;
     for await (const chunk of result.body) {
+      if (abort.signal.aborted) throw Error("Store artifact HTTPS read cancelled");
       if (!(chunk instanceof Uint8Array)) throw Error("Nonbinary Store artifact body");
       count += chunk.byteLength;
       if (count > identity.size || count > MAX_APP_ARTIFACT_BYTES)
         throw Error("Store artifact exceeds signed size");
       chunks.push(Buffer.from(chunk));
     }
+    if (abort.signal.aborted) throw Error("Store artifact HTTPS read cancelled");
     if (count !== identity.size) throw Error("Truncated signed Store artifact");
     const bytes = Buffer.concat(chunks, count);
     if (digestOf(bytes) !== identity.sha256)
       throw Error("Store artifact SHA-256 mismatch");
     return bytes;
+  })();
+  try {
+    // The installed Go owner must not be blocked indefinitely by a transport
+    // that ignores AbortSignal, or accept bytes delivered after timeout.
+    return await Promise.race([reading, expired]);
   } finally { clearTimeout(timer); abort.abort(); }
 }
 
@@ -113,7 +126,11 @@ async function persistVerified(parent, filename, bytes, identity) {
 // has compared the full private plan against a Go-verified local catalog.
 export async function acquireDesktopStoreArtifacts({
   userData, baseOrigin, candidate, fetchImpl = globalThis.fetch,
+  fetchTimeoutMs = TIMEOUT_MS,
 } = {}) {
+  if (!Number.isInteger(fetchTimeoutMs) || fetchTimeoutMs < 1
+    || fetchTimeoutMs > TIMEOUT_MS)
+    throw TypeError("Store artifact HTTPS deadline must be bounded");
   if (typeof fetchImpl !== "function") throw TypeError("Native artifact fetch is required");
   const identities = Object.fromEntries(ARTIFACT_ROLES.map(role =>
     [role, validateAppArtifactIdentity(candidate?.artifacts?.[role])]));
@@ -131,7 +148,7 @@ export async function acquireDesktopStoreArtifacts({
     const parent = await ensureDirectory(join(hashes, name.slice(0, 2)));
     const cached = await verifiedCached(join(parent, name), identity);
     result[role] = cached ?? await persistVerified(
-      parent, name, await download(identity, urls[role], fetchImpl), identity);
+      parent, name, await download(identity, urls[role], fetchImpl, fetchTimeoutMs), identity);
   }
   return Object.freeze(result);
 }
