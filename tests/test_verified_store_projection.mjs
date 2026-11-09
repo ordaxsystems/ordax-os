@@ -118,6 +118,53 @@ function fetchFrom(values, calls = []) {
   };
 }
 
+test("Windows Store refuses new installs and updates without a trusted probation host while keeping CURRENT removal", async () => {
+  const catalog = catalogPort(ready());
+  let current = metadata("notes");
+  const projection = createVerifiedAppStoreProjection({
+    verifiedCatalogPort: catalog.port,
+    componentSource: source(),
+    fetchImpl: async url => {
+      const appId = new URL(url).searchParams.get("component");
+      return {
+        ok: true, status: 200,
+        json: async () => appId === "notes" ? current : metadata(appId),
+      };
+    },
+    probationHostReady: false,
+  });
+  const read = async () => {
+    await projection.refresh();
+    return projection.port.getSnapshot().entries.find(x => x.appId === "notes");
+  };
+  let entry = await read();
+  assert.equal(entry.state, "blocked");
+  assert.equal(entry.blockedReason, "runtime-probation-host-unavailable");
+  assert.equal(entry.installable, false);
+  assert.equal(entry.installedVersion, null);
+
+  current = metadata("notes", {
+    source: "slot", version: "0.4.2", sourceCommit: "a".repeat(40),
+    revision: 5,
+  });
+  entry = await read();
+  assert.equal(entry.state, "blocked");
+  assert.equal(entry.blockedReason, "runtime-probation-host-unavailable");
+  assert.equal(entry.updatable, false);
+  assert.equal(entry.removable, true,
+    "A previously verified CURRENT installation remains explicitly removable");
+
+  current = metadata("notes", {
+    source: "slot", version: "0.4.3", sourceCommit: SOURCE_COMMIT,
+    revision: 6,
+  });
+  entry = await read();
+  assert.equal(entry.state, "installed");
+  assert.equal(entry.removable, true);
+  assert.equal(entry.updatable, false);
+  projection.destroy();
+});
+
 test("Windows Store observes Go pending-health without falsely enabling a second install", async () => {
   const catalog = catalogPort(ready());
   let pending = null;

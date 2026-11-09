@@ -87,6 +87,67 @@ function response(value, status = 200) {
   };
 }
 
+function withWebKitTestHost(windowRef) {
+  return {
+    ...windowRef,
+    location: { protocol: "http:", hostname: "127.0.0.1" },
+    document: {
+      documentElement: {
+        getAttribute(name) {
+          return name === "data-ordax-native-host-bridge" ? "v1" : null;
+        },
+      },
+    },
+  };
+}
+
+test("Electron Store cannot offer installation without a native probation receipt owner", async () => {
+  let storeReads = 0, currentReads = 0, pendingReads = 0;
+  const windowRef = {
+    location: {protocol: "http:", hostname: "127.0.0.1"},
+    ordaxDesktopBrowser: { postMessage() { return true; } },
+    async fetch(url) {
+      if (url === "/__ordax/native/store-catalog") {
+        storeReads++;
+        return response(verifiedCatalog());
+      }
+      const parsed = new URL(url);
+      if (parsed.pathname !== "/__ordax/native/component-runtime") throw Error("Unexpected Native read");
+      const appId = parsed.searchParams.get("component");
+      if (parsed.searchParams.get("state") === "pending") {
+        pendingReads++;
+        return response(null, 204);
+      }
+      currentReads++;
+      return response(metadata(appId));
+    },
+  };
+  const composition = await createNativeStoreCatalogComposition({
+    windowRef, componentSource: componentSource(),
+  });
+  const entry = composition.port.getSnapshot().entries.find(x => x.appId === "notes");
+  assert.equal(entry.state, "blocked");
+  assert.equal(entry.blockedReason, "runtime-probation-host-unavailable");
+  assert.equal(entry.installable, false,
+    "An Electron browser command does not attest system probation or promotion");
+  assert.equal(entry.updatable, false);
+  assert.equal(storeReads, 1);
+  assert.ok(currentReads > 0 && pendingReads > 0,
+    "Status still comes from the signed Native catalog and Go activation reader");
+  composition.destroy();
+
+  // A missing Electron preload is never proof of a Linux WebKit probation host.
+  const missingPreload = await createNativeStoreCatalogComposition({
+    windowRef: { ...windowRef, ordaxDesktopBrowser: undefined },
+    componentSource: componentSource(),
+  });
+  const withoutBridge = missingPreload.port.getSnapshot().entries.find(x => x.appId === "notes");
+  assert.equal(withoutBridge.state, "blocked");
+  assert.equal(withoutBridge.blockedReason, "runtime-probation-host-unavailable");
+  assert.equal(withoutBridge.installable, false);
+  missingPreload.destroy();
+});
+
 test("Windows Store rechecks staged app on foreground return and only shows signed CURRENT after promotion", async () => {
   let source = "absent", currentRevision = 1, pending = true;
   let catalogReads = 0, currentReads = 0, pendingReads = 0;
@@ -205,7 +266,7 @@ test("Native Store composition derives installability only from verified catalog
   };
 
   const composition = await createNativeStoreCatalogComposition({
-    windowRef,
+    windowRef: withWebKitTestHost(windowRef),
     componentSource: componentSource(),
   });
   const snapshot = composition.port.getSnapshot();
@@ -295,7 +356,7 @@ test("Native first-run selection shares Store current-state reads and never rest
   let nativeSource = "absent";
   let nativeReads = 0;
   const composition = await createNativeStoreCatalogComposition({
-    windowRef: {
+    windowRef: withWebKitTestHost({
       async fetch(url) {
         if (url === "/__ordax/native/store-catalog") return response(verifiedCatalog());
         const parsed = new URL(url);
@@ -306,7 +367,7 @@ test("Native first-run selection shares Store current-state reads and never rest
         }
         return response({}, 404);
       },
-    },
+    }),
     componentSource: componentSource(),
   });
   const observe = (initialProvisioning) => planFirstRunAppSelectionFromStore({
@@ -350,7 +411,7 @@ test("Native Store revokes install actions and transient current observations wh
     },
   };
   const composition = await createNativeStoreCatalogComposition({
-    windowRef,
+    windowRef: withWebKitTestHost(windowRef),
     componentSource: componentSource(),
   });
   const initial = composition.port.getSnapshot();
@@ -426,7 +487,7 @@ test("accepted signed Go remove receipt refreshes the SAME Native Store and CURR
     },
   };
   const store = await createNativeStoreCatalogComposition({
-    windowRef, componentSource: componentSource(),
+    windowRef: withWebKitTestHost(windowRef), componentSource: componentSource(),
   });
   t.after(() => store.destroy());
   const before = store.port.getSnapshot().entries.find(item => item.appId === "notes");
