@@ -37,6 +37,11 @@ export async function createNativeStoreCatalogComposition({
     // Windows alone exposes the read-only Go pending-health observation.
     // Linux keeps its existing Owner probation path unchanged.
     observePending: hasDesktopBrowserTransport(windowRef),
+    // The installed Electron transport has no component probation receipt
+    // owner. A Go-accepted staged artifact cannot become CURRENT merely from
+    // a renderer bridge or a signed catalog. Do not offer a dead-end install
+    // until an independently trusted Windows probation owner is connected.
+    probationHostReady: !hasDesktopBrowserTransport(windowRef),
   });
   await projection.waitForCurrentRefresh();
 
