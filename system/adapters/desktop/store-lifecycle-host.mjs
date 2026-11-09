@@ -222,9 +222,18 @@ export function createDesktopStoreLifecycleMiddleware({
     };
     if (req.url !== ENDPOINT) return reply(400);
     if (req.method !== "POST") return reply(405);
+    // A remoteAddress of loopback is not enough: a rebinding hostname can
+    // connect a malicious browser origin to this local privileged POST.
+    // Bind Host to the actual listening socket, not a regex-only Host value.
+    const port = req.socket?.localPort;
+    const host = req.headers.host;
     if (!LOOPBACK.has(req.socket?.remoteAddress)
-      || typeof req.headers.host !== "string" || !HOST.test(req.headers.host)
-      || req.headers.origin !== "http://" + req.headers.host)
+      || !Number.isInteger(port) || port < 1 || port > 65535
+      || typeof host !== "string" || !HOST.test(host)
+      || host !== "127.0.0.1:" + port && host !== "[::1]:" + port
+      || req.headers.origin !== "http://" + host
+      || req.headers["sec-fetch-site"] !== undefined
+        && !["same-origin", "none"].includes(req.headers["sec-fetch-site"]))
       return reply(403);
     if (req.headers["content-type"] !== "application/json") return reply(415);
     // Read and validate untrusted HTTP bytes outside the privileged mutation

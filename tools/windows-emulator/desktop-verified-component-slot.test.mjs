@@ -1765,6 +1765,66 @@ test("Windows Store bounds validated lifecycle queue while Go is stalled", async
   }
 });
 
+test("Windows Store lifecycle refuses DNS rebinding and cross-site POST before signed Go access", async t => {
+  const f = setup(t);
+  f.policy.current_gates.component_publish_allowed = true;
+  writeFileSync(f.policyPath, JSON.stringify(f.policy));
+  const store = join(f.userData, "Store");
+  mkdirSync(store);
+  writeFileSync(join(store, "catalog-envelope.json"), "SIGNED_TEST_ENVELOPE");
+  let verifyCalls = 0, mutations = 0;
+  const base = await serveGoStoreLifecycle(t, f, (_binary, args, _options, cb) => {
+    if (args[0] === "verify-store-catalog") {
+      verifyCalls++;
+      writeFileSync(args[args.indexOf("--out") + 1], JSON.stringify(signedCatalogFixture()));
+      return cb(null, Buffer.alloc(0));
+    }
+    mutations++;
+    return cb(Error("Privileged Go must remain fail-closed in this fixture"));
+  });
+  const endpoint = new URL(base);
+  const host = endpoint.host;
+  const plan = JSON.stringify(windowsRemovePlan());
+
+  const postWithHeaders = headers => new Promise((resolve, reject) => {
+    // Explicit Host is required to exercise rebinding; fetch forbids setting
+    // that header in normal browser mode.
+    const req = httpRequest({
+      hostname: endpoint.hostname, port: Number(endpoint.port),
+      path: "/__ordax/native/store-lifecycle", method: "POST",
+      headers: {"Content-Type": "application/json", "Content-Length": Buffer.byteLength(plan), ...headers},
+    }, res => {
+      res.resume();
+      res.once("end", () => resolve(res.statusCode));
+    });
+    req.once("error", reject);
+    req.end(plan);
+  });
+
+  for (const headers of [
+    {Host: "attacker.example:" + endpoint.port, Origin: "http://attacker.example:" + endpoint.port},
+    {Host: "localhost:" + endpoint.port, Origin: "http://localhost:" + endpoint.port},
+    {Host: "127.0.0.1:1", Origin: "http://127.0.0.1:1"},
+    {Host: host, Origin: "https://attacker.example"},
+    {Host: host, Origin: "null"},
+    {Host: host, Origin: base, "Sec-Fetch-Site": "cross-site"},
+    {Host: host, Origin: base, "Sec-Fetch-Site": "same-site"},
+    {Host: host, Origin: base, "Sec-Fetch-Site": "none", "Content-Type": "text/plain"},
+  ]) {
+    const status = await postWithHeaders(headers);
+    assert.ok(status === 403 || status === 415,
+      "Unexpected foreign or noncanonical Native POST response: " + status);
+  }
+  assert.equal(verifyCalls, 0, "Foreign origin must not read signed catalog");
+  assert.equal(mutations, 0, "Foreign origin must not reach the Go state writer");
+
+  assert.equal(await postWithHeaders({
+    Host: host, Origin: base, "Sec-Fetch-Site": "same-origin",
+  }), 503, "Legitimate Native POST still reaches the existing fail-closed Go lifecycle");
+  assert.equal(verifyCalls, 1);
+  assert.equal(mutations, 1);
+});
+
 test("Windows Store never grants installs, unsigned plans or foreign-origin uninstall", async t => {
   const f = setup(t);
   f.policy.current_gates.component_publish_allowed = true;
