@@ -360,8 +360,8 @@ test("Store lifecycle controls confirm removal and survive synchronous as well a
   // Current Surface navigates details through the selected app identity
   // and revalidates it against the live Store snapshot before opening.
   // The retired previousAppId focus branch is not an authorization gate.
-  assert.match(source, /const appId = detailButton\\.dataset\\.storeDetails/);
-  assert.match(source, /snapshot\\.entries\\.some\\(\\(entry\\) => entry\\.appId === appId\\)/);
+  assert.match(source, /const appId = detailButton\.dataset\.storeDetails/);
+  assert.match(source, /snapshot\.entries\.some\(\(entry\) => entry\.appId === appId\)/);
   assert.match(source, /selectedAppId = appId/);
   assert.doesNotMatch(source, /Promise\.resolve\(lifecycleRequests\.requestLifecycle/);
 });
