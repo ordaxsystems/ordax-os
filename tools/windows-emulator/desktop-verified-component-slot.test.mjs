@@ -1245,13 +1245,17 @@ test("Windows Store overlaps two signed artifact downloads without duplicate CAS
     ...shared.identities.release,
     name: "notes.compatibility.json",
   };
+  const other = setup(t);
+  mkdirSync(join(other.userData, "Store"));
   const sharedParams = {
-    ...params, candidate: {artifacts: shared.identities},
+    ...params, userData: other.userData,
+    candidate: {artifacts: shared.identities},
   };
   const result = await acquireDesktopStoreArtifacts(sharedParams);
   assert.equal(result.compatibility, result.release);
   assert.deepEqual(readFileSync(result.compatibility), shared.contents.release);
-  assert.equal(network, 4, "Shared digest reuses the already verified cache");
+  assert.equal(network, 7,
+    "Shared signed digest needs only one fetch and one atomic CAS writer");
 });
 
 test("Windows Store joins outstanding signed downloads before a failed acquisition returns", async t => {
