@@ -87,6 +87,42 @@ function response(value, status = 200) {
   };
 }
 
+test("Electron Store cannot offer installation without a native probation receipt owner", async () => {
+  let storeReads = 0, currentReads = 0, pendingReads = 0;
+  const windowRef = {
+    location: {protocol: "http:", hostname: "127.0.0.1"},
+    ordaxDesktopBrowser: { postMessage() { return true; } },
+    async fetch(url) {
+      if (url === "/__ordax/native/store-catalog") {
+        storeReads++;
+        return response(verifiedCatalog());
+      }
+      const parsed = new URL(url);
+      if (parsed.pathname !== "/__ordax/native/component-runtime") throw Error("Unexpected Native read");
+      const appId = parsed.searchParams.get("component");
+      if (parsed.searchParams.get("state") === "pending") {
+        pendingReads++;
+        return response(null, 204);
+      }
+      currentReads++;
+      return response(metadata(appId));
+    },
+  };
+  const composition = await createNativeStoreCatalogComposition({
+    windowRef, componentSource: componentSource(),
+  });
+  const entry = composition.port.getSnapshot().entries.find(x => x.appId === "notes");
+  assert.equal(entry.state, "blocked");
+  assert.equal(entry.blockedReason, "runtime-probation-host-unavailable");
+  assert.equal(entry.installable, false,
+    "An Electron browser command does not attest system probation or promotion");
+  assert.equal(entry.updatable, false);
+  assert.equal(storeReads, 1);
+  assert.ok(currentReads > 0 && pendingReads > 0,
+    "Status still comes from the signed Native catalog and Go activation reader");
+  composition.destroy();
+});
+
 test("Windows Store rechecks staged app on foreground return and only shows signed CURRENT after promotion", async () => {
   let source = "absent", currentRevision = 1, pending = true;
   let catalogReads = 0, currentReads = 0, pendingReads = 0;
