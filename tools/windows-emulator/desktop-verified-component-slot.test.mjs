@@ -1258,6 +1258,47 @@ test("Windows Store overlaps two signed artifact downloads without duplicate CAS
     "Shared signed digest needs only one fetch and one atomic CAS writer");
 });
 
+test("Windows Store rejects conflicting signed sizes for one SHA-256 before cache or network", async t => {
+  const f = setup(t);
+  mkdirSync(join(f.userData, "Store"));
+  const fixture = signedWindowsStageFixture();
+  const shared = { ...fixture.identities.release };
+  const conflicting = {
+    ...fixture.identities,
+    compatibility: { ...shared, name: "notes.compatibility.json", size: shared.size + 1 },
+  };
+  let downloads = 0;
+  const params = {
+    userData: f.userData, baseOrigin: "https://catalog.test/artifacts/",
+    candidate: {artifacts: conflicting},
+    fetchImpl: async () => { downloads++; throw Error("Unsigned network access"); },
+  };
+  await assert.rejects(acquireDesktopStoreArtifacts(params),
+    /digest has conflicting sizes/);
+  assert.equal(downloads, 0, "Inconsistent signed identities must fail before HTTPS");
+  assert.equal(existsSync(join(f.userData, "Store", "artifacts")), false,
+    "A contradictory catalog must not create a CAS cache directory");
+  // Even with a valid same-digest cache file, contradiction must not bypass
+  // verification by reusing the first role's per-digest download Promise.
+  const healthy = { ...conflicting, compatibility: { ...shared,
+    name: "notes.compatibility.json" } };
+  const bytes = new Map(Object.entries(fixture.identities).map(([role, id]) =>
+    [id.sha256, fixture.contents[role]]));
+  await acquireDesktopStoreArtifacts({
+    ...params, candidate: {artifacts: healthy},
+    fetchImpl: async url => {
+      const digest = new URL(url).pathname.split("/").at(-1);
+      const value = bytes.get(digest);
+      assert.ok(value);
+      return remoteCatalogResponse(url, value,
+        {"content-length": String(value.length)});
+    },
+  });
+  await assert.rejects(acquireDesktopStoreArtifacts(params),
+    /digest has conflicting sizes/);
+  assert.equal(downloads, 0, "A cache hit cannot make conflicting size valid");
+});
+
 test("Windows Store joins outstanding signed downloads before a failed acquisition returns", async t => {
   const f = setup(t);
   mkdirSync(join(f.userData, "Store"));
