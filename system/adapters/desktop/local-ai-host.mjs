@@ -304,6 +304,15 @@ export function createDesktopLocalAiMiddleware({
         child.signalCode != null)
       return reply(res, 503, "Local AI not ready");
     const abort = new AbortController();
+    // Fetch and streamed bodies may ignore AbortSignal. Settling the HTTP
+    // handler independently lets the single-engine recycler run on a real
+    // client disconnect/deadline without ever authorizing another engine
+    // while the abandoned generation is alive.
+    let interrupt;
+    const interrupted = new Promise((_, reject) => {
+      interrupt = () => reject(Error("Local AI request cancelled"));
+      abort.signal.addEventListener("abort", interrupt, { once: true });
+    });
     let clientDisconnected = false, deadlineReached = false, completionCounted = false;
     res.once("close", () => {
       if (res.writableEnded) return;
@@ -315,10 +324,11 @@ export function createDesktopLocalAiMiddleware({
     let timeout = setTimeout(() => { deadlineReached = true; abort.abort(); },
       req.method === "POST" ? 120000 : 3500);
     let priorityHeld = false;
-    try {
+    const performRequest = async () => {
       let body;
       if (req.method === "POST") {
         const data = await boundedRequestBody(req);
+        if (abort.signal.aborted) throw Error("Local AI request cancelled");
         const decision = boundWindowsGreeting(assertRequest(data, model.modelId));
         const validated = decision.request;
         body = JSON.stringify(validated);
@@ -342,6 +352,7 @@ export function createDesktopLocalAiMiddleware({
           ...(body ? { "Content-Type": "application/json" } : {}),
         },
       });
+      if (abort.signal.aborted) throw Error("Local AI request cancelled");
       const type = upstream.headers.get("content-type") || "";
       const stream = type.startsWith("text/event-stream") && req.method === "POST";
       if (!upstream.ok || !(stream || type.includes("application/json")))
@@ -352,11 +363,16 @@ export function createDesktopLocalAiMiddleware({
       let total = 0;
       if (!upstream.body) throw Error("Local AI backend body missing");
       for await (const chunk of upstream.body) {
+        if (abort.signal.aborted) throw Error("Local AI request cancelled");
         total += chunk.byteLength;
         if (total > LIMIT) throw RangeError("Local AI response exceeded limit");
         res.write(chunk);
       }
+      if (abort.signal.aborted) throw Error("Local AI request cancelled");
       res.end();
+    };
+    try {
+      await Promise.race([performRequest(), interrupted]);
     } catch (error) {
       if (!res.headersSent) reply(res,
         error instanceof TypeError || error instanceof SyntaxError ? 400 :
@@ -364,6 +380,7 @@ export function createDesktopLocalAiMiddleware({
       else res.destroy();
     } finally {
       clearTimeout(timeout);
+      abort.signal.removeEventListener("abort", interrupt);
       // Record cancellation before aborting the transport as part of routine
       // cleanup. Only a timed-out/disconnected POST can quarantine its engine.
       const abandoned = completionCounted && (deadlineReached || clientDisconnected);
