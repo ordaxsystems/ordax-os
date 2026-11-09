@@ -120,15 +120,23 @@ export function resolveDesktopStoreHttpsOrigins(catalogOrigin = "", artifactOrig
   }
 }
 
-async function fetchRemoteEnvelope(url, fetchImpl) {
+async function fetchRemoteEnvelope(url, fetchImpl, timeoutMs) {
   const controller = new AbortController();
-  const deadline = setTimeout(() => controller.abort(), FETCH_TIMEOUT_MS);
-  try {
+  let rejectDeadline;
+  const expired = new Promise((_, reject) => { rejectDeadline = reject; });
+  // AbortSignal alone is not a deadline: an injected HTTPS transport or
+  // streaming body can ignore abort and otherwise monopolize the Store queue.
+  const deadline = setTimeout(() => {
+    controller.abort();
+    rejectDeadline(Error("Store HTTPS catalog read exceeded deadline"));
+  }, timeoutMs);
+  const reading = (async () => {
     const response = await fetchImpl(url, {
       method: "GET", redirect: "error", credentials: "omit", cache: "no-store",
       headers: { Accept: "application/json", "Accept-Encoding": "identity" },
       signal: controller.signal,
     });
+    if (controller.signal.aborted) throw Error("Store HTTPS catalog read cancelled");
     if (response?.status !== 200 || response.redirected || response.url !== url
       || !response.headers || !response.body) throw Error("Store HTTPS response is not canonical");
     const encoding = response.headers.get("content-encoding");
@@ -141,14 +149,19 @@ async function fetchRemoteEnvelope(url, fetchImpl) {
     let total = 0;
     const chunks = [];
     for await (const chunk of response.body) {
+      if (controller.signal.aborted) throw Error("Store HTTPS catalog read cancelled");
       if (!(chunk instanceof Uint8Array)) throw Error("Store HTTPS chunk is invalid");
       total += chunk.byteLength;
       if (total > MAX_ENVELOPE) throw Error("Store HTTPS catalog exceeds bound");
       chunks.push(Buffer.from(chunk));
     }
+    if (controller.signal.aborted) throw Error("Store HTTPS catalog read cancelled");
     if (total === 0 || declared !== null && total !== Number(declared))
       throw Error("Store HTTPS response was incomplete");
     return Buffer.concat(chunks, total);
+  })();
+  try {
+    return await Promise.race([reading, expired]);
   } finally {
     clearTimeout(deadline);
     controller.abort();
@@ -265,7 +278,11 @@ function verify(helper, envelope, trust, output, execFileImpl) {
 export function createDesktopVerifiedStoreCatalogMiddleware({
   systemRoot, verifierRoot, userData, platform = process.platform, execFileImpl = execFile,
   catalogBaseOrigin = "", fetchImpl = globalThis.fetch,
+  fetchTimeoutMs = FETCH_TIMEOUT_MS,
 } = {}) {
+  if (!Number.isInteger(fetchTimeoutMs) || fetchTimeoutMs < 1
+    || fetchTimeoutMs > FETCH_TIMEOUT_MS)
+    throw TypeError("Desktop Store HTTPS deadline must be bounded");
   if (typeof systemRoot !== "string" || typeof verifierRoot !== "string"
     || typeof userData !== "string" || typeof execFileImpl !== "function"
     || typeof fetchImpl !== "function")
@@ -322,7 +339,7 @@ export function createDesktopVerifiedStoreCatalogMiddleware({
     if (allowRemote && remoteUrl !== null) {
       const candidate = join(directory, ".catalog-remote-" + randomUUID() + ".tmp");
       try {
-        const payload = await fetchRemoteEnvelope(remoteUrl, fetchImpl);
+        const payload = await fetchRemoteEnvelope(remoteUrl, fetchImpl, fetchTimeoutMs);
         await writeDurably(candidate, payload);
         return await verifyAndAccept(candidate, candidate);
       } catch {

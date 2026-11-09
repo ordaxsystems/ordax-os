@@ -8,6 +8,7 @@ import { join } from "node:path";
 import { createDesktopVerifiedComponentSlotMiddleware } from "../../system/adapters/desktop/verified-component-slot-host.mjs";
 import { createDesktopVerifiedStoreCatalogMiddleware, desktopStoreCatalogEnvelopeUrl, resolveDesktopStoreHttpsOrigins } from "../../system/adapters/desktop/verified-store-catalog-host.mjs";
 import { createDesktopStoreLifecycleMiddleware } from "../../system/adapters/desktop/store-lifecycle-host.mjs";
+import { acquireDesktopStoreArtifacts } from "../../system/adapters/desktop/store-artifact-transport.mjs";
 import { nativeEmulatorPlugin } from "./native-host.mjs";
 
 test("Native Store HTTPS preflight requires one canonical paired origin", () => {
@@ -639,6 +640,66 @@ test("Windows HTTPS Store fetch uses installed Go verifier and retains its signe
   assert.equal(calls.length, 2, "Trust revocation must block remote requests before network access");
 });
 
+test("Windows Store HTTPS deadline releases its reader queue even when fetch ignores abort", async t => {
+  const f = setup(t);
+  f.policy.current_gates.component_publish_allowed = true;
+  writeFileSync(f.policyPath, JSON.stringify(f.policy));
+  const good = Buffer.from("SIGNED_CATALOG_RECOVERY");
+  let reads = 0, releaseUnresponsive, verifierCalls = 0;
+  const base = await serveVerifiedStore(t, f, (_binary, args, _options, cb) => {
+    verifierCalls++;
+    assert.deepEqual(readFileSync(args[args.indexOf("--envelope") + 1]), good);
+    writeFileSync(args[args.indexOf("--out") + 1],
+      JSON.stringify(signedCatalogFixture(12, "7".repeat(64))));
+    cb(null, Buffer.alloc(0));
+  }, {
+    catalogBaseOrigin: "https://catalog.test/",
+    fetchTimeoutMs: 100,
+    fetchImpl: async url => {
+      reads++;
+      if (reads === 2) {
+        // Deliberately ignore AbortSignal; this connection never settles
+        // until the test releases it AFTER later signed reads have completed.
+        return new Promise(resolve => {
+          releaseUnresponsive = () => resolve(
+            remoteCatalogResponse(url, Buffer.from("UNSIGNED_LATE_RESPONSE")));
+        });
+      }
+      return remoteCatalogResponse(url, good);
+    },
+  });
+  const endpoint = base + "/__ordax/native/store-catalog";
+  assert.equal((await (await fetch(endpoint)).json()).state, "ready");
+  const path = join(f.userData, "Store", "catalog-envelope.json");
+
+  const afterTimeout = await (await fetch(endpoint, {
+    signal: AbortSignal.timeout(1_500),
+  })).json();
+  assert.equal(afterTimeout.state, "ready",
+    "A hung remote fetch must fall back to the reverified signed LKG");
+  assert.deepEqual(readFileSync(path), good);
+  assert.equal(verifierCalls, 2);
+
+  const afterRecovery = await (await fetch(endpoint, {
+    signal: AbortSignal.timeout(1_500),
+  })).json();
+  assert.equal(afterRecovery.state, "ready");
+  assert.equal(reads, 3, "The next read must not wait for the first hung transport");
+  assert.equal(verifierCalls, 3);
+  try {
+    releaseUnresponsive?.();
+    await new Promise(resolve => setImmediate(resolve));
+    assert.deepEqual(readFileSync(path), good,
+      "A late unsigned HTTP response must never overwrite the accepted catalog");
+  } finally {
+    releaseUnresponsive?.();
+  }
+  assert.throws(() => createDesktopVerifiedStoreCatalogMiddleware({
+    systemRoot: f.osRoot, verifierRoot: f.verifierRoot, userData: f.userData,
+    fetchTimeoutMs: 8001,
+  }), /deadline must be bounded/);
+});
+
 test("Windows signed Store remote acquisition refuses failed signatures without replacing accepted catalog", async t => {
   const f = setup(t);
   f.policy.current_gates.component_publish_allowed = true;
@@ -828,6 +889,54 @@ function signedWindowsStageFixture() {
   snapshot.entries[0].artifacts = identities;
   return {contents, identities, snapshot};
 }
+
+test("Windows Store artifact acquisition aborts a non-cooperative HTTPS peer without caching its late bytes", async t => {
+  const f = setup(t);
+  const store = join(f.userData, "Store");
+  mkdirSync(store);
+  const fixture = signedWindowsStageFixture();
+  const candidate = { artifacts: fixture.identities };
+  const bytesByHash = new Map(Object.keys(fixture.identities).map(role =>
+    [fixture.identities[role].sha256, fixture.contents[role]]));
+  const origin = "https://catalog.test/release/";
+  let releaseSlow;
+  const read = (url) => {
+    const id = new URL(url).pathname.split("/").at(-1);
+    const bytes = bytesByHash.get(id);
+    assert.ok(bytes);
+    return remoteCatalogResponse(url, bytes, { "content-length": String(bytes.length) });
+  };
+  const unfinished = acquireDesktopStoreArtifacts({
+    userData: f.userData,
+    baseOrigin: origin,
+    candidate,
+    fetchTimeoutMs: 100,
+    fetchImpl: async url => new Promise(resolve => {
+      releaseSlow = () => resolve(read(url)); // Intentionally ignores AbortSignal.
+    }),
+  });
+  await assert.rejects(unfinished, /exceeded deadline/);
+  const artifact = fixture.identities.package;
+  const cachePath = join(store, "artifacts", "v1", "sha256",
+    artifact.sha256.slice(0, 2), artifact.sha256);
+  assert.equal(existsSync(cachePath), false, "Timed-out HTTP bytes cannot enter the signed cache");
+
+  const recovered = await acquireDesktopStoreArtifacts({
+    userData: f.userData, baseOrigin: origin, candidate,
+    fetchImpl: async url => read(url),
+  });
+  for (const [role, path] of Object.entries(recovered)) {
+    assert.deepEqual(readFileSync(path), fixture.contents[role]);
+  }
+  releaseSlow?.();
+  await new Promise(resolve => setImmediate(resolve));
+  assert.deepEqual(readFileSync(cachePath), fixture.contents.package,
+    "Late HTTP completion must not replace the recovered signed artifact");
+  await assert.rejects(acquireDesktopStoreArtifacts({
+    userData: f.userData, baseOrigin: origin, candidate,
+    fetchTimeoutMs: 20001, fetchImpl: async url => read(url),
+  }), /deadline must be bounded/);
+});
 
 test("Windows Store stages signed install/update only as durable Go pending-health", async t => {
   for (const operation of ["install", "update"]) {
