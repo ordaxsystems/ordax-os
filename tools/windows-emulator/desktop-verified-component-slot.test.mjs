@@ -552,6 +552,63 @@ test("Desktop Store route is truthful and cannot run an unsigned or unpublished 
   assert.equal(invocations, 0);
 });
 
+test("Windows signed Store catalog refuses DNS rebinding and cross-site embedding before Go or HTTPS", async t => {
+  const f = setup(t);
+  f.policy.current_gates.component_publish_allowed = true;
+  writeFileSync(f.policyPath, JSON.stringify(f.policy));
+  const store = join(f.userData, "Store");
+  mkdirSync(store);
+  writeFileSync(join(store, "catalog-envelope.json"), "SIGNED_TEST_FIXTURE");
+  let verifierCalls = 0, networkCalls = 0;
+  const base = await serveVerifiedStore(t, f, (_binary, args, _options, cb) => {
+    verifierCalls++;
+    writeFileSync(args[args.indexOf("--out") + 1],
+      JSON.stringify(signedCatalogFixture()));
+    cb(null, Buffer.alloc(0));
+  }, {
+    fetchImpl: async () => {
+      networkCalls++;
+      throw Error("Unconfigured Store catalog should not fetch");
+    },
+  });
+  const target = new URL(base);
+  const path = "/__ordax/native/store-catalog";
+  const requestStatus = headers => new Promise((resolve, reject) => {
+    const req = httpRequest({
+      hostname: target.hostname, port: Number(target.port),
+      method: "GET", path, headers,
+    }, res => {
+      res.resume();
+      res.once("end", () => resolve(res.statusCode));
+    });
+    req.once("error", reject);
+    req.end();
+  });
+  const host = target.host;
+  for (const headers of [
+    { Host: "foreign.example:" + target.port },
+    { Host: "localhost:" + target.port },
+    { Host: "127.0.0.1:1" },
+    { Host: host, Origin: "https://foreign.example" },
+    { Host: host, Origin: "null" },
+    { Host: host, Origin: "http://127.0.0.1:1" },
+    { Host: host, "Sec-Fetch-Site": "cross-site" },
+    { Host: host, "Sec-Fetch-Site": "same-site" },
+  ]) {
+    assert.equal(await requestStatus(headers), 403,
+      "Foreign Store reads must be rejected before network or verifier access");
+  }
+  assert.equal(verifierCalls, 0);
+  assert.equal(networkCalls, 0);
+  assert.equal(await requestStatus({ Host: host, "Sec-Fetch-Site": "same-origin" }), 200);
+  assert.equal(await requestStatus({
+    Host: host, Origin: base, "Sec-Fetch-Site": "same-origin",
+  }), 200);
+  assert.equal(verifierCalls, 2,
+    "Native same-origin requests continue through the signed Go verifier");
+  assert.equal(networkCalls, 0);
+});
+
 test("Desktop Store reuses pinned Go verifier and rejects signed catalog replay/equivocation", async t => {
   const f = setup(t);
   f.policy.current_gates.component_publish_allowed = true;

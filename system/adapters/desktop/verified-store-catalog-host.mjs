@@ -401,8 +401,20 @@ export function createDesktopVerifiedStoreCatalogMiddleware({
     if (req.method !== "GET") return reply(405, { error: "Store catalog is read-only" });
     if (!LOOPBACK.has(req.socket?.remoteAddress))
       return reply(403, { error: "Native Store requires loopback" });
-    if (req.headers.origin && req.headers.origin !== "http://" + req.headers.host)
+    // A local TCP peer is not sufficient: DNS rebinding or cross-site resource
+    // embedding must not trigger remote HTTPS reads and signed Go verification.
+    // Native module fetches can omit Origin, but their browser Fetch Metadata
+    // is still checked when present. This matches the Windows CURRENT reader.
+    const port = req.socket?.localPort;
+    const host = req.headers.host;
+    if (!Number.isInteger(port) || port < 1 || port > 65535
+      || host !== "127.0.0.1:" + port && host !== "[::1]:" + port
+      || req.headers.origin !== undefined
+        && req.headers.origin !== "http://" + host
+      || req.headers["sec-fetch-site"] !== undefined
+        && !["same-origin", "none"].includes(req.headers["sec-fetch-site"])) {
       return reply(403, { error: "Native Store rejects foreign origin" });
+    }
     void queuedRead(true).then(
       result => reply(200, result),
       () => reply(200, unavailable("catalog-verification-failed")),
