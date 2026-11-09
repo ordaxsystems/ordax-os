@@ -246,6 +246,68 @@ test("Windows current-slot Go verifier bounds concurrent reads and queued import
   assert.equal((await recovery).status, 200);
 });
 
+test("Windows Store sees signed pending Go health without exposing pending modules or activation", async t => {
+  const f = setup(t);
+  let pending = null, health = "unknown", revision = 2, forged = false;
+  const commands = [];
+  const base = await serve(t, f, (_helper, args, _options, cb) => {
+    commands.push(args[0]);
+    if (args[0] === "status") {
+      return cb(null, Buffer.from(JSON.stringify({
+        $schema: "prototype-ordax.runtime-component-activation-state/1",
+        component_id: "assistant", revision, pending,
+        pending_health: health,
+      })));
+    }
+    if (args[0] === "resolve-pending") {
+      assert.ok(pending, "Go resolves only a real pending candidate");
+      assert.equal(args[args.indexOf("--trust") + 1], f.installedAnchorPath);
+      return cb(null, Buffer.from([
+        "RUNTIME_COMPONENT_PENDING_RESOLVED=YES",
+        "COMPONENT_ID=assistant",
+        "REVISION=" + (forged ? revision + 1 : revision),
+        "SOURCE=SLOT",
+        "PENDING_VERSION=" + pending.version,
+        "PENDING_SOURCE_COMMIT=" + pending.source_commit,
+        "PENDING_HEALTH=" + health,
+        "SLOT=" + join(f.componentRoot, "assistant", "verified-pending"),
+        "ENTRYPOINT=system/apps/assistant/src/runtime.mjs",
+        "RUNTIME_SERVED_FROM_SLOT=NO",
+      ].join("\n") + "\n"));
+    }
+    throw Error("Windows pending inspection cannot stage, promote or record health");
+  });
+  const url = base + "/__ordax/native/component-runtime?component=assistant&state=pending";
+  let response = await fetch(url);
+  assert.equal(response.status, 204, "Absent pending Go state is not an installed slot");
+  assert.deepEqual(commands, ["status"]);
+
+  pending = {version: "0.2.0", source_commit: SOURCE};
+  response = await fetch(url);
+  assert.equal(response.status, 200);
+  assert.deepEqual(await response.json(), {
+    componentId: "assistant", state: "pending", source: "slot",
+    revision: 2, version: "0.2.0", sourceCommit: SOURCE,
+    entrypoint: "system/apps/assistant/src/runtime.mjs",
+    pendingHealth: "unknown",
+  });
+  assert.deepEqual(commands, ["status", "status", "resolve-pending"]);
+
+  health = "healthy"; revision = 3;
+  response = await fetch(url);
+  assert.equal(response.status, 200);
+  assert.equal((await response.json()).pendingHealth, "healthy");
+
+  forged = true;
+  assert.equal((await fetch(url)).status, 409,
+    "A mismatched Go pending generation cannot be presented as staged");
+  assert.equal((await fetch(base
+    + "/__ordax/native/component-module/assistant/pending/0.2.0/" + SOURCE
+    + "/system/apps/assistant/src/runtime.mjs")).status, 404,
+    "Pending runtime bytes remain inaccessible through the CURRENT reader");
+  assert.ok(commands.every(cmd => ["status", "resolve-pending"].includes(cmd)));
+});
+
 test("Windows Native slot reader rejects traversal, pending, stale identity and forged CLI responses", async t => {
   const f = setup(t);
   let invocations = 0;

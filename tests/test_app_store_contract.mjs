@@ -357,7 +357,12 @@ test("Store lifecycle controls confirm removal and survive synchronous as well a
   assert.match(source, /fallback\?\.focus\?\.\(\{ preventScroll: true \}\)/);
   assert.match(source, /root\.addEventListener\("keydown", onKeyDown\)/);
   assert.match(source, /root\.removeEventListener\("keydown", onKeyDown\)/);
-  assert.match(source, /candidate\.dataset\.storeDetails === previousAppId/);
+  // Current Surface navigates details through the selected app identity
+  // and revalidates it against the live Store snapshot before opening.
+  // The retired previousAppId focus branch is not an authorization gate.
+  assert.match(source, /const appId = detailButton\.dataset\.storeDetails/);
+  assert.match(source, /snapshot\.entries\.some\(\(entry\) => entry\.appId === appId\)/);
+  assert.match(source, /selectedAppId = appId/);
   assert.doesNotMatch(source, /Promise\.resolve\(lifecycleRequests\.requestLifecycle/);
 });
 

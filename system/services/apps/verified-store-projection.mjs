@@ -81,8 +81,37 @@ function blockedEntry({
   };
 }
 
-function projectEntry({ appId, candidate, current, policy }) {
+function projectEntry({ appId, candidate, current, policy, pending = null }) {
   const title = candidate?.title ?? appId;
+
+  if (pending !== null) {
+    const installedVersion = current.source === "slot" ? current.version : null;
+    if (candidate === null && installedVersion === null) return null;
+    if (pending.revision !== current.revision
+      || candidate === null
+      || pending.version !== candidate.version
+      || pending.sourceCommit !== candidate.sourceCommit
+      || current.source === "bundled"
+      || installedVersion !== null
+        && !componentVersionIsNewer(pending.version, installedVersion)) {
+      return blockedEntry({
+        appId, title, installedVersion, candidate,
+        reason: "pending-slot-identity-drift",
+      });
+    }
+    if (pending.pendingHealth === "failed") {
+      return blockedEntry({
+        appId, title, installedVersion, candidate,
+        reason: "pending-slot-health-failed",
+      });
+    }
+    return {
+      appId, title, state: "staged",
+      installedVersion, availableVersion: candidate.version,
+      installable: false, updatable: false, removable: false,
+      blockedReason: null, ...candidateFlags(candidate),
+    };
+  }
 
   if (current.source === "bundled") {
     return blockedEntry({
@@ -241,7 +270,7 @@ async function mapInSourceOrder(values, readOne, signal) {
 }
 
 async function readCurrentWithinDeadline({
-  fetchImpl, metadataUrl, appId, signal, timeoutMs,
+  fetchImpl, metadataUrl, appId, signal, timeoutMs, allowAbsentPending = false,
 }) {
   if (signal.aborted) throw new Error("Store refresh superseded");
   const controller = new AbortController();
@@ -259,13 +288,16 @@ async function readCurrentWithinDeadline({
   signal.addEventListener("abort", cancel, { once: true });
   const timeout = setTimeout(cancel, timeoutMs);
   try {
-    const pending = (async () => readJson(
-      await fetchImpl(metadataUrl, {
+    const pending = (async () => {
+      const response = await fetchImpl(metadataUrl, {
         ...REQUEST_OPTIONS,
         signal: controller.signal,
-      }),
-      "Current activation metadata for " + appId,
-    ))();
+      });
+      if (allowAbsentPending && response?.ok && response.status === 204)
+        return null;
+      return readJson(response,
+        (allowAbsentPending ? "Pending" : "Current") + " activation metadata for " + appId);
+    })();
     return await Promise.race([pending, cancelledPromise]);
   } finally {
     clearTimeout(timeout);
@@ -278,9 +310,12 @@ export function createVerifiedAppStoreProjection({
   componentSource,
   fetchImpl = globalThis.fetch,
   metadataTimeoutMs = DEFAULT_METADATA_TIMEOUT_MS,
+  observePending = false,
 } = {}) {
   const catalog = assertVerifiedAppStoreCatalogPort(verifiedCatalogPort);
   const source = assertVerifiedComponentPackageSource(componentSource);
+  if (typeof observePending !== "boolean")
+    throw new TypeError("Native pending Store observation must be boolean");
   if (typeof fetchImpl !== "function") {
     throw new TypeError("Verified Store projection requires fetchImpl()");
   }
@@ -357,7 +392,30 @@ export function createVerifiedAppStoreProjection({
         });
       }
       if (signal.aborted) return null;
-      return projectEntry({ appId, candidate, current, policy });
+      let pending = null;
+      if (observePending && (candidate !== null || current.source === "slot")) {
+        try {
+          const raw = await readCurrentWithinDeadline({
+            fetchImpl, metadataUrl: source.metadataUrl(appId, "pending"),
+            appId, signal, timeoutMs: metadataTimeoutMs,
+            allowAbsentPending: true,
+          });
+          if (raw !== null) {
+            pending = validateComponentRuntimeMetadata(raw, {
+              componentId: appId, state: "pending",
+            });
+          }
+        } catch {
+          if (signal.aborted) return null;
+          return blockedEntry({
+            appId, title: candidate?.title ?? appId,
+            installedVersion: current.source === "slot" ? current.version : null,
+            candidate, reason: "pending-activation-state-unavailable",
+          });
+        }
+      }
+      if (signal.aborted) return null;
+      return projectEntry({ appId, candidate, current, policy, pending });
     }, signal);
 
     if (signal.aborted) {

@@ -118,6 +118,93 @@ function fetchFrom(values, calls = []) {
   };
 }
 
+test("Windows Store observes Go pending-health without falsely enabling a second install", async () => {
+  const catalog = catalogPort(ready());
+  let pending = null;
+  let nativeCurrent = metadata("notes", {revision: 5});
+  let pendingUnavailable = false;
+  let requests = 0;
+  const fetchImpl = async url => {
+    requests++;
+    const query = new URL(url).searchParams;
+    if (query.get("component") !== "notes") {
+      return {ok: true, status: 200, json: async () =>
+        metadata(query.get("component"))};
+    }
+    if (query.get("state") === "current")
+      return {ok: true, status: 200, json: async () => nativeCurrent};
+    if (pendingUnavailable) return {ok: false, status: 503};
+    return pending === null
+      ? {ok: true, status: 204}
+      : {ok: true, status: 200, json: async () => pending};
+  };
+  const projection = createVerifiedAppStoreProjection({
+    verifiedCatalogPort: catalog.port,
+    componentSource: source(), fetchImpl, observePending: true,
+  });
+  const read = async () => {
+    await projection.refresh();
+    return projection.port.getSnapshot().entries.find(x => x.appId === "notes");
+  };
+  let entry = await read();
+  assert.equal(entry.state, "available");
+  assert.equal(entry.installable, true);
+
+  pending = {
+    componentId: "notes", state: "pending", source: "slot",
+    revision: 5, version: "0.4.3", sourceCommit: SOURCE_COMMIT,
+    entrypoint: "system/apps/notes/src/runtime.mjs",
+    pendingHealth: "unknown",
+  };
+  entry = await read();
+  assert.equal(entry.state, "staged");
+  assert.equal(entry.installable, false);
+  assert.equal(entry.updatable, false);
+  assert.equal(entry.removable, false);
+  assert.equal(entry.installedVersion, null);
+  assert.equal(entry.availableVersion, "0.4.3");
+  assert.equal(entry.blockedReason, null);
+
+  pending = {...pending, pendingHealth: "healthy"};
+  entry = await read();
+  assert.equal(entry.state, "staged", "Healthy pending is not yet promoted CURRENT");
+
+  pending = {...pending, pendingHealth: "failed"};
+  entry = await read();
+  assert.equal(entry.state, "blocked");
+  assert.equal(entry.blockedReason, "pending-slot-health-failed");
+  assert.equal(entry.installable, false);
+
+  pending = {...pending, pendingHealth: "unknown", sourceCommit: "c".repeat(40)};
+  entry = await read();
+  assert.equal(entry.state, "blocked");
+  assert.equal(entry.blockedReason, "pending-slot-identity-drift");
+
+  pending = {...pending, sourceCommit: SOURCE_COMMIT, revision: 6};
+  entry = await read();
+  assert.equal(entry.state, "blocked");
+  assert.equal(entry.blockedReason, "pending-slot-identity-drift",
+    "An unpaired CURRENT and pending revision must fail closed");
+
+  pendingUnavailable = true;
+  entry = await read();
+  assert.equal(entry.state, "blocked");
+  assert.equal(entry.blockedReason, "pending-activation-state-unavailable");
+
+  pendingUnavailable = false; pending = null;
+  nativeCurrent = metadata("notes", {
+    source: "slot", version: "0.4.3",
+    sourceCommit: SOURCE_COMMIT, revision: 7,
+  });
+  entry = await read();
+  assert.equal(entry.state, "installed");
+  assert.equal(entry.updatable, false);
+  assert.equal(entry.availableVersion, null);
+  assert.equal(entry.installedVersion, "0.4.3");
+  assert.ok(requests > 10, "Every staged state is re-read from the Go-backed endpoint");
+  projection.destroy();
+});
+
 test("verified Store projection offers install only from verified catalog plus explicit absent activation", async () => {
   const catalog = catalogPort(ready());
   const calls = [];

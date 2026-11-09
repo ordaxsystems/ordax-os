@@ -78,6 +78,69 @@ function parseFields(buffer, id, state, slotRoot) {
     entrypoint: fields.get("ENTRYPOINT"), pendingHealth: null };
 }
 
+function parsePendingActivationStatus(output, id) {
+  if (!Buffer.isBuffer(output) || output.length > MAX_META)
+    throw Error("Pending activation status exceeds bounds");
+  const state = JSON.parse(new TextDecoder("utf-8", { fatal: true }).decode(output));
+  if (!state || Array.isArray(state)
+    || state.$schema !== "prototype-ordax.runtime-component-activation-state/1"
+    || state.component_id !== id
+    || !Number.isSafeInteger(state.revision) || state.revision < 0
+    || !["unknown", "healthy", "failed"].includes(state.pending_health)) {
+    throw Error("Noncanonical pending activation status");
+  }
+  if (state.pending === null) {
+    if (state.pending_health !== "unknown")
+      throw Error("Activation has health without a pending slot");
+    return null;
+  }
+  if (!state.pending || Array.isArray(state.pending)
+    || !SEMVER.test(state.pending.version ?? "")
+    || !SHA.test(state.pending.source_commit ?? "")) {
+    throw Error("Noncanonical pending component identity");
+  }
+  return {
+    revision: state.revision, version: state.pending.version,
+    sourceCommit: state.pending.source_commit, pendingHealth: state.pending_health,
+  };
+}
+
+function parseSignedPendingResolution(output, id, slotRoot, expected) {
+  if (!Buffer.isBuffer(output) || output.length > MAX_META)
+    throw Error("Pending Go verification output exceeds bounds");
+  const raw = new TextDecoder("utf-8", { fatal: true }).decode(output);
+  const fields = new Map();
+  for (const line of raw.trimEnd().split("\n")) {
+    const eq = line.indexOf("=");
+    if (eq < 1) throw Error("Malformed pending Go verification output");
+    const key = line.slice(0, eq);
+    if (!/^[A-Z][A-Z_]*$/.test(key) || fields.has(key))
+      throw Error("Duplicate pending Go verification field");
+    fields.set(key, line.slice(eq + 1));
+  }
+  const path = fields.get("ENTRYPOINT") ?? "";
+  if (fields.size !== 10
+    || fields.get("RUNTIME_COMPONENT_PENDING_RESOLVED") !== "YES"
+    || fields.get("COMPONENT_ID") !== id
+    || fields.get("RUNTIME_SERVED_FROM_SLOT") !== "NO"
+    || fields.get("SOURCE") !== "SLOT"
+    || fields.get("REVISION") !== String(expected.revision)
+    || fields.get("PENDING_VERSION") !== expected.version
+    || fields.get("PENDING_SOURCE_COMMIT") !== expected.sourceCommit
+    || fields.get("PENDING_HEALTH") !== expected.pendingHealth
+    || !within(slotRoot, fields.get("SLOT") ?? "")
+    || !path.startsWith("system/apps/" + id + "/")
+    || !path.split("/").every(part => SEGMENT.test(part) && part !== "." && part !== "..")) {
+    throw Error("Signed pending slot differs from Go activation generation");
+  }
+  return {
+    componentId: id, state: "pending", source: "slot",
+    revision: expected.revision, version: expected.version,
+    sourceCommit: expected.sourceCommit, entrypoint: path,
+    pendingHealth: expected.pendingHealth,
+  };
+}
+
 function parseRequest(url) {
   if (typeof url !== "string") return null;
   const [path, rawQuery, ...extra] = url.split("?");
@@ -103,8 +166,9 @@ function parseRequest(url) {
     const query = new URLSearchParams(rawQuery);
     if ([...query.keys()].sort().join(",") !== "component,state") return { error: 400 };
     const id = query.get("component"), state = query.get("state");
-    if (!ID.test(id ?? "") || !IDS.has(id) || state !== "current") return { error: 404 };
-    return { id, state, kind: "metadata" };
+    if (!ID.test(id ?? "") || !IDS.has(id)
+      || !["current", "pending"].includes(state)) return { error: 404 };
+    return { id, state, kind: state === "pending" ? "pending-metadata" : "metadata" };
   }
   if (path.startsWith(MODULE)) {
     if (rawQuery !== undefined) return { error: 400 };
@@ -263,6 +327,20 @@ export function createDesktopVerifiedComponentSlotMiddleware({
         ], execFileImpl, MAX_COMPAT);
         const verified = parseSignedCompatibility(output, request, config.trustSha256);
         return respond(res, 200, JSON.stringify(verified));
+      }
+      if (request.kind === "pending-metadata") {
+        // A 204 is a real Go state observation of no pending candidate, not
+        // proof of an installed app. Present pending metadata only after a
+        // second signed-slot verification matches the observed exact revision.
+        const status = parsePendingActivationStatus(await invoke(config.helper, [
+          "status", "--component", request.id, "--root", config.root,
+        ], execFileImpl, MAX_META), request.id);
+        if (status === null) return respond(res, 204);
+        const pending = parseSignedPendingResolution(await invoke(config.helper, [
+          "resolve-pending", "--component", request.id,
+          "--trust", config.trust, "--root", config.root,
+        ], execFileImpl, MAX_META), request.id, config.root, status);
+        return respond(res, 200, JSON.stringify(pending));
       }
       if (request.kind === "metadata") {
         const output = await invoke(config.helper, [

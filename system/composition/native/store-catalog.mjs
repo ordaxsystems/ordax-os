@@ -7,6 +7,7 @@ import {
 import {
   createVerifiedAppStoreProjection,
 } from "../../services/apps/verified-store-projection.mjs";
+import { hasDesktopBrowserTransport } from "../../adapters/native/browser-host-transport.mjs";
 
 export async function createNativeStoreCatalogComposition({
   windowRef = globalThis.window,
@@ -33,6 +34,9 @@ export async function createNativeStoreCatalogComposition({
     verifiedCatalogPort: nativeCatalog.port,
     componentSource,
     fetchImpl: fetchImpl ?? windowRef.fetch.bind(windowRef),
+    // Windows alone exposes the read-only Go pending-health observation.
+    // Linux keeps its existing Owner probation path unchanged.
+    observePending: hasDesktopBrowserTransport(windowRef),
   });
   await projection.waitForCurrentRefresh();
 
