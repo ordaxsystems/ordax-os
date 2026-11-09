@@ -81,7 +81,7 @@ function blockedEntry({
   };
 }
 
-function projectEntry({ appId, candidate, current, policy, pending = null }) {
+function projectEntry({ appId, candidate, current, policy, pending = null, probationHostReady = true }) {
   const title = candidate?.title ?? appId;
 
   if (pending !== null) {
@@ -147,6 +147,12 @@ function projectEntry({ appId, candidate, current, policy, pending = null }) {
         reason: "runtime-probation-unavailable",
       });
     }
+    if (!probationHostReady) {
+      return blockedEntry({
+        appId, title, candidate,
+        reason: "runtime-probation-host-unavailable",
+      });
+    }
     return {
       appId,
       title,
@@ -207,6 +213,13 @@ function projectEntry({ appId, candidate, current, policy, pending = null }) {
       return blockedEntry({
         appId, title, installedVersion, candidate,
         reason: "runtime-probation-unavailable",
+        removable: policy.removable,
+      });
+    }
+    if (!probationHostReady) {
+      return blockedEntry({
+        appId, title, installedVersion, candidate,
+        reason: "runtime-probation-host-unavailable",
         removable: policy.removable,
       });
     }
@@ -311,11 +324,14 @@ export function createVerifiedAppStoreProjection({
   fetchImpl = globalThis.fetch,
   metadataTimeoutMs = DEFAULT_METADATA_TIMEOUT_MS,
   observePending = false,
+  probationHostReady = true,
 } = {}) {
   const catalog = assertVerifiedAppStoreCatalogPort(verifiedCatalogPort);
   const source = assertVerifiedComponentPackageSource(componentSource);
   if (typeof observePending !== "boolean")
     throw new TypeError("Native pending Store observation must be boolean");
+  if (typeof probationHostReady !== "boolean")
+    throw new TypeError("Native Store probation host readiness must be boolean");
   if (typeof fetchImpl !== "function") {
     throw new TypeError("Verified Store projection requires fetchImpl()");
   }
@@ -415,7 +431,7 @@ export function createVerifiedAppStoreProjection({
         }
       }
       if (signal.aborted) return null;
-      return projectEntry({ appId, candidate, current, policy, pending });
+      return projectEntry({ appId, candidate, current, policy, pending, probationHostReady });
     }, signal);
 
     if (signal.aborted) {
