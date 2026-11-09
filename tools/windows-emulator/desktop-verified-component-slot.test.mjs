@@ -639,6 +639,66 @@ test("Windows HTTPS Store fetch uses installed Go verifier and retains its signe
   assert.equal(calls.length, 2, "Trust revocation must block remote requests before network access");
 });
 
+test("Windows Store HTTPS deadline releases its reader queue even when fetch ignores abort", async t => {
+  const f = setup(t);
+  f.policy.current_gates.component_publish_allowed = true;
+  writeFileSync(f.policyPath, JSON.stringify(f.policy));
+  const good = Buffer.from("SIGNED_CATALOG_RECOVERY");
+  let reads = 0, releaseUnresponsive, verifierCalls = 0;
+  const base = await serveVerifiedStore(t, f, (_binary, args, _options, cb) => {
+    verifierCalls++;
+    assert.deepEqual(readFileSync(args[args.indexOf("--envelope") + 1]), good);
+    writeFileSync(args[args.indexOf("--out") + 1],
+      JSON.stringify(signedCatalogFixture(12, "7".repeat(64))));
+    cb(null, Buffer.alloc(0));
+  }, {
+    catalogBaseOrigin: "https://catalog.test/",
+    fetchTimeoutMs: 35,
+    fetchImpl: async url => {
+      reads++;
+      if (reads === 2) {
+        // Deliberately ignore AbortSignal; this connection never settles
+        // until the test releases it AFTER later signed reads have completed.
+        return new Promise(resolve => {
+          releaseUnresponsive = () => resolve(
+            remoteCatalogResponse(url, Buffer.from("UNSIGNED_LATE_RESPONSE")));
+        });
+      }
+      return remoteCatalogResponse(url, good);
+    },
+  });
+  const endpoint = base + "/__ordax/native/store-catalog";
+  assert.equal((await (await fetch(endpoint)).json()).state, "ready");
+  const path = join(f.userData, "Store", "catalog-envelope.json");
+
+  const afterTimeout = await (await fetch(endpoint, {
+    signal: AbortSignal.timeout(1_500),
+  })).json();
+  assert.equal(afterTimeout.state, "ready",
+    "A hung remote fetch must fall back to the reverified signed LKG");
+  assert.deepEqual(readFileSync(path), good);
+  assert.equal(verifierCalls, 2);
+
+  const afterRecovery = await (await fetch(endpoint, {
+    signal: AbortSignal.timeout(1_500),
+  })).json();
+  assert.equal(afterRecovery.state, "ready");
+  assert.equal(reads, 3, "The next read must not wait for the first hung transport");
+  assert.equal(verifierCalls, 3);
+  try {
+    releaseUnresponsive?.();
+    await new Promise(resolve => setImmediate(resolve));
+    assert.deepEqual(readFileSync(path), good,
+      "A late unsigned HTTP response must never overwrite the accepted catalog");
+  } finally {
+    releaseUnresponsive?.();
+  }
+  assert.throws(() => createDesktopVerifiedStoreCatalogMiddleware({
+    systemRoot: f.osRoot, verifierRoot: f.verifierRoot, userData: f.userData,
+    fetchTimeoutMs: 8001,
+  }), /deadline must be bounded/);
+});
+
 test("Windows signed Store remote acquisition refuses failed signatures without replacing accepted catalog", async t => {
   const f = setup(t);
   f.policy.current_gates.component_publish_allowed = true;
