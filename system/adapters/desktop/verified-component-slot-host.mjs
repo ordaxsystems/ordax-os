@@ -235,6 +235,20 @@ export function createDesktopVerifiedComponentSlotMiddleware({
     if (req.method !== "GET") return respond(res, 405);
     if (!["127.0.0.1", "::1", "::ffff:127.0.0.1"].includes(req.socket?.remoteAddress))
       return respond(res, 403);
+    // A loopback peer alone is not an origin proof: DNS rebinding can reach a
+    // local server with an attacker-controlled Host. Browser subresources may
+    // omit Origin, so independently reject explicit cross-site Fetch Metadata.
+    // The installed Surface and Vite Native host both use 127.0.0.1 or ::1.
+    const port = req.socket?.localPort;
+    const host = req.headers.host;
+    if (!Number.isInteger(port) || port < 1 || port > 65535
+      || host !== "127.0.0.1:" + port && host !== "[::1]:" + port
+      || req.headers.origin !== undefined
+        && req.headers.origin !== "http://" + host
+      || req.headers["sec-fetch-site"] !== undefined
+        && !["same-origin", "none"].includes(req.headers["sec-fetch-site"])) {
+      return respond(res, 403);
+    }
     // No Windows signed-slot release is operational until a canonical anchor,
     // verified helper executable and installed slot tree all exist together.
     const config = platform === "win32" ? trustedConfiguration(systemRoot, verifierRoot, userData) : null;
