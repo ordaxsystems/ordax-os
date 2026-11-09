@@ -21,6 +21,8 @@ const MAX_META = 16 * 1024;
 const MAX_COMPAT = 96 * 1024;
 const MAX_MODULE = 2 * 1024 * 1024;
 const REQUEST_TIMEOUT = 3000;
+const MAX_ACTIVE_VERIFIER_READS = 6;
+const MAX_QUEUED_VERIFIER_READS = 64;
 const MIME = Object.freeze({
   ".mjs": "text/javascript; charset=utf-8", ".js": "text/javascript; charset=utf-8",
   ".css": "text/css; charset=utf-8", ".json": "application/json; charset=utf-8",
@@ -182,6 +184,42 @@ export function createDesktopVerifiedComponentSlotMiddleware({
     || typeof verifierRoot !== "string" || !isAbsolute(verifierRoot)
     || typeof userData !== "string" || !isAbsolute(userData)
     || typeof execFileImpl !== "function") throw TypeError("Verified Desktop component paths are required");
+  // Every valid file read launches a Go verifier. Bound both parallel
+  // processes and queued requests so a burst of module imports cannot exhaust
+  // Windows Desktop resources or delay the rest of the Surface indefinitely.
+  // Never cache verified bytes or bypass the Go signed-slot reader.
+  const readQueue = [];
+  let activeReads = 0;
+  const runNextRead = () => {
+    while (activeReads < MAX_ACTIVE_VERIFIER_READS && readQueue.length) {
+      const next = readQueue.shift();
+      next.res.removeListener("close", next.onDisconnect);
+      if (next.res.destroyed) continue;
+      activeReads++;
+      void Promise.resolve().then(next.run)
+        .catch(() => respond(next.res, 409))
+        .finally(() => {
+          activeReads--;
+          runNextRead();
+        });
+    }
+  };
+  const enqueueRead = (res, run) => {
+    if (readQueue.length >= MAX_QUEUED_VERIFIER_READS) {
+      return respond(res, 503);
+    }
+    const entry = {
+      res, run,
+      onDisconnect() {
+        if (res.writableEnded) return;
+        const index = readQueue.indexOf(entry);
+        if (index >= 0) readQueue.splice(index, 1);
+      },
+    };
+    res.once("close", entry.onDisconnect);
+    readQueue.push(entry);
+    runNextRead();
+  };
   const respond = (res, status, body = null, mime = "application/json; charset=utf-8") => {
     if (res.headersSent) return res.destroy();
     res.writeHead(status, {
@@ -201,7 +239,7 @@ export function createDesktopVerifiedComponentSlotMiddleware({
     // verified helper executable and installed slot tree all exist together.
     const config = platform === "win32" ? trustedConfiguration(systemRoot, verifierRoot, userData) : null;
     if (!config) return respond(res, 404);
-    void (async () => {
+    return enqueueRead(res, async () => {
       if (request.kind === "compatibility") {
         const output = await invoke(config.helper, [
           "inspect-activation-compatibility-v2",
@@ -228,6 +266,6 @@ export function createDesktopVerifiedComponentSlotMiddleware({
         "--path", request.file, "--trust", config.trust, "--root", config.root,
       ], execFileImpl, MAX_MODULE);
       return respond(res, 200, output, request.mime);
-    })().catch(() => respond(res, 409));
+    });
   };
 }
