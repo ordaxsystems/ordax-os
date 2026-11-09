@@ -17,6 +17,9 @@ import { withDesktopStoreCatalogWatermark } from "./verified-store-catalog-host.
 const ENDPOINT = "/__ordax/native/store-lifecycle";
 const MAX_BODY = 32 * 1024;
 const BODY_READ_TIMEOUT_MS = 15_000;
+// Keep slow Go verification or artifact downloads from accumulating an
+// unbounded queue of already-validated HTTP plans in the Windows host.
+const MAX_PENDING_LIFECYCLE_OPERATIONS = 16;
 const MAX_GO_OUTPUT = 64 * 1024;
 const LOOPBACK = new Set(["127.0.0.1", "::1", "::ffff:127.0.0.1"]);
 const HOST = /^(?:127\.0\.0\.1|\[::1\]):[1-9][0-9]{0,4}$/;
@@ -131,6 +134,7 @@ export function createDesktopStoreLifecycleMiddleware({
     throw TypeError("Windows Store lifecycle requires installed Native owners");
   }
   let queue = Promise.resolve();
+  let pendingOperations = 0;
 
   async function execute(plan) {
     const operation = plan.request.operation, appId = plan.request.appId;
@@ -230,12 +234,20 @@ export function createDesktopStoreLifecycleMiddleware({
       let plan;
       try { plan = validateAppLifecyclePlan(await readBody(req)); }
       catch { return reply(400); }
+      // A slow Go operation or network download cannot accumulate unbounded
+      // validated plans. Rejected overflow never reaches the Go owner.
+      if (pendingOperations >= MAX_PENDING_LIFECYCLE_OPERATIONS) return reply(503);
+      pendingOperations += 1;
       // Completed and validated plans still execute one at a time. Go remains
       // the sole activation-state writer; this changes no trust or receipt gate.
       const run = queue.then(async () => {
         try { return reply(200, await execute(plan)); }
         catch { return reply(503); }
-      }, () => reply(503));
+        finally { pendingOperations -= 1; }
+      }, () => {
+        pendingOperations -= 1;
+        return reply(503);
+      });
       queue = run.then(() => {}, () => {});
       void run.catch(() => reply(503));
     })().catch(() => reply(503));

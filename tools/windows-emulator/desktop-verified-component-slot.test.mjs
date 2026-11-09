@@ -1148,6 +1148,65 @@ test("Windows Store incomplete body cannot block an independent completed lifecy
   assert.equal(tooLarge.status, 400, "oversized plans remain rejected before any Go handoff");
 });
 
+test("Windows Store bounds validated lifecycle queue while Go is stalled", async t => {
+  const f = setup(t);
+  f.policy.current_gates.component_publish_allowed = true;
+  writeFileSync(f.policyPath, JSON.stringify(f.policy));
+  const store = join(f.userData, "Store");
+  mkdirSync(store);
+  writeFileSync(join(store, "catalog-envelope.json"), "SIGNED_TEST_ENVELOPE");
+
+  let releaseGo;
+  let signalGoStarted;
+  const goStarted = new Promise(resolve => { signalGoStarted = resolve; });
+  let privilegedCalls = 0;
+  const base = await serveGoStoreLifecycle(t, f, (_binary, args, _opts, cb) => {
+    if (args[0] === "verify-store-catalog") {
+      writeFileSync(args[args.indexOf("--out") + 1],
+        JSON.stringify(signedCatalogFixture()));
+      return cb(null, Buffer.alloc(0));
+    }
+    if (args[0] === "uninstall-state") {
+      privilegedCalls += 1;
+      if (privilegedCalls === 1) {
+        releaseGo = () => cb(Error("Test Go writer deliberately cancelled"));
+        signalGoStarted();
+        return;
+      }
+      return cb(Error("Go writer must not mutate a stale state"));
+    }
+    return cb(Error("Unexpected Go command"));
+  });
+  const plan = windowsRemovePlan();
+  const blocked = postStoreLifecycle(base, plan);
+  await goStarted;
+  const queued = Array.from({ length: 24 }, () => postStoreLifecycle(base, plan));
+  let deadline;
+  try {
+    // The first Go writer is still blocked; the 16-operation bound includes
+    // that writer and must reject overflow without waiting for its callback.
+    const overflow = Promise.any(queued.map(async promise => {
+      const response = await promise;
+      if (response.status !== 503) throw Error("Not an overflow response");
+      return response;
+    }));
+    const result = await Promise.race([
+      overflow,
+      new Promise((_, reject) => {
+        deadline = setTimeout(() => reject(Error(
+          "Store lifecycle overflow was blocked behind the Go writer",
+        )), 3_000);
+      }),
+    ]);
+    assert.equal(result.status, 503);
+    assert.equal(privilegedCalls, 1, "overflow must never reach privileged Go");
+  } finally {
+    clearTimeout(deadline);
+    releaseGo?.();
+    await Promise.allSettled([blocked, ...queued]);
+  }
+});
+
 test("Windows Store never grants installs, unsigned plans or foreign-origin uninstall", async t => {
   const f = setup(t);
   f.policy.current_gates.component_publish_allowed = true;
