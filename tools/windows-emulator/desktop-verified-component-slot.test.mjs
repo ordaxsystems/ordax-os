@@ -700,6 +700,93 @@ test("Windows Store HTTPS deadline releases its reader queue even when fetch ign
   }), /deadline must be bounded/);
 });
 
+test("Windows Store bounds public catalog reads and prioritizes signed local lifecycle evidence", async t => {
+  const f = setup(t);
+  f.policy.current_gates.component_publish_allowed = true;
+  writeFileSync(f.policyPath, JSON.stringify(f.policy));
+  const payload = Buffer.from("SIGNED_PRIORITY_TEST");
+  const url = "https://catalog.test/catalog-envelope.json";
+  const events = [];
+  let fetches = 0, releaseBlocked, signalBlocked;
+  const blocked = new Promise(resolve => { signalBlocked = resolve; });
+  const middleware = createDesktopVerifiedStoreCatalogMiddleware({
+    systemRoot: f.osRoot, verifierRoot: f.verifierRoot,
+    userData: f.userData, platform: "win32",
+    catalogBaseOrigin: "https://catalog.test/",
+    execFileImpl: (_binary, args, _options, cb) => {
+      const source = args[args.indexOf("--envelope") + 1];
+      events.push(source.endsWith("catalog-envelope.json") ? "local-verify" : "remote-verify");
+      writeFileSync(args[args.indexOf("--out") + 1],
+        JSON.stringify(signedCatalogFixture(14, "e".repeat(64))));
+      cb(null, Buffer.alloc(0));
+    },
+    fetchImpl: async target => {
+      assert.equal(target, url);
+      fetches++;
+      if (fetches === 2) {
+        signalBlocked();
+        // The first queued public read holds the single verifier owner.
+        return new Promise(resolve => {
+          releaseBlocked = () => resolve(remoteCatalogResponse(url, payload));
+        });
+      }
+      return remoteCatalogResponse(url, payload);
+    },
+  });
+  const server = createServer((req, res) => middleware(req, res, () => {
+    res.writeHead(418); res.end();
+  }));
+  await new Promise(resolve => server.listen(0, "127.0.0.1", resolve));
+  t.after(async () => {
+    releaseBlocked?.();
+    server.closeAllConnections();
+    await new Promise(resolve => server.close(resolve));
+  });
+  const endpoint = "http://127.0.0.1:" + server.address().port
+    + "/__ordax/native/store-catalog";
+  assert.equal((await (await fetch(endpoint)).json()).state, "ready");
+  assert.equal(fetches, 1);
+
+  const active = fetch(endpoint, {signal: AbortSignal.timeout(6_000)})
+    .then(response => response.json());
+  await blocked;
+  const flood = Array.from({length: 24}, () =>
+    fetch(endpoint, {signal: AbortSignal.timeout(6_000)})
+      .then(response => response.json()));
+  let earlyBackpressure = 0;
+  const observedFlood = flood.map(promise => promise.then(snapshot => {
+    if (snapshot.reason === "catalog-reader-busy") earlyBackpressure++;
+    return snapshot;
+  }));
+  const local = middleware.readVerifiedLocalCatalog();
+  const deadline = Date.now() + 1_500;
+  while (earlyBackpressure < 8 && Date.now() < deadline) {
+    await new Promise(resolve => setTimeout(resolve, 20));
+  }
+  assert.ok(earlyBackpressure >= 8,
+    "Flood beyond the bound must get an immediate unavailable snapshot");
+  assert.equal(fetches, 2,
+    "No excess remote HTTPS call may begin while the verifier owner is blocked");
+
+  const beforeRelease = events.length;
+  releaseBlocked();
+  const localResult = await local;
+  assert.equal(localResult.state, "ready");
+  assert.equal(localResult.sequence, 14);
+  const all = await Promise.all([active, ...observedFlood]);
+  assert.ok(all.filter(s => s.reason === "catalog-reader-busy").length >= 8);
+  assert.ok(all.every(s => s.state === "ready" || s.reason === "catalog-reader-busy"));
+  const after = events.slice(beforeRelease);
+  assert.equal(after[0], "remote-verify");
+  assert.equal(after[1], "local-verify",
+    "A signed local read must preempt queued public network refreshes");
+  assert.deepEqual(JSON.parse(readFileSync(join(f.userData, "Store",
+    "catalog-watermark.json"), "utf8")), {
+    schema: "ordax.store-catalog-watermark/1",
+    sequence: 14, catalogSha256: "e".repeat(64),
+  });
+});
+
 test("Windows signed Store remote acquisition refuses failed signatures without replacing accepted catalog", async t => {
   const f = setup(t);
   f.policy.current_gates.component_publish_allowed = true;
