@@ -137,6 +137,17 @@ export async function acquireDesktopStoreArtifacts({
   if (typeof fetchImpl !== "function") throw TypeError("Native artifact fetch is required");
   const identities = Object.fromEntries(ARTIFACT_ROLES.map(role =>
     [role, validateAppArtifactIdentity(candidate?.artifacts?.[role])]));
+  // Different signed roles may share immutable CAS bytes, but their signed
+  // lengths must agree before the per-digest singleflight can reuse a writer.
+  // Reject an inconsistent catalog before reading cache or touching the network.
+  const sizesByDigest = new Map();
+  for (const role of ARTIFACT_ROLES) {
+    const { sha256, size } = identities[role];
+    if (sizesByDigest.has(sha256) && sizesByDigest.get(sha256) !== size) {
+      throw Error("Signed Store artifact digest has conflicting sizes");
+    }
+    sizesByDigest.set(sha256, size);
+  }
   // Validate origin before creating any files or accepting a cache hit.
   const urls = Object.fromEntries(ARTIFACT_ROLES.map(role =>
     [role, desktopStoreArtifactUrl(baseOrigin, identities[role])]));
