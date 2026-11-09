@@ -9,6 +9,9 @@ import { desktopStoreCatalogEnvelopeUrl } from "./verified-store-catalog-host.mj
 
 const ARTIFACT_ROLES = Object.freeze(["package", "release", "compatibility", "componentEnvelope"]);
 const TIMEOUT_MS = 20000;
+// Limit both network concurrency and resident signed bytes while preserving
+// the caller's single canonical catalog-watermark transaction.
+const MAX_CONCURRENT_ARTIFACT_DOWNLOADS = 2;
 
 export function desktopStoreArtifactUrl(baseOrigin, identity) {
   const normalized = validateAppArtifactIdentity(identity);
@@ -142,13 +145,40 @@ export async function acquireDesktopStoreArtifacts({
   const artifacts = await ensureDirectory(join(store, "artifacts"));
   const version = await ensureDirectory(join(artifacts, "v1"));
   const hashes = await ensureDirectory(join(version, "sha256"));
-  const result = {};
-  for (const role of ARTIFACT_ROLES) {
+  // Four independent signed artifact reads do not need four sequential HTTPS
+  // round trips. Keep at most two verified byte buffers in flight. An identical
+  // SHA-256 across roles shares one CAS writer; otherwise simultaneous hard
+  // links to the same digest could briefly fail the nlink=1 safety check.
+  const byDigest = new Map();
+  const byRole = new Map();
+  let cursor = 0, failure = null;
+  const acquire = role => {
     const identity = identities[role], name = identity.sha256;
-    const parent = await ensureDirectory(join(hashes, name.slice(0, 2)));
-    const cached = await verifiedCached(join(parent, name), identity);
-    result[role] = cached ?? await persistVerified(
-      parent, name, await download(identity, urls[role], fetchImpl, fetchTimeoutMs), identity);
-  }
-  return Object.freeze(result);
+    if (!byDigest.has(name)) {
+      byDigest.set(name, (async () => {
+        const parent = await ensureDirectory(join(hashes, name.slice(0, 2)));
+        const cached = await verifiedCached(join(parent, name), identity);
+        return cached ?? await persistVerified(
+          parent, name, await download(identity, urls[role], fetchImpl, fetchTimeoutMs), identity);
+      })());
+    }
+    return byDigest.get(name);
+  };
+  const workers = Array.from({
+    length: Math.min(MAX_CONCURRENT_ARTIFACT_DOWNLOADS, ARTIFACT_ROLES.length),
+  }, async () => {
+    while (cursor < ARTIFACT_ROLES.length && failure === null) {
+      const role = ARTIFACT_ROLES[cursor++];
+      try { byRole.set(role, await acquire(role)); }
+      catch (error) { failure ??= error; }
+    }
+  });
+  // On the first failure, no new downloads start. Still join every already
+  // active worker before returning: otherwise the caller could release its
+  // watermark lock while a detached CAS writer was still publishing bytes.
+  await Promise.all(workers);
+  if (failure !== null) throw failure;
+  return Object.freeze(Object.fromEntries(
+    ARTIFACT_ROLES.map(role => [role, byRole.get(role)]),
+  ));
 }
