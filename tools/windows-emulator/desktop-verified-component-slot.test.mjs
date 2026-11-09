@@ -277,6 +277,62 @@ test("Windows Native slot reader rejects traversal, pending, stale identity and 
   assert.equal(invocations, 1);
 });
 
+test("Windows signed CURRENT reader rejects foreign Host, Origin and cross-site browser requests", async t => {
+  const f = setup(t);
+  let verifierCalls = 0;
+  const base = await serve(t, f, (_binary, _args, _options, cb) => {
+    verifierCalls++;
+    cb(null, Buffer.from("invalid verifier output"));
+  });
+  const address = new URL(base);
+  const goodHost = address.host;
+  const paths = [
+    "/__ordax/native/component-runtime?component=assistant&state=current",
+    "/__ordax/native/component-compatibility?component=assistant&state=current&revision=7",
+    "/__ordax/native/component-module/assistant/current/0.1.2/" + SOURCE
+      + "/system/apps/assistant/src/runtime.mjs",
+  ];
+  const requestStatus = (path, headers) => new Promise((resolve, reject) => {
+    const request = httpRequest({
+      host: address.hostname, port: Number(address.port), path,
+      method: "GET", headers,
+    }, response => {
+      response.resume();
+      response.once("end", () => resolve(response.statusCode));
+    });
+    request.once("error", reject);
+    request.end();
+  });
+  for (const path of paths) {
+    for (const headers of [
+      { Host: "evil.example:" + address.port },
+      { Host: "localhost:" + address.port },
+      { Host: "127.0.0.1:1" },
+      { Host: goodHost, Origin: "https://evil.example" },
+      { Host: goodHost, Origin: "null" },
+      { Host: goodHost, Origin: "http://127.0.0.1:1" },
+      { Host: goodHost, "Sec-Fetch-Site": "cross-site" },
+      { Host: goodHost, "Sec-Fetch-Site": "same-site" },
+    ]) {
+      assert.equal(await requestStatus(path, headers), 403,
+        "Foreign browser origin must not launch the installed Go verifier");
+    }
+  }
+  assert.equal(verifierCalls, 0);
+  for (const path of paths) {
+    // Native same-origin fetches may omit Origin. Module imports normally
+    // include Sec-Fetch-Site but rely on their own Go CURRENT proof.
+    assert.equal(await requestStatus(path, {
+      Host: goodHost, "Sec-Fetch-Site": "same-origin",
+    }), 409);
+    assert.equal(await requestStatus(path, {
+      Host: goodHost, Origin: base, "Sec-Fetch-Site": "same-origin",
+    }), 409);
+  }
+  assert.equal(verifierCalls, paths.length * 2,
+    "Allowed reads still enter the original signed Go verifier");
+});
+
 test("Windows signed slot bridge rejects symlinked verifier even when test trust is pinned", async t => {
   const f = setup(t);
   unlinkSync(f.helper);
