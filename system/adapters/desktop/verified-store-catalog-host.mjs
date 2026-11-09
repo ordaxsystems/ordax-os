@@ -71,6 +71,7 @@ async function watermark(path) {
 // reclamation by the HTTP reader or request-supplied paths.
 
 const FETCH_TIMEOUT_MS = 8000;
+const MAX_PUBLIC_CATALOG_READS = 8;
 
 // Same HTTPS base-origin policy as the canonical Native Store transports.
 // An origin selects untrusted bytes only: never a catalog, signer or artifact.
@@ -294,7 +295,13 @@ export function createDesktopVerifiedStoreCatalogMiddleware({
   let remoteUrl;
   try { remoteUrl = desktopStoreCatalogEnvelopeUrl(catalogBaseOrigin); }
   catch { remoteUrl = false; }
-  let queue = Promise.resolve();
+  // One serial verifier/watermark owner per installed host. A public catalog
+  // flood cannot monopolize that owner or delay a locally verified lifecycle
+  // decision behind an unlimited number of remote HTTPS reads.
+  const publicReads = [];
+  const localReads = [];
+  let publicOutstanding = 0;
+  let reading = false;
 
   async function readSigned(allowRemote = true) {
     const pinned = platform === "win32"
@@ -353,10 +360,32 @@ export function createDesktopVerifiedStoreCatalogMiddleware({
     try { return await verifyAndAccept(envelope); }
     catch { return unavailable("catalog-verification-failed"); }
   }
+  function runNextRead() {
+    if (reading) return;
+    const next = localReads.shift() ?? publicReads.shift();
+    if (!next) return;
+    reading = true;
+    // Only the fixed Go verifier reads signed catalog bytes. Priority changes
+    // execution order, never source identity, trust, or acceptance watermark.
+    void readSigned(next.allowRemote)
+      .then(next.resolve, next.reject)
+      .finally(() => {
+        if (next.allowRemote) publicOutstanding--;
+        reading = false;
+        runNextRead();
+      });
+  }
+
   function queuedRead(allowRemote) {
-    const task = queue.then(() => readSigned(allowRemote), () => readSigned(allowRemote));
-    queue = task.then(() => {}, () => {});
-    return task;
+    if (allowRemote && publicOutstanding >= MAX_PUBLIC_CATALOG_READS) {
+      // A valid, fail-closed Store snapshot, never a stale ready/catalog grant.
+      return Promise.resolve(unavailable("catalog-reader-busy"));
+    }
+    return new Promise((resolve, reject) => {
+      if (allowRemote) publicOutstanding++;
+      (allowRemote ? publicReads : localReads).push({ allowRemote, resolve, reject });
+      runNextRead();
+    });
   }
   function desktopVerifiedStoreCatalog(req, res, next) {
     if (req.url?.split("?")[0] !== ENDPOINT) return next();
