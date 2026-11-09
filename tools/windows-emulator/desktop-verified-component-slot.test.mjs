@@ -1205,6 +1205,81 @@ test("Windows Store artifact acquisition aborts a non-cooperative HTTPS peer wit
   }), /deadline must be bounded/);
 });
 
+test("Windows Store overlaps two signed artifact downloads without duplicate CAS writers", async t => {
+  const f = setup(t);
+  mkdirSync(join(f.userData, "Store"));
+  const fixture = signedWindowsStageFixture();
+  const bytesByHash = new Map(Object.keys(fixture.identities).map(role =>
+    [fixture.identities[role].sha256, fixture.contents[role]]));
+  let network = 0, active = 0, peak = 0;
+  const fetchImpl = async url => {
+    network++;
+    active++;
+    peak = Math.max(peak, active);
+    await new Promise(resolve => setTimeout(resolve, 35));
+    active--;
+    const digest = new URL(url).pathname.split("/").at(-1);
+    const bytes = bytesByHash.get(digest);
+    assert.ok(bytes, "Only signed digest paths may be fetched");
+    return remoteCatalogResponse(url, bytes, {"content-length": String(bytes.length)});
+  };
+  const params = {
+    userData: f.userData, baseOrigin: "https://catalog.test/artifacts/",
+    candidate: {artifacts: fixture.identities}, fetchImpl,
+  };
+  const paths = await acquireDesktopStoreArtifacts(params);
+  assert.equal(peak, 2, "At most two HTTPS artifact reads run concurrently");
+  assert.equal(active, 0);
+  assert.equal(network, 4);
+  assert.deepEqual(Object.keys(paths),
+    ["package", "release", "compatibility", "componentEnvelope"]);
+  for (const [role, path] of Object.entries(paths)) {
+    assert.deepEqual(readFileSync(path), fixture.contents[role]);
+  }
+  await acquireDesktopStoreArtifacts(params);
+  assert.equal(network, 4, "A verified CAS cache hit never downloads twice");
+
+  // Equal digests in two roles must share the same atomic writer and bytes.
+  const shared = signedWindowsStageFixture();
+  shared.identities.compatibility = {
+    ...shared.identities.release,
+    name: "notes.compatibility.json",
+  };
+  const sharedParams = {
+    ...params, candidate: {artifacts: shared.identities},
+  };
+  const result = await acquireDesktopStoreArtifacts(sharedParams);
+  assert.equal(result.compatibility, result.release);
+  assert.deepEqual(readFileSync(result.compatibility), shared.contents.release);
+  assert.equal(network, 4, "Shared digest reuses the already verified cache");
+});
+
+test("Windows Store joins outstanding signed downloads before a failed acquisition returns", async t => {
+  const f = setup(t);
+  mkdirSync(join(f.userData, "Store"));
+  const fixture = signedWindowsStageFixture();
+  let active = 0, started = 0;
+  await assert.rejects(acquireDesktopStoreArtifacts({
+    userData: f.userData,
+    baseOrigin: "https://catalog.test/artifacts/",
+    candidate: {artifacts: fixture.identities},
+    fetchImpl: async url => {
+      started++; active++;
+      const first = started === 1;
+      await new Promise(resolve => setTimeout(resolve, first ? 10 : 50));
+      active--;
+      if (first) throw Error("Signed artifact transport failed");
+      const digest = new URL(url).pathname.split("/").at(-1);
+      const bytes = Object.values(fixture.contents).find(value =>
+        createHash("sha256").update(value).digest("hex") === digest);
+      assert.ok(bytes);
+      return remoteCatalogResponse(url, bytes, {"content-length": String(bytes.length)});
+    },
+  }), /Signed artifact transport failed/);
+  assert.equal(started, 2, "First error stops scheduling more network reads");
+  assert.equal(active, 0, "Other worker has settled before the lock is released");
+});
+
 test("Windows Store stages signed install/update only as durable Go pending-health", async t => {
   for (const operation of ["install", "update"]) {
     await t.test(operation, async st => {
