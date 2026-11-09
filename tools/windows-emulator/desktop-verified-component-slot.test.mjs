@@ -179,6 +179,73 @@ test("Windows current-slot metadata and exact module bytes delegate to Go withou
   assert.deepEqual(calls.map(({ args }) => args[0]), ["resolve-current", "read-runtime-file"]);
 });
 
+test("Windows current-slot Go verifier bounds concurrent reads and queued imports", async t => {
+  const f = setup(t);
+  let active = 0, peak = 0, started = 0;
+  const callbacks = [];
+  const base = await serve(t, f, (_binary, args, _options, cb) => {
+    assert.equal(args[0], "resolve-current");
+    active++;
+    peak = Math.max(peak, active);
+    started++;
+    callbacks.push(() => {
+      active--;
+      cb(null, Buffer.from(
+        "RUNTIME_COMPONENT_CURRENT_RESOLVED=YES\\n"
+        + "COMPONENT_ID=assistant\\n"
+        + "REVISION=1\\nSOURCE=ABSENT\\n"
+        + "RUNTIME_SERVED_FROM_SLOT=NO\\n",
+      ));
+    });
+  });
+  const endpoint = base + "/__ordax/native/component-runtime?component=assistant&state=current";
+  const reads = Array.from({length: 110}, () =>
+    fetch(endpoint, {signal: AbortSignal.timeout(10_000)})
+      .then(response => response.status));
+  const deadline = Date.now() + 2_000;
+  while (started < 6 && Date.now() < deadline) {
+    await new Promise(resolve => setTimeout(resolve, 10));
+  }
+  assert.equal(started, 6, "Go concurrency must reach its bounded active limit");
+  assert.equal(peak, 6);
+  const rejected = await Promise.race([
+    Promise.any(reads.map(async read => {
+      const status = await read;
+      if (status !== 503) throw Error("not a backpressure response");
+      return status;
+    })),
+    new Promise((_, reject) => setTimeout(() =>
+      reject(Error("Unbounded Go read queue did not fail closed")), 2_000)),
+  ]);
+  assert.equal(rejected, 503);
+  assert.equal(started, 6, "Overflow cannot spawn another verifier process");
+  // Unblock the fixed six subprocess slots as the bounded queue drains.
+  const release = setInterval(() => {
+    for (const callback of callbacks.splice(0)) callback();
+  }, 5);
+  let statuses;
+  try { statuses = await Promise.all(reads); }
+  finally {
+    clearInterval(release);
+    for (const callback of callbacks.splice(0)) callback();
+  }
+  assert.ok(statuses.some(status => status === 503));
+  assert.ok(statuses.some(status => status === 200));
+  assert.ok(statuses.every(status => status === 200 || status === 503));
+  assert.ok(peak <= 6, "Never run more than six signed Go readers");
+  assert.equal(active, 0);
+
+  // A completed flood must not permanently starve normal signed metadata.
+  const recovery = fetch(endpoint, {signal: AbortSignal.timeout(2_000)});
+  const recoveryDeadline = Date.now() + 1_000;
+  while (callbacks.length === 0 && Date.now() < recoveryDeadline) {
+    await new Promise(resolve => setTimeout(resolve, 10));
+  }
+  assert.equal(callbacks.length, 1);
+  callbacks.shift()();
+  assert.equal((await recovery).status, 200);
+});
+
 test("Windows Native slot reader rejects traversal, pending, stale identity and forged CLI responses", async t => {
   const f = setup(t);
   let invocations = 0;
