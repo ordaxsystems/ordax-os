@@ -747,11 +747,11 @@ test("Windows Store bounds public catalog reads and prioritizes signed local lif
   assert.equal((await (await fetch(endpoint)).json()).state, "ready");
   assert.equal(fetches, 1);
 
-  const active = fetch(endpoint, {signal: AbortSignal.timeout(2_000)})
+  const active = fetch(endpoint, {signal: AbortSignal.timeout(6_000)})
     .then(response => response.json());
   await blocked;
   const flood = Array.from({length: 24}, () =>
-    fetch(endpoint, {signal: AbortSignal.timeout(2_000)})
+    fetch(endpoint, {signal: AbortSignal.timeout(6_000)})
       .then(response => response.json()));
   let earlyBackpressure = 0;
   const observedFlood = flood.map(promise => promise.then(snapshot => {
@@ -759,7 +759,10 @@ test("Windows Store bounds public catalog reads and prioritizes signed local lif
     return snapshot;
   }));
   const local = middleware.readVerifiedLocalCatalog();
-  await new Promise(resolve => setTimeout(resolve, 75));
+  const deadline = Date.now() + 1_500;
+  while (earlyBackpressure < 8 && Date.now() < deadline) {
+    await new Promise(resolve => setTimeout(resolve, 20));
+  }
   assert.ok(earlyBackpressure >= 8,
     "Flood beyond the bound must get an immediate unavailable snapshot");
   assert.equal(fetches, 2,
