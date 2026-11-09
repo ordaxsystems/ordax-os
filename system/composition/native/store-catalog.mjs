@@ -41,6 +41,41 @@ export async function createNativeStoreCatalogComposition({
   await projection.waitForCurrentRefresh();
 
   let destroyed = false;
+  // A pending signed generation may be independently promoted by the trusted
+  // Supervisor while the user is away. Reobserve on returning to the Desktop
+  // without polling or treating health=healthy as CURRENT authorization.
+  const desktopHost = hasDesktopBrowserTransport(windowRef);
+  const canObserveFocus = desktopHost
+    && typeof windowRef.addEventListener === "function"
+    && typeof windowRef.removeEventListener === "function";
+  let pendingResumeRefresh = null;
+  let lastResumeRead = 0;
+  const onResume = () => {
+    if (destroyed || windowRef.document?.visibilityState === "hidden"
+      || pendingResumeRefresh !== null) return;
+    const snapshot = projection.port.getSnapshot();
+    if (snapshot.state !== "ready"
+      || !snapshot.entries.some(entry => entry.state === "staged")) return;
+    const now = Date.now();
+    if (now - lastResumeRead < 1500) return;
+    lastResumeRead = now;
+    // Use the existing signed catalog owner, which in turn refreshes the same
+    // Go-verified CURRENT and pending metadata. No extra install inventory.
+    pendingResumeRefresh = Promise.resolve().then(() => {
+      if (!destroyed) return nativeCatalog.refresh();
+    }).then(() => {
+      if (!destroyed) return projection.waitForCurrentRefresh();
+    }).catch(() => {
+      // Existing catalog/activation ports already fail closed on read error.
+    }).finally(() => { pendingResumeRefresh = null; });
+  };
+  if (canObserveFocus) windowRef.addEventListener("focus", onResume);
+  const visibleDocument = canObserveFocus && windowRef.document
+    && typeof windowRef.document.addEventListener === "function"
+    && typeof windowRef.document.removeEventListener === "function"
+    ? windowRef.document : null;
+  visibleDocument?.addEventListener("visibilitychange", onResume);
+
   return Object.freeze({
     port: projection.port,
     verifiedCatalogPort: nativeCatalog.port,
@@ -55,6 +90,8 @@ export async function createNativeStoreCatalogComposition({
     destroy() {
       if (destroyed) return;
       destroyed = true;
+      if (canObserveFocus) windowRef.removeEventListener("focus", onResume);
+      visibleDocument?.removeEventListener("visibilitychange", onResume);
       projection.destroy();
       nativeCatalog.destroy();
     },
