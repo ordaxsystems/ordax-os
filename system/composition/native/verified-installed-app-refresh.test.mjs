@@ -139,6 +139,13 @@ test("verified CURRENT identity only changes on observed activation, not Store n
   const key = verifiedCurrentInstallationFingerprint([installed, absent]);
   assert.equal(verifiedCurrentInstallationFingerprint([absent, installed]), key);
   assert.equal(verifiedCurrentInstallationFingerprint([{...installed}, {...absent}]), key);
+  assert.equal(verifiedCurrentInstallationFingerprint([
+    installed, {...absent, revision: 300},
+  ]), key, "an absent app revision cannot remount the installed app");
+  assert.equal(verifiedCurrentInstallationFingerprint([absent]), "[]",
+    "absence alone never claims an installed runtime");
+  assert.equal(verifiedCurrentInstallationFingerprint([installed]), key,
+    "boot discovery and full Store observations agree on signed CURRENT slots");
   assert.notEqual(verifiedCurrentInstallationFingerprint([
     {...installed, source: "removed", version: null, sourceCommit: null, entrypoint: null, revision: 8}, absent,
   ]), key, "signed CURRENT removal must force reconciliation");
@@ -146,4 +153,25 @@ test("verified CURRENT identity only changes on observed activation, not Store n
     {...installed, revision: 9}, absent,
   ]), key, "new activation generation must be reverified");
   assert.throws(() => verifiedCurrentInstallationFingerprint([null]), TypeError);
+});
+
+test("a failed CURRENT refresh can recover on the next verified notification", async () => {
+  const emitted = [], errors = [];
+  let attempts = 0;
+  const controller = createNativeVerifiedInstalledAppRefresh({
+    discover: async () => {
+      if (++attempts === 1) throw Error("Native verifier temporarily unavailable");
+      return [entry("calculator")];
+    },
+    createCatalog: catalog,
+    mount: async () => ({mountedIds: ["calculator"], destroy: async () => {}}),
+    publish: next => emitted.push(next.ids),
+    onError: error => errors.push(error.message),
+  });
+  await controller.refresh();
+  assert.deepEqual(emitted, [[]], "failed verifier cannot publish installed apps");
+  assert.deepEqual(errors, ["Native verifier temporarily unavailable"]);
+  await controller.refresh();
+  assert.deepEqual(emitted, [[], [], ["calculator"]]);
+  await controller.destroy();
 });
