@@ -58,9 +58,9 @@ export async function createNativeStoreCatalogComposition({
   const onResume = () => {
     if (destroyed || windowRef.document?.visibilityState === "hidden"
       || pendingResumeRefresh !== null) return;
-    const snapshot = projection.port.getSnapshot();
-    if (snapshot.state !== "ready"
-      || !snapshot.entries.some(entry => entry.state === "staged")) return;
+    // Recheck the signed catalog and Native CURRENT on foreground return even
+    // without a staged candidate. External removal, rollback and recovery from
+    // an unavailable catalog must not leave stale Store actions on screen.
     const now = Date.now();
     if (now - lastResumeRead < 1500) return;
     lastResumeRead = now;
