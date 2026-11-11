@@ -90,6 +90,7 @@ on:
       - 'tests/test_native_memory_integration.py'
       - 'tests/test_ecosystem_contracts.mjs'
       - 'tests/test_intelligence_runtime.mjs'
+      - 'tests/test_intelligence_exact_arithmetic.mjs'
       - 'tests/test_intelligence_conversation_capabilities.mjs'
       - 'tests/test_assistant_conversation.mjs'
       - 'tests/test_intelligence_authorized_memory.mjs'
@@ -269,6 +270,7 @@ on:
       - 'tests/test_native_memory_integration.py'
       - 'tests/test_ecosystem_contracts.mjs'
       - 'tests/test_intelligence_runtime.mjs'
+      - 'tests/test_intelligence_exact_arithmetic.mjs'
       - 'tests/test_intelligence_conversation_capabilities.mjs'
       - 'tests/test_assistant_conversation.mjs'
       - 'tests/test_intelligence_authorized_memory.mjs'
@@ -468,6 +470,7 @@ jobs:
           set -euo pipefail
           node --test tests/test_ecosystem_contracts.mjs
           node --test tests/test_intelligence_runtime.mjs
+          node --test tests/test_intelligence_exact_arithmetic.mjs
           node --test tests/test_intelligence_conversation_capabilities.mjs
           node --test tests/test_intelligence_work_canvas.mjs
           node --test tests/test_personal_ordax_first_foreground_action.mjs

@@ -508,7 +508,7 @@ test("Ordax Intelligence follows the canonical regional locale during the same s
     }),
     getLocale: () => locale,
   });
-  await intelligence.respond({ intent: "ask", prompt: "50x0", maxTokens: 64 });
+  await intelligence.respond({ intent: "ask", prompt: "Explique a regra do zero na multiplicação.", maxTokens: 64 });
   locale = "en-US";
   await intelligence.respond({ intent: "ask", prompt: "Hello", maxTokens: 64 });
   assert.match(prompts[0], /OrdaX system response language: Brazilian Portuguese/);
