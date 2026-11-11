@@ -1185,9 +1185,20 @@ async function start() {
       reconcileCurrentStoreActionAuthority();
       verifiedSemanticsRefresh?.refresh();
       // A Store snapshot is only a notification; compare its verified CURRENT
-      // observations before remounting. Foreground reads and pending-health
-      // changes with the same CURRENT must not restart running applications.
-      if (storeCatalog.getSnapshot().state !== "ready") return;
+      // observations before remounting. A short, expected read-in-progress
+      // state must not restart an already verified running application.
+      const storeSnapshot = storeCatalog.getSnapshot();
+      if (storeSnapshot.state !== "ready") {
+        if (storeSnapshot.reason === "verified-store-projection-refreshing") return;
+        // A terminal signed-catalog failure has no trustworthy CURRENT
+        // observations. Invalidate the deduplication key and make the Native
+        // owner withdraw/reverify installed mounts, never keep stale launch
+        // rights based on the previously successful catalog.
+        lastInstalledCurrentFingerprint = null;
+        if (externalAppRefresh) void externalAppRefresh.refresh();
+        else if (!initialStoreCurrentPass) deferredExternalAppRefresh = true;
+        return;
+      }
       const fingerprint = verifiedCurrentInstallationFingerprint(
         storeCatalogComposition?.getCurrentObservations() ?? [],
       );
