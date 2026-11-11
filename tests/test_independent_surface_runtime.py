@@ -687,6 +687,96 @@ class IndependentSurfaceRuntimeTests(unittest.TestCase):
         self.assertIn("actions: read", text)
         self.assertNotIn("qemu-system-x86_64", text)
 
+    def test_verified_erofs_provenance_binds_uuid_and_refuses_symlinked_inputs(self):
+        builder = self.builder
+        artifact = self.source["artifact"]
+        rootfs_digest = "a" * 64
+        expected_uuid = str(builder.uuid.uuid5(builder.UUID_NAMESPACE, rootfs_digest))
+        with tempfile.TemporaryDirectory() as directory:
+            base = Path(directory)
+            output = base / "candidate"
+            output.mkdir()
+            image = output / artifact["name"]
+            image.write_bytes(b"isolated-test-image")
+            provenance_file = output / "provenance.json"
+            candidate = {
+                "$schema": "prototype-ordax.surface-runtime-provenance/1",
+                "status": "candidate-not-promotable",
+                "package_manager_present": False,
+                "alpine_present": False,
+                "physical_artifact_authorized": False,
+                "stable_promotion_authorized": False,
+                "runtime_inventory": {
+                    "compatibility_links": builder.SURFACE_COMPAT_LINKS,
+                    "apk_runtime_absent": True,
+                    "forbidden_runtime_paths_absent": True,
+                },
+                "rootfs_tar_sha256": rootfs_digest,
+                "image": {
+                    "name": artifact["name"],
+                    "filesystem": "erofs",
+                    "compression": artifact["compression"],
+                    "label": artifact["label"],
+                    "uuid": expected_uuid,
+                    "sha256": builder.sha256_file(image),
+                    "size": image.stat().st_size,
+                },
+            }
+
+            def persist():
+                provenance_file.write_text(json.dumps(candidate), encoding="utf-8")
+
+            identity = {"TYPE": "erofs", "LABEL": artifact["label"], "UUID": expected_uuid}
+            persist()
+            # Mock only the external filesystem probes; verified input policy
+            # is exercised without treating the fixture as a built EROFS.
+            with mock.patch.object(builder, "run") as fsck, \
+                    mock.patch.object(builder, "erofs_identity", return_value=identity):
+                self.assertEqual(builder.verify(output), candidate)
+                fsck.assert_called_once_with(["fsck.erofs", str(image)])
+
+                candidate["image"]["uuid"] = str(builder.uuid.uuid4())
+                persist()
+                with self.assertRaisesRegex(builder.SurfaceBuildError, "deterministic image metadata"):
+                    builder.verify(output)
+                candidate["image"]["uuid"] = expected_uuid
+                persist()
+
+                identity["UUID"] = str(builder.uuid.uuid4())
+                with self.assertRaisesRegex(builder.SurfaceBuildError, "identity/UUID"):
+                    builder.verify(output)
+                identity["UUID"] = expected_uuid
+
+                candidate["rootfs_tar_sha256"] = "not-a-digest"
+                persist()
+                with self.assertRaisesRegex(builder.SurfaceBuildError, "deterministic image provenance"):
+                    builder.verify(output)
+                candidate["rootfs_tar_sha256"] = rootfs_digest
+                persist()
+
+                external = base / "external-image"
+                external.write_bytes(image.read_bytes())
+                image.unlink()
+                image.symlink_to(external)
+                with self.assertRaisesRegex(builder.SurfaceBuildError, "digest or source"):
+                    builder.verify(output)
+                image.unlink()
+                image.write_bytes(external.read_bytes())
+
+                trusted = base / "trusted-provenance.json"
+                trusted.write_text(provenance_file.read_text(encoding="utf-8"), encoding="utf-8")
+                provenance_file.unlink()
+                provenance_file.symlink_to(trusted)
+                with self.assertRaisesRegex(builder.SurfaceBuildError, "provenance is missing or unsafe"):
+                    builder.verify(output)
+                provenance_file.unlink()
+                persist()
+
+                redirected = base / "candidate-alias"
+                redirected.symlink_to(output, target_is_directory=True)
+                with self.assertRaisesRegex(builder.SurfaceBuildError, "output directory is missing or unsafe"):
+                    builder.verify(redirected)
+
     def test_check_is_side_effect_free(self):
         self.builder.check()
 

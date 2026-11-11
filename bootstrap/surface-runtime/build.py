@@ -744,9 +744,13 @@ def build(out_dir: Path, cache_dir: Path, jobs: int, *, persistent_work_dir: Pat
 
 def verify(out_dir: Path) -> dict:
     source, _ = contracts()
+    # Reject redirected output roots before reading any candidate-owned bytes.
+    # Following a symlink here could silently validate an unrelated EROFS.
+    if any(part.is_symlink() for part in (out_dir, *out_dir.parents)) or not out_dir.is_dir():
+        raise SurfaceBuildError("Surface output directory is missing or unsafe")
     provenance_path = out_dir / "provenance.json"
-    if not provenance_path.is_file():
-        raise SurfaceBuildError("provenance.json missing")
+    if provenance_path.is_symlink() or not provenance_path.is_file():
+        raise SurfaceBuildError("Surface provenance is missing or unsafe")
     provenance = load_json(provenance_path)
     if provenance.get("$schema") != "prototype-ordax.surface-runtime-provenance/1":
         raise SurfaceBuildError("unexpected provenance schema")
@@ -761,16 +765,29 @@ def verify(out_dir: Path) -> dict:
         raise SurfaceBuildError("Surface compatibility binding is absent from provenance")
     if inventory.get("apk_runtime_absent") is not True or inventory.get("forbidden_runtime_paths_absent") is not True:
         raise SurfaceBuildError("runtime inventory does not prove Alpine/APK absence")
-    image = out_dir / source["artifact"]["name"]
-    image_meta = provenance.get("image", {})
-    if not image.is_file() or sha256_file(image) != image_meta.get("sha256"):
-        raise SurfaceBuildError("Surface runtime image digest mismatch")
+    image_meta = provenance.get("image")
+    rootfs_digest = provenance.get("rootfs_tar_sha256")
+    if not isinstance(image_meta, dict) or not isinstance(rootfs_digest, str) or not HASH.fullmatch(rootfs_digest):
+        raise SurfaceBuildError("Surface runtime deterministic image provenance missing")
+    artifact = source["artifact"]
+    expected_uuid = str(uuid.uuid5(UUID_NAMESPACE, rootfs_digest))
+    if (image_meta.get("name") != artifact["name"]
+            or image_meta.get("filesystem") != "erofs"
+            or image_meta.get("compression") != artifact["compression"]
+            or image_meta.get("label") != artifact["label"]
+            or image_meta.get("uuid") != expected_uuid):
+        raise SurfaceBuildError("Surface runtime deterministic image metadata mismatch")
+    image = out_dir / artifact["name"]
+    if image.is_symlink() or not image.is_file() or sha256_file(image) != image_meta.get("sha256"):
+        raise SurfaceBuildError("Surface runtime image digest or source mismatch")
     if image.stat().st_size != image_meta.get("size"):
         raise SurfaceBuildError("Surface runtime image size mismatch")
     run(["fsck.erofs", str(image)])
     identity = erofs_identity(image)
-    if identity.get("TYPE") != "erofs" or identity.get("LABEL") != source["artifact"]["label"]:
-        raise SurfaceBuildError("Surface runtime image identity mismatch")
+    if (identity.get("TYPE") != "erofs"
+            or identity.get("LABEL") != artifact["label"]
+            or identity.get("UUID", "").lower() != expected_uuid):
+        raise SurfaceBuildError("Surface runtime EROFS identity/UUID mismatch")
     return provenance
 
 
