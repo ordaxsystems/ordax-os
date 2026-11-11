@@ -148,7 +148,7 @@ test("Electron Store cannot offer installation without a native probation receip
   missingPreload.destroy();
 });
 
-test("Windows Store rechecks staged app on foreground return and only shows signed CURRENT after promotion", async () => {
+test("Windows Store rechecks staged and installed CURRENT on foreground return", { timeout: 8000 }, async () => {
   let source = "absent", currentRevision = 1, pending = true;
   let catalogReads = 0, currentReads = 0, pendingReads = 0;
   const listeners = new Map();
