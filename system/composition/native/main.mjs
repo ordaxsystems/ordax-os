@@ -1189,7 +1189,15 @@ async function start() {
       // state must not restart an already verified running application.
       const storeSnapshot = storeCatalog.getSnapshot();
       if (storeSnapshot.state !== "ready") {
-        if (storeSnapshot.reason === "verified-store-projection-refreshing") return;
+        // Native catalog verification and projection verification are two
+        // successive bounded reads. Both emit a transient unavailable state;
+        // neither one may cause a needless teardown on every window focus.
+        if ([
+          "verified-store-projection-refreshing",
+          "native-store-catalog-refreshing",
+          "verified-store-projection-loading",
+          "native-store-catalog-loading",
+        ].includes(storeSnapshot.reason)) return;
         // A terminal signed-catalog failure has no trustworthy CURRENT
         // observations. Invalidate the deduplication key and make the Native
         // owner withdraw/reverify installed mounts, never keep stale launch
