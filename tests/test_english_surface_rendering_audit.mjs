@@ -12,6 +12,25 @@ const PORTUGUESE_MARKER = /(?:[ãõáéíóúâêôç])|\b(?:abrir|ajustes|agora
 const PROVEN_LOCALIZED_DEFAULTS = Object.freeze({
 });
 
+// Source-owned Surface fallbacks can be safely bilingual without a second OS
+// translation catalog. Accept the PT-BR arm only when the *same* expression
+// selects a non-Portuguese English arm from the live locale, and the literal
+// appears exactly once. Do not suppress standalone or duplicated UI copy.
+function hasProvenLocaleGuard(source, literal) {
+  if (source.split(`"${literal}"`).length !== 2) return false;
+  const choices = /\b(english|locale\.toLowerCase\(\)\.startsWith\("en"\))\s*\?\s*"([^"\n]+)"\s*:\s*"([^"\n]+)"/gu;
+  for (const match of source.matchAll(choices)) {
+    const [, selector, english, portuguese] = match;
+    if (portuguese !== literal || !english.trim() || PORTUGUESE_MARKER.test(english)) continue;
+    if (selector === "english") {
+      if (/\bconst english\s*=\s*lifecycle\.localization\.getLocale\(\)\.toLowerCase\(\)\.startsWith\("en"\)\s*;/u.test(source)) return true;
+    } else if (/\bconst locale\s*=\s*localization\.getLocale\(\)\s*;/u.test(source)) {
+      return true;
+    }
+  }
+  return false;
+}
+
 function literalBodies(source) {
   const values = [];
   const regex = /"((?:\\.|[^"\\])*)"|'((?:\\.|[^'\\])*)'|`((?:\\.|[^`\\])*)`/g;
@@ -94,6 +113,17 @@ test("every registered first-party app has localized en-US display metadata", ()
   }
 });
 
+test("bilingual Surface fallbacks require an actual locale guard and a unique PT-BR literal", () => {
+  const valid = 'const english = lifecycle.localization.getLocale().toLowerCase().startsWith("en"); const message = english ? "No matching Spaces" : "Nenhum Space encontrado";';
+  assert.equal(hasProvenLocaleGuard(valid, "Nenhum Space encontrado"), true);
+  assert.equal(hasProvenLocaleGuard('const message = "Nenhum Space encontrado";', "Nenhum Space encontrado"), false);
+  assert.equal(hasProvenLocaleGuard('const message = english ? "No matching Spaces" : "Nenhum Space encontrado";', "Nenhum Space encontrado"), false);
+  assert.equal(hasProvenLocaleGuard(valid + ' const duplicate = "Nenhum Space encontrado";', "Nenhum Space encontrado"), false);
+  assert.equal(hasProvenLocaleGuard('const english = lifecycle.localization.getLocale().toLowerCase().startsWith("en"); const message = english ? "Nenhum Space encontrado" : "Nenhum Space encontrado";', "Nenhum Space encontrado"), false);
+  const inline = 'const locale = localization.getLocale(); const text = locale.toLowerCase().startsWith("en") ? "No destinations or apps found." : "Nenhum destino ou aplicativo encontrado.";';
+  assert.equal(hasProvenLocaleGuard(inline, "Nenhum destino ou aplicativo encontrado."), true);
+});
+
 test("rendering modules outside First Run contain no unowned Portuguese UI literals", async () => {
   const repositoryRoot = fileURLToPath(new URL("../", import.meta.url));
   const surfaceUiRoot = path.join(repositoryRoot, "system", "surface", "ui");
@@ -116,6 +146,7 @@ test("rendering modules outside First Run contain no unowned Portuguese UI liter
       // only where a path is intentionally shown to the user and must not be translated.
       if (literal.startsWith("/")) continue;
       if (PROVEN_LOCALIZED_DEFAULTS[relative]?.has(literal)) continue;
+      if (hasProvenLocaleGuard(source, literal)) continue;
       violations.push(`${relative} :: ${literal}`);
     }
   }
