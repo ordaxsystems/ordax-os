@@ -1299,9 +1299,25 @@ async function start() {
     createCatalog: createNativeVerifiedInstalledAppCatalog,
     mount: mountVerifiedExternalApps,
     publish(nextCatalog) { surface.replaceAppCatalog(nextCatalog); },
-    onError(error) { reportClientDiagnostic("installed-app-refresh", error); },
+    onError(error) {
+      // A transient Native read/import failure must not poison the fingerprint
+      // indefinitely. The next verified Store observation may retry safely.
+      lastInstalledCurrentFingerprint = null;
+      reportClientDiagnostic("installed-app-refresh", error);
+    },
   });
-  if (deferredExternalAppRefresh) void externalAppRefresh.refresh();
+  // Cold discovery and Store CURRENT reads are independent and may race while
+  // the Surface starts. Reconcile once if the latest verified Native state
+  // changed between the initial discovery and the first completed mounts.
+  const coldInstalledFingerprint = verifiedCurrentInstallationFingerprint(
+    installedAppEntries.map(entry => entry.metadata),
+  );
+  if (deferredExternalAppRefresh
+    || (storeCatalog.getSnapshot().state === "ready"
+      && lastInstalledCurrentFingerprint !== null
+      && lastInstalledCurrentFingerprint !== coldInstalledFingerprint)) {
+    void externalAppRefresh.refresh();
+  }
 
   // First Run reads the already-verified Store projection and its matching
   // ephemeral Native current observations. It has NO installation authority.
