@@ -237,11 +237,34 @@ test("Windows Store rechecks staged app on foreground return and only shows sign
   assert.equal(state().installedVersion, "0.4.3");
   assert.equal(state().installable, false);
 
-  // Repeated focus with no pending candidate cannot repoll the catalog.
+  // Foreground events arriving together must share the bounded refresh.
   const currentCalls = currentReads;
   listeners.get("focus")();
   assert.equal(catalogReads, 2);
   assert.equal(currentReads, currentCalls);
+
+  // An externally removed CURRENT has no staged candidate. Returning to the
+  // window must still discard the stale installed action and Go observation.
+  await new Promise(resolve => setTimeout(resolve, 1550));
+  source = "removed"; currentRevision = 3;
+  const removed = new Promise(resolve => {
+    const unsubscribe = composition.port.subscribe(snapshot => {
+      const entry = snapshot.entries.find(item => item.appId === "notes");
+      if (entry?.installedVersion === null &&
+          composition.getCurrentObservations().some(item =>
+            item.componentId === "notes" && item.source === "removed")) {
+        unsubscribe();
+        resolve();
+      }
+    });
+  });
+  listeners.get("focus")();
+  await removed;
+  assert.equal(catalogReads, 3);
+  assert.equal(state().installedVersion, null);
+  assert.equal(state().installable, false,
+    "A removed app does not bypass the missing Windows probation owner");
+  assert.equal(state().blockedReason, "runtime-probation-host-unavailable");
 
   composition.destroy();
   assert.equal(listeners.has("focus"), false);
