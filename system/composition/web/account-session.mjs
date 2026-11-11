@@ -31,20 +31,52 @@ export function createWebAccountSession(windowRef = globalThis.window) {
     },
   });
   const spaces = createWebSpacesCatalog(windowRef);
+  // The account's catalog and verified session are the single authority for
+  // all Web Space operations. A response started under an older context must
+  // never be delivered to another account or a newly refreshed catalog.
+  let spaceContextRevision = 0;
+  const releaseSpaceContext = spaces.subscribe(() => { spaceContextRevision += 1; });
+  async function withCurrentSpaceContext(operation) {
+    const revision = spaceContextRevision;
+    if (disposed || identity.getSnapshot().state !== "signed-in"
+      || spaces.getSnapshot().state !== "ready") {
+      throw new Error("Web Space context is unavailable");
+    }
+    const result = await operation();
+    if (disposed || spaceContextRevision !== revision
+      || identity.getSnapshot().state !== "signed-in"
+      || spaces.getSnapshot().state !== "ready") {
+      throw new Error("Web Space context changed before the operation completed");
+    }
+    return result;
+  }
   const membersPort = createWebSpaceMembersReader(windowRef);
-  const members = createSpaceMembersReader({ spaces, members: membersPort });
+  const membersRuntime = createSpaceMembersReader({ spaces, members: membersPort });
+  const members = Object.freeze({
+    list: request => withCurrentSpaceContext(() => membersRuntime.list(request)),
+  });
   const actorCapabilityPort = createWebSpaceActorCapabilityReader(windowRef);
-  const actorCapability = createSpaceActorCapabilityReader({ spaces, actorCapability: actorCapabilityPort });
+  const actorCapabilityRuntime = createSpaceActorCapabilityReader({ spaces, actorCapability: actorCapabilityPort });
+  const actorCapability = Object.freeze({
+    read: request => withCurrentSpaceContext(() => actorCapabilityRuntime.read(request)),
+  });
   const membershipActionsPort = createWebSpaceMembershipActions(windowRef);
-  const membershipActions = createSpaceMembershipActionsRuntime({
+  const membershipActionsRuntime = createSpaceMembershipActionsRuntime({
     spaces,
     membershipActions: membershipActionsPort,
+  });
+  const membershipActions = Object.freeze({
+    changeMemberRole: (...args) => withCurrentSpaceContext(() => membershipActionsRuntime.changeMemberRole(...args)),
+    suspendMember: (...args) => withCurrentSpaceContext(() => membershipActionsRuntime.suspendMember(...args)),
+    reactivateMember: (...args) => withCurrentSpaceContext(() => membershipActionsRuntime.reactivateMember(...args)),
+    removeMember: (...args) => withCurrentSpaceContext(() => membershipActionsRuntime.removeMember(...args)),
   });
   // The domain service owns subject changes, catalog invalidation and selection.
   const selection = createSpaceSelectionRuntime({
     identitySession: identity, spaces, store: createWebSpaceSelectionStore(),
   });
   const releaseIdentity = identity.subscribe(snapshot => {
+    spaceContextRevision += 1;
     surface.refresh();
     if (snapshot.state !== "signed-out") {
       registrationPolicy.cancel();
@@ -100,6 +132,7 @@ export function createWebAccountSession(windowRef = globalThis.window) {
       windowRef.document?.removeEventListener("visibilitychange", onVisibility);
       releaseIdentity();
       releaseSurface();
+      releaseSpaceContext();
       selection.dispose();
       actions.dispose();
       registrationPolicy.dispose();

@@ -11,6 +11,7 @@ on:
       - 'docs/contracts/runtime-component-trust-policy.json'
       - 'docs/COMPONENT-TRUST-CEREMONY.md'
       - 'tests/test_runtime_component_production_readiness.py'
+      - 'tests/ci_component_trust_ceremony.ps1'
       - 'tests/test_runtime_component_unsigned_candidate.py'
       - 'docs/contracts/external-unsigned-candidate-interop.json'
       - '.github/workflows/runtime-component-unsigned-candidate.yml'
@@ -24,6 +25,7 @@ on:
       - 'docs/contracts/runtime-component-trust-policy.json'
       - 'docs/COMPONENT-TRUST-CEREMONY.md'
       - 'tests/test_runtime_component_production_readiness.py'
+      - 'tests/ci_component_trust_ceremony.ps1'
       - 'tests/test_runtime_component_unsigned_candidate.py'
       - 'docs/contracts/external-unsigned-candidate-interop.json'
       - '.github/workflows/runtime-component-unsigned-candidate.yml'
@@ -160,6 +162,7 @@ jobs:
           )
           cp tools/runtime-component-channel/windows/1-Verify-OrdaXComponentTrustToolkit.cmd "$out/"
           cp tools/runtime-component-channel/windows/2-Initialize-OrdaXComponentTrust.cmd "$out/"
+          cp tools/runtime-component-channel/windows/2-Resume-OrdaXComponentTrust.cmd "$out/"
           cp tools/runtime-component-channel/windows/3-Verify-OrdaXComponentTrustRecovery.cmd "$out/"
           cp tools/runtime-component-channel/windows/Initialize-OrdaXComponentTrust.ps1 "$out/"
           cp tools/runtime-component-channel/windows/Complete-OrdaXComponentTrust.ps1 "$out/"
@@ -176,6 +179,7 @@ jobs:
               ordax-runtime-component-channel.exe \
               1-Verify-OrdaXComponentTrustToolkit.cmd \
               2-Initialize-OrdaXComponentTrust.cmd \
+              2-Resume-OrdaXComponentTrust.cmd \
               3-Verify-OrdaXComponentTrustRecovery.cmd \
               Initialize-OrdaXComponentTrust.ps1 \
               Complete-OrdaXComponentTrust.ps1 \
@@ -331,12 +335,19 @@ jobs:
 
   windows-parse:
     runs-on: windows-latest
-    timeout-minutes: 10
+    timeout-minutes: 12
     steps:
       - name: Checkout
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
         with:
           persist-credentials: false
+
+      - name: Set up Go for the canonical offline signing verifier
+        uses: actions/setup-go@b7ad1dad31e06c5925ef5d2fc7ad053ef454303e # v7
+        with:
+          go-version: '1.27.1'
+          check-latest: false
+          cache: false
 
       - name: Parse component trust PowerShell natively
         shell: pwsh
@@ -358,3 +369,10 @@ jobs:
             }
           }
           Write-Host 'COMPONENT_TRUST_POWERSHELL_PARSE=PASS'
+
+      - name: Exercise isolated disposable trust initialization and encrypted recovery
+        shell: pwsh
+        run: |
+          $ErrorActionPreference = 'Stop'
+          pwsh -NoProfile -File tests/ci_component_trust_ceremony.ps1
+          if ($LASTEXITCODE -ne 0) { throw 'CI-only component trust ceremony failed' }

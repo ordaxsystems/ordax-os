@@ -16,6 +16,10 @@ import { withDesktopStoreCatalogWatermark } from "./verified-store-catalog-host.
 
 const ENDPOINT = "/__ordax/native/store-lifecycle";
 const MAX_BODY = 32 * 1024;
+const BODY_READ_TIMEOUT_MS = 15_000;
+// Keep slow Go verification or artifact downloads from accumulating an
+// unbounded queue of already-validated HTTP plans in the Windows host.
+const MAX_PENDING_LIFECYCLE_OPERATIONS = 16;
 const MAX_GO_OUTPUT = 64 * 1024;
 const LOOPBACK = new Set(["127.0.0.1", "::1", "::ffff:127.0.0.1"]);
 const HOST = /^(?:127\.0\.0\.1|\[::1\]):[1-9][0-9]{0,4}$/;
@@ -100,15 +104,23 @@ async function readBody(req) {
     && (!/^[0-9]+$/.test(length) || Number(length) > MAX_BODY)) {
     throw Error("Store lifecycle request too large");
   }
-  const chunks = [];
-  let lengthRead = 0;
-  for await (const chunk of req) {
-    lengthRead += chunk.length;
-    if (lengthRead > MAX_BODY) throw Error("Store lifecycle request too large");
-    chunks.push(chunk);
+  // A partial body must not hold the Windows lifecycle connection forever.
+  // A timed-out socket is closed rather than pretending a truncated plan is valid.
+  const deadline = setTimeout(() => req.destroy(), BODY_READ_TIMEOUT_MS);
+  deadline.unref?.();
+  try {
+    const chunks = [];
+    let lengthRead = 0;
+    for await (const chunk of req) {
+      lengthRead += chunk.length;
+      if (lengthRead > MAX_BODY) throw Error("Store lifecycle request too large");
+      chunks.push(chunk);
+    }
+    if (lengthRead === 0) throw Error("Missing Store lifecycle request");
+    return JSON.parse(decode(Buffer.concat(chunks, lengthRead)));
+  } finally {
+    clearTimeout(deadline);
   }
-  if (lengthRead === 0) throw Error("Missing Store lifecycle request");
-  return JSON.parse(decode(Buffer.concat(chunks, lengthRead)));
 }
 
 export function createDesktopStoreLifecycleMiddleware({
@@ -122,6 +134,7 @@ export function createDesktopStoreLifecycleMiddleware({
     throw TypeError("Windows Store lifecycle requires installed Native owners");
   }
   let queue = Promise.resolve();
+  let pendingOperations = 0;
 
   async function execute(plan) {
     const operation = plan.request.operation, appId = plan.request.appId;
@@ -209,21 +222,43 @@ export function createDesktopStoreLifecycleMiddleware({
     };
     if (req.url !== ENDPOINT) return reply(400);
     if (req.method !== "POST") return reply(405);
+    // A remoteAddress of loopback is not enough: a rebinding hostname can
+    // connect a malicious browser origin to this local privileged POST.
+    // Bind Host to the actual listening socket, not a regex-only Host value.
+    const port = req.socket?.localPort;
+    const host = req.headers.host;
     if (!LOOPBACK.has(req.socket?.remoteAddress)
-      || typeof req.headers.host !== "string" || !HOST.test(req.headers.host)
-      || req.headers.origin !== "http://" + req.headers.host)
+      || !Number.isInteger(port) || port < 1 || port > 65535
+      || typeof host !== "string" || !HOST.test(host)
+      || host !== "127.0.0.1:" + port && host !== "[::1]:" + port
+      || req.headers.origin !== "http://" + host
+      || req.headers["sec-fetch-site"] !== undefined
+        && !["same-origin", "none"].includes(req.headers["sec-fetch-site"]))
       return reply(403);
     if (req.headers["content-type"] !== "application/json") return reply(415);
-    const run = queue.then(async () => {
+    // Read and validate untrusted HTTP bytes outside the privileged mutation
+    // queue. A client that stalls midway through a body cannot block valid
+    // Store install/update/remove requests from other connections.
+    void (async () => {
       let plan;
       try { plan = validateAppLifecyclePlan(await readBody(req)); }
       catch { return reply(400); }
-      // A successful stage is not activation; the Go readback proves only
-      // pending-health. Actual health and promotion remain independent.
-      try { return reply(200, await execute(plan)); }
-      catch { return reply(503); }
-    }, () => reply(503));
-    queue = run.then(() => {}, () => {});
-    void run.catch(() => reply(503));
+      // A slow Go operation or network download cannot accumulate unbounded
+      // validated plans. Rejected overflow never reaches the Go owner.
+      if (pendingOperations >= MAX_PENDING_LIFECYCLE_OPERATIONS) return reply(503);
+      pendingOperations += 1;
+      // Completed and validated plans still execute one at a time. Go remains
+      // the sole activation-state writer; this changes no trust or receipt gate.
+      const run = queue.then(async () => {
+        try { return reply(200, await execute(plan)); }
+        catch { return reply(503); }
+        finally { pendingOperations -= 1; }
+      }, () => {
+        pendingOperations -= 1;
+        return reply(503);
+      });
+      queue = run.then(() => {}, () => {});
+      void run.catch(() => reply(503));
+    })().catch(() => reply(503));
   };
 }

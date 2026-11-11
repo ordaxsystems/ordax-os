@@ -79,7 +79,7 @@ class SourceAdvanceTests(unittest.TestCase):
         with self.assertRaisesRegex(advance.SourceAdvanceError, "does not descend"):
             advance.advance(self.root, "surface", self.source, True)
 
-    def test_intelligence_updates_exact_eight_blobs_without_activation(self):
+    def test_intelligence_updates_complete_portable_graph_without_activation(self):
         paths = (
             "src/index.mjs",
             "src/contract-bindings.mjs",
@@ -123,14 +123,22 @@ class SourceAdvanceTests(unittest.TestCase):
         self.assertFalse(unrelated["changed"])
         self.assertEqual(unrelated["reason"], "no-owned-source-change")
         self.assertEqual(json.loads(path.read_text())["source_commit"], new)
-        # The Windows-only builder remains outside the eight-blob OS source
-        # graph, even when a later pinned blob changes legitimately.
-        self.write("src/local-ai/runtime.mjs", "new version 2")
+        # The Windows-only builder remains outside the portable OS source
+        # graph. A new module below src must be discovered and pinned instead
+        # of being silently omitted by a stale fixed inventory.
+        self.write("src/snapshot-notification.mjs", "new shared dependency")
         later = self.commit()
         self.assertTrue(advance.advance(self.root, "intelligence", self.source, True)["changed"])
         final = json.loads(path.read_text())
         self.assertEqual(final["source_commit"], later)
-        self.assertEqual(set(final["source_paths"]), set(paths))
+        self.assertEqual(
+            set(final["source_paths"]),
+            set(paths) | {"src/snapshot-notification.mjs"},
+        )
+        self.assertEqual(
+            final["source_paths"]["src/snapshot-notification.mjs"],
+            self.git("rev-parse", "HEAD:src/snapshot-notification.mjs"),
+        )
         self.assertNotIn("tools/inference-builder/windows-candidate.py", final["source_paths"])
 
     def test_surface_selects_verified_main_source_sha_before_docs_tail(self):
@@ -196,6 +204,8 @@ class SourceAdvanceTests(unittest.TestCase):
         })
         self.write("src/intelligence/runtime.mjs", "updated")
         source_sha = self.commit("Intelligence main source")
+        self.write("src/snapshot-notification.mjs", "new dependency")
+        source_sha = self.commit("Intelligence source graph expansion")
         self.write("tools/inference-builder/windows-candidate.py", "windows only")
         self.commit("Windows builder main")
         self.write("docs/README.md", "documentation only")
@@ -242,14 +252,14 @@ fi
                 return {"number": number, "head": {
                     "repo": {"full_name": repo}, "ref": branch,
                     "sha": "a" * 40}, "base": {"ref": base}}
-            def run(pages, files=None):
+            def run(pages, files=None, owner="surface"):
                 out = folder / "out"
                 out.write_text("")
                 env = dict(os.environ, PATH=str(folder) + os.pathsep + os.environ["PATH"],
                            TEST_PAGES=json.dumps(pages),
                            TEST_PR_FILES=json.dumps(files or {"files": [
-                               {"path": "docs/contracts/surface-source.json"}]}),
-                           OWNER="surface", LOCK="docs/contracts/surface-source.json",
+                               {"path": f"docs/contracts/{owner}-source.json"}]}),
+                           OWNER=owner, LOCK=f"docs/contracts/{owner}-source.json",
                            GITHUB_REPOSITORY="ordaxsystems/ordax-os",
                            GITHUB_OUTPUT=str(out))
                 result = subprocess.run(["bash", "-e"], input=script, text=True,
@@ -266,6 +276,21 @@ fi
             self.assertIn("existing=true", output)
             self.assertIn("number=9", output)
             self.assertIn("branch=automation/advance-surface", output)
+            self.assertIn("manual=false", output)
+            manual, output = run([[
+                pr(21, "fix/intelligence-source-lock-91de8cd-20261104"),
+                pr(22, "automation/advance-surface"),
+            ]], owner="intelligence")
+            self.assertEqual(manual.returncode, 0, manual.stderr)
+            self.assertIn("existing=true", output)
+            self.assertIn("number=21", output)
+            self.assertIn("manual=true", output)
+            competing, _ = run([[
+                pr(21, "fix/intelligence-source-lock-91de8cd-20261104"),
+                pr(22, "automation/advance-intelligence"),
+            ]], owner="intelligence")
+            self.assertNotEqual(competing.returncode, 0)
+            self.assertIn("Multiple owner integration PRs", competing.stdout)
             duplicate, _ = run([[
                 pr(9, "automation/advance-surface"),
                 pr(10, "automation/advance-surface-deadbeef1234"),
@@ -286,6 +311,13 @@ fi
         self.assertNotIn("git push --force", workflow)
         self.assertNotIn("git push -f", workflow)
         self.assertNotIn("gh pr merge", workflow)
+        # Human-reviewed owner PRs are never silently rewritten by CI.
+        self.assertIn('if [ "$EXISTING" = true ] && [ "$MANUAL" = true ]; then', workflow)
+        self.assertIn('"repos/$GITHUB_REPOSITORY/contents/$LOCK?ref=$PR_HEAD_SHA"', workflow)
+        self.assertIn('base64 --decode | cmp - "$candidate_lock"', workflow)
+        self.assertIn("Manual owner source-lock PR differs", workflow)
+        self.assertLess(workflow.index('if [ "$EXISTING" = true ] && [ "$MANUAL" = true ]; then'),
+                        workflow.index('git switch -c "$branch" "refs/remotes/origin/$branch"'))
 
     def test_merged_owner_branch_can_fast_forward_without_force(self):
         # The repo intentionally keeps merged branches. Prove the second

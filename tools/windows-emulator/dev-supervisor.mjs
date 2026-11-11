@@ -3,6 +3,7 @@ import { spawn, spawnSync } from 'node:child_process';
 import { existsSync } from 'node:fs';
 import { fileURLToPath } from 'node:url';
 import { dirname, resolve } from 'node:path';
+import { nextLocalViteRestart } from './dev-restart-policy.mjs';
 
 const HERE = dirname(fileURLToPath(import.meta.url));
 const REPO_ROOT = resolve(HERE, '../..');
@@ -117,43 +118,76 @@ function syncMainOnce() {
 }
 
 const viteEntry = resolve(REPO_ROOT, 'node_modules/vite/bin/vite.js');
-const vite = spawn(process.execPath, [
-  viteEntry,
-  '--config',
-  'tools/windows-emulator/vite.config.mjs',
-  // Native ESM loader does not bundle config under node_modules/.vite-temp.
-  // The installed runtime beneath Program Files is intentionally read-only.
-  ...(process.env.ORDAX_EMULATOR_NO_BROWSER === '1' ? ['--configLoader', 'native'] : []),
-  ...(process.env.ORDAX_EMULATOR_NO_BROWSER === '1' ? [] : [
-    '--open', '/tools/windows-emulator/index.html',
-  ]),
-], {
-  cwd: REPO_ROOT,
-  stdio: 'inherit',
-  windowsHide: false,
-});
-
+// One canonical child, even when the Vite config watcher restarts too quickly.
+// Installed/packaged runs do NOT recover automatically: only an explicitly
+// launched local Desktop HMR session can retry after a transient compiler exit.
+const localDesktopHmr = process.env.ORDAX_DESKTOP_HOST === '1' &&
+  process.env.ORDAX_DESKTOP_LOCAL_DEV === '1' &&
+  process.env.ORDAX_EMULATOR_NO_BROWSER === '1';
+let vite = null;
+let restartTimer = null;
+let crashStreak = 0;
+function launchVite() {
+  if (stopping) return;
+  const startedAt = Date.now();
+  const child = spawn(process.execPath, [
+    viteEntry,
+    '--config',
+    'tools/windows-emulator/vite.config.mjs',
+    // Native ESM loader does not bundle config under node_modules/.vite-temp.
+    ...(process.env.ORDAX_EMULATOR_NO_BROWSER === '1' ? ['--configLoader', 'native'] : []),
+    ...(process.env.ORDAX_EMULATOR_NO_BROWSER === '1' ? [] : [
+      '--open', '/tools/windows-emulator/index.html',
+    ]),
+  ], {
+    cwd: REPO_ROOT,
+    stdio: 'inherit',
+    windowsHide: false,
+  });
+  vite = child;
+  let handled = false;
+  const onExit = (code, signal) => {
+    if (handled) return;
+    handled = true;
+    if (vite === child) vite = null;
+    if (stopping) return;
+    if (localDesktopHmr) {
+      const next = nextLocalViteRestart(crashStreak,Date.now()-startedAt);
+      if (next) {
+        crashStreak = next.failures;
+        log(`Native Vite exited (${signal ?? code ?? 'unknown'}); local recovery ${crashStreak}/3 in ${next.delayMs}ms`);
+        restartTimer = setTimeout(() => {
+          restartTimer = null;
+          launchVite();
+        },next.delayMs);
+        return;
+      }
+    }
+    if (timer) clearInterval(timer);
+    log(`Vite exited unexpectedly (${signal ?? code ?? 'unknown'}); development supervisor is stopping`);
+    process.exitCode = code === 0 ? 1 : (code ?? 1);
+    stopping = true;
+  };
+  child.once('error',(error)=>{
+    // A failing child must exit before a replacement is launched.
+    log('Vite child error: '+(error?.code || 'SPAWN_FAILURE'));
+    if (child.pid && child.exitCode === null && child.signalCode === null) {
+      try { child.kill('SIGTERM'); } catch {}
+    } else onExit(1,null);
+  });
+  child.once('exit',onExit);
+}
 function stop(signal = 'SIGTERM') {
   if (stopping) return;
   stopping = true;
   if (timer) clearInterval(timer);
-  if (!vite.killed) vite.kill(signal);
-}
-
-vite.once('error', (error) => {
-  log(`Vite failed to start: ${error.message}`);
-  process.exitCode = 1;
-  stop();
-});
-
-vite.once('exit', (code, signal) => {
-  if (timer) clearInterval(timer);
-  if (!stopping && code !== 0) {
-    log(`Vite exited unexpectedly (${signal ?? code ?? 'unknown'}); development supervisor is stopping`);
-    process.exitCode = code ?? 1;
+  if (restartTimer !== null) {
+    clearTimeout(restartTimer);
+    restartTimer = null;
   }
-  stopping = true;
-});
+  if (vite && !vite.killed) vite.kill(signal);
+}
+launchVite();
 
 process.once('SIGINT', () => stop('SIGINT'));
 process.once('SIGTERM', () => stop('SIGTERM'));

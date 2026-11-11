@@ -276,6 +276,94 @@ test("Windows Native recycles a disconnected orphan without a second concurrent 
   assert.equal(dirs.length,1,"old private API key must be deleted during recycle");
 });
 
+test("Windows Aura recycles abandoned inference even when upstream ignores AbortSignal", async t => {
+  const dir = await mkdtemp(join(tmpdir(), "ordax-aura-uncooperative-"));
+  const children = [];
+  let alive = 0, releaseHung, markStarted;
+  const started = new Promise(resolve => { markStarted = resolve; });
+  const local = createDesktopLocalAiMiddleware({
+    packageRoot: "C:/verified", userData: dir, token: TOKEN,
+    verifyPackage: async () => model,
+    launch: () => {
+      const child = new EventEmitter();
+      child.pid = 22100 + children.length;
+      child.exitCode = null;
+      child.kill = () => {
+        if (child.exitCode !== null) return false;
+        child.exitCode = 0;
+        alive--;
+        queueMicrotask(() => child.emit("exit", 0));
+        return true;
+      };
+      alive++;
+      assert.equal(alive, 1, "The verified engine must remain single-instance");
+      children.push(child);
+      return child;
+    },
+    fetchImpl: async (url, options) => {
+      if (url.endsWith("/health")) return new Response(JSON.stringify({status: "ok"}),
+        {status: 200, headers: {"content-type": "application/json"}});
+      if (url.endsWith("/v1/chat/completions")) {
+        markStarted();
+        return new Promise(resolve => {
+          // A hung backend ignores even the signaled HTTP disconnect.
+          releaseHung = () => resolve(new Response(JSON.stringify({
+            choices: [{message: {role: "assistant", content: "stale"}}],
+          }), {status: 200, headers: {"content-type": "application/json"}}));
+        });
+      }
+      throw Error("Unexpected Local AI request");
+    },
+  });
+  const server = createServer((req, res) => local.middleware(req, res, () => {
+    res.writeHead(418); res.end();
+  }));
+  await new Promise(resolve => server.listen(0, "127.0.0.1", resolve));
+  t.after(async () => {
+    releaseHung?.();
+    server.closeAllConnections();
+    await local.dispose();
+    await new Promise(resolve => server.close(resolve));
+    await rm(dir, {recursive: true, force: true});
+  });
+  const base = "http://127.0.0.1:" + server.address().port;
+  const health = base + "/__ordax/native/local-ai/health";
+  assert.equal((await fetch(health, opts)).status, 503);
+  for (let n = 0; n < 100; n++) {
+    if ((await fetch(health, opts)).status === 200) break;
+    await new Promise(resolve => setTimeout(resolve, 20));
+  }
+  assert.equal(children.length, 1);
+  const cancel = new AbortController();
+  const pending = fetch(base + "/__ordax/native/local-ai/v1/chat/completions", {
+    method: "POST", signal: cancel.signal,
+    headers: {...opts.headers, origin: base, "content-type": "application/json"},
+    body: JSON.stringify({
+      model: model.modelId, max_tokens: 512, stream: false,
+      messages: [{role: "user", content: "Explique o estado atual."}],
+    }),
+  }).catch(() => null);
+  await Promise.race([started, new Promise((_, reject) =>
+    setTimeout(() => reject(Error("Local AI inference did not start")), 4_000))]);
+  cancel.abort();
+  await pending;
+  let recovered = false;
+  for (let n = 0; n < 100; n++) {
+    await new Promise(resolve => setTimeout(resolve, 30));
+    if (children.length === 2 && (await fetch(health, opts)).status === 200) {
+      recovered = true;
+      break;
+    }
+  }
+  assert.equal(recovered, true, "Uncooperative inference must not strand Aura");
+  assert.equal(children[0].exitCode, 0, "Old backend exits before new one starts");
+  assert.equal(children[1].exitCode, null);
+  assert.equal(alive, 1);
+  releaseHung?.();
+  await new Promise(resolve => setImmediate(resolve));
+  assert.equal(alive, 1, "Late abandoned completion cannot restart another engine");
+});
+
 test("Windows Aura recovers a signaled backend once without duplicate engine or retry storm", async t => {
   const { readdir } = await import("node:fs/promises");
   const profile = await mkdtemp(join(tmpdir(), "ordax-aura-exit-recovery-"));

@@ -134,7 +134,8 @@ jobs:
             jq -c --arg owner "$OWNER" --arg repo "$GITHUB_REPOSITORY" '
               [.[][] | select(.head.repo.full_name == $repo and .base.ref == "main")
                | select(.head.ref == ("automation/advance-" + $owner)
-                        or (.head.ref | startswith("automation/advance-" + $owner + "-")))
+                        or (.head.ref | startswith("automation/advance-" + $owner + "-"))
+                        or (.head.ref | startswith("fix/" + $owner + "-source-lock-")))
                | {number, branch:.head.ref, sha:.head.sha}]'
           )"
           count="$(jq 'length' <<< "$matches")"
@@ -151,11 +152,16 @@ jobs:
             gh pr view "$number" --repo "$GITHUB_REPOSITORY" --json files |
               jq -e --arg lock "$LOCK" '([.files[].path] == [$lock])' > /dev/null
             echo "existing=true" >> "$GITHUB_OUTPUT"
+            case "$branch" in
+              fix/"$OWNER"-source-lock-*) echo "manual=true" >> "$GITHUB_OUTPUT" ;;
+              *) echo "manual=false" >> "$GITHUB_OUTPUT" ;;
+            esac
             echo "number=$number" >> "$GITHUB_OUTPUT"
             echo "branch=$branch" >> "$GITHUB_OUTPUT"
             echo "head_sha=$head_sha" >> "$GITHUB_OUTPUT"
           else
             echo "existing=false" >> "$GITHUB_OUTPUT"
+            echo "manual=false" >> "$GITHUB_OUTPUT"
           fi
 
       - name: Create or fast-forward the single owner lock PR
@@ -166,6 +172,7 @@ jobs:
           GH_TOKEN: ${{ secrets.ORDAX_INTEGRATION_TOKEN || github.token }}
           NATIVE_FALLBACK: ${{ secrets.ORDAX_INTEGRATION_TOKEN == '' }}
           EXISTING: ${{ steps.pending.outputs.existing }}
+          MANUAL: ${{ steps.pending.outputs.manual }}
           PR_NUMBER: ${{ steps.pending.outputs.number }}
           PR_BRANCH: ${{ steps.pending.outputs.branch }}
           PR_HEAD_SHA: ${{ steps.pending.outputs.head_sha }}
@@ -191,6 +198,20 @@ jobs:
           remote_main="$(gh api "repos/$GITHUB_REPOSITORY/git/ref/heads/main" --jq '.object.sha')"
           if [ "$main_sha" != "$remote_main" ]; then
             echo "::error::OS main advanced during verification; next run must validate the current source lock"
+            exit 1
+          fi
+          # Manually reviewed single-lock PRs are not automation write targets.
+          # Accept only an exact already-reviewed immutable HEAD; a differing
+          # candidate requires manual reconciliation rather than forced changes.
+          if [ "$EXISTING" = true ] && [ "$MANUAL" = true ]; then
+            if gh api "repos/$GITHUB_REPOSITORY/contents/$LOCK?ref=$PR_HEAD_SHA" \
+                --jq .content | base64 --decode | cmp - "$candidate_lock"; then
+              echo "changed=false" >> "$GITHUB_OUTPUT"
+              echo "native=false" >> "$GITHUB_OUTPUT"
+              echo "::notice::Verified source is already pending in existing manual owner PR; no branch, PR or review text changed"
+              exit 0
+            fi
+            echo "::error::Manual owner source-lock PR differs from verified candidate; reconcile before proceeding (no branch was pushed)"
             exit 1
           fi
           git config user.name "ordax-source-integration[bot]"
@@ -266,7 +287,7 @@ jobs:
           workflows=(foundation.yml)
           case "$OWNER" in
             surface)
-              workflows+=(surface-source-consumer.yml owner-surface-source.yml windows-desktop-dev.yml)
+              workflows+=(surface-source-consumer.yml owner-surface-source.yml)
               ;;
             intelligence)
               workflows+=(intelligence-source.yml owner-intelligence-source.yml)

@@ -1,11 +1,11 @@
 import test from "node:test";
 import assert from "node:assert/strict";
 import {EventEmitter} from "node:events";
-import {mkdtempSync,mkdirSync,writeFileSync,symlinkSync,rmSync} from "node:fs";
+import {mkdtempSync,mkdirSync,writeFileSync,readFileSync,symlinkSync,rmSync} from "node:fs";
 import {tmpdir} from "node:os";
 import {join} from "node:path";
 import {createHash} from "node:crypto";
-import {createDesktopProductRuntimeSupervisor,createDesktopSignedRuntimeHandoff} from "./product-runtime-supervisor.mjs";
+import {createDesktopProductRuntimeSupervisor,createDesktopSignedRuntimeHandoff,stopOwnedDesktopWindowsTree} from "./product-runtime-supervisor.mjs";
 
 const SHA="a".repeat(40);
 function fixture(t,{identity=true,approved=false}={}){
@@ -137,8 +137,8 @@ test("Runtime credential rejection (exit 43) halts retries until Owner rotates t
   assert.equal(launches,2);
   sup.stop();
 });
-test("Runtime requested restart (exit 42) retains ordinary supervised recovery",async t=>{
-  const f=fixture(t,{approved:false});
+test("Runtime requested restart (exit 42) retains prompt but bounded supervised recovery",async t=>{
+  const f=fixture(t,{approved:false}),virtual=virtualRestartClock();
   stagePinnedDesktopDevCandidate(f);
   let launches=0;
   const children=[];
@@ -146,11 +146,16 @@ test("Runtime requested restart (exit 42) retains ordinary supervised recovery",
     systemRoot:f.systemRoot,userData:f.userData,platform:"win32",
     developmentCandidate:true,
     spawnImpl:()=>{launches++;const p=child();children.push(p);return p},
+    ...virtual,
   });
   assert.equal((await sup.reconcile()).state,"running");
   children[0].exitCode=42;children[0].emit("exit",42,null);
   assert.equal(sup.status().reason,"runtime_exited");
-  assert.equal((await sup.reconcile()).state,"running");
+  assert.equal(virtual.timers()[0].delay,250);
+  assert.equal((await sup.reconcile()).reason,"runtime_restart_backoff");
+  assert.equal(launches,1);
+  await virtual.fireNext();
+  assert.equal(sup.status().state,"running");
   assert.equal(launches,2);
   sup.stop();
 });
@@ -429,6 +434,89 @@ test("changed device token while verifying release cannot launch",async t=>{
  assert.equal(launched,0);
  sup.stop();
 });
+test("rotated Device credential replaces the owned MCP process without overlapping identities",async t=>{
+ const f=fixture(t,{approved:true});
+ const children=[],launches=[];
+ const sup=createDesktopProductRuntimeSupervisor({
+   systemRoot:f.systemRoot,userData:f.userData,platform:"win32",
+   verifiedHandoff:()=>f.plan,
+   spawnImpl:(_file,_args,options)=>{
+     launches.push(options);
+     const proc=child();children.push(proc);return proc;
+   },
+ });
+ assert.equal((await sup.reconcile()).state,"running");
+ assert.equal(launches.length,1);
+ assert.equal((await sup.reconcile()).state,"running");
+ assert.equal(launches.length,1);
+ writeFileSync(join(f.state,"device-token.cloudflare-v3.txt"),"c".repeat(64));
+ const pending=await sup.reconcile();
+ assert.equal(pending.state,"stopping");
+ assert.equal(pending.reason,"previous_instance_still_running");
+ assert.equal(pending.mcpReady,false);
+ assert.equal(launches.length,1);
+ assert.deepEqual(children[0].kills,["SIGTERM"]);
+ // A second tick cannot launch a replacement before real process exit.
+ assert.equal((await sup.reconcile()).state,"stopping");
+ assert.equal(launches.length,1);
+ children[0].exitCode=0;
+ children[0].emit("exit",0);
+ assert.equal((await sup.reconcile()).state,"running");
+ assert.equal(launches.length,2);
+ assert.equal(launches[1].env.ORDAX_AGENT_STATE_DIR,f.state);
+ assert.equal(launches[1].env.ORDAX_RUNTIME_HOST_PROFILE,"ordax-desktop");
+ assert.equal(sup.status().centralSessionAttested,false);
+ assert.equal(sup.status().mcpReady,false);
+ assert.doesNotMatch(JSON.stringify(sup.status()),/cccccccccccc|tokenFingerprint|transport/);
+ sup.stop();
+});
+test("changing the canonical Product transport replaces its child, not its Windows host grants",async t=>{
+ const f=fixture(t,{approved:true});
+ const children=[],envs=[];
+ const sup=createDesktopProductRuntimeSupervisor({
+   systemRoot:f.systemRoot,userData:f.userData,platform:"win32",
+   verifiedHandoff:()=>f.plan,
+   spawnImpl:(_file,_args,options)=>{
+     envs.push(options.env);
+     const proc=child();children.push(proc);return proc;
+   },
+ });
+ assert.equal((await sup.reconcile()).state,"running");
+ const configFile=join(f.state,"agent-settings.json");
+ const settings=JSON.parse(readFileSync(configFile,"utf8"));
+ settings.product_mcp_url="https://mcp.ordax.com.br";
+ writeFileSync(configFile,JSON.stringify(settings));
+ assert.equal((await sup.reconcile()).reason,"previous_instance_still_running");
+ assert.equal(envs.length,1);
+ children[0].exitCode=0;children[0].emit("exit",0);
+ assert.equal((await sup.reconcile()).state,"running");
+ assert.equal(envs.length,2);
+ assert.equal(envs[1].ORDAX_PRODUCT_MCP_URL,"https://mcp.ordax.com.br");
+ assert.equal(envs[1].ORDAX_COMPUTER_FULL_ACCESS,undefined);
+ sup.stop();
+});
+test("signalCode observed before exit cannot release the owned Product process",async t=>{
+ const f=fixture(t,{approved:true});
+ let launches=0;const children=[];
+ const sup=createDesktopProductRuntimeSupervisor({
+   systemRoot:f.systemRoot,userData:f.userData,platform:"win32",
+   verifiedHandoff:()=>f.plan,
+   spawnImpl:()=>{launches++;const proc=child();children.push(proc);return proc},
+ });
+ assert.equal((await sup.reconcile()).state,"running");
+ const original=children[0];
+ // Node may expose signalCode before invoking our exit callback. That
+ // observation alone cannot prove the frozen child process tree is gone.
+ original.signalCode="SIGTERM";
+ assert.equal((await sup.reconcile()).reason,"previous_instance_still_running");
+ assert.equal(launches,1);
+ assert.equal((await sup.reconcile()).reason,"previous_instance_still_running");
+ assert.equal(launches,1,"must not overlap an unreaped child");
+ original.emit("exit",null,"SIGTERM");
+ assert.equal((await sup.reconcile()).state,"running");
+ assert.equal(launches,2);
+ sup.stop();
+});
 test("replacement is blocked until previous owned child really exits",async t=>{
  const f=fixture(t,{approved:true});
  const secondExecutable=join(f.userData,"Components","product-runtime","versions","v2","ordax-runtime.exe");
@@ -500,6 +588,159 @@ test("host ABI boundary rejects Linux and stops cleanly",async t=>{
  assert.equal(sup.stop().state,"stopped");
  assert.equal((await sup.reconcile()).reason,"supervisor_closed");
 });
+function virtualRestartClock(){
+ let now=10000;const pending=new Set();
+ const clock=()=>now;
+ const setTimeoutImpl=(fn,delay)=>{
+   const item={fn,delay,unref(){}};
+   pending.add(item);return item;
+ };
+ const clearTimeoutImpl=item=>pending.delete(item);
+ return {clock,setTimeoutImpl,clearTimeoutImpl,
+   advance:ms=>{now+=ms;},
+   timers:()=>[...pending],
+   async fireNext(){
+     const item=[...pending][0];assert.ok(item,"Expected owned recovery timer");
+     now+=item.delay;
+     pending.delete(item);
+     item.fn();
+     // Supervisor reconciliation runs through a serialized microtask chain.
+     for(let i=0;i<8;i++)await Promise.resolve();
+   },
+ };
+}
+test("unexpected MCP exit retries promptly with bounded exponential delay, no overlapping process",async t=>{
+ const f=fixture(t,{approved:true}),virtual=virtualRestartClock();
+ const children=[];
+ const sup=createDesktopProductRuntimeSupervisor({
+   systemRoot:f.systemRoot,userData:f.userData,platform:"win32",
+   verifiedHandoff:()=>f.plan,
+   spawnImpl:()=>{const c=child();children.push(c);return c},
+   ...virtual,
+ });
+ assert.equal((await sup.reconcile()).state,"running");
+ children[0].exitCode=17;children[0].emit("exit",17);
+ assert.equal(sup.status().mcpReady,false);
+ assert.equal(virtual.timers().length,1);
+ assert.equal(virtual.timers()[0].delay,1000);
+ assert.equal((await sup.reconcile()).reason,"runtime_restart_backoff");
+ assert.equal(children.length,1);
+ await virtual.fireNext();
+ assert.equal(children.length,2);
+ assert.equal(sup.status().state,"running");
+ assert.equal(virtual.timers().length,0);
+ children[1].exitCode=17;children[1].emit("exit",17);
+ assert.equal(virtual.timers()[0].delay,2000);
+ assert.equal((await sup.reconcile()).reason,"runtime_restart_backoff");
+ await virtual.fireNext();
+ assert.equal(children.length,3);
+ assert.equal(sup.status().state,"running");
+ assert.equal(sup.status().centralSessionAttested,false);
+ virtual.advance(120000);
+ children[2].exitCode=17;children[2].emit("exit",17);
+ assert.equal(virtual.timers()[0].delay,1000,
+   "a stable run resets the crash-streak delay");
+ sup.stop();
+ assert.equal(virtual.timers().length,0);
+});
+test("MCP credential rotation cancels a queued crash retry and uses new Device identity",async t=>{
+ const f=fixture(t,{approved:true}),virtual=virtualRestartClock();
+ const children=[];
+ const sup=createDesktopProductRuntimeSupervisor({
+   systemRoot:f.systemRoot,userData:f.userData,platform:"win32",
+   verifiedHandoff:()=>f.plan,
+   spawnImpl:()=>{const c=child();children.push(c);return c},
+   ...virtual,
+ });
+ await sup.reconcile();
+ children[0].exitCode=17;children[0].emit("exit",17);
+ assert.equal(virtual.timers().length,1);
+ writeFileSync(join(f.state,"device-token.cloudflare-v3.txt"),"c".repeat(64));
+ assert.equal((await sup.reconcile()).state,"running");
+ assert.equal(children.length,2);
+ assert.equal(virtual.timers().length,0);
+ assert.equal(sup.status().mcpReady,false);
+ sup.stop();
+});
+test("credential rejection never schedules reconnect; Runtime-requested restart remains prompt",async t=>{
+ const f=fixture(t,{approved:true}),virtual=virtualRestartClock();
+ const children=[];
+ const sup=createDesktopProductRuntimeSupervisor({
+   systemRoot:f.systemRoot,userData:f.userData,platform:"win32",
+   verifiedHandoff:()=>f.plan,
+   spawnImpl:()=>{const c=child();children.push(c);return c},
+   ...virtual,
+ });
+ await sup.reconcile();
+ children[0].exitCode=42;children[0].emit("exit",42);
+ assert.equal(virtual.timers()[0].delay,250);
+ assert.equal((await sup.reconcile()).reason,"runtime_restart_backoff");
+ assert.equal(children.length,1);
+ await virtual.fireNext();
+ assert.equal(sup.status().state,"running");
+ assert.equal(children.length,2);
+ assert.equal(virtual.timers().length,0);
+ children[1].exitCode=43;children[1].emit("exit",43);
+ assert.equal(sup.status().reason,"device_credential_recovery_required");
+ assert.equal(virtual.timers().length,0);
+ assert.equal((await sup.reconcile()).reason,"device_credential_recovery_required");
+ assert.equal(children.length,2);
+ sup.stop();
+});
+
+test("MCP spawn error and later exit share one retry timer, never a duplicate Runtime",async t=>{
+ const f=fixture(t,{approved:true}),virtual=virtualRestartClock();
+ let spawned=0;let currentChild=null;
+ const sup=createDesktopProductRuntimeSupervisor({
+   systemRoot:f.systemRoot,userData:f.userData,platform:"win32",
+   verifiedHandoff:()=>f.plan,
+   spawnImpl:()=>{
+     spawned++;
+     currentChild=child();
+     return currentChild;
+   },
+   ...virtual,
+ });
+ assert.equal((await sup.reconcile()).state,"running");
+ const failed=currentChild;
+ failed.emit("error",new Error("runtime transport unavailable"));
+ assert.equal(sup.status().state,"stopping");
+ assert.equal(sup.status().reason,"runtime_spawn_failed");
+ assert.equal(sup.status().processRunning,true);
+ assert.equal(virtual.timers().length,0,"cannot retry before the owned tree exits");
+ assert.deepEqual(failed.kills,["SIGTERM"]);
+ assert.equal((await sup.reconcile()).reason,"previous_instance_still_running");
+ assert.equal(spawned,1,"stale process must never overlap the replacement");
+ failed.exitCode=1;failed.emit("exit",1);
+ assert.equal(virtual.timers().length,1);
+ assert.equal(virtual.timers()[0].delay,1000);
+ assert.equal((await sup.reconcile()).reason,"runtime_restart_backoff");
+ await virtual.fireNext();
+ assert.equal(spawned,2);
+ assert.equal(sup.status().mcpReady,false);
+ sup.stop();
+});
+test("synchronous MCP spawn failure is rate-limited, and stopping cancels its retry",async t=>{
+ const f=fixture(t,{approved:true}),virtual=virtualRestartClock();
+ let calls=0;
+ const sup=createDesktopProductRuntimeSupervisor({
+   systemRoot:f.systemRoot,userData:f.userData,platform:"win32",
+   verifiedHandoff:()=>f.plan,
+   spawnImpl:()=>{calls++;throw Error("windows launcher unavailable")},
+   ...virtual,
+ });
+ assert.equal((await sup.reconcile()).reason,"runtime_spawn_failed");
+ assert.equal(calls,1);
+ assert.equal(virtual.timers().length,1);
+ assert.equal((await sup.reconcile()).reason,"runtime_restart_backoff");
+ assert.equal(calls,1);
+ sup.stop();
+ assert.equal(virtual.timers().length,0);
+ virtual.advance(60000);
+ assert.equal((await sup.reconcile()).reason,"supervisor_closed");
+ assert.equal(calls,1);
+});
+
 test("unexpected Runtime exit cannot imply an attested session",async t=>{
  const f=fixture(t,{approved:true});
  const spawned=child();
@@ -512,4 +753,159 @@ test("unexpected Runtime exit cannot imply an attested session",async t=>{
  assert.equal(sup.status().mcpReady,false);
  assert.equal(sup.status().reason,"runtime_exited");
  sup.stop();
+});
+
+
+test("scoped Surface bridge is injected only into the owned Product child", async t=>{
+  const f=fixture(t,{approved:false});
+  stagePinnedDesktopDevCandidate(f);
+  let launched=null;
+  const sup=createDesktopProductRuntimeSupervisor({
+    systemRoot:f.systemRoot,userData:f.userData,platform:"win32",
+    developmentCandidate:true,
+    nativeBridge:()=>({url:"http://127.0.0.1:45678/__ordax/native/desktop-surface-state",
+      token:"c".repeat(64)}),
+    env:{ORDAX_DESKTOP_SURFACE_BRIDGE_TOKEN:"fake-windows-token",
+      ORDAX_COMPUTER_FULL_ACCESS:"1",UNRELATED:"safe"},
+    spawnImpl:(_file,_args,opts)=>{launched=opts;return child()},
+  });
+  assert.equal((await sup.reconcile()).state,"running");
+  assert.equal(launched.env.ORDAX_DESKTOP_SURFACE_BRIDGE_TOKEN,"c".repeat(64));
+  assert.equal(launched.env.ORDAX_DESKTOP_SURFACE_BRIDGE_URL,
+    "http://127.0.0.1:45678/__ordax/native/desktop-surface-state");
+  assert.equal(launched.env.ORDAX_COMPUTER_FULL_ACCESS,undefined);
+  assert.equal(launched.env.UNRELATED,"safe");
+  sup.stop();
+});
+
+test("Native Surface bridge rotation replaces stale Product MCP process without overlapping grants",async t=>{
+ const f=fixture(t,{approved:false});
+ stagePinnedDesktopDevCandidate(f);
+ const children=[],envs=[];
+ let bridge={
+   url:"http://127.0.0.1:45678/__ordax/native/desktop-surface-state",
+   token:"c".repeat(64),
+ };
+ const sup=createDesktopProductRuntimeSupervisor({
+   systemRoot:f.systemRoot,userData:f.userData,platform:"win32",
+   developmentCandidate:true,nativeBridge:()=>bridge,
+   spawnImpl:(_file,_args,options)=>{
+     envs.push(options.env);
+     const proc=child();children.push(proc);return proc;
+   },
+ });
+ assert.equal((await sup.reconcile()).state,"running");
+ assert.equal(envs.length,1);
+ assert.equal(envs[0].ORDAX_DESKTOP_SURFACE_BRIDGE_TOKEN,"c".repeat(64));
+ assert.equal((await sup.reconcile()).state,"running");
+ assert.equal(envs.length,1,"stable bridge must reuse one process");
+ bridge={...bridge,token:"d".repeat(64)};
+ const pending=await sup.reconcile();
+ assert.equal(pending.state,"stopping");
+ assert.equal(pending.reason,"previous_instance_still_running");
+ assert.deepEqual(children[0].kills,["SIGTERM"]);
+ assert.equal(envs.length,1,"never overlap a process with a stale Native grant");
+ children[0].exitCode=0;children[0].emit("exit",0);
+ assert.equal((await sup.reconcile()).state,"running");
+ assert.equal(envs.length,2);
+ assert.equal(envs[1].ORDAX_DESKTOP_SURFACE_BRIDGE_TOKEN,"d".repeat(64));
+ bridge={...bridge,url:"http://127.0.0.1:45679/__ordax/native/desktop-surface-state"};
+ assert.equal((await sup.reconcile()).reason,"previous_instance_still_running");
+ children[1].exitCode=0;children[1].emit("exit",0);
+ assert.equal((await sup.reconcile()).state,"running");
+ assert.equal(envs.length,3);
+ assert.equal(envs[2].ORDAX_DESKTOP_SURFACE_BRIDGE_URL,bridge.url);
+ bridge={url:"http://localhost:45679/__ordax/native/desktop-surface-state",token:"d".repeat(64)};
+ const invalid=await sup.reconcile();
+ assert.equal(invalid.reason,"native_surface_bridge_unavailable");
+ assert.equal(invalid.state,"stopping");
+ assert.equal(envs.length,3);
+ assert.equal(invalid.mcpReady,false);
+ children[2].exitCode=0;children[2].emit("exit",0);
+ assert.equal((await sup.reconcile()).reason,"native_surface_bridge_unavailable");
+ assert.equal(sup.status().state,"blocked");
+ assert.doesNotMatch(JSON.stringify(sup.status()),/dddddddddddd|credential|transport/);
+ sup.stop();
+});
+
+test("malformed, non-loopback and absent Native bridges block Product spawn",async t=>{
+  for(const bridge of [
+    null,
+    {url:"http://localhost:45678/__ordax/native/desktop-surface-state",token:"c".repeat(64)},
+    {url:"http://127.0.0.1:45678/__ordax/native/desktop-surface-state",token:"invalid"},
+    {url:"http://127.0.0.1:45678/__ordax/native/desktop-surface-state?x=1",token:"c".repeat(64)},
+  ]){
+    const f=fixture(t,{approved:false});
+    stagePinnedDesktopDevCandidate(f);
+    const sup=createDesktopProductRuntimeSupervisor({
+      systemRoot:f.systemRoot,userData:f.userData,platform:"win32",
+      developmentCandidate:true,nativeBridge:()=>bridge,
+      spawnImpl:()=>{throw Error("Unverified bridge must not spawn")},
+    });
+    assert.equal((await sup.reconcile()).reason,"native_surface_bridge_unavailable");
+    sup.stop();
+  }
+});
+
+test("Windows tree termination operates on exact owned PID and Win32 child process tree",()=>{
+  let invoked=null;
+  const valid=stopOwnedDesktopWindowsTree(27182,{
+    windowsRoot:"C:\\Windows",
+    execImpl:(command,args,options)=>{
+      invoked={command,args,options};
+      return {status:0,error:null,signal:null};
+    },
+  });
+  assert.equal(valid,true);
+  assert.equal(invoked.command,"C:\\Windows\\System32\\taskkill.exe");
+  assert.deepEqual(invoked.args,["/PID","27182","/T","/F"]);
+  assert.equal(invoked.options.shell,false);
+  assert.equal(invoked.options.timeout,5000);
+  assert.equal(invoked.options.windowsHide,true);
+  assert.equal(invoked.options.stdio,"ignore");
+  for(const pid of [-1,0,Number.NaN,Infinity,1.4,0x100000000]){
+    assert.equal(stopOwnedDesktopWindowsTree(pid,{
+      windowsRoot:"C:\\Windows",execImpl:()=>{throw Error("invalid PID invoked")},
+    }),false);
+  }
+  assert.equal(stopOwnedDesktopWindowsTree(123,{windowsRoot:"",execImpl:()=>({status:0})}),false);
+  assert.equal(stopOwnedDesktopWindowsTree(123,{windowsRoot:"C:\\Windows",execImpl:()=>({status:5})}),false);
+});
+
+test("a supervised Windows Product Runtime stops its full tree without orphaning its frozen child",async t=>{
+  const f=fixture(t,{approved:false});
+  stagePinnedDesktopDevCandidate(f);
+  const proc=child();
+  proc.pid=27182;
+  let stopped=[];
+  const sup=createDesktopProductRuntimeSupervisor({
+    systemRoot:f.systemRoot,userData:f.userData,platform:"win32",
+    developmentCandidate:true,spawnImpl:()=>proc,
+    stopTreeImpl:pid=>{stopped.push(pid);return true},
+  });
+  assert.equal((await sup.reconcile()).state,"running");
+  sup.stop();
+  assert.deepEqual(stopped,[27182]);
+  assert.deepEqual(proc.kills,[]);
+  assert.equal(sup.status().state,"stopping");
+  proc.exitCode=1;
+  proc.emit("exit",1,null);
+  assert.equal(sup.status().state,"stopped");
+});
+
+test("failed native Windows tree termination falls back only to owned Runtime child",async t=>{
+  const f=fixture(t,{approved:false});
+  stagePinnedDesktopDevCandidate(f);
+  const proc=child();
+  proc.pid=27183;
+  let treeCalls=0;
+  const sup=createDesktopProductRuntimeSupervisor({
+    systemRoot:f.systemRoot,userData:f.userData,platform:"win32",
+    developmentCandidate:true,spawnImpl:()=>proc,
+    stopTreeImpl:()=>{treeCalls++;return false},
+  });
+  assert.equal((await sup.reconcile()).state,"running");
+  sup.stop();
+  assert.equal(treeCalls,1);
+  assert.deepEqual(proc.kills,["SIGTERM"]);
 });

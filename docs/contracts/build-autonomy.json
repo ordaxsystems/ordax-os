@@ -126,8 +126,8 @@
     "desktop-client": {
       "requires_creator": false,
       "requires_usb_producer": false,
-      "producer": "tools/windows-desktop/",
-      "validation_owner": "Windows Desktop Dev (SSOT)"
+      "producer": "ordaxsystems/ordax-desktop",
+      "validation_owner": "Desktop Source Contracts"
     },
     "web-client": {
       "requires_creator": false,
@@ -138,12 +138,33 @@
     "client_only_source_prefixes": [
       "system/adapters/desktop/",
       "system/composition/web/",
-      "tools/windows-desktop/",
       "tools/windows-emulator/"
     ],
     "shared_native_changes_require_usb_proof": true,
     "unknown_owner_changes_fail_closed": true,
     "identity_and_shared_contracts_remain_cross_mode": true,
     "ci_path_filters_not_authority": true
+  },
+  "owner_dev_pull_ci": {
+    "distribution_owner_ssot": "docs/contracts/distribution-profiles.json#profiles.owner-development",
+    "pull_review_fast_path_scope": "tools/ci/creator_owner_impact.py#PULL_REVIEW_ONLY_PATHS",
+    "pull_review_validation_owner": "Owner Development Preflight",
+    "pull_only_pull_request_skips_creator_usb_build": true,
+    "pull_source_change_on_main_preserves_creator_usb_publish": true,
+    "mixed_boot_base_native_or_unknown_changes_require_full_usb_proof": true,
+    "manual_creator_usb_production_requires_full_proof": true,
+    "installed_git_updates_require_creator": false,
+    "creator_main_freshness": {
+      "owner": "tools/ci/creator_owner_publish_freshness.py",
+      "deployment_target": "creator-owner-prototype mutable development release",
+      "validate_before_expensive_main_build": true,
+      "revalidate_immediately_before_release_upload": true,
+      "newer_main_producer_change_blocks_stale_publication": true,
+      "newer_main_nonproducer_only_change_may_reuse_proven_usb": true,
+      "non_ancestor_or_unavailable_main_fails_closed": true,
+      "do_not_cancel_in_progress_main_build": true,
+      "do_not_disable_required_usb_qemu_proofs": true,
+      "creator_media_release_changes_installed_git_pull": false
+    }
   }
 }

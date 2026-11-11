@@ -9,6 +9,9 @@ import { desktopStoreCatalogEnvelopeUrl } from "./verified-store-catalog-host.mj
 
 const ARTIFACT_ROLES = Object.freeze(["package", "release", "compatibility", "componentEnvelope"]);
 const TIMEOUT_MS = 20000;
+// Limit both network concurrency and resident signed bytes while preserving
+// the caller's single canonical catalog-watermark transaction.
+const MAX_CONCURRENT_ARTIFACT_DOWNLOADS = 2;
 
 export function desktopStoreArtifactUrl(baseOrigin, identity) {
   const normalized = validateAppArtifactIdentity(identity);
@@ -50,15 +53,21 @@ async function verifiedCached(path, identity) {
   return path;
 }
 
-async function download(identity, url, fetchImpl) {
+async function download(identity, url, fetchImpl, timeoutMs) {
   const abort = new AbortController();
-  const timer = setTimeout(() => abort.abort(), TIMEOUT_MS);
-  try {
+  let rejectDeadline;
+  const expired = new Promise((_, reject) => { rejectDeadline = reject; });
+  const timer = setTimeout(() => {
+    abort.abort();
+    rejectDeadline(Error("Store artifact HTTPS read exceeded deadline"));
+  }, timeoutMs);
+  const reading = (async () => {
     const result = await fetchImpl(url, {
       method: "GET", redirect: "error", credentials: "omit", cache: "no-store",
       headers: { Accept: "application/octet-stream", "Accept-Encoding": "identity" },
       signal: abort.signal,
     });
+    if (abort.signal.aborted) throw Error("Store artifact HTTPS read cancelled");
     if (result?.status !== 200 || result.redirected || result.url !== url
       || !result.headers || !result.body)
       throw Error("Store artifact response is not canonical");
@@ -72,17 +81,24 @@ async function download(identity, url, fetchImpl) {
     const chunks = [];
     let count = 0;
     for await (const chunk of result.body) {
+      if (abort.signal.aborted) throw Error("Store artifact HTTPS read cancelled");
       if (!(chunk instanceof Uint8Array)) throw Error("Nonbinary Store artifact body");
       count += chunk.byteLength;
       if (count > identity.size || count > MAX_APP_ARTIFACT_BYTES)
         throw Error("Store artifact exceeds signed size");
       chunks.push(Buffer.from(chunk));
     }
+    if (abort.signal.aborted) throw Error("Store artifact HTTPS read cancelled");
     if (count !== identity.size) throw Error("Truncated signed Store artifact");
     const bytes = Buffer.concat(chunks, count);
     if (digestOf(bytes) !== identity.sha256)
       throw Error("Store artifact SHA-256 mismatch");
     return bytes;
+  })();
+  try {
+    // The installed Go owner must not be blocked indefinitely by a transport
+    // that ignores AbortSignal, or accept bytes delivered after timeout.
+    return await Promise.race([reading, expired]);
   } finally { clearTimeout(timer); abort.abort(); }
 }
 
@@ -113,10 +129,25 @@ async function persistVerified(parent, filename, bytes, identity) {
 // has compared the full private plan against a Go-verified local catalog.
 export async function acquireDesktopStoreArtifacts({
   userData, baseOrigin, candidate, fetchImpl = globalThis.fetch,
+  fetchTimeoutMs = TIMEOUT_MS,
 } = {}) {
+  if (!Number.isInteger(fetchTimeoutMs) || fetchTimeoutMs < 1
+    || fetchTimeoutMs > TIMEOUT_MS)
+    throw TypeError("Store artifact HTTPS deadline must be bounded");
   if (typeof fetchImpl !== "function") throw TypeError("Native artifact fetch is required");
   const identities = Object.fromEntries(ARTIFACT_ROLES.map(role =>
     [role, validateAppArtifactIdentity(candidate?.artifacts?.[role])]));
+  // Different signed roles may share immutable CAS bytes, but their signed
+  // lengths must agree before the per-digest singleflight can reuse a writer.
+  // Reject an inconsistent catalog before reading cache or touching the network.
+  const sizesByDigest = new Map();
+  for (const role of ARTIFACT_ROLES) {
+    const { sha256, size } = identities[role];
+    if (sizesByDigest.has(sha256) && sizesByDigest.get(sha256) !== size) {
+      throw Error("Signed Store artifact digest has conflicting sizes");
+    }
+    sizesByDigest.set(sha256, size);
+  }
   // Validate origin before creating any files or accepting a cache hit.
   const urls = Object.fromEntries(ARTIFACT_ROLES.map(role =>
     [role, desktopStoreArtifactUrl(baseOrigin, identities[role])]));
@@ -125,13 +156,40 @@ export async function acquireDesktopStoreArtifacts({
   const artifacts = await ensureDirectory(join(store, "artifacts"));
   const version = await ensureDirectory(join(artifacts, "v1"));
   const hashes = await ensureDirectory(join(version, "sha256"));
-  const result = {};
-  for (const role of ARTIFACT_ROLES) {
+  // Four independent signed artifact reads do not need four sequential HTTPS
+  // round trips. Keep at most two verified byte buffers in flight. An identical
+  // SHA-256 across roles shares one CAS writer; otherwise simultaneous hard
+  // links to the same digest could briefly fail the nlink=1 safety check.
+  const byDigest = new Map();
+  const byRole = new Map();
+  let cursor = 0, failure = null;
+  const acquire = role => {
     const identity = identities[role], name = identity.sha256;
-    const parent = await ensureDirectory(join(hashes, name.slice(0, 2)));
-    const cached = await verifiedCached(join(parent, name), identity);
-    result[role] = cached ?? await persistVerified(
-      parent, name, await download(identity, urls[role], fetchImpl), identity);
-  }
-  return Object.freeze(result);
+    if (!byDigest.has(name)) {
+      byDigest.set(name, (async () => {
+        const parent = await ensureDirectory(join(hashes, name.slice(0, 2)));
+        const cached = await verifiedCached(join(parent, name), identity);
+        return cached ?? await persistVerified(
+          parent, name, await download(identity, urls[role], fetchImpl, fetchTimeoutMs), identity);
+      })());
+    }
+    return byDigest.get(name);
+  };
+  const workers = Array.from({
+    length: Math.min(MAX_CONCURRENT_ARTIFACT_DOWNLOADS, ARTIFACT_ROLES.length),
+  }, async () => {
+    while (cursor < ARTIFACT_ROLES.length && failure === null) {
+      const role = ARTIFACT_ROLES[cursor++];
+      try { byRole.set(role, await acquire(role)); }
+      catch (error) { failure ??= error; }
+    }
+  });
+  // On the first failure, no new downloads start. Still join every already
+  // active worker before returning: otherwise the caller could release its
+  // watermark lock while a detached CAS writer was still publishing bytes.
+  await Promise.all(workers);
+  if (failure !== null) throw failure;
+  return Object.freeze(Object.fromEntries(
+    ARTIFACT_ROLES.map(role => [role, byRole.get(role)]),
+  ));
 }

@@ -44,6 +44,7 @@ test("web identity adapter reports signed-out when the real gateway is configure
   const windowRef = {
     fetch: async () => ({
       ok: true,
+      status: 200,
       json: async () => ({
         $schema: "prototype-ordax.public-identity-session/1",
         authenticated: false,
@@ -68,6 +69,7 @@ test("web identity adapter reports a validated signed-in account", async () => {
   const windowRef = {
     fetch: async () => ({
       ok: true,
+      status: 200,
       json: async () => ({
         $schema: "prototype-ordax.public-identity-session/1",
         authenticated: true,
@@ -94,6 +96,7 @@ test("identity adapter ignores unsafe account display names and keeps its email 
   const port = createWebIdentitySession({
     fetch: async () => ({
       ok: true,
+      status: 200,
       json: async () => ({
         $schema: "prototype-ordax.public-identity-session/1",
         authenticated: true,
@@ -108,6 +111,108 @@ test("identity adapter ignores unsafe account display names and keeps its email 
   await port.refresh();
   assert.equal(port.getSnapshot().displayName, "pessoa");
   port.dispose();
+});
+
+test("inconsistent HTTP 200 gateway sessions are unavailable, never interpreted as logout", async () => {
+  const schema = "prototype-ordax.public-identity-session/1";
+  const authenticated = {
+    $schema: schema,
+    provider: "supabase",
+    authenticated: true,
+    status: "authenticated",
+    subject: "user-verified",
+    email: "pessoa@example.com",
+  };
+  const anonymous = {
+    $schema: schema,
+    provider: "supabase",
+    authenticated: false,
+    status: "anonymous",
+  };
+  let body = authenticated;
+  const port = createWebIdentitySession({
+    fetch: async () => ({ ok: true, status: 200, json: async () => body }),
+  });
+  try {
+    await port.refresh();
+    assert.equal(port.getSnapshot().state, "signed-in");
+    for (const invalid of [
+      { ...anonymous, status: "authenticated" },
+      { ...anonymous, status: "signed-out" },
+      { ...anonymous, status: "pending" },
+      { ...anonymous, authenticated: "false" },
+      { ...anonymous, authenticated: null },
+      { ...anonymous, provider: "gated" },
+      { ...anonymous, provider: "unconfigured" },
+      { ...anonymous, provider: "" },
+      { ...anonymous, provider: " supabase" },
+      { ...authenticated, authenticated: false },
+      { ...authenticated, provider: "gated" },
+      { ...authenticated, provider: null },
+      { ...authenticated, status: "anonymous" },
+      { ...authenticated, email: "x".repeat(121) + "@example.com", displayName: undefined },
+    ]) {
+      body = invalid;
+      await port.refresh();
+      assert.equal(port.getSnapshot().state, "unavailable",
+        "Invalid gateway status, provider or display identity must fail closed");
+      assert.equal(port.getSnapshot().subjectId, null);
+    }
+    body = authenticated;
+    await port.refresh();
+    assert.equal(port.getSnapshot().subjectId, "user-verified",
+      "A later verified gateway response restores the original session");
+    body = anonymous;
+    await port.refresh();
+    assert.equal(port.getSnapshot().state, "signed-out");
+  } finally {
+    port.dispose();
+  }
+});
+
+test("only a complete HTTP 200 gateway response can confirm a Web identity", async () => {
+  const authenticated = {
+    $schema: "prototype-ordax.public-identity-session/1",
+    provider: "supabase", authenticated: true, status: "authenticated",
+    subject: "user-verified", email: "pessoa@example.com",
+  };
+  const anonymous = {
+    $schema: "prototype-ordax.public-identity-session/1",
+    provider: "supabase", authenticated: false, status: "anonymous",
+  };
+  let code = 200, payload = authenticated;
+  const requests = [];
+  const port = createWebIdentitySession({
+    fetch: async (path, options) => {
+      requests.push({ path, options });
+      return { ok: code >= 200 && code < 300, status: code, json: async () => payload };
+    },
+  });
+  try {
+    await port.refresh();
+    assert.equal(port.getSnapshot().state, "signed-in");
+    for (const status of [201, 202, 206, 207]) {
+      code = status;
+      await port.refresh();
+      assert.equal(port.getSnapshot().state, "unavailable",
+        `Unexpected successful HTTP ${status} must not authorize a session`);
+      payload = anonymous;
+      await port.refresh();
+      assert.equal(port.getSnapshot().state, "unavailable",
+        `Unexpected successful HTTP ${status} must not prove logout`);
+      payload = authenticated;
+    }
+    code = 200;
+    await port.refresh();
+    assert.equal(port.getSnapshot().state, "signed-in");
+    payload = anonymous;
+    await port.refresh();
+    assert.equal(port.getSnapshot().state, "signed-out");
+    assert.equal(requests.every(r => r.path === "/auth/session"
+      && r.options.credentials === "same-origin" && r.options.cache === "no-store"), true);
+  } finally {
+    port.dispose();
+  }
 });
 
 test("identity gateway failure remains explicitly unavailable", async () => {
@@ -128,6 +233,7 @@ function controlledIdentityGateway() {
   };
   const reply = ({ subject = null } = {}) => ({
     ok: true,
+    status: 200,
     json: async () => ({
       $schema: "prototype-ordax.public-identity-session/1",
       provider: "supabase",

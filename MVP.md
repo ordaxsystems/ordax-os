@@ -2,7 +2,7 @@
 
 Status: CANÔNICO PARA ESCOPO DE LANÇAMENTO
 
-> Compatibilidade documental: o arquivo continua se chamando `MVP.md` porque esse caminho é referenciado por agentes, contratos, documentação e histórico. **“MVP” não é mais a estratégia ativa de produto.** Quando documentos antigos, nomes de profiles, contratos ou identificadores técnicos usarem `MVP`/`stable-mvp`, leia-os como nomenclatura histórica ou identificador de compatibilidade até uma migração específica, e não como autorização para reduzir o produto a um conjunto mínimo.
+> Compatibilidade documental: o arquivo continua se chamando `MVP.md` porque esse caminho é referenciado por agentes, contratos, documentação e histórico. **“MVP” como redução artificial do produto não é a estratégia ativa.** A janela de **MVP operacional integrado** abaixo define a primeira entrega utilizável no Desktop Windows sem retirar do Baseline capacidades já iniciadas. Quando documentos antigos, nomes de profiles, contratos ou identificadores técnicos usarem `MVP`/`stable-mvp`, leia-os como nomenclatura histórica ou identificador de compatibilidade até uma migração específica, e não como autorização para reduzir o produto a um conjunto mínimo.
 
 Este arquivo define **o que pertence ao ciclo de lançamento do OrdaX**. Leia-o antes de trabalhar em lançamento, USB, Creator, Native, Surface, apps, Conta, Spaces, Intelligence, Studio, Runtime, Web, Mobile, Platform, distribuição ou monetização.
 
@@ -10,7 +10,7 @@ Este arquivo define **o que pertence ao ciclo de lançamento do OrdaX**. Leia-o 
 
 ## 1. Princípio central
 
-O OrdaX não está mais sendo desenvolvido segundo a lógica de “produto mínimo”.
+O OrdaX não usa “produto mínimo” como justificativa para cortar, simular ou abandonar capacidades iniciadas. A primeira disponibilidade operacional, porém, deve priorizar uma jornada completa, segura e utilizável no Desktop Windows, antes de expandir modalidades independentes.
 
 A regra de lançamento é:
 
@@ -28,6 +28,23 @@ O equilíbrio obrigatório é:
 - não manter mocks permanentes no lugar de capacidades que o produto realmente precisa;
 - não atrasar um canal funcional por outra capacidade independente que ainda esteja em homologação;
 - preservar segurança, integridade, privacidade, recovery e autoridade dos owners como gates reais.
+
+## Janela prioritária — primeiro MVP operacional integrado (2026-11-06)
+
+**Decisão de execução, sem criar outro produto ou escopo paralelo:** o primeiro canal a fechar de ponta a ponta é o **OrdaX Desktop Windows**, com Web como composição complementar quando seus próprios gates passarem. Não aguardar USB/Creator/Buildroot, Native em disco ou MCP avançado para comprovar uma jornada Windows independente; não os remover do Baseline de Lançamento. Uma função em desenvolvimento que não estiver na primeira entrega deve permanecer indisponível de modo honesto, nunca simulada nem anunciada como utilizável.
+
+**Jornada mínima verificável para o primeiro grupo de usuários autorizado:**
+
+1. Obter o instalador oficial do Desktop, instalar uma única cópia, iniciar a Surface e verificar versões de OS, Surface e host realmente executadas, não apenas commits publicados.
+2. Autenticar uma Conta real, abrir o Space autorizado e recuperar a sessão/contexto com isolamento correto; indisponibilidade ou revogação não podem produzir acesso falso.
+3. Abrir a **Loja real**, ler o catálogo verificado e distinguir aplicativo disponível, instalado, em operação, bloqueado e atualizável. Interface ou catálogo mock não contam.
+4. Instalar ao menos **um aplicativo real** de `ordax-apps` por mecanismo oficial, conferir recibo/versão, abrir e fechar somente com autoridade de execução legítima e exercitar atualização e remoção seguras.
+5. Receber e aplicar atualização do Desktop e do aplicativo, validar a versão efetivamente ativa e demonstrar recovery/rollback exigível em caso de falha, sem duplicar instalação ou perder dados.
+6. Registrar prova **física no Windows**, com source/provenance, estados de erro e limites de autorização; testes de CI ou Chromium, isoladamente, não autorizam anúncio público.
+
+**Sequência de integração existente:** `ordax-desktop` (entrega/host Windows) + `ordax-os` (serviços, ports, lifecycle, atualização) + `ordax-surface` (Conta/Loja/launcher) + `ordax-apps` (pacotes publicados) + `ordax-platform` (sessão/grants) + `ordax-site` (download). Fixar revisões compatíveis e provas de composição; **sincronização não significa exigir SHAs iguais ou copiar código entre repositórios**. Demais owners só entram quando uma dependência causal dessa jornada o exigir.
+
+Priorizar integração vertical funcional em vez de polimento, auditorias, documentação ou infraestrutura repetitivos. Executar primeiro a correção no owner certo, validar proporcionalmente e integrar com gates aplicáveis. Nenhum atalho revoga assinatura, autenticação, autorização, integridade, update/recovery ou critérios do canal. `docs/CURRENT-STATE.md` registra o que de fato foi provado, separadamente desta meta.
 
 ## 2. Regra de inclusão no Baseline de Lançamento
 
