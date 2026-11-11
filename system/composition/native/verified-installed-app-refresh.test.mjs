@@ -59,7 +59,8 @@ test("mount failures never produce a visible installed app", async () => {
   });
   await controller.refresh();
   assert.deepEqual(published, [[], []]);
-  assert.deepEqual(errors, []);
+  assert.deepEqual(errors, ["One or more verified CURRENT apps could not be mounted"],
+    "missing mounts stay hidden and surface a retryable verification failure");
   await controller.destroy();
 });
 
