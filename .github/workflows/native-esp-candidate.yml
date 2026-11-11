@@ -229,7 +229,12 @@ jobs:
           docker image inspect --format '{{json .RepoDigests}}' "$IMAGE" | grep -Fq "@$expected"
           rm -rf out/native-esp-initramfs
           mkdir -p out/native-esp-initramfs
+          # The minimal digest-pinned image has no CA store. Supply only the
+          # trusted runner CA bundle as a read-only bootstrap input, rather
+          # than disabling TLS verification even temporarily.
+          test -s /etc/ssl/certs/ca-certificates.crt
           docker run --rm \
+            --mount type=bind,src=/etc/ssl/certs/ca-certificates.crt,dst=/run/ordax-host-ca.pem,readonly \
             -e GITHUB_SHA="$EXACT_SOURCE" \
             -e ORDAX_BASE_IMAGE="$IMAGE" \
             -e ORDAX_APT_SNAPSHOT_ID="$SNAPSHOT_ID" \
@@ -254,8 +259,9 @@ jobs:
                 "Signed-By: /usr/share/keyrings/ubuntu-archive-keyring.gpg" \
                 > /etc/apt/sources.list.d/ordax.sources
 
+              test -s /run/ordax-host-ca.pem
               printf "%s\n" \
-                "Acquire::https::snapshot.ubuntu.com::Verify-Peer \"false\";" \
+                "Acquire::https::snapshot.ubuntu.com::CaInfo \"/run/ordax-host-ca.pem\";" \
                 > /etc/apt/apt.conf.d/49ordax-ca-bootstrap
               # Snapshot 503/429 is a transient upstream failure, not a
               # reason to silently switch to an unpinned moving mirror.

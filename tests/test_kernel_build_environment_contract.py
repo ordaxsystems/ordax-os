@@ -132,6 +132,35 @@ class KernelBuildEnvironmentContractTests(unittest.TestCase):
         self.assertIn('Signed-By: /usr/share/keyrings/ubuntu-archive-keyring.gpg', workflow)
         self.assertNotIn("archive.ubuntu.com/ubuntu", workflow)
 
+    def test_pinned_snapshot_ca_bootstrap_never_disables_tls(self):
+        # Every consumer of the immutable Ubuntu snapshot must authenticate
+        # TLS even on the first apt-get request of the digest-pinned image.
+        # The trusted runner's CA file is mounted read-only, used only until
+        # the signed ca-certificates package is installed, then withdrawn.
+        workflows = (
+            "kernel-pinned-environment.yml",
+            "native-esp-candidate.yml",
+            "native-initramfs-environment.yml",
+            "native-initramfs-candidate.yml",
+        )
+        for name in workflows:
+            with self.subTest(workflow=name):
+                workflow = (ROOT / ".github/workflows" / name).read_text(encoding="utf-8")
+                mount = "--mount type=bind,src=/etc/ssl/certs/ca-certificates.crt,dst=/run/ordax-host-ca.pem,readonly"
+                ca = 'Acquire::https::snapshot.ubuntu.com::CaInfo \\"/run/ordax-host-ca.pem\\";'
+                self.assertEqual(workflow.count(mount), 1)
+                self.assertIn("test -s /etc/ssl/certs/ca-certificates.crt", workflow)
+                self.assertEqual(workflow.count("test -s /run/ordax-host-ca.pem"), 1)
+                self.assertIn(ca, workflow)
+                self.assertNotIn("Verify-Peer", workflow)
+                self.assertNotIn("Verify-Host", workflow)
+                self.assertIn("Signed-By: /usr/share/keyrings/ubuntu-archive-keyring.gpg", workflow)
+                self.assertEqual(workflow.count("rm -f /etc/apt/apt.conf.d/49ordax-ca-bootstrap"), 1)
+                self.assertLess(
+                    workflow.index("test -s /run/ordax-host-ca.pem"),
+                    workflow.index("rm -f /etc/apt/apt.conf.d/49ordax-ca-bootstrap"),
+                )
+
     def test_pinned_apt_retry_uses_single_shell_continuation(self):
         workflow = (
             ROOT / ".github/workflows/kernel-pinned-environment.yml"

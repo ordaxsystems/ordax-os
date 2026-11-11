@@ -85,7 +85,12 @@ jobs:
           set -euo pipefail
           rm -rf out/kernel-pinned out/kernel-work-pinned out/kernel-pinned-repeat out/kernel-work-pinned-repeat out/kernel-pinned-observation
           mkdir -p out/kernel-pinned-observation
+          # The minimal digest-pinned image has no CA store. Supply only the
+          # trusted runner CA bundle as a read-only bootstrap input, rather
+          # than disabling TLS verification even temporarily.
+          test -s /etc/ssl/certs/ca-certificates.crt
           docker run --rm \
+            --mount type=bind,src=/etc/ssl/certs/ca-certificates.crt,dst=/run/ordax-host-ca.pem,readonly \
             -e ORDAX_SOURCE_COMMIT="$ORDAX_SOURCE_COMMIT" \
             -e BASE_IMAGE="$IMAGE" \
             -e SNAPSHOT_ID="$SNAPSHOT_ID" \
@@ -130,8 +135,9 @@ jobs:
               # The digest-pinned minimal image lacks CA roots. Bootstrap only
               # ca-certificates while apt-secure still authenticates signed
               # Ubuntu metadata and package hashes with the bundled keyring.
+              test -s /run/ordax-host-ca.pem
               printf "%s\n" \
-                "Acquire::https::snapshot.ubuntu.com::Verify-Peer \"false\";" \
+                "Acquire::https::snapshot.ubuntu.com::CaInfo \"/run/ordax-host-ca.pem\";" \
                 > /etc/apt/apt.conf.d/49ordax-ca-bootstrap
               apt_snapshot_update
               apt-get install -y --no-install-recommends ca-certificates

@@ -59,7 +59,12 @@ jobs:
           set -euo pipefail
           rm -rf out/native-initramfs-environment
           mkdir -p out/native-initramfs-environment
+          # The minimal digest-pinned image has no CA store. Supply only the
+          # trusted runner CA bundle as a read-only bootstrap input, rather
+          # than disabling TLS verification even temporarily.
+          test -s /etc/ssl/certs/ca-certificates.crt
           docker run --rm \
+            --mount type=bind,src=/etc/ssl/certs/ca-certificates.crt,dst=/run/ordax-host-ca.pem,readonly \
             -e SNAPSHOT_ID="$SNAPSHOT_ID" \
             -e PACKAGES="$PACKAGES" \
             -e IMAGE="$IMAGE" \
@@ -82,8 +87,9 @@ jobs:
                 "Signed-By: /usr/share/keyrings/ubuntu-archive-keyring.gpg" \
                 > /etc/apt/sources.list.d/ordax.sources
 
+              test -s /run/ordax-host-ca.pem
               printf "%s\n" \
-                "Acquire::https::snapshot.ubuntu.com::Verify-Peer \"false\";" \
+                "Acquire::https::snapshot.ubuntu.com::CaInfo \"/run/ordax-host-ca.pem\";" \
                 > /etc/apt/apt.conf.d/49ordax-ca-bootstrap
               apt-get update --error-on=any
               apt-get install -y --no-install-recommends ca-certificates
