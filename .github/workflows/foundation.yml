@@ -113,6 +113,10 @@ jobs:
         if: steps.impact.outputs.full != 'false'
         run: python -m unittest discover -s tests -p 'test_*.py' -v
 
+      - name: Validate Native verified CURRENT mount reconciliation
+        if: steps.impact.outputs.full != 'false'
+        run: node --test system/composition/native/verified-installed-app-refresh.test.mjs
+
       - name: Validate canonical Native Product Connector port
         if: steps.impact.outputs.full != 'false'
         run: node --test tests/test_product_connector_adapter.mjs
