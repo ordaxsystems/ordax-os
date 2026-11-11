@@ -175,3 +175,30 @@ test("a failed CURRENT refresh can recover on the next verified notification", a
   assert.deepEqual(emitted, [[], [], ["calculator"]]);
   await controller.destroy();
 });
+
+test("partial Native CURRENT mount keeps healthy apps but retries missing mounts", async () => {
+  const emitted = [], errors = [];
+  let attempts = 0, disposed = 0;
+  const controller = createNativeVerifiedInstalledAppRefresh({
+    discover: async () => [entry("calculator"), entry("notes")],
+    createCatalog: catalog,
+    mount: async () => {
+      attempts += 1;
+      return {
+        mountedIds: attempts === 1 ? ["calculator"] : ["calculator", "notes"],
+        destroy: async () => { disposed += 1; },
+      };
+    },
+    publish: next => emitted.push(next.ids),
+    onError: error => errors.push(error.message),
+  });
+  await controller.refresh();
+  assert.deepEqual(emitted, [[], ["calculator"]],
+    "unmounted app must not get launch authority");
+  assert.deepEqual(errors, ["One or more verified CURRENT apps could not be mounted"]);
+  await controller.refresh();
+  assert.deepEqual(emitted, [[], ["calculator"], [], ["calculator", "notes"]]);
+  assert.equal(errors.length, 1, "successful retry must not report an error");
+  await controller.destroy();
+  assert.equal(disposed, 2, "each owned runtime is torn down exactly once");
+});
