@@ -1312,6 +1312,10 @@ async function start() {
       source: verifiedComponentPackageSource,
       fetchImpl: verifiedComponentFetch,
       onError(error, appId) {
+        // Discovery intentionally isolates per-app read failures. Those
+        // failures must not be mistaken for an empty, fully reconciled
+        // installed set: retry on the next signed Store observation.
+        lastInstalledCurrentFingerprint = null;
         reportClientDiagnostic('installed-app-discovery:' + appId, error);
       },
     }),
