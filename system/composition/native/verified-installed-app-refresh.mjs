@@ -63,6 +63,14 @@ export function createNativeVerifiedInstalledAppRefresh({
         }
         throw error;
       }
+      // The canonical Native mount may fail closed for one app without
+      // throwing (missing trusted App Data, stale slot, incompatible module).
+      // Keep other verified mounts visible, but do not cache this generation
+      // as fully reconciled: a subsequent signed observation must retry it.
+      if (!destroyed && request === generation
+        && verified.installed.some(entry => !mountedIds.has(entry.component.id))) {
+        onError?.(new Error("One or more verified CURRENT apps could not be mounted"));
+      }
     }).catch((error) => {
       // Fail closed: the withdrawn catalog is left empty if refresh fails.
       if (!destroyed && request === generation) onError?.(error);
