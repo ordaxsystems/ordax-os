@@ -100,8 +100,11 @@ export function verifiedCurrentInstallationFingerprint(observations) {
     !item || typeof item.componentId !== "string")) {
     throw new TypeError("Verified CURRENT observations must have component identities");
   }
-  return JSON.stringify(observations.map(item => [
-    item.componentId, item.source, item.revision, item.version,
-    item.sourceCommit, item.entrypoint,
-  ]).sort((left, right) => left[0].localeCompare(right[0])));
+  // Only verified installed slots can own external launch/mount authority.
+  // Absent/removed revisions may change without affecting any mounted app.
+  return JSON.stringify(observations.filter(item => item.source === "slot")
+    .map(item => [
+      item.componentId, item.source, item.revision, item.version,
+      item.sourceCommit, item.entrypoint,
+    ]).sort((left, right) => left[0].localeCompare(right[0])));
 }
