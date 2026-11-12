@@ -13,6 +13,7 @@ import { createDesktopAccountCookieVault } from "../../system/adapters/desktop/a
 import { createDesktopLocalSessionMiddleware } from "../../system/adapters/desktop/local-session-host.mjs";
 import { createDesktopClientDiagnosticsMiddleware } from "../../system/adapters/desktop/client-diagnostics-host.mjs";
 import { createDesktopDeviceProfileMiddleware } from "../../system/adapters/desktop/device-profile-host.mjs";
+import { createDesktopAccountSyncStateMiddleware } from "../../system/adapters/desktop/account-sync-state-host.mjs";
 import { createDesktopWlanMiddleware } from "../../system/adapters/desktop/wifi-radio-host.mjs";
 import { createDesktopLocalAiMiddleware } from "../../system/adapters/desktop/local-ai-host.mjs";
 import { createDesktopVerifiedComponentSlotMiddleware } from "../../system/adapters/desktop/verified-component-slot-host.mjs";
@@ -222,6 +223,15 @@ export function nativeEmulatorPlugin(stateDirectory, { desktopHost = false, acco
       if (desktopHost && process.platform==="win32" && userData) {
         server.middlewares.use(createDesktopDeviceProfileMiddleware(userData,{
           token:process.env.ORDAX_DESKTOP_DEVICE_PROFILE_TOKEN,
+          sessionLocked:localSession?.readLocked??null,
+        }).middleware);
+      }
+      // The installed Windows host is the Native owner for the SAME
+      // checkpoint/sync-state ports as Linux. Reuse Electron's existing
+      // state grant, never a renderer-supplied token or a second sync owner.
+      if (desktopHost && process.platform === "win32" && userData) {
+        server.middlewares.use(createDesktopAccountSyncStateMiddleware(userData,{
+          token:process.env.ORDAX_DESKTOP_STATE_TOKEN,
           sessionLocked:localSession?.readLocked??null,
         }).middleware);
       }

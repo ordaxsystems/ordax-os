@@ -89,6 +89,35 @@ test("standalone installed Native host serves verified bundle and existing privi
     headers:{"x-ordax-desktop-state-token":tokens.ORDAX_DESKTOP_STATE_TOKEN}});
   assert.equal(first.status,200);
   assert.equal(typeof(await first.json()).completed,"boolean");
+  // The installed Windows host must expose exactly the same authenticated,
+  // durable Native sync ports as Linux, not its 503 emulator fallback.
+  const checkpointPath="/__ordax/native/sync-checkpoint";
+  const statePath="/__ordax/native/sync-state";
+  if(process.platform==="win32"){
+    assert.equal((await fetch(base+checkpointPath)).status,401);
+    const cp=await fetch(base+checkpointPath,{
+      headers:{"x-ordax-desktop-state-token":tokens.ORDAX_DESKTOP_STATE_TOKEN},
+    });
+    assert.equal(cp.status,200);
+    assert.deepEqual(await cp.json(),{checkpoint:null});
+    const post=await fetch(base+checkpointPath,{
+      method:"POST",
+      headers:{"x-ordax-desktop-state-token":tokens.ORDAX_DESKTOP_STATE_TOKEN,
+        "Content-Type":"application/json",Origin:base},
+      body:JSON.stringify({checkpoint:{subjectId:"native-test",cursor:3,revisions:{}}}),
+    });
+    assert.equal(post.status,200);
+    const loaded=await fetch(base+checkpointPath,{
+      headers:{"x-ordax-desktop-state-token":tokens.ORDAX_DESKTOP_STATE_TOKEN},
+    });
+    assert.equal((await loaded.json()).checkpoint.cursor,3);
+    assert.deepEqual(await (await fetch(base+statePath,{
+      headers:{"x-ordax-desktop-state-token":tokens.ORDAX_DESKTOP_STATE_TOKEN},
+    })).json(),{payload:null});
+  }else{
+    assert.equal((await fetch(base+checkpointPath)).status,503);
+    assert.equal((await fetch(base+statePath)).status,503);
+  }
   // A missing Linux service is not fabricated by the standalone host.
   assert.equal((await fetch(base+"/__ordax/native/keyboard-layout")).status,503);
   // Aura exists only behind the trusted Desktop Host and exact OS-pinned payload.
