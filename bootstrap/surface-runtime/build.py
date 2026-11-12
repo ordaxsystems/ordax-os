@@ -308,17 +308,23 @@ def ensure_surface_runtime_path_compatibility(rootfs_tar: Path) -> dict[str, str
         if exposed == native:
             continue
         current = members.get(exposed)
-        if current is not None:
-            raise SurfaceBuildError(
-                f"Buildroot now provides /{exposed} natively; review compatibility binding before changing ABI"
-            )
         link_target = SURFACE_COMPAT_LINKS[exposed]
-        pending.append(_compat_symlink(exposed, link_target))
+        if current is not None:
+            # A persistent O= build may resume after the compatibility links
+            # were appended but before mkfs.erofs/provenance completed.
+            # Accept only our exact link ABI; never append duplicate members.
+            if not current.issym() or current.linkname != link_target:
+                raise SurfaceBuildError(
+                    f"Buildroot now provides /{exposed} differently; review compatibility binding before changing ABI"
+                )
+        else:
+            pending.append(_compat_symlink(exposed, link_target))
         links[exposed] = link_target
 
-    with tarfile.open(rootfs_tar, "a:") as archive:
-        for link in pending:
-            archive.addfile(link)
+    if pending:
+        with tarfile.open(rootfs_tar, "a:") as archive:
+            for link in pending:
+                archive.addfile(link)
     return links
 
 
