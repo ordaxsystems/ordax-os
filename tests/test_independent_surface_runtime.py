@@ -183,6 +183,33 @@ class IndependentSurfaceRuntimeTests(unittest.TestCase):
                     self.assertFalse(out.exists())
                     self.assertFalse(cache.exists())
 
+    def test_persistent_build_rejects_nested_roots_before_creating_directories(self):
+        # Production may retain this O= workspace for many hours. A mistaken
+        # artifact/download root inside it must fail before touching any path:
+        # otherwise the next run sees an unsealed workspace and cannot resume.
+        builder = self.builder
+        with tempfile.TemporaryDirectory() as td:
+            root = Path(td)
+            cases = (
+                ("output-inside-work", root / "work/out", root / "cache", root / "work"),
+                ("cache-inside-work", root / "out", root / "work/cache", root / "work"),
+                ("work-inside-output", root / "out", root / "cache", root / "out/work"),
+                ("work-inside-cache", root / "out", root / "cache", root / "cache/work"),
+                ("work-is-output", root / "work", root / "cache", root / "work"),
+                ("work-is-cache", root / "out", root / "work", root / "work"),
+            )
+            for name, out, cache, work in cases:
+                with self.subTest(name=name), \
+                        mock.patch.object(builder.platform, "system", return_value="Linux"), \
+                        mock.patch.object(builder.platform, "machine", return_value="x86_64"), \
+                        mock.patch.object(builder.shutil, "which", return_value="/usr/bin/true"), \
+                        mock.patch.object(builder, "source_archive", side_effect=AssertionError("download attempted")):
+                    with self.assertRaisesRegex(builder.SurfaceBuildError, "must be separate"):
+                        builder.build(out, cache, 1, persistent_work_dir=work)
+                    self.assertFalse(out.exists(), "artifact root created before preflight")
+                    self.assertFalse(cache.exists(), "download root created before preflight")
+                    self.assertFalse(work.exists(), "persistent workspace poisoned before preflight")
+
     def test_incomplete_or_symlinked_workspace_is_rejected_without_cleanup(self):
         builder = self.builder
         with tempfile.TemporaryDirectory() as td:
