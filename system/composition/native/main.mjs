@@ -315,7 +315,8 @@ async function start() {
       "OrdaX native network status unavailable",
       () => createNativeNetworkStatus(window),
     ),
-    optionalNativeProbe(
+    // Windows owns Wi-Fi connection management; Native retains read-only network status.
+    windowsDesktopHost ? Promise.resolve(null) : optionalNativeProbe(
       "OrdaX native network management unavailable",
       () => createNativeNetworkManagement(window),
     ),
