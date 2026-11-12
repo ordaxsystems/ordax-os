@@ -14,6 +14,7 @@ export function createNativeVerifiedInstalledAppRefresh({
   let generation = 0;
   let activeMounts = initialMounts;
   let sequence = Promise.resolve();
+  let destruction = null;
 
   function refresh() {
     if (destroyed) return sequence;
@@ -88,14 +89,20 @@ export function createNativeVerifiedInstalledAppRefresh({
     return sequence;
   }
 
-  async function destroy() {
-    if (destroyed) return;
+  function destroy() {
+    // Every caller must await the same teardown, including reentrant or
+    // concurrent Surface shutdown requests. A second caller must not
+    // consider the runtime stopped while its first cleanup is still pending.
+    if (destruction) return destruction;
     destroyed = true;
     generation += 1;
     const current = activeMounts;
     activeMounts = null;
-    await sequence.catch(() => {});
-    await current?.destroy();
+    destruction = (async () => {
+      await sequence.catch(() => {});
+      await current?.destroy();
+    })();
+    return destruction;
   }
 
   return Object.freeze({ refresh, destroy });
