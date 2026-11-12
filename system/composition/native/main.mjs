@@ -962,7 +962,7 @@ async function start() {
     await accountSync.refresh();
   };
   const onOnline = () => {
-    void resumeAccountConnectivity().catch((error) => {
+    void resumeAccountConnectivity().then(undefined, (error) => {
       console.warn("OrdaX Account reconnection remains pending", error);
     });
     void recoverProtectedAccountMemory({ refreshAuthorization: true }).catch((error) => {
