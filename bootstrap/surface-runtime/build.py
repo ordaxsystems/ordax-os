@@ -613,8 +613,19 @@ def build(out_dir: Path, cache_dir: Path, jobs: int, *, persistent_work_dir: Pat
     if not CONFIG.is_file():
         raise SurfaceBuildError("Surface Buildroot defconfig missing")
 
+    # Resolve only after rejecting redirected path components. Otherwise
+    # Path.resolve() silently follows a symlinked artifact or download root,
+    # allowing the producer to write outside its intended workspace even
+    # though the final EROFS verifier correctly rejects the original link.
+    for label, raw in (("output", out_dir), ("download cache", cache_dir)):
+        path = Path(raw).absolute()
+        if any(part.is_symlink() for part in (path, *path.parents)):
+            raise SurfaceBuildError(f"Surface {label} path cannot be a symlink")
     out_dir = out_dir.resolve()
     cache_dir = cache_dir.resolve()
+    if (out_dir == cache_dir or out_dir in cache_dir.parents
+            or cache_dir in out_dir.parents):
+        raise SurfaceBuildError("Surface output and download cache paths must be separate")
     if out_dir.exists() and any(out_dir.iterdir()):
         raise SurfaceBuildError("output directory must be empty")
     out_dir.mkdir(parents=True, exist_ok=True)

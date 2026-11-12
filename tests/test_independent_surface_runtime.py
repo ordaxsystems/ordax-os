@@ -138,6 +138,51 @@ class IndependentSurfaceRuntimeTests(unittest.TestCase):
                     )
             self.assertFalse((real / "fingerprint").exists())
 
+    @unittest.skipUnless(sys.platform.startswith("linux"), "Buildroot producer runs on Linux")
+    def test_build_rejects_redirected_output_and_cache_before_any_write(self):
+        builder = self.builder
+        with tempfile.TemporaryDirectory() as td:
+            temp = Path(td)
+            real = temp / "real"
+            real.mkdir()
+            sentinel = real / "keep"
+            sentinel.write_text("unchanged", encoding="utf-8")
+            for kind in ("output", "download cache"):
+                for linked_parent in (False, True):
+                    with self.subTest(kind=kind, linked_parent=linked_parent):
+                        alias = temp / ("linked-parent" if linked_parent else "linked-root")
+                        alias.symlink_to(real, target_is_directory=True)
+                        redirect = alias / "nested" if linked_parent else alias
+                        out = redirect if kind == "output" else temp / "artifacts"
+                        cache = redirect if kind == "download cache" else temp / "downloads"
+                        with mock.patch.object(builder.shutil, "which", return_value="/usr/bin/true"), \
+                                mock.patch.object(builder, "source_archive", side_effect=AssertionError("download attempted")):
+                            with self.assertRaisesRegex(
+                                builder.SurfaceBuildError, f"Surface {kind} path cannot be a symlink"
+                            ):
+                                builder.build(out, cache, 1)
+                        alias.unlink()
+                        self.assertEqual(sentinel.read_text(encoding="utf-8"), "unchanged")
+                        self.assertEqual(sorted(p.name for p in real.iterdir()), ["keep"])
+
+    @unittest.skipUnless(sys.platform.startswith("linux"), "Buildroot producer runs on Linux")
+    def test_build_requires_disjoint_output_and_download_roots(self):
+        builder = self.builder
+        with tempfile.TemporaryDirectory() as td:
+            temp = Path(td)
+            for out, cache in (
+                (temp / "shared", temp / "shared"),
+                (temp / "parent", temp / "parent/child"),
+                (temp / "parent/child", temp / "parent"),
+            ):
+                with self.subTest(out=str(out), cache=str(cache)):
+                    with mock.patch.object(builder.shutil, "which", return_value="/usr/bin/true"), \
+                            mock.patch.object(builder, "source_archive", side_effect=AssertionError("download attempted")):
+                        with self.assertRaisesRegex(builder.SurfaceBuildError, "must be separate"):
+                            builder.build(out, cache, 1)
+                    self.assertFalse(out.exists())
+                    self.assertFalse(cache.exists())
+
     def test_incomplete_or_symlinked_workspace_is_rejected_without_cleanup(self):
         builder = self.builder
         with tempfile.TemporaryDirectory() as td:
