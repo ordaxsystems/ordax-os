@@ -20,6 +20,11 @@
       "slug": "impressao-3d-br",
       "version": 1,
       "manifest": "/system/profile-packs/impressao-3d-br/v1/manifest.json"
+    },
+    {
+      "slug": "pessoal-basico",
+      "version": 1,
+      "manifest": "/system/profile-packs/pessoal-basico/v1/manifest.json"
     }
   ]
 }

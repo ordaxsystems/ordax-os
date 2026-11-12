@@ -10,6 +10,44 @@ import {
 const rawCatalog = {
   schema: SPACE_TYPE_CATALOG_SCHEMA,
   types: [
+    // Zero-component, owner-isolated first Space. No implied apps or grants.
+    {
+      "schema": "ordax.space-type-definition/2",
+      "domain": "general",
+      "subtype": "personal",
+      "label_id": "space.type.general.personal",
+      "lifecycle": "mvp-foundation",
+      "profile_bindings": [
+        "pessoal-basico",
+        "pessoal-basico@1"
+      ],
+      "creation_default_profile": {
+        "slug": "pessoal-basico",
+        "version": 1
+      },
+      "capabilities": [
+        "aura"
+      ],
+      "navigation": [
+        {
+          "id": "overview",
+          "capability": null,
+          "label": "Visao geral"
+        },
+        {
+          "id": "settings",
+          "capability": null,
+          "label": "Configuracoes"
+        }
+      ],
+      "dashboard": [],
+      "card_metrics": [],
+      "aura": {
+        "capability": "aura",
+        "scope": "current-space-only"
+      },
+      "resources": []
+    },
     {
       schema: SPACE_TYPE_DEFINITION_SCHEMA,
       domain: "food",
