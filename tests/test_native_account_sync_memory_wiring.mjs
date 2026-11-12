@@ -226,12 +226,12 @@ test("Native Home refreshes the single authorized Spaces catalog at boot and rec
     source.indexOf("const spaceSwitcherControls = mountSpaceSwitcherControls("));
   assert.ok(section.length > 100, "canonical Native account connectivity section exists");
   assert.match(section, /identitySession\.getSnapshot\(\)\.state !== "signed-in"/);
-  assert.match(section, /spaces\.getSnapshot\(\)\.state === "loading"/);
+  assert.match(section, /!force && spaces\.getSnapshot\(\)\.state === "loading"/);
   assert.match(section, /void spaces\.refresh\(\)\.catch/);
   assert.match(section, /identitySession\.subscribe\(\(snapshot\) => \{\s*if \(snapshot\.state === "signed-in"\) refreshCurrentSpaceCatalog\(\)/);
   assert.match(section, /const priorIdentity = identitySession\.getSnapshot\(\);\s*await identitySession\.refresh\(\)/);
   assert.match(section, /priorIdentity\.subjectId === currentIdentity\.subjectId/);
-  assert.match(section, /refreshCurrentSpaceCatalog\(\);[\s\S]*await identityActions\.refresh\(\)/);
+  assert.match(section, /refreshCurrentSpaceCatalog\(\{ force: true \}\);[\s\S]*await identityActions\.refresh\(\)/);
   assert.match(source, /unsubscribeSpacesIdentity\(\);\s*spaceSelection\.dispose\(\);\s*spaceExperience\.dispose\(\);\s*spaces\.dispose\(\)/);
   // The only read owner is the existing Account Spaces port, not a second
   // Native cache, synthetic Space selection or implicitly authorized client.
