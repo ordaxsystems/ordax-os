@@ -6,6 +6,9 @@ import {
   ACCOUNT_MCP_DEVICES_PATH, ACCOUNT_MCP_AUTHORITY_PATH, ACCOUNT_MCP_REVOKE_PATH,
   OWNER_MCP_DEVICES_URL, validateAccountOwnerDevices,validateAccountOwnerAuthority,
   readAccountOwnerDevices,readAccountOwnerAuthority,revokeAccountOwnerGrant,parseAccountOwnerRevoke,
+  ACCOUNT_MCP_CENTRAL_TARGETS_PATH,ACCOUNT_MCP_CENTRAL_SELECTIONS_PATH,
+  readAccountOwnerCentralTargets,readAccountOwnerCentralSelections,
+  selectAccountOwnerCentralDevice,parseAccountOwnerCentralSelection,
 } from "../infra/supabase/functions/_shared/account_mcp_owner.mjs";
 
 const device="11111111-1111-4111-8111-111111111111";
@@ -40,6 +43,13 @@ test("Only three explicit MCP Owner routes, not publicly preactivated",()=>{
     assert.equal(isPublicBridgeRoute(method==="GET"?"POST":"GET",path),false);
   }
   assert.equal(isPublicBridgeRoute("GET","/account/mcp/devices/other"),false);
+  for(const path of [ACCOUNT_MCP_CENTRAL_TARGETS_PATH,ACCOUNT_MCP_CENTRAL_SELECTIONS_PATH]){
+    assert.equal(isPublicBridgeRoute("GET",path),true);
+    assert.equal(isPublicAccountPreActivationRoute("GET",path),false);
+  }
+  assert.equal(isPublicBridgeRoute("POST",ACCOUNT_MCP_CENTRAL_SELECTIONS_PATH),true);
+  assert.equal(isPublicAccountPreActivationRoute("POST",ACCOUNT_MCP_CENTRAL_SELECTIONS_PATH),false);
+  assert.equal(isPublicBridgeRoute("POST",ACCOUNT_MCP_CENTRAL_TARGETS_PATH),false);
 });
 test("Gateway Owner routes keep Supabase cookie authorization and fail-closed rollout",()=>{
   const source=readFileSync(new URL("../infra/supabase/functions/ordax-account-gateway/index.ts",import.meta.url),"utf8");
@@ -49,6 +59,10 @@ test("Gateway Owner routes keep Supabase cookie authorization and fail-closed ro
   assert.doesNotMatch(source,/origin\.host\.toLowerCase\(\) === forwardedHost/);
   assert.match(source,/await revokeAccountOwnerGrant\(session.access, revokeRequest\)/);
   assert.match(source,/mcp-owner-revoke-unconfirmed/);
+  assert.match(source,/ORDAX_MCP_OWNER_CENTRAL_SELECTION_ENABLED/);
+  assert.match(source,/parseAccountOwnerCentralSelection\(selection\)/);
+  assert.match(source,/selectAccountOwnerCentralDevice\(session.access, selection\)/);
+  assert.match(source,/mcp-owner-central-selection-unconfirmed/);
   assert.doesNotMatch(source,/x-ordax-owner-token/);
 });
 test("Authenticated public bridge carries the verified origin, never mutable forwarded host",()=>{
@@ -157,6 +171,100 @@ test("Ambiguous or unverifiable revocation does not replay DELETE",async()=>{
   await assert.rejects(revokeAccountOwnerGrant(access,input,
     transport([authority,{ok:true},authority],calls)),/revoke-unconfirmed/);
   assert.equal(calls.filter(call=>call.options.method==="DELETE").length,1);
+});
+
+test("Owner central preflight projects Platform eligibility and tickets without claiming attestation",async()=>{
+  const ticket="99999999-9999-4999-8999-999999999999";
+  const expiry=new Date(Date.now()+120000).toISOString();
+  const targets={ok:true,client_id:client,eligible_device_count:1,
+    state:"single_granted_target",targets:[{device_id:device,reported_online:true,
+      runtime_ready:true}],attested:false,dispatch_authorized:false,owner_choice_performed:false};
+  const waiting={ok:true,count:1,pending_selections:[{challenge_id:ticket,
+    created_at:new Date(Date.now()-1000).toISOString(),expires_at:expiry}],
+    attested:false,dispatch_authorized:false};
+  assert.equal((await readAccountOwnerCentralTargets(access,client,
+    transport([targets]))).targets[0].device_id,device);
+  assert.equal((await readAccountOwnerCentralSelections(access,client,
+    transport([waiting]))).pending_selections[0].challenge_id,ticket);
+  const input={client_id:client,device_id:device,challenge_id:ticket,confirm:"selecionar"};
+  assert.deepEqual(parseAccountOwnerCentralSelection(input),
+    {client_id:client,device_id:device,challenge_id:ticket});
+  for(const bad of [{...input,confirm:"yes"},{...input,device_id:other},
+    {...input,extra:"x"},{...input,challenge_id:"bad"}]){
+    if(bad.device_id===other)continue; // separately prove cross-device selection below
+    assert.equal(parseAccountOwnerCentralSelection(bad),null);
+  }
+  const calls=[];
+  const chosen=await selectAccountOwnerCentralDevice(access,input,
+    transport([targets,waiting,{ok:true,status:"pending",device_id:device,
+      challenge_id:ticket,expires_at:expiry,attested:false,dispatch_authorized:false}],calls));
+  assert.equal(chosen.status,"pending");
+  assert.equal(chosen.attested,false);
+  assert.equal(chosen.dispatch_authorized,false);
+  assert.equal(calls.filter(x=>x.options.method==="POST").length,1);
+  assert.equal(calls[2].url,
+    "https://mcp.ordax.com.br/v3/owner/central-session-selections");
+  assert.deepEqual(JSON.parse(calls[2].options.body),{client_id:client,
+    challenge_id:ticket,device_id:device});
+});
+
+test("Owner central selection refuses ambiguous, expired, wrong target and unverifiable POST",async()=>{
+  const ticket="99999999-9999-4999-8999-999999999999";
+  const expiry=new Date(Date.now()+120000).toISOString();
+  const targets={ok:true,client_id:client,eligible_device_count:1,
+    state:"single_granted_target",targets:[{device_id:device,reported_online:true,
+      runtime_ready:true}],attested:false,dispatch_authorized:false,owner_choice_performed:false};
+  const pending={ok:true,count:1,pending_selections:[{
+    challenge_id:ticket,created_at:new Date(Date.now()-1000).toISOString(),
+    expires_at:expiry}],attested:false,dispatch_authorized:false};
+  const input={client_id:client,challenge_id:ticket,device_id:device,confirm:"selecionar"};
+  for(const [a,b,attempt] of [
+    [targets,{...pending,count:0,pending_selections:[]},input],
+    [targets,{...pending,count:2,pending_selections:[
+      ...pending.pending_selections,{...pending.pending_selections[0],
+        challenge_id:"77777777-7777-4777-8777-777777777777"}]},input],
+    [targets,{...pending,pending_selections:[{...pending.pending_selections[0],
+      expires_at:"2020-01-01T00:00:00Z"}]},input],
+    [targets,pending,{...input,device_id:other}],
+    [{...targets,targets:[{...targets.targets[0],reported_online:false}]},pending,input],
+  ]){
+    const calls=[];
+    await assert.rejects(selectAccountOwnerCentralDevice(access,attempt,
+      transport([a,b],calls)));
+    assert.equal(calls.some(call=>call.options.method==="POST"),false);
+  }
+  const calls=[];
+  await assert.rejects(selectAccountOwnerCentralDevice(access,input,
+    transport([targets,pending,{ok:true,status:"bound",device_id:device,
+      challenge_id:ticket,expires_at:expiry,attested:true,
+      dispatch_authorized:true}],calls)),/unconfirmed/);
+  assert.equal(calls.filter(x=>x.options.method==="POST").length,1,
+    "an ambiguous POST may never be retried");
+  for(const bad of [
+    {...targets,eligible_device_count:2}, {...targets,client_id:other},
+    {...targets,attested:true}, {...targets,targets:[{...targets.targets[0],runtime_ready:"yes"}]}
+  ])await assert.rejects(readAccountOwnerCentralTargets(access,client,transport([bad])));
+  await assert.rejects(readAccountOwnerCentralSelections(access,client,
+    transport([{...pending,count:2}])));
+});
+
+test("Vercel forwards only exact Owner client UUID for either central GET",async()=>{
+  const {forwardOwnerMcpCentralQuery}=await import("../lib/account-proxy-core.mjs");
+  const base="/account/mcp/central-targets";
+  const second="/account/mcp/central-selections";
+  const params=(v)=>new URLSearchParams(v);
+  assert.equal(forwardOwnerMcpCentralQuery(base,params({client_id:client})),
+    base+"?client_id="+client);
+  assert.equal(forwardOwnerMcpCentralQuery(second+"?client_id="+client,
+    params({ordax_path:second+"?client_id="+client})),second+"?client_id="+client);
+  for(const bad of [
+    params({client_id:"evil"}),
+    params({client_id:client,owner_id:other}),
+    params({client_id:"A2222222-2222-4222-8222-222222222222"}),
+  ]) assert.equal(forwardOwnerMcpCentralQuery(base,bad),null);
+  assert.equal(forwardOwnerMcpCentralQuery("/auth/session",params({client_id:client})),null);
+  assert.equal(forwardOwnerMcpCentralQuery(base+"?client_id="+client,
+    params({client_id:other})),null);
 });
 
 test("Production gateway releases require an explicit manual exact-SHA approval",()=>{

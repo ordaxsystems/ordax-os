@@ -5,9 +5,13 @@ import { readBoundedBody } from "./bounded_body.mjs";
 export const ACCOUNT_MCP_DEVICES_PATH = "/account/mcp/devices";
 export const ACCOUNT_MCP_AUTHORITY_PATH = "/account/mcp/authority";
 export const ACCOUNT_MCP_REVOKE_PATH = "/account/mcp/revoke";
+export const ACCOUNT_MCP_CENTRAL_TARGETS_PATH = "/account/mcp/central-targets";
+export const ACCOUNT_MCP_CENTRAL_SELECTIONS_PATH = "/account/mcp/central-selections";
 export const OWNER_MCP_DEVICES_URL = "https://mcp.ordax.com.br/v3/owner/devices";
 const OWNER_MCP_AUTHORITY_URL = "https://mcp.ordax.com.br/v3/owner/remote-authority";
 const OWNER_MCP_GRANTS_URL = "https://mcp.ordax.com.br/v3/owner/remote-grant-groups";
+const OWNER_CENTRAL_TARGETS_URL = "https://mcp.ordax.com.br/v3/owner/central-session-targets";
+const OWNER_CENTRAL_SELECTIONS_URL = "https://mcp.ordax.com.br/v3/owner/central-session-selections";
 const MAX_OWNER_BODY = 65536;
 const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/;
 const TOKEN = /^[A-Za-z0-9_.-]{16,16384}$/;
@@ -73,13 +77,15 @@ export function validateAccountOwnerAuthority(value, requestedDeviceId) {
     device_id:requestedDeviceId, clients, grant_groups:groups};
 }
 
-async function ownerRequest(access, url, method, fetcher=fetch) {
+async function ownerRequest(access, url, method, fetcher=fetch, body=null) {
   verifyToken(access);
   if (typeof url !== "string" || !url.startsWith("https://mcp.ordax.com.br/v3/owner/"))
     throw new Error("mcp-owner-noncanonical-destination");
   const response = await fetcher(url, {
     method, redirect:"error", cache:"no-store",
-    headers:{Authorization:"Bearer " + access, Accept:"application/json"},
+    headers:{Authorization:"Bearer " + access, Accept:"application/json",
+      ...(body===null?{}:{"Content-Type":"application/json"})},
+    ...(body===null?{}:{body:JSON.stringify(body)}),
     signal:AbortSignal.timeout(10000),
   });
   if (!response || response.status !== 200 || !response.ok || response.url !== url)
@@ -104,6 +110,105 @@ export async function readAccountOwnerAuthority(access, deviceId, fetcher=fetch)
   const verified = validateAccountOwnerAuthority(value, deviceId);
   if (!verified) throw new Error("mcp-owner-authority-invalid");
   return verified;
+}
+
+const validDate = value => typeof value === "string" && value.length <= 64
+  && Number.isFinite(Date.parse(value));
+
+// These are projections of the existing Platform SQL results, not a second
+// device/permission catalog. Neither read is a grant, session or attestation.
+export async function readAccountOwnerCentralTargets(access, clientId, fetcher=fetch) {
+  if (!isOwnerUuid(clientId)) throw new Error("mcp-owner-client-invalid");
+  const value = await ownerRequest(access,
+    OWNER_CENTRAL_TARGETS_URL + "?client_id=" + clientId, "GET", fetcher);
+  if (!isRecord(value) || value.ok !== true || value.client_id !== clientId
+      || !Number.isSafeInteger(value.eligible_device_count)
+      || value.eligible_device_count < 0 || value.eligible_device_count > 25
+      || !Array.isArray(value.targets)
+      || value.targets.length !== value.eligible_device_count
+      || value.attested !== false || value.dispatch_authorized !== false
+      || value.owner_choice_performed !== false
+      || !["no_action_grant","single_granted_target","owner_selection_required"]
+        .includes(value.state)
+      || value.state !== (value.eligible_device_count === 0 ? "no_action_grant"
+        : value.eligible_device_count === 1 ? "single_granted_target"
+        : "owner_selection_required")) throw new Error("mcp-owner-central-targets-invalid");
+  const devices = new Set(), targets = [];
+  for (const t of value.targets) {
+    if (!isRecord(t) || !isOwnerUuid(t.device_id) || devices.has(t.device_id)
+        || typeof t.reported_online !== "boolean"
+        || typeof t.runtime_ready !== "boolean") throw new Error("mcp-owner-central-targets-invalid");
+    devices.add(t.device_id);
+    targets.push({device_id:t.device_id,reported_online:t.reported_online,
+      runtime_ready:t.runtime_ready});
+  }
+  return {ok:true,schema:"ordax.owner-central-targets/1",client_id:clientId,
+    state:value.state,eligible_device_count:targets.length,targets,
+    attested:false,dispatch_authorized:false};
+}
+
+export async function readAccountOwnerCentralSelections(access, clientId, fetcher=fetch) {
+  if (!isOwnerUuid(clientId)) throw new Error("mcp-owner-client-invalid");
+  const value = await ownerRequest(access,
+    OWNER_CENTRAL_SELECTIONS_URL + "?client_id=" + clientId, "GET", fetcher);
+  if (!isRecord(value) || value.ok !== true
+      || !Number.isSafeInteger(value.count) || value.count < 0 || value.count > 25
+      || !Array.isArray(value.pending_selections)
+      || value.pending_selections.length !== value.count
+      || value.attested !== false || value.dispatch_authorized !== false)
+    throw new Error("mcp-owner-central-selections-invalid");
+  const ids = new Set(), pending = [];
+  for (const ticket of value.pending_selections) {
+    if (!isRecord(ticket) || Object.keys(ticket).sort().join(",")
+          !== "challenge_id,created_at,expires_at"
+        || !isOwnerUuid(ticket.challenge_id) || ids.has(ticket.challenge_id)
+        || !validDate(ticket.created_at) || !validDate(ticket.expires_at))
+      throw new Error("mcp-owner-central-selections-invalid");
+    ids.add(ticket.challenge_id);
+    pending.push({challenge_id:ticket.challenge_id,
+      created_at:ticket.created_at,expires_at:ticket.expires_at});
+  }
+  return {ok:true,schema:"ordax.owner-central-selections/1",client_id:clientId,
+    count:pending.length,pending_selections:pending,
+    attested:false,dispatch_authorized:false};
+}
+
+export function parseAccountOwnerCentralSelection(value) {
+  if (!isRecord(value) || Object.keys(value).sort().join(",")
+      !== "challenge_id,client_id,confirm,device_id"
+      || !isOwnerUuid(value.client_id) || !isOwnerUuid(value.challenge_id)
+      || !isOwnerUuid(value.device_id) || value.confirm !== "selecionar") return null;
+  return {client_id:value.client_id,challenge_id:value.challenge_id,
+    device_id:value.device_id};
+}
+
+export async function selectAccountOwnerCentralDevice(access, raw, fetcher=fetch) {
+  const input = parseAccountOwnerCentralSelection(raw);
+  if (!input) throw new Error("mcp-owner-central-selection-invalid");
+  // Preflight only; SQL remains the exclusive authority and rechecks
+  // the exact grant, signed Owner, consent, online Runtime and ticket atomically.
+  const [targets, tickets] = await Promise.all([
+    readAccountOwnerCentralTargets(access,input.client_id,fetcher),
+    readAccountOwnerCentralSelections(access,input.client_id,fetcher),
+  ]);
+  if (!targets.targets.some(t => t.device_id === input.device_id
+        && t.reported_online && t.runtime_ready)
+      || tickets.count !== 1 || tickets.pending_selections[0].challenge_id
+        !== input.challenge_id || Date.parse(tickets.pending_selections[0].expires_at)
+        <= Date.now()) throw new Error("mcp-owner-central-selection-not-eligible");
+  // Exactly one POST, never an implicit retry or a claim of attestation.
+  const value = await ownerRequest(access, OWNER_CENTRAL_SELECTIONS_URL, "POST", fetcher,
+    {client_id:input.client_id,challenge_id:input.challenge_id,device_id:input.device_id});
+  if (!isRecord(value) || value.ok !== true || value.status !== "pending"
+      || value.device_id !== input.device_id || value.challenge_id !== input.challenge_id
+      || !validDate(value.expires_at) || Date.parse(value.expires_at) <= Date.now()
+      || value.attested !== false
+      || value.dispatch_authorized !== false)
+    throw new Error("mcp-owner-central-selection-unconfirmed");
+  return {ok:true,schema:"ordax.owner-central-device-selection/1",
+    status:"pending",client_id:input.client_id,device_id:input.device_id,
+    challenge_id:input.challenge_id,expires_at:value.expires_at,
+    attested:false,dispatch_authorized:false};
 }
 
 export function parseAccountOwnerRevoke(value) {

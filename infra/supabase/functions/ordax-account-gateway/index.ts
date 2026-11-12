@@ -7,7 +7,7 @@ import {
 } from "../_shared/auth_rate_limit.mjs";
 import { readBoundedBody } from "../_shared/bounded_body.mjs";
 import { ACCOUNT_MCP_USAGE_PATH, readAccountMcpUsage } from "../_shared/account_mcp_usage.mjs";
-import { ACCOUNT_MCP_DEVICES_PATH, ACCOUNT_MCP_AUTHORITY_PATH, ACCOUNT_MCP_REVOKE_PATH, isOwnerUuid, readAccountOwnerDevices, readAccountOwnerAuthority, revokeAccountOwnerGrant, parseAccountOwnerRevoke } from "../_shared/account_mcp_owner.mjs";
+import { ACCOUNT_MCP_DEVICES_PATH, ACCOUNT_MCP_AUTHORITY_PATH, ACCOUNT_MCP_REVOKE_PATH, ACCOUNT_MCP_CENTRAL_TARGETS_PATH, ACCOUNT_MCP_CENTRAL_SELECTIONS_PATH, isOwnerUuid, readAccountOwnerDevices, readAccountOwnerAuthority, revokeAccountOwnerGrant, parseAccountOwnerRevoke, readAccountOwnerCentralTargets, readAccountOwnerCentralSelections, selectAccountOwnerCentralDevice, parseAccountOwnerCentralSelection } from "../_shared/account_mcp_owner.mjs";
 import { verifyTrustedPublicRequestContext } from "../ordax-public-account-gateway/public_request_context.mjs";
 import { accountPrivilegedRpc } from "../_shared/account_privileged_rpc.mjs";
 import { authorizeAccountTransport, accountGatewayRoutePath, isPublicAccountPreActivationRoute } from "../_shared/account_transport_admission.mjs";
@@ -1311,7 +1311,9 @@ Deno.serve(async (req: Request) => {
   // transport to the single MCP Owner authority; no local grant store.
   if ((path === ACCOUNT_MCP_DEVICES_PATH && req.method === "GET")
       || (path === ACCOUNT_MCP_AUTHORITY_PATH && req.method === "GET")
-      || (path === ACCOUNT_MCP_REVOKE_PATH && req.method === "POST")) {
+      || (path === ACCOUNT_MCP_REVOKE_PATH && req.method === "POST")
+      || (path === ACCOUNT_MCP_CENTRAL_TARGETS_PATH && req.method === "GET")
+      || (path === ACCOUNT_MCP_CENTRAL_SELECTIONS_PATH && ["GET","POST"].includes(req.method))) {
     const session = await authenticated(req);
     if (!session.user || !session.access) {
       return json(401, {
@@ -1343,6 +1345,60 @@ Deno.serve(async (req: Request) => {
         ), session.cookies);
       } catch {
         return error(503, "mcp-owner-authority-unavailable", "Não foi possível consultar as autorizações.");
+      }
+    }
+    if (path === ACCOUNT_MCP_CENTRAL_TARGETS_PATH || path === ACCOUNT_MCP_CENTRAL_SELECTIONS_PATH) {
+      // Separate release switch: Owner inventory/revocation cannot silently
+      // activate a central session or attach ChatGPT to a different device.
+      if (Deno.env.get("ORDAX_MCP_OWNER_CENTRAL_SELECTION_ENABLED") !== "1") {
+        return error(503, "mcp-owner-central-selection-unavailable",
+          "A seleção de sessão MCP ainda não está disponível.");
+      }
+      if (req.method === "GET") {
+        const clientIds = url.searchParams.getAll("client_id");
+        if (url.searchParams.size !== 1 || clientIds.length !== 1
+            || !isOwnerUuid(clientIds[0])) {
+          return error(400, "mcp-owner-client-invalid", "Cliente OAuth inválido.");
+        }
+        try {
+          const result = path === ACCOUNT_MCP_CENTRAL_TARGETS_PATH
+            ? await readAccountOwnerCentralTargets(session.access, clientIds[0])
+            : await readAccountOwnerCentralSelections(session.access, clientIds[0]);
+          return json(200, result, session.cookies);
+        } catch {
+          return error(503, "mcp-owner-central-unavailable",
+            "Não foi possível consultar a seleção de sessão MCP.");
+        }
+      }
+      // A choice is explicit and one-shot. The single canonical SQL selector
+      // rechecks consent, client, device, grant, readiness, ticket and expiry.
+      // The device must independently attest after selection.
+      if (!publicSiteRequest(req) || !verifyTrustedPublicRequestContext(req).ok) {
+        return error(403, "mcp-owner-csrf-denied", "Origem de seleção não autorizada.");
+      }
+      if (url.search !== "" ||
+          (req.headers.get("content-type") ?? "").split(";")[0].trim().toLowerCase()
+            !== "application/json") {
+        return error(400, "mcp-owner-central-selection-invalid", "Solicitação inválida.");
+      }
+      let selection;
+      try {
+        const raw = await boundedBody(req);
+        if (raw.length > 1024) throw new Error("mcp-owner-selection-too-large");
+        selection = JSON.parse(raw);
+      } catch {
+        return error(400, "mcp-owner-central-selection-invalid", "Solicitação inválida.");
+      }
+      if (!parseAccountOwnerCentralSelection(selection))
+        return error(400, "mcp-owner-central-selection-invalid",
+          "Confirme a sessão, o cliente OAuth e o dispositivo exatos.");
+      try {
+        return json(200, await selectAccountOwnerCentralDevice(session.access, selection),
+          session.cookies);
+      } catch {
+        // An uncertain POST is never replayed or reported as an attestation.
+        return error(503, "mcp-owner-central-selection-unconfirmed",
+          "A seleção não foi confirmada. Consulte a sessão novamente.");
       }
     }
     // A revocation is an explicit browser action, never a GET, CORS, image
