@@ -7,6 +7,7 @@ import test from "node:test";
 import { SPACE_TYPE_CATALOG } from "../system/services/spaces/type-catalog.mjs";
 
 const ROOT = join(dirname(fileURLToPath(import.meta.url)), "..");
+const readSql = path => readFileSync(path, "utf-8").replace(/\r\n/g, "\n");
 const OWNER_FIX = join(ROOT, "infra/supabase/product/migrations/20261031051500_space_owner_ssot_creation_fix_v1.sql");
 const MIGRATION = join(
   ROOT,
@@ -43,23 +44,27 @@ function expectedProjection() {
 }
 
 function migrationProjection() {
-  const source = readFileSync(MIGRATION, "utf-8");
-  const insert = source.match(
-    /insert into private\.ordax_space_creation_type_projection\([\s\S]*?\) values([\s\S]*?);/,
-  );
-  assert.ok(insert, "creation projection INSERT must exist");
+  // Historical migrations remain immutable. Later product migrations extend
+  // the same private projection; never manufacture rows from the UI catalog.
+  const latest = join(ROOT,
+    "infra/supabase/product/migrations/20261112233000_general_personal_space_creation_projection_v1.sql");
   const rows = [];
-  const rowPattern = /\('([^']+)',\s*'([^']+)',\s*'([^']+)',\s*'([^']+)',\s*(\d+)\)/g;
-  for (const match of insert[1].matchAll(rowPattern)) {
-    rows.push({
-      domain: match[1],
-      subtype: match[2],
-      kind: match[3],
-      profileSlug: match[4],
-      profileVersion: Number(match[5]),
-    });
+  for (const migration of [MIGRATION, latest]) {
+    const source = readSql(migration);
+    const insert = source.match(
+      /insert into private\.ordax_space_creation_type_projection\([\s\S]*?\) values([\s\S]*?);/,
+    );
+    assert.ok(insert, "creation projection INSERT must exist");
+    const rowPattern = /\('([^']+)',\s*'([^']+)',\s*'([^']+)',\s*'([^']+)',\s*(\d+)\)/g;
+    for (const match of insert[1].matchAll(rowPattern)) {
+      rows.push({domain:match[1],subtype:match[2],kind:match[3],
+        profileSlug:match[4],profileVersion:Number(match[5])});
+    }
   }
-  return rows.sort((left, right) => `${left.domain}.${left.subtype}`.localeCompare(`${right.domain}.${right.subtype}`));
+  const keys = rows.map(row => row.domain + '.' + row.subtype);
+  assert.equal(new Set(keys).size,keys.length,"duplicate projection");
+  return rows.sort((left,right) =>
+    (left.domain+'.'+left.subtype).localeCompare(right.domain+'.'+right.subtype));
 }
 
 test("database creation projection is exactly derived from canonical MVP Space types", () => {
@@ -74,7 +79,7 @@ test("deferred Space types never enter the database creation projection", () => 
 });
 
 test("creation RPC removes direct authenticated INSERT and keeps mutation bounded", () => {
-  const source = readFileSync(MIGRATION, "utf-8");
+  const source = readSql(MIGRATION);
   assert.match(source, /revoke insert on table public\.ordax_spaces from authenticated;/);
   assert.match(source, /security definer\nset search_path = ''/);
   assert.match(source, /v_actor uuid := \(select auth\.uid\(\)\)/);
@@ -90,8 +95,8 @@ test("creation RPC removes direct authenticated INSERT and keeps mutation bounde
 });
 
 test("owner is one canonical Space column, never a second membership role", () => {
-  const sql = readFileSync(OWNER_FIX, "utf-8");
-  const historical = readFileSync(MIGRATION, "utf-8");
+  const sql = readSql(OWNER_FIX);
+  const historical = readSql(MIGRATION);
   assert.match(historical, /insert into public\.ordax_space_members/);
   assert.match(sql, /space-owner-source-diverged/);
   assert.match(sql, /space-owner-membership-policy-diverged/);
