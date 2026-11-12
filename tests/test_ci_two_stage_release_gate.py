@@ -1,6 +1,6 @@
 """CI release-candidate gating: cheap PR checks, full proof at ready-for-review.
 
-These tests deliberately constrain only known six-hour/expensive workflows.
+These tests deliberately constrain only known expensive workflows.
 If a new heavy workflow appears, include it explicitly rather than weakening
 the Owner release gate. Draft means 'development'; ready means candidate.
 """
@@ -16,6 +16,10 @@ TARGETS = {
     "independent-base-experiment.yml": ("buildroot-qemu:", "if: " + chr(36) + "{{ github.event_name == 'workflow_dispatch' || (github.event_name == 'pull_request' && !github.event.pull_request.draft) || (github.event_name == 'push' && github.ref == 'refs/heads/integration/dev-usb-buildroot-surface-20261024' && contains(github.event.head_commit.message, '[stable-mvp-proof]')) }}"),
     "independent-portable-v2-integration.yml": ("independent-real-portable-qemu:", "if: " + chr(36) + "{{ github.event_name == 'workflow_dispatch' || (github.event_name == 'pull_request' && !github.event.pull_request.draft) || (github.event_name == 'push' && github.ref == 'refs/heads/integration/dev-usb-buildroot-surface-20261024' && contains(github.event.head_commit.message, '[stable-mvp-signed-boot]')) }}"),
     "native-esp-candidate.yml": ("native-esp:", "if: github.event_name != 'pull_request' || !github.event.pull_request.draft"),
+    "kernel-candidate.yml": ("kernel:", "if: github.event_name != 'pull_request' || !github.event.pull_request.draft"),
+    "kernel-pinned-environment.yml": ("prove-pinned-environment:", "if: github.event_name != 'pull_request' || !github.event.pull_request.draft"),
+    "full-bootstrap-media-proof.yml": ("full-bootstrap-media-proof:", "if: github.event_name != 'pull_request' || !github.event.pull_request.draft"),
+    "local-ai-runtime-candidate.yml": ("candidate:", "if: github.event_name != 'pull_request' || !github.event.pull_request.draft"),
 }
 
 

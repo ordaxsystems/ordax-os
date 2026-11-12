@@ -14,6 +14,7 @@ on:
       - 'tests/test_kernel_reproducibility_ssot.py'
       - '.github/workflows/kernel-pinned-environment.yml'
   pull_request:
+    types: [opened, synchronize, reopened, ready_for_review]
     paths:
       - 'bootstrap/kernel/**'
       - '!bootstrap/kernel/candidates/**'
@@ -31,6 +32,9 @@ permissions:
 
 jobs:
   prove-pinned-environment:
+    # Keep this real build mandatory at review-ready and manual release gates.
+    # Drafts run cheap contracts elsewhere without recompiling unchanged bytes.
+    if: github.event_name != 'pull_request' || !github.event.pull_request.draft
     runs-on: ubuntu-24.04
     timeout-minutes: 90
     steps:
