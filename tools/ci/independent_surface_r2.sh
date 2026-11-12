@@ -196,12 +196,45 @@ r2_assert_same_manifest() {
   fi
 }
 
+# An immutable SHA-256 key is an identity claim, not proof that a
+# pre-existing R2 object contains the bytes named by that key. Stream and
+# authenticate the object on any HEAD 200 or conditional PUT 412. Do not
+# materialize a second potentially huge EROFS in the runner workspace.
+r2_assert_same_blob() {
+  local key="$1" expected="${key##*/}" actual
+  case "$expected" in
+    ''|*[!0-9a-f]*) echo 'invalid immutable Surface blob digest' >&2; return 1 ;;
+  esac
+  if [ "${#expected}" -ne 64 ]; then
+    echo 'invalid immutable Surface blob digest length' >&2
+    return 1
+  fi
+  if ! actual="$(curl --fail --silent --show-error --retry 3 --retry-all-errors \
+    --connect-timeout 15 --max-time 600 \
+    --aws-sigv4 'aws:amz:auto:s3' \
+    --user "${ORDAX_R2_ACCESS_KEY_ID}:${ORDAX_R2_SECRET_ACCESS_KEY}" \
+    "${endpoint}/${ORDAX_R2_BUCKET}/${key}" | sha256sum)"; then
+    echo "R2 existing Surface blob could not be authenticated: $key" >&2
+    return 1
+  fi
+  actual="${actual%% *}"
+  if [ "$actual" != "$expected" ]; then
+    echo "R2 existing Surface blob SHA-256 differs from immutable key: $key" >&2
+    return 1
+  fi
+}
+
 r2_put_immutable() {
   key="$1"
   file="$2"
   code="$(r2_status "$key")"
   if [ "$code" = 200 ]; then
-    echo "Durable object already exists: $key"
+    if [ "$key" = "$manifest_key" ]; then
+      r2_assert_same_manifest || return 1
+    else
+      r2_assert_same_blob "$key" || return 1
+    fi
+    echo "Verified durable object already exists: $key"
     return 0
   fi
   if [ "$code" != 404 ]; then
@@ -220,12 +253,14 @@ r2_put_immutable() {
       return 0
       ;;
     412)
-      # Blob keys are SHA-256 content addressed; manifest names are input
-      # fingerprints, so a winner must be compared byte-for-byte.
+      # Both winners must be authenticated: manifests byte-for-byte and
+      # blobs by the SHA-256 promised in their immutable object keys.
       if [ "$key" = "$manifest_key" ]; then
         r2_assert_same_manifest || return 1
+      else
+        r2_assert_same_blob "$key" || return 1
       fi
-      echo "Durable object won publication race and remains immutable: $key"
+      echo "Verified durable object won publication race: $key"
       return 0
       ;;
     *)

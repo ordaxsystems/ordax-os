@@ -587,6 +587,106 @@ with Path(os.environ["SURFACE_MOCK_CURL_LOG"]).open("a") as log:
                         self.assertEqual(requests.count("GET"), 1)
                         self.assertNotIn("Verified Surface ensured", proc.stdout)
 
+    @unittest.skipIf(os.name == "nt", "R2 Bash curl mocks require POSIX execution")
+    def test_r2_existing_or_racing_blob_must_match_sha_before_manifest_publish(self):
+        # HEAD 200 and PUT 412 are not evidence of immutable blob identity.
+        # A poisoned content-addressed key must never get a new manifest.
+        with tempfile.TemporaryDirectory() as td:
+            temp = Path(td)
+            out = temp / "ordax-independent-surface"
+            out.mkdir()
+            contents = {
+                "provenance.json": b'{"source_commit":"test"}',
+                "native-surface-runtime.erofs": b"verified-image",
+            }
+            for name, content in contents.items():
+                (out / name).write_bytes(content)
+            digests = {
+                name: hashlib.sha256(content).hexdigest()
+                for name, content in contents.items()
+            }
+            (out / self.mod.MANIFEST).write_text(json.dumps({
+                "$schema": self.mod.SCHEMA,
+                "fingerprint_version": self.mod.FINGERPRINT_VERSION,
+                "input_fingerprint": "a" * 64,
+                "artifacts": {
+                    name: {"sha256": digests[name], "size": len(content)}
+                    for name, content in contents.items()
+                },
+            }), encoding="utf-8")
+
+            bin_dir = temp / "bin"
+            bin_dir.mkdir()
+            mock = bin_dir / "curl"
+            mock.write_text(
+                '''#!/usr/bin/env python3
+import os
+import sys
+from pathlib import Path
+args = sys.argv[1:]
+url = args[-1]
+blob = "/blobs/sha256/" in url
+mode = os.environ["SURFACE_MOCK_MODE"]
+with Path(os.environ["SURFACE_MOCK_CURL_LOG"]).open("a") as log:
+    if "--head" in args:
+        log.write("HEAD_BLOB\\n" if blob else "HEAD_MANIFEST\\n")
+        sys.stdout.write("200" if blob and mode == "already" else "404")
+    elif "--upload-file" in args:
+        log.write("PUT_BLOB\\n" if blob else "PUT_MANIFEST\\n")
+        sys.stdout.write("412" if blob and mode == "race" else "201")
+    elif blob:
+        log.write("GET_BLOB\\n")
+        digest = url.rsplit("/", 1)[-1]
+        if digest == os.environ["SURFACE_MOCK_PROVENANCE_DIGEST"]:
+            data = b'{"source_commit":"test"}'
+        elif digest == os.environ["SURFACE_MOCK_IMAGE_DIGEST"]:
+            data = b"verified-image"
+        else:
+            raise SystemExit("unknown content-addressed blob")
+        if os.environ["SURFACE_MOCK_CORRUPT"] == "1":
+            data = b"poisoned-" + data
+        sys.stdout.buffer.write(data)
+    else:
+        raise SystemExit("unexpected R2 mock operation")
+''',
+                encoding="utf-8",
+            )
+            mock.chmod(0o755)
+            curl_log = temp / "requests"
+            env = dict(os.environ, **{
+                "RUNNER_TEMP": str(temp),
+                "ORDAX_R2_ACCOUNT_ID": "0" * 32,
+                "ORDAX_R2_BUCKET": "test-bucket",
+                "ORDAX_R2_ACCESS_KEY_ID": "test-only",
+                "ORDAX_R2_SECRET_ACCESS_KEY": "test-only",
+                "ORDAX_SURFACE_FINGERPRINT": "a" * 64,
+                "SURFACE_MOCK_CURL_LOG": str(curl_log),
+                "SURFACE_MOCK_PROVENANCE_DIGEST": digests["provenance.json"],
+                "SURFACE_MOCK_IMAGE_DIGEST": digests["native-surface-runtime.erofs"],
+                "PATH": str(bin_dir) + os.pathsep + os.environ.get("PATH", ""),
+            })
+            for mode in ("already", "race"):
+                for corrupt in ("1", "0"):
+                    with self.subTest(mode=mode, poisoned=(corrupt == "1")):
+                        env["SURFACE_MOCK_MODE"] = mode
+                        env["SURFACE_MOCK_CORRUPT"] = corrupt
+                        curl_log.unlink(missing_ok=True)
+                        result = subprocess.run(
+                            ["bash", str(R2_SCRIPT), "publish"], cwd=ROOT,
+                            env=env, text=True, capture_output=True, check=False,
+                        )
+                        requests = curl_log.read_text(encoding="utf-8").splitlines()
+                        self.assertIn("GET_BLOB", requests)
+                        if corrupt == "1":
+                            self.assertNotEqual(result.returncode, 0)
+                            self.assertIn("SHA-256 differs", result.stderr)
+                            self.assertNotIn("PUT_MANIFEST", requests)
+                        else:
+                            self.assertEqual(result.returncode, 0, result.stderr)
+                            self.assertEqual(requests.count("GET_BLOB"), 2)
+                            self.assertEqual(requests.count("PUT_MANIFEST"), 1)
+                            self.assertIn("Verified Surface ensured", result.stdout)
+
     def test_durable_publication_is_immutable_and_credentials_are_not_hardcoded(self):
         workflow = WORKFLOW.read_text(encoding="utf-8")
         self.assertIn("--header 'If-None-Match: *'", R2_SCRIPT.read_text(encoding="utf-8"))
