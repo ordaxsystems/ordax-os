@@ -417,6 +417,7 @@ class IndependentSurfaceRuntimeTests(unittest.TestCase):
         self.assertEqual(build_step.count("\n        env:\n"), 1)
         self.assertIn("ORDAX_SOURCE_COMMIT:", build_step)
         self.assertIn("ORDAX_SURFACE_BUILD_JOBS:", build_step)
+        self.assertIn("MAKEFLAGS: BR2_JLEVEL=${{ vars.ORDAX_SURFACE_BUILD_JOBS || '4' }}", build_step)
         self.assertIn("work_args", build_step)
         self.assertIn("ORDAX_SURFACE_BUILD_JOBS", build_step)
         self.assertIn('ORDAX_SURFACE_RESOLVED_BUILD_WORK_ROOT', build_step)

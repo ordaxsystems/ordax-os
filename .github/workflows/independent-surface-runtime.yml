@@ -326,6 +326,10 @@ jobs:
           # for preflight and build, by Resolve exact Surface fingerprint.
           # A dedicated runner retains the underlying disk across jobs.
           ORDAX_SURFACE_BUILD_JOBS: ${{ vars.ORDAX_SURFACE_BUILD_JOBS || '4' }}
+          # Buildroot derives CMake/Ninja parallelism from BR2_JLEVEL, not the
+          # outer make -j flag. MAKEFLAGS carries this command-line override
+          # without changing the checked-in defconfig or artifact fingerprint.
+          MAKEFLAGS: BR2_JLEVEL=${{ vars.ORDAX_SURFACE_BUILD_JOBS || '4' }}
         run: |
           set -euo pipefail
           work_args=()
