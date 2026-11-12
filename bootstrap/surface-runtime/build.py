@@ -634,28 +634,34 @@ def build(out_dir: Path, cache_dir: Path, jobs: int, *, persistent_work_dir: Pat
         raise SurfaceBuildError("Surface output and download cache paths must be separate")
     if out_dir.exists() and any(out_dir.iterdir()):
         raise SurfaceBuildError("output directory must be empty")
-    out_dir.mkdir(parents=True, exist_ok=True)
-    cache_dir.mkdir(parents=True, exist_ok=True)
 
     transient = persistent_work_dir is None
     if transient:
         work = Path(tempfile.mkdtemp(prefix="ordax-independent-surface-"))
     else:
         work = Path(persistent_work_dir).absolute()
-        # The persistent O= tree must not be redirected through an ancestor
-        # symlink, either. Reject the original path before resolve() follows it.
+        # Reject redirected paths before resolve() follows an ancestor link.
         if any(part.is_symlink() for part in (work, *work.parents)):
             raise SurfaceBuildError("persistent Surface workspace cannot be a symlink")
         work = work.resolve(strict=False)
-        if work == out_dir or work == cache_dir or out_dir in work.parents or cache_dir in work.parents:
+        # All three roots must be disjoint in both directions. An output or
+        # download directory nested under the workspace would otherwise be
+        # created first, poisoning the unsealed Buildroot resume path.
+        if (work == out_dir or work == cache_dir
+                or work in out_dir.parents or work in cache_dir.parents
+                or out_dir in work.parents or cache_dir in work.parents):
             raise SurfaceBuildError("persistent Surface workspace must be separate from artifacts and cache")
+        if work == ROOT or ROOT in work.parents:
+            raise SurfaceBuildError("persistent workspace cannot write into the OS source")
+    # No persistent workspace or cache roots are touched until the complete
+    # path preflight succeeds.
+    out_dir.mkdir(parents=True, exist_ok=True)
+    cache_dir.mkdir(parents=True, exist_ok=True)
     lock_fd = None
     try:
         if not transient:
             if work.is_symlink() or (work.exists() and not work.is_dir()):
                 raise SurfaceBuildError("persistent Surface workspace path is unsafe")
-            if work == ROOT or ROOT in work.parents:
-                raise SurfaceBuildError("persistent workspace cannot write into the OS source")
             work.mkdir(parents=True, exist_ok=True, mode=0o700)
             # Refuse redirected child inputs before downloading the pinned
             # archive, regenerating Kconfig or invoking expensive make.
