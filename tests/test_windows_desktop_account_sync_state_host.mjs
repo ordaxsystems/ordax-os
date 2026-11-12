@@ -30,9 +30,9 @@ async function start(root, { locked = false } = {}) {
   const trusted = (path, init = {}) => request(path, {
     ...init,
     headers: {
+      ...(init.method === "POST" ? { Origin: origin } : {}),
       ...init.headers,
       "x-ordax-desktop-state-token": TOKEN,
-      ...(init.method === "POST" ? { Origin: origin } : {}),
     },
   });
   const windowRef = { fetch: trusted };
