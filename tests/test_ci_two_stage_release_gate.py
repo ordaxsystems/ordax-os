@@ -20,6 +20,8 @@ TARGETS = {
     "kernel-pinned-environment.yml": ("prove-pinned-environment:", "if: github.event_name != 'pull_request' || !github.event.pull_request.draft"),
     "full-bootstrap-media-proof.yml": ("full-bootstrap-media-proof:", "if: github.event_name != 'pull_request' || !github.event.pull_request.draft"),
     "local-ai-runtime-candidate.yml": ("candidate:", "if: github.event_name != 'pull_request' || !github.event.pull_request.draft"),
+    "native-initramfs-candidate.yml": ("candidate:", "if: github.event_name != 'pull_request' || !github.event.pull_request.draft"),
+    "native-initramfs-environment.yml": ("observe:", "if: github.event_name != 'pull_request' || !github.event.pull_request.draft"),
 }
 
 

@@ -10,6 +10,7 @@ on:
       - 'docs/contracts/native-initramfs-runtime-proof.json'
       - '.github/workflows/native-initramfs-candidate.yml'
   pull_request:
+    types: [opened, synchronize, reopened, ready_for_review]
     paths:
       - 'bootstrap/native-initramfs/**'
       - 'docs/contracts/native-boot.json'
@@ -23,6 +24,9 @@ permissions:
 
 jobs:
   candidate:
+    # Native initramfs byte-level proofs are mandatory at review-ready and on
+    # explicit dispatch, but need not be rebuilt on every draft revision.
+    if: github.event_name != 'pull_request' || !github.event.pull_request.draft
     runs-on: ubuntu-24.04
     timeout-minutes: 25
     steps:

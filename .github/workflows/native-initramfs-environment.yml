@@ -9,6 +9,7 @@ on:
       - 'bootstrap/native-initramfs/**'
       - '.github/workflows/native-initramfs-environment.yml'
   pull_request:
+    types: [opened, synchronize, reopened, ready_for_review]
     paths:
       - 'docs/contracts/native-initramfs-build-environment.json'
       - 'docs/contracts/kernel-build-environment.json'
@@ -21,6 +22,9 @@ permissions:
 
 jobs:
   observe:
+    # Native initramfs byte-level proofs are mandatory at review-ready and on
+    # explicit dispatch, but need not be rebuilt on every draft revision.
+    if: github.event_name != 'pull_request' || !github.event.pull_request.draft
     runs-on: ubuntu-24.04
     timeout-minutes: 20
     steps:
