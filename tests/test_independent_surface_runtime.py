@@ -510,7 +510,30 @@ class IndependentSurfaceRuntimeTests(unittest.TestCase):
         self.assertIn('if transient:', source)
         self.assertIn('if lock_fd is not None:', source)
         self.assertIn('fcntl.flock(lock_fd, fcntl.LOCK_EX | fcntl.LOCK_NB)', source)
-        self.assertIn('if transient:\n            shutil.rmtree(work, ignore_errors=True)', source)
+        # Exercise the cleanup on a failed transient build instead of pinning
+        # the spelling of its guard. Lazy allocation leaves work=None until
+        # artifact and download roots are ready.
+        with tempfile.TemporaryDirectory() as td:
+            scratch = Path(td) / "scratch"
+
+            def allocate(*, prefix):
+                self.assertEqual(prefix, "ordax-independent-surface-")
+                scratch.mkdir()
+                return str(scratch)
+
+            with mock.patch.object(self.builder.platform, "system", return_value="Linux"), \
+                    mock.patch.object(self.builder.platform, "machine", return_value="x86_64"), \
+                    mock.patch.object(self.builder.shutil, "which", return_value="/usr/bin/true"), \
+                    mock.patch.object(self.builder.tempfile, "mkdtemp", side_effect=allocate), \
+                    mock.patch.object(
+                        self.builder, "source_archive",
+                        side_effect=self.builder.SurfaceBuildError("simulated upstream failure"),
+                    ):
+                with self.assertRaisesRegex(
+                    self.builder.SurfaceBuildError, "simulated upstream failure",
+                ):
+                    self.builder.build(Path(td) / "artifacts", Path(td) / "downloads", 1)
+            self.assertFalse(scratch.exists(), "failed ephemeral build left a workspace")
 
     def test_buildroot_has_mode_specific_group_timeout_before_ci_job_deadline(self):
         source = BUILDER_PATH.read_text(encoding="utf-8")
