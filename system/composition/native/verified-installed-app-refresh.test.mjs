@@ -132,6 +132,36 @@ test("reentrant Surface teardown waits until withdrawn component is actually des
   assert.equal(previousDestroyed, true);
 });
 
+test("concurrent Surface teardown callers await the same incomplete runtime cleanup", async () => {
+  let release;
+  let destroyCalls = 0;
+  const blocked = new Promise(resolve => { release = resolve; });
+  const controller = createNativeVerifiedInstalledAppRefresh({
+    initialMounts: {
+      destroy: async () => { destroyCalls += 1; await blocked; },
+    },
+    discover: async () => { throw Error("Destroyed Surface cannot rediscover CURRENT"); },
+    createCatalog: catalog,
+    mount: async () => { throw Error("Destroyed Surface cannot remount CURRENT"); },
+    publish: () => {},
+  });
+  const first = controller.destroy();
+  const second = controller.destroy();
+  let secondSettled = false;
+  second.then(() => { secondSettled = true; });
+  await new Promise(resolve => setImmediate(resolve));
+  try {
+    assert.equal(destroyCalls, 1, "only one runtime teardown owns the mounted app");
+    assert.equal(secondSettled, false,
+      "a concurrent destroy must not resolve before the mounted runtime stops");
+  } finally {
+    release();
+    await Promise.all([first, second]);
+  }
+  assert.equal(secondSettled, true);
+  assert.equal(destroyCalls, 1, "concurrent shutdown must not double-destroy");
+});
+
 test("verified CURRENT identity only changes on observed activation, not Store notification order", () => {
   const installed = { componentId: "calculator", source: "slot", revision: 7,
     version: "1.0.0", sourceCommit: "a".repeat(40), entrypoint: "system/apps/calculator/main.mjs" };
