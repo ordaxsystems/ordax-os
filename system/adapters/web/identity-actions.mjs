@@ -3,6 +3,7 @@ import {
   validateIdentityActionsSnapshot,
 } from "../../contracts/identity-actions.mjs";
 import { assertIdentitySessionPort } from "../../contracts/identity-session.mjs";
+import { runWebRequestWithinDeadline } from "./json-read.mjs";
 
 function actionsForSession(snapshot, registrationEnabled) {
   if (snapshot.state === "signed-out") {
@@ -36,6 +37,9 @@ export function createWebIdentityActions(
   const listeners = new Set();
   let disposed = false;
   let policyRefreshSequence = 0;
+  // One logout command and one verification per Web session, even on rapid clicks.
+  let pendingSignOut = null;
+  let logoutController = null;
 
   const emit = () => {
     if (disposed) return;
@@ -94,8 +98,19 @@ export function createWebIdentityActions(
     },
     async execute(action) {
       if (disposed) throw new Error("Identity actions are disposed");
+      // Join the pending request before the session refresh can change the
+      // supported-actions snapshot; do not send another logout POST.
+      if (action === "sign-out" && pendingSignOut !== null) return pendingSignOut;
       if (!snapshot.supportedActions.includes(action)) {
         throw new Error(`Identity action is unavailable: ${String(action)}`);
+      }
+      // The displayed policy may have been revoked since the last session read.
+      // Navigation never creates an account; the destination still owns consent.
+      if (action === "register" && registrationPolicy !== null) {
+        await refreshRegistration();
+        if (disposed || !snapshot.supportedActions.includes(action)) {
+          throw new Error("Identity registration is unavailable");
+        }
       }
       if (action === "sign-in") {
         windowRef.location?.assign?.("/login/");
@@ -106,18 +121,36 @@ export function createWebIdentityActions(
         return;
       }
       if (action === "sign-out") {
-        const response = await windowRef.fetch("/auth/logout", {
-          method: "POST",
-          credentials: "same-origin",
-          cache: "no-store",
-          redirect: "manual",
-          headers: { Accept: "application/json" },
-        });
-        if (!(response.ok || response.status === 303 || response.status === 0)) {
-          throw new Error(`Identity sign-out failed: ${response.status}`);
-        }
-        await session?.refresh?.();
-        return;
+        const attempt = (async () => {
+          const controller = new AbortController();
+          logoutController = controller;
+          let response;
+          try {
+            response = await runWebRequestWithinDeadline(windowRef, controller, (signal) =>
+              windowRef.fetch("/auth/logout", {
+                method: "POST",
+                credentials: "same-origin",
+                cache: "no-store",
+                redirect: "manual",
+                headers: { Accept: "application/json" },
+                signal,
+              }), "Web logout request");
+          } finally {
+            if (logoutController === controller) logoutController = null;
+          }
+          if (!(response.ok || response.status === 303 || response.status === 0)) {
+            throw new Error(`Identity sign-out failed: ${response.status}`);
+          }
+          if (disposed) throw new Error("Identity actions are disposed");
+          // A response acknowledges the command; only the canonical session
+          // reader proves that the browser is actually signed out.
+          await session?.refresh?.();
+          if (disposed || session?.getSnapshot().state !== "signed-out") {
+            throw new Error("Identity sign-out not confirmed by the session gateway");
+          }
+        })();
+        pendingSignOut = attempt.finally(() => { pendingSignOut = null; });
+        return pendingSignOut;
       }
       throw new Error(`Unsupported identity action: ${String(action)}`);
     },
@@ -125,6 +158,8 @@ export function createWebIdentityActions(
       if (disposed) return;
       disposed = true;
       policyRefreshSequence += 1;
+      logoutController?.abort(new Error("Identity actions are disposed"));
+      logoutController = null;
       unsubscribe();
       listeners.clear();
     },

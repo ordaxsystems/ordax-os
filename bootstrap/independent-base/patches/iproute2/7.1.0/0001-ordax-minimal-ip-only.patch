@@ -1,0 +1,66 @@
+From: OrdaX Systems <ordaxos@gmail.com>
+Subject: [PATCH] iproute2: build and install only ip for minimal base
+
+The Independent Base consumes only /sbin/ip for the canonical Surface
+loopback contract. Buildroot otherwise builds and installs the complete
+iproute2 utility suite.
+
+Keep lib as a build-only prerequisite and restrict the target payload to
+ip. Do not install tc/bridge/misc/genl tools, rtmon/routel, manuals,
+headers, completions, or iproute2 data files. Future consumers must add
+their own justified capability slice rather than inheriting tools
+accidentally.
+
+--- a/Makefile
++++ b/Makefile
+@@ -60,10 +60,7 @@
+ CFLAGS := $(WFLAGS) $(CCOPTS) -I../include -I../include/uapi $(DEFINES) $(CFLAGS)
+ YACCFLAGS = -d -t -v
+ 
+-SUBDIRS=lib ip tc bridge misc netem genl man
+-ifeq ($(HAVE_MNL),y)
+-SUBDIRS += tipc devlink rdma dcb vdpa netshaper dpll
+-endif
++SUBDIRS=lib ip
+ 
+ LIBNETLINK=../lib/libutil.a ../lib/libnetlink.a
+ LDLIBS += $(LIBNETLINK)
+@@ -95,15 +92,7 @@
+ 
+ install: all
+ 	install -m 0755 -d $(DESTDIR)$(SBINDIR)
+-	install -m 0755 -d $(DESTDIR)$(CONF_USR_DIR)
+-	install -m 0755 -d $(DESTDIR)$(HDRDIR)
+ 	@for i in $(SUBDIRS);  do $(MAKE) -C $$i install; done
+-	install -m 0644 $(shell find etc/iproute2 -maxdepth 1 -type f) $(DESTDIR)$(CONF_USR_DIR)
+-	install -m 0755 -d $(DESTDIR)$(BASH_COMPDIR)
+-	install -m 0644 bash-completion/tc $(DESTDIR)$(BASH_COMPDIR)
+-	install -m 0644 bash-completion/devlink $(DESTDIR)$(BASH_COMPDIR)
+-	install -m 0644 bash-completion/dpll $(DESTDIR)$(BASH_COMPDIR)
+-	install -m 0644 include/bpf_elf.h $(DESTDIR)$(HDRDIR)
+ 
+ version:
+ 	echo "static const char version[] = \""`git describe --tags --long`"\";" \
+--- a/ip/Makefile
++++ b/ip/Makefile
+@@ -20,10 +20,9 @@
+ include ../config.mk
+ 
+ ALLOBJ=$(IPOBJ) $(RTMONOBJ)
+-SCRIPTS=routel
+-TARGETS=ip rtmon
++TARGETS=ip
+ 
+-all: $(TARGETS) $(SCRIPTS)
++all: $(TARGETS)
+ 
+ ip: $(IPOBJ) $(LIBNETLINK)
+ 	$(QUIET_LINK)$(CC) $^ $(LDFLAGS) $(LDLIBS) -o $@
+@@ -33,7 +32,6 @@
+ 
+ install: all
+ 	install -m 0755 $(TARGETS) $(DESTDIR)$(SBINDIR)
+-	install -m 0755 $(SCRIPTS) $(DESTDIR)$(SBINDIR)
+ 
+ clean:
+ 	rm -f $(ALLOBJ) $(TARGETS)

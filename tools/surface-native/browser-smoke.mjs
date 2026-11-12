@@ -3,7 +3,7 @@ import {readFile} from 'node:fs/promises';
 import {existsSync} from 'node:fs';
 import {dirname,isAbsolute,join,normalize,relative,resolve,sep} from 'node:path';
 import {runBrowser, sleep} from '../browser-proof/chromium.mjs';
-const ROOT_MODULES = ['system/surface/ui/surface.mjs', 'system/surface/ui/notification-center-controls.mjs', 'system/surface/ui/system-tray-quick-panels.mjs', 'system/services/notifications/runtime.mjs'];
+const ROOT_MODULES = ['system/surface/ui/surface.mjs', 'system/surface/ui/settings-overview-controls.mjs', 'system/surface/ui/system-overview-controls.mjs', 'system/surface/ui/notification-center-controls.mjs', 'system/surface/ui/system-tray-quick-panels.mjs', 'system/services/notifications/runtime.mjs'];
 const STATIC_IMPORT_RE = /\b(?:import|export)\s+(?:[^;]*?\s+from\s*)?["']([^"']+)["']/g;
 const DYNAMIC_IMPORT_RE = /\bimport\(\s*["']([^"']+)["']\s*\)/g;
 const ASSET_HREF_RE = /\bnew\s+URL\(\s*["']([^"']+)["']\s*,\s*import\.meta\.url\s*\)\.href/g;
@@ -14,7 +14,6 @@ const CSS_FILES = [
   'system/surface/ui/notification-center.css',
   'system/surface/ui/boot-screen.css',
   'system/surface/ui/workspace-areas.css',
-  'system/surface/ui/files.css',
   'system/surface/ui/system.css',
   'system/surface/ui/account.css',
   'system/surface/ui/space-switcher.css',
@@ -25,9 +24,7 @@ const CSS_FILES = [
   'system/surface/ui/sidebar-layout.css',
   'system/surface/ui/brand/symbol.css',
 ];
-const COMPONENT_ASSET_FILES = Object.freeze({
-  'system/apps/studio/studio.css': 'text/css',
-});
+const COMPONENT_ASSET_FILES = Object.freeze({});
 
 function assertInside(root, candidate) {
   const rel = relative(root, candidate);
@@ -191,11 +188,24 @@ function buildProofExpression(moduleSources, styles, assetUrls) {
     const result = {};
     result.shellMounted = Boolean(root.querySelector('[data-workspace]'));
     result.launcherApps = root.querySelectorAll('[data-launch-app]').length;
+    const shell = root.querySelector('[data-ordax-shell]');
+    const globalHeader = () => root.querySelector('.ordax-native-header, .meridian-system-header');
+    const headerlessGrid = () => getComputedStyle(root.querySelector('[data-workspace]')).gridRowStart === '1'
+      && getComputedStyle(root.querySelector('.ordax-statusbar')).gridRowStart === '2';
+    result.globalHeaderRemovedOnCentralHome = globalHeader() === null && headerlessGrid();
 
     root.querySelector('[data-launcher-toggle]').click();
     const settingsLaunch = root.querySelector('[data-launch-app="settings"]');
     result.settingsLaunchPresent = Boolean(settingsLaunch);
     settingsLaunch.click();
+    result.centralAppHasNoGlobalHeader = globalHeader() === null && headerlessGrid();
+    const presentationToggle = root.querySelector('[data-presentation-toggle]');
+    presentationToggle.click();
+    result.desktopPresentationHasNoGlobalHeader = shell.dataset.view === 'desktop'
+      && globalHeader() === null && headerlessGrid();
+    presentationToggle.click();
+    result.centralAppStillHasNoGlobalHeader = shell.dataset.view === 'central'
+      && globalHeader() === null && headerlessGrid();
 
     const windowBefore = root.querySelector('[data-window-id="settings"]');
     const slotBefore = windowBefore?.querySelector('[data-app-extension="settings-overview"]');
@@ -274,6 +284,51 @@ function buildProofExpression(moduleSources, styles, assetUrls) {
     result.windowRemovedAfterClose = root.querySelector('[data-window-id="settings"]') === null;
     result.dockRemovedAfterClose = root.querySelector('[data-open-window="settings"]') === null;
     result.focusMovedToWorkspaceOnClose = document.activeElement === root.querySelector('[data-workspace]');
+    result.centralHomeStillHasNoGlobalHeaderAfterClose = globalHeader() === null && headerlessGrid();
+
+    const storeLaunch = root.querySelector('[data-dock-pinned-app="store"]');
+    result.storeLaunchPresent = Boolean(storeLaunch);
+    storeLaunch?.click();
+    const storeWindow = root.querySelector('[data-window-id="store"]');
+    result.storeOpensWithoutGlobalHeader = Boolean(storeWindow) && globalHeader() === null && headerlessGrid();
+    storeWindow?.querySelector('[data-window-action="close"]')?.click();
+    result.storeWindowClosesCleanly = root.querySelector('[data-window-id="store"]') === null;
+
+    // Exercise the actual mounted Settings and System owners, not a synthetic
+    // visibility helper: snapshots arriving while minimized must not rebuild
+    // their retained DOM, and the existing Surface render callback must flush
+    // the newest state when the same window is restored.
+    const { mountSettingsOverviewControls } = await import(urls['system/surface/ui/settings-overview-controls.mjs']);
+    const { mountSystemOverviewControls } = await import(urls['system/surface/ui/system-overview-controls.mjs']);
+    root.querySelector('[data-launch-app="settings"]').click();
+    const settingsProofWindow = root.querySelector('[data-window-id="settings"]');
+    const settingsProofControls = mountSettingsOverviewControls(root, host, surface.preferences, surface);
+    const settingsProofSlot = settingsProofWindow.querySelector('[data-app-extension="settings-overview"]');
+    const settingsProofView = settingsProofSlot.firstElementChild;
+    result.settingsRealOwnerInitiallyPainted = Boolean(settingsProofView);
+    settingsProofWindow.querySelector('[data-window-action="minimize"]').click();
+    host.emit({ capabilityIds: [], connectivity: 'online' });
+    result.settingsHiddenHostUpdateSkipsRepaint = settingsProofSlot.firstElementChild === settingsProofView;
+    root.querySelector('[data-open-window="settings"]').click();
+    result.settingsFocusFlushesPendingRepaint = settingsProofSlot.firstElementChild !== settingsProofView
+      && settingsProofSlot.dataset.settingsActiveSection === 'appearance';
+    settingsProofControls.destroy();
+    settingsProofWindow.querySelector('[data-window-action="close"]').click();
+
+    root.querySelector('[data-launch-app="system"]').click();
+    const systemProofWindow = root.querySelector('[data-window-id="system"]');
+    const systemProofControls = mountSystemOverviewControls(root, host, null, null, surface);
+    const systemProofSlot = systemProofWindow.querySelector('[data-app-extension="system-overview"]');
+    const systemProofView = systemProofSlot.firstElementChild;
+    result.systemRealOwnerInitiallyPainted = Boolean(systemProofView);
+    systemProofWindow.querySelector('[data-window-action="minimize"]').click();
+    host.emit({ capabilityIds: [], connectivity: 'offline' });
+    result.systemHiddenHostUpdateSkipsRepaint = systemProofSlot.firstElementChild === systemProofView;
+    root.querySelector('[data-open-window="system"]').click();
+    result.systemFocusFlushesPendingRepaint = systemProofSlot.firstElementChild !== systemProofView
+      && systemProofSlot.dataset.systemActiveSection === 'overview';
+    systemProofControls.destroy();
+    systemProofWindow.querySelector('[data-window-action="close"]').click();
 
     const { createNotificationsRuntime } = await import(urls['system/services/notifications/runtime.mjs']);
     const { mountNotificationCenterControls } = await import(urls['system/surface/ui/notification-center-controls.mjs']);
@@ -297,6 +352,16 @@ function buildProofExpression(moduleSources, styles, assetUrls) {
     result.notificationsFitViewport = panelBounds.left >= 0 && panelBounds.top >= 0
       && panelBounds.right <= innerWidth + 1 && panelBounds.bottom <= innerHeight + 1
       && notificationPanel.scrollWidth <= notificationPanel.clientWidth + 1;
+    if (!result.notificationsFitViewport) result.notificationsFitViewportDetails = {
+      viewport: { width: innerWidth, height: innerHeight },
+      panel: { left: panelBounds.left, top: panelBounds.top, right: panelBounds.right, bottom: panelBounds.bottom,
+        width: panelBounds.width, height: panelBounds.height, scrollWidth: notificationPanel.scrollWidth,
+        clientWidth: notificationPanel.clientWidth },
+      overflowingChildren: [...notificationPanel.children].map(child => ({
+        className: child.className, scrollWidth: child.scrollWidth, clientWidth: child.clientWidth,
+        bounds: (() => { const rect = child.getBoundingClientRect(); return { left: rect.left, right: rect.right, width: rect.width }; })(),
+      })).filter(child => child.scrollWidth > child.clientWidth + 1),
+    };
     const notificationList = root.querySelector('.ordax-notification-scroll');
     result.notificationsNoHorizontalOverflow = notificationList.scrollWidth <= notificationList.clientWidth + 1;
 
@@ -330,6 +395,13 @@ function buildProofExpression(moduleSources, styles, assetUrls) {
 
     const required = [
       'shellMounted', 'settingsLaunchPresent', 'settingsWindowCreated', 'focusBeforeSnapshot',
+      'globalHeaderRemovedOnCentralHome', 'centralAppHasNoGlobalHeader',
+      'desktopPresentationHasNoGlobalHeader', 'centralAppStillHasNoGlobalHeader',
+      'centralHomeStillHasNoGlobalHeaderAfterClose', 'storeLaunchPresent',
+      'storeOpensWithoutGlobalHeader', 'storeWindowClosesCleanly',
+      'settingsRealOwnerInitiallyPainted', 'settingsHiddenHostUpdateSkipsRepaint',
+      'settingsFocusFlushesPendingRepaint', 'systemRealOwnerInitiallyPainted',
+      'systemHiddenHostUpdateSkipsRepaint', 'systemFocusFlushesPendingRepaint',
       'sameWindowAfterSnapshot', 'sameSlotAfterSnapshot', 'sameInputAfterSnapshot',
       'focusAfterSnapshot', 'scrollPreservedAfterSnapshot', 'draftPreservedAfterSnapshot',
       'sameWindowAfterPreference', 'sameInputAfterPreference', 'focusAfterPreference',

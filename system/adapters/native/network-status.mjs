@@ -4,6 +4,8 @@ import {
   validateNetworkStatusSnapshot,
 } from "../../contracts/network-status.mjs";
 
+import { createNativeBootProbeReader } from "./boot-probe-reader.mjs";
+
 const NETWORK_STATUS_ENDPOINT = "/__ordax/native/network-status";
 
 export async function createNativeNetworkStatus(windowRef = globalThis.window) {
@@ -13,7 +15,7 @@ export async function createNativeNetworkStatus(windowRef = globalThis.window) {
 
   const port = {
     schema: NETWORK_STATUS_SCHEMA,
-    async read() {
+    read: createNativeBootProbeReader(async () => {
       const response = await windowRef.fetch(NETWORK_STATUS_ENDPOINT, {
         method: "GET",
         cache: "no-store",
@@ -23,7 +25,7 @@ export async function createNativeNetworkStatus(windowRef = globalThis.window) {
         throw new Error(`Native network-status request failed: ${response.status}`);
       }
       return validateNetworkStatusSnapshot(await response.json());
-    },
+    }),
   };
 
   assertNetworkStatusPort(port);

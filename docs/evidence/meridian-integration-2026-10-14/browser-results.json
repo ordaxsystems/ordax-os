@@ -1,0 +1,114 @@
+{
+  "date": "2026-10-14",
+  "scope": "Canonical Web Meridian integration and actual compiled Web bundle; Native visual wiring source-only",
+  "checks": [
+    {
+      "name": "Central e hero presentes",
+      "passed": true
+    },
+    {
+      "name": "Busca da Loja integrada",
+      "passed": true
+    },
+    {
+      "name": "Ficha da Loja preserva URL do Web",
+      "passed": true
+    },
+    {
+      "name": "Minimizar/restaurar retém ficha",
+      "passed": true
+    },
+    {
+      "name": "Material sistêmico chega à Loja",
+      "passed": true
+    },
+    {
+      "name": "Catálogo real não recebe fixtures",
+      "passed": true
+    },
+    {
+      "name": "Alternar catálogo conserva mock da sessão",
+      "passed": true
+    },
+    {
+      "name": "Retorno da busca compartilhada",
+      "passed": true
+    },
+    {
+      "name": "Checklist de mock interativo",
+      "passed": true
+    },
+    {
+      "name": "Alternância conserva estado da Central",
+      "passed": true
+    },
+    {
+      "name": "Web móvel sem overflow",
+      "passed": true
+    },
+    {
+      "name": "Loja móvel montada",
+      "passed": true
+    },
+    {
+      "name": "Menu móvel da Loja navega localmente",
+      "passed": true
+    },
+    {
+      "name": "Dialog da Loja não pede credenciais",
+      "passed": true
+    },
+    {
+      "name": "Loja compacta conserva seção",
+      "passed": true
+    },
+    {
+      "name": "Loja móvel sem overflow interno",
+      "passed": true
+    },
+    {
+      "name": "Recurso planejado continua visível e honesto",
+      "passed": true
+    },
+    {
+      "name": "Fechar Loja encerra a demonstração montada",
+      "passed": true
+    },
+    {
+      "name": "Build principal abre Meridian",
+      "passed": true
+    },
+    {
+      "name": "Bundle da Loja carregado",
+      "passed": true
+    },
+    {
+      "name": "Controles compactos compilados",
+      "passed": true
+    },
+    {
+      "name": "Menu compacto funciona no build móvel",
+      "passed": true
+    },
+    {
+      "name": "Console de produção limpo",
+      "passed": true
+    },
+    {
+      "name": "Desktop compilado mantém mesma sessão",
+      "passed": true
+    },
+    {
+      "name": "Página isolada preservada",
+      "passed": true
+    },
+    {
+      "name": "Navegação isolada conserva seu hash",
+      "passed": true
+    },
+    {
+      "name": "Fixados não parecem apps em execução",
+      "passed": true
+    }
+  ]
+}

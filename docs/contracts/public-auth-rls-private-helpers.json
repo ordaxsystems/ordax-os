@@ -1,0 +1,109 @@
+{
+  "$schema": "prototype-ordax.auth-private-rls-helper-contract/1",
+  "status": "private-data-api-exclusion-live-verified-two-subject-isolation-pending",
+  "owner": "ordax-os / ordax-platform",
+  "schema": "private",
+  "approved_authenticated_execute": [
+    [
+      "ordax_authenticated_subject_eligible_v1",
+      ""
+    ],
+    [
+      "ordax_can_access_product_device",
+      "target_device_id uuid"
+    ],
+    [
+      "ordax_can_access_project",
+      "target_project_id uuid"
+    ],
+    [
+      "ordax_can_access_space",
+      "target_space_id uuid"
+    ],
+    [
+      "ordax_can_admin_space",
+      "target_space_id uuid"
+    ]
+  ],
+  "approved_public_rls_policy_dependencies": [
+    [
+      "ordax_accounts",
+      "ordax_accounts_select_own"
+    ],
+    [
+      "ordax_accounts",
+      "ordax_accounts_update_own"
+    ],
+    [
+      "ordax_device_presence",
+      "ordax_device_presence_select_authorized"
+    ],
+    [
+      "ordax_device_project_bindings",
+      "ordax_device_project_bindings_select_project"
+    ],
+    [
+      "ordax_entitlement_grants",
+      "ordax_entitlement_grants_select_subject"
+    ],
+    [
+      "ordax_memory_embeddings",
+      "ordax_memory_embeddings_select_authorized"
+    ],
+    [
+      "ordax_memory_items",
+      "ordax_memory_items_select_authorized"
+    ],
+    [
+      "ordax_product_devices",
+      "ordax_product_devices_select_authorized"
+    ],
+    [
+      "ordax_project_connections",
+      "ordax_project_connections_select_space"
+    ],
+    [
+      "ordax_projects",
+      "ordax_projects_select_space"
+    ],
+    [
+      "ordax_remote_capability_grants",
+      "ordax_remote_capability_grants_select_admin"
+    ],
+    [
+      "ordax_space_devices",
+      "ordax_space_devices_select_space"
+    ],
+    [
+      "ordax_space_members",
+      "ordax_space_members_select_space"
+    ],
+    [
+      "ordax_space_profile_packs",
+      "ordax_space_profile_packs_select_member"
+    ],
+    [
+      "ordax_spaces",
+      "ordax_spaces_select_member"
+    ]
+  ],
+  "function_owner": "postgres",
+  "function_security_definer": true,
+  "function_search_path": "empty",
+  "anon_private_schema_usage_allowed": false,
+  "authenticated_private_schema_create_allowed": false,
+  "authenticated_private_schema_usage_required_for_rls": true,
+  "anon_or_service_role_execute_approved_helpers_allowed": false,
+  "private_schema_data_api_exposure_allowed": false,
+  "private_schema_data_api_exclusion_verified": true,
+  "two_subject_authenticated_negative_isolation_verified": false,
+  "public_account_activation_allowed": false,
+  "reason": "Fifteen public RLS policies, including account SELECT and UPDATE, require five private SECURITY DEFINER helpers. The initial 13-policy observation only searched access/admin helpers, not the auth-session eligibility helper in account policies. Keep these functions inside unexposed private schema; blanket REVOKE or public DEFINER wrappers are unsafe.",
+  "references": [
+    "docs/evidence/authenticated-private-helper-dependencies-expanded-2026-10-26.json",
+    "docs/evidence/authenticated-private-helper-dependencies-2026-10-26.json",
+    "https://supabase.com/docs/guides/database/postgres/row-level-security"
+  ],
+  "private_schema_data_api_exclusion_evidence": "docs/evidence/private-schema-data-api-exclusion-2026-10-26.json",
+  "private_schema_data_api_exclusion_probe": "tools/security/probe_private_data_api_exposure.py"
+}

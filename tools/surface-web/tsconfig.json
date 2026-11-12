@@ -3,7 +3,8 @@
     "../../system/surface/workspace/**/*.ts",
     "../../system/surface/workspace/**/*.tsx",
     "../../system/composition/web/main.tsx",
-    "vite.config.ts"
+    "vite.config.ts",
+    "vite.store-preview.config.ts"
   ],
   "compilerOptions": {
     "target": "ES2022",

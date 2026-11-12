@@ -20,8 +20,8 @@ class PortableQemuKernelSourceSSOTTests(unittest.TestCase):
     def test_all_qemu_and_uefi_artifact_paths_use_canonical_version(self):
         workflow = WORKFLOW.read_text(encoding="utf-8")
         expected = {
-            'vmlinuz-$ORDAX_KERNEL_VERSION': 5,
-            'kernel-modules-$ORDAX_KERNEL_VERSION.tar': 2,
+            'vmlinuz-$ORDAX_KERNEL_VERSION': 6,
+            'kernel-modules-$ORDAX_KERNEL_VERSION.tar': 3,
             'kernel-$ORDAX_KERNEL_VERSION.config': 3,
         }
         for artifact, count in expected.items():
@@ -33,6 +33,7 @@ class PortableQemuKernelSourceSSOTTests(unittest.TestCase):
             "Prove armed candidate one-shot fallback in QEMU",
             "Prove invalid Ed25519 candidate, durable rollback and read-only rescue in QEMU",
             "Boot same portable-v2 disk through OVMF and systemd-boot",
+            "Boot signed Portable v4 on transitional Dev geometry in QEMU",
         ):
             self.assertIn(step, workflow)
 

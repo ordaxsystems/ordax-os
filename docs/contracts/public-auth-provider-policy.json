@@ -9,7 +9,7 @@
     "wildcards_allowed": false,
     "required_paths": [
       "/auth/recover/verify",
-      "/auth/confirm"
+      "/login/"
     ],
     "origin": "https://ordax.com.br",
     "recovery_verify_url": "https://ordax.com.br/auth/recover/verify",

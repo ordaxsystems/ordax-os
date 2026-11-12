@@ -1,0 +1,53 @@
+{
+  "$schema": "prototype-ordax.public-dns-delegation-evidence/1",
+  "observed_date": "2026-10-26",
+  "domain": "ordax.com.br",
+  "purpose": "independent registrar delegation plus production HTTPS and auth boundary reachability; read-only",
+  "registry": {
+    "source": "https://rdap.registro.br/domain/ordax.com.br",
+    "method": "HTTPS GET RDAP domain.nameservers[].ldhName",
+    "observed_nameservers": [
+      "martin.ns.cloudflare.com",
+      "meg.ns.cloudflare.com"
+    ],
+    "match_destination_nameservers": true,
+    "registry_contacts_recorded": false
+  },
+  "cloudflare": {
+    "account_id": "42586bf13b61436219d21def299833e4",
+    "zone_id": "f7273428d0643fab66349dc0cbd9d244",
+    "zone_status": "active",
+    "observed_nameservers": [
+      "martin.ns.cloudflare.com",
+      "meg.ns.cloudflare.com"
+    ]
+  },
+  "vercel": {
+    "team": "ordaxsystems",
+    "project": "ordax-os-public",
+    "project_id": "prj_mA9ew6hOfjdqlBr1cC757iMLPQJC",
+    "apex_domain_verified": true,
+    "www_domain_verified": true,
+    "www_redirect_status_code": 308,
+    "www_redirect_target": "https://ordax.com.br/"
+  },
+  "https": {
+    "certificate_validation_enabled": true,
+    "apex_http_status": 200,
+    "www_http_status": 308,
+    "web_http_status": 200,
+    "account_session_http_status": 200
+  },
+  "security_scope": {
+    "no_dns_mutation": true,
+    "no_vercel_domain_move": true,
+    "no_account_activation": true,
+    "no_legacy_zone_deletion": true,
+    "authenticated_account_e2e_proven": false
+  },
+  "limitations": [
+    "Registrar RDAP nameserver listing proves current registry delegation, not an independently captured DNS packet from authoritative .br nameserver",
+    "Account GET /auth/session HTTP 200 proves reachability, not authenticated signup/recovery/revocation",
+    "Legacy Cloudflare zone remains preserved; administrative deletion requires separate authorization and evidence"
+  ]
+}

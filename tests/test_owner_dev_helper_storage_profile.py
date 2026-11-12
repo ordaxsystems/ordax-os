@@ -1,11 +1,30 @@
 from pathlib import Path
+import os
+import json
 import unittest
 
 ROOT = Path(__file__).resolve().parents[1]
-HELPER = ROOT / "tools/creator/cmd/ordax-creator-physical-test/main_windows.go"
+HELPER = (Path(os.environ["ORDAX_CREATOR_NATIVE_SOURCE"])
+          / "cmd/ordax-creator-physical-test/main_windows.go"
+          if os.environ.get("ORDAX_CREATOR_NATIVE_SOURCE") else None)
 WORKFLOW = ROOT / ".github/workflows/creator-owner-dev-git.yml"
 
 
+class OwnerDevHelperSourceBoundaryTests(unittest.TestCase):
+    def test_owner_and_windows_ci_bind_the_helper_to_the_single_source_lock(self):
+        pin = json.loads((ROOT / "docs/contracts/native-release-assembly.json").read_text(encoding="utf-8"))["creator_source"]
+        self.assertEqual(pin["repository"], "ordaxsystems/ordax-creator")
+        self.assertIs(pin["physical_apply_authorized"], False)
+        owner = WORKFLOW.read_text(encoding="utf-8")
+        physical = (ROOT / ".github/workflows/physical-usb-test-toolkit.yml").read_text(encoding="utf-8")
+        self.assertIn("uses: ./.github/actions/resolve-creator-source", owner)
+        self.assertIn("uses: ./.github/actions/resolve-creator-source", physical)
+        self.assertIn("tests/test_owner_dev_helper_storage_profile.py", physical)
+        self.assertIn("-X main.buildStorageProfile=owner-development", owner)
+
+
+@unittest.skipUnless(os.environ.get("ORDAX_CREATOR_NATIVE_SOURCE"),
+                     "Windows helper implementation is checked from pinned standalone source in Windows CI")
 class OwnerDevHelperStorageProfileTests(unittest.TestCase):
     def test_owner_workflow_binds_development_storage_profile_into_split_helper(self):
         workflow = WORKFLOW.read_text(encoding="utf-8")

@@ -59,7 +59,7 @@
     {
       "id": "surface",
       "root": "system/surface",
-      "responsibility": "shared presentation shell and interaction behavior",
+      "responsibility": "OS-owned Surface host and native runtime shell boundary; visual presentation is externally owned and composed from the pinned Surface source contract",
       "allowed_dependencies": [
         "contracts",
         "services",

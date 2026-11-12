@@ -1,5 +1,13 @@
 # Application Actions
 
+**Integração com o Capability Fabric v1 (2026-11-04):** o registry de
+Application Actions continua sendo a fonte de declarações. O Fabric já
+projeta somente metadados atuais, conferidos contra Store `CURRENT`, para
+Aura/Personal. `declared-only` **não** é execução de aplicativos, e qualquer
+provider real exige o Gateway/approval/grant/receipt existente. Ver o
+[guia canônico do Fabric](CAPABILITY-FABRIC.md); as fases e gates abaixo
+continuam regidos pelos seus próprios contratos, sem novo registry.
+
 Status: **FOUNDATION / CAPABILITY DESCRIPTION AND PROPOSAL ONLY**
 
 OrdaX Intelligence may eventually help a user operate applications, but understanding that an action exists is not authority to perform it.

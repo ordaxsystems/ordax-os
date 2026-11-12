@@ -214,6 +214,7 @@ start_local_ai() {
     fi
     LLAMA_ARG_API_KEY_FILE=/run/ordax/local-ai-auth/key \
         ORDAX_LOCAL_AI_RUNTIME_ROOT="$ORDAX_LOCAL_AI_RUNTIME_ROOT" \
+        /bin/sh /system/services/local-ai/run-low-priority.sh \
         "$ORDAX_LOCAL_AI_RUNTIME_ROOT/bin/ordax-local-ai" \
         >/run/ordax/local-ai.log 2>&1 &
     local_ai_pid=$!

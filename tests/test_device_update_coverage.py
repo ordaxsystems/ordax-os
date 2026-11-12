@@ -7,6 +7,7 @@ ROOT = Path(__file__).resolve().parents[1]
 CONTRACT = ROOT / "docs" / "contracts" / "device-update-coverage.json"
 PULL = ROOT / "bootstrap" / "dev-base" / "ordax-pull"
 DEV_HELPERS = ROOT / "system" / "services" / "base-update" / "dev-helpers.sh"
+HELPER_MANIFEST = ROOT / "system" / "services" / "base-update" / "dev-helper-manifest.tsv"
 DEV_CHANNEL = ROOT / "system" / "services" / "base-update" / "dev_channel.py"
 MINIMAL = ROOT / "docs" / "contracts" / "minimal-bootstrap.json"
 DEV_INIT = ROOT / "bootstrap" / "dev-base" / "ordax-dev-init"
@@ -51,7 +52,10 @@ class DeviceUpdateCoverageTests(unittest.TestCase):
         self.assertNotIn('for module in iwlwifi rtl8xxxu mt76x2u ath9k_htc', init)
         self.assertIn('for module in iwlwifi rtl8xxxu mt76x2u ath9k_htc', network)
         self.assertIn("load_network_modules", network)
-        self.assertIn("start_network_background", init)
+        self.assertIn('"$BIN_DIR/ordax-network" --init-hardware', init)
+        self.assertIn("start_local_surface fast-graphical", init)
+        self.assertNotIn("start_main_watch_background", init)
+        self.assertNotIn('"$BIN_DIR/ordax-main-watch"', init)
 
     def test_runtime_pull_stays_lightweight_while_helpers_refresh_from_git(self):
         pull = PULL.read_text(encoding="utf-8")
@@ -59,20 +63,28 @@ class DeviceUpdateCoverageTests(unittest.TestCase):
 
         self.assertIn("/system/", pull)
         self.assertIn("/bootstrap/base-update/", pull)
-        self.assertIn("/bootstrap/dev-base/ordax-pull", pull)
+        self.assertIn("/bootstrap/dev-base/", pull)
         self.assertNotIn("/bootstrap/kernel/", pull)
         self.assertNotIn("/bootstrap/initramfs/", pull)
         self.assertNotIn("/tools/creator/", pull)
 
+        self.assertIn('done <"$HELPER_MANIFEST"', helpers)
+        sources = {
+            line.split("\t", 1)[0]
+            for line in HELPER_MANIFEST.read_text(encoding="utf-8").splitlines()
+            if line and not line.startswith("#")
+        }
+
         for source in (
             "bootstrap/dev-base/ordax-dev-init",
             "bootstrap/dev-base/ordax-network",
+            "bootstrap/dev-base/ordax-main-watch",
             "bootstrap/dev-base/ordax-pull",
             "bootstrap/dev-base/ordax-rollback",
             "bootstrap/dev-base/ordax-run",
             "bootstrap/recovery/entrypoint",
         ):
-            self.assertIn(source, helpers)
+            self.assertIn(source, sources)
 
     def test_kernel_initramfs_and_rootfs_use_exact_commit_base_delivery_without_usb_rewrite(self):
         channel = DEV_CHANNEL.read_text(encoding="utf-8")
@@ -160,7 +172,8 @@ class DeviceUpdateCoverageTests(unittest.TestCase):
     def test_boot_branding_status_is_explicit(self):
         dev_init = DEV_INIT.read_text(encoding="utf-8")
         self.assertIn("OrdaX Development Base", dev_init)
-        self.assertIn("Iniciando OrdaX...", dev_init)
+        self.assertIn("OrdaX Dev pronto.", dev_init)
+        self.assertNotIn("Iniciando OrdaX...", dev_init)
 
         contract = json.loads(CONTRACT.read_text(encoding="utf-8"))
         branding = contract["branding"]

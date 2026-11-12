@@ -1,5 +1,6 @@
 import test from "node:test";
 import assert from "node:assert/strict";
+import { createSystemTermsAcceptance } from "../system/contracts/system-terms.mjs";
 
 import {
   FIRST_RUN_STATE_SCHEMA,
@@ -168,4 +169,14 @@ test("first-run identity completion refreshes the real session before saving a r
     getSnapshot: () => current, refresh: async () => { current = accountB; },
   }, "account-A"), false);
   assert.equal(await verifyFirstRunIdentitySession(null, "account-A"), false);
+});
+
+test("OS draft terms acknowledgement is separate, versioned and only saved on completion", () => {
+  const systemTerms = createSystemTermsAcceptance(true);
+  const receipt = completeFirstRunState({ locale: "pt-BR", timeZone: "America/Bahia", accountMode: "local-only", systemTerms });
+  assert.deepEqual(receipt.systemTerms, systemTerms);
+  assert.equal(receipt.systemTerms.status, "draft");
+  assert.throws(() => createSystemTermsAcceptance(false), TypeError);
+  assert.throws(() => validateFirstRunState({ ...createInitialFirstRunState(), systemTerms }), TypeError);
+  assert.throws(() => validateFirstRunState({ ...receipt, systemTerms: { ...systemTerms, accepted: false } }), TypeError);
 });

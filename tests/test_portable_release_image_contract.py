@@ -121,5 +121,18 @@ class PortableReleaseImageContractTests(unittest.TestCase):
         self.assertNotIn("PhysicalDrive", text)
 
 
+    def test_candidate_erofs_uses_verified_external_intelligence_only(self):
+        contract = self.load_contract()
+        source = contract["external_intelligence_candidate"]
+        self.assertEqual(source["owner"], "ordaxsystems/ordax-intelligence")
+        self.assertEqual(source["lock"], "docs/contracts/intelligence-source.json")
+        self.assertTrue(source["required_in_portable_v2_ci"])
+        self.assertFalse(source["legacy_engine_source_in_image_allowed"])
+        self.assertFalse(source["device_activation_authorized"])
+        workflow = (ROOT / ".github/workflows/portable-release-image.yml").read_text(encoding="utf-8")
+        self.assertIn("uses: ./.github/actions/assemble-intelligence", workflow)
+        self.assertIn("--root \"$RUNNER_TEMP/ordax-assembled-intelligence\"", workflow)
+        self.assertIn("PORTABLE_EROFS_INTELLIGENCE_CANONICAL=PASS", workflow)
+
 if __name__ == "__main__":
     unittest.main()

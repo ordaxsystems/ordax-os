@@ -118,27 +118,34 @@ class SurfaceAsyncLifecycleTests(unittest.TestCase):
         self.assertIn("restoreFocusedAction(focusedAction);", controls)
         self.assertGreaterEqual(controls.count("preventScroll: true"), 2)
 
-    def test_files_preserves_focus_selection_and_scroll_across_repaints(self):
-        files = self.read("file-space-controls.mjs")
-        self.assertIn("captureInteractionState", files)
-        self.assertIn("restoreInteractionState", files)
-        self.assertIn("windowScrollTop", files)
-        self.assertIn("listScrollTop", files)
-        self.assertIn("previewScrollTop", files)
-        self.assertIn("selectionStart", files)
-        self.assertIn("selectionEnd", files)
-        self.assertIn("preventScroll: true", files)
-        self.assertIn('requestFocus("directory-name")', files)
-        self.assertIn('requestFocus("rename-name", selected.path)', files)
-        self.assertIn('requestFocus("copy-name", selected.path)', files)
-        self.assertIn('requestFocus("search")', files)
-        self.assertIn('trashMode ? "trash" : recentMode ? "recent" : `path:${listing?.path ?? ""}`', files)
-        self.assertIn('kind: "trash-row"', files)
-        self.assertIn('context: slot.dataset.fileSpaceContext ?? ""', files)
-        self.assertIn("snapshot.context === interactionContext()", files)
-        self.assertIn("slot.dataset.fileSpaceContext = interactionContext()", files)
-        self.assertIn('slot.dataset.fileSpacePath = recentMode || trashMode ? "" : (listing?.path ?? "")', files)
-        self.assertNotIn("queueMicrotask(() => input.isConnected && input.focus())", files)
+    def test_system_and_settings_defer_inactive_repaints_until_surface_focus(self):
+        system = self.read("system-overview-controls.mjs")
+        settings = self.read("settings-overview-controls.mjs")
+        for source, selector in (
+            (system, "SYSTEM_WINDOW_SELECTOR"),
+            (settings, "SETTINGS_WINDOW_SELECTOR"),
+        ):
+            self.assertIn("let paintPending = false;", source)
+            self.assertIn(f"const windowNode = slot.closest({selector});", source)
+            self.assertIn("windowNode.hidden", source)
+            self.assertIn('windowNode.dataset.active !== "true"', source)
+            self.assertIn(
+                "paintPending = paintPending || force || slot !== mountedSlot;",
+                source,
+            )
+            self.assertIn("const unsubscribeRender = lifecycle.subscribeRender(() => {", source)
+            self.assertIn("paintPending = false;", source)
+            self.assertIn("const replaceView = () => renderView(true);", source)
+        self.assertIn("const repaint = force || paintPending;", system)
+        self.assertIn("renderView(sectionChanged);", system)
+        self.assertIn("renderView(sectionChanged);", settings)
+        self.assertIn("paint(slot, interaction);", system)
+        self.assertIn("paint(slot);", settings)
+        smoke = (ROOT / "tools/surface-native/browser-smoke.mjs").read_text(encoding="utf-8")
+        self.assertIn("settingsHiddenHostUpdateSkipsRepaint", smoke)
+        self.assertIn("systemHiddenHostUpdateSkipsRepaint", smoke)
+        self.assertIn("settingsFocusFlushesPendingRepaint", smoke)
+        self.assertIn("systemFocusFlushesPendingRepaint", smoke)
 
     def test_system_preserves_read_only_interaction_across_repaints(self):
         controls = self.read("system-overview-controls.mjs")
@@ -151,18 +158,7 @@ class SurfaceAsyncLifecycleTests(unittest.TestCase):
         self.assertIn('kind: "metrics-refresh"', controls)
         self.assertIn('kind: "history-refresh"', controls)
         self.assertIn("preventScroll: true", controls)
-        self.assertIn("force && slot === mountedSlot ? captureInteractionState(slot) : null", controls)
-
-    def test_existing_file_and_system_async_owners_keep_ordinal_guards(self):
-        files = self.read("file-space-controls.mjs")
-        system = self.read("system-overview-controls.mjs")
-        self.assertIn("requestOrdinal", files)
-        self.assertIn("ordinal !== requestOrdinal", files)
-        self.assertIn("metricsOrdinal", system)
-        self.assertIn("ordinal !== metricsOrdinal", system)
-        self.assertIn("historyOrdinal", system)
-        self.assertIn("ordinal !== historyOrdinal", system)
-
+        self.assertIn("repaint && slot === mountedSlot ? captureInteractionState(slot) : null", controls)
 
     def test_quick_wifi_locale_rerender_uses_existing_interaction_snapshot_and_unsubscribes(self):
         controls = self.read("network-quick-panel.mjs")

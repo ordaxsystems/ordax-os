@@ -2,6 +2,36 @@
 
 This directory publishes the machine-readable contract set intended for apps developed outside the platform source tree.
 
+## Bundle 1.21.0 — Space Experience (publicação aditiva)
+
+Publica os seis schemas **já existentes** em
+`system/contracts/space-experience.mjs`: definição e catálogo de tipos de
+Space, provider de capability, snapshot, experiência e source de experiência.
+O source canônico é exportado sem cópia nem import de serviços privados,
+com `source_git_blob` e SHA-256 do bundle verificados.
+
+**Contrato público não é autorização:** `authority: none` permanece.
+O host do OrdaX OS continua proprietário da sessão, membership, grants,
+seleção do Space, readiness e ciclo de vida dos providers. Apps só poderão
+consumir esses schemas após fixar formalmente a nova revisão do SDK,
+receber portas autorizadas e passar provas de isolamento/revogação.
+Nenhum schema publicado ativa por si só Food, Sales, Inventory, Payments
+ou sincronização entre dispositivos. Pins de versões anteriores
+permanecem válidos.
+
+O catálogo tipado de `food.pizzeria` adiciona `kitchen` apenas como
+item de navegação associado à capability `orders`, sem criar outro app,
+capability, storage ou owner comercial. A rota continua condicionada
+à readiness efetiva do provider no host.
+
+## Bundle 1.20.0
+
+Esta versão acrescenta o escopo imutável `device-local` ao File Space/11 para
+componentes Native isolados. O escopo identifica somente os arquivos locais do
+dispositivo; não associa a raiz local a um Space da Conta nem concede autoridade.
+O host continua resolvendo o espaço e validando a identidade/revisão do slot em
+cada operação.
+
 ## Bundle 1.19.0
 
 Adição dos contratos tipados de Atividade: aprovação humana e exportação. Essas

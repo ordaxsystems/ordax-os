@@ -1,0 +1,13 @@
+{
+  "observed_at": "2026-10-16T14:25:37.082043+00:00",
+  "origin": "https://ordax.com.br",
+  "source_commit": "16d3fc2ed40abb417027a5b8731a7e2e59491f4d",
+  "runtime_path": "/ordax/",
+  "deployment_manifest_sha256": "b01ef28471a7857892d59e6b8a6b578c5f832f9afe538739cf2fe76ec0f77695",
+  "verified_files": 56,
+  "all_component_bytes_match": true,
+  "public_csp_matches": true,
+  "provider_status_source": "Vercel GitHub commit status: Deployment has completed",
+  "deployment_url": "https://vercel.com/ordaxsystems/ordax-os-public/5FefdJ7aPfMqx5vcTPYFe5A1r47q",
+  "authenticated_e2e_verified": false
+}

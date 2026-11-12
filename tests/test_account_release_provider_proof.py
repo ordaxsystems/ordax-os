@@ -34,6 +34,8 @@ class AccountReleaseProviderProofTests(unittest.TestCase):
                 "production_origin": True,
                 "redirect_allowlist": True,
                 "recovery_template": True,
+                "resend_smtp_settings": True,
+                "branded_confirmation_template": True,
             },
             "observed": {
                 "password_min_length": 12,
@@ -79,6 +81,21 @@ class AccountReleaseProviderProofTests(unittest.TestCase):
         blockers = self.validate(proof, "https://ordax.com.br")
         self.assertIn("provider-proof-not-sanitized", blockers)
         self.assertIn("provider-proof-check-set", blockers)
+
+    def test_smtp_and_branded_template_are_mandatory(self):
+        for name in ("resend_smtp_settings", "branded_confirmation_template"):
+            proof = self.valid_proof()
+            proof["checks"][name] = False
+            proof["ready"] = False
+            blockers = self.validate(proof)
+            self.assertIn("provider-proof-" + name, blockers)
+            self.assertIn("provider-proof-not-ready", blockers)
+
+    def test_legacy_five_check_proof_is_rejected(self):
+        proof = self.valid_proof()
+        proof["checks"].pop("resend_smtp_settings")
+        proof["checks"].pop("branded_confirmation_template")
+        self.assertIn("provider-proof-check-set", self.validate(proof))
 
     def test_any_red_provider_check_blocks_release(self):
         proof = self.valid_proof()

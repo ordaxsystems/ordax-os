@@ -1,4 +1,6 @@
-const SESSION_ENDPOINT = "/__ordax/native/session";
+import { readNativeSession } from "./session-read.mjs";
+
+
 const DIAGNOSTIC_ENDPOINT = "/__ordax/native/client-diagnostic";
 const TOKEN_HEADER = "X-OrdaX-Diagnostic-Token";
 
@@ -35,13 +37,9 @@ export async function createNativeClientDiagnostics(windowRef = globalThis.windo
     throw new TypeError("Native client diagnostics require window.fetch");
   }
 
-  const response = await windowRef.fetch(SESSION_ENDPOINT, {
-    method: "GET",
-    cache: "no-store",
-    credentials: "same-origin",
-  });
+  const response = await readNativeSession(windowRef);
   if (!response.ok) throw new Error(`Native diagnostic session failed: ${response.status}`);
-  const session = await response.json();
+  const session = response.payload;
   if (typeof session.diagnosticToken !== "string" || session.diagnosticToken.length < 16) {
     throw new Error("Native diagnostic token is unavailable");
   }

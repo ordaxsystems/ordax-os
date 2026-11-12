@@ -44,6 +44,11 @@ from native_component_probation import (
     ComponentProbationReceiptError,
     record_system_component_probation,
 )
+from native_intelligence_ipc import (
+    NativeIntelligenceIpcServer,
+    completed_response as completed_intelligence_response,
+    unknown_response as unknown_intelligence_response,
+)
 from native_profile_consent_ipc import (
     DECISION_SCHEMA as PROFILE_CONSENT_DECISION_SCHEMA,
     ProfileConsentIpcServer,
@@ -54,6 +59,81 @@ from native_security_prompt_i18n import (
 )
 
 BRIDGE_NAME = "ordaxBrowser"
+BRIDGE_WORLD_NAME = "ordax-native-host-bridge-v1"
+BRIDGE_READY_ATTRIBUTE = "data-ordax-native-host-bridge"
+BRIDGE_READY_VALUE = "v1"
+BRIDGE_MAX_MESSAGE_CHARS = 131072
+NATIVE_HOST_BRIDGE_SCRIPT = r"""(() => {
+  const expectedOrigin = __ORDAX_NATIVE_HOST_ORIGIN__;
+  if (window.location.origin !== expectedOrigin) return;
+
+  const markReady = () => {
+    const root = document.documentElement;
+    if (!root) return false;
+    root.setAttribute(__ORDAX_NATIVE_HOST_READY_ATTRIBUTE__, __ORDAX_NATIVE_HOST_READY_VALUE__);
+    return true;
+  };
+  if (!markReady()) {
+    const observer = new MutationObserver(() => {
+      if (markReady()) observer.disconnect();
+    });
+    observer.observe(document, { childList: true, subtree: true });
+  }
+
+  window.addEventListener("message", (event) => {
+    if (event.source !== window || event.origin !== expectedOrigin) return;
+    if (typeof event.data !== "string" || event.data.length > __ORDAX_NATIVE_HOST_MAX_MESSAGE_CHARS__) return;
+    try {
+      const payload = JSON.parse(event.data);
+      if (!payload || typeof payload !== "object" || Array.isArray(payload)) return;
+    } catch {
+      return;
+    }
+    window.webkit.messageHandlers[__ORDAX_NATIVE_HOST_BRIDGE_NAME__].postMessage(event.data);
+  });
+})();"""
+
+
+def native_surface_origin(start_uri: str) -> str:
+    parsed = urlsplit(start_uri)
+    try:
+        port = parsed.port
+    except ValueError as exc:
+        raise ValueError("Native Surface start URI has an invalid loopback port") from exc
+    if parsed.scheme == "http" and port is None:
+        port = 80
+    if (
+        parsed.scheme != "http"
+        or parsed.hostname != "127.0.0.1"
+        or port is None
+        or port == 0
+        or parsed.username is not None
+        or parsed.password is not None
+    ):
+        raise ValueError("Native Surface bridge requires an exact HTTP loopback origin")
+    return "http://127.0.0.1" if port == 80 else f"http://127.0.0.1:{port}"
+
+
+def native_host_bridge_user_script(surface_origin: str) -> str:
+    if native_surface_origin(surface_origin + "/") != surface_origin:
+        raise ValueError("Native Surface bridge origin is not canonical")
+    script = NATIVE_HOST_BRIDGE_SCRIPT.replace(
+        "__ORDAX_NATIVE_HOST_ORIGIN__", json.dumps(surface_origin)
+    )
+    script = script.replace(
+        "__ORDAX_NATIVE_HOST_BRIDGE_NAME__", json.dumps(BRIDGE_NAME)
+    )
+    script = script.replace(
+        "__ORDAX_NATIVE_HOST_READY_ATTRIBUTE__", json.dumps(BRIDGE_READY_ATTRIBUTE)
+    )
+    script = script.replace(
+        "__ORDAX_NATIVE_HOST_READY_VALUE__", json.dumps(BRIDGE_READY_VALUE)
+    )
+    return script.replace(
+        "__ORDAX_NATIVE_HOST_MAX_MESSAGE_CHARS__", str(BRIDGE_MAX_MESSAGE_CHARS)
+    )
+# A distinct GTK view uses the unprivileged external context, never Surface's.
+OFFICIAL_ACCOUNT_SIGNUP_URL = "https://ordax.com.br/cadastro/"
 APP_DATA_COMPOSITION_BOOTSTRAP_SCHEMA = "ordax.native-app-data-composition-bootstrap/1"
 TRUSTED_STATE_UID = 0
 TAB_ID_RE = re.compile(r"^[a-z][a-z0-9-]{0,63}$")
@@ -63,6 +143,8 @@ MAX_PAGE_FIND_MATCHES = 1000
 PAGE_SELECTION_MAX_CHARS = 4096
 PAGE_SELECTION_REQUEST_RE = re.compile(r"^selection-[1-9][0-9]{0,8}$")
 MAX_URI_LENGTH = 8192
+INTELLIGENCE_HOST_TIMEOUT_SECONDS = 150.0
+INTELLIGENCE_HOST_REQUEST_EVENT = "ordax-native-intelligence-request"
 # Keep the privileged browser probe scope identical to the Native probation
 # adapter; that adapter consumes the component package SSOT.
 SUPPORTED_PROBATION_COMPONENTS = tuple(sorted(SUPPORTED_NATIVE_PROBATION_COMPONENTS))
@@ -71,6 +153,69 @@ TOP_LEVEL_NETWORK_SCHEMES = frozenset({"http", "https"})
 RESOURCE_NETWORK_SCHEMES = frozenset({"http", "https", "ws", "wss"})
 INTERNAL_RESOURCE_SCHEMES = frozenset({"about", "blob", "data"})
 LOCAL_HOST_SUFFIXES = (".localhost", ".local", ".home.arpa")
+OWNER_QEMU_GRAPHICS_PROBE_TOKEN = "ordax.owner_qemu_graphics_probe=1"
+# Fixed vocabulary only: never write page content, URLs or credentials to serial.
+OWNER_GRAPHICS_PROBE_EVENTS = frozenset({
+    "surface-page-load-started",
+    "surface-page-load-committed",
+    "surface-page-load-finished",
+    "surface-page-load-failed",
+    "surface-web-process-terminated",
+    "surface-boot-loading",
+    "surface-boot-error",
+    "surface-boot-ready",
+    "surface-boot-missing",
+    "surface-boot-probe-unavailable",
+})
+
+
+def owner_qemu_graphics_probe_enabled(distribution_profile: str) -> bool:
+    if distribution_profile != "owner-development":
+        return False
+    try:
+        with open("/proc/cmdline", encoding="utf-8") as boot_arguments:
+            return OWNER_QEMU_GRAPHICS_PROBE_TOKEN in boot_arguments.read(8192).split()
+    except OSError:
+        return False
+
+
+def _emit_owner_qemu_serial(enabled: bool, line: str) -> None:
+    if not enabled or not isinstance(line, str) or len(line) > 240 or not line.isascii():
+        return
+    # One QEMU-only serial authority. Ordinary physical boots emit nothing.
+    try:
+        descriptor = os.open("/dev/ttyS0", os.O_WRONLY | os.O_NOCTTY | os.O_NONBLOCK)
+        try:
+            os.write(descriptor, (line + "\n").encode("ascii"))
+        finally:
+            os.close(descriptor)
+    except OSError:
+        pass
+
+
+def emit_owner_graphics_probe(enabled: bool, event: str) -> None:
+    if event not in OWNER_GRAPHICS_PROBE_EVENTS:
+        return
+    _emit_owner_qemu_serial(enabled, f"ORDAX_OWNER_WEBKIT_EVENT={event}")
+
+
+def emit_owner_boot_error_probe(enabled: bool, error_name: str, source: str) -> None:
+    # Match the already-authorized Native client-diagnostic schema exactly.
+    # The exception message, stack, page HTML and user data never leave WebKit.
+    if (not isinstance(error_name, str)
+            or re.fullmatch(r"[A-Za-z][A-Za-z0-9]{0,63}", error_name) is None
+            or not isinstance(source, str)
+            or (source and re.fullmatch(
+                r"[A-Za-z0-9_.-]+\.mjs:[1-9][0-9]{0,5}:[1-9][0-9]{0,5}", source
+            ) is None)):
+        return
+    report = json.dumps(
+        {"errorName": error_name, "source": source},
+        separators=(",", ":"), sort_keys=True, ensure_ascii=True,
+    )
+    _emit_owner_qemu_serial(enabled, "ORDAX_OWNER_WEBKIT_BOOT_DIAGNOSTIC=" + report)
+
+
 HOST_SHORTCUTS = (
     ("<Primary>l", "focus-address", True),
     ("<Primary>f", "focus-page-find", True),
@@ -136,6 +281,19 @@ def allowed_external_uri(uri: str) -> bool:
     return public_network_uri(uri, TOP_LEVEL_NETWORK_SCHEMES)
 
 
+def allowed_account_portal_uri(uri: str) -> bool:
+    if not allowed_external_uri(uri):
+        return False
+    try:
+        target = urlsplit(uri)
+        return (target.scheme.lower() == "https"
+                and target.hostname in {"ordax.com.br", "www.ordax.com.br"}
+                and target.port in (None, 443)
+                and not target.username and not target.password)
+    except ValueError:
+        return False
+
+
 def allowed_external_resource_uri(uri: str) -> bool:
     if not isinstance(uri, str) or not uri or len(uri) > MAX_URI_LENGTH:
         return False
@@ -196,11 +354,14 @@ class OrdaXBrowserHost:
         distribution_profile: str,
     ) -> None:
         self.start_uri = start_uri
+        self.surface_origin = native_surface_origin(start_uri)
         self.profile_root = os.path.abspath(profile_root)
         self.component_channel_bin = component_channel_bin
         self.component_slot_root = component_slot_root
         self.cache_root = os.path.abspath(cache_root)
         self.distribution_profile = distribution_profile
+        self.owner_graphics_probe_enabled = owner_qemu_graphics_probe_enabled(distribution_profile)
+        self.surface_web_process_failed = False
         if self.distribution_profile not in {"owner-development", "stable-mvp"}:
             raise ValueError("invalid OrdaX distribution profile")
         if self.distribution_profile == "stable-mvp":
@@ -218,6 +379,7 @@ class OrdaXBrowserHost:
         self.component_probation_rerun_requested: set[str] = set()
         self.session_path = os.path.join(self.profile_root, "session.json")
         self.tabs: dict[str, BrowserTab] = {}
+        self.account_portal_window = None
         self.active_tab_id: str | None = None
         self.find_active_tab_id: str | None = None
         self.find_query = ""
@@ -231,6 +393,12 @@ class OrdaXBrowserHost:
         self.profile_consent_listener = None
         self.profile_consent_thread = None
         self.profile_consent_stopping = threading.Event()
+        self.intelligence_ipc = NativeIntelligenceIpcServer()
+        self.intelligence_listener = None
+        self.intelligence_thread = None
+        self.intelligence_stopping = threading.Event()
+        self.intelligence_pending: dict[str, dict] = {}
+        self.intelligence_pending_lock = threading.Lock()
 
         os.makedirs(self.profile_root, mode=0o700, exist_ok=True)
         profile_data = os.path.join(self.profile_root, "default", "data")
@@ -246,15 +414,38 @@ class OrdaXBrowserHost:
         self.external_context.set_preferred_languages(["pt-BR", "en-US"])
         self.external_context.connect("download-started", self.on_download_started)
 
-        self.manager = WebKit2.UserContentManager.new()
+        # The trusted Surface has a dedicated persistent WebKit profile.
+        # External sites retain their separate context and cannot read this data.
+        surface_profile_data = os.path.join(self.profile_root, "surface", "data")
+        surface_profile_cache = os.path.join(self.cache_root, "surface")
+        os.makedirs(surface_profile_data, mode=0o700, exist_ok=True)
+        os.makedirs(surface_profile_cache, mode=0o700, exist_ok=True)
+        surface_data_manager = WebKit2.WebsiteDataManager(
+            base_data_directory=surface_profile_data,
+            base_cache_directory=surface_profile_cache,
+        )
+        self.surface_context = WebKit2.WebContext.new_with_website_data_manager(surface_data_manager)
+        self.surface_view = WebKit2.WebView.new_with_context(self.surface_context)
+        self.manager = self.surface_view.get_user_content_manager()
         self.manager.connect(f"script-message-received::{BRIDGE_NAME}", self.on_surface_message)
-        if not self.manager.register_script_message_handler(BRIDGE_NAME):
-            raise RuntimeError("failed to register OrdaX browser bridge")
-
-        self.surface_view = WebKit2.WebView.new_with_user_content_manager(self.manager)
+        if not self.manager.register_script_message_handler_in_world(
+            BRIDGE_NAME, BRIDGE_WORLD_NAME
+        ):
+            raise RuntimeError("failed to register OrdaX isolated browser bridge")
+        bridge_script = WebKit2.UserScript.new_for_world(
+            native_host_bridge_user_script(self.surface_origin),
+            WebKit2.UserContentInjectedFrames.TOP_FRAME,
+            WebKit2.UserScriptInjectionTime.START,
+            BRIDGE_WORLD_NAME,
+            [f"{self.surface_origin}/*"],
+            None,
+        )
+        self.manager.add_script(bridge_script)
         self.surface_view.set_hexpand(True)
         self.surface_view.set_vexpand(True)
         self.surface_view.connect("load-changed", self.on_surface_load_changed)
+        self.surface_view.connect("load-failed", self.on_surface_load_failed)
+        self.surface_view.connect("web-process-terminated", self.on_surface_web_process_terminated)
         self.surface_view.load_uri(self.start_uri)
 
         self.overlay = Gtk.Overlay()
@@ -310,6 +501,180 @@ class OrdaXBrowserHost:
             daemon=True,
         )
         self.profile_consent_thread.start()
+
+    def start_intelligence_listener(self) -> None:
+        if self.intelligence_listener is not None:
+            return
+        try:
+            listener = self.intelligence_ipc.open()
+            listener.settimeout(1.0)
+        except (OSError, RuntimeError) as exc:
+            print(
+                f"ordax-browser-host: Native Intelligence IPC unavailable: {exc}",
+                file=sys.stderr,
+                flush=True,
+            )
+            return
+        self.intelligence_listener = listener
+
+        def serve() -> None:
+            while not self.intelligence_stopping.is_set():
+                try:
+                    connection, _ = listener.accept()
+                except socket.timeout:
+                    continue
+                except OSError:
+                    if (
+                        self.intelligence_stopping.is_set()
+                        or self.intelligence_listener is not listener
+                    ):
+                        return
+                    raise
+                with connection:
+                    try:
+                        request = self.intelligence_ipc.receive_request(connection)
+                        request_id = request["request"]["requestId"].strip()
+                        response = self.invoke_native_intelligence_from_worker(request)
+                        self.intelligence_ipc.send_response(
+                            connection,
+                            response,
+                            expected_request_id=request_id,
+                        )
+                    except (
+                        ConnectionError,
+                        OSError,
+                        PermissionError,
+                        TypeError,
+                        ValueError,
+                    ) as exc:
+                        print(
+                            f"ordax-browser-host: Native Intelligence IPC request rejected: {exc}",
+                            file=sys.stderr,
+                            flush=True,
+                        )
+
+        self.intelligence_thread = threading.Thread(
+            target=serve,
+            name="ordax-native-intelligence",
+            daemon=True,
+        )
+        self.intelligence_thread.start()
+
+    def suspend_intelligence_listener(self) -> None:
+        listener = self.intelligence_listener
+        self.intelligence_listener = None
+        if listener is not None:
+            self.intelligence_ipc.close()
+        thread = self.intelligence_thread
+        self.intelligence_thread = None
+        if thread is not None and thread is not threading.current_thread():
+            thread.join(timeout=2)
+        with self.intelligence_pending_lock:
+            pending_requests = list(self.intelligence_pending.values())
+            self.intelligence_pending.clear()
+        for pending in pending_requests:
+            pending["response"] = unknown_intelligence_response(pending["requestId"])
+            pending["event"].set()
+
+    def emit_native_intelligence_request(self, nonce: str, request: dict) -> None:
+        encoded = json.dumps(
+            {"nonce": nonce, "request": request},
+            ensure_ascii=False,
+            separators=(",", ":"),
+        )
+        script = (
+            "window.dispatchEvent(new CustomEvent("
+            + json.dumps(INTELLIGENCE_HOST_REQUEST_EVENT)
+            + ",{detail:"
+            + encoded
+            + "}));"
+        )
+        self.surface_view.run_javascript(script, None, None, None)
+
+    def complete_native_intelligence_pending(self, nonce: str, response: dict) -> bool:
+        with self.intelligence_pending_lock:
+            pending = self.intelligence_pending.pop(nonce, None)
+        if pending is None:
+            return False
+        pending["response"] = response
+        pending["event"].set()
+        return True
+
+    def invoke_native_intelligence_from_worker(self, request: dict) -> dict:
+        request_id = request["request"]["requestId"].strip()
+        nonce = secrets.token_urlsafe(32)
+        pending = {
+            "requestId": request_id,
+            "event": threading.Event(),
+            "response": None,
+        }
+        with self.intelligence_pending_lock:
+            while nonce in self.intelligence_pending:
+                nonce = secrets.token_urlsafe(32)
+            self.intelligence_pending[nonce] = pending
+
+        def dispatch() -> bool:
+            try:
+                self.emit_native_intelligence_request(nonce, request["request"])
+            except Exception as exc:  # pragma: no cover - native runtime diagnostic
+                print(
+                    f"ordax-browser-host: Native Intelligence dispatch failed: {exc}",
+                    file=sys.stderr,
+                    flush=True,
+                )
+                self.complete_native_intelligence_pending(
+                    nonce,
+                    unknown_intelligence_response(request_id),
+                )
+            return False
+
+        GLib.idle_add(dispatch)
+        if not pending["event"].wait(timeout=INTELLIGENCE_HOST_TIMEOUT_SECONDS):
+            with self.intelligence_pending_lock:
+                self.intelligence_pending.pop(nonce, None)
+            return unknown_intelligence_response(request_id)
+        response = pending.get("response")
+        if not isinstance(response, dict):
+            return unknown_intelligence_response(request_id)
+        return response
+
+    def handle_intelligence_host_ready(self, payload: dict) -> None:
+        if set(payload) != {"type"}:
+            raise ValueError("Native Intelligence host readiness fields are invalid")
+        self.start_intelligence_listener()
+
+    def handle_intelligence_host_result(self, payload: dict) -> None:
+        base = {"type", "nonce", "requestId", "ok"}
+        if not isinstance(payload, dict) or not base.issubset(payload):
+            raise ValueError("Native Intelligence host result fields are invalid")
+        nonce = payload.get("nonce")
+        request_id = payload.get("requestId")
+        ok = payload.get("ok")
+        if not isinstance(nonce, str) or not isinstance(request_id, str) or not isinstance(ok, bool):
+            raise ValueError("Native Intelligence host result correlation is invalid")
+        with self.intelligence_pending_lock:
+            pending = self.intelligence_pending.get(nonce)
+        if pending is None:
+            raise ValueError("Native Intelligence host result has no active nonce")
+        if pending["requestId"] != request_id:
+            raise PermissionError("Native Intelligence host result request id does not match")
+
+        if ok:
+            if set(payload) != base | {"response"}:
+                raise ValueError("Native Intelligence completed result fields are invalid")
+            response = payload.get("response")
+            if not isinstance(response, dict) or response.get("requestId") != request_id:
+                raise ValueError("Native Intelligence completed result is not correlated")
+            ipc_response = completed_intelligence_response(request_id, response)
+        else:
+            if set(payload) != base | {"outcome", "error"}:
+                raise ValueError("Native Intelligence unknown result fields are invalid")
+            if payload.get("outcome") != "unknown" or payload.get("error") != "unavailable":
+                raise ValueError("Native Intelligence failure outcome is invalid")
+            ipc_response = unknown_intelligence_response(request_id)
+
+        if not self.complete_native_intelligence_pending(nonce, ipc_response):
+            raise ValueError("Native Intelligence host result nonce expired")
 
     def present_profile_consent_from_worker(self, request: dict) -> dict:
         finished = threading.Event()
@@ -445,11 +810,11 @@ class OrdaXBrowserHost:
         error: error instanceof Error ? error.message : 'System component probation failed',
       }};
     }}
-    window.webkit.messageHandlers.ordaxBrowser.postMessage(JSON.stringify({{
+    window.postMessage(JSON.stringify({{
       type: 'component.probation.result',
       nonce,
       result,
-    }}));
+    }}), window.location.origin);
   }}
 }})();
 """
@@ -468,15 +833,108 @@ class OrdaXBrowserHost:
             return False
         return True
 
+    def record_surface_loading_event(self, event: str) -> None:
+        if event not in OWNER_GRAPHICS_PROBE_EVENTS:
+            raise ValueError("unsupported native WebKit lifecycle event")
+        print(f"ordax-browser-host: {event}", file=sys.stderr, flush=True)
+        emit_owner_graphics_probe(self.owner_graphics_probe_enabled, event)
+
+    def emit_qemu_surface_boot_observation(self) -> bool:
+        """QEMU-only, bounded observation of the EXISTING boot overlay.
+
+        Read one fixed vocabulary from the trusted Surface WebView. No HTML,
+        URLs, user content, exceptions or privilege tokens leave the host.
+        Never acknowledge health or change its failure/rollback policy.
+        """
+        if not self.owner_graphics_probe_enabled:
+            return False
+
+        def complete(view: object, result: object, _user_data: object) -> None:
+            state = "probe-unavailable"
+            try:
+                answer = view.run_javascript_finish(result)
+                raw = answer.get_js_value().to_string()
+                if len(raw) <= 240:
+                    value = json.loads(raw)
+                    if isinstance(value, dict) and value.get("state") in {
+                        "loading", "error", "ready", "missing",
+                    }:
+                        state = value["state"]
+                        if state == "error":
+                            emit_owner_boot_error_probe(
+                                self.owner_graphics_probe_enabled,
+                                value.get("errorName", ""),
+                                value.get("source", ""),
+                            )
+            except Exception:
+                pass
+            self.record_surface_loading_event(f"surface-boot-{state}")
+
+        try:
+            self.surface_view.run_javascript(
+                "(function(){const el=document.getElementById('ordax-boot-screen');"
+                "const d=el&&el.dataset;"
+                "return JSON.stringify({state:d&&d.state||'missing',"
+                "errorName:d&&d.errorName||'',source:d&&d.errorSource||''});})()",
+                None, complete, None,
+            )
+        except Exception:
+            self.record_surface_loading_event("surface-boot-probe-unavailable")
+        return False
+
     def on_surface_load_changed(self, _view: object, load_event: object) -> None:
-        if load_event != WebKit2.LoadEvent.FINISHED or self.component_probation_started:
+        if load_event == WebKit2.LoadEvent.STARTED:
+            self.record_surface_loading_event("surface-page-load-started")
+            self.suspend_intelligence_listener()
+            # A new privileged page is a new boot lifecycle. Results from a
+            # previous page/nonce must not attest pending components now.
+            self.component_probation_started = False
+            self.component_probation_nonces.clear()
+            self.component_probation_rerun_requested.clear()
             return
+        if load_event == WebKit2.LoadEvent.COMMITTED:
+            self.record_surface_loading_event("surface-page-load-committed")
+            return
+        if load_event != WebKit2.LoadEvent.FINISHED:
+            return
+        self.record_surface_loading_event("surface-page-load-finished")
+        if self.owner_graphics_probe_enabled:
+            # Differentiate a JS import/bootstrap failure from a healthy shell
+            # whose Native health request is not reaching the Supervisor.
+            GLib.timeout_add_seconds(7, self.emit_qemu_surface_boot_observation)
+            GLib.timeout_add_seconds(25, self.emit_qemu_surface_boot_observation)
+        # HTML load completion is NOT Surface readiness: ES module bootstrap
+        # still registers probation/trusted-context providers asynchronously.
+        # The real shell-ready event below owns the only automatic start.
+
+    def on_surface_load_failed(
+        self, _view: object, _event: object, _failing_uri: str, _error: object
+    ) -> bool:
+        # No URLs or untrusted exception text in serial proof evidence.
+        self.record_surface_loading_event("surface-page-load-failed")
+        return False
+
+    def on_surface_web_process_terminated(self, _view: object, _reason: object) -> None:
+        self.record_surface_loading_event("surface-web-process-terminated")
+        self.surface_web_process_failed = True
+        Gtk.main_quit()
+
+    def handle_surface_shell_ready(self, payload: dict) -> None:
+        if set(payload) != {"type"}:
+            raise ValueError("Surface shell ready fields are invalid")
+        if self.component_probation_started:
+            return
+        # This notification comes through the existing isolated, same-origin
+        # Native host bridge only after the real Surface shell has mounted.
+        # It does not create a health receipt or bypass the Supervisor.
         self.component_probation_started = True
         self.start_component_probation(SUPPORTED_PROBATION_COMPONENTS)
 
     def handle_component_probation_request(self, payload: dict) -> None:
         if set(payload) != {"type", "componentId"}:
             raise ValueError("component probation request fields are invalid")
+        if not self.component_probation_started:
+            raise PermissionError("Component probation requires mounted Surface shell")
         component_id = payload.get("componentId")
         if component_id not in SUPPORTED_PROBATION_COMPONENTS:
             raise ValueError("unsupported component probation request")
@@ -614,6 +1072,62 @@ class OrdaXBrowserHost:
             return None
         return payload if isinstance(payload, dict) else None
 
+    def open_official_account_portal(self) -> None:
+        """User-triggered official signup in a separate, unprivileged WebKit view."""
+        if self.account_portal_window is not None:
+            self.account_portal_window.present()
+            return
+        if not allowed_account_portal_uri(OFFICIAL_ACCOUNT_SIGNUP_URL):
+            raise ValueError("official account destination is invalid")
+        popup = Gtk.Window(title="Conta OrdaX — cadastro oficial")
+        popup.set_default_size(1024, 740)
+        popup.set_transient_for(self.window)
+        popup.set_destroy_with_parent(True)
+        view = WebKit2.WebView.new_with_context(self.external_context)
+        view.connect("decide-policy", self.on_account_portal_policy)
+        container = Gtk.Box(orientation=Gtk.Orientation.VERTICAL, spacing=0)
+        toolbar = Gtk.Box(orientation=Gtk.Orientation.HORIZONTAL, spacing=8)
+        back = Gtk.Button(label="Voltar")
+        back.set_sensitive(False)
+        back.connect("clicked", lambda _button: view.go_back() if view.can_go_back() else None)
+        view.connect("load-changed", lambda *_args: back.set_sensitive(view.can_go_back()))
+        toolbar.pack_start(back, False, False, 8)
+        container.pack_start(toolbar, False, False, 0)
+        container.pack_start(view, True, True, 0)
+        popup.add(container)
+        popup.connect("destroy", self.on_account_portal_destroyed)
+        self.account_portal_window = popup
+        view.load_uri(OFFICIAL_ACCOUNT_SIGNUP_URL)
+        popup.show_all()
+        popup.present()
+
+    def on_account_portal_destroyed(self, _window: object) -> None:
+        self.account_portal_window = None
+
+    def on_account_portal_policy(self, view: object, decision: object, decision_type: object) -> bool:
+        if decision_type not in {
+            WebKit2.PolicyDecisionType.NAVIGATION_ACTION,
+            WebKit2.PolicyDecisionType.NEW_WINDOW_ACTION,
+        }:
+            return False
+        try:
+            action = decision.get_navigation_action()
+            uri = action.get_request().get_uri()
+        except Exception:
+            decision.ignore()
+            return True
+        if not allowed_account_portal_uri(uri):
+            decision.ignore()
+            return True
+        if decision_type == WebKit2.PolicyDecisionType.NEW_WINDOW_ACTION:
+            # Legal-document links remain reachable without creating a WebKit
+            # related view or inheriting Surface permissions.
+            decision.ignore()
+            if action.is_user_gesture():
+                view.load_uri(uri)
+            return True
+        return False
+
     def on_surface_message(self, _manager: object, result: object) -> None:
         payload = self.decode_message(result)
         if payload is None:
@@ -626,6 +1140,10 @@ class OrdaXBrowserHost:
                 self.emit_app_data_bootstrap()
             elif command == "snapshot.request":
                 self.emit_snapshot()
+            elif command == "account.signup.open":
+                if set(payload) != {"type"}:
+                    raise ValueError("account portal command fields are invalid")
+                self.open_official_account_portal()
             elif command == "tab.open":
                 self.open_tab(payload.get("tabId"), payload.get("url", ""))
             elif command == "page-selection.capture":
@@ -655,11 +1173,17 @@ class OrdaXBrowserHost:
                 self.history_action(payload.get("tabId"), "reload")
             elif command == "viewport.set":
                 self.set_viewport(payload.get("viewport"))
+            elif command == "surface.shell.ready":
+                self.handle_surface_shell_ready(payload)
             elif command == "component.probation.request":
                 self.handle_component_probation_request(payload)
             elif command == "component.probation.result":
                 self.handle_component_probation_result(payload)
-        except (TypeError, ValueError) as exc:
+            elif command == "intelligence.host.ready":
+                self.handle_intelligence_host_ready(payload)
+            elif command == "intelligence.host.result":
+                self.handle_intelligence_host_result(payload)
+        except (PermissionError, TypeError, ValueError) as exc:
             print(f"ordax-browser-host: rejected {command!r}: {exc}", file=sys.stderr, flush=True)
 
     def valid_tab_id(self, tab_id: object) -> str:
@@ -1297,6 +1821,8 @@ class OrdaXBrowserHost:
         self.profile_consent_ipc.close()
         if self.profile_consent_thread is not None:
             self.profile_consent_thread.join(timeout=2)
+        self.intelligence_stopping.set()
+        self.suspend_intelligence_listener()
         Gtk.main_quit()
 
 
@@ -1324,7 +1850,7 @@ def main() -> int:
         print("ordax-browser-host: Surface start URI must stay on loopback", file=sys.stderr)
         return 2
     try:
-        OrdaXBrowserHost(
+        host = OrdaXBrowserHost(
             args.start_uri,
             args.profile_root,
             args.component_channel_bin,
@@ -1339,6 +1865,8 @@ def main() -> int:
         print(f"ordax-browser-host: startup failed: {exc}", file=sys.stderr, flush=True)
         return 1
     Gtk.main()
+    if host.surface_web_process_failed:
+        return 4
     return 0
 
 

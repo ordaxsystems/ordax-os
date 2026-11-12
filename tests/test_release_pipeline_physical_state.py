@@ -24,13 +24,11 @@ class ReleasePipelinePhysicalStateTests(unittest.TestCase):
         authorization = json.loads(AUTHORIZATION.read_text(encoding="utf-8"))
 
         self.assertEqual(result["status"], "pass")
-        self.assertEqual(
-            result["currentAuthorizationStatus"],
-            "blocked-explicit-physical-authorization-pending",
-        )
+        self.assertEqual(result["currentAuthorizationStatus"], authorization["status"])
         self.assertTrue(result["replacementV4ProofBound"])
-        self.assertFalse(result["explicitOwnerAuthorization"])
-        self.assertFalse(result["physicalWriteAllowed"])
+        permitted = authorization["status"] == "authorized"
+        self.assertIs(result["explicitOwnerAuthorization"], permitted)
+        self.assertIs(result["physicalWriteAllowed"], permitted)
         self.assertEqual(
             result["currentV4ProofSha256"],
             authorization["bindings"]["canonical_v4_release_proof_sha256"],
@@ -77,13 +75,13 @@ class ReleasePipelinePhysicalStateTests(unittest.TestCase):
 
     def test_current_authorization_remains_fail_closed(self):
         authorization = json.loads(AUTHORIZATION.read_text(encoding="utf-8"))
-        self.assertEqual(
-            authorization["status"],
-            "blocked-explicit-physical-authorization-pending",
-        )
+        self.assertIn(authorization["status"], {
+            "blocked-explicit-physical-authorization-pending", "authorized",
+        })
         self.assertTrue(authorization["requirements"]["canonical_v4_release_proof_bound"])
-        self.assertFalse(authorization["explicit_owner_authorization"])
-        self.assertFalse(authorization["physical_write_allowed"])
+        permitted = authorization["status"] == "authorized"
+        self.assertIs(authorization["explicit_owner_authorization"], permitted)
+        self.assertIs(authorization["physical_write_allowed"], permitted)
 
 
 if __name__ == "__main__":

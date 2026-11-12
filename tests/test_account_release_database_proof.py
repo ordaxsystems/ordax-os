@@ -1,4 +1,5 @@
 import importlib.util
+import json
 import unittest
 from pathlib import Path
 
@@ -11,11 +12,21 @@ SPEC.loader.exec_module(MODULE)
 
 
 class AccountReleaseDatabaseProofTests(unittest.TestCase):
+    COMMIT = "a" * 40
+
+    def validate(self, proof):
+        return MODULE.validate_database_proof(proof, self.COMMIT, ROOT)
+
     def valid_proof(self):
         return {
-            "$schema": "prototype-ordax.control-plane-privilege-proof/3",
+            "$schema": "prototype-ordax.control-plane-privilege-proof/5",
             "provider": "supabase-postgres",
             "project_ref": "redacted",
+            "project_binding": MODULE.project_binding(
+                json.loads((ROOT / "docs/contracts/public-auth-hardening.json").read_text(encoding="utf-8"))
+                ["postgresql_destination"]["project_ref"]
+            ),
+            "source_commit": self.COMMIT,
             "checks": {
                 "no_anon_table_grants": True,
                 "no_anon_function_execute": True,
@@ -29,8 +40,10 @@ class AccountReleaseDatabaseProofTests(unittest.TestCase):
                 "no_service_role_user_sync_rpc_execute": True,
                 "no_app_role_sync_sequence_privilege": True,
                 "no_unexpected_authenticated_write_grants": True,
-                "no_authenticated_private_schema_usage": True,
-                "no_authenticated_private_function_execute": True,
+                "authenticated_private_schema_rls_usage": True,
+                "no_authenticated_private_schema_create": True,
+                "authenticated_private_helpers_exact": True,
+                "authenticated_private_rls_dependencies_exact": True,
             },
             "observed": {
                 "anon_table_grant_count": 0,
@@ -38,13 +51,17 @@ class AccountReleaseDatabaseProofTests(unittest.TestCase):
                 "public_function_execute_count": 0,
                 "unsafe_security_definer_search_path_count": 0,
                 "anon_private_schema_usage": False,
-                "authenticated_private_schema_usage": False,
-                "authenticated_private_function_execute_count": 0,
+                "authenticated_private_schema_usage": True,
+                "authenticated_private_schema_create": False,
+                "authenticated_private_function_execute_count": 5,
+                "unexpected_authenticated_private_function_execute_count": 0,
+                "authenticated_private_rls_dependency_count": 15,
+                "unexpected_authenticated_private_rls_dependency_count": 0,
                 "private_cloud_storage_rls_enabled_count": 2,
                 "authenticated_sync_table_grant_count": 0,
                 "service_role_sync_table_grant_count": 0,
-                "sync_policy_count": 5,
-                "non_executor_sync_policy_count": 0,
+                "sync_policy_count": 6,
+                "unexpected_sync_policy_count": 0,
                 "service_role_user_sync_rpc_execute_count": 0,
                 "app_role_sync_sequence_privilege": False,
                 "unexpected_authenticated_write_grant_count": 0,
@@ -53,14 +70,25 @@ class AccountReleaseDatabaseProofTests(unittest.TestCase):
         }
 
     def test_valid_sanitized_database_proof_passes(self):
-        self.assertEqual(MODULE.validate_database_proof(self.valid_proof()), [])
+        self.assertEqual(self.validate(self.valid_proof()), [])
+
+    def test_mismatched_project_or_commit_and_unbound_fixture_block_release(self):
+        proof = self.valid_proof()
+        proof["project_binding"] = MODULE.project_binding("b" * 20)
+        proof["source_commit"] = "b" * 40
+        blockers = self.validate(proof)
+        self.assertIn("database-proof-project-binding", blockers)
+        self.assertIn("database-proof-source-commit", blockers)
+        proof["project_binding"] = None
+        proof["source_commit"] = None
+        self.assertIn("database-proof-project-binding", self.validate(proof))
 
     def test_public_execute_blocks_release(self):
         proof = self.valid_proof()
         proof["checks"]["no_public_function_execute"] = False
         proof["observed"]["public_function_execute_count"] = 1
         proof["ready"] = False
-        blockers = MODULE.validate_database_proof(proof)
+        blockers = self.validate(proof)
         self.assertIn("database-proof-no_public_function_execute", blockers)
         self.assertIn("database-proof-public_function_execute_count", blockers)
         self.assertIn("database-proof-not-ready", blockers)
@@ -70,7 +98,7 @@ class AccountReleaseDatabaseProofTests(unittest.TestCase):
         proof["checks"]["no_authenticated_sync_table_grants"] = False
         proof["observed"]["authenticated_sync_table_grant_count"] = 1
         proof["ready"] = False
-        blockers = MODULE.validate_database_proof(proof)
+        blockers = self.validate(proof)
         self.assertIn("database-proof-no_authenticated_sync_table_grants", blockers)
         self.assertIn("database-proof-authenticated_sync_table_grant_count", blockers)
 
@@ -81,7 +109,7 @@ class AccountReleaseDatabaseProofTests(unittest.TestCase):
         proof["observed"]["service_role_sync_table_grant_count"] = 1
         proof["observed"]["service_role_user_sync_rpc_execute_count"] = 1
         proof["ready"] = False
-        blockers = MODULE.validate_database_proof(proof)
+        blockers = self.validate(proof)
         self.assertIn("database-proof-no_service_role_sync_table_grants", blockers)
         self.assertIn("database-proof-no_service_role_user_sync_rpc_execute", blockers)
         self.assertIn("database-proof-service_role_sync_table_grant_count", blockers)
@@ -91,13 +119,13 @@ class AccountReleaseDatabaseProofTests(unittest.TestCase):
         proof = self.valid_proof()
         proof["checks"]["sync_policies_executor_only"] = False
         proof["checks"]["no_app_role_sync_sequence_privilege"] = False
-        proof["observed"]["non_executor_sync_policy_count"] = 1
+        proof["observed"]["unexpected_sync_policy_count"] = 1
         proof["observed"]["app_role_sync_sequence_privilege"] = True
         proof["ready"] = False
-        blockers = MODULE.validate_database_proof(proof)
+        blockers = self.validate(proof)
         self.assertIn("database-proof-sync_policies_executor_only", blockers)
         self.assertIn("database-proof-no_app_role_sync_sequence_privilege", blockers)
-        self.assertIn("database-proof-non_executor_sync_policy_count", blockers)
+        self.assertIn("database-proof-unexpected_sync_policy_count", blockers)
         self.assertIn("database-proof-app-role-sync-sequence-privilege", blockers)
 
     def test_missing_sync_policy_blocks_release(self):
@@ -105,29 +133,42 @@ class AccountReleaseDatabaseProofTests(unittest.TestCase):
         proof["checks"]["sync_policies_executor_only"] = False
         proof["observed"]["sync_policy_count"] = 4
         proof["ready"] = False
-        blockers = MODULE.validate_database_proof(proof)
+        blockers = self.validate(proof)
         self.assertIn("database-proof-sync_policies_executor_only", blockers)
         self.assertIn("database-proof-sync_policy_count", blockers)
 
-    def test_private_application_surface_blocks_release(self):
-        proof = self.valid_proof()
-        proof["checks"]["no_authenticated_private_schema_usage"] = False
-        proof["checks"]["no_authenticated_private_function_execute"] = False
-        proof["observed"]["authenticated_private_schema_usage"] = True
-        proof["observed"]["authenticated_private_function_execute_count"] = 2
-        proof["ready"] = False
-        blockers = MODULE.validate_database_proof(proof)
-        self.assertIn("database-proof-no_authenticated_private_schema_usage", blockers)
-        self.assertIn("database-proof-no_authenticated_private_function_execute", blockers)
-        self.assertIn("database-proof-authenticated-private-schema-usage", blockers)
-        self.assertIn("database-proof-authenticated_private_function_execute_count", blockers)
+    def test_unreviewed_private_helper_or_policy_fails_closed(self):
+        for counter, check in (
+            ("unexpected_authenticated_private_function_execute_count", "authenticated_private_helpers_exact"),
+            ("unexpected_authenticated_private_rls_dependency_count", "authenticated_private_rls_dependencies_exact"),
+        ):
+            proof = self.valid_proof()
+            proof["checks"][check] = False
+            proof["observed"][counter] = 1
+            proof["ready"] = False
+            blockers = self.validate(proof)
+            self.assertIn("database-proof-" + check, blockers)
+            self.assertIn("database-proof-" + counter, blockers)
+
+    def test_private_rls_schema_create_or_usage_drift_blocks_release(self):
+        for flag, expected, check, suffix in (
+            ("authenticated_private_schema_create", True, "no_authenticated_private_schema_create",
+             "database-proof-authenticated-private-schema-create"),
+            ("authenticated_private_schema_usage", False, "authenticated_private_schema_rls_usage",
+             "database-proof-authenticated-private-schema-rls-usage"),
+        ):
+            proof = self.valid_proof()
+            proof["checks"][check] = False
+            proof["observed"][flag] = expected
+            proof["ready"] = False
+            self.assertIn(suffix, self.validate(proof))
 
     def test_private_cloud_storage_rls_gap_blocks_release(self):
         proof = self.valid_proof()
         proof["checks"]["private_cloud_storage_rls_enabled"] = False
         proof["observed"]["private_cloud_storage_rls_enabled_count"] = 1
         proof["ready"] = False
-        blockers = MODULE.validate_database_proof(proof)
+        blockers = self.validate(proof)
         self.assertIn("database-proof-private_cloud_storage_rls_enabled", blockers)
         self.assertIn("database-proof-private_cloud_storage_rls_enabled_count", blockers)
 
@@ -135,7 +176,7 @@ class AccountReleaseDatabaseProofTests(unittest.TestCase):
         proof = self.valid_proof()
         proof["observed"]["anon_table_grant_count"] = False
         proof["observed"]["sync_policy_count"] = True
-        blockers = MODULE.validate_database_proof(proof)
+        blockers = self.validate(proof)
         self.assertIn("database-proof-observation-type-anon_table_grant_count", blockers)
         self.assertIn("database-proof-observation-type-sync_policy_count", blockers)
 
@@ -143,7 +184,7 @@ class AccountReleaseDatabaseProofTests(unittest.TestCase):
         proof = self.valid_proof()
         proof["observed"]["unreviewed_extra"] = {"secret": "must-not-persist"}
         proof["opaque_secrets"] = "must-not-persist"
-        blockers = MODULE.validate_database_proof(proof)
+        blockers = self.validate(proof)
         self.assertIn("database-proof-observation-set", blockers)
         self.assertIn("database-proof-field-set", blockers)
 
@@ -151,7 +192,7 @@ class AccountReleaseDatabaseProofTests(unittest.TestCase):
         proof = self.valid_proof()
         proof["project_ref"] = "must-not-be-persisted"
         proof["checks"]["extra"] = True
-        blockers = MODULE.validate_database_proof(proof)
+        blockers = self.validate(proof)
         self.assertIn("database-proof-not-sanitized", blockers)
         self.assertIn("database-proof-check-set", blockers)
 

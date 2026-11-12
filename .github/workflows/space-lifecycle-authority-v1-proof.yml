@@ -1,0 +1,55 @@
+name: Space Lifecycle Authority v1 Proof
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - 'infra/supabase/product/migrations/20261017060000_space_lifecycle_authority_v1.sql'
+      - 'tests/sql/fixtures/space_lifecycle_authority_v1_fixture.sql'
+      - 'tests/sql/test_space_lifecycle_authority_v1.sql'
+      - 'tests/sql/test_space_lifecycle_authority_edges_v1.sql'
+      - '.github/workflows/space-lifecycle-authority-v1-proof.yml'
+  pull_request:
+    paths:
+      - 'infra/supabase/product/migrations/20261017060000_space_lifecycle_authority_v1.sql'
+      - 'tests/sql/fixtures/space_lifecycle_authority_v1_fixture.sql'
+      - 'tests/sql/test_space_lifecycle_authority_v1.sql'
+      - 'tests/sql/test_space_lifecycle_authority_edges_v1.sql'
+      - '.github/workflows/space-lifecycle-authority-v1-proof.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  prove-space-lifecycle-authority-v1:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 8
+    services:
+      postgres:
+        image: postgres:16
+        env:
+          POSTGRES_PASSWORD: postgres
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd "pg_isready -U postgres"
+          --health-interval 5s
+          --health-timeout 5s
+          --health-retries 10
+    env:
+      PGHOST: 127.0.0.1
+      PGPORT: 5432
+      PGUSER: postgres
+      PGPASSWORD: postgres
+      PGDATABASE: postgres
+    steps:
+      - name: Checkout
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
+        with:
+          persist-credentials: false
+
+      - name: Prove lifecycle authority on PostgreSQL
+        run: |
+          set -euo pipefail
+          psql -v ON_ERROR_STOP=1 -f tests/sql/test_space_lifecycle_authority_edges_v1.sql

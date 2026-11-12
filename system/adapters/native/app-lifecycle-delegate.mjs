@@ -1,3 +1,4 @@
+import { hasNativeHostBridge, postNativeHostMessage } from "./host-bridge.mjs";
 import { hasNativeExternalFirstPartyProbation } from "../../services/apps/external-first-party-policy.mjs";
 import {
   validateAppLifecyclePlan,
@@ -18,8 +19,6 @@ const REQUEST_OPTIONS = Object.freeze({
   redirect: "error",
 });
 
-const BROWSER_BRIDGE_HANDLER = "ordaxBrowser";
-
 function requestPostLifecycleProbation(windowRef, plan, result) {
   if (
     result.state !== "accepted"
@@ -28,18 +27,22 @@ function requestPostLifecycleProbation(windowRef, plan, result) {
   ) {
     return false;
   }
-  const bridge = windowRef?.webkit?.messageHandlers?.[BROWSER_BRIDGE_HANDLER] ?? null;
-  if (!bridge || typeof bridge.postMessage !== "function") {
+  if (!hasNativeHostBridge(windowRef)) {
     return false;
   }
-  bridge.postMessage(JSON.stringify({
+  postNativeHostMessage(windowRef, {
     type: "component.probation.request",
     componentId: plan.request.appId,
-  }));
+  });
   return true;
 }
 
-export function createNativeAppLifecycleDelegate(windowRef = globalThis.window) {
+export function createNativeAppLifecycleDelegate(windowRef = globalThis.window, {
+  onAccepted = null,
+} = {}) {
+  if (onAccepted !== null && typeof onAccepted !== "function") {
+    throw new TypeError("Native Store accepted-receipt observer must be a function");
+  }
   if (!windowRef || typeof windowRef.fetch !== "function") {
     throw new TypeError("Native app lifecycle delegate requires window.fetch");
   }
@@ -76,6 +79,18 @@ export function createNativeAppLifecycleDelegate(windowRef = globalThis.window) 
           "OrdaX post-lifecycle component probation trigger unavailable; candidate remains pending-health",
           error,
         );
+      }
+      if (result.state === "accepted" && onAccepted !== null) {
+        // A Go-accepted receipt is not a CURRENT activation proof. Trigger
+        // only a read-only refresh of the existing Store projection; never
+        // mint installed state, alter the receipt or replay the lifecycle.
+        try {
+          void Promise.resolve(onAccepted(result)).catch(error => {
+            console.warn("OrdaX Store current-slot observation refresh unavailable", error);
+          });
+        } catch (error) {
+          console.warn("OrdaX Store current-slot observation refresh unavailable", error);
+        }
       }
       return result;
     },

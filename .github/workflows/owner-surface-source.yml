@@ -1,0 +1,58 @@
+name: Owner Surface Source Transaction
+
+on:
+  workflow_dispatch: # Run existing consumer validation on immutable bot PR branches
+  push:
+    branches: [main, feat/surface-owner-supervisor-stage-20261023]
+    paths:
+      - 'system/supervisor'
+      - 'system/services/surface-source/**'
+      - 'tests/test_owner_surface_source_staging.py'
+      - 'tests/test_owner_surface_launcher_identity.py'
+      - '.github/workflows/owner-surface-source.yml'
+      - 'docs/contracts/surface-source.json'
+  pull_request:
+    paths:
+      - 'system/supervisor'
+      - 'system/services/surface-source/**'
+      - 'tests/test_owner_surface_source_staging.py'
+      - 'tests/test_owner_surface_launcher_identity.py'
+      - '.github/workflows/owner-surface-source.yml'
+      - 'docs/contracts/surface-source.json'
+
+permissions:
+  contents: read
+
+jobs:
+  owner-pinned-source:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 20
+    steps:
+      - name: Checkout exact candidate
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
+        with:
+          persist-credentials: false
+
+      - name: Provide deployed BusyBox command contract
+        run: |
+          set -euo pipefail
+          if [ ! -x /bin/busybox ]; then
+            sudo apt-get update
+            sudo apt-get install -y --no-install-recommends busybox
+          fi
+          test -x /bin/busybox
+          command -v git
+
+      - name: Prepare verified external Surface for Supervisor regression test source reads
+        uses: ./.github/actions/prepare-verified-surface
+
+      - name: Verify shell syntax and stage-only contract
+        run: |
+          set -euo pipefail
+          /bin/sh -n system/supervisor
+          /bin/sh -n system/services/surface-source/owner-stage.sh
+          python -m unittest tests.test_owner_surface_source_staging tests.test_owner_surface_offline_preseed tests.test_owner_surface_launcher_identity -v
+
+      - name: Verify existing Supervisor rollback and update contracts
+        run: |
+          python -m unittest tests.test_hot_update_supervisor tests.test_dev_git_flow -v

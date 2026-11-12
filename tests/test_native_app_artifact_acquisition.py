@@ -219,7 +219,7 @@ class NativeAppArtifactAcquisitionTests(unittest.TestCase):
                 )
             )
             plan = {
-                "schema": "ordax.app-lifecycle-plan/1",
+                "schema": "ordax.app-lifecycle-plan/2",
                 "request": {
                     "schema": "ordax.app-lifecycle-request/1",
                     "requestId": "store:install:notes:test",
@@ -231,6 +231,12 @@ class NativeAppArtifactAcquisitionTests(unittest.TestCase):
                 "catalogSequence": 9,
                 "catalogSha256": catalog_sha,
                 "catalogSourceCommit": "a" * 40,
+                "expectedActivation": {
+                    "source": "absent",
+                    "revision": 0,
+                    "version": None,
+                    "sourceCommit": None,
+                },
                 "candidate": {
                     "appId": "notes",
                     "version": "0.4.3",
@@ -279,7 +285,7 @@ class NativeAppArtifactAcquisitionTests(unittest.TestCase):
                 encoding="utf-8",
             )
             plan = {
-                "schema": "ordax.app-lifecycle-plan/1",
+                "schema": "ordax.app-lifecycle-plan/2",
                 "request": {
                     "schema": "ordax.app-lifecycle-request/1",
                     "requestId": "store:install:notes:test",
@@ -291,6 +297,12 @@ class NativeAppArtifactAcquisitionTests(unittest.TestCase):
                 "catalogSequence": 9,
                 "catalogSha256": "f" * 64,
                 "catalogSourceCommit": "a" * 40,
+                "expectedActivation": {
+                    "source": "absent",
+                    "revision": 0,
+                    "version": None,
+                    "sourceCommit": None,
+                },
                 "candidate": {
                     "appId": "notes",
                     "version": "0.4.3",

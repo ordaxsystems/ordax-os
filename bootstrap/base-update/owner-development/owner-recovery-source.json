@@ -1,0 +1,43 @@
+{
+  "$schema": "prototype-ordax.owner-recovery-source/1",
+  "status": "owner-development-only-source-pin",
+  "distribution_profile": "owner-development",
+  "boot_critical": false,
+  "stable_mvp_included": false,
+  "runtime": {
+    "repository": "https://github.com/ordaxsystems/ordax-runtime",
+    "source_sha": "810c894af12d2049e9f69a94ea92c99df807ab82",
+    "release_tag": "owner-recovery-810c894af12d2049e9f69a94ea92c99df807ab82",
+    "asset_name": "ordax-owner-recovery-agent",
+    "asset_url": "https://github.com/ordaxsystems/ordax-runtime/releases/download/owner-recovery-810c894af12d2049e9f69a94ea92c99df807ab82/ordax-owner-recovery-agent",
+    "sha256": "21209da403ee8f96a1b3dd986cd7120095fa2d92bbc5e4eddc1e58db2abebeb2",
+    "size_bytes": 6008984,
+    "architecture": "linux-amd64",
+    "linkage": "static"
+  },
+  "activation": {
+    "paired_required": true,
+    "automatic_start": false,
+    "control_plane_authority": "ordax-platform",
+    "boot_cmdline_token": "ordax.distribution_profile=owner-development",
+    "state_root": "/state/ordax/owner-remote",
+    "device_id_file": "device-id",
+    "device_token_file": "device-token",
+    "control_plane_url_file": "control-plane-url"
+  },
+  "capabilities": [
+    "agent.owner.snapshot",
+    "agent.owner.git_status",
+    "agent.owner.pull",
+    "agent.owner.runtime_stop",
+    "agent.owner.runtime_start"
+  ],
+  "forbidden": {
+    "generic_shell": true,
+    "arbitrary_remote_paths": true,
+    "raw_disk": true,
+    "package_install": true,
+    "git_push": true,
+    "release_signing": true
+  }
+}

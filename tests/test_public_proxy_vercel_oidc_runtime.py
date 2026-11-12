@@ -6,7 +6,7 @@ from pathlib import Path
 
 
 ROOT = Path(__file__).resolve().parents[1]
-PROXY = ROOT / "api" / "account-proxy.mjs"
+PROXY_CORE = ROOT / "lib" / "account-proxy-core.mjs"
 PACKAGE = ROOT / "package.json"
 
 
@@ -18,7 +18,7 @@ class PublicProxyVercelOidcRuntimeTests(unittest.TestCase):
         self.assertEqual(manifest.get("dependencies", {}).get("@vercel/oidc"), "4.0.0")
 
     def test_proxy_uses_runtime_helper_instead_of_direct_oidc_env_read(self):
-        source = PROXY.read_text(encoding="utf-8")
+        source = PROXY_CORE.read_text(encoding="utf-8")
         self.assertIn('import("@vercel/oidc")', source)
         self.assertIn("runtime.getVercelOidcToken", source)
         self.assertNotIn("oidcToken = process.env.VERCEL_OIDC_TOKEN", source)

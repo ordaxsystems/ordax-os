@@ -141,6 +141,41 @@ func TestPhysicalSignerAcceptsPortableManifestV3(t *testing.T) {
 	}
 }
 
+func TestPhysicalSignerRejectsPortableURLsOutsideDeclaredRelease(t *testing.T) {
+	var m manifest
+	if err := json.Unmarshal(validPhysicalManifestBytes(), &m); err != nil {
+		t.Fatal(err)
+	}
+	m.Schema = manifestSchemaPortable
+	valid := validPortablePayloadForSigner()
+	commit := valid.ReleaseSourceCommit
+	prefix := "https://github.com/ordaxsystems/ordax-os/releases/download/ordax-stable-v4-" + commit + "/"
+	for _, tc := range []struct {
+		name string
+		url string
+	}{
+		{"cross-version", "https://github.com/ordaxsystems/ordax-os/releases/download/ordax-stable-v4-" + strings.Repeat("a", 40) + "/kernel"},
+		{"lookalike-tag", "https://github.com/ordaxsystems/ordax-os/releases/download/ordax-stable-v4-" + commit + "-next/kernel"},
+		{"nested-asset", prefix + "nested/kernel"},
+		{"missing-asset", prefix},
+		{"escaped-separator", prefix + "%2Fkernel"},
+		{"empty-query", prefix + "kernel?"},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			payload := validPortablePayloadForSigner()
+			payload.Artifacts[0].URL = tc.url
+			m.PortablePayload = &payload
+			data, err := json.Marshal(m)
+			if err != nil {
+				t.Fatal(err)
+			}
+			if _, err := validateManifest(data); err == nil {
+				t.Fatal("signer accepted Portable URL outside the signed release")
+			}
+		})
+	}
+}
+
 func TestPhysicalSignerRejectsInvalidPortableManifestV3(t *testing.T) {
 	var m manifest
 	if err := json.Unmarshal(validPhysicalManifestBytes(), &m); err != nil {

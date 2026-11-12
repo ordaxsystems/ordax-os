@@ -31,7 +31,7 @@ from native_store_catalog import (
     guard_store_catalog_watermark,
 )
 
-PLAN_SCHEMA = "ordax.app-lifecycle-plan/1"
+PLAN_SCHEMA = "ordax.app-lifecycle-plan/2"
 REQUEST_SCHEMA = "ordax.app-lifecycle-request/1"
 RESULT_SCHEMA = "ordax.native-app-lifecycle-execution/1"
 DEFAULT_CHANNEL_BIN = "/srv/ordax-system/bin/ordax-runtime-component-channel"
@@ -113,12 +113,65 @@ def _candidate(value: object, *, app_id: str, catalog_commit: str) -> dict | Non
     }
 
 
+def _expected_activation(value: object, operation: str) -> dict:
+    current = _exact(
+        value,
+        {"source", "revision", "version", "sourceCommit"},
+        "app lifecycle expected activation",
+    )
+    revision = current["revision"]
+    if (
+        not isinstance(revision, int)
+        or isinstance(revision, bool)
+        or revision < 0
+    ):
+        raise NativeAppLifecycleError("app lifecycle activation revision is invalid")
+    source = current["source"]
+    if not isinstance(source, str):
+        raise NativeAppLifecycleError("app lifecycle expected activation source is invalid")
+    if source == "slot":
+        if (
+            operation == "install"
+            or revision == 0
+            or not isinstance(current["version"], str)
+            or SEMVER_RE.fullmatch(current["version"]) is None
+            or not isinstance(current["sourceCommit"], str)
+            or COMMIT_RE.fullmatch(current["sourceCommit"]) is None
+        ):
+            raise NativeAppLifecycleError("app lifecycle expected installed slot is invalid")
+    elif (
+        source not in {"absent", "removed"}
+        or operation != "install"
+        or current["version"] is not None
+        or current["sourceCommit"] is not None
+    ):
+        raise NativeAppLifecycleError("app lifecycle expected activation does not match operation")
+    return dict(current)
+
+
+def _assert_expected_activation(state: dict, expected: dict) -> None:
+    current = state.get("current")
+    if current is not None:
+        source = "slot"
+    else:
+        source = "removed" if state.get("user_removed") is True else "absent"
+    if (
+        state["revision"] != expected["revision"]
+        or source != expected["source"]
+        or (source == "slot" and current != {
+            "version": expected["version"],
+            "source_commit": expected["sourceCommit"],
+        })
+    ):
+        raise NativeAppLifecycleError("app lifecycle observed activation generation is stale")
+
+
 def validate_lifecycle_plan(value: object) -> dict:
     plan = _exact(
         value,
         {
             "schema", "request", "catalogSequence", "catalogSha256",
-            "catalogSourceCommit", "candidate", "authority",
+            "catalogSourceCommit", "candidate", "expectedActivation", "authority",
         },
         "app lifecycle plan",
     )
@@ -140,6 +193,7 @@ def validate_lifecycle_plan(value: object) -> dict:
         app_id=request["appId"],
         catalog_commit=plan["catalogSourceCommit"],
     )
+    expected_activation = _expected_activation(plan["expectedActivation"], request["operation"])
     if request["operation"] in {"install", "update"} and candidate is None:
         raise NativeAppLifecycleError("install/update requires verified candidate")
     return {
@@ -149,6 +203,7 @@ def validate_lifecycle_plan(value: object) -> dict:
         "catalogSha256": plan["catalogSha256"],
         "catalogSourceCommit": plan["catalogSourceCommit"],
         "candidate": candidate,
+        "expectedActivation": expected_activation,
         "authority": "none",
     }
 
@@ -191,6 +246,35 @@ def _key_values(stdout: str, expected: set[str], label: str) -> dict[str, str]:
     if set(values) != expected:
         raise NativeAppLifecycleError(f"{label} output fields are not canonical")
     return values
+
+
+def _read_activation_state(
+    app_id: str,
+    *,
+    channel_bin: str,
+    slot_root: str,
+    runner: Callable[..., subprocess.CompletedProcess],
+) -> dict:
+    """Read the Go owner's canonical state; CLI command output is not a commit proof."""
+    status = _run([
+        channel_bin, "status",
+        "--component", app_id,
+        "--root", slot_root,
+    ], runner=runner)
+    try:
+        state = json.loads(status.stdout)
+    except json.JSONDecodeError as exc:
+        raise NativeAppLifecycleError("runtime component status is invalid JSON") from exc
+    if (
+        not isinstance(state, dict)
+        or state.get("$schema") != "prototype-ordax.runtime-component-activation-state/1"
+        or state.get("component_id") != app_id
+        or not isinstance(state.get("revision"), int)
+        or isinstance(state.get("revision"), bool)
+        or state["revision"] < 0
+    ):
+        raise NativeAppLifecycleError("runtime component canonical activation status is invalid")
+    return state
 
 
 def _assert_envelope_release_bytes(envelope_bytes: bytes, release_bytes: bytes, app_id: str) -> None:
@@ -272,6 +356,11 @@ def _stage_and_arm(
     candidate = plan["candidate"]
     assert candidate is not None
     with _materialized_cached_artifacts(candidate, artifact_root) as paths:
+        observed = _read_activation_state(
+            request["appId"], channel_bin=channel_bin, slot_root=slot_root,
+            runner=runner,
+        )
+        _assert_expected_activation(observed, plan["expectedActivation"])
         verified = _key_values(
                 _run([
                     channel_bin,
@@ -357,6 +446,7 @@ def _stage_and_arm(
                 "--slot", slot,
                 "--trust", trust_path,
                 "--root", slot_root,
+                "--expected-revision", str(plan["expectedActivation"]["revision"]),
             ], runner=runner).stdout,
             {
                 "RUNTIME_COMPONENT_PENDING_ARMED",
@@ -380,6 +470,23 @@ def _stage_and_arm(
             raise NativeAppLifecycleError("pending component revision is invalid") from exc
         if revision <= 0:
             raise NativeAppLifecycleError("pending component revision is invalid")
+
+        # A successful CLI line does not prove that the Go owner's atomic
+        # activation state contains the candidate. Never report accepted to
+        # the Store until the canonical pending generation is visible.
+        observed = _read_activation_state(
+            request["appId"], channel_bin=channel_bin, slot_root=slot_root,
+            runner=runner,
+        )
+        if (
+            observed["revision"] != revision
+            or observed.get("pending") != {
+                "version": candidate["version"],
+                "source_commit": candidate["sourceCommit"],
+            }
+            or observed.get("pending_health") != "unknown"
+        ):
+            raise NativeAppLifecycleError("pending component activation was not durably observed")
 
         return {
             "schema": RESULT_SCHEMA,
@@ -405,16 +512,10 @@ def _remove(
     runner: Callable[..., subprocess.CompletedProcess],
 ) -> dict:
     request = plan["request"]
-    status = _run([
-        channel_bin,
-        "status",
-        "--component", request["appId"],
-        "--root", slot_root,
-    ], runner=runner)
-    try:
-        state = json.loads(status.stdout)
-    except json.JSONDecodeError as exc:
-        raise NativeAppLifecycleError("runtime component status is invalid JSON") from exc
+    state = _read_activation_state(
+        request["appId"], channel_bin=channel_bin, slot_root=slot_root,
+        runner=runner,
+    )
     if (
         not isinstance(state, dict)
         or state.get("$schema") != "prototype-ordax.runtime-component-activation-state/1"
@@ -426,6 +527,7 @@ def _remove(
         or not isinstance(state.get("current"), dict)
     ):
         raise NativeAppLifecycleError("runtime component current activation is not removable")
+    _assert_expected_activation(state, plan["expectedActivation"])
     current = state["current"]
     if (
         set(current) != {"version", "source_commit"}
@@ -468,6 +570,25 @@ def _remove(
         raise NativeAppLifecycleError("runtime component uninstall revision is invalid") from exc
     if revision != state["revision"] + 1:
         raise NativeAppLifecycleError("runtime component uninstall revision drifted")
+
+    # The immutable uninstall identity and user-removed tombstone belong to
+    # the same Go activation state. Neither command stdout nor a second Store
+    # preference database may substitute for reading that committed state.
+    observed = _read_activation_state(
+        request["appId"], channel_bin=channel_bin, slot_root=slot_root,
+        runner=runner,
+    )
+    if (
+        observed["revision"] != revision
+        or observed.get("current") is not None
+        or observed.get("previous") is not None
+        or observed.get("pending") is not None
+        or observed.get("rejected") is not None
+        or observed.get("pending_health") != "unknown"
+        or observed.get("removed_identity") != current
+        or observed.get("user_removed") is not True
+    ):
+        raise NativeAppLifecycleError("runtime component uninstall was not durably observed")
     return {
         "schema": RESULT_SCHEMA,
         "requestId": request["requestId"],

@@ -4,6 +4,7 @@ import { PRODUCT_VERSION } from "../system/contracts/product-version.mjs";
 import {
   PRODUCT_FAMILY_SCHEMA,
   PRODUCT_FAMILY_MODES,
+  PRODUCT_FAMILY_PUBLIC_ENDPOINTS,
   productFamilyDisplay,
   productFamilyMode,
   productFamilyVersion,
@@ -27,6 +28,21 @@ test("public mode names identify the OS variants without creating a sixth mode",
   assert.equal(productFamilyMode("native-disk").displayName, "OrdaX OS — Nativo");
   assert.equal(productFamilyMode("usb").productId, productFamilyMode("native-disk").productId);
   assert.notEqual(productFamilyMode("desktop").productId, productFamilyMode("usb").productId);
+});
+
+test("public site and Web product origins have distinct canonical roles", () => {
+  const endpoints = PRODUCT_FAMILY_PUBLIC_ENDPOINTS;
+  assert.ok(Object.isFrozen(endpoints));
+  assert.ok(Object.isFrozen(endpoints.site));
+  assert.ok(Object.isFrozen(endpoints.web));
+  assert.equal(endpoints.site.displayName, "OrdaX");
+  assert.equal(endpoints.site.origin, "https://ordax.com.br");
+  assert.equal(endpoints.site.role, "public-site");
+  assert.equal(endpoints.web.displayName, "OrdaX Web");
+  assert.equal(endpoints.web.origin, "https://web.ordax.com.br");
+  assert.equal(endpoints.web.presentationUrl, "https://ordax.com.br/web/");
+  assert.equal(endpoints.web.role, "product-runtime");
+  assert.equal(endpoints.web.availabilityOwner, "web-deployment");
 });
 
 test("only bootable OS modes inherit the assigned prototype OS version", () => {

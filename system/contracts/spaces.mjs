@@ -7,6 +7,7 @@ const SPACE_KINDS = new Set(["personal", "work", "professional"]);
 const MEMBER_ROLES = new Set(["owner", "admin", "member", "viewer"]);
 const SPACE_STATES = new Set(["active", "archived"]);
 const SNAPSHOT_STATES = new Set(["idle", "loading", "ready", "unavailable", "error"]);
+const SEMANTIC_IDENTIFIER = /^[a-z0-9][a-z0-9]*(?:[._-][a-z0-9]+)*$/;
 const FORBIDDEN_SPACES_MUTATION_METHODS = Object.freeze([
   "archive",
   "create",
@@ -29,12 +30,26 @@ function boundedText(value, label, max = 160) {
   return normalized;
 }
 
+function optionalSemanticIdentifier(value, label) {
+  if (value == null) return null;
+  const normalized = boundedText(value, label, 80);
+  if (!SEMANTIC_IDENTIFIER.test(normalized)) {
+    throw new TypeError(`${label} is invalid`);
+  }
+  return normalized;
+}
+
 export function validateSpace(value) {
   if (!value || typeof value !== "object" || Array.isArray(value)) {
     throw new TypeError("Space must be an object");
   }
   if (!SPACE_KINDS.has(value.kind) || !SPACE_STATES.has(value.state ?? "active")) {
     throw new TypeError("Space kind/state is invalid");
+  }
+  const domain = optionalSemanticIdentifier(value.domain, "Space domain");
+  const subtype = optionalSemanticIdentifier(value.subtype, "Space subtype");
+  if ((domain === null) !== (subtype === null)) {
+    throw new TypeError("Space domain and subtype must be supplied together");
   }
   return Object.freeze({
     schema: SPACES_PORT_SCHEMA,
@@ -46,6 +61,7 @@ export function validateSpace(value) {
     profilePack: value.profilePack == null
       ? null
       : boundedText(value.profilePack, "Profile pack", 160),
+    ...(domain === null ? {} : { domain, subtype }),
   });
 }
 
@@ -83,7 +99,6 @@ export function validateProfilePack(value) {
     allowUnsignedApps: false,
   });
 }
-
 
 export function validateSpacesSnapshot(value) {
   if (!value || typeof value !== "object" || Array.isArray(value)) {

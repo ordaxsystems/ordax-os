@@ -3,9 +3,9 @@ name: Account Lovable Source Candidate
 on:
   pull_request:
     paths:
+      # Shared portal locale changes are covered by Public Site Candidate.
+      # This optional source-candidate owner runs when its own export changes.
       - 'sites/account-ui/**'
-      - 'sites/public/i18n/catalog.js'
-      - 'sites/public/i18n/runtime.js'
   workflow_dispatch:
 
 permissions:

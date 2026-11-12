@@ -6,13 +6,17 @@
 
 ## Fonte da verdade
 
-- `system/apps/assistant/conversation.mjs` permanece o único dono da sessão
-  de conversa, com identidade/Space/Perfil, envio, descarte, histórico limitado,
-  estado de disponibilidade e proveniência do modelo. A interface só se inscreve
-  no `ordax.assistant-conversation/1`.
-- `system/apps/assistant/ui/result-view-model.mjs` é uma **projeção pura** desse
-  snapshot; `conversation-controls.mjs` renderiza com `textContent`. Nenhuma
-  persistência, Memory nova, router, executor, model adapter ou autorização.
+- A fonte canônica do produto Assistant é
+  `ordaxsystems/ordax-apps/apps/assistant/src/conversation.mjs`. Ela é o único
+  dono da sessão de conversa, com identidade/Space/Perfil, envio, descarte,
+  histórico limitado, estado de disponibilidade e proveniência do modelo. A
+  interface só se inscreve no `ordax.assistant-conversation/1`.
+- `ordaxsystems/ordax-apps/apps/assistant/src/ui/result-view-model.mjs` é uma
+  **projeção pura** desse snapshot;
+  `ordaxsystems/ordax-apps/apps/assistant/src/ui/conversation-controls.mjs`
+  renderiza com `textContent`. Nenhuma persistência, Memory nova, router,
+  executor, model adapter ou autorização. O OS mantém os contratos e serviços
+  de plataforma, sem uma segunda cópia do app.
 - Repouso: símbolo, comando e status do provider. Resposta: um bloco de texto
   de resposta validada já integrada à sessão, contexto da pergunta e
   engine/model. Histórico anterior continua no mesmo snapshot da sessão,
@@ -65,7 +69,8 @@ P2 pertence aos owners de capacidades/Runtime/Platform já descritos em
 ## Missões verificadas no Assistant Native (fatia seguinte da P1)
 
 O Assistant Native agora recebe opcionalmente **a mesma instância** de Personal
-OrdaX que alimenta Activity. O render `ui/work-strip.mjs` é somente leitura:
+OrdaX que alimenta Activity. O render
+`ordaxsystems/ordax-apps/apps/assistant/src/ui/work-strip.mjs` é somente leitura:
 valida snapshots canônicos de identidade, seleção de Space e runtime Personal;
 filtra owner e Space exatos a cada atualização; projeta com
 `projectPersonalWorkCanvas` (P0). Não transforma prompt em Work, não cria

@@ -10,6 +10,14 @@ const INTEGRATION_PATH = new URL(
   "../docs/contracts/studio-runtime-integration.json",
   import.meta.url,
 );
+const TRUST_POLICY_PATH = new URL(
+  "../docs/contracts/runtime-component-trust-policy.json",
+  import.meta.url,
+);
+const PRESENCE_PATH = new URL(
+  "../docs/contracts/product-device-presence.json",
+  import.meta.url,
+);
 const ENROLLMENT_PATH = new URL(
   "../infra/supabase/development/functions/ordax-development-github-enroll/index.ts",
   import.meta.url,
@@ -25,14 +33,15 @@ test("Studio runtime source lock pins the merged headless compatibility contract
   assert.equal(lock.$schema, "prototype-ordax.studio-runtime-source-lock/1");
   assert.equal(lock.source.repository, "https://github.com/ordaxsystems/ordax-runtime");
   assert.match(lock.source.commit, /^[0-9a-f]{40}$/);
-  assert.equal(lock.source.commit, "218e049cc1364e270c566f41de048725ec692c26");
+  assert.equal(lock.source.commit, "d3cecce1abfe542a50795b72d98d6a15fa25803a");
   assert.deepEqual(lock.source.compatibility_contract, {
     path: "docs/contracts/ordax-os-runtime-compatibility.json",
     schema: "ordax.studio-runtime-compatibility/1",
-    sha256: "9fe0d913a8f679bb79bb95549aa390373fcba12070d01557334951da9b3e5a1f",
-    product_version: "0.4.2",
+    sha256: "34d889808e9f79412580422a5d7fa7c182f5d50e9dba07eb07934af5aff790f8",
+    product_version: "0.4.7",
   });
 
+  assert.deepEqual(Object.keys(lock.candidate_evidence_by_target), ["linux-amd64"]);
   assert.equal(lock.runtime.profile, "headless");
   assert.equal(lock.runtime.python, ">=3.11");
   assert.deepEqual(lock.runtime.entrypoints, ["ordax-dev-agent", "ordax-device-agent"]);
@@ -41,6 +50,35 @@ test("Studio runtime source lock pins the merged headless compatibility contract
     lock.runtime.capability_reader_schema,
     "ordax.device-agent-capability-reader/1",
   );
+  // Pin provenance only; runtime code, grant evaluation and execution stay
+  // in the canonical ordax-runtime/Platform owners, not in this OS lock.
+  assert.equal(
+    lock.runtime.product_transport_owner,
+    "ordax_dev_agent.product_device_control_plane.ProductDeviceControlPlane",
+  );
+  assert.equal(lock.runtime.product_transport_path, "/v3/device/transport");
+  assert.deepEqual(lock.runtime.product_transport_operations, [
+    "heartbeat", "claim", "start", "lease", "progress", "report", "recover-report",
+  ]);
+  assert.equal(
+    lock.runtime.central_attestation_owner,
+    "ordax_dev_agent.product_central_session.ProductCentralSessionClient",
+  );
+  assert.equal(lock.runtime.native_device_identity_provider, "ProductDeviceIdentityStore.read_enrolled_credential");
+  assert.equal(lock.runtime.native_identity_provider_supported, true);
+  // The upstream compatibility contract names the canonical inner dispatcher.
+  assert.equal(lock.runtime.native_composition_entrypoint, "ordax_dev_agent.main.run");
+  // The separate Linux executable enters through native_main, then dispatches.
+  assert.equal(lock.runtime.native_executable_name, "ordax-product-agent");
+  assert.equal(lock.runtime.native_executable_source, "native/ordax-product-agent/entrypoint.py");
+  assert.equal(lock.runtime.native_executable_entrypoint, "ordax_dev_agent.native_main.main");
+  assert.notEqual(lock.runtime.native_composition_entrypoint, lock.runtime.native_executable_entrypoint);
+  assert.equal(lock.runtime.native_composition_explicit_config_required, true);
+  assert.equal(lock.runtime.native_composition_main_thread_required, true);
+  assert.equal(lock.runtime.native_composition_uses_canonical_dispatch_loop, true);
+  assert.equal(lock.runtime.device_id_match_required, true);
+  assert.equal(lock.runtime.duplicate_persisted_token_forbidden, true);
+  assert.equal(lock.runtime.runtime_kind_authority, "upstream-compatibility-contract:ordax_os.native_runtime_kind");
 });
 
 test("Studio runtime source lock is source-only and cannot silently activate dispatch", async () => {
@@ -50,6 +88,8 @@ test("Studio runtime source lock is source-only and cannot silently activate dis
   assert.equal(lock.distribution.runtime_network_download_allowed, false);
   assert.equal(lock.distribution.runtime_artifact_claimed, false);
   assert.equal(lock.distribution.source_binding_only, true);
+  assert.equal(lock.distribution.signed_runtime_slot_available, false);
+  assert.equal(lock.distribution.activation_channel, "ordax-runtime-component-channel");
 
   for (const owner of [
     "identity_owner",
@@ -69,6 +109,50 @@ test("Studio runtime source lock is source-only and cannot silently activate dis
   assert.equal(lock.activation.dispatch_enabled, false);
   assert.equal(lock.activation.action_gateway_activation_required, true);
   assert.equal(lock.activation.boot_critical, false);
+  assert.equal(lock.activation.attestation_enabled, false);
+  assert.equal(lock.activation.requires_signed_runtime_slot, true);
+  assert.equal(lock.activation.requires_runtime_health_proof, true);
+  assert.equal(lock.activation.requires_product_oauth_client_consent, true);
+  assert.equal(lock.activation.requires_device_scoped_grants, true);
+  assert.equal(lock.activation.requires_native_policy, true);
+  assert.equal(lock.activation.intelligence_grants_do_not_authorize_remote_actions, true);
+  assert.equal(lock.activation.single_device_heartbeat_owner_required, true);
+  assert.equal(lock.activation.verified_os_runtime_provenance_required, true);
+});
+
+test("Product MCP action readiness cannot outrun the canonical signed Runtime trust", async () => {
+  const [lock, trust, presence] = await Promise.all([
+    readJson(SOURCE_LOCK_PATH),
+    readJson(TRUST_POLICY_PATH),
+    readJson(PRESENCE_PATH),
+  ]);
+
+  assert.equal(trust.$schema, "prototype-ordax.runtime-component-trust-policy/1");
+  assert.equal(lock.distribution.activation_channel, "ordax-runtime-component-channel");
+  assert.equal(lock.activation.requires_signed_runtime_slot, true);
+  assert.equal(lock.activation.requires_runtime_health_proof, true);
+  assert.equal(lock.activation.single_device_heartbeat_owner_required, true);
+  assert.equal(lock.activation.verified_os_runtime_provenance_required, true);
+  assert.equal(presence.lifecycle.grantsRemoteActions, false);
+  assert.equal(presence.externalMcp.devicePresenceDoesNotGrantActions, true);
+
+  const gates = trust.current_gates;
+  const trustReady = gates.canonical_component_trust_anchor_pinned === true
+    && gates.component_publish_allowed === true
+    && gates.production_component_slot_activation_allowed === true;
+
+  // Discovery is not attestation, and the existing trust policy owns
+  // publication/activation. This is a cross-contract invariant, not a
+  // second owner for runtime or device state.
+  if (!trustReady) {
+    assert.equal(lock.distribution.signed_runtime_slot_available, false);
+    assert.equal(lock.distribution.runtime_artifact_claimed, false);
+    assert.equal(lock.activation.dispatch_enabled, false);
+    assert.equal(lock.activation.attestation_enabled, false);
+    assert.equal(presence.externalMcp.remoteActionRuntimePackagedInOs, false);
+    assert.equal(presence.externalMcp.remoteActionDispatchEnabled, false);
+    assert.equal(presence.externalMcp.attestedMcpSessionImplementedInOs, false);
+  }
 });
 
 test("Studio integration consumes the source lock without widening Surface authority", async () => {
@@ -132,4 +216,45 @@ test("development enrollment trusts only canonical ordax-runtime recovery workfl
   assert.doesNotMatch(source, /const REPOSITORY = "washingtonmsdj\/ordax-runtime";/);
   assert.doesNotMatch(source, /"washingtonmsdj\/ordax-runtime\/\.github\/workflows/);
   assert.doesNotMatch(source, /washingtonmsdj\/mcp-blender/);
+});
+
+test("Owner DEV CI candidate is recorded as evidence, not unsigned installation authority", async () => {
+  const lock = await readJson(SOURCE_LOCK_PATH);
+  assert.deepEqual(lock.candidate_evidence_by_target["linux-amd64"], {
+    kind: "ci-only-unsigned",
+    source_commit: lock.source.commit,
+    platform: "linux-amd64-musl",
+    workflow_run_id: 39732421629,
+    artifact_id: 12406001168,
+    archive_sha256: "2344c035f29755ca445c826060287a62c864dcaf6b1f9bfaf8c749f82bf095e8",
+    executable_sha256: "ecb30cacc2e4be09b6f7dd48768a93943149105bfab9a8339475697f109040e0",
+    executable_size_bytes: 25034544,
+    offline_proof_verified: true,
+    device_execution_proven: false,
+    signed_distribution_authorized: false,
+    native_graphical_control_proven: false,
+    independent_base_abi_ready: false,
+    elf_interpreter: "/lib/ld-musl-x86_64.so.1",
+    elf_needed_libraries: ["libc.musl-x86_64.so.1", "libz.so.1"],
+    independent_base_abi_blockers: [
+      "external-dynamic-elf-interpreter",
+      "external-shared-libraries",
+      "alpine-build-provenance",
+      "embedded-python-runtime-closure-unverified",
+    ],
+    embedded_elf_inventory: {
+      schema: "ordax.native-embedded-elf-inventory/1",
+      native_entry_count: 90,
+      native_uncompressed_bytes: 40611847,
+      inventory_sha256: "16d8553cd00dbebd98eda0ff0ae5553b1c240360a511caa30974d0cd9ef6a108",
+      unprovided_needed_names: ["libc.musl-x86_64.so.1", "libc.so"],
+      independent_base_compatibility_proven: false,
+      install_authorized: false,
+    },
+  });
+  assert.equal(lock.distribution.source_binding_only, true);
+  assert.equal(lock.distribution.signed_runtime_slot_available, false);
+  assert.equal(lock.activation.dispatch_enabled, false);
+  assert.equal(lock.activation.single_device_heartbeat_owner_required, true);
+  assert.equal(lock.candidate_evidence_by_target["linux-amd64"].independent_base_abi_ready, false);
 });

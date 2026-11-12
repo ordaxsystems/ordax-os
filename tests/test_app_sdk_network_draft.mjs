@@ -6,11 +6,12 @@ import { NETWORK_DRAFT_SCHEMA, assertNetworkDraftPort, validateNetworkDraftSnaps
 
 const bundle = JSON.parse(readFileSync(new URL("../sdk/app-sdk-v1/bundle.json", import.meta.url), "utf8"));
 const source = readFileSync(new URL("../system/contracts/network-draft.mjs", import.meta.url));
-const gitBlob = createHash("sha1").update(Buffer.from("blob " + source.length + String.fromCharCode(0))).update(source).digest("hex");
+const normalizedSource = Buffer.from(source.toString("utf8").replace(/\r\n/g, "\n"));
+const gitBlob = createHash("sha1").update(Buffer.from("blob " + normalizedSource.length + String.fromCharCode(0))).update(normalizedSource).digest("hex");
 
 test("Network Draft public SDK 1.17 preserves canonical source and schema", () => {
   const specs = bundle.contracts.filter(entry => entry.schema === NETWORK_DRAFT_SCHEMA);
-  assert.equal(bundle.bundle_version, "1.19.0");
+  assert.equal(bundle.bundle_version, "1.21.0");
   assert.equal(specs.length, 1);
   assert.equal(specs[0].name, "network-draft");
   assert.equal(specs[0].source_path, "system/contracts/network-draft.mjs");

@@ -6,6 +6,7 @@
     "declared_inputs_are_not_a_release_sbom": true,
     "source_authorities_must_match_repository_selection": true,
     "kernel_source_identity_must_match_bootstrap_kernel_source": true,
+    "independent_base_selection_must_match_buildroot_profile": true,
     "development_base_packages_must_match_build_source": true,
     "graphical_runtime_packages_must_match_surface_source": true,
     "license_ids_may_not_be_invented": true,

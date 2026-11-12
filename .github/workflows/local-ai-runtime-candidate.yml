@@ -6,9 +6,21 @@ on:
       - 'bootstrap/local-ai-runtime/**'
       - 'system/services/local-ai/source-lock.json'
       - 'docs/contracts/local-ai.json'
+      - 'docs/contracts/intelligence-source.json'
+      # Only the immutable engine materializer can change this real EROFS build.
+      # Disposable OS composition is validated by intelligence-source/release gates.
+      - 'tools/intelligence-source/materialize.py'
+      - '.github/actions/resolve-intelligence-builder/**'
       - 'bootstrap/release-acquisition/**'
       - 'tools/release-manifest/**'
       - 'tools/release-signing/**'
+      # Only canonical release-signing source affects the Local AI runtime's
+      # signed-v4 materialization proof. Physical writer signing, public trust
+      # administration and documentation have their own CI owners.
+      - '!tools/release-signing/windows/**'
+      - '!tools/release-signing/promote_public_trust.py'
+      - '!tools/release-signing/cmd/ordax-physical-release-signing/**'
+      - '!tools/release-signing/README.md'
       - 'tests/test_portable_v4_real_materialization_contract.py'
       - 'tests/test_local_ai_contract.py'
       - 'tests/test_local_ai_runtime_builder.py'
@@ -17,6 +29,11 @@ on:
 
 permissions:
   contents: read
+
+# Discard outdated PR engine builds. Manual proof runs keep their own run ID.
+concurrency:
+  group: local-ai-runtime-candidate-${{ github.event.pull_request.number || github.run_id }}
+  cancel-in-progress: ${{ github.event_name == 'pull_request' }}
 
 jobs:
   candidate:
@@ -49,6 +66,36 @@ jobs:
           sudo apt-get install -y --no-install-recommends \
             binutils cmake curl erofs-utils g++ git iproute2 libc6-dev ninja-build openssl util-linux
 
+      - name: Resolve exact external Intelligence inference builder
+        uses: ./.github/actions/resolve-intelligence-builder
+        with:
+          out-root: ${{ runner.temp }}/ordax-intelligence-builder
+
+      - name: Verify external builder consumes only OS-owned runtime policy
+        env:
+          PYTHONDONTWRITEBYTECODE: '1'
+        run: |
+          set -euo pipefail
+          python - "$ORDAX_EXTERNAL_AI_BUILDER" <<'PY'
+          import importlib.util, pathlib, sys
+          spec=importlib.util.spec_from_file_location("pinned_intelligence_builder", sys.argv[1])
+          module=importlib.util.module_from_spec(spec)
+          spec.loader.exec_module(module)
+          try:
+              module.load_source_lock()
+          except module.RuntimeBuildError as exc:
+              assert "canonical OS source must be supplied" in str(exc)
+          else:
+              raise AssertionError("external builder accepted implicit OS policy")
+          module.configure_os_source(pathlib.Path.cwd())
+          lock=module.load_source_lock()
+          assert lock["engine"]["id"]=="llama.cpp"
+          assert lock["model"]["format"]=="GGUF"
+          assert "--host 127.0.0.1" in module.launcher_text(lock)
+          print("EXTERNAL_INFERENCE_BUILDER_OS_POLICY=PASS")
+          PY
+          test ! -e "$RUNNER_TEMP/ordax-intelligence-builder/system/intelligence-source/tools/inference-builder/__pycache__"
+
       - name: Validate local AI source and builder contracts
         run: |
           set -euo pipefail
@@ -56,7 +103,8 @@ jobs:
           python -m unittest \
             tests.test_local_ai_contract \
             tests.test_local_ai_runtime_builder \
-            tests.test_portable_v4_real_materialization_contract -v
+            tests.test_portable_v4_real_materialization_contract \
+            tests.test_local_ai_live_stream_probe -v
 
       - name: Build real local AI runtime twice
         env:
@@ -65,17 +113,21 @@ jobs:
           set -euo pipefail
           work="$RUNNER_TEMP/local-ai-runtime"
           mkdir -p "$work"
-          python bootstrap/local-ai-runtime/build.py build \
+          python "$ORDAX_EXTERNAL_AI_BUILDER" --os-source "$GITHUB_WORKSPACE" build \
             --cache-dir "$work/cache" \
             --out-dir "$work/build-a"
-          python bootstrap/local-ai-runtime/build.py verify \
+          python "$ORDAX_EXTERNAL_AI_BUILDER" --os-source "$GITHUB_WORKSPACE" verify \
             --out-dir "$work/build-a"
 
-          python bootstrap/local-ai-runtime/build.py build \
+          python "$ORDAX_EXTERNAL_AI_BUILDER" --os-source "$GITHUB_WORKSPACE" build \
             --cache-dir "$work/cache" \
             --out-dir "$work/build-b"
-          python bootstrap/local-ai-runtime/build.py verify \
+          python "$ORDAX_EXTERNAL_AI_BUILDER" --os-source "$GITHUB_WORKSPACE" verify \
             --out-dir "$work/build-b"
+
+          # Transitional cross-verification: unchanged signed v4 policy and EROFS ABI.
+          python bootstrap/local-ai-runtime/build.py verify --out-dir "$work/build-a"
+          python bootstrap/local-ai-runtime/build.py verify --out-dir "$work/build-b"
 
       - name: Prove byte-reproducible engine and EROFS
         run: |
@@ -203,6 +255,15 @@ jobs:
           print('LOCAL_AI_GENERATED_TOKENS=' + str(tokens))
           print('LOCAL_AI_LOOPBACK_ONLY=PASS')
           PY
+
+          # Exercise the same immutable, mounted GGUF + engine through real
+          # authenticated SSE (not the separate Node server-fixture).
+          # Client disconnect is observed; backend compute cancellation and
+          # Buildroot ABI are explicitly NOT asserted by this host probe.
+          python bootstrap/local-ai-runtime/prove_stream.py \
+            --endpoint http://127.0.0.1:17865 \
+            --api-key-file "$work/ai-auth-key" \
+            | tee "$work/real-sse-proof.txt"
 
           kill "$server_pid"
           wait "$server_pid" || true
@@ -504,6 +565,7 @@ jobs:
             ${{ runner.temp }}/local-ai-runtime/build-b/local-ai-runtime-tree.json
             ${{ runner.temp }}/local-ai-runtime/health.json
             ${{ runner.temp }}/local-ai-runtime/completion.json
+            ${{ runner.temp }}/local-ai-runtime/real-sse-proof.txt
             ${{ runner.temp }}/local-ai-runtime/alpine-health.json
             ${{ runner.temp }}/local-ai-runtime/alpine-completion.json
           if-no-files-found: error

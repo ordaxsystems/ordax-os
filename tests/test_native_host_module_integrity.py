@@ -48,7 +48,10 @@ class NativeHostModuleIntegrityTests(unittest.TestCase):
         self.assertTrue(REQUEST_BOUNDARY.is_file(), REQUEST_BOUNDARY)
         self.assertTrue(COMPONENT_SLOTS.is_file(), COMPONENT_SLOTS)
         self.assertTrue(ACCOUNT_GATEWAY.is_file(), ACCOUNT_GATEWAY)
-        self.assertIn("from native_request_boundary import expected_surface_authority, request_is_trusted", source)
+        self.assertIn("from native_request_boundary import (", source)
+        self.assertIn("expected_surface_authority,", source)
+        self.assertIn("opaque_signed_module_read_is_trusted,", source)
+        self.assertIn("request_is_trusted,", source)
         self.assertIn("from native_account_gateway import NativeAccountGateway, NativeAccountGatewayError", source)
         self.assertIn("from native_component_slots import (", source)
         self.assertIn("def _request_is_trusted(self)", source)
@@ -69,23 +72,22 @@ class NativeHostModuleIntegrityTests(unittest.TestCase):
             method_source = ast.get_source_segment(source, method_node) or ""
             self.assertNotIn("self._request_is_trusted()", method_source)
 
-    def test_account_registration_remains_fail_closed_in_native_host(self):
+    def test_account_registration_uses_gateway_policy_and_requires_consent(self):
         source = HOST.read_text(encoding="utf-8")
-        self.assertIn("ACCOUNT_REGISTRATION_ENABLED = False", source)
-        self.assertIn(
-            "if parsed_path == ACCOUNT_REGISTER_PATH and not ACCOUNT_REGISTRATION_ENABLED:",
-            source,
-        )
-        self.assertIn("self._empty(503)", source)
+        self.assertNotIn("ACCOUNT_REGISTRATION_ENABLED", source)
         self.assertIn('ACCOUNT_REGISTRATION_POLICY_PATH = "/auth/registration-policy"', source)
+        self.assertIn("reply = self.server.account_gateway.registration_policy()", source)
+        self.assertNotIn('payload["registrationEnabled"] = bool(', source)
+        self.assertIn('ACCOUNT_REGISTER_PATH = "/auth/register"', source)
+        self.assertIn('{"email", "password", "legalAcceptance"}', source)
+        self.assertIn('payload.get("legalAcceptance") is not True', source)
+        self.assertIn("self.server.account_gateway.register(email, password, legal_accepted=True)", source)
+        self.assertIn("if reply.status not in {200, 202, 303}:", source)
+        self.assertIn("self._empty(reply.status)", source)
         self.assertIn('ACCOUNT_CLOSE_PATH = "/account/close"', source)
         self.assertIn("self.server.account_gateway.close_account(password, confirmation)", source)
         self.assertIn('set(payload) != {"password", "confirmation"}', source)
         self.assertNotIn("ACCOUNT_CLOSE_ENABLED =", source)
-        self.assertIn('payload["registrationEnabled"] = bool(', source)
-        self.assertIn("and ACCOUNT_REGISTRATION_ENABLED", source)
-        self.assertIn('{"email", "password", "legalAcceptance"}', source)
-        self.assertIn('payload.get("legalAcceptance") is not True', source)
 
 
 if __name__ == "__main__":

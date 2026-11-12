@@ -1,0 +1,78 @@
+{
+  "date": "2026-10-14",
+  "scope": "Web Meridian rail, header, dock, menu and window preservation; compiled bundle checked",
+  "checks": [
+    {
+      "name": "Busca abre menu completo",
+      "passed": true
+    },
+    {
+      "name": "Loja abre pela busca sem outro runtime",
+      "passed": true
+    },
+    {
+      "name": "Rail reutiliza janela existente",
+      "passed": true
+    },
+    {
+      "name": "Desktop tem rail compacto e Space acessível",
+      "passed": true
+    },
+    {
+      "name": "Setas percorrem o dock sem abrir app",
+      "passed": true
+    },
+    {
+      "name": "End alcança último app do dock",
+      "passed": true
+    },
+    {
+      "name": "Dock restaura a mesma Loja",
+      "passed": true
+    },
+    {
+      "name": "Ctrl K abre a busca",
+      "passed": true
+    },
+    {
+      "name": "Escape devolve foco ao acionador",
+      "passed": true
+    },
+    {
+      "name": "Seletor do rail usa estado real sem inventar Space",
+      "passed": true
+    },
+    {
+      "name": "Móvel usa área completa sem rail antigo",
+      "passed": true
+    },
+    {
+      "name": "Móvel sem overflow horizontal",
+      "passed": true
+    },
+    {
+      "name": "Perfis continua mock identificado",
+      "passed": true
+    },
+    {
+      "name": "Build móvel abre Loja pelo mesmo menu",
+      "passed": true
+    },
+    {
+      "name": "Build móvel sem overflow horizontal",
+      "passed": true
+    },
+    {
+      "name": "Dock e rail mantêm uma única Aura",
+      "passed": true
+    },
+    {
+      "name": "Build Desktop mantém Space e rail compacto",
+      "passed": true
+    },
+    {
+      "name": "Console final do chrome sem erros",
+      "passed": true
+    }
+  ]
+}

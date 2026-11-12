@@ -16,6 +16,7 @@ from pathlib import Path
 ROOT = Path(__file__).resolve().parents[3]
 OWNER = ROOT / "infra" / "supabase" / "product"
 PLAN = OWNER / "account_destination_migration_plan.json"
+HARDENING = ROOT / "docs" / "contracts" / "public-auth-hardening.json"
 MIGRATIONS = OWNER / "migrations"
 TX_BEGIN = re.compile(r"^begin;\r?$", re.MULTILINE | re.IGNORECASE)
 TX_COMMIT = re.compile(r"^commit;\r?$", re.MULTILINE | re.IGNORECASE)
@@ -35,6 +36,22 @@ def render(*, project_ref: str) -> str:
         or plan.get("historical_export_skipped") != "20260925031000_account_data_export_v1.sql"
     ):
         raise ValueError("destination-cutover-plan-untrusted")
+    # The empty-destination recipe is historical. The canonical live contract
+    # records that this project now contains real accounts and an active legal
+    # policy. Reject generation BEFORE an operator can attempt the old bootstrap.
+    # SQL keeps its independent transactional database preflight as well.
+    hardening = json.loads(HARDENING.read_text(encoding="utf-8"))
+    destination = hardening.get("postgresql_destination")
+    if not isinstance(destination, dict) or destination.get("project_ref") != project_ref:
+        raise ValueError("destination-cutover-owner-mismatch")
+    if (destination.get("existing_auth_users_observed") is not False
+            or destination.get("active_legal_policy_present") is not False):
+        raise ValueError("destination-cutover-destination-already-populated")
+    if (destination.get("functional_provider_cutover_complete") is not False
+            or destination.get("public_registration_enabled") is not False
+            or destination.get("parallel_identity_write_enabled") is not False):
+        raise ValueError("destination-cutover-public-auth-not-gated")
+
     ordered = plan.get("ordered_source_files")
     if not isinstance(ordered, list) or len(ordered) != 9 or len(set(ordered)) != 9:
         raise ValueError("destination-cutover-source-set-invalid")

@@ -1,6 +1,6 @@
 # Files domain services
 
-**Owner:** first-party **Arquivos** application / local work context.
+**Owner:** OrdaX OS host file/workspace services. The removable file-manager product belongs only to ordax-apps.
 
 This module owns shared, platform-neutral policy for file-oriented context that is not filesystem I/O itself. The first service is the bounded local **Recentes** index.
 

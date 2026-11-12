@@ -1,0 +1,326 @@
+#!/bin/sh
+set -eu
+
+PATH=/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin
+export PATH
+
+WORKTREE=${ORDAX_WORKTREE:-/workspace/ordax}
+STATE_ROOT=${ORDAX_OWNER_REMOTE_STATE_DIR:-/state/ordax/owner-remote}
+PIN_FILE=${ORDAX_OWNER_REMOTE_PIN_FILE:-$WORKTREE/bootstrap/base-update/owner-development/owner-recovery-source.json}
+CMDLINE_FILE=/proc/cmdline
+PID_FILE=$STATE_ROOT/agent.pid
+LOG_FILE=$STATE_ROOT/agent.log
+RECEIPT_FILE=$STATE_ROOT/installed.sha256
+
+bb() {
+    if [ -x /bin/busybox ]; then
+        /bin/busybox "$@"
+    else
+        command "$@"
+    fi
+}
+
+fail() {
+    echo "ordax-remote: $*" >&2
+    exit 1
+}
+
+ensure_dir() {
+    directory=$1
+    if [ -e "$directory" ] || [ -L "$directory" ]; then
+        [ -d "$directory" ] && [ ! -L "$directory" ] || fail "unsafe directory: $directory"
+    else
+        bb mkdir -p "$directory" || fail "cannot create directory: $directory"
+    fi
+    bb chmod 700 "$directory" || fail "cannot protect directory: $directory"
+}
+
+require_regular() {
+    path=$1
+    [ -f "$path" ] && [ ! -L "$path" ] || fail "required regular file is missing or unsafe: $path"
+}
+
+is_hex_length() {
+    value=$1
+    expected=$2
+    [ "${#value}" -eq "$expected" ] || return 1
+    case "$value" in
+        ''|*[!0-9a-f]*) return 1 ;;
+    esac
+    return 0
+}
+
+pin_lines() {
+    key=$1
+    case "$key" in
+        ''|*[!a-z0-9_]*) fail "invalid pin key" ;;
+    esac
+    bb grep -E "^[[:space:]]*\"$key\"[[:space:]]*:" "$PIN_FILE" 2>/dev/null || true
+}
+
+pin_string() {
+    key=$1
+    lines=$(pin_lines "$key")
+    count=$(printf '%s\n' "$lines" | bb sed '/^$/d' | bb wc -l | bb tr -d ' ')
+    [ "$count" = "1" ] || fail "pin field $key must occur exactly once"
+    value=$(printf '%s\n' "$lines" | bb sed -n "s/^[[:space:]]*\"$key\"[[:space:]]*:[[:space:]]*\"\([^\"]*\)\"[[:space:]]*,\{0,1\}[[:space:]]*$/\\1/p")
+    [ -n "$value" ] || fail "pin field $key is malformed"
+    printf '%s' "$value"
+}
+
+pin_number() {
+    key=$1
+    lines=$(pin_lines "$key")
+    count=$(printf '%s\n' "$lines" | bb sed '/^$/d' | bb wc -l | bb tr -d ' ')
+    [ "$count" = "1" ] || fail "pin field $key must occur exactly once"
+    value=$(printf '%s\n' "$lines" | bb sed -n "s/^[[:space:]]*\"$key\"[[:space:]]*:[[:space:]]*\([0-9][0-9]*\)[[:space:]]*,\{0,1\}[[:space:]]*$/\\1/p")
+    case "$value" in
+        ''|*[!0-9]*) fail "pin field $key is malformed" ;;
+    esac
+    printf '%s' "$value"
+}
+
+owner_profile_proven() {
+    require_regular "$PIN_FILE"
+    expected=$(pin_string boot_cmdline_token)
+    [ "$expected" = "ordax.distribution_profile=owner-development" ] || return 1
+    [ -f "$CMDLINE_FILE" ] && [ ! -L "$CMDLINE_FILE" ] || return 1
+
+    found=no
+    for token in $(bb cat "$CMDLINE_FILE" 2>/dev/null || true); do
+        case "$token" in
+            "$expected")
+                [ "$found" = no ] || return 1
+                found=yes
+                ;;
+            ordax.distribution_profile=*)
+                return 1
+                ;;
+        esac
+    done
+    [ "$found" = yes ]
+}
+
+load_pin() {
+    require_regular "$PIN_FILE"
+    PIN_SOURCE_SHA=$(pin_string source_sha)
+    PIN_URL=$(pin_string asset_url)
+    PIN_SHA256=$(pin_string sha256)
+    PIN_SIZE=$(pin_number size_bytes)
+    PIN_PROFILE=$(pin_string distribution_profile)
+    PIN_ARCH=$(pin_string architecture)
+    PIN_LINKAGE=$(pin_string linkage)
+    PIN_BOOT_TOKEN=$(pin_string boot_cmdline_token)
+
+    is_hex_length "$PIN_SOURCE_SHA" 40 || fail "runtime source SHA is invalid"
+    is_hex_length "$PIN_SHA256" 64 || fail "runtime artifact SHA-256 is invalid"
+    [ "$PIN_PROFILE" = "owner-development" ] || fail "remote recovery pin is not owner-development"
+    [ "$PIN_ARCH" = "linux-amd64" ] || fail "unsupported recovery agent architecture"
+    [ "$PIN_LINKAGE" = "static" ] || fail "recovery agent must be statically linked"
+    [ "$PIN_BOOT_TOKEN" = "ordax.distribution_profile=owner-development" ] || \
+        fail "owner boot identity pin is invalid"
+    case "$PIN_URL" in
+        https://github.com/ordaxsystems/ordax-runtime/releases/download/owner-recovery-"$PIN_SOURCE_SHA"/ordax-owner-recovery-agent) ;;
+        *) fail "artifact URL is not bound to the exact Runtime source SHA" ;;
+    esac
+    case "$PIN_SIZE" in
+        ''|*[!0-9]*) fail "artifact size is invalid" ;;
+    esac
+    [ "$PIN_SIZE" -gt 0 ] || fail "artifact size must be positive"
+
+    BIN_DIR=$STATE_ROOT/bin/$PIN_SHA256
+    BIN_PATH=$BIN_DIR/ordax-owner-recovery-agent
+}
+
+file_size() {
+    bb wc -c <"$1" | bb tr -d ' '
+}
+
+file_sha256() {
+    bb sha256sum "$1" | bb awk '{print $1}'
+}
+
+installed_valid() {
+    [ -f "$BIN_PATH" ] && [ ! -L "$BIN_PATH" ] || return 1
+    [ "$(file_size "$BIN_PATH")" = "$PIN_SIZE" ] || return 1
+    [ "$(file_sha256 "$BIN_PATH")" = "$PIN_SHA256" ] || return 1
+    [ -x "$BIN_PATH" ] || return 1
+    return 0
+}
+
+pairing_ready() {
+    control=$STATE_ROOT/control-plane-url
+    device=$STATE_ROOT/device-id
+    token=$STATE_ROOT/device-token
+    [ -f "$control" ] && [ ! -L "$control" ] || return 1
+    [ -f "$device" ] && [ ! -L "$device" ] || return 1
+    [ -f "$token" ] && [ ! -L "$token" ] || return 1
+    mode=$(bb stat -c '%a' "$token" 2>/dev/null || true)
+    [ "$mode" = "600" ] || return 1
+    url=$(bb sed -n '1p' "$control" 2>/dev/null || true)
+    case "$url" in https://*) ;; *) return 1 ;; esac
+    return 0
+}
+
+read_pid() {
+    [ -f "$PID_FILE" ] && [ ! -L "$PID_FILE" ] || return 1
+    pid=$(bb sed -n '1p' "$PID_FILE" 2>/dev/null || true)
+    case "$pid" in ''|*[!0-9]*) return 1 ;; esac
+    [ "$pid" -gt 1 ] 2>/dev/null || return 1
+    printf '%s' "$pid"
+}
+
+process_owned() {
+    pid=$1
+    [ -d "/proc/$pid" ] || return 1
+    exe=$(bb readlink "/proc/$pid/exe" 2>/dev/null || true)
+    [ "$exe" = "$BIN_PATH" ]
+}
+
+agent_running() {
+    pid=$(read_pid 2>/dev/null || true)
+    [ -n "$pid" ] || return 1
+    process_owned "$pid"
+}
+
+verify_contract() {
+    load_pin
+    printf 'ORDAX_OWNER_REMOTE_SOURCE_SHA=%s\n' "$PIN_SOURCE_SHA"
+    printf 'ORDAX_OWNER_REMOTE_ARTIFACT_SHA256=%s\n' "$PIN_SHA256"
+    printf 'ORDAX_OWNER_REMOTE_ARTIFACT_SIZE=%s\n' "$PIN_SIZE"
+    printf 'ORDAX_OWNER_REMOTE_PROFILE=%s\n' "$PIN_PROFILE"
+    printf 'ORDAX_OWNER_REMOTE_BOOT_TOKEN=%s\n' "$PIN_BOOT_TOKEN"
+}
+
+install_agent() {
+    load_pin
+    ensure_dir "$STATE_ROOT"
+    ensure_dir "$STATE_ROOT/bin"
+    ensure_dir "$BIN_DIR"
+
+    if installed_valid; then
+        echo "ordax-remote: exact recovery agent already installed"
+        return 0
+    fi
+
+    bb wget --help >/dev/null 2>&1 || fail "BusyBox wget applet is unavailable"
+    bb sha256sum --help >/dev/null 2>&1 || fail "BusyBox sha256sum applet is unavailable"
+
+    if [ -e "$BIN_PATH" ] || [ -L "$BIN_PATH" ]; then
+        [ -f "$BIN_PATH" ] && [ ! -L "$BIN_PATH" ] || fail "existing agent path is unsafe"
+    fi
+
+    temporary=$BIN_DIR/.download.$$
+    bb rm -f "$temporary"
+    trap 'bb rm -f "$temporary" 2>/dev/null || true' EXIT HUP INT TERM
+    echo "ordax-remote: downloading exact Runtime artifact $PIN_SOURCE_SHA"
+    bb wget -T 45 -O "$temporary" "$PIN_URL" || fail "artifact download failed"
+    [ -f "$temporary" ] && [ ! -L "$temporary" ] || fail "download did not create a regular file"
+    actual_size=$(file_size "$temporary")
+    [ "$actual_size" = "$PIN_SIZE" ] || fail "artifact size mismatch: expected=$PIN_SIZE actual=$actual_size"
+    actual_sha=$(file_sha256 "$temporary")
+    [ "$actual_sha" = "$PIN_SHA256" ] || fail "artifact digest mismatch"
+    bb chmod 755 "$temporary"
+    bb mv -f "$temporary" "$BIN_PATH"
+
+    receipt_tmp=$RECEIPT_FILE.tmp.$$
+    printf '%s\n' "$PIN_SHA256" >"$receipt_tmp"
+    bb chmod 600 "$receipt_tmp"
+    bb mv -f "$receipt_tmp" "$RECEIPT_FILE"
+    trap - EXIT HUP INT TERM
+    echo "ordax-remote: exact recovery agent installed and verified"
+}
+
+start_agent() {
+    load_pin
+    ensure_dir "$STATE_ROOT"
+    installed_valid || fail "recovery agent is not installed; run: ordax-remote install"
+    pairing_ready || fail "device is not paired; canonical control-plane/device credential state is required"
+
+    if agent_running; then
+        echo "ordax-remote: recovery agent already running"
+        return 0
+    fi
+    if [ -e "$PID_FILE" ] || [ -L "$PID_FILE" ]; then
+        [ -f "$PID_FILE" ] && [ ! -L "$PID_FILE" ] || fail "PID file is unsafe"
+        bb rm -f "$PID_FILE"
+    fi
+    bb setsid --help >/dev/null 2>&1 || fail "BusyBox setsid applet is unavailable"
+
+    bb touch "$LOG_FILE"
+    [ -f "$LOG_FILE" ] && [ ! -L "$LOG_FILE" ] || fail "agent log path is unsafe"
+    bb chmod 600 "$LOG_FILE"
+    bb setsid "$BIN_PATH" </dev/null >>"$LOG_FILE" 2>&1 &
+    pid=$!
+    pid_tmp=$PID_FILE.tmp.$$
+    printf '%s\n' "$pid" >"$pid_tmp"
+    bb chmod 600 "$pid_tmp"
+    bb mv -f "$pid_tmp" "$PID_FILE"
+    bb sleep 1
+    process_owned "$pid" || {
+        bb rm -f "$PID_FILE"
+        fail "recovery agent did not remain running"
+    }
+    echo "ordax-remote: recovery agent started pid=$pid"
+}
+
+stop_agent() {
+    load_pin
+    pid=$(read_pid 2>/dev/null || true)
+    if [ -z "$pid" ]; then
+        echo "ordax-remote: recovery agent is not running"
+        return 0
+    fi
+    process_owned "$pid" || fail "PID ownership proof failed; refusing to signal process $pid"
+    kill -TERM "$pid" || fail "failed to stop recovery agent"
+    remaining=20
+    while [ -d "/proc/$pid" ] && [ "$remaining" -gt 0 ]; do
+        bb sleep 1
+        remaining=$((remaining - 1))
+    done
+    [ ! -d "/proc/$pid" ] || fail "recovery agent did not stop before deadline"
+    bb rm -f "$PID_FILE"
+    echo "ordax-remote: recovery agent stopped"
+}
+
+status_agent() {
+    load_pin
+    installed=no
+    paired=no
+    running=no
+    installed_valid && installed=yes || true
+    pairing_ready && paired=yes || true
+    agent_running && running=yes || true
+    printf 'ORDAX_OWNER_REMOTE_PROFILE=%s\n' "$PIN_PROFILE"
+    printf 'ORDAX_OWNER_REMOTE_SOURCE_SHA=%s\n' "$PIN_SOURCE_SHA"
+    printf 'ORDAX_OWNER_REMOTE_ARTIFACT_SHA256=%s\n' "$PIN_SHA256"
+    printf 'ORDAX_OWNER_REMOTE_INSTALLED=%s\n' "$installed"
+    printf 'ORDAX_OWNER_REMOTE_PAIRED=%s\n' "$paired"
+    printf 'ORDAX_OWNER_REMOTE_RUNNING=%s\n' "$running"
+    printf 'ORDAX_OWNER_REMOTE_BOOT_CRITICAL=no\n'
+}
+
+ensure_agent() {
+    install_agent
+    if pairing_ready; then
+        start_agent
+    else
+        echo "ordax-remote: artifact ready; device pairing is still required before start"
+    fi
+}
+
+owner_profile_proven || \
+    fail "physical owner-development boot identity is missing or ambiguous"
+
+case "${1:-status}" in
+    status) status_agent ;;
+    verify-contract) verify_contract ;;
+    install) install_agent ;;
+    start) start_agent ;;
+    stop) stop_agent ;;
+    ensure) ensure_agent ;;
+    *)
+        echo "usage: ordax-remote {status|verify-contract|install|start|stop|ensure}" >&2
+        exit 2
+        ;;
+esac

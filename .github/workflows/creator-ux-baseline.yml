@@ -4,15 +4,21 @@ on:
   push:
     branches: [main]
     paths:
-      - 'tools/creator/cmd/ordax-creator-app/**'
-      - 'tools/creator/README.md'
+      - '.github/actions/resolve-creator-source/**'
+      - 'docs/contracts/native-release-assembly.json'
+      - 'tests/test_creator_single_paint.py'
+      - 'tests/test_user_consent_experience.py'
+      - 'tests/test_creator_ux_external_source.py'
       - 'docs/contracts/creator-ux-baseline.json'
       - '.github/workflows/creator-ux-baseline.yml'
       - '.github/workflows/creator-owner-dev-git.yml'
   pull_request:
     paths:
-      - 'tools/creator/cmd/ordax-creator-app/**'
-      - 'tools/creator/README.md'
+      - '.github/actions/resolve-creator-source/**'
+      - 'docs/contracts/native-release-assembly.json'
+      - 'tests/test_creator_single_paint.py'
+      - 'tests/test_user_consent_experience.py'
+      - 'tests/test_creator_ux_external_source.py'
       - 'docs/contracts/creator-ux-baseline.json'
       - '.github/workflows/creator-ux-baseline.yml'
       - '.github/workflows/creator-owner-dev-git.yml'
@@ -30,6 +36,10 @@ jobs:
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
         with:
           persist-credentials: false
+      - name: Resolve exact independently owned Creator GUI source
+        uses: ./.github/actions/resolve-creator-source
+        with:
+          checkout-root: ${{ runner.temp }}/ordax-creator-ux-source
 
       - name: Set up Go
         uses: actions/setup-go@b7ad1dad31e06c5925ef5d2fc7ad053ef454303e # v7
@@ -41,10 +51,11 @@ jobs:
       - name: Test guided Creator experience model
         run: |
           set -euo pipefail
-          pushd tools/creator >/dev/null
+          test -n "${ORDAX_CREATOR_NATIVE_SOURCE:-}"
+          pushd "$ORDAX_CREATOR_NATIVE_SOURCE" >/dev/null
           go test -count=1 ./cmd/ordax-creator-app
           popd >/dev/null
-          python -m unittest tests.test_creator_single_paint -v
+          python -m unittest tests.test_creator_single_paint tests.test_creator_ux_external_source tests.test_user_consent_experience -v
           echo 'CREATOR_GUIDED_EXPERIENCE_TESTS=PASS'
 
       - name: Compile split Windows owner boundaries
@@ -52,7 +63,8 @@ jobs:
           set -euo pipefail
           out="$RUNNER_TEMP/ordax-creator-split-smoke"
           mkdir -p "$out"
-          pushd tools/creator >/dev/null
+          test -n "${ORDAX_CREATOR_NATIVE_SOURCE:-}"
+          pushd "$ORDAX_CREATOR_NATIVE_SOURCE" >/dev/null
           CGO_ENABLED=0 GOOS=windows GOARCH=amd64 \
             go build -trimpath -buildvcs=false \
               -tags 'ordax_raw_backend' \
@@ -72,7 +84,7 @@ jobs:
       - name: Verify Creator UX contract and implementation anchors
         run: |
           python - <<'PY'
-          import json, pathlib
+          import json, os, pathlib
 
           root = pathlib.Path('.')
           contract = json.loads((root / 'docs/contracts/creator-ux-baseline.json').read_text(encoding='utf-8'))
@@ -81,6 +93,7 @@ jobs:
           assert contract['user_required_inputs'] == ['usb_target']
           assert contract['user_optional_preferences'] == ['locale']
           assert all(contract['requirements'].values())
+
 
           localization_contract = contract['localization']
           assert localization_contract == {
@@ -110,7 +123,12 @@ jobs:
               'unsupported_automatic_update_fails_closed': True,
           }
 
-          base = root / 'tools/creator/cmd/ordax-creator-app'
+          assert os.environ['ORDAX_CREATOR_SOURCE_REPOSITORY'] == 'ordaxsystems/ordax-creator'
+          assert len(os.environ['ORDAX_CREATOR_SOURCE_COMMIT']) == 40
+          assert len(os.environ['ORDAX_CREATOR_SOURCE_TREE']) == 40
+          creator_root = pathlib.Path(os.environ['ORDAX_CREATOR_NATIVE_SOURCE'])
+          assert creator_root.is_dir()
+          base = creator_root / 'cmd/ordax-creator-app'
           files = {
               'main': (base / 'main_windows.go').read_text(encoding='utf-8'),
               'experience': (base / 'experience_model.go').read_text(encoding='utf-8'),
@@ -126,7 +144,6 @@ jobs:
               'locale_windows': (base / 'localization_windows.go').read_text(encoding='utf-8'),
               'locale_audit': (base / 'localization_source_audit_test.go').read_text(encoding='utf-8'),
               'release': (root / '.github/workflows/creator-owner-dev-git.yml').read_text(encoding='utf-8'),
-              'docs': (root / 'tools/creator/README.md').read_text(encoding='utf-8'),
           }
 
           required = {
@@ -188,11 +205,6 @@ jobs:
               'split_owner': [
                   'windows && ordax_owner_prototype && !ordax_single_exe',
                   'ordax-creator-physical-test.exe', 'ordax-bootstrap-seed.raw', 'provenance.json',
-              ],
-              'docs': [
-                  'Creator localization owner', 'independently from the OrdaX Surface',
-                  '`pt-BR` and `en-US`', 'Unsupported locale identifiers fall back deterministically to `pt-BR`',
-                  'prototype-ordax.creator-owner-bundle-update/1', '`automatic_in_app_update=false`',
               ],
               'release': [
                   'name: Creator Owner Development Git USB', "-tags 'ordax_raw_backend'",

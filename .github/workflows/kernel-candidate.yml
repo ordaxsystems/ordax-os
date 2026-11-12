@@ -8,6 +8,7 @@ on:
       - '!bootstrap/kernel/candidates/**'
       - '!bootstrap/kernel/candidate_pipeline.py'
       - '!bootstrap/kernel/update_engine.py'
+      - '!bootstrap/kernel/module_archive.py'
       - "tests/test_kernel_artifact_verifier.py"
       - "tests/test_kernel_build_authentication_gate.py"
       - ".github/workflows/kernel-candidate.yml"
@@ -17,6 +18,7 @@ on:
       - '!bootstrap/kernel/candidates/**'
       - '!bootstrap/kernel/candidate_pipeline.py'
       - '!bootstrap/kernel/update_engine.py'
+      - '!bootstrap/kernel/module_archive.py'
       - "tests/test_kernel_artifact_verifier.py"
       - "tests/test_kernel_build_authentication_gate.py"
       - ".github/workflows/kernel-candidate.yml"

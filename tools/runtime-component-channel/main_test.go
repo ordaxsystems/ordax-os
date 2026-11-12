@@ -111,7 +111,7 @@ func writeRelease(t *testing.T, directory string, packagePath string, manifestHa
 	t.Helper()
 	release := releaseDescriptor{
 		Schema:            releaseSchema,
-		SourceRepository:  sourceRepository,
+		SourceRepository:  canonicalSourceRepository("internet"),
 		SourceCommit:      testSourceCommit,
 		CreatedFromRecipe: createdFromRecipe,
 		Component: releaseComponent{
@@ -493,5 +493,39 @@ func TestCrossAppOwnerPackageIsRejected(t *testing.T) {
 	)
 	if err == nil || !strings.Contains(err.Error(), "another component owner") {
 		t.Fatalf("cross-app owner error = %v", err)
+	}
+}
+
+func TestOperatorTrustProofHasCanonicalOSSourceAndRejectsLegacyInternetOwner(t *testing.T) {
+	proof := releaseDescriptor{
+		Schema:            releaseSchema,
+		SourceRepository:  sourceRepository,
+		SourceCommit:      testSourceCommit,
+		CreatedFromRecipe: createdFromRecipe,
+		Component: releaseComponent{
+			ID: "local-ai-service", Version: "0.0.0-trust-proof",
+			ReleaseMode: "bundled", PackageSchema: packageSchema,
+		},
+		Package: packageBinding{
+			Name: "local-ai-service.zip", SHA256: strings.Repeat("0", 64),
+			Size: 1, ManifestSHA256: strings.Repeat("1", 64),
+		},
+		Activation: activationPolicy{DirectActivationAllowed: false, PendingHealthRequired: true},
+	}
+	if got := canonicalSourceRepository(proof.Component.ID); got != sourceRepository {
+		t.Fatalf("local-ai-service proof must remain OS-owned, got %q", got)
+	}
+	if err := validateReleaseDescriptor(proof); err != nil {
+		t.Fatalf("canonical OS trust proof rejected: %v", err)
+	}
+	proof.Component.ID = "internet"
+	proof.Component.ReleaseMode = "component-slot"
+	proof.Package.Name = "internet.zip"
+	if got := canonicalSourceRepository(proof.Component.ID); got != appsSourceRepository {
+		t.Fatalf("internet must remain apps-owned, got %q", got)
+	}
+	if err := validateReleaseDescriptor(proof); err == nil ||
+		!strings.Contains(err.Error(), "source repository is not canonical") {
+		t.Fatalf("obsolete OS-owned internet proof was accepted: %v", err)
 	}
 }

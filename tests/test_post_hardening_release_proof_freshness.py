@@ -28,10 +28,14 @@ class PostHardeningReleaseProofFreshnessTests(unittest.TestCase):
 
     def test_current_post_hardening_public_proof_is_bound_but_never_authorizes_usb(self):
         auth, proof = self.authorization, self.proof
-        self.assertEqual(auth["status"], binder.POST_PROOF_STATUS)
-        self.assertIs(auth["physical_write_allowed"], False)
-        self.assertIs(auth["explicit_owner_authorization"], False)
-        self.assertIsNone(auth["authorization_context_sha256"])
+        self.assertIn(auth["status"], (binder.POST_PROOF_STATUS, "authorized"))
+        permitted = auth["status"] == "authorized"
+        self.assertIs(auth["physical_write_allowed"], permitted)
+        self.assertIs(auth["explicit_owner_authorization"], permitted)
+        if permitted:
+            self.assertRegex(auth["authorization_context_sha256"], r"^[0-9a-f]{64}$")
+        else:
+            self.assertIsNone(auth["authorization_context_sha256"])
         self.assertTrue(auth["requirements"]["canonical_v4_release_proof_bound"])
         self.assertEqual(auth["bindings"]["canonical_v4_release_proof_sha256"], self.proof_sha)
         self.assertEqual(proof["source_commit"], CURRENT_SOURCE)
@@ -53,6 +57,12 @@ class PostHardeningReleaseProofFreshnessTests(unittest.TestCase):
         binder.validate_proof(ROOT, PROOF_PATH)
 
     def test_exact_current_proof_binding_is_idempotent(self):
+        if self.authorization["status"] == "authorized":
+            # Proof binder must not reopen release identity after consent,
+            # even for an already bound and byte-identical proof.
+            with self.assertRaisesRegex(binder.BindingError, "pre-consent state"):
+                binder.bind(ROOT, PROOF_PATH)
+            return
         binder._assert_existing_binding_is_idempotent(
             status=self.authorization["status"],
             bindings=self.authorization["bindings"],
@@ -69,12 +79,18 @@ class PostHardeningReleaseProofFreshnessTests(unittest.TestCase):
         ):
             with self.subTest(source=changed_source, sha=changed_sha):
                 replacement = dict(self.proof, source_commit=changed_source)
-                with self.assertRaisesRegex(binder.BindingError, "already bound to different bytes"):
-                    binder._assert_existing_binding_is_idempotent(
-                        status=auth["status"], bindings=auth["bindings"],
-                        release_binding=auth["release_binding"], proof=replacement,
-                        proof_sha=changed_sha,
-                    )
+                if auth["status"] == "authorized":
+                    # A new proof requires an explicit new authorization
+                    # ceremony; signed bytes cannot be rebound in-place.
+                    with self.assertRaisesRegex(binder.BindingError, "pre-consent state"):
+                        binder.bind(ROOT, PROOF_PATH)
+                else:
+                    with self.assertRaisesRegex(binder.BindingError, "already bound to different bytes"):
+                        binder._assert_existing_binding_is_idempotent(
+                            status=auth["status"], bindings=auth["bindings"],
+                            release_binding=auth["release_binding"], proof=replacement,
+                            proof_sha=changed_sha,
+                        )
 
 
 if __name__ == "__main__":

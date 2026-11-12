@@ -165,6 +165,56 @@ test("only an explicit verified runtime descriptor can satisfy launch planning",
   assert.equal(requestedMissing.reason, "requested-runtime-unavailable");
 });
 
+test("multiple compatible runtimes require explicit selection regardless of inventory order", async () => {
+  const wine = runtime();
+  const proton = runtime({
+    id: "windows-proton-test",
+    engine: "proton",
+    version: "2.0.0",
+    source: {
+      identity: "fixture://verified/windows-proton-test",
+      digest: `sha256:${"02".repeat(32)}`,
+    },
+  });
+
+  for (const runtimes of [[wine, proton], [proton, wine]]) {
+    const manager = createApplicationCompatibilityManager({ runtimes });
+    const bytes = peFixture();
+    const inspection = await manager.inspectVerified({ name: "editor.exe", bytes });
+    const digest = `sha256:${createHash("sha256").update(bytes).digest("hex")}`;
+    assert.deepEqual(manager.planLaunch({ inspection }), {
+      schema: "ordax.application-compatibility-plan/1",
+      ready: false,
+      runtimeId: null,
+      reason: "runtime-selection-required",
+    });
+    const planner = createApplicationCompatibilityProfilePlanner({ compatibility: manager });
+    assert.deepEqual(planner.planCreate({
+      inspection,
+      profileId: "editor",
+      payloadDigest: digest,
+    }), {
+      schema: "ordax.application-compatibility-profile-plan/1",
+      ready: false,
+      reason: "runtime-selection-required",
+      profile: null,
+    });
+    for (const requested of ["windows-wine-test", "windows-proton-test"]) {
+      const selected = manager.planLaunch({ inspection, runtimeId: requested });
+      assert.equal(selected.ready, true);
+      assert.equal(selected.runtimeId, requested);
+      const profilePlan = planner.planCreate({
+        inspection,
+        runtimeId: requested,
+        profileId: "editor",
+        payloadDigest: digest,
+      });
+      assert.equal(profilePlan.ready, true);
+      assert.equal(profilePlan.profile.runtimeId, requested);
+    }
+  }
+});
+
 test("runtime descriptors reject placeholders, unsandboxed providers and hidden command authority", () => {
   for (const overrides of [
     { available: false },
@@ -328,4 +378,126 @@ test("Windows PE requires executable-image COFF flag and a complete bounded sect
   assert.equal(dll.launchable, false);
   assert.ok(dll.evidence.includes("executable-image-characteristic"));
   assert.ok(dll.evidence.includes("dll-characteristic"));
+});
+
+function linuxElfFixture({
+  bits = 64, machine = bits === 32 ? 3 : 62, type = 2,
+  interpreter = false, appImage = false,
+} = {}) {
+  const bytes = new Uint8Array(256);
+  const dv = new DataView(bytes.buffer);
+  const is64 = bits === 64;
+  const put16 = (at, v) => dv.setUint16(at, v, true);
+  const put32 = (at, v) => dv.setUint32(at, v, true);
+  const putWord = (at, v) => is64 ? dv.setBigUint64(at, BigInt(v), true) : put32(at, v);
+  bytes.set([0x7f, 0x45, 0x4c, 0x46, is64 ? 2 : 1, 1, 1]);
+  if (appImage) bytes.set([0x41, 0x49, 2], 8);
+  put16(16, type);
+  put16(18, machine);
+  put32(20, 1);
+  putWord(24, type === 3 ? 0x1010 : 0x400010);
+  putWord(is64 ? 32 : 28, is64 ? 64 : 52);
+  put16(is64 ? 52 : 40, is64 ? 64 : 52);
+  put16(is64 ? 54 : 42, is64 ? 56 : 32);
+  put16(is64 ? 56 : 44, interpreter ? 2 : 1);
+  const load = is64 ? 64 : 52;
+  put32(load, 1); // PT_LOAD
+  put32(load + (is64 ? 4 : 24), 5); // PF_R | PF_X
+  putWord(load + (is64 ? 8 : 4), 0);
+  putWord(load + (is64 ? 16 : 8), type === 3 ? 0x1000 : 0x400000);
+  putWord(load + (is64 ? 32 : 16), bytes.length);
+  putWord(load + (is64 ? 40 : 20), bytes.length);
+  if (interpreter) {
+    const ph = load + (is64 ? 56 : 32);
+    const text = new TextEncoder().encode("/lib/ld.so\0");
+    put32(ph, 3); // PT_INTERP
+    putWord(ph + (is64 ? 8 : 4), 200);
+    putWord(ph + (is64 ? 32 : 16), text.length);
+    bytes.set(text, 200);
+  }
+  return bytes;
+}
+
+test("Linux ELF recognition shares the canonical manager and never invents a native provider", async () => {
+  for (const [bits, machine, architecture] of [[32, 3, "x86"], [64, 62, "x86_64"], [64, 183, "aarch64"]]) {
+    const bytes = linuxElfFixture({ bits, machine });
+    const manager = createApplicationCompatibilityManager();
+    const inspection = manager.inspect({ name: "program.exe", bytes }); // name is not authority
+    assert.equal(inspection.family, "linux");
+    assert.equal(inspection.kind, "linux-elf");
+    assert.equal(inspection.architecture, architecture);
+    assert.equal(inspection.role, "executable");
+    assert.equal(inspection.launchable, true);
+    assert.equal(manager.planLaunch({ inspection }).reason, "runtime-unavailable");
+
+    const native = createApplicationCompatibilityManager({
+      runtimes: [runtime({
+        id: "native-linux-test", family: "linux", engine: "native-linux",
+        architectures: [architecture],
+      })],
+    });
+    const checked = await native.inspectVerified({ name: "program.bin", bytes });
+    assert.equal(native.planLaunch({ inspection: checked }).runtimeId, "native-linux-test");
+    const digest = `sha256:${createHash("sha256").update(bytes).digest("hex")}`;
+    const planner = createApplicationCompatibilityProfilePlanner({ compatibility: native });
+    const plan = planner.planCreate({ inspection: checked, payloadDigest: digest, profileId: "native-tool" });
+    assert.equal(plan.ready, true);
+    assert.equal(plan.profile.family, "linux");
+  }
+});
+
+test("malformed ELF inputs and shared libraries remain nonlaunchable", () => {
+  const manager = createApplicationCompatibilityManager();
+  const cases = [
+    linuxElfFixture({ type: 3 }), // ET_DYN without PT_INTERP: ambiguous shared object
+    linuxElfFixture({ machine: 999 }),
+    linuxElfFixture({ bits: 64, machine: 3 }), // class/machine mismatch
+    linuxElfFixture({ type: 1 }), // ET_REL
+    linuxElfFixture({ appImage: true }), // Type 2 needs a separate container verifier
+    linuxElfFixture().slice(0, 48),
+  ];
+  const bigEndian = linuxElfFixture();
+  bigEndian[5] = 2;
+  cases.push(bigEndian);
+  const outOfBounds = linuxElfFixture();
+  new DataView(outOfBounds.buffer).setBigUint64(32, 0xffffffffffffffffn, true);
+  cases.push(outOfBounds);
+  const invalidSegment = linuxElfFixture();
+  new DataView(invalidSegment.buffer).setBigUint64(64 + 32, 5000n, true);
+  cases.push(invalidSegment);
+  const noExecFlag = linuxElfFixture();
+  new DataView(noExecFlag.buffer).setUint32(64 + 4, 4, true);
+  cases.push(noExecFlag);
+  for (const bytes of cases) {
+    const inspection = manager.inspect({ name: "anything", bytes });
+    assert.equal(inspection.family, "linux");
+    assert.equal(inspection.launchable, false);
+    assert.equal(manager.planLaunch({ inspection }).reason, "payload-not-launchable");
+  }
+  const nonElf = manager.inspect({ name: "fake.AppImage", bytes: new Uint8Array([1, 2, 3, 4]) });
+  assert.equal(nonElf.kind, "unknown");
+});
+
+test("dynamic PIE ELF requires bounded interpreter; AppImage remains a nonlaunchable candidate", () => {
+  const manager = createApplicationCompatibilityManager();
+  const pie = manager.inspect({ name: "application", bytes: linuxElfFixture({ type: 3, interpreter: true }) });
+  assert.equal(pie.kind, "linux-elf");
+  assert.equal(pie.launchable, true);
+  const appImage = manager.inspect({ name: "portable.AppImage", bytes: linuxElfFixture({ appImage: true }) });
+  assert.equal(appImage.kind, "linux-appimage");
+  assert.equal(appImage.launchable, false);
+  assert.ok(appImage.evidence.includes("appimage-type2-verification-pending"));
+});
+
+test("legacy AppImage Type 1 marker never authorizes launch", () => {
+  const data = linuxElfFixture({ appImage: true });
+  data[10] = 1;
+  const manager = createApplicationCompatibilityManager({ runtimes: [
+    runtime({ id: "native-linux-test", family: "linux", engine: "native-linux" }),
+  ] });
+  const inspection = manager.inspect({ name: "legacy.AppImage", bytes: data });
+  assert.equal(inspection.kind, "linux-appimage");
+  assert.equal(inspection.launchable, false);
+  assert.ok(inspection.evidence.includes("appimage-type1-verification-pending"));
+  assert.equal(manager.planLaunch({ inspection }).reason, "payload-not-launchable");
 });

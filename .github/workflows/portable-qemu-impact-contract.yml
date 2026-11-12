@@ -1,0 +1,42 @@
+name: Portable QEMU Impact Contract
+
+on:
+  pull_request:
+    paths:
+      - "tools/ci/portable_qemu_impact.py"
+      - "tests/test_portable_qemu_impact.py"
+      - ".github/workflows/portable-qemu-impact-contract.yml"
+  push:
+    branches: [main]
+    paths:
+      - "tools/ci/portable_qemu_impact.py"
+      - "tests/test_portable_qemu_impact.py"
+      - ".github/workflows/portable-qemu-impact-contract.yml"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: portable-qemu-impact-contract-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  verify:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
+        with:
+          persist-credentials: false
+
+      # The classifier walks actual Native imports, whose visual source is
+      # canonically staged from ordax-surface; running without it is invalid.
+      - name: Prepare verified Surface for native import graph
+        uses: ./.github/actions/prepare-verified-surface
+
+      - name: Verify causal impact policy
+        run: python3 -m unittest tests.test_portable_qemu_impact -v
+
+      - name: Verify classifier CLI compiles
+        run: python3 -m py_compile tools/ci/portable_qemu_impact.py tests/test_portable_qemu_impact.py

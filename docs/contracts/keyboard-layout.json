@@ -44,7 +44,18 @@
     "restart_required_when_configured_differs_from_applied": true,
     "settings_visible_only_when_native_capability_present": true
   },
+  "session_restart": {
+    "status": "native-broker-source-implemented-physical-proof-pending",
+    "owner": "system/surface/bin/ordax-surface",
+    "endpoint": "/__ordax/native/keyboard-layout/apply",
+    "request_pipe": "/run/ordax-surface/keyboard-session-restart-request",
+    "request_requires_valid_persisted_layout": true,
+    "request_ack_is_not_applied_ack": true,
+    "host_reboot_required": false,
+    "first_run_exposure_blocked_until_proof": true
+  },
   "first_run": {
+    "status_read_only_exposed": true,
     "selector_exposed": false,
     "reason": "The current Cage session reads XKB settings at compositor startup. The OOBE must not imply immediate keyboard reconfiguration until a safe live/session-restart handoff exists."
   },

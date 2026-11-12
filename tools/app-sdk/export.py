@@ -446,6 +446,34 @@ CONTRACTS = (
         "major": 1,
     },
     {
+        "name": "space-capability-provider",
+        "path": "system/contracts/space-experience.mjs",
+        "constant": "SPACE_CAPABILITY_PROVIDER_SCHEMA",
+        "schema": "ordax.space-capability-provider/2",
+        "major": 2,
+    },
+    {
+        "name": "space-capability-snapshot",
+        "path": "system/contracts/space-experience.mjs",
+        "constant": "SPACE_CAPABILITY_SNAPSHOT_SCHEMA",
+        "schema": "ordax.space-capability-snapshot/1",
+        "major": 1,
+    },
+    {
+        "name": "space-experience",
+        "path": "system/contracts/space-experience.mjs",
+        "constant": "SPACE_EXPERIENCE_SCHEMA",
+        "schema": "ordax.space-experience/1",
+        "major": 1,
+    },
+    {
+        "name": "space-experience-source",
+        "path": "system/contracts/space-experience.mjs",
+        "constant": "SPACE_EXPERIENCE_SOURCE_SCHEMA",
+        "schema": "ordax.space-experience-source/1",
+        "major": 1,
+    },
+    {
         "name": "space-selection",
         "path": "system/contracts/space-selection.mjs",
         "constant": "SPACE_SELECTION_SCHEMA",
@@ -465,6 +493,20 @@ CONTRACTS = (
         "constant": "SPACE_SELECTION_STORE_SCHEMA",
         "schema": "ordax.space-selection-store/1",
         "major": 1,
+    },
+    {
+        "name": "space-type-catalog",
+        "path": "system/contracts/space-experience.mjs",
+        "constant": "SPACE_TYPE_CATALOG_SCHEMA",
+        "schema": "ordax.space-type-catalog/2",
+        "major": 2,
+    },
+    {
+        "name": "space-type-definition",
+        "path": "system/contracts/space-experience.mjs",
+        "constant": "SPACE_TYPE_DEFINITION_SCHEMA",
+        "schema": "ordax.space-type-definition/2",
+        "major": 2,
     },
     {
         "name": "spaces",
@@ -524,7 +566,7 @@ CONTRACTS = (
     },
 )
 
-BUNDLE_VERSION = "1.19.0"
+BUNDLE_VERSION = "1.21.0"
 
 
 def git_blob(path: Path) -> str:

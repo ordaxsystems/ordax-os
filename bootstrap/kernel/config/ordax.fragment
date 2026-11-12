@@ -25,6 +25,8 @@ CONFIG_EFI_RUNTIME_MAP=y
 
 # Modern x86 laptop platform.
 CONFIG_ACPI=y
+# An ACPI button event must reach the existing Guardian power authority.
+CONFIG_ACPI_BUTTON=y
 CONFIG_POWER_SUPPLY=y
 CONFIG_ACPI_AC=y
 CONFIG_ACPI_BATTERY=y

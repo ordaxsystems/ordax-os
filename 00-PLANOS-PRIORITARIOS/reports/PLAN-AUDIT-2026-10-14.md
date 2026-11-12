@@ -1,7 +1,7 @@
 # Auditoria transversal dos planos — 2026-10-14
 
-Status: **TRIAGED / EXECUTION ROUTER INPUT**  
-Base auditada: `ordaxsystems/ordax-os@ef6c111fb6fadc7eba2c63fe51e2abb50e44af58`  
+Status: **TRIAGED / EXECUTION ROUTER INPUT**
+Base auditada: `ordaxsystems/ordax-os@ef6c111fb6fadc7eba2c63fe51e2abb50e44af58`
 Autoridade: este relatório **não** substitui source, contratos, `docs/CURRENT-STATE.md`, `MVP.md`, ADRs ou owners canônicos.
 
 ## Objetivo

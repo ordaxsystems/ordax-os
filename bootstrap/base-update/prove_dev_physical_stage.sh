@@ -82,8 +82,9 @@ LEGACY_INITRAMFS_BEFORE="$(sudo sha256sum "$ESP_MOUNT/ordax/initrd.gz" | awk '{p
 sync
 sudo umount "$ESP_MOUNT"
 
-python3 - "$CANDIDATE_ROOT" "$VERSION_ROOT" "$SOURCE_SHA" <<'PY'
+python3 - "$CANDIDATE_ROOT" "$VERSION_ROOT" "$SOURCE_SHA" "$ROOT" <<'PY'
 import hashlib
+import importlib.util
 import json
 import pathlib
 import sys
@@ -133,26 +134,16 @@ manifest = {
 )
 
 version = version_root / source
-required_files = (
-    "bin/busybox",
-    "bin/sh",
-    "usr/bin/git",
-    "sbin/ordax-dev-init",
-    "usr/local/bin/ordax-network",
-    "usr/local/bin/ordax-pull",
-    "usr/local/bin/ordax-rollback",
-    "usr/local/bin/ordax-run",
-)
-required_dirs = (
-    "state",
-    "workspace",
-    "home",
-    "proc",
-    "sys",
-    "dev",
-    "run",
-    ".ordax-base",
-)
+# The signed Dev Base consumer is the sole proof requirement owner.
+# Do not retain a second stale copy of required rootfs paths in this fixture.
+channel_path = pathlib.Path(sys.argv[4]) / "system/services/base-update/dev_channel.py"
+spec = importlib.util.spec_from_file_location("ordax_physical_proof_channel", channel_path)
+if spec is None or spec.loader is None:
+    raise RuntimeError("canonical Dev Base channel loader is unavailable")
+channel = importlib.util.module_from_spec(spec)
+spec.loader.exec_module(channel)
+required_files = channel.REQUIRED_ROOTFS_PATHS
+required_dirs = (*channel.REQUIRED_ROOTFS_DIRS, ".ordax-base")
 for relative in required_files:
     path = version / relative
     path.parent.mkdir(parents=True, exist_ok=True)

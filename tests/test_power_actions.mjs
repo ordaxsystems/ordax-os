@@ -83,6 +83,77 @@ test("native power adapter acquires same-origin session and sends authenticated 
   await assert.rejects(() => port.execute("hibernate"), TypeError);
 });
 
+test("native power adapter refreshes a rotated session once on auth rejection", async () => {
+  const requests = [];
+  let sessionReads = 0;
+  let powerWrites = 0;
+  const fakeWindow = {
+    async fetch(url, options = {}) {
+      requests.push({ url, options });
+      if (url === "/__ordax/native/session") {
+        sessionReads += 1;
+        const token = sessionReads === 1
+          ? "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
+          : "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb";
+        return {
+          ok: true,
+          status: 200,
+          async json() {
+            return { token, supportedActions: ["restart", "shutdown"] };
+          },
+        };
+      }
+      if (url === "/__ordax/native/power") {
+        powerWrites += 1;
+        return powerWrites === 1
+          ? { ok: false, status: 403 }
+          : { ok: true, status: 202 };
+      }
+      throw new Error(`unexpected URL ${url}`);
+    },
+  };
+
+  const port = await createNativePowerActions(fakeWindow);
+  await port.execute("restart");
+
+  assert.equal(sessionReads, 2);
+  assert.equal(powerWrites, 2);
+  assert.equal(requests[1].options.headers["X-OrdaX-Power-Token"], "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa");
+  assert.equal(requests[3].options.headers["X-OrdaX-Power-Token"], "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb");
+});
+
+test("native power adapter does not retry broker failures as authentication failures", async () => {
+  let sessionReads = 0;
+  let powerWrites = 0;
+  const fakeWindow = {
+    async fetch(url) {
+      if (url === "/__ordax/native/session") {
+        sessionReads += 1;
+        return {
+          ok: true,
+          status: 200,
+          async json() {
+            return {
+              token: "01234567890123456789012345678901",
+              supportedActions: ["restart", "shutdown"],
+            };
+          },
+        };
+      }
+      if (url === "/__ordax/native/power") {
+        powerWrites += 1;
+        return { ok: false, status: 503 };
+      }
+      throw new Error(`unexpected URL ${url}`);
+    },
+  };
+
+  const port = await createNativePowerActions(fakeWindow);
+  await assert.rejects(() => port.execute("restart"), /Native power action failed: 503/);
+  assert.equal(sessionReads, 1);
+  assert.equal(powerWrites, 1);
+});
+
 test("native update policy reloads only a new live-safe source SHA", () => {
   assert.equal(
     shouldReloadForUpdate("aaa", { sourceSha: "bbb", applyMode: "reload" }),

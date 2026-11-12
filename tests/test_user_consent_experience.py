@@ -1,12 +1,13 @@
 """UX-only consent contract: never replaces signed release or physical authorization."""
 from pathlib import Path
 import json
+import os
 import unittest
 
 ROOT = Path(__file__).resolve().parents[1]
 UX = ROOT / "docs/contracts/user-consent-experience.json"
-CREATOR = ROOT / "tools/creator/cmd/ordax-creator-app"
-PUBLIC = ROOT / "sites/public/cadastro/index.html"
+CREATOR = (Path(os.environ["ORDAX_CREATOR_NATIVE_SOURCE"]) / "cmd/ordax-creator-app"
+           if os.environ.get("ORDAX_CREATOR_NATIVE_SOURCE") else None)
 NATIVE = ROOT / "docs/contracts/native-installation.json"
 
 
@@ -35,6 +36,14 @@ class UserConsentExperienceTests(unittest.TestCase):
         self.assertTrue(policy["no_separate_product_owner_consent_dialog"])
         self.assertTrue(policy["no_uac_bypass"])
         self.assertTrue(policy["system_disk_never_selectable"])
+        if CREATOR is None:
+            # Foundation proves the source-bound UX gate; UX CI reads exactly
+            # the pinned independent Go checkout and executes all assertions.
+            workflow = (ROOT / ".github/workflows/creator-ux-baseline.yml").read_text(encoding="utf-8")
+            self.assertIn("uses: ./.github/actions/resolve-creator-source", workflow)
+            self.assertIn("tests.test_user_consent_experience", workflow)
+            self.assertIn("docs/contracts/native-release-assembly.json", workflow)
+            return
         source = (CREATOR / "physical_flow_windows.go").read_text(encoding="utf-8")
         self.assertEqual(
             source.count("messageBox(warning, creatorT(msgWriteConfirmTitle), mbYesNo|mbIconWarning|mbDefButton2)"),
@@ -61,9 +70,6 @@ class UserConsentExperienceTests(unittest.TestCase):
         self.assertEqual(self.policy["account_login"]["legal_acceptance_control_count"], 0)
         self.assertTrue(self.policy["account_registration"]["acceptance_receipt_server_authoritative"])
         self.assertTrue(self.policy["account_registration"]["acceptance_bound_to_exact_published_versions"])
-        html = PUBLIC.read_text(encoding="utf-8")
-        self.assertEqual(html.count('name="legal_acceptance"'), 1)
-        self.assertIn('href="/login/"', html)
         credentials = (ROOT / "system/contracts/identity-credentials.mjs").read_text(encoding="utf-8")
         self.assertIn("sameRegistrationLegalPolicy", credentials)
         self.assertIn("value.legalAccepted !== true", credentials)

@@ -48,10 +48,14 @@ export async function createNativePreferenceStore(windowRef = globalThis.window)
     save(snapshot) {
       const validated = validatePreferenceRecord(snapshot);
       memory = validated;
-      persistQueue = persistQueue
+      // A queued write is not durable until the loopback host acknowledges POST.
+      // Keep the last valid session snapshot even if the host rejects the write.
+      const confirmation = persistQueue
         .then(() => persist(validated))
-        .catch(() => false);
-      return true;
+        .then(() => true, () => false);
+      // Failure must not poison subsequent writes; each write remains serialized.
+      persistQueue = confirmation;
+      return confirmation;
     },
   };
 

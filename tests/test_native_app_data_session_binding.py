@@ -27,6 +27,7 @@ from native_app_install_identity_bootstrap import (  # noqa: E402
 from native_app_data_session_binding import (  # noqa: E402
     NativeAppDataSessionBindingError,
     load_current_boot_app_data_bindings,
+    read_current_boot_verified_app_provenance,
     validate_session_receipt_index,
 )
 
@@ -139,6 +140,65 @@ class NativeAppDataSessionBindingTest(unittest.TestCase):
             inventory_path=str(self.inventory_path),
             portable_root=PORTABLE_ROOT,
         )
+
+    def read_provenance(self):
+        return read_current_boot_verified_app_provenance(
+            expected_uid=self.uid,
+            index_path=str(self.index_path),
+            handoff_path=str(self.handoff_path),
+            receipt_root=self.receipt_root,
+            inventory_path=str(self.inventory_path),
+            portable_root=PORTABLE_ROOT,
+        )
+
+    def test_canonical_read_only_provenance_does_not_mint_bindings(self):
+        host = self.new_host()
+        result = self.read_provenance()
+        self.assertEqual([item["appId"] for item in result], ["files", "notes"])
+        self.assertEqual(host.registry.active_binding_count(), 0)
+        for item in result:
+            self.assertEqual(set(item), {
+                "appId", "publisherId", "ownerScope", "receiptSha256",
+                "sourceClass", "sourceVersion", "sourceDigest",
+            })
+            self.assertEqual(item["publisherId"], "ordax-official")
+            self.assertEqual(item["sourceDigest"], SYSTEM_DIGEST)
+            self.assertEqual(item["sourceClass"], "system-release-bundled")
+            self.assertEqual(item["ownerScope"], "device")
+            self.assertRegex(item["receiptSha256"], re.compile(r"^[0-9a-f]{64}$"))
+            self.assertNotIn("packageSha256", item)
+            self.assertNotIn("grant", item)
+            self.assertNotIn("accountId", item)
+            self.assertNotIn("spaceId", item)
+            self.assertNotIn("endpoint", item)
+        # App Data mint continues to consume the very same attested identities.
+        descriptors = self.load(host)
+        self.assertEqual(
+            [(i["appId"], i["publisherId"]) for i in result],
+            [(d.app_id, d.publisher_id) for d in descriptors],
+        )
+        self.assertEqual(host.registry.active_binding_count(), 2)
+
+    def test_read_only_provenance_rejects_mismatched_release_digest(self):
+        value = json.loads(self.index_path.read_text(encoding="utf-8"))
+        value["systemDigest"] = "e" * 64
+        self.index_path.write_text(json.dumps(value, sort_keys=True) + "\n", encoding="utf-8")
+        os.chmod(self.index_path, 0o600)
+        with self.assertRaises(NativeAppDataSessionBindingError):
+            self.read_provenance()
+
+    def test_read_only_provenance_rejects_symlinked_or_group_writable_index(self):
+        os.chmod(self.index_path, 0o660)
+        with self.assertRaises(NativeAppDataSessionBindingError):
+            self.read_provenance()
+        os.chmod(self.index_path, 0o600)
+        external = self.temp / "external.json"
+        external.write_bytes(self.index_path.read_bytes())
+        os.chmod(external, 0o600)
+        self.index_path.unlink()
+        self.index_path.symlink_to(external)
+        with self.assertRaises(NativeAppDataSessionBindingError):
+            self.read_provenance()
 
     def test_current_boot_index_mints_internal_bindings_without_receipt_sha(self):
         host = self.new_host()

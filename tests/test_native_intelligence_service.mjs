@@ -21,11 +21,19 @@ const spaceId = "space-1";
 
 function identityPort(initial = { state: "signed-in", subjectId, displayName: "User" }) {
   let snapshot = initial;
+  const listeners = new Set();
   return {
     schema: IDENTITY_SESSION_SCHEMA,
     getSnapshot: () => snapshot,
-    subscribe: () => () => {},
-    set(next) { snapshot = next; },
+    subscribe(listener) {
+      listeners.add(listener);
+      return () => listeners.delete(listener);
+    },
+    set(next) {
+      snapshot = next;
+      for (const listener of [...listeners]) listener(snapshot);
+    },
+    get subscriberCount() { return listeners.size; },
   };
 }
 
@@ -56,13 +64,21 @@ function unselectedSpace(subject = subjectId) {
 
 function spacePort(initial = selectedSpace()) {
   let snapshot = initial;
+  const listeners = new Set();
   return {
     schema: SPACE_SELECTION_SCHEMA,
     getSnapshot: () => snapshot,
-    subscribe: () => () => {},
+    subscribe(listener) {
+      listeners.add(listener);
+      return () => listeners.delete(listener);
+    },
     select() {},
     clear() {},
-    set(next) { snapshot = next; },
+    set(next) {
+      snapshot = next;
+      for (const listener of [...listeners]) listener(snapshot);
+    },
+    get subscriberCount() { return listeners.size; },
   };
 }
 
@@ -296,13 +312,96 @@ test("Native Intelligence service revalidates canonical response authority", asy
   await assert.rejects(service.respond(envelope()), /response authority is invalid/);
 });
 
-test("Native Intelligence service source remains transport-neutral and uncomposed", async () => {
+test("Native Intelligence service remains transport-neutral while Native composition delegates through the dedicated host bridge", async () => {
   const [service, composition, browserHost] = await Promise.all([
     readFile(new URL("../system/services/intelligence/native-service.mjs", import.meta.url), "utf8"),
     readFile(new URL("../system/composition/native/main.mjs", import.meta.url), "utf8"),
     readFile(new URL("../system/surface/runtime/ordax_browser_host.py", import.meta.url), "utf8"),
   ]);
   assert.doesNotMatch(service, /fetch\(|local-ai|model-router|llama|Qwen|apiKey|OPENAI|xAI/);
-  assert.doesNotMatch(composition, /native-service\.mjs|createNativeIntelligenceService/);
-  assert.doesNotMatch(browserHost, /native-intelligence-service|intelligence\.respond/);
+  assert.match(composition, /installNativeIntelligenceHostBridge/);
+  assert.doesNotMatch(composition, /createNativeIntelligenceService/);
+  assert.doesNotMatch(browserHost, /createNativeIntelligenceService|intelligence\.respond/);
+});
+
+test("Native Intelligence refuses A-B-A identity and Space changes while inference is pending", async () => {
+  for (const changed of ["identity", "space"]) {
+    const identity = identityPort();
+    const spaces = spacePort();
+    let unblock;
+    let started;
+    const entered = new Promise(resolve => { started = resolve; });
+    const blocked = new Promise(resolve => { unblock = resolve; });
+    const service = createNativeIntelligenceService({
+      intelligencePort: intelligencePort({
+        async onRespond() {
+          started();
+          await blocked;
+          return {
+            schema: INTELLIGENCE_RESPONSE_SCHEMA,
+            text: "old context answer",
+            engineId: "engine-test",
+            modelId: "model-test",
+            authority: "none",
+          };
+        },
+      }),
+      identitySessionPort: identity,
+      spaceSelectionPort: spaces,
+    });
+    const pending = service.respond(envelope());
+    await entered;
+    if (changed === "identity") {
+      identity.set({ state: "signed-in", subjectId: "other-owner", displayName: "Other" });
+      identity.set({ state: "signed-in", subjectId, displayName: "User" });
+    } else {
+      spaces.set(selectedSpace("space-2"));
+      spaces.set(selectedSpace());
+    }
+    assert.deepEqual(identity.getSnapshot(), {
+      state: "signed-in", subjectId, displayName: "User",
+    });
+    assert.equal(spaces.getSnapshot().selectedSpace.id, spaceId);
+    unblock();
+    await assert.rejects(pending, /changed while inference was pending|stale|invalidated/,
+      "returning to the same visible context must never revive an old answer");
+    service.dispose();
+    assert.equal(identity.subscriberCount, 0);
+    assert.equal(spaces.subscriberCount, 0);
+  }
+});
+
+test("Native Intelligence rejects a response after service disposal and detaches context observers", async () => {
+  const identity = identityPort();
+  const spaces = spacePort();
+  let release;
+  const blocked = new Promise(resolve => { release = resolve; });
+  let entered;
+  const began = new Promise(resolve => { entered = resolve; });
+  const service = createNativeIntelligenceService({
+    intelligencePort: intelligencePort({
+      async onRespond() {
+        entered();
+        await blocked;
+        return {
+          schema: INTELLIGENCE_RESPONSE_SCHEMA,
+          text: "should never escape disposed service",
+          engineId: "engine-test",
+          modelId: "model-test",
+          authority: "none",
+        };
+      },
+    }),
+    identitySessionPort: identity,
+    spaceSelectionPort: spaces,
+  });
+  const pending = service.respond(envelope());
+  await began;
+  service.dispose();
+  service.dispose();
+  release();
+  await assert.rejects(pending, /disposed|invalidated|stale/);
+  assert.equal(identity.subscriberCount, 0);
+  assert.equal(spaces.subscriberCount, 0);
+  await assert.rejects(() => service.respond(envelope()), /disposed/);
 });

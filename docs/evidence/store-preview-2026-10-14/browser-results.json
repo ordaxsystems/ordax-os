@@ -1,0 +1,139 @@
+{
+  "date": "2026-10-14",
+  "scope": "Standalone session-only Store preview; no real host, OAuth or physical lifecycle",
+  "checks": [
+    {
+      "name": "Página inicial e identificação de mocks",
+      "passed": true
+    },
+    {
+      "name": "Busca por descrição e filtros",
+      "passed": true
+    },
+    {
+      "name": "Ficha: permissões e versões honestas",
+      "passed": true
+    },
+    {
+      "name": "Favoritos da sessão",
+      "passed": true
+    },
+    {
+      "name": "Retorno preserva busca, tipo e ordenação",
+      "passed": true
+    },
+    {
+      "name": "Falha de atualização visível",
+      "passed": true
+    },
+    {
+      "name": "Versão anterior preservada após falha",
+      "passed": true
+    },
+    {
+      "name": "Revisão de permissões no lote",
+      "passed": true,
+      "evidence": "Confirmação explicita acesso adicional do Lint"
+    },
+    {
+      "name": "Cancelamento na fila offline",
+      "passed": true,
+      "evidence": "Notas cancelada antes da execução; outras duas permanecem"
+    },
+    {
+      "name": "Lote concluído com resultados independentes",
+      "passed": true,
+      "evidence": "Dois sucessos e falha anterior de Notas; cancelamento não vira sucesso"
+    },
+    {
+      "name": "Versões do lote",
+      "passed": true,
+      "evidence": "Inventário reflete sucessos; Notas permanece na versão anterior"
+    },
+    {
+      "name": "Inventário preservado durante erro",
+      "passed": true,
+      "evidence": "Falha remota não apaga inventário conhecido"
+    },
+    {
+      "name": "Inventário preservado durante carregamento",
+      "passed": true,
+      "evidence": "Loading conserva dados conhecidos"
+    },
+    {
+      "name": "Recuperação do catálogo",
+      "passed": true,
+      "evidence": "Retry recupera a descoberta"
+    },
+    {
+      "name": "Filtro de modelos por tarefa",
+      "passed": true,
+      "evidence": "Filtro voz mostra somente modelo relacionado"
+    },
+    {
+      "name": "Modelos sem instalação ou compatibilidade inventada",
+      "passed": true,
+      "evidence": "Ação desabilitada e compatibilidade não avaliada na ficha"
+    },
+    {
+      "name": "Autorização cancelada",
+      "passed": true,
+      "evidence": "Cancelar não concede conexão"
+    },
+    {
+      "name": "Conector com estado próprio",
+      "passed": true,
+      "evidence": "Autorização termina como conexão, sem instalação de app"
+    },
+    {
+      "name": "Responsivo 390px sem overflow",
+      "passed": true,
+      "evidence": "390×844, Grafite"
+    },
+    {
+      "name": "Navegação móvel fecha após escolha",
+      "passed": true,
+      "evidence": "Menu abre e recolhe após navegar"
+    },
+    {
+      "name": "Responsivo 820px sem overflow",
+      "passed": true,
+      "evidence": "820×1180, descoberta Grafite"
+    },
+    {
+      "name": "Responsivo 1440px sem overflow",
+      "passed": true,
+      "evidence": "1440×1000, descoberta Argila"
+    },
+    {
+      "name": "Remoção exige confirmação e preserva dados",
+      "passed": true,
+      "evidence": "Diálogo explícito; nenhuma exclusão de dados"
+    },
+    {
+      "name": "Reinstalação voluntária",
+      "passed": true,
+      "evidence": "Remoção termina disponível; nada reinstala automaticamente"
+    },
+    {
+      "name": "Reinstalação concluída no mock",
+      "passed": true,
+      "evidence": "Reinstalação explicitamente solicitada volta ao estado instalado"
+    },
+    {
+      "name": "Artefato compilado abre isolado",
+      "passed": true,
+      "evidence": "Build servido em 4204 com fonte, símbolo e módulo empacotados"
+    },
+    {
+      "name": "Busca no artefato compilado",
+      "passed": true,
+      "evidence": "Busca por descrição funciona no bundle sem imports TypeScript dev"
+    },
+    {
+      "name": "Console do build sem erros",
+      "passed": true,
+      "evidence": "Sem erros ou avisos no console durante carga, busca e troca de material"
+    }
+  ]
+}

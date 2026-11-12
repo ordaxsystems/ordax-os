@@ -4,6 +4,8 @@ import {
   validateRecoveryStatusSnapshot,
 } from "../../contracts/recovery-status.mjs";
 
+import { createNativeBootProbeReader } from "./boot-probe-reader.mjs";
+
 const RECOVERY_STATUS_ENDPOINT = "/__ordax/native/recovery-status";
 
 export async function createNativeRecoveryStatus(windowRef = globalThis.window) {
@@ -13,7 +15,7 @@ export async function createNativeRecoveryStatus(windowRef = globalThis.window) 
 
   const port = {
     schema: RECOVERY_STATUS_SCHEMA,
-    async read() {
+    read: createNativeBootProbeReader(async () => {
       const response = await windowRef.fetch(RECOVERY_STATUS_ENDPOINT, {
         method: "GET",
         cache: "no-store",
@@ -25,7 +27,7 @@ export async function createNativeRecoveryStatus(windowRef = globalThis.window) 
         throw error;
       }
       return validateRecoveryStatusSnapshot(await response.json());
-    },
+    }),
   };
 
   assertRecoveryStatusPort(port);

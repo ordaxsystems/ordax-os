@@ -4,6 +4,8 @@ import {
   validateSystemMetricsSnapshot,
 } from "../../contracts/system-metrics.mjs";
 
+import { createNativeBootProbeReader } from "./boot-probe-reader.mjs";
+
 const METRICS_ENDPOINT = "/__ordax/native/metrics";
 
 export async function createNativeSystemMetrics(windowRef = globalThis.window) {
@@ -13,7 +15,7 @@ export async function createNativeSystemMetrics(windowRef = globalThis.window) {
 
   const port = {
     schema: SYSTEM_METRICS_SCHEMA,
-    async read(options = {}) {
+    read: createNativeBootProbeReader(async (options = {}) => {
       const response = await windowRef.fetch(METRICS_ENDPOINT, {
         method: "GET",
         cache: "no-store",
@@ -24,7 +26,7 @@ export async function createNativeSystemMetrics(windowRef = globalThis.window) {
         throw new Error(`Native system metrics request failed: ${response.status}`);
       }
       return validateSystemMetricsSnapshot(await response.json());
-    },
+    }),
   };
 
   assertSystemMetricsPort(port);

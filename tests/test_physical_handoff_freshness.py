@@ -16,12 +16,18 @@ class PhysicalHandoffFreshnessTests(unittest.TestCase):
         cls.authorization = json.loads(AUTH_PATH.read_text(encoding="utf-8"))
         cls.handoff = HANDOFF_PATH.read_text(encoding="utf-8")
 
-    def test_current_proof_bound_but_owner_consent_still_fail_closed(self):
+    def test_current_proof_and_owner_consent_have_independent_gates(self):
         auth = self.authorization
-        self.assertEqual(auth["status"], "blocked-explicit-physical-authorization-pending")
-        self.assertFalse(auth["physical_write_allowed"])
-        self.assertFalse(auth["explicit_owner_authorization"])
-        self.assertIsNone(auth["authorization_context_sha256"])
+        self.assertIn(auth["status"], {
+            "blocked-explicit-physical-authorization-pending", "authorized",
+        })
+        permitted = auth["status"] == "authorized"
+        self.assertIs(auth["physical_write_allowed"], permitted)
+        self.assertIs(auth["explicit_owner_authorization"], permitted)
+        if permitted:
+            self.assertRegex(auth["authorization_context_sha256"], r"^[0-9a-f]{64}$")
+        else:
+            self.assertIsNone(auth["authorization_context_sha256"])
         self.assertTrue(auth["requirements"]["canonical_v4_release_proof_bound"])
 
         handoff = self.handoff

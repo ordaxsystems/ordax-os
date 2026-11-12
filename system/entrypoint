@@ -21,16 +21,35 @@ BASE_BOOT_ID_FILE=$UPDATE_RUN_DIR/base-boot-id
 CMDLINE_FILE=/proc/cmdline
 GUARDIAN_PID_FILE=$UPDATE_RUN_DIR/guardian.pid
 SUPERVISOR_PID_FILE=$UPDATE_RUN_DIR/supervisor.pid
+SUPERVISOR_POWER_QUIESCED_FILE=$UPDATE_RUN_DIR/supervisor-power-quiesced
 GUARDIAN_LOG=$UPDATE_RUN_DIR/guardian.log
+HOST_POWER_REQUEST=$UPDATE_RUN_DIR/host-power-request
+ACPI_ACTION_SOURCE=$SYSTEM_ROOT/services/power/acpi-button-action.sh
+ACPI_DIR=$UPDATE_RUN_DIR/acpi
+ACPI_BUTTON_PID=""
+POWER_STATE_DIR=${ORDAX_STATE_DIR:-/state/ordax}/power
+POWER_LAST_REQUEST=$POWER_STATE_DIR/last-request
+POWER_LAST_STAGE=$POWER_STATE_DIR/last-stage
+POWER_LAST_FAILURE=$POWER_STATE_DIR/last-failure
+# Error detail remains diagnostic only; existing power stage/failure own the state.
+OWNER_USB_SEAL_DIAGNOSTIC=$POWER_STATE_DIR/last-seal-diagnostic
+OWNER_USB_HELPER_ERROR=$UPDATE_RUN_DIR/guardian-seal-helper-error
+BASE_TELEMETRY_PID_FILE=${ORDAX_STATE_DIR:-/state/ordax}/telemetry/agent.pid
+BASE_TELEMETRY_AGENT=${ORDAX_STATE_DIR:-/state/ordax}/telemetry/agent.sh
+RESCUE_PID_FILE=${ORDAX_STATE_DIR:-/state/ordax}/rescue/agent.pid
+RESCUE_AGENT=${ORDAX_STATE_DIR:-/state/ordax}/rescue/agent.sh
+BASE_UPDATE_PID_FILE=${ORDAX_STATE_DIR:-/state/ordax}/base-update/agent.pid
+BASE_UPDATE_AGENT=${ORDAX_STATE_DIR:-/state/ordax}/base-update/agent.sh
 CHECK_INTERVAL=${ORDAX_GUARDIAN_CHECK_SECONDS:-10}
 STALE_SECONDS=${ORDAX_SUPERVISOR_STALE_SECONDS:-120}
 CRASH_LIMIT=${ORDAX_SUPERVISOR_CRASH_LIMIT:-3}
 STABLE_SECONDS=${ORDAX_SUPERVISOR_STABLE_SECONDS:-60}
 SUPERVISOR_PID=""
 STOPPING=0
+HOST_POWER_ACTION=""
 
-mkdir -p "$UPDATE_RUN_DIR"
-chmod 700 "$UPDATE_RUN_DIR"
+mkdir -p "$UPDATE_RUN_DIR" "$POWER_STATE_DIR"
+chmod 700 "$UPDATE_RUN_DIR" "$POWER_STATE_DIR"
 
 log() {
     printf '%s ordax-guardian: %s\n' "$(/bin/busybox date -u '+%Y-%m-%dT%H:%M:%SZ' 2>/dev/null || printf unknown)" "$*" >>"$GUARDIAN_LOG"
@@ -86,7 +105,7 @@ is_pid() {
 write_pid() {
     destination=$1
     value=$2
-    temporary=$destination.tmp.$
+    temporary=$destination.tmp.$$
     printf '%s\n' "$value" >"$temporary"
     /bin/busybox mv -f "$temporary" "$destination"
 }
@@ -170,7 +189,7 @@ ensure_base_boot_id() {
     [ "${#generated}" -eq 32 ] || return 1
     case "$generated" in *[!0-9a-f]*) return 1 ;; esac
 
-    temporary=$BASE_BOOT_ID_FILE.tmp.$
+    temporary=$BASE_BOOT_ID_FILE.tmp.$$
     printf '%s\n' "$generated" >"$temporary"
     chmod 600 "$temporary"
     /bin/busybox mv -f "$temporary" "$BASE_BOOT_ID_FILE"
@@ -229,7 +248,7 @@ write_base_update_heartbeat() {
 
     /bin/busybox mkdir -p "$BASE_UPDATE_STATE_DIR"
     chmod 700 "$BASE_UPDATE_STATE_DIR"
-    temporary=$BASE_HEARTBEAT_FILE.tmp.$
+    temporary=$BASE_HEARTBEAT_FILE.tmp.$$
     printf '{"$schema":"prototype-ordax.base-heartbeat/1","candidateSha":"%s","sourceSha":"%s","slot":"%s","bootId":"%s"}\n' \
         "$candidate" "$source_sha" "$slot" "$boot_id" >"$temporary"
     chmod 600 "$temporary"
@@ -254,9 +273,589 @@ terminate_supervisor() {
     wait "$pid" 2>/dev/null || true
 }
 
+# kill -0 also succeeds for zombie processes. A Supervisor may have
+# published its final quiesce receipt and exited, but not yet been reaped by
+# the Guardian parent. Treat that state as exited; the receipt still must
+# match the exact supervised PID before any power transition is allowed.
+supervisor_process_active() {
+    pid=$1
+    kill -0 "$pid" >/dev/null 2>&1 || return 1
+    process_state=$(/bin/busybox awk '$1 == "State:" { print $2; exit }' "/proc/$pid/status" 2>/dev/null || true)
+    [ "$process_state" != Z ]
+}
+
+quiesce_supervisor_for_power_transition() {
+    pid=${SUPERVISOR_PID:-}
+    is_pid "$pid" || return 1
+    kill -0 "$pid" >/dev/null 2>&1 || return 1
+
+    rm -f "$SUPERVISOR_POWER_QUIESCED_FILE" >/dev/null 2>&1 || true
+    kill "$pid" >/dev/null 2>&1 || return 1
+
+    # Surface stop is bounded to 5s and its Native authority proof to another
+    # 4s. Give that existing owner enough time to prove a clean handoff rather
+    # than racing it with the guardian's generic 5s termination budget.
+    # Supervisor permits 14s for Surface cleanup and up to 5s to prove
+    # the native-host lock has been released. Its parent must outlive both
+    # gates, including scheduling/receipt overhead, without a premature KILL.
+    remaining=24
+    while supervisor_process_active "$pid" && [ "$remaining" -gt 0 ]; do
+        /bin/busybox sleep 1
+        remaining=$((remaining - 1))
+    done
+    if supervisor_process_active "$pid"; then
+        log "supervisor did not produce a bounded power-quiesce handoff; forcing pid $pid"
+        kill -KILL "$pid" >/dev/null 2>&1 || true
+        wait "$pid" 2>/dev/null || true
+        SUPERVISOR_PID=""
+        return 1
+    fi
+
+    wait "$pid" 2>/dev/null || true
+    SUPERVISOR_PID=""
+    proof=""
+    if [ -s "$SUPERVISOR_POWER_QUIESCED_FILE" ] && [ ! -L "$SUPERVISOR_POWER_QUIESCED_FILE" ]; then
+        IFS= read -r proof <"$SUPERVISOR_POWER_QUIESCED_FILE" || true
+    fi
+    [ "$proof" = "$pid" ] || {
+        log "supervisor exited without proving Surface/Native quiescence for host power transition"
+        return 1
+    }
+    rm -f "$SUPERVISOR_POWER_QUIESCED_FILE" >/dev/null 2>&1 || true
+    return 0
+}
+
+pid_matches_path() {
+    pid=${1:-}
+    expected_path=${2:-}
+    is_pid "$pid" || return 1
+    [ -n "$expected_path" ] || return 1
+    kill -0 "$pid" >/dev/null 2>&1 || return 1
+    [ -r "/proc/$pid/cmdline" ] || return 1
+    command_line=$(/bin/busybox tr '\000' ' ' <"/proc/$pid/cmdline" 2>/dev/null || true)
+    case "$command_line" in
+        *"$expected_path"*) return 0 ;;
+    esac
+    return 1
+}
+
+terminate_persistent_agent() {
+    pid_file=$1
+    expected_path=$2
+    label=$3
+    pid=""
+    [ -s "$pid_file" ] && [ ! -L "$pid_file" ] || return 0
+    IFS= read -r pid <"$pid_file" || true
+    if ! pid_matches_path "$pid" "$expected_path"; then
+        rm -f "$pid_file" >/dev/null 2>&1 || true
+        return 0
+    fi
+
+    kill "$pid" >/dev/null 2>&1 || true
+    remaining=2
+    while supervisor_process_active "$pid" && [ "$remaining" -gt 0 ]; do
+        /bin/busybox sleep 1
+        remaining=$((remaining - 1))
+    done
+    if supervisor_process_active "$pid"; then
+        log "forcing persistent $label pid $pid for host power transition"
+        kill -KILL "$pid" >/dev/null 2>&1 || true
+    fi
+    remaining=2
+    while supervisor_process_active "$pid" && [ "$remaining" -gt 0 ]; do
+        /bin/busybox sleep 1
+        remaining=$((remaining - 1))
+    done
+    supervisor_process_active "$pid" && return 1
+    rm -f "$pid_file" >/dev/null 2>&1 || true
+    return 0
+}
+
+terminate_persistent_host_agents() {
+    terminate_persistent_agent "$BASE_TELEMETRY_PID_FILE" "$BASE_TELEMETRY_AGENT" "telemetry agent" || return 1
+    terminate_persistent_agent "$RESCUE_PID_FILE" "$RESCUE_AGENT" "rescue agent" || return 1
+    terminate_persistent_agent "$BASE_UPDATE_PID_FILE" "$BASE_UPDATE_AGENT" "base update agent" || return 1
+    return 0
+}
+
+root_filesystem_is_read_only() {
+    root_options=$(/bin/busybox awk '$2 == "/" { print $4; exit }' /proc/mounts 2>/dev/null || true)
+    case ",$root_options," in
+        *,ro,*) return 0 ;;
+    esac
+    return 1
+}
+
+# The Dev root is a bind-mounted ext4 directory, not an /etc/fstab
+# filesystem entry. BusyBox mount with a single operand may attempt to
+# resolve metadata after switch_root/pivot_root. Pass source AND target
+# explicitly to remount precisely the active root mount, not the backing
+# ext4 superblock or one of the other writable binds. Preserve the ro proof.
+# Stable/MVP retains its separately defined ordinary-root transition.
+remount_root_read_only_for_power() {
+    case "$DISTRIBUTION_PROFILE" in
+        owner-development)
+            /bin/busybox mount -o remount,bind,ro / / >>"$GUARDIAN_LOG" 2>&1
+            ;;
+        stable-mvp)
+            /bin/busybox mount -o remount,ro / >>"$GUARDIAN_LOG" 2>&1
+            ;;
+        *)
+            return 1
+            ;;
+    esac
+}
+
+# The abort path must undo only the same bind mount flags. In particular,
+# do not attempt a superblock-wide remount which could leave unrelated
+# writable state inaccessible after a rejected shutdown.
+remount_root_read_write_after_power_abort() {
+    case "$DISTRIBUTION_PROFILE" in
+        owner-development)
+            /bin/busybox mount -o remount,bind,rw / / >>"$GUARDIAN_LOG" 2>&1
+            ;;
+        stable-mvp)
+            /bin/busybox mount -o remount,rw / >>"$GUARDIAN_LOG" 2>&1
+            ;;
+        *)
+            return 1
+            ;;
+    esac
+}
+
+# Owner USB Dev uses one ext4 superblock through multiple bind mounts after
+# switch_root/pivot_root. Sealing only the / bind VFS flag does not seal the
+# ext4 journal. Resolve the *physical block source* of / and require ORDAX
+# identity through sysfs and mountinfo before touching flags. The fixed
+# initramfs already verified the ORDAX labels on the same removable USB.
+OWNER_USB_ROOT_SOURCE=""
+OWNER_USB_WRITABLE_ALIASES=""
+
+owner_usb_root_source() {
+    device=$(/bin/busybox awk '$2 == "/" && $3 == "ext4" { print $1; exit }' /proc/mounts 2>/dev/null || true)
+    case "$device" in /dev/*) ;; *) return 1 ;; esac
+    [ -b "$device" ] || return 1
+    name=${device##*/}
+    sys=/sys/class/block/$name
+    [ -f "$sys/partition" ] && [ -f "$sys/dev" ] || return 1
+    partition=$(/bin/busybox cat "$sys/partition" 2>/dev/null || true)
+    removable=$(/bin/busybox cat "$sys/../removable" 2>/dev/null || true)
+    [ "$partition" = 2 ] && [ "$removable" = 1 ] || return 1
+    root_id=$(/bin/busybox awk '$5 == "/" { print $3; exit }' /proc/self/mountinfo 2>/dev/null || true)
+    device_id=$(/bin/busybox cat "$sys/dev" 2>/dev/null || true)
+    [ -n "$root_id" ] && [ "$root_id" = "$device_id" ] || return 1
+    printf '%s\n' "$device"
+}
+
+owner_usb_all_root_mounts_read_only() {
+    # The major:minor identifies *all* aliases of the mounted superblock.
+    # Reading only /proc/mounts at / would miss rw bind mounts elsewhere.
+    mount_id=$(/bin/busybox awk '$5 == "/" { print $3; exit }' /proc/self/mountinfo 2>/dev/null || true)
+    case "$mount_id" in *:*) ;; *) return 1 ;; esac
+    /bin/busybox awk -v root_id="$mount_id" '
+        $3 == root_id {
+            seen = 1
+            if ($6 !~ /(^|,)ro(,|$)/) bad = 1
+            ext4 = 0
+            for (i=1; i<=NF; i++) {
+                if ($i == "-") {
+                    if ($(i+1) == "ext4" && $(i+3) ~ /(^|,)ro(,|$)/) ext4 = 1
+                    break
+                }
+            }
+            if (!ext4) bad = 1
+        }
+        END { exit (!seen || bad) }
+    ' /proc/self/mountinfo
+}
+
+owner_usb_auxiliary_partitions_quiesced() {
+    # Gate all aliases of ORDAX-ESP (1) and, when present, ORDAX-DATA (3)
+    # by kernel major:minor, independent of device path or filesystem type.
+    # This excludes unrelated disks rather than guessing based on FAT labels.
+    root_device=$(owner_usb_root_source) || return 1
+    disk_prefix=${root_device%2}
+    [ "$disk_prefix" != "$root_device" ] || return 1
+    esp_sys=/sys/class/block/${disk_prefix##*/}1/dev
+    data_sys=/sys/class/block/${disk_prefix##*/}3/dev
+    # The canonical capacity-independent Creator seed has partitions 1+2;
+    # the authorized prepared Owner USB adds partition 3 (ORDAX-DATA).
+    # Never demand DATA from the seed, but prove it whenever enumerated.
+    [ -f "$esp_sys" ] || return 1
+    esp_id=$(/bin/busybox cat "$esp_sys" 2>/dev/null) || return 1
+    case "$esp_id" in *[!0-9:]*|'') return 1 ;; esac
+    data_id=""
+    if [ -e "$data_sys" ]; then
+        [ -f "$data_sys" ] || return 1
+        data_id=$(/bin/busybox cat "$data_sys" 2>/dev/null) || return 1
+        case "$data_id" in *[!0-9:]*|'') return 1 ;; esac
+    fi
+    /bin/busybox awk -v esp="$esp_id" -v data="$data_id" '
+        $3 == esp || $3 == data {
+            if ($6 ~ /(^|,)rw(,|$)/) writable = 1
+            for (i=1; i<=NF; i++) {
+                if ($i == "-") {
+                    if ($(i+3) ~ /(^|,)rw(,|$)/) writable = 1
+                    break
+                }
+            }
+        }
+        END { exit writable ? 1 : 0 }
+    ' /proc/self/mountinfo
+}
+
+owner_usb_capture_writable_aliases() {
+    # Capture only the aliases writable before the transition. A kernel
+    # superblock remount may leave bind VFS flags rw; each such alias needs a
+    # separate bind-ro remount, and exactly these aliases must be restored
+    # if the kernel call returns.
+    root_id=$(/bin/busybox awk '$5 == "/" { print $3; exit }' /proc/self/mountinfo 2>/dev/null || true)
+    case "$root_id" in *:*) ;; *) return 1 ;; esac
+    aliases=$(/bin/busybox awk -v id="$root_id" '
+        $3 == id && $6 ~ /(^|,)rw(,|$)/ { print $5 }
+    ' /proc/self/mountinfo) || return 1
+    [ -n "$aliases" ] || return 1
+    for target in $aliases; do
+        case "$target" in /*) ;; *) return 1 ;; esac
+        case "$target" in *\\*) return 1 ;; esac
+        [ -d "$target" ] && [ ! -L "$target" ] || return 1
+    done
+    OWNER_USB_WRITABLE_ALIASES=$aliases
+    return 0
+}
+
+owner_usb_writable_aliases_restored() {
+    [ -n "$OWNER_USB_WRITABLE_ALIASES" ] || return 1
+    root_id=$(/bin/busybox awk '$5 == "/" { print $3; exit }' /proc/self/mountinfo 2>/dev/null || true)
+    case "$root_id" in *:*) ;; *) return 1 ;; esac
+    for target in $OWNER_USB_WRITABLE_ALIASES; do
+        /bin/busybox awk -v id="$root_id" -v target="$target" '
+            $3 == id && $5 == target && $6 ~ /(^|,)rw(,|$)/ {
+                for (i=1; i<=NF; i++) {
+                    if ($i == "-") {
+                        if ($(i+1) == "ext4" && $(i+3) ~ /(^|,)rw(,|$)/) healthy=1
+                        break
+                    }
+                }
+            }
+            END { exit !healthy }
+        ' /proc/self/mountinfo || return 1
+    done
+    return 0
+}
+
+owner_usb_seal_root_for_power() {
+    OWNER_USB_ROOT_SOURCE=""
+    OWNER_USB_WRITABLE_ALIASES=""
+    # Volatile per-attempt stderr is captured before any mount change. A durable
+    # bounded receipt can be written only *after* verified RW restoration.
+    : >"$OWNER_USB_HELPER_ERROR" || return 1
+    OWNER_USB_SEAL_FAILURE_STAGE=auxiliary-partitions
+    owner_usb_auxiliary_partitions_quiesced || return 1
+    OWNER_USB_SEAL_FAILURE_STAGE=root-identity
+    device=$(owner_usb_root_source) || return 1
+    OWNER_USB_SEAL_FAILURE_STAGE=alias-discovery
+    owner_usb_capture_writable_aliases || return 1
+    OWNER_USB_ROOT_SOURCE=$device
+    # First close every writable VFS alias, then seal the ext4 journal.
+    # The real Owner QEMU ACPI proof observed EBUSY on the superblock while
+    # writable bind aliases were still present. Do not retry or bypass EBUSY:
+    # the caller restores only the aliases captured above and refuses power.
+    # The native static Owner helper uses mount_setattr for VFS aliases
+    # and mount(2) for the superblock, never BusyBox, mtab or a fallback.
+    # Diagnostic stderr stays in the volatile /run Guardian log.
+    for target in $OWNER_USB_WRITABLE_ALIASES; do
+        OWNER_USB_SEAL_FAILURE_STAGE=alias-remount
+        : >"$OWNER_USB_HELPER_ERROR" || return 1
+        /usr/local/bin/ordax-usb-mountattr alias-ro "$target" >>"$GUARDIAN_LOG" 2>"$OWNER_USB_HELPER_ERROR" || {
+            /bin/busybox cat "$OWNER_USB_HELPER_ERROR" >>"$GUARDIAN_LOG" 2>&1 || true
+            return 1
+        }
+    done
+    OWNER_USB_SEAL_FAILURE_STAGE=superblock-remount
+    : >"$OWNER_USB_HELPER_ERROR" || return 1
+    /usr/local/bin/ordax-usb-mountattr superblock-ro "$device" / >>"$GUARDIAN_LOG" 2>"$OWNER_USB_HELPER_ERROR" || {
+        /bin/busybox cat "$OWNER_USB_HELPER_ERROR" >>"$GUARDIAN_LOG" 2>&1 || true
+        return 1
+    }
+    OWNER_USB_SEAL_FAILURE_STAGE=readonly-proof
+    owner_usb_all_root_mounts_read_only || return 1
+    OWNER_USB_SEAL_FAILURE_STAGE=""
+    return 0
+}
+
+owner_usb_restore_root_after_abort() {
+    [ -n "$OWNER_USB_ROOT_SOURCE" ] || return 0
+    /usr/local/bin/ordax-usb-mountattr superblock-rw "$OWNER_USB_ROOT_SOURCE" / >>"$GUARDIAN_LOG" 2>&1 || return 1
+    for target in $OWNER_USB_WRITABLE_ALIASES; do
+        /usr/local/bin/ordax-usb-mountattr alias-rw "$target" >>"$GUARDIAN_LOG" 2>&1 || return 1
+    done
+    owner_usb_writable_aliases_restored || return 1
+    OWNER_USB_ROOT_SOURCE=""
+    OWNER_USB_WRITABLE_ALIASES=""
+    return 0
+}
+
+mark_power_request_failed() {
+    expected_action=$1
+    [ -s "$POWER_LAST_REQUEST" ] && [ ! -L "$POWER_LAST_REQUEST" ] || return 0
+    action=""
+    request_boot_id=""
+    request_epoch=""
+    status=""
+    IFS='|' read -r action request_boot_id request_epoch status <"$POWER_LAST_REQUEST" || return 0
+    [ "$action" = "$expected_action" ] && [ "$status" = "pending" ] || return 0
+    temporary=$POWER_LAST_REQUEST.tmp.$$
+    printf '%s|%s|%s|failed\n' "$action" "$request_boot_id" "$request_epoch" >"$temporary" || return 1
+    chmod 600 "$temporary" || return 1
+    /bin/busybox mv -f "$temporary" "$POWER_LAST_REQUEST" || return 1
+    return 0
+}
+
+# Durable, privacy-safe stage receipts: identify which owner could not
+# complete shutdown. Preserve the last stage and a separate failure reason so
+# the UI cannot confuse a Surface recovery with a real host poweroff.
+record_host_power_stage() {
+    stage=$1
+    case "$stage" in
+        accepted|supervisor-quiesce|host-agents|filesystem-sync|root-readonly) ;;
+        *) return 1 ;;
+    esac
+    temporary=$POWER_LAST_STAGE.tmp.$$
+    printf '%s\n' "$stage" >"$temporary" || return 1
+    chmod 600 "$temporary" || return 1
+    /bin/busybox mv -f "$temporary" "$POWER_LAST_STAGE" || return 1
+}
+
+record_host_power_failure() {
+    failure=$1
+    case "$failure" in
+        supervisor-quiesce-failed|host-agents-failed|sync-failed|remount-failed|root-still-writable|kernel-transition-returned) ;;
+        *) return 1 ;;
+    esac
+    temporary=$POWER_LAST_FAILURE.tmp.$$
+    printf '%s\n' "$failure" >"$temporary" || return 1
+    chmod 600 "$temporary" || return 1
+    /bin/busybox mv -f "$temporary" "$POWER_LAST_FAILURE" || return 1
+}
+
+# Diagnostic-only, bounded proof for the rejected *same* power attempt.
+# The caller may invoke this only after RW restoration has been proven.
+# No free-form helper output, process cmdline, path or credential is persisted.
+record_owner_usb_seal_failure_detail() {
+    stage=$1
+    case "$stage" in
+        auxiliary-partitions|root-identity|alias-discovery|alias-remount|superblock-remount|readonly-proof) ;;
+        *) stage=unknown ;;
+    esac
+    errno_value=unavailable
+    case "$stage" in
+        alias-remount|superblock-remount)
+            errno_candidate=$(/bin/busybox awk '
+                match($0, /errno=[0-9]+/) {
+                    print substr($0, RSTART + 6, RLENGTH - 6)
+                    exit
+                }
+            ' "$OWNER_USB_HELPER_ERROR" 2>/dev/null || true)
+            case "$errno_candidate" in
+                ''|*[!0-9]*) ;;
+                *) errno_value=$errno_candidate ;;
+            esac
+            ;;
+    esac
+    root_mount_id=$(/bin/busybox awk '$5 == "/" {print $3; exit}' /proc/self/mountinfo 2>/dev/null || true)
+    case "$root_mount_id" in
+        *:*)
+            case "$root_mount_id" in
+                *[!0-9:]*|'') root_mount_id=unavailable ;;
+            esac
+            ;;
+        *) root_mount_id=unavailable ;;
+    esac
+    temporary=$OWNER_USB_SEAL_DIAGNOSTIC.tmp.$
+    printf 'schema=ordax.power-seal-diagnostic/1\nstage=%s\nerrno=%s\nmount_major_minor=%s\nrecovery=restored\n' \
+        "$stage" "$errno_value" "$root_mount_id" >"$temporary" || return 1
+    chmod 600 "$temporary" || return 1
+    /bin/busybox mv -f "$temporary" "$OWNER_USB_SEAL_DIAGNOSTIC" || return 1
+    /bin/busybox sync >/dev/null 2>&1 || return 1
+}
+
+prepare_host_power_channel() {
+    rm -f "$HOST_POWER_REQUEST" >/dev/null 2>&1 || true
+    /bin/busybox mkfifo "$HOST_POWER_REQUEST" || return 1
+    chmod 600 "$HOST_POWER_REQUEST" || return 1
+    exec 8<>"$HOST_POWER_REQUEST" || return 1
+    return 0
+}
+
+start_acpi_button_listener() {
+    [ "$DISTRIBUTION_PROFILE" = "owner-development" ] || return 0
+    if [ -n "$ACPI_BUTTON_PID" ] && kill -0 "$ACPI_BUTTON_PID" >/dev/null 2>&1; then
+        return 0
+    fi
+    ACPI_BUTTON_PID=""
+    [ -f "$ACPI_ACTION_SOURCE" ] && [ ! -L "$ACPI_ACTION_SOURCE" ] || return 1
+    /bin/busybox acpid --help >/dev/null 2>&1 || return 1
+    mkdir -p "$ACPI_DIR" || return 1
+    chmod 700 "$ACPI_DIR" || return 1
+    /bin/busybox cp "$ACPI_ACTION_SOURCE" "$ACPI_DIR/shutdown" || return 1
+    chmod 700 "$ACPI_DIR/shutdown" || return 1
+    # Linux evdev power key press only (value 1); no lid, sleep or release event.
+    printf '%s\n' 'EV_KEY 0x01 KEY_POWER 116 1 "button/power PWRF 00000080"' >"$ACPI_DIR/acpi.map" || return 1
+    printf '%s\n' 'PWRF shutdown' >"$ACPI_DIR/acpid.conf" || return 1
+    chmod 600 "$ACPI_DIR/acpi.map" "$ACPI_DIR/acpid.conf" || return 1
+    ORDAX_HOST_POWER_REQUEST="$HOST_POWER_REQUEST" \
+        /bin/busybox acpid -f -c "$ACPI_DIR" -a "$ACPI_DIR/acpid.conf" -M "$ACPI_DIR/acpi.map" \
+            >>"$GUARDIAN_LOG" 2>&1 &
+    ACPI_BUTTON_PID=$!
+    /bin/busybox sleep 1
+    if ! kill -0 "$ACPI_BUTTON_PID" >/dev/null 2>&1; then
+        wait "$ACPI_BUTTON_PID" 2>/dev/null || true
+        ACPI_BUTTON_PID=""
+        return 1
+    fi
+    log "physical ACPI power button now routes to Guardian shutdown authority"
+}
+
+stop_acpi_button_listener() {
+    [ -n "$ACPI_BUTTON_PID" ] || return 0
+    kill "$ACPI_BUTTON_PID" >/dev/null 2>&1 || true
+    wait "$ACPI_BUTTON_PID" 2>/dev/null || true
+    ACPI_BUTTON_PID=""
+}
+
+close_host_power_channel() {
+    exec 8>&- 2>/dev/null || true
+    rm -f "$HOST_POWER_REQUEST" >/dev/null 2>&1 || true
+}
+
+restore_runtime_after_power_failure() {
+    action=$1
+    reason=$2
+    failure_code=$3
+    mark_power_request_failed "$action" || true
+    record_host_power_failure "$failure_code" || true
+    STOPPING=0
+    log "$reason; restoring supervised runtime"
+    if ! start_supervisor; then
+        fail_closed "host power transition failed and supervisor could not be restored"
+    fi
+    start_acpi_button_listener || log "physical ACPI button listener could not be restored"
+    return 1
+}
+
+perform_host_power_transition() {
+    action=$1
+    case "$action" in restart|shutdown) ;; *) return 1 ;; esac
+
+    STOPPING=1
+    rm -f "$POWER_LAST_FAILURE" "$OWNER_USB_SEAL_DIAGNOSTIC" >/dev/null 2>&1 || true
+    record_host_power_stage accepted || true
+    log "host power owner accepted $action; stopping supervised runtime"
+    record_host_power_stage supervisor-quiesce || true
+    if ! quiesce_supervisor_for_power_transition; then
+        restore_runtime_after_power_failure "$action" "supervisor could not prove Surface/Native quiescence for $action" supervisor-quiesce-failed
+        return 1
+    fi
+
+    stop_acpi_button_listener
+    record_host_power_stage host-agents || true
+    if ! terminate_persistent_host_agents; then
+        restore_runtime_after_power_failure "$action" "persistent host agent did not quiesce for $action" host-agents-failed
+        return 1
+    fi
+    record_host_power_stage filesystem-sync || true
+    if ! /bin/busybox sync >>"$GUARDIAN_LOG" 2>&1; then
+        restore_runtime_after_power_failure "$action" "filesystem sync failed before $action" sync-failed
+        return 1
+    fi
+    if [ "$DISTRIBUTION_PROFILE" = "owner-development" ] && [ "$PRODUCT_MODE" = "usb" ]; then
+        record_host_power_stage root-readonly || true
+        if ! owner_usb_seal_root_for_power; then
+            failed_seal_stage=$OWNER_USB_SEAL_FAILURE_STAGE
+            if ! owner_usb_restore_root_after_abort; then
+                fail_closed "Owner USB ext4 seal failed and rw recovery could not be proven"
+            fi
+            # Only the restored RW filesystem may receive a durable record.
+            # On any failed restoration, fail_closed above prevents all writes.
+            record_owner_usb_seal_failure_detail "$failed_seal_stage" || log "Owner USB seal diagnostic could not be persisted"
+            restore_runtime_after_power_failure "$action" "Owner USB ext4 sealing failed at $failed_seal_stage" remount-failed
+            return 1
+        fi
+        if ! /bin/busybox sync >/dev/null 2>&1; then
+            if ! owner_usb_restore_root_after_abort; then
+                fail_closed "Owner USB final sync failed and writable root could not be restored"
+            fi
+            restore_runtime_after_power_failure "$action" "Owner USB final sync failed after filesystem seal" sync-failed
+            return 1
+        fi
+        # No further persistent writes before the kernel transition.
+    else
+        # Stable/MVP owns a distinct rootfs and retains its verified
+        # read-only barrier. Future non-USB Dev modes keep this conservative
+        # route until their filesystem topology is explicitly supported.
+        record_host_power_stage root-readonly || true
+        if ! remount_root_read_only_for_power; then
+            restore_runtime_after_power_failure "$action" "root filesystem could not be remounted read-only for $action" remount-failed
+            return 1
+        fi
+        if ! root_filesystem_is_read_only; then
+            remount_root_read_write_after_power_abort || true
+            restore_runtime_after_power_failure "$action" "root filesystem remained writable after $action quiesce" root-still-writable
+            return 1
+        fi
+        # Persistence is sealed on this profile. No writes to regular files
+        # unless the kernel transition returns and root is restored writable.
+        /bin/busybox sync >/dev/null 2>&1 || true
+    fi
+    # A sysrq b/o fallback bypasses filesystem shutdown and can corrupt ext4.
+    # Only the canonical kernel transition is allowed after the sync barrier.
+    # If the call returns, record failure and restore the supervised runtime;
+    # never issue an emergency reset as a routine power fallback.
+    case "$action" in
+        restart)
+            /bin/busybox reboot -f >/dev/null 2>&1 || true
+            ;;
+        shutdown)
+            /bin/busybox poweroff -f >/dev/null 2>&1 || true
+            ;;
+    esac
+
+    if [ "$DISTRIBUTION_PROFILE" = "owner-development" ] && [ "$PRODUCT_MODE" = "usb" ]; then
+        if ! owner_usb_restore_root_after_abort; then
+            fail_closed "Owner USB kernel transition returned and writable root could not be restored"
+        fi
+        restore_runtime_after_power_failure "$action" "kernel $action transition returned without crossing a boot boundary" kernel-transition-returned
+        return 1
+    fi
+    if remount_root_read_write_after_power_abort; then
+        restore_runtime_after_power_failure "$action" "kernel $action transition returned without crossing a boot boundary" kernel-transition-returned
+        return 1
+    fi
+
+    # Stable/root-sealed path: do not restart on an unverified writable root.
+    while :; do /bin/busybox sleep 3600; done
+}
+
+wait_guardian_interval() {
+    HOST_POWER_ACTION=""
+    if IFS= read -r -t "$CHECK_INTERVAL" HOST_POWER_ACTION <&8; then
+        case "$HOST_POWER_ACTION" in
+            restart|shutdown) return 0 ;;
+            *)
+                log "rejected unknown host power action: $HOST_POWER_ACTION"
+                HOST_POWER_ACTION=""
+                ;;
+        esac
+    fi
+    return 1
+}
+
 cleanup() {
     STOPPING=1
+    stop_acpi_button_listener
     terminate_supervisor
+    close_host_power_channel
     rm -f "$SUPERVISOR_PID_FILE" "$GUARDIAN_PID_FILE" >/dev/null 2>&1 || true
 }
 
@@ -270,7 +869,9 @@ fail_closed() {
     reason=$1
     log "$reason"
     terminate_supervisor
+    stop_acpi_button_listener
     rm -f "$SUPERVISOR_PID_FILE" "$GUARDIAN_PID_FILE" >/dev/null 2>&1 || true
+    close_host_power_channel
     if [ -x "$RECOVERY_ENTRYPOINT" ]; then
         trap - EXIT HUP INT TERM
         exec "$RECOVERY_ENTRYPOINT"
@@ -327,6 +928,21 @@ ORDAX_DISTRIBUTION_PROFILE=$DISTRIBUTION_PROFILE
 export ORDAX_DISTRIBUTION_PROFILE
 ORDAX_STABLE_LAYOUT=$STABLE_LAYOUT
 export ORDAX_STABLE_LAYOUT
+if [ "$DISTRIBUTION_PROFILE" = "owner-development" ]; then
+    # Owner/Development runs from a USB worktree and can legitimately need most
+    # of the existing 90-second Surface liveness window to render on cold or
+    # guardian-refresh starts. Keep both health gates aligned unless explicitly
+    # overridden by a bounded diagnostic/test environment.
+    if [ -z "${ORDAX_SURFACE_HEALTH_TIMEOUT_SECONDS+x}" ]; then
+        ORDAX_SURFACE_HEALTH_TIMEOUT_SECONDS=90
+        export ORDAX_SURFACE_HEALTH_TIMEOUT_SECONDS
+    fi
+    if [ -z "${ORDAX_INITIAL_SURFACE_HEALTH_TIMEOUT_SECONDS+x}" ]; then
+        ORDAX_INITIAL_SURFACE_HEALTH_TIMEOUT_SECONDS=90
+        export ORDAX_INITIAL_SURFACE_HEALTH_TIMEOUT_SECONDS
+    fi
+fi
+
 if [ "$DISTRIBUTION_PROFILE" = "stable-mvp" ]; then
     if [ -z "${ORDAX_INITIAL_SURFACE_HEALTH_TIMEOUT_SECONDS+x}" ]; then
         ORDAX_INITIAL_SURFACE_HEALTH_TIMEOUT_SECONDS=60
@@ -339,6 +955,8 @@ fi
 trap cleanup EXIT
 trap terminate HUP INT TERM
 
+prepare_host_power_channel || fail_closed "host power request channel could not be initialized"
+start_acpi_button_listener || log "physical ACPI button listener unavailable; checking base ACPI driver/applet"
 write_pid "$GUARDIAN_PID_FILE" "$$"
 log "guardian started pid=$$"
 ensure_base_boot_id || fail_closed "boot session id could not be initialized"
@@ -353,7 +971,10 @@ while :; do
     stale_restart=0
 
     while is_pid "$SUPERVISOR_PID" && kill -0 "$SUPERVISOR_PID" >/dev/null 2>&1; do
-        /bin/busybox sleep "$CHECK_INTERVAL"
+        if wait_guardian_interval; then
+            perform_host_power_transition "$HOST_POWER_ACTION" || true
+            continue
+        fi
         [ "$STOPPING" -eq 0 ] || exit 0
 
         now=$(epoch_now)

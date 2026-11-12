@@ -83,8 +83,15 @@ class InternetBrowserContractTests(unittest.TestCase):
 
     def test_native_adapter_uses_one_explicit_browser_bridge(self):
         adapter = self.text(NATIVE_ADAPTER)
-        self.assertIn('HANDLER_NAME = "ordaxBrowser"', adapter)
-        self.assertIn('windowRef?.webkit?.messageHandlers', adapter)
+        # Browser schema stays Native-owned. Windows changes only the bounded
+        # transport and does not advertise the privileged Linux host bridge.
+        transport = self.text(ROOT / "system/adapters/native/browser-host-transport.mjs")
+        self.assertIn('hasBrowserHostTransport(windowRef)', adapter)
+        self.assertIn('postBrowserHostCommand(windowRef, command)', adapter)
+        self.assertIn('hasNativeHostBridge(windowRef)', transport)
+        self.assertIn('postNativeHostMessage(windowRef, payload)', transport)
+        self.assertIn('windowRef?.ordaxDesktopBrowser', transport)
+        self.assertIn('windowRef.location.hostname !== "127.0.0.1"', transport)
         self.assertIn('ordax-browser-host', adapter)
         for command in (
             'tab.open',
@@ -98,10 +105,79 @@ class InternetBrowserContractTests(unittest.TestCase):
         ):
             self.assertIn(command, adapter)
 
+    def test_native_bridge_origin_builder_is_canonical_and_fails_closed(self):
+        source = self.text(NATIVE_HOST)
+        tree = ast.parse(source)
+        names = {
+            "BRIDGE_NAME",
+            "BRIDGE_WORLD_NAME",
+            "BRIDGE_READY_ATTRIBUTE",
+            "BRIDGE_READY_VALUE",
+            "BRIDGE_MAX_MESSAGE_CHARS",
+            "NATIVE_HOST_BRIDGE_SCRIPT",
+        }
+        selected = []
+        for node in tree.body:
+            if isinstance(node, ast.Import) and any(alias.name == "json" for alias in node.names):
+                selected.append(node)
+            elif isinstance(node, ast.ImportFrom) and node.module == "urllib.parse":
+                selected.append(node)
+            elif isinstance(node, ast.Assign) and any(
+                isinstance(target, ast.Name) and target.id in names for target in node.targets
+            ):
+                selected.append(node)
+            elif isinstance(node, ast.FunctionDef) and node.name in {
+                "native_surface_origin",
+                "native_host_bridge_user_script",
+            }:
+                selected.append(node)
+        namespace = {}
+        exec(compile(ast.Module(body=selected, type_ignores=[]), str(NATIVE_HOST), "exec"), namespace)
+        self.assertEqual(
+            namespace["native_surface_origin"]("http://127.0.0.1:43177/system/"),
+            "http://127.0.0.1:43177",
+        )
+        script = namespace["native_host_bridge_user_script"]("http://127.0.0.1:43177")
+        self.assertIn('const expectedOrigin = "http://127.0.0.1:43177";', script)
+        self.assertIn('root.setAttribute("data-ordax-native-host-bridge", "v1")', script)
+        self.assertIn("event.data.length > 131072", script)
+        self.assertNotIn("__ORDAX_NATIVE_HOST_", script)
+        for invalid in (
+            "https://127.0.0.1:43177",
+            "http://localhost:43177",
+            "http://127.0.0.1.evil:43177",
+            "http://user@127.0.0.1:43177",
+            "http://127.0.0.1:0",
+        ):
+            with self.assertRaises(ValueError):
+                namespace["native_surface_origin"](invalid)
+        with self.assertRaises(ValueError):
+            namespace["native_host_bridge_user_script"]("http://127.0.0.1:43177/path")
+
+    def test_native_bridge_isolated_to_surface_origin_and_top_frame(self):
+        host = self.text(NATIVE_HOST)
+        bridge = self.text(ROOT / "system" / "adapters" / "native" / "host-bridge.mjs")
+        self.assertRegex(
+            host,
+            r"register_script_message_handler_in_world\(\s*BRIDGE_NAME,\s*BRIDGE_WORLD_NAME",
+        )
+        self.assertNotIn("register_script_message_handler(BRIDGE_NAME)", host)
+        self.assertIn("WebKit2.UserScript.new_for_world", host)
+        self.assertIn("WebKit2.UserContentInjectedFrames.TOP_FRAME", host)
+        self.assertIn("WebKit2.UserScriptInjectionTime.START", host)
+        self.assertIn('[f"{self.surface_origin}/*"]', host)
+        self.assertIn("event.source !== window", host)
+        self.assertIn("event.origin !== expectedOrigin", host)
+        self.assertIn("native_surface_origin(start_uri)", host)
+        self.assertIn("windowRef.postMessage(serialized, targetOrigin)", bridge)
+        self.assertNotIn("windowRef?.webkit", bridge)
+
     def test_native_host_separates_privileged_surface_from_external_webviews(self):
         host = self.text(NATIVE_HOST)
-        self.assertIn('UserContentManager.new()', host)
-        self.assertIn('WebView.new_with_user_content_manager(self.manager)', host)
+        self.assertIn('WebView.new_with_context(self.surface_context)', host)
+        self.assertIn('self.manager = self.surface_view.get_user_content_manager()', host)
+        self.assertIn('base_data_directory=surface_profile_data', host)
+        self.assertIn('os.path.join(self.profile_root, "surface", "data")', host)
         self.assertIn('WebsiteDataManager(', host)
         self.assertIn('WebContext.new_with_website_data_manager', host)
         self.assertIn('WebView.new_with_context(self.external_context)', host)
@@ -196,7 +272,10 @@ class InternetBrowserContractTests(unittest.TestCase):
     def test_native_surface_runtime_owns_webkit_dependencies_directly(self):
         launcher = self.text(SURFACE_LAUNCHER)
         self.assertIn('RUNTIME_ID=alpine-v3.22-cage-webkitgtk-v1', launcher)
-        self.assertIn('python3 py3-gobject3 gtk+3.0 webkit2gtk-4.1', launcher)
+        self.assertTrue({
+            'python3', 'py3-gobject3', 'gtk+3.0', 'webkit2gtk-4.1',
+            'pipewire-pulse', 'pipewire-alsa', 'wireplumber', 'gst-plugin-pipewire', 'dbus',
+        }.issubset((ROOT / 'system/surface/runtime/packages.txt').read_text().splitlines()))
         self.assertIn('/srv/ordax-system/surface/runtime/ordax_browser_host.py', launcher)
         self.assertIn('--profile-root /var/lib/ordax-user/browser', launcher)
         self.assertNotIn('barkery-browser', launcher)

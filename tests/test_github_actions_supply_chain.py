@@ -64,6 +64,12 @@ class GithubActionsSupplyChainTests(unittest.TestCase):
             )
             self.assertEqual(MODULE.find_violations(root, CONTRACT), [])
 
+    def test_cache_subactions_are_explicitly_approved_at_v610_commit(self):
+        approved = {(item["uses"], item["sha"]) for item in CONTRACT["approved_external_actions"]}
+        sha = "55cc8345863c7cc4c66a329aec7e433d2d1c52a9"
+        self.assertIn(("actions/cache/restore", sha), approved)
+        self.assertIn(("actions/cache/save", sha), approved)
+
     def test_checkout_missing_persist_credentials_false_is_rejected(self):
         with tempfile.TemporaryDirectory() as tmp:
             root = Path(tmp)

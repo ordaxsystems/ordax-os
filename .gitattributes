@@ -18,7 +18,7 @@ tools/creator/physical_promotion.py text eol=lf
 docs/evidence/canonical-v4-release-proof.json text eol=lf
 
 # The Vercel ignore-build policy executes in POSIX shells on CI and locally.
-tools/public-site/should_skip_vercel_build.sh text eol=lf
+tools/vercel/should_skip_build.sh text eol=lf
 
 # The release discovery URL is bound by exact byte SHA-256 in minimal-bootstrap.
 bootstrap/config/release-envelope-url text eol=lf
@@ -34,3 +34,6 @@ bootstrap/network/bring-up text eol=lf
 bootstrap/network/udhcpc.script text eol=lf
 bootstrap/config/product-mode text eol=lf
 bootstrap/recovery/entrypoint text eol=lf
+
+# External package proof hashes payload bytes; keep its fixture stable on Windows and Linux.
+tests/fixtures/external-app/external-hello/index.mjs text eol=lf

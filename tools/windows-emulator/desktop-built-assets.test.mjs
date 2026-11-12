@@ -1,0 +1,36 @@
+import test from "node:test";
+import assert from "node:assert/strict";
+import { mkdtempSync, mkdirSync, writeFileSync, rmSync } from "node:fs";
+import { tmpdir } from "node:os";
+import { join } from "node:path";
+import { createServer } from "node:http";
+import { createDesktopBuiltAssetsMiddleware } from "./desktop-built-assets.mjs";
+
+test("compiled Native route serves fingerprinted assets; rejects traversal and writes",async t=>{
+  const root=mkdtempSync(join(tmpdir(),"ordax-desktop-assets-"));
+  const doc=join(root,"system","composition","native");
+  const assets=join(root,"assets");
+  mkdirSync(doc,{recursive:true});mkdirSync(assets);
+  writeFileSync(join(doc,"index.html"),"<h1>Canonical OrdaX</h1>");
+  writeFileSync(join(assets,"index-aBc123.js"),"export const ordax = true;");
+  writeFileSync(join(assets,"template-aBc123.html"),"<main>Verified First Run Template</main>");
+  const middleware=createDesktopBuiltAssetsMiddleware(root);
+  const server=createServer((req,res)=>middleware(req,res,()=>{res.writeHead(418);res.end();}));
+  await new Promise(resolve=>server.listen(0,"127.0.0.1",resolve));
+  t.after(async()=>{await new Promise(resolve=>server.close(resolve));rmSync(root,{recursive:true,force:true});});
+  const base="http://127.0.0.1:"+server.address().port;
+  const html=await fetch(base+"/system/composition/native/index.html");
+  assert.equal(html.status,200);assert.match(await html.text(),/Canonical OrdaX/);
+  assert.equal(html.headers.get("cache-control"),"no-store");
+  const script=await fetch(base+"/__ordax/desktop-assets/assets/index-aBc123.js");
+  assert.equal(script.status,200);assert.match(await script.text(),/ordax = true/);
+  assert.equal(script.headers.get("content-type"),"text/javascript; charset=utf-8");
+  const template=await fetch(base+"/__ordax/desktop-assets/assets/template-aBc123.html");
+  assert.equal(template.status,200);
+  assert.equal(template.headers.get("content-type"),"text/html; charset=utf-8");
+  assert.match(await template.text(),/Verified First Run Template/);
+  assert.equal((await fetch(base+"/__ordax/desktop-assets/assets/%2e%2e%2fsecret.js")).status,404);
+  assert.equal((await fetch(base+"/__ordax/desktop-assets/assets/../../secret.js")).status,418);
+  assert.equal((await fetch(base+"/__ordax/desktop-assets/assets/index-aBc123.js",{method:"POST"})).status,405);
+  assert.equal((await fetch(base+"/__ordax/native/update")).status,418);
+});

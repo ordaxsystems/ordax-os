@@ -1,3 +1,4 @@
+import { hasBrowserHostTransport, postBrowserHostCommand } from "./browser-host-transport.mjs";
 import {
   BROWSER_SESSION_SCHEMA,
   BROWSER_UNAVAILABLE_REASONS,
@@ -6,7 +7,6 @@ import {
 } from "../../contracts/browser-session.mjs";
 
 const EVENT_NAME = "ordax-browser-host";
-const HANDLER_NAME = "ordaxBrowser";
 const SHORTCUT_ACTIONS = new Set([
   "focus-address",
   "focus-page-find",
@@ -17,13 +17,8 @@ const SHORTCUT_ACTIONS = new Set([
   "forward",
 ]);
 
-function nativeBridge(windowRef) {
-  return windowRef?.webkit?.messageHandlers?.[HANDLER_NAME] ?? null;
-}
-
 export function createNativeBrowserSession(windowRef = globalThis.window) {
-  const bridge = nativeBridge(windowRef);
-  if (!bridge || typeof bridge.postMessage !== "function") {
+  if (!hasBrowserHostTransport(windowRef)) {
     return createUnavailableBrowserSession(
       BROWSER_UNAVAILABLE_REASONS.NATIVE_ENGINE_UNAVAILABLE,
     );
@@ -38,10 +33,7 @@ export function createNativeBrowserSession(windowRef = globalThis.window) {
   const listeners = new Set();
   const shortcutListeners = new Set();
 
-  const post = (command) => {
-    bridge.postMessage(JSON.stringify(command));
-    return true;
-  };
+  const post = (command) => postBrowserHostCommand(windowRef, command);
   const notify = () => {
     for (const listener of [...listeners]) listener(snapshot);
   };

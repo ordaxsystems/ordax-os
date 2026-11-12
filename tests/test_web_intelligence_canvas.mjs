@@ -14,6 +14,7 @@ import {
   WEB_INTELLIGENCE_REMOTE_RESPONSE_SCHEMA,
   WEB_INTELLIGENCE_REMOTE_TRANSPORT_SCHEMA,
   createRemoteWebIntelligencePort,
+  validateWebIntelligenceRemoteContext,
 } from "../system/adapters/web/intelligence-remote.mjs";
 import { createUnavailableWebSpaceSelection } from "../system/adapters/web/space-selection.mjs";
 import { createIntelligenceClient } from "../system/surface/workspace/lib/intelligence/client.mjs";
@@ -29,10 +30,10 @@ const readyIntelligenceSnapshot = () => ({
 });
 
 const remoteContext = (overrides = {}) => ({
-  subjectId: "subject-1",
-  targetDeviceId: "device-1",
-  spaceId: "space-1",
-  projectId: "project-1",
+  subjectId: "11111111-1111-4111-8111-111111111111",
+  targetDeviceId: "22222222-2222-4222-8222-222222222222",
+  spaceId: "33333333-3333-4333-8333-333333333333",
+  projectId: "44444444-4444-4444-8444-444444444444",
   ...overrides,
 });
 
@@ -55,7 +56,7 @@ test("Web Assistant uses canonical, explicitly unavailable Space port without a 
   assert.equal(port.getSnapshot().state, "unavailable");
   assert.equal(port.getSnapshot().subjectId, null);
   assert.equal(port.getSnapshot().selectedSpace, null);
-  assert.throws(() => port.select("space-1"), /not available/);
+  assert.throws(() => port.select("33333333-3333-4333-8333-333333333333"), /not available/);
   assert.equal(port.clear().state, "unavailable");
   const seen = [];
   const unsubscribe = port.subscribe((value) => seen.push(value.state));
@@ -166,6 +167,106 @@ test("Web Intelligence client rejects malformed or authority-bearing responses",
   await assert.rejects(malformed.ask("teste"), /response text/);
 });
 
+test("Web Intelligence client drops results from ports that ignore cancellation", async () => {
+  let finish;
+  const port = {
+    schema: INTELLIGENCE_PORT_SCHEMA,
+    getSnapshot: () => readyIntelligenceSnapshot(),
+    subscribe: () => () => {},
+    respond: () => new Promise(resolve => { finish = resolve; }),
+  };
+  const client = createIntelligenceClient(port);
+  const controller = new AbortController();
+  const pending = client.ask("Teste de cancelamento", { signal: controller.signal });
+  controller.abort(new Error("client-request-cancelled"));
+  finish(remoteResponse(remoteContext()).response);
+  // The canonical Aura boundary rejects with a stable AbortError rather than
+  // relaying arbitrary caller-supplied reasons through UI/service boundaries.
+  await assert.rejects(pending, { name: "AbortError", message: "Aura request was cancelled" });
+});
+
+test("Remote Web Intelligence matches Product UUID and exact-context validation before dispatch", async () => {
+  const canonical = remoteContext();
+  assert.deepEqual(validateWebIntelligenceRemoteContext(canonical), canonical);
+  const upper = Object.fromEntries(
+    Object.entries(canonical).map(([key, value]) => [key, value?.toUpperCase() ?? null]),
+  );
+  assert.deepEqual(validateWebIntelligenceRemoteContext(upper), canonical,
+    "Product UUID casing must be normalized without changing account/device identity");
+
+  for (const [field, malformed] of [
+    ["subjectId", "account-name"],
+    ["subjectId", canonical.subjectId + " "],
+    ["targetDeviceId", "device-alias"],
+    ["targetDeviceId", ""],
+    ["spaceId", "space-slug"],
+    ["projectId", "project-name"],
+  ]) {
+    assert.throws(
+      () => validateWebIntelligenceRemoteContext({ ...canonical, [field]: malformed }),
+      /canonical Product UUID/,
+      `Malformed ${field} must be rejected before grant resolution`,
+    );
+  }
+  assert.throws(
+    () => validateWebIntelligenceRemoteContext({ ...canonical, grant: "fake-authority" }),
+    /exact Product fields/,
+    "Extra client-provided grant metadata must never enter a remote envelope",
+  );
+  assert.throws(
+    () => validateWebIntelligenceRemoteContext({ ...canonical, targetDeviceId: undefined }),
+    /canonical Product UUID/,
+  );
+
+  let dispatches = 0;
+  const port = createRemoteWebIntelligencePort({
+    transport: {
+      schema: WEB_INTELLIGENCE_REMOTE_TRANSPORT_SCHEMA,
+      getSnapshot: readyIntelligenceSnapshot,
+      subscribe: () => () => {},
+      async respond() { dispatches++; throw new Error("must not dispatch invalid Product context"); },
+    },
+    readContext: () => ({ ...canonical, subjectId: "unspecified-account" }),
+  });
+  await assert.rejects(port.respond({ prompt: "No device authority" }), /canonical Product UUID/);
+  assert.equal(dispatches, 0);
+  port.dispose();
+});
+
+test("Remote Web Intelligence rejects late responses after cancellation or disposal", async () => {
+  const context = remoteContext();
+  let finish;
+  let emit;
+  const transport = {
+    schema: WEB_INTELLIGENCE_REMOTE_TRANSPORT_SCHEMA,
+    getSnapshot: () => readyIntelligenceSnapshot(),
+    subscribe(listener) { emit = listener; return () => {}; },
+    respond: () => new Promise(resolve => { finish = resolve; }),
+  };
+  const port = createRemoteWebIntelligencePort({ transport, readContext: () => context });
+  const controller = new AbortController();
+  const cancelled = port.respond({ prompt: "Cancelada" }, { signal: controller.signal });
+  controller.abort(new Error("remote-request-cancelled"));
+  finish(remoteResponse(context));
+  await assert.rejects(cancelled, /remote-request-cancelled/);
+
+  const beforeDispose = port.getSnapshot();
+  const disposedRequest = port.respond({ prompt: "Descartada" });
+  port.dispose();
+  emit({
+    schema: INTELLIGENCE_PORT_SCHEMA,
+    state: "degraded",
+    inferenceAvailable: false,
+    engineId: null,
+    modelId: null,
+    authority: "none",
+    toolExecution: false,
+  });
+  assert.equal(port.getSnapshot(), beforeDispose, "A disposed adapter must ignore late transport events");
+  finish(remoteResponse(context));
+  await assert.rejects(disposedRequest, /adapter is disposed/);
+});
+
 test("Remote Web Intelligence dispatches once with explicit target context and forwards cancellation", async () => {
   const calls = [];
   const context = remoteContext();
@@ -207,13 +308,13 @@ test("Remote Web Intelligence keeps context hierarchy separate from transport gr
   };
   const missingTarget = createRemoteWebIntelligencePort({
     transport: rejectingTransport,
-    readContext: () => ({ subjectId: "subject-1", spaceId: null, projectId: null }),
+    readContext: () => ({ subjectId: "11111111-1111-4111-8111-111111111111", spaceId: null, projectId: null }),
   });
   await assert.rejects(missingTarget.respond({ prompt: "x" }), /targetDeviceId/);
 
   const inferredScope = createRemoteWebIntelligencePort({
     transport: rejectingTransport,
-    readContext: () => ({ subjectId: "subject-1", targetDeviceId: "device-1" }),
+    readContext: () => ({ subjectId: "11111111-1111-4111-8111-111111111111", targetDeviceId: "22222222-2222-4222-8222-222222222222" }),
   });
   await assert.rejects(inferredScope.respond({ prompt: "x" }), /state Space and project explicitly/);
 
@@ -261,7 +362,7 @@ test("Remote Web Intelligence rejects mismatched and stale result context", asyn
       getSnapshot: () => readyIntelligenceSnapshot(),
       subscribe: () => () => {},
       async respond(envelope) {
-        return remoteResponse({ ...envelope.context, targetDeviceId: "device-2" });
+        return remoteResponse({ ...envelope.context, targetDeviceId: "22222222-2222-4222-8222-222222222223" });
       },
     },
     readContext: () => expected,
@@ -275,7 +376,7 @@ test("Remote Web Intelligence rejects mismatched and stale result context", asyn
       getSnapshot: () => readyIntelligenceSnapshot(),
       subscribe: () => () => {},
       async respond(envelope) {
-        currentContext = remoteContext({ spaceId: "space-2", projectId: "project-2" });
+        currentContext = remoteContext({ spaceId: "33333333-3333-4333-8333-333333333334", projectId: "44444444-4444-4444-8444-444444444445" });
         return remoteResponse(envelope.context);
       },
     },
@@ -377,7 +478,10 @@ test("Canonical Web injects Intelligence without owning provider transport or cr
   assert.match(source, /<IntelligenceClientProvider port=\{intelligence\}>/);
   assert.match(source, /<Central key=/);
   assert.doesNotMatch(source, /WebShell/);
-  assert.match(windowContent, /AuraContent/);
+  // The window boundary delegates rendering to the canonical DesktopContent.
+  // The native Home owns the connected Aura entry; do not assert a duplicate Web shortcut.
+  assert.match(windowContent, /DesktopContent/);
+  assert.match(aura, /getSurfaceWindowTitle/);
   assert.match(aura, /client\.ask/);
   assert.doesNotMatch(desktop, /title === 'Aura'/);
   assert.doesNotMatch(desktop, /Pergunte ao Aura/);

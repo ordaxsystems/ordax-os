@@ -12,16 +12,18 @@ export const WEB_INTELLIGENCE_REMOTE_REQUEST_SCHEMA =
 export const WEB_INTELLIGENCE_REMOTE_RESPONSE_SCHEMA =
   "ordax.web-intelligence-remote-response/1";
 
-function boundedId(value, label, { nullable = false } = {}) {
-  if (value == null && nullable) return null;
-  if (typeof value !== "string" || value.includes("\0")) {
-    throw new TypeError(`${label} must be a string`);
+// Same canonical Product UUID shape as ordax-platform's
+// product_remote_grant_contract.ts and product_intelligence_relay_contract.ts.
+// This is syntax validation, never proof of an account, grant, or device.
+const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+const CONTEXT_FIELDS = ["projectId", "spaceId", "subjectId", "targetDeviceId"];
+
+function canonicalProductId(value, label, { nullable = false } = {}) {
+  if (value === null && nullable) return null;
+  if (typeof value !== "string" || !UUID_RE.test(value)) {
+    throw new TypeError(`${label} must be a canonical Product UUID`);
   }
-  const normalized = value.trim();
-  if (!normalized || normalized.length > 160) {
-    throw new TypeError(`${label} is outside its allowed bounds`);
-  }
-  return normalized;
+  return value.toLowerCase();
 }
 
 export function validateWebIntelligenceRemoteContext(value) {
@@ -31,14 +33,19 @@ export function validateWebIntelligenceRemoteContext(value) {
   if (!Object.hasOwn(value, "spaceId") || !Object.hasOwn(value, "projectId")) {
     throw new TypeError("Web Intelligence remote context must state Space and project explicitly");
   }
-  const spaceId = boundedId(value.spaceId, "Web Intelligence spaceId", { nullable: true });
-  const projectId = boundedId(value.projectId, "Web Intelligence projectId", { nullable: true });
+  const missing = CONTEXT_FIELDS.find((field) => !Object.hasOwn(value, field));
+  if (missing) throw new TypeError(`Web Intelligence remote context missing ${missing}`);
+  if (Object.keys(value).sort().join(",") !== CONTEXT_FIELDS.join(",")) {
+    throw new TypeError("Web Intelligence remote context must use exact Product fields");
+  }
+  const spaceId = canonicalProductId(value.spaceId, "Web Intelligence spaceId", { nullable: true });
+  const projectId = canonicalProductId(value.projectId, "Web Intelligence projectId", { nullable: true });
   if (projectId !== null && spaceId === null) {
     throw new TypeError("Web Intelligence project context requires an explicit Space");
   }
   return Object.freeze({
-    subjectId: boundedId(value.subjectId, "Web Intelligence subjectId"),
-    targetDeviceId: boundedId(value.targetDeviceId, "Web Intelligence targetDeviceId"),
+    subjectId: canonicalProductId(value.subjectId, "Web Intelligence subjectId"),
+    targetDeviceId: canonicalProductId(value.targetDeviceId, "Web Intelligence targetDeviceId"),
     spaceId,
     projectId,
   });
@@ -113,6 +120,7 @@ export function createRemoteWebIntelligencePort({ transport, readContext } = {})
   let disposed = false;
   const listeners = new Set();
   const releaseRemote = remote.subscribe((snapshot) => {
+    if (disposed) return;
     const next = validateIntelligenceSnapshot(snapshot);
     if (sameSnapshot(current, next)) return;
     current = next;
@@ -155,11 +163,17 @@ export function createRemoteWebIntelligencePort({ transport, readContext } = {})
         request,
       });
       const raw = await remote.respond(envelope, { signal });
+      // A transport may settle after cancellation or teardown. Neither event
+      // revokes backend computation, but neither may promote a late result.
+      if (disposed) throw new Error("Web Intelligence remote adapter is disposed");
+      if (signal?.aborted) throw abortedError(signal);
       const response = validateResponseEnvelope(raw, context);
       const currentContext = validateWebIntelligenceRemoteContext(readContext());
       if (!sameContext(currentContext, context)) {
         throw new Error("Web Intelligence remote context changed while the request was pending");
       }
+      if (disposed) throw new Error("Web Intelligence remote adapter is disposed");
+      if (signal?.aborted) throw abortedError(signal);
       return response;
     },
     dispose() {

@@ -5,6 +5,7 @@ import {
 } from "./accessibility.mjs";
 import { appearancePreference } from "./appearance.mjs";
 import { colorPalettePreference } from "./color-palette.mjs";
+import { displayScalePreference } from "./display.mjs";
 import { homeShortcutsPreference } from "./home-shortcuts.mjs";
 import { memoryAutoCapturePreference } from "./memory.mjs";
 import {
@@ -14,6 +15,7 @@ import {
 
 const DEFINITIONS = Object.freeze([
   appearancePreference,
+  displayScalePreference,
   memoryAutoCapturePreference,
   accessibilityContrastPreference,
   accessibilityMotionPreference,

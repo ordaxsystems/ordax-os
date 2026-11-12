@@ -1,0 +1,237 @@
+#!/bin/sh
+set -eu
+
+BIN_DIR=${ORDAX_BIN_DIR:-/usr/local/bin}
+STATE_DIR=${ORDAX_STATE_DIR:-/state/ordax}
+RUN_DIR=${ORDAX_UPDATE_RUN_DIR:-/run/ordax-update}
+WORKTREE=${ORDAX_WORKTREE:-/workspace/ordax}
+INTERVAL=${ORDAX_UPDATE_INTERVAL_SECONDS:-5}
+LOG_FILE=$STATE_DIR/main-watch.log
+LOCK_DIR=$RUN_DIR/main-watch.lock
+LOCK_PID_FILE=$LOCK_DIR/pid
+PINNED_FILE=$STATE_DIR/pinned-commit
+BOOT_REJECTED_FILE=$STATE_DIR/boot-rejected-commit
+SUPERVISOR_HEARTBEAT_FILE=$RUN_DIR/supervisor-heartbeat
+RUNTIME_SURFACE_SHA_FILE=$STATE_DIR/runtime-surface-sha
+OWNER_STATE=""
+SLEEP_PID=""
+
+case "$INTERVAL" in
+    ''|*[!0-9]*) INTERVAL=5 ;;
+esac
+[ "$INTERVAL" -ge 5 ] 2>/dev/null || INTERVAL=5
+
+mkdir -p "$STATE_DIR" "$RUN_DIR"
+
+log() {
+    printf '%s %s\n' "$(date -u +%Y-%m-%dT%H:%M:%SZ 2>/dev/null || printf unknown-time)" "$*" >>"$LOG_FILE"
+}
+
+is_pid() {
+    case "${1:-}" in
+        ''|*[!0-9]*) return 1 ;;
+    esac
+    [ "$1" -gt 1 ] 2>/dev/null
+}
+
+is_sha() {
+    value=${1:-}
+    [ "${#value}" -eq 40 ] || return 1
+    case "$value" in
+        ''|*[!0-9a-f]*) return 1 ;;
+    esac
+}
+
+read_state_value() {
+    source=$1
+    value=""
+    [ -f "$source" ] && [ ! -L "$source" ] || {
+        printf '%s' ""
+        return 0
+    }
+    IFS= read -r value <"$source" || true
+    printf '%s' "$value"
+}
+
+watch_lock_owner_alive() {
+    owner=$(read_state_value "$LOCK_PID_FILE")
+    is_pid "$owner" || return 1
+    kill -0 "$owner" >/dev/null 2>&1 || return 1
+    [ -r "/proc/$owner/cmdline" ] || return 1
+    command_line=$(tr '\000' ' ' <"/proc/$owner/cmdline" 2>/dev/null || true)
+    case "$command_line" in
+        *"ordax-main-watch"*) return 0 ;;
+    esac
+    return 1
+}
+
+acquire_watch_lock() {
+    if mkdir "$LOCK_DIR" 2>/dev/null; then
+        printf '%s\n' "$$" >"$LOCK_PID_FILE"
+        return 0
+    fi
+
+    if watch_lock_owner_alive; then
+        return 1
+    fi
+    [ -d "$LOCK_DIR" ] && [ ! -L "$LOCK_DIR" ] || {
+        log "watch lock path is unsafe; refusing startup"
+        return 2
+    }
+    owner=$(read_state_value "$LOCK_PID_FILE")
+    is_pid "$owner" || {
+        log "watch lock has no trustworthy owner; preserving lock until reboot"
+        return 2
+    }
+    rm -f "$LOCK_PID_FILE"
+    rmdir "$LOCK_DIR" 2>/dev/null || {
+        log "stale watch lock could not be reclaimed safely"
+        return 2
+    }
+    mkdir "$LOCK_DIR" 2>/dev/null || return 1
+    printf '%s\n' "$$" >"$LOCK_PID_FILE"
+    log "stale watch lock reclaimed"
+    return 0
+}
+
+lock_status=0
+acquire_watch_lock || lock_status=$?
+case "$lock_status" in
+    0) ;;
+    1) exit 0 ;;
+    *) exit 1 ;;
+esac
+cleanup_watch() {
+    if is_pid "${SLEEP_PID:-}"; then
+        kill "$SLEEP_PID" >/dev/null 2>&1 || true
+        wait "$SLEEP_PID" 2>/dev/null || true
+    fi
+    SLEEP_PID=""
+    rm -f "$LOCK_PID_FILE"
+    rmdir "$LOCK_DIR" 2>/dev/null || true
+}
+
+terminate_watch() {
+    code=$1
+    if is_pid "${SLEEP_PID:-}"; then
+        kill "$SLEEP_PID" >/dev/null 2>&1 || true
+    fi
+    exit "$code"
+}
+
+sleep_interval() {
+    sleep "$INTERVAL" &
+    SLEEP_PID=$!
+    wait "$SLEEP_PID" 2>/dev/null || true
+    SLEEP_PID=""
+}
+
+trap 'cleanup_watch' EXIT
+trap 'terminate_watch 129' HUP
+trap 'terminate_watch 130' INT
+trap 'terminate_watch 143' TERM
+
+active_supervisor_pid() {
+    pid=$(read_state_value "$SUPERVISOR_HEARTBEAT_FILE")
+    is_pid "$pid" || return 1
+    kill -0 "$pid" >/dev/null 2>&1 || return 1
+    [ -r "/proc/$pid/cmdline" ] || return 1
+    command_line=$(tr '\000' ' ' <"/proc/$pid/cmdline" 2>/dev/null || true)
+    case "$command_line" in
+        *"/system/supervisor"*) printf '%s' "$pid"; return 0 ;;
+    esac
+    return 1
+}
+
+handoff_runtime_drift_if_needed() {
+    pid=$1
+    checkout_sha=$(git -C "$WORKTREE" rev-parse HEAD 2>/dev/null || true)
+    runtime_sha=$(read_state_value "$RUNTIME_SURFACE_SHA_FILE")
+    is_sha "$checkout_sha" || return 0
+    is_sha "$runtime_sha" || return 0
+    [ "$checkout_sha" != "$runtime_sha" ] || return 0
+
+    log "checkout $checkout_sha difere da Surface $runtime_sha; solicitando refresh do supervisor $pid"
+    kill -TERM "$pid" >/dev/null 2>&1 || true
+}
+
+log "watch da main iniciado; intervalo=${INTERVAL}s"
+
+while :; do
+    # OOBE is a durable transaction. Never update or drift-restart the UI
+    # before the exact First Run completion receipt exists.
+    first_run_receipt=$STATE_DIR/native-state/first-run.json
+    if [ ! -f "$first_run_receipt" ] || [ -L "$first_run_receipt" ] ||
+       ! /bin/busybox grep -q '"completed"[[:space:]]*:[[:space:]]*true' "$first_run_receipt"; then
+        sleep_interval
+        continue
+    fi
+    supervisor_pid=$(active_supervisor_pid || true)
+    if [ -n "$supervisor_pid" ]; then
+        if [ "$OWNER_STATE" != supervisor ]; then
+            log "supervisor ativo; sincronizacao da main delegada ao owner canonico"
+            OWNER_STATE=supervisor
+        fi
+        handoff_runtime_drift_if_needed "$supervisor_pid"
+        sleep_interval
+        continue
+    fi
+
+    pinned=$(read_state_value "$PINNED_FILE")
+    rejected=$(read_state_value "$BOOT_REJECTED_FILE")
+    before=$(git -C "$WORKTREE" rev-parse HEAD 2>/dev/null || true)
+
+    if [ -n "$pinned" ]; then
+        if ! is_sha "$pinned" || [ "$before" != "$pinned" ]; then
+            if [ "$OWNER_STATE" != pinned-invalid ]; then
+                log "rollback pin is inconsistent with checkout; automatic update blocked"
+                OWNER_STATE=pinned-invalid
+            fi
+            sleep_interval
+            continue
+        fi
+        if ! is_sha "$rejected" || [ "$rejected" = "$pinned" ]; then
+            if [ "$OWNER_STATE" != pinned ]; then
+                log "manual rollback pin active; automatic main update blocked until explicit ordax-pull"
+                OWNER_STATE=pinned
+            fi
+            sleep_interval
+            continue
+        fi
+
+        if [ "$OWNER_STATE" != recovery ]; then
+            log "automatic boot rollback active; main watcher will only recover to a new non-rejected commit"
+            OWNER_STATE=recovery
+        fi
+        if output=$(ORDAX_AUTOMATIC_ROLLBACK_RECOVERY=1 "$BIN_DIR/ordax-pull" 2>&1); then
+            after=$(git -C "$WORKTREE" rev-parse HEAD 2>/dev/null || true)
+            if [ -n "$after" ] && [ "$after" != "$before" ]; then
+                log "automatic rollback recovery applied: $before -> $after"
+            fi
+        else
+            status=$?
+            case "$output" in
+                *"rollback preservado"*|*"entrega rejeitada"*) ;;
+                *) log "automatic rollback recovery unavailable (status=$status); keeping known-good checkout" ;;
+            esac
+        fi
+        sleep_interval
+        continue
+    fi
+
+    if [ "$OWNER_STATE" != watcher ]; then
+        log "supervisor inativo; watch da main assumiu sincronizacao do checkout"
+        OWNER_STATE=watcher
+    fi
+
+    if output=$("$BIN_DIR/ordax-pull" 2>&1); then
+        after=$(git -C "$WORKTREE" rev-parse HEAD 2>/dev/null || true)
+        if [ -n "$after" ] && [ "$after" != "$before" ]; then
+            log "main aplicada: ${before:-unknown} -> $after"
+        fi
+    else
+        status=$?
+        log "checagem da main indisponivel (status=$status); mantendo checkout local"
+    fi
+    sleep_interval
+done

@@ -298,9 +298,9 @@ def verify(candidate_dir: Path, package_policy_path: Path) -> dict:
     policy = _json_bytes(policy_bytes, "runtime-component package policy", canonical=False)
     if policy.get("$schema") != POLICY_SCHEMA or policy.get("trust_domain") != TRUST_DOMAIN:
         raise CandidateError("runtime-component package policy identity is invalid")
-    external_sources = policy.get("canonical_external_source_repository_by_component")
+    external_sources = policy.get("canonical_package_source_repository_by_component")
     if not isinstance(external_sources, dict):
-        raise CandidateError("runtime-component external source policy is missing")
+        raise CandidateError("runtime-component canonical package source policy is missing")
 
     handoff_files = [
         path for path in root.iterdir()

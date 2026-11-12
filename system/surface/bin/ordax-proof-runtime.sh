@@ -83,14 +83,14 @@ resolve_ordax_proof_runtime_root() {
             }
             candidate=$development_root
             ;;
-        stable-mvp:verified-erofs-overlay:canonical-stable-mvp)
+        owner-development:verified-erofs-overlay:development|stable-mvp:verified-erofs-overlay:canonical-stable-mvp)
             [ "${#proof_runtime_sha256}" -eq 64 ] || {
-                echo "ordax-proof-runtime: Stable/MVP verified runtime digest is invalid" >&2
+                echo "ordax-proof-runtime: verified runtime digest is invalid" >&2
                 return 1
             }
             case "$proof_runtime_sha256" in
                 *[!0-9a-f]*)
-                    echo "ordax-proof-runtime: Stable/MVP verified runtime digest is invalid" >&2
+                    echo "ordax-proof-runtime: verified runtime digest is invalid" >&2
                     return 1
                     ;;
             esac

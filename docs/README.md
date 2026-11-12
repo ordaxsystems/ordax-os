@@ -19,6 +19,8 @@ When two files disagree, use this order:
 
 A prose document never silently overrides a machine-readable contract. A snapshot never silently overrides current source.
 
+Historical wording inside a root `PLANO-*` such as `CANONICAL`, `P0`, `mandatory`, or equivalent does **not** change this authority order. If that wording conflicts with this router, `MVP.md`, current contracts or a canonical topic owner, the higher-authority source wins and the plan is interpreted as planning/reference material.
+
 ## Active canonical map
 ## Guia de retomada transversal
 
@@ -30,8 +32,10 @@ A prose document never silently overrides a machine-readable contract. A snapsho
 | Current state / handoff | `docs/CURRENT-STATE.md` |
 | Architecture | `docs/ARCHITECTURE.md` |
 | Personal OrdaX orchestration | `docs/PERSONAL-ORDAX.md` |
-| Intelligence | `docs/INTELLIGENCE.md` |
-| Web Research / external web evidence | `docs/WEB-RESEARCH.md` |
+| Web Research source boundary (providers disabled) | `docs/WEB-RESEARCH.md`, `system/contracts/web-research.mjs` |
+| Capability Fabric — arquitetura, implementação, gates e retomada | `docs/CAPABILITY-FABRIC.md` (guia canônico); `docs/plans/CAPABILITY-FABRIC-V1.md` (histórico) |
+| Spaces + professional composition (single user journey) | `docs/SPACES-AND-PROFILES.md` + `docs/contracts/spaces-and-profile-packs.json` |
+| Profile knowledge and Intelligence | `docs/PROFILE-INTELLIGENCE-ARCHITECTURE.md` + canonical Profile manifests |
 | Decisions / ADRs | `docs/DECISIONS.md` |
 | Build autonomy | `docs/BUILD-AUTONOMY.md` |
 | Product modes | `docs/PRODUCT-MODES.md` |
@@ -52,16 +56,28 @@ A prose document never silently overrides a machine-readable contract. A snapsho
 
 Exact values and gates remain owned by their matching files under `docs/contracts/`.
 
-## Active plans / proposals
+## Planning router and execution window
 
-| Topic | Route | Status |
-| --- | --- | --- |
-| Planning/priorities router | `../00-PLANOS-PRIORITARIOS/README.md` | Active planning index; non-canonical; consult `ROADMAP.md` + `REGISTRY.md` before starting a new implementation front |
-| Cross-plan audit | `../00-PLANOS-PRIORITARIOS/reports/PLAN-AUDIT-2026-10-14.md` | Current triage of old plans vs source; not canonical state |
-| OrdaX Web Research execution | `../00-PLANOS-PRIORITARIOS/plans/WEB-001-WEB-RESEARCH.md` | P1 ACTIVE; G0 source audit complete, G1 contract/policy foundation in progress; no provider enabled |
-| Meridian visual integration | `docs/architecture/MERIDIAN-PROVENANCE.md` | Audited C; PR-01 only; no production/default/release authority |
+The planning hub is `../00-PLANOS-PRIORITARIOS/`.
 
-The planning router exists to organize multiple reports/plans and cross-chat handoffs. It **does not become a second canonical documentation authority**; this file, contracts, current state and canonical topic owners continue to define authority.
+It separates:
+
+- **document status** — whether a plan/research/reference is useful, ready, historical or superseded;
+- **execution eligibility** — whether implementation may actually start in the current product window.
+
+**Current execution window (2026-10-31): Windows Desktop first.** Finish the real installed Desktop experience and its essential capabilities (Account/Spaces with professional composition, Store/apps, Aura, files, Platform and recovery) using focused host-specific proofs. Stabilize integrated owners before revisiting Linux USB/Creator/Buildroot and physical-media homologation. USB and Native disk remain in the launch baseline, but are **not** mandatory prerequisites to functional Windows Desktop or Web. The historic `MVP` label is not the active product strategy (see `MVP.md`); a plan never overrides current source, gates or the owner's scope.
+
+## Active plans / proposals / references
+
+| Topic | Route | Document status | Execution now |
+| --- | --- | --- | --- |
+| Planning/priorities router | `../00-PLANOS-PRIORITARIOS/README.md` | Active planning index; non-canonical | Documentation/triage only; follow `ROADMAP.md` |
+| Root historical/active plans | `../00-PLANOS-PRIORITARIOS/REGISTRY.md` | Classified centrally as reference/ready/guide/etc. | Plans do not authorize work; current Window/owner and relevant evidence decide |
+| OS foundation audit and consolidation handoff | `../00-PLANOS-PRIORITARIOS/plans/FOUNDATION-001-OS-ARCHITECTURE-CONSOLIDATION.md` | ACTIVE planning/handoff; not canonical implementation status | Only canonical MVP-integrity scope; no independent physical authorization |
+| OrdaX Web Research | `../00-PLANOS-PRIORITARIOS/plans/WEB-001-WEB-RESEARCH.md` | Source contracts and inert router implemented; no provider enabled | **DEFERRED FOR EXECUTION** until MVP closure and revalidation |
+| Meridian visual integration | `docs/architecture/MERIDIAN-PROVENANCE.md` | Audited C; PR-01 only | No production/default/release authority |
+
+The planning router exists to organize reports/plans and cross-chat handoffs. It **does not become a second canonical documentation authority**; this file, contracts, current state and canonical topic owners continue to define authority.
 
 The Meridian route points to immutable approved evidence on the experimental branch instead of copying the experimental runtime into `main`.
 
@@ -72,9 +88,12 @@ Use one active owner per responsibility.
 - **CANONICAL**: current source of human-readable policy/design for that responsibility.
 - **ACTIVE GUIDE/RUNBOOK**: current operational explanation; cannot redefine canonical contracts.
 - **PLAN/PROPOSAL**: future intent, not implemented state.
+- **REFERENCE**: useful planning/design/history retained for consultation, but not a current state owner or execution queue.
 - **EVIDENCE**: immutable or append-only record of a proof/observation.
 - **SUPERSEDED**: replaced by another named document; must not remain in the active reading path.
 - **ARCHIVED**: retained only for history.
+
+Execution eligibility is orthogonal to lifecycle. A `READY` plan may still be `DEFERRED FOR EXECUTION`.
 
 When replacing a document:
 
@@ -87,19 +106,21 @@ Do **not** create `foo-v2.md`, `foo-final.md`, `foo-new.md` or parallel plans fo
 
 ## Plans versus state
 
-The root planning files remain useful, but they do not all carry the same lifecycle status. The current classification is maintained in `../00-PLANOS-PRIORITARIOS/REGISTRY.md` and audited in `../00-PLANOS-PRIORITARIOS/reports/PLAN-AUDIT-2026-10-14.md`.
+All root planning files are subordinate to the authority order above, including:
 
-In particular:
+- `PLANO-00-ESTADO-ATUAL-E-PRIORIDADES.md` — **archived 02/10 snapshot**; never use its USB-first priorities as current instructions;
+- `PLANO-FUNCIONAL-SURFACE-E-APPS.md` — functional reference, not canonical current state or changelog;
+- `PLANO-02-EVOLUCAO-E-REAPROVEITAMENTO-DO-LEGADO.md` — dated legacy analysis/reference;
+- `PLANO-03-FECHAMENTO-PRE-USB-NOVA-ORDAX.md` — completed source-closure baseline/reference; live physical gates come from current canonical owners;
+- `PLANO-04-FUNDACAO-ECOSSISTEMA-PRE-MVP.md` — ecosystem foundation reference with implemented and future material mixed;
+- `PLANO-07-PERSONAL-ORDAX-E-TRABALHO-INTELIGENTE.md` — execution plan/reference; `docs/PERSONAL-ORDAX.md` is the canonical foundation owner;
+- `PLANO-08-ORDAX-NETWORK-COMUNIDADES-E-MENSAGENS.md` — Network reference; any historical self-declaration of MVP canonicity is subordinate to `MVP.md`, contracts and canonical owners.
 
-- `PLANO-00-ESTADO-ATUAL-E-PRIORIDADES.md` is a stale/transitional execution overlay and must not outrank current state/contracts;
-- `PLANO-FUNCIONAL-SURFACE-E-APPS.md` is an active functional reference/execution ledger, not a reliable current-gap snapshot by itself;
-- `PLANO-02-EVOLUCAO-E-REAPROVEITAMENTO-DO-LEGADO.md` is historical/reference material for selective migration, not an active implementation queue;
-- `PLANO-03-FECHAMENTO-PRE-USB-NOVA-ORDAX.md` preserves a pre-USB baseline; current physical/release gates remain in the canonical promotion/contracts/evidence paths;
-- product-specific plans such as OrdaX Network may remain active/canonical when their current source owner explicitly routes to them.
+The planning hub at `../00-PLANOS-PRIORITARIOS/` catalogs these files and is the preferred destination for new reports/plans. Existing root files must not be moved until references are audited and successors are explicit.
 
-The planning hub at `../00-PLANOS-PRIORITARIOS/` is the preferred destination for **new** reports/plans. Existing root files must not be moved until references are audited and successors are explicit.
+Do not use a plan as an append-only implementation log. New factual state should converge to `docs/CURRENT-STATE.md`, machine-readable contracts, evidence, or the canonical topic owner. A plan should primarily retain intent, dependencies, gates and future work.
 
-If a plan becomes stale, update or supersede it; never treat its age as evidence that the implementation still matches it.
+If a plan becomes stale, update its classification or supersede it; never treat its age or its historical status label as evidence that the implementation still matches it.
 
 ## Trust documentation today
 
@@ -121,3 +142,7 @@ FUTURE_CUSTODY_TARGET=managed non-exportable KMS/HSM
 ```
 
 The future managed backend is provider-neutral and intentionally deferred. The same-host encrypted backup copy is sufficient for the first controlled prototype because cryptographic recovery was proven, but it is not treated as independent off-device custody; an external/off-device encrypted copy remains required before broad public distribution.
+
+### Assinaturas e benefícios
+
+Owner: `ACCOUNT-SYNC-AND-PLANS.md` e `contracts/entitlements.json`; a apresentação de referência é compartilhada pela landing/Conta. O plano de execução é `../00-PLANOS-PRIORITARIOS/plans/COMMERCE-001-SUBSCRIPTIONS-AND-BENEFITS.md`. Catálogo não ativa billing ou serviços.

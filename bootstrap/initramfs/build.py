@@ -200,12 +200,14 @@ def check_contract() -> dict:
     found = [value for value in forbidden if value.lower() in text.lower()]
     if found:
         raise BuildError(f"legacy/high-level responsibility leaked into fixed initramfs: {found}")
+    if "$((" in text:
+        raise BuildError("fixed initramfs PID1 must not require BusyBox ash arithmetic expansion")
     if "findfs LABEL=ORDAX" not in text or "/ordax/bootstrap/entrypoint" not in text:
         raise BuildError("init must hand off through the canonical ORDAX bootstrap path")
     rw_mount = 'mount -t ext4 -o rw,errors=remount-ro "$ORDAX_DEVICE" /ordax'
     health_call = '/sbin/ordax-grow-ext4 --check "$ORDAX_DEVICE"'
     grow_call = '/sbin/ordax-grow-ext4 "$ORDAX_DEVICE" /ordax'
-    recovery_mount = 'mount -t ext4 -o ro "$ORDAX_DEVICE" /ordax'
+    recovery_mount = 'mount -t ext4 -o ro,noload "$ORDAX_DEVICE" /ordax'
     if rw_mount not in text or health_call not in text or grow_call not in text:
         raise BuildError("normal boot must health-check ORDAX before writable mount and growth")
     if text.index(health_call) > text.index(rw_mount):

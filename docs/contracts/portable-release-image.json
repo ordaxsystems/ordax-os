@@ -56,5 +56,15 @@
     "never-authorize-physical-write",
     "portable-v2-materialization-must-not-create-current-activation-pointer",
     "legacy-materialize-and-activate-exact-must-reject-portable-v2"
-  ]
+  ],
+  "external_intelligence_candidate": {
+    "owner": "ordaxsystems/ordax-intelligence",
+    "lock": "docs/contracts/intelligence-source.json",
+    "source_action": ".github/actions/assemble-intelligence",
+    "preceded_by": "verified-pinned-surface",
+    "required_in_portable_v2_ci": true,
+    "legacy_engine_source_in_image_allowed": false,
+    "model_included_in_source": false,
+    "device_activation_authorized": false
+  }
 }

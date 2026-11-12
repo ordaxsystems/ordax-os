@@ -4,7 +4,9 @@ on:
   push:
     branches: [main]
     paths:
-      - 'tools/creator/**'
+      - '.github/actions/resolve-creator-source/**'
+      - 'docs/contracts/native-release-assembly.json'
+      - 'tests/test_windows_toolkit_external_creator_source.py'
       - 'tools/release-signing/**'
       - 'docs/RELEASE-TRUST-CEREMONY.md'
       - 'docs/contracts/release-trust-policy.json'
@@ -16,7 +18,9 @@ on:
       - '.github/workflows/windows-prototype-toolkit.yml'
   pull_request:
     paths:
-      - 'tools/creator/**'
+      - '.github/actions/resolve-creator-source/**'
+      - 'docs/contracts/native-release-assembly.json'
+      - 'tests/test_windows_toolkit_external_creator_source.py'
       - 'tools/release-signing/**'
       - 'docs/RELEASE-TRUST-CEREMONY.md'
       - 'docs/contracts/release-trust-policy.json'
@@ -42,6 +46,11 @@ jobs:
           fetch-depth: 0
           persist-credentials: false
 
+      - name: Resolve Creator source from single immutable OS contract
+        uses: ./.github/actions/resolve-creator-source
+        with:
+          checkout-root: ${{ runner.temp }}/ordax-creator-toolkit-source
+
       - name: Set up Go
         uses: actions/setup-go@b7ad1dad31e06c5925ef5d2fc7ad053ef454303e # v7
         with:
@@ -49,18 +58,23 @@ jobs:
           check-latest: false
           cache: false
 
-      - name: Test Creator and release-signing owners
+      - name: Test Creator from pinned source and OS-owned release signer
+        env:
+          ORDAX_OS_CONTRACTS_DIR: ${{ github.workspace }}/docs/contracts
         run: |
           set -euo pipefail
-          (cd tools/creator && go test -count=1 ./...)
+          test "$ORDAX_CREATOR_SOURCE_REPOSITORY" = "ordaxsystems/ordax-creator"
+          test "$(git -C "$ORDAX_CREATOR_NATIVE_SOURCE" rev-parse HEAD)" = "$ORDAX_CREATOR_SOURCE_COMMIT"
+          (cd "$ORDAX_CREATOR_NATIVE_SOURCE" && go test -count=1 ./...)
           (cd tools/release-signing && go test -count=1 ./...)
+          python3 -m unittest tests.test_windows_toolkit_external_creator_source -v
 
       - name: Assert toolkit Creator excludes physical apply and raw backend dependency
         run: |
           set -euo pipefail
           python3 - <<'PY'
           from pathlib import Path
-          source = Path('tools/creator/cmd/ordax-creator/main.go').read_text(encoding='utf-8')
+          source = (Path(__import__('os').environ['ORDAX_CREATOR_NATIVE_SOURCE']) / 'cmd/ordax-creator/main.go').read_text(encoding='utf-8')
           forbidden = [
               'case "apply"',
               'case "write"',
@@ -73,9 +87,9 @@ jobs:
               raise SystemExit(f'Windows toolkit Creator exposes forbidden physical route markers: {found}')
           print('TOOLKIT_PUBLIC_PHYSICAL_APPLY=BLOCKED')
           PY
-          pushd tools/creator >/dev/null
+          pushd "$ORDAX_CREATOR_NATIVE_SOURCE" >/dev/null
           deps="$(CGO_ENABLED=0 GOOS=windows GOARCH=amd64 go list -deps ./cmd/ordax-creator)"
-          if grep -qx 'github.com/ordaxsystems/ordax-os/tools/creator/host/windows' <<<"$deps"; then
+          if grep -qx 'github.com/ordaxsystems/ordax-creator/host/windows' <<<"$deps"; then
             echo 'Windows toolkit Creator unexpectedly links the native raw-disk host package' >&2
             exit 1
           fi
@@ -111,13 +125,13 @@ jobs:
           out="$PWD/out/windows-prototype-toolkit"
           mkdir -p "$out"
           (
-            cd tools/creator
+            cd "$ORDAX_CREATOR_NATIVE_SOURCE"
             CGO_ENABLED=0 GOOS=windows GOARCH=amd64 \
               go build -trimpath -buildvcs=false -ldflags='-s -w' \
-              -o ../../out/windows-prototype-toolkit/ordax-creator.exe ./cmd/ordax-creator
+              -o "$out/ordax-creator.exe" ./cmd/ordax-creator
             CGO_ENABLED=0 GOOS=windows GOARCH=amd64 \
               go build -trimpath -buildvcs=false -ldflags='-s -w' \
-              -o ../../out/windows-prototype-toolkit/ordax-creator-targets.exe ./cmd/ordax-creator-targets
+              -o "$out/ordax-creator-targets.exe" ./cmd/ordax-creator-targets
           )
           (
             cd tools/release-signing
@@ -250,6 +264,10 @@ jobs:
               'source_repository': os.environ['GITHUB_REPOSITORY'],
               'source_ref': os.environ['GITHUB_REF'],
               'source_event': os.environ['GITHUB_EVENT_NAME'],
+              'creator_source_repository': os.environ['ORDAX_CREATOR_SOURCE_REPOSITORY'],
+              'creator_source_commit': os.environ['ORDAX_CREATOR_SOURCE_COMMIT'],
+              'creator_source_tree': os.environ['ORDAX_CREATOR_SOURCE_TREE'],
+              'creator_build_from_external_verified_source': True,
               'canonical_trust_ceremony_eligible': (
                   canonical_main_push and all(trust_prerequisites.values())
               ),
@@ -299,6 +317,10 @@ jobs:
           assert provenance['source_repository'] == os.environ['GITHUB_REPOSITORY']
           assert provenance['source_ref'] == os.environ['GITHUB_REF']
           assert provenance['source_event'] == os.environ['GITHUB_EVENT_NAME']
+          assert provenance['creator_source_repository'] == 'ordaxsystems/ordax-creator'
+          assert provenance['creator_source_commit'] == os.environ['ORDAX_CREATOR_SOURCE_COMMIT']
+          assert provenance['creator_source_tree'] == os.environ['ORDAX_CREATOR_SOURCE_TREE']
+          assert provenance['creator_build_from_external_verified_source'] is True
           prerequisites = provenance['canonical_trust_prerequisites']
           assert set(prerequisites) == {
               'portable_runtime_v3_direct_kernel_proven',
@@ -332,14 +354,16 @@ jobs:
   windows-native-tests:
     runs-on: windows-latest
     timeout-minutes: 15
-    defaults:
-      run:
-        working-directory: tools/creator
     steps:
       - name: Checkout
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
         with:
           persist-credentials: false
+
+      - name: Resolve Creator source at exact canonical OS revision on Windows
+        uses: ./.github/actions/resolve-creator-source
+        with:
+          checkout-root: ${{ runner.temp }}/ordax-creator-native-win-source
 
       - name: Set up Go
         uses: actions/setup-go@b7ad1dad31e06c5925ef5d2fc7ad053ef454303e # v7
@@ -353,9 +377,9 @@ jobs:
         run: |
           $ErrorActionPreference = 'Stop'
           foreach ($path in @(
-            '../release-signing/windows/Initialize-OrdaXReleaseTrust.ps1',
-            '../release-signing/windows/Complete-OrdaXReleaseTrust.ps1',
-            '../release-signing/windows/4-Sign-Initial-OrdaXRelease.ps1'
+            'tools/release-signing/windows/Initialize-OrdaXReleaseTrust.ps1',
+            'tools/release-signing/windows/Complete-OrdaXReleaseTrust.ps1',
+            'tools/release-signing/windows/4-Sign-Initial-OrdaXRelease.ps1'
           )) {
             $tokens = $null
             $errors = $null
@@ -372,8 +396,12 @@ jobs:
 
       - name: Test public/default Creator Windows host adapter natively
         shell: pwsh
+        working-directory: ${{ runner.temp }}/ordax-creator-native-win-source
+        env:
+          ORDAX_OS_CONTRACTS_DIR: ${{ github.workspace }}/docs/contracts
         run: go test -count=1 ./...
 
       - name: Test tagged native raw backend guards
         shell: pwsh
+        working-directory: ${{ runner.temp }}/ordax-creator-native-win-source
         run: go test -count=1 -tags ordax_raw_backend ./host/windows

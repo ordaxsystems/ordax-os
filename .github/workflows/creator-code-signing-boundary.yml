@@ -6,13 +6,23 @@ on:
     paths:
       - 'docs/contracts/creator-code-signing.json'
       - 'docs/contracts/creator-app-channel.json'
-      - 'tools/creator/windows/Verify-OrdaXCreatorSignature.ps1'
-      - 'tools/creator/windows/Finalize-OrdaXCreatorRelease.ps1'
-      - 'tools/creator/cmd/ordax-creator-app/**'
-      - 'tools/creator/cmd/ordax-creator-launcher/**'
-      - 'tools/creator/appchannel/**'
-      - 'tools/creator/componentchannel/**'
-      - 'tools/creator/physicalchannel/**'
+      - 'tools/release-signing/windows/Verify-OrdaXCreatorSignature.ps1'
+      - 'tools/release-signing/windows/Finalize-OrdaXCreatorRelease.ps1'
+      - '.github/actions/resolve-creator-source/**'
+      - 'docs/contracts/native-release-assembly.json'
+      - 'tests/test_creator_code_signing_external_source.py'
+      - 'tools/release-signing/cmd/ordax-creator-app-manifest/**'
+      - 'tools/release-signing/cmd/ordax-creator-app-signing/**'
+      - '.github/workflows/creator-code-signing-boundary.yml'
+  pull_request:
+    paths:
+      - 'docs/contracts/creator-code-signing.json'
+      - 'docs/contracts/creator-app-channel.json'
+      - 'tools/release-signing/windows/Verify-OrdaXCreatorSignature.ps1'
+      - 'tools/release-signing/windows/Finalize-OrdaXCreatorRelease.ps1'
+      - '.github/actions/resolve-creator-source/**'
+      - 'docs/contracts/native-release-assembly.json'
+      - 'tests/test_creator_code_signing_external_source.py'
       - 'tools/release-signing/cmd/ordax-creator-app-manifest/**'
       - 'tools/release-signing/cmd/ordax-creator-app-signing/**'
       - '.github/workflows/creator-code-signing-boundary.yml'
@@ -30,6 +40,11 @@ jobs:
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
         with:
           persist-credentials: false
+
+      - name: Resolve exact independent Creator source
+        uses: ./.github/actions/resolve-creator-source
+        with:
+          checkout-root: ${{ runner.temp }}/ordax-creator-authenticode-source
 
       - name: Set up Go
         uses: actions/setup-go@b7ad1dad31e06c5925ef5d2fc7ad053ef454303e # v7
@@ -62,20 +77,38 @@ jobs:
           Write-Host 'CREATOR_CODE_SIGNING_ARTIFACTS=LAUNCHER_AND_APP_ONLY'
           Write-Host 'CREATOR_OFFICIAL_PUBLISH_ALLOWED=NO'
 
+      - name: Verify Creator provenance and code signing boundary contract
+        shell: pwsh
+        run: |
+          $ErrorActionPreference = 'Stop'
+          python -m unittest tests.test_creator_code_signing_external_source -v
+          Write-Host "CREATOR_IMPLEMENTATION_REPOSITORY=$env:ORDAX_CREATOR_SOURCE_REPOSITORY"
+          Write-Host "CREATOR_IMPLEMENTATION_SHA=$env:ORDAX_CREATOR_SOURCE_COMMIT"
+          Write-Host "CREATOR_IMPLEMENTATION_TREE=$env:ORDAX_CREATOR_SOURCE_TREE"
+          Write-Host 'OS_RELEASE_SIGNING_AUTHORITY=ORDAX-OS'
+
       - name: Build disposable unsigned launcher application and publisher tools
         shell: pwsh
         run: |
           Set-StrictMode -Version Latest
           $ErrorActionPreference = 'Stop'
-          New-Item -ItemType Directory -Force -Path out/code-signing-boundary | Out-Null
-          Push-Location tools/creator
+          $outputDirectory = Join-Path $PWD 'out/code-signing-boundary'
+          New-Item -ItemType Directory -Force -Path $outputDirectory | Out-Null
+          if ([string]::IsNullOrWhiteSpace($env:ORDAX_CREATOR_NATIVE_SOURCE)) { throw 'pinned Creator source missing' }
+          if ((git -C $env:ORDAX_CREATOR_NATIVE_SOURCE rev-parse HEAD).Trim() -cne $env:ORDAX_CREATOR_SOURCE_COMMIT) {
+            throw 'Creator implementation is not at the contract-pinned Git revision'
+          }
+          if ((git -C $env:ORDAX_CREATOR_NATIVE_SOURCE rev-parse 'HEAD^{tree}').Trim() -cne $env:ORDAX_CREATOR_SOURCE_TREE) {
+            throw 'Creator implementation does not match contract-pinned source tree'
+          }
+          Push-Location $env:ORDAX_CREATOR_NATIVE_SOURCE
           try {
             go test -count=1 ./appchannel ./componentchannel ./physicalchannel
             go build -trimpath -buildvcs=false -ldflags='-s -w -H=windowsgui' `
-              -o ../../out/code-signing-boundary/OrdaX-Creator.exe `
+              -o (Join-Path $outputDirectory 'OrdaX-Creator.exe') `
               ./cmd/ordax-creator-launcher
             go build -trimpath -buildvcs=false -ldflags='-s -w -H=windowsgui' `
-              -o ../../out/code-signing-boundary/OrdaX-Creator-App.exe `
+              -o (Join-Path $outputDirectory 'OrdaX-Creator-App.exe') `
               ./cmd/ordax-creator-app
           } finally {
             Pop-Location
@@ -109,7 +142,7 @@ jobs:
           Set-StrictMode -Version Latest
           $ErrorActionPreference = 'Stop'
           $root = Join-Path $PWD 'out/code-signing-boundary'
-          $verifier = Join-Path $PWD 'tools/creator/windows/Verify-OrdaXCreatorSignature.ps1'
+          $verifier = Join-Path $PWD 'tools/release-signing/windows/Verify-OrdaXCreatorSignature.ps1'
           $productionContract = Join-Path $PWD 'docs/contracts/creator-code-signing.json'
 
           foreach ($name in @('OrdaX-Creator.exe', 'OrdaX-Creator-App.exe')) {
@@ -168,8 +201,8 @@ jobs:
           $root = Join-Path $PWD 'out/code-signing-boundary'
           Copy-Item -LiteralPath docs/contracts/creator-code-signing.json -Destination (Join-Path $root 'creator-code-signing.json')
           Copy-Item -LiteralPath docs/contracts/creator-app-channel.json -Destination (Join-Path $root 'creator-app-channel.json')
-          Copy-Item -LiteralPath tools/creator/windows/Verify-OrdaXCreatorSignature.ps1 -Destination (Join-Path $root 'Verify-OrdaXCreatorSignature.ps1')
-          Copy-Item -LiteralPath tools/creator/windows/Finalize-OrdaXCreatorRelease.ps1 -Destination (Join-Path $root 'Finalize-OrdaXCreatorRelease.ps1')
+          Copy-Item -LiteralPath tools/release-signing/windows/Verify-OrdaXCreatorSignature.ps1 -Destination (Join-Path $root 'Verify-OrdaXCreatorSignature.ps1')
+          Copy-Item -LiteralPath tools/release-signing/windows/Finalize-OrdaXCreatorRelease.ps1 -Destination (Join-Path $root 'Finalize-OrdaXCreatorRelease.ps1')
 
           $trustPath = Join-Path $root 'release-ed25519.json'
           $trust = [ordered]@{

@@ -10,6 +10,7 @@ from __future__ import annotations
 
 import argparse
 import hashlib
+import importlib.util
 import json
 from pathlib import Path
 from typing import Any
@@ -86,21 +87,31 @@ def validate(root: Path) -> dict[str, Any]:
     state = authorization.get("status")
     pre_proof = "blocked-canonical-v4-release-proof-pending"
     post_proof = "blocked-explicit-physical-authorization-pending"
-    _require(state in (pre_proof, post_proof),
-             "physical authorization is not in a safe pre-consent state")
-    current_bound = state == post_proof
+    authorized = "authorized"
+    _require(state in (pre_proof, post_proof, authorized),
+             "physical authorization is outside the canonical lifecycle")
+    current_bound = state in (post_proof, authorized)
+    owner_authorized = state == authorized
     _require(
-        authorization.get("explicit_owner_authorization") is False,
-        "owner authorization must remain explicitly ungranted",
+        authorization.get("explicit_owner_authorization") is owner_authorized,
+        "explicit owner authorization does not match lifecycle stage",
     )
     _require(
-        authorization.get("physical_write_allowed") is False,
-        "physical write must remain fail-closed",
+        authorization.get("physical_write_allowed") is owner_authorized,
+        "physical write permission does not match lifecycle stage",
     )
-    _require(
-        authorization.get("authorization_context_sha256") is None,
-        "authorization context must be absent before fresh owner authorization",
-    )
+    if owner_authorized:
+        context = authorization.get("authorization_context_sha256")
+        _require(
+            isinstance(context, str) and len(context) == 64
+            and all(ch in "0123456789abcdef" for ch in context),
+            "authorized context hash is missing or malformed",
+        )
+    else:
+        _require(
+            authorization.get("authorization_context_sha256") is None,
+            "authorization context must be absent before explicit consent",
+        )
 
     requirements = authorization.get("requirements") or {}
     _require(
@@ -199,6 +210,31 @@ def validate(root: Path) -> dict[str, Any]:
             "bound v4 artifact inventory is not exactly valid",
         )
 
+    if owner_authorized:
+        # Reuse the existing canonical owner instead of duplicating its
+        # source-context hash algorithm or inferring consent from flags.
+        promotion_path = root / "tools/creator/physical_promotion.py"
+        _require(promotion_path.is_file(), "canonical physical promotion source is missing")
+        spec = importlib.util.spec_from_file_location(
+            "ordax_release_trust_physical_promotion", promotion_path
+        )
+        _require(spec is not None and spec.loader is not None,
+                 "canonical physical promotion evaluator cannot be loaded")
+        promotion = importlib.util.module_from_spec(spec)
+        spec.loader.exec_module(promotion)
+        try:
+            physical = promotion.evaluate(root)
+        except (OSError, ValueError, RuntimeError) as error:
+            raise ContractError(
+                f"canonical physical promotion cannot validate authorization: {error}"
+            ) from error
+        _require(
+            physical.get("ready") is True
+            and physical.get("authorization_context_matches_current_source") is True
+            and physical.get("authorization_blockers") == [],
+            "authorized physical source context is not currently valid",
+        )
+
     return {
         "schema": "ordax.current-release-trust-verification/1",
         "status": "pass",
@@ -209,8 +245,8 @@ def validate(root: Path) -> dict[str, Any]:
         "historicalV4SourceCommit": proof["source_commit"] if not current_bound else None,
         "currentV4ProofSha256": proof_sha if current_bound else None,
         "currentV4SourceCommit": proof["source_commit"] if current_bound else None,
-        "explicitOwnerAuthorization": False,
-        "physicalWriteAllowed": False,
+        "explicitOwnerAuthorization": owner_authorized,
+        "physicalWriteAllowed": owner_authorized,
     }
 
 

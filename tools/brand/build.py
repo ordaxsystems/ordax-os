@@ -18,6 +18,7 @@ from pathlib import Path
 ROOT = Path(__file__).resolve().parents[2]
 TOKENS = ROOT / "system/surface/ui/tokens.css"
 SYMBOL_CSS = ROOT / "system/surface/ui/brand/symbol.css"
+MERIDIAN_TOKENS = ROOT / "system/surface/ui/meridian.tokens.css"
 TEMPLATES = ROOT / "infra/supabase/identity/email-templates"
 PUBLIC_ORIGIN = "https://ordax.com.br"
 SUPABASE_REF = "jhfphsjptrpmtnzkpwud"
@@ -143,7 +144,12 @@ def render_site_identity_css(tokens_path: Path = TOKENS, symbol_path: Path = SYM
         raise BrandError("symbol presentation must reference only the canonical local PNG")
     if re.search(r"@import\b|https?://|<", symbol, re.I):
         raise BrandError("unsafe canonical symbol presentation")
-    return render_site_css(tokens_path) + "\n" + symbol
+    # Opted-in public surfaces consume the same Meridian owner as Web/USB.
+    # Keep the base tokens and official symbol for the remaining public pages.
+    meridian = MERIDIAN_TOKENS.read_text(encoding="utf-8")
+    if re.search(r"@import\b|https?://|<|url\s*\(", meridian, re.I):
+        raise BrandError("unsafe shared Meridian token source")
+    return render_site_css(tokens_path) + "\n" + meridian + "\n" + symbol
 
 
 def render_site_font_css(tokens_path: Path = TOKENS) -> str:

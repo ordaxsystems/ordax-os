@@ -1,7 +1,7 @@
 export const SYSTEM_DIAGNOSTICS_SOURCE_MESSAGES = Object.freeze({
   "system.diagnostics.review.kicker": "Revisão local",
   "system.diagnostics.review.title": "Diagnóstico revisável",
-  "system.diagnostics.review.policy": "A revisão é criada somente quando solicitada. Ela usa dados locais permitidos, registra fontes ausentes ou com falha e não envia conteúdo automaticamente. Copiar e salvar são ações explícitas sobre esta mesma revisão.",
+  "system.diagnostics.review.policy": "Ao abrir Diagnóstico, a revisão é preparada localmente com dados permitidos, indicando fontes ausentes ou com falha. Nenhuma informação é enviada. Copiar e salvar exigem ações separadas.",
   "system.diagnostics.review.empty": "Prepare uma revisão para consultar as fontes disponíveis, a atualidade dos sinais e os eventos locais antes de copiar ou salvar qualquer informação.",
   "system.diagnostics.review.partial": "Revisão parcial: uma ou mais fontes falharam. Os dados válidos continuam visíveis abaixo.",
   "system.diagnostics.review.fact.preparedAt": "Preparada em",
@@ -118,7 +118,7 @@ export const SYSTEM_DIAGNOSTICS_SOURCE_MESSAGES = Object.freeze({
 export const SYSTEM_DIAGNOSTICS_ENGLISH_MESSAGES = Object.freeze({
   "system.diagnostics.review.kicker": "Local review",
   "system.diagnostics.review.title": "Reviewable diagnostics",
-  "system.diagnostics.review.policy": "The review is created only when requested. It uses permitted local data, records missing or failed sources, and never sends content automatically. Copying and saving are explicit actions on this same review.",
+  "system.diagnostics.review.policy": "Opening Diagnostics prepares a local review from allowlisted observations, clearly marking missing or failed sources. Nothing is transmitted. Copying and saving require separate actions.",
   "system.diagnostics.review.empty": "Prepare a review to inspect available sources, signal freshness, and local events before copying or saving any information.",
   "system.diagnostics.review.partial": "Partial review: one or more sources failed. Valid data remains visible below.",
   "system.diagnostics.review.fact.preparedAt": "Prepared at",

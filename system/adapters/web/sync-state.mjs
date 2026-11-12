@@ -1,3 +1,4 @@
+import { resolveWebLocalStorage } from "./local-storage.mjs";
 import {
   SYNC_STATE_STORE_SCHEMA,
   assertSyncStateStore,
@@ -6,24 +7,8 @@ import {
 
 const STORAGE_KEY = "ordax.sync-state.v1";
 
-function resolveStorage(windowRef) {
-  try {
-    const storage = windowRef?.localStorage;
-    if (
-      storage &&
-      typeof storage.getItem === "function" &&
-      typeof storage.setItem === "function"
-    ) {
-      return storage;
-    }
-  } catch {
-    // Browser policy may deny storage. Session memory remains valid.
-  }
-  return null;
-}
-
 export function createWebSyncStateStore(windowRef = globalThis.window) {
-  const storage = resolveStorage(windowRef);
+  const storage = resolveWebLocalStorage(windowRef);
   let memory = null;
 
   const store = {

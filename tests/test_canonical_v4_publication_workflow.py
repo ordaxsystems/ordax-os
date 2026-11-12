@@ -51,9 +51,13 @@ class SignedPublicationWorkflowContractTests(unittest.TestCase):
         data = subprocess.check_output(["git", "-C", str(ROOT), "show", "HEAD:" + path])
         self.assertEqual(hashlib.sha256(data).hexdigest(), self.request["release_envelope_sha256"])
 
-    def test_no_physical_or_release_authority_granted(self):
-        self.assertFalse(self.physical["physical_write_allowed"])
-        self.assertFalse(self.physical["explicit_owner_authorization"])
+    def test_v4_publication_cannot_grant_or_revoke_physical_consent(self):
+        state = self.physical["status"]
+        self.assertIn(state, {"blocked-explicit-physical-authorization-pending", "authorized"})
+        permitted = state == "authorized"
+        self.assertIs(self.physical["physical_write_allowed"], permitted)
+        self.assertIs(self.physical["explicit_owner_authorization"], permitted)
+        # Release publication itself cannot prove a physical write or owner consent.
         for field in ("publication_performed", "release_activated",
                       "physical_write_authorized", "physical_write_performed"):
             self.assertIs(self.request[field], False)

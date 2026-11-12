@@ -9,7 +9,7 @@ export const settingsComponent = defineComponentManifest({
   failureDomain: "app",
   restartScope: "surface",
   healthMode: "surface",
-  owner: "system/apps/settings",
+  owner: "system/services/system-ui/settings",
   dependencies: ["surface-shell", "network-service"],
 });
 
@@ -23,7 +23,7 @@ export const accountComponent = defineComponentManifest({
   failureDomain: "app",
   restartScope: "surface",
   healthMode: "surface",
-  owner: "system/apps/account",
+  owner: "system/services/system-ui/account",
   dependencies: ["surface-shell"],
 });
 
@@ -37,7 +37,7 @@ export const storeComponent = defineComponentManifest({
   failureDomain: "app",
   restartScope: "surface",
   healthMode: "surface",
-  owner: "system/apps/store",
+  owner: "system/services/system-ui/store",
   dependencies: ["surface-shell"],
 });
 
@@ -51,7 +51,7 @@ export const systemComponent = defineComponentManifest({
   failureDomain: "app",
   restartScope: "surface",
   healthMode: "surface",
-  owner: "system/apps/system",
+  owner: "system/services/system-ui/system",
   dependencies: ["surface-shell", "update-service"],
 });
 

@@ -1,7 +1,7 @@
 # WEB-001 — provider/cost update — 2026-10-14
 
-Status: **TRIAGED RESEARCH / snapshot externo**  
-Owner de implementação: `docs/WEB-RESEARCH.md` + `system/contracts/web-research.mjs`  
+Status: **TRIAGED RESEARCH / snapshot externo**
+Owner de implementação: `docs/WEB-RESEARCH.md` + `system/contracts/web-research.mjs`
 Este relatório não ativa provider e não substitui contracts/policy.
 
 ## Motivo da atualização

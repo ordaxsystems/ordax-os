@@ -55,6 +55,7 @@ export function createProjectContinuityFileSpace(
 
   const port = {
     schema: FILE_SPACE_SCHEMA,
+    ...(filePort.scope === undefined ? {} : { scope: filePort.scope }),
     list(...args) {
       return filePort.list(...args);
     },
@@ -64,6 +65,21 @@ export function createProjectContinuityFileSpace(
     readTextFile(...args) {
       return filePort.readTextFile(...args);
     },
+    ...(typeof filePort.readImagePreview === "function" ? {
+      readImagePreview(...args) {
+        return filePort.readImagePreview(...args);
+      },
+    } : {}),
+    ...(typeof filePort.readMediaPreview === "function" ? {
+      readMediaPreview(...args) {
+        return filePort.readMediaPreview(...args);
+      },
+    } : {}),
+    ...(typeof filePort.readDocumentPreview === "function" ? {
+      readDocumentPreview(...args) {
+        return filePort.readDocumentPreview(...args);
+      },
+    } : {}),
     async renameEntry(path, name, newName) {
       const result = await filePort.renameEntry(path, name, newName);
       relocate(joinPath(path, name), joinPath(path, newName));

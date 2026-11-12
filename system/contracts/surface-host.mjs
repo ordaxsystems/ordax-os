@@ -1,17 +1,22 @@
+import { validateSystemCapabilityId } from "./system-foundation.mjs";
+
 export const SURFACE_HOST_SCHEMA = "ordax.surface-host/1";
 
 const CONNECTIVITY = new Set(["online", "offline", "unknown"]);
 
 export function validateSurfaceSnapshot(value) {
-  if (!value || typeof value !== "object") {
+  if (!value || typeof value !== "object" || Array.isArray(value)) {
     throw new TypeError("Surface host snapshot must be an object");
   }
 
-  const capabilityIds = Array.isArray(value.capabilityIds) ? value.capabilityIds : [];
-  if (capabilityIds.some((id) => typeof id !== "string" || id.length === 0)) {
-    throw new TypeError("Surface capability IDs must be non-empty strings");
+  // Older snapshots may omit the list; an explicitly malformed list is never
+  // converted into "no capabilities" because that conceals a broken provider.
+  const capabilityIds = value.capabilityIds === undefined ? [] : value.capabilityIds;
+  if (!Array.isArray(capabilityIds)) {
+    throw new TypeError("Surface capability IDs must be an array");
   }
-  if (new Set(capabilityIds).size !== capabilityIds.length) {
+  const validatedIds = capabilityIds.map(validateSystemCapabilityId);
+  if (new Set(validatedIds).size !== validatedIds.length) {
     throw new TypeError("Surface capability IDs must be unique");
   }
 
@@ -21,7 +26,7 @@ export function validateSurfaceSnapshot(value) {
   }
 
   return Object.freeze({
-    capabilityIds: Object.freeze([...capabilityIds]),
+    capabilityIds: Object.freeze(validatedIds),
     connectivity,
   });
 }

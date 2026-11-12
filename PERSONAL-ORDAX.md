@@ -1,8 +1,10 @@
-# Personal OrdaX — plano canônico de implementação
+# Personal OrdaX — referência curta de implementação
 
-Status: **FOREGROUND NATIVO IMPLEMENTADO / BACKGROUND E AUTONOMIA PÚBLICA DESABILITADOS**
+Status: **REFERENCE — NÃO CANÔNICO / EXECUÇÃO FUTURA ADIADA ATÉ PÓS-MVP**
 
-Este arquivo na raiz é a referência curta e canônica para **o que o Personal OrdaX é, o que já foi implementado e o que será implementado a seguir**. Ele consolida as conclusões dos relatórios já produzidos para o projeto e o estado real do código. O contrato detalhado permanece em `docs/PERSONAL-ORDAX.md` e as invariantes legíveis por máquina em `docs/contracts/personal-ordax.json`.
+Este arquivo na raiz é uma referência curta preservada por compatibilidade e por links existentes. Ele **não é owner canônico de Personal OrdaX, não é `CURRENT-STATE` e não autoriza iniciar fases futuras**. O owner humano canônico é `docs/PERSONAL-ORDAX.md`; invariantes legíveis por máquina vivem em `docs/contracts/personal-ordax.json`; estado factual corrente deve ser revalidado contra `docs/CURRENT-STATE.md` e o source atual.
+
+Durante a janela de fechamento do MVP, este documento pode ser consultado, reconciliado e atualizado como referência, mas qualquer trabalho futuro descrito abaixo permanece `DEFERRED FOR EXECUTION` salvo quando um owner canônico do MVP já exigir explicitamente a mesma capacidade. Consulte também `00-PLANOS-PRIORITARIOS/REGISTRY.md` e `ROADMAP.md` antes de interpretar fases ou prioridades históricas.
 
 ## Direção consolidada dos relatórios
 
@@ -351,7 +353,7 @@ Continuam desabilitados até seus gates específicos:
 
 ## Regra de evolução
 
-A ordem é deliberada:
+A ordem abaixo é histórica e de referência. Ela **não constitui autorização de execução na janela atual**; qualquer fase futura só pode ser retomada depois do fechamento do MVP e da revalidação prevista no hub de planejamento.
 
 ```text
 Work visível

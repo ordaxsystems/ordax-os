@@ -70,6 +70,7 @@ def render(payload: dict) -> str:
     module_ids = payload.get("native_loopback_broker_supported_components")
     health_ids = payload.get("native_loopback_broker_health_mutation_components")
     probation_ids = payload.get("runtime_health_bridge_supported_components")
+    decision_ids = payload.get("native_pending_decision_supported_components")
     if not isinstance(package_sources, dict) or not package_sources:
         raise MetadataPolicyError("canonical package owners are unavailable")
     for component_id, owner in package_sources.items():
@@ -79,6 +80,7 @@ def render(payload: dict) -> str:
         (module_ids, "Native module read"),
         (health_ids, "Native health mutation"),
         (probation_ids, "Native probation"),
+        (decision_ids, "Native pending decision"),
     ):
         if (
             not isinstance(ids, list)
@@ -106,6 +108,8 @@ def render(payload: dict) -> str:
         raise MetadataPolicyError("Native health mutation cannot exceed signed module-read scope")
     if not set(probation_ids).issubset(health_ids):
         raise MetadataPolicyError("Native probation cannot exceed health mutation scope")
+    if not set(decision_ids).issubset(probation_ids):
+        raise MetadataPolicyError("Native pending-decision scope cannot exceed probation scope")
     probation_modes = _probation_probe_modes(payload, probation_ids)
     execution_enabled, trust_pinned, slot_activation, pending_promotion = _pending_decision_gates(payload)
     metadata_ids = sorted(set(package_sources) | set(module_ids))
@@ -133,6 +137,8 @@ def render(payload: dict) -> str:
         + format_ids(sorted(health_ids)) + "\n})\n\n"
         "NATIVE_PROBATION_COMPONENT_IDS = frozenset({\n"
         + format_ids(sorted(probation_ids)) + "\n})\n\n"
+        "NATIVE_PENDING_DECISION_COMPONENT_IDS = frozenset({\n"
+        + format_ids(sorted(decision_ids)) + "\n})\n\n"
         "NATIVE_PROBATION_PROBE_MODE_BY_COMPONENT = MappingProxyType({\n"
         + format_probe_modes(probation_modes) + "\n})\n\n"
         f"NATIVE_PENDING_DECISION_EXECUTION_ENABLED = {execution_enabled!r}\n"

@@ -12,7 +12,7 @@ STORE = ROOT / "system/surface/ui/store-overview-controls.mjs"
 NATIVE = ROOT / "system/composition/native/main.mjs"
 SETTINGS_MESSAGES = ROOT / "system/services/i18n/catalog/settings.mjs"
 STORE_MESSAGES = ROOT / "system/services/i18n/catalog/store.mjs"
-SETTINGS_APP = ROOT / "system/apps/settings/ai/manifest.mjs"
+SETTINGS_APP = ROOT / "system/services/system-ui/settings/ai/manifest.mjs"
 
 
 class SettingsLocalAiViewTests(unittest.TestCase):
@@ -40,9 +40,16 @@ class SettingsLocalAiViewTests(unittest.TestCase):
         self.assertIn('next.appId !== "store" || !VIEWS.includes(next.target)', store)
         self.assertIn('activeView = next.target;', store)
         self.assertIn('modelReadState === "idle"', store)
-        self.assertIn("      localAi,\n    );", native)
-        self.assertEqual(native.count("      localAi,\n    );"), 2)
-        self.assertIn("mountStoreOverviewControls(", native)
+        self.assertEqual(native.count("      localAi,\n      productConnector,\n"), 2)
+        self.assertIn("      productConnector,\n      displayOutputs,", native)
+        self.assertIn("      productConnector,\n      null,", native)
+        self.assertIn("createNativeProductConnector(window)", native)
+        # Native Store uses the canonical window composition, not the retired
+        # Store overview mount. Navigation still receives authorized activation.
+        self.assertIn('import { mountStoreWindows } from "../../surface/ui/store-experience.mjs";', native)
+        self.assertIn("storeOverviewControls = mountStoreWindows(", native)
+        self.assertIn("    appActivation,\n  );", native)
+        self.assertIn("storeOverviewControls?.destroy();", native)
         self.assertNotIn('requestLifecycle({ appId: "model"', settings + store)
 
     def test_locale_strings_have_matching_keys_for_new_section(self):

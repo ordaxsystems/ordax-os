@@ -23,8 +23,15 @@ def run_snapshot(source, args=()):
 class DevOfflineDiagnosticsTests(unittest.TestCase):
     def test_posix_parse_and_dev_base_distribution(self):
         subprocess.run(["sh", "-n", str(DIAGNOSTIC)], check=True)
-        self.assertIn('("ordax-network", "ordax-pull", "ordax-rollback", "ordax-run", "ordax-diagnose")', BOOTSTRAP)
-        self.assertIn('"usr/local/bin/ordax-diagnose",', BOOTSTRAP)
+        self.assertIn('for helper in inventory["runtime_helpers"]:', BOOTSTRAP)
+        self.assertIn('copy_script(ROOT / helper["source"], rootfs / helper["target"])', BOOTSTRAP)
+        manifest = (ROOT / "system/services/base-update/dev-helper-manifest.tsv").read_text(encoding="utf-8")
+        self.assertEqual(
+            manifest.splitlines().count(
+                "bootstrap/dev-base/ordax-diagnose\tusr/local/bin/ordax-diagnose"
+            ),
+            1,
+        )
         self.assertIn("ordax-diagnose (somente leitura)", INIT)
 
     def test_snapshot_is_bounded_read_only_and_not_a_remote_executor(self):

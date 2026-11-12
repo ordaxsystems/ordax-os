@@ -6,11 +6,13 @@ on:
     paths:
       - "bootstrap/initramfs/**"
       - "tests/test_initramfs_source_contract.py"
+      - "tests/test_initramfs_recovery_contract.py"
       - ".github/workflows/initramfs-candidate.yml"
   pull_request:
     paths:
       - "bootstrap/initramfs/**"
       - "tests/test_initramfs_source_contract.py"
+      - "tests/test_initramfs_recovery_contract.py"
       - ".github/workflows/initramfs-candidate.yml"
   workflow_dispatch:
 
@@ -45,7 +47,9 @@ jobs:
         run: python bootstrap/initramfs/build.py check
 
       - name: Run initramfs source regressions
-        run: python -m unittest discover -s tests -p 'test_initramfs_source_contract.py' -v
+        run: |
+          python -m unittest discover -s tests -p 'test_initramfs_source_contract.py' -v
+          python -m unittest discover -s tests -p 'test_initramfs_recovery_contract.py' -v
 
       - name: Build deterministic initramfs candidate
         env:

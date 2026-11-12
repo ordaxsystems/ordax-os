@@ -92,3 +92,12 @@ asserting logout, then revalidates on reconnect. Commands remain outside this
 transport and are never replayed. Disposed adapters accept no new work/listeners;
 unchanged identity/action snapshots keep their reference identity for React.
 Regression source/CI updated without local execution; layout remains unchanged.
+
+
+Anonymous account readiness also reads the existing `/auth/registration-policy`
+endpoint. The canonical validator, bounded JSON reader and identity-actions port
+own policy validation, cancellation and navigation. Signup is revalidated immediately
+before opening `/cadastro/`; the public form/gateway still owns consent and creation.
+Offline/account replacement/disposal cancel pending reads. Unknown or disabled
+policies preserve the visible disabled button with an explanation. No local proxy,
+credential form, new identity provider or public activation gate was introduced.

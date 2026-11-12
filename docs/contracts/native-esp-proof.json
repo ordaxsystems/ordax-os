@@ -3,7 +3,7 @@
   "status": "defined-execution-pending",
   "native_esp_contract": "docs/contracts/native-esp.json",
   "storage_contract": "docs/contracts/storage-architecture.json",
-  "creator_policy_owner": "tools/creator/core/native_boot_entries.go",
+  "creator_policy_owner": "github.com/ordaxsystems/ordax-creator/core/native_boot_entries.go",
   "creator_render_command": "ordax-creator render-native-boot",
   "physical_device_paths_allowed": false,
   "physical_write_authorized": false,

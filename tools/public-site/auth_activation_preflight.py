@@ -27,7 +27,7 @@ PROVIDER_POLICY = Path("docs/contracts/public-auth-provider-policy.json")
 DEPLOYMENT = Path("docs/contracts/public-site-deployment.json")
 IDENTITY = Path("docs/contracts/public-identity.json")
 LIFECYCLE = Path("docs/contracts/account-lifecycle.json")
-RUNTIME = Path("sites/public/config/public-site.json")
+SITE_SOURCE = Path("docs/contracts/public-site-source.json")
 PUBLIC_SITE = Path("docs/contracts/public-site.json")
 EDGE = Path("infra/supabase/functions/ordax-account-gateway/index.ts")
 REFERENCE_GATEWAY = Path("services/public-identity/gateway.py")
@@ -88,6 +88,17 @@ def source_web_auth_only(root: Path) -> bool:
     ref = re.findall(r"^PUBLIC_WEB_AUTH_ENABLED = (True|False)$", ref_text, re.MULTILINE)
     if len(edge) != 1 or len(ref) != 1 or (edge[0] == "true") != (ref[0] == "True"):
         raise ValueError("web-only-auth-switch-mismatch")
+    public_signup = re.findall(r"^const PUBLIC_WEB_REGISTRATION_ENABLED = (true|false);$", edge_text, re.MULTILINE)
+    reference_signup = re.findall(r"^PUBLIC_WEB_REGISTRATION_ENABLED = (True|False)$", ref_text, re.MULTILINE)
+    if (len(public_signup) != 1 or len(reference_signup) != 1
+            or (public_signup[0] == "true") != (reference_signup[0] == "True")):
+        raise ValueError("public-registration-switch-mismatch")
+    if public_signup[0] == "true":
+        legal = load_json(root, LEGAL)
+        snapshots = load_json(root, Path("docs/contracts/public-legal-snapshots.json"))
+        if legal.get("registration_binding", {}).get("registration_activation_allowed") is not True \
+                or snapshots.get("status") != "approved-versioned-snapshots":
+            raise ValueError("public-registration-requires-approved-legal-snapshots")
     if edge[0] == "true":
         # A positive source switch is not enough to enable every Account
         # surface. Check that the exact method/path admission exists.
@@ -105,7 +116,7 @@ def readiness(root: Path) -> tuple[list[str], dict[str, bool]]:
     deployment = load_json(root, DEPLOYMENT)
     identity = load_json(root, IDENTITY)
     lifecycle = load_json(root, LIFECYCLE)
-    runtime = load_json(root, RUNTIME)
+    site_source = load_json(root, SITE_SOURCE)
     public_site = load_json(root, PUBLIC_SITE)
     switches = source_switches(root)
 
@@ -120,8 +131,6 @@ def readiness(root: Path) -> tuple[list[str], dict[str, bool]]:
     backend = identity.get("backend", {})
     lifecycle_operations = lifecycle.get("operations", {})
     lifecycle_activation = lifecycle.get("activation", {})
-    runtime_identity = runtime.get("identity", {})
-    runtime_legal = runtime.get("legal", {})
 
     def need(condition: bool, code: str) -> None:
         if not condition:
@@ -361,19 +370,26 @@ def readiness(root: Path) -> tuple[list[str], dict[str, bool]]:
     need(routing.get("same_origin_identity_required") is True, "same-origin-identity-contract")
     need(routing.get("gateway_public_activation_gate_required") is True, "server-activation-gate-contract")
 
+    # The independent Site owns its frontend release. The OS only validates its
+    # source/deployment attestation; it must not keep a mirrored Site config.
+    site_deployed = (
+        site_source.get("$schema") == "prototype-ordax.external-public-site-source/1"
+        and site_source.get("repository") == "ordaxsystems/ordax-site"
+        and site_source.get("production_deployment_activated") is True
+    )
+    site_routes = public_site.get("routes", {})
+    site_identity = public_site.get("identity", {})
     controls = {
-        "runtime_account_ready": runtime_legal.get("account_activation_ready") is True,
-        "runtime_login_route": (
-            runtime_legal.get("account_activation_ready") is True
-            and runtime_identity.get("login_url") == "/auth/login"
+        "site_published": site_deployed,
+        "site_login_route": site_deployed and site_routes.get("login") == "/login/",
+        "site_register_route": site_deployed and site_routes.get("register") == "/cadastro/",
+        "site_recovery_route": (
+            site_deployed and site_routes.get("recovery") == "/recuperar/"
+            and site_identity.get("recovery_request_route") == "/auth/recover"
         ),
-        "runtime_register_route": (
-            runtime_legal.get("account_activation_ready") is True
-            and runtime_identity.get("register_url") == "/auth/register"
-        ),
-        "runtime_recovery_route": runtime_identity.get("recovery_url") == "/auth/recover",
-        "runtime_recovery_complete_route": (
-            runtime_identity.get("recovery_complete_url") == "/auth/recover/complete"
+        "site_recovery_complete_route": (
+            site_deployed and site_routes.get("recovery_complete") == "/recuperar/nova-senha/"
+            and site_identity.get("recovery_complete_route") == "/auth/recover/complete"
         ),
         "identity_public_auth": backend.get("public_auth_enabled") is True,
         "identity_public_site_account": backend.get("public_site_account_enabled") is True,

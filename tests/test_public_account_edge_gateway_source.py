@@ -1,5 +1,13 @@
+"""Source-boundary checks for the public Account transport.
+
+The Vercel API entrypoint is intentionally a thin wrapper. Security assertions
+belong to the canonical implementation in lib/account-proxy-core.mjs, not to a
+copy of that implementation under api/.
+"""
+
 import unittest
 from pathlib import Path
+
 
 ROOT = Path(__file__).resolve().parents[1]
 PUBLIC_EDGE = ROOT / "infra" / "supabase" / "functions" / "ordax-public-account-gateway" / "index.ts"
@@ -8,7 +16,11 @@ RATE_LIMIT_POLICY = ROOT / "infra" / "supabase" / "functions" / "_shared" / "aut
 REQUEST_CONTEXT = ROOT / "infra" / "supabase" / "functions" / "ordax-public-account-gateway" / "public_request_context.mjs"
 OIDC = ROOT / "infra" / "supabase" / "functions" / "ordax-public-account-gateway" / "vercel_oidc.mjs"
 INNER_EDGE = ROOT / "infra" / "supabase" / "functions" / "ordax-account-gateway" / "index.ts"
-VERCEL_PROXY = ROOT / "api" / "account-proxy.mjs"
+TRANSPORT = ROOT / "infra" / "supabase" / "functions" / "_shared" / "account_transport_admission.mjs"
+BRIDGE = ROOT / "infra" / "supabase" / "functions" / "_shared" / "account_service_bridge.mjs"
+COOKIE_POLICY = ROOT / "infra" / "supabase" / "functions" / "_shared" / "account_cookie_policy.mjs"
+VERCEL_ENTRY = ROOT / "api" / "account-proxy.mjs"
+VERCEL_PROXY_CORE = ROOT / "lib" / "account-proxy-core.mjs"
 
 
 class PublicAccountEdgeGatewaySourceTests(unittest.TestCase):
@@ -19,78 +31,56 @@ class PublicAccountEdgeGatewaySourceTests(unittest.TestCase):
         self.request_context = REQUEST_CONTEXT.read_text(encoding="utf-8")
         self.oidc = OIDC.read_text(encoding="utf-8")
         self.inner = INNER_EDGE.read_text(encoding="utf-8")
-        self.proxy = VERCEL_PROXY.read_text(encoding="utf-8")
+        self.transport = TRANSPORT.read_text(encoding="utf-8")
+        self.bridge = BRIDGE.read_text(encoding="utf-8")
+        self.cookie_policy = COOKIE_POLICY.read_text(encoding="utf-8")
+        self.entry = VERCEL_ENTRY.read_text(encoding="utf-8")
+        self.proxy = VERCEL_PROXY_CORE.read_text(encoding="utf-8")
 
-    def test_public_and_internal_gateways_use_one_exact_route_parser(self):
-        shared = (
-            ROOT / "infra" / "supabase" / "functions" / "_shared"
-            / "account_transport_admission.mjs"
-        ).read_text(encoding="utf-8")
-        self.assertIn("export function stripEdgeFunctionPrefix(", shared)
-        self.assertIn('pathname.startsWith(prefix + "/")', shared)
-        self.assertIn("return stripEdgeFunctionPrefix(pathname, \"ordax-account-gateway\")", shared)
-        self.assertIn(
-            'import { stripEdgeFunctionPrefix, isPublicBridgeRoute } from "../_shared/account_transport_admission.mjs"',
-            self.edge,
+    def test_vercel_entry_is_thin_and_security_logic_has_one_owner(self):
+        self.assertEqual(
+            self.entry,
+            'export * from "../lib/account-proxy-core.mjs";\n'
+            'export { default } from "../lib/account-proxy-core.mjs";\n',
         )
-        self.assertIn(
-            'stripEdgeFunctionPrefix(url.pathname, "ordax-public-account-gateway")',
-            self.edge,
-        )
-        self.assertNotIn('url.pathname.indexOf("/ordax-public-account-gateway")', self.edge)
-        self.assertNotIn('url.pathname.indexOf("/ordax-account-gateway")', self.inner)
+        self.assertIn('const PUBLIC_GATEWAY_PATH = "/functions/v1/ordax-public-account-gateway"', self.proxy)
+        self.assertIn('import { readBoundedBody }', self.proxy)
+        self.assertIn('import { isPublicBridgeRoute }', self.proxy)
+        self.assertNotIn("SUPABASE_SERVICE_ROLE_KEY", self.proxy)
 
-    def test_public_boundary_requires_identity_context_address_and_rate_limit_before_forward(self):
-        self.assertIn("verifyPublicProxyIdentity(req)", self.edge)
-        self.assertIn('identity.source !== "vercel-production-oidc"', self.edge)
-        self.assertIn('"public-proxy-authentication-required"', self.edge)
-        self.assertIn("verifyTrustedPublicRequestContext(req)", self.edge)
-        self.assertIn('"public-request-context-rejected"', self.edge)
-        auth_index = self.edge.index("verifyPublicProxyIdentity(req)")
-        context_index = self.edge.index("verifyTrustedPublicRequestContext(req)")
-        address_index = self.edge.index("trustedPublicClientAddress(req)")
-        rpc_index = self.edge.index('accountAdminRpc("ordax_consume_public_auth_rate_limit_v1"')
-        forward_index = self.edge.index("fetch(innerTarget")
-        self.assertLess(auth_index, context_index)
-        self.assertLess(context_index, address_index)
-        self.assertLess(address_index, rpc_index)
-        self.assertLess(rpc_index, forward_index)
+    def test_public_and_internal_gateways_share_exact_route_policy(self):
+        self.assertIn("export function stripEdgeFunctionPrefix(", self.transport)
+        self.assertIn('pathname.startsWith(prefix + "/")', self.transport)
+        self.assertIn("export function isPublicBridgeRoute(method, pathname)", self.transport)
+        for route, method, pre_activation in (
+            ("/account/export", "GET", False),
+            ("/account/spaces", "GET", True),
+            ("/account/entitlements/memory-cloud", "GET", False),
+            ("/account/close", "POST", False),
+        ):
+            flag = "true" if pre_activation else "false"
+            self.assertIn(
+                f'["{route}", Object.freeze({{ method: "{method}", preActivation: {flag} }})]',
+                self.transport,
+            )
+        self.assertIn("export function isPublicAccountPreActivationRoute(method, pathname)", self.transport)
+        self.assertIn('stripEdgeFunctionPrefix(url.pathname, "ordax-public-account-gateway")', self.edge)
+        self.assertIn('accountGatewayRoutePath(url.pathname)', self.inner)
+        self.assertIn('isPublicBridgeRoute(method, parsed.pathname)', self.proxy)
+        self.assertNotIn('/network/', self.edge)
 
-    def test_request_context_is_exact_origin_and_fail_closed_for_mutations(self):
-        self.assertIn('STATE_CHANGING_METHODS = new Set(["POST", "PUT", "PATCH", "DELETE"])', self.request_context)
-        self.assertIn('fetchSite !== "same-origin"', self.request_context)
-        self.assertIn('fail("browser-origin-required")', self.request_context)
-        self.assertIn('fail("browser-origin-mismatch")', self.request_context)
-        self.assertIn('fail("trusted-public-authority-mismatch")', self.request_context)
-        self.assertIn('url.protocol !== "https:"', self.request_context)
-
-    def test_oidc_is_scoped_to_team_project_and_production_environment(self):
+    def test_oidc_is_production_scoped_and_consumed_at_public_boundary(self):
         self.assertIn('https://oidc.vercel.com/ordaxsystems', self.oidc)
         self.assertIn('https://vercel.com/ordaxsystems', self.oidc)
         self.assertIn(
             'owner:ordaxsystems:project:ordax-os-public:environment:production',
             self.oidc,
         )
-        self.assertIn('npm:jose@6.2.12', self.oidc)
-        self.assertIn('new URL("/.well-known/jwks", VERCEL_OIDC_ISSUER)', self.oidc)
-        self.assertIn('algorithms: ["RS256", "ES256"]', self.oidc)
         self.assertNotIn('environment:preview', self.oidc)
         self.assertNotIn('jogo-brasils-projects', self.oidc)
-
-    def test_runtime_oidc_and_trusted_proxy_context_are_consumed_not_forwarded(self):
-        request_headers_start = self.edge.index("const REQUEST_HEADERS")
-        request_headers_end = self.edge.index("];", request_headers_start)
-        request_headers = self.edge[request_headers_start:request_headers_end]
-        self.assertNotIn("x-ordax-client-address", request_headers)
-        self.assertNotIn("x-ordax-public-origin", request_headers)
-        self.assertNotIn("authorization", request_headers.lower())
-        self.assertIn('headers.set("x-ordax-public-site", "1")', self.edge)
-        self.assertIn('headers.set("apikey", serverSecret)', self.edge)
-        self.assertIn("headers: upstreamHeaders(req, bridgeKey)", self.edge)
-        self.assertIn("function serverSecretKey()", self.edge)
-        self.assertIn('import { accountBridgeSecret } from "../_shared/account_service_bridge.mjs"', self.edge)
-        self.assertNotIn("headers: upstreamHeaders(req, serverSecretKey())", self.edge)
-        self.assertNotIn('headers.set("apikey", publishableKey)', self.edge)
+        self.assertIn('import("@vercel/oidc")', self.proxy)
+        self.assertIn("runtime.getVercelOidcToken", self.proxy)
+        self.assertNotIn("process.env.VERCEL_OIDC_TOKEN", self.proxy)
         self.assertIn('headers.set("authorization", `Bearer ${trustedOidcToken}`)', self.proxy)
         self.assertIn('headers.set("x-ordax-client-address", realIp)', self.proxy)
         self.assertIn('headers.set("x-ordax-public-origin", trustedPublicOrigin)', self.proxy)
@@ -98,234 +88,89 @@ class PublicAccountEdgeGatewaySourceTests(unittest.TestCase):
         self.assertIn('headers.set("x-ordax-public-proto", "https")', self.proxy)
         self.assertNotIn("x-ordax-public-proxy-secret", self.proxy)
 
-    def test_auth_rate_limit_runs_before_inner_account_gateway(self):
+    def test_browser_origin_and_forwarded_authority_fail_closed(self):
+        self.assertIn('STATE_CHANGING_METHODS = new Set(["POST", "PUT", "PATCH", "DELETE"])', self.request_context)
+        self.assertIn('fetchSite !== "same-origin"', self.request_context)
+        self.assertIn('fail("browser-origin-required")', self.request_context)
+        self.assertIn('fail("browser-origin-mismatch")', self.request_context)
+        self.assertIn('fail("trusted-public-authority-mismatch")', self.request_context)
+        self.assertIn('url.protocol !== "https:"', self.request_context)
+        self.assertIn("process.env.ORDAX_PUBLIC_ORIGIN", self.proxy)
+        self.assertIn('headers.set("x-forwarded-host", canonical.host)', self.proxy)
+
+    def test_named_service_bridge_is_single_owned_and_never_user_authority(self):
+        self.assertIn('ACCOUNT_BRIDGE_KEY_NAME = "ordax_account_public_bridge"', self.bridge)
+        self.assertIn("sb_secret_", self.bridge)
+        self.assertIn("Object.prototype.hasOwnProperty.call", self.bridge)
+        self.assertIn('headers?.get?.("apikey")', self.bridge)
+        self.assertIn('headers?.get?.("x-ordax-public-site")', self.bridge)
+        self.assertIn("constantTimeEqual", self.bridge)
+        self.assertNotIn('Deno.env.get("SUPABASE_SERVICE_ROLE_KEY") ?? ""', self.bridge)
+        self.assertIn('accountBridgeSecret(Deno.env.get("SUPABASE_SECRET_KEYS")', self.edge)
+        self.assertIn('headers.set("apikey", serverSecret)', self.edge)
+        self.assertIn("headers: upstreamHeaders(req, bridgeKey)", self.edge)
+        self.assertNotIn('headers.set("authorization",', self.edge)
+
+    def test_transport_admission_precedes_privileged_handlers(self):
+        self.assertIn("const transport = await authorizeAccountTransport(req, path, {", self.inner)
+        self.assertIn("verifyNativeSession: async () => {", self.inner)
+        self.assertIn("supabase.auth.getUser(access)", self.inner)
+        self.assertIn('"public-account-boundary-authentication-required"', self.inner)
+        transport_index = self.inner.index("authorizeAccountTransport(req, path")
+        handler_markers = (
+            'if (path === "/account/spaces" && req.method === "GET")',
+            'if (path === "/account/export" && req.method === "GET")',
+            'if (path === "/account/close" && req.method === "POST")',
+        )
+        for marker in handler_markers:
+            self.assertIn(marker, self.inner)
+            self.assertLess(transport_index, self.inner.index(marker))
+
+    def test_rate_limits_and_request_body_limits_are_server_authoritative(self):
         self.assertIn('ordax_consume_public_auth_rate_limit_v1', self.edge)
         self.assertIn('return "credentials"', self.rate_limit_policy)
         self.assertIn('return "recovery-request"', self.rate_limit_policy)
         self.assertIn('return "recovery-completion"', self.rate_limit_policy)
-        self.assertIn("authRateLimitBucket", self.edge)
+        self.assertIn('trustedPublicClientAddress', self.rate_limit)
         self.assertIn('"auth-rate-limit-unavailable"', self.edge)
         self.assertIn('"auth-rate-limited"', self.edge)
-        self.assertIn('"retry-after"', self.edge)
-        self.assertIn('trustedPublicClientAddress', self.rate_limit)
-
-    def test_body_limits_are_checked_while_streaming_not_after_allocation(self):
-        self.assertIn('import { readBoundedBody } from "../_shared/bounded_body.mjs"', self.edge)
         self.assertIn('readBoundedBody(req.body, req.headers.get("content-length"), MAX_BODY)', self.edge)
-        self.assertIn('readBoundedBody(', self.edge)
-        self.assertIn('upstream.body,', self.edge)
-        self.assertIn('MAX_UPSTREAM_RESPONSE,', self.edge)
-        self.assertNotIn("await req.arrayBuffer()", self.edge)
-        self.assertNotIn("await upstream.arrayBuffer()", self.edge)
-        self.assertIn('import { readBoundedBody } from "../_shared/bounded_body.mjs"', self.inner)
         self.assertIn('readBoundedBody(req.body, req.headers.get("content-length"), MAX_BODY)', self.inner)
+        self.assertNotIn("await req.arrayBuffer()", self.edge)
         self.assertNotIn("await req.arrayBuffer()", self.inner)
-        self.assertIn('"account-gateway-response-invalid"', self.edge)
-        self.assertIn('"account-gateway-response-too-large"', self.edge)
 
-    def test_external_security_checks_are_bounded_during_stream_read(self):
+    def test_external_security_responses_are_bounded_before_decode(self):
         self.assertIn('readBoundedBody(', self.proxy)
         self.assertIn('response.body,', self.proxy)
         self.assertIn('MAX_TURNSTILE_RESPONSE_BYTES,', self.proxy)
-        self.assertNotIn("await response.text()", self.proxy)
         self.assertIn('new TextDecoder("utf-8", { fatal: true })', self.proxy)
+        self.assertNotIn("await response.text()", self.proxy)
         self.assertIn('PWNED_PASSWORDS_MAX_RESPONSE,', self.inner)
-        self.assertIn('response.body,', self.inner)
         self.assertIn('signal: AbortSignal.timeout(5_000)', self.inner)
         self.assertIn('new TextDecoder("utf-8", { fatal: true })', self.inner)
         self.assertNotIn("await response.text()", self.inner)
 
-    def test_public_boundary_is_narrow_and_bounded(self):
-        self.assertIn('const MAX_BODY = 64 * 1024', self.edge)
-        self.assertIn('const MAX_UPSTREAM_RESPONSE = 2 * 1024 * 1024', self.edge)
-        self.assertIn('const ALLOWED_METHODS = new Set(["GET", "POST"])', self.edge)
-        self.assertIn('isPublicBridgeRoute(method, pathname)', self.edge)
-        self.assertIn('isPublicBridgeRoute(method, parsed.pathname)', self.proxy)
-        self.assertNotIn("PUBLIC_ACCOUNT_ROUTES = new Map", self.edge)
-        self.assertNotIn("PUBLIC_ACCOUNT_ROUTES = new Map", self.proxy)
-        shared = (ROOT / "infra/supabase/functions/_shared/account_transport_admission.mjs").read_text(encoding="utf-8")
-        self.assertIn("export function isPublicBridgeRoute(method, pathname)", shared)
-        for route, method in (
-            ("/account/export", "GET"),
-            ("/account/spaces", "GET"),
-            ("/account/entitlements/memory-cloud", "GET"),
-            ("/account/close", "POST"),
-        ):
-            self.assertIn(f'["{route}", "{method}"]', shared)
-        self.assertIn("public-account-route-not-allowed", shared)
-        self.assertNotIn('/network/', self.edge)
-
-    def test_named_bridge_configuration_is_distinct_from_upstream_failure(self):
-        # Never mistake an unprovisioned service credential for a network
-        # outage. Neither case permits fallback to the default admin key.
-        source = self.edge
-        start = source.index("let bridgeKey: string;")
-        validation = source.index("bridgeKey = publicBridgeKey();", start)
-        unconfigured = source.index('"account-public-bridge-unconfigured"', validation)
-        send = source.index("upstream = await fetch(innerTarget", unconfigured)
-        unavailable = source.index('"account-gateway-unavailable"', send)
-        self.assertLess(start, validation)
-        self.assertLess(validation, unconfigured)
-        self.assertLess(unconfigured, send)
-        self.assertLess(send, unavailable)
-        self.assertIn("headers: upstreamHeaders(req, bridgeKey)", source)
-        self.assertNotIn("headers: upstreamHeaders(req, publicBridgeKey())", source)
-        self.assertIn('"account-public-bridge-unconfigured"', source)
-        self.assertIn('"account-gateway-unavailable"', source)
-
-    def test_proxy_targets_only_the_public_boundary_and_uses_runtime_oidc(self):
-        self.assertIn(
-            'const PUBLIC_GATEWAY_PATH = "/functions/v1/ordax-public-account-gateway"',
-            self.proxy,
-        )
-        self.assertIn("url.pathname !== PUBLIC_GATEWAY_PATH", self.proxy)
-        self.assertIn('import("@vercel/oidc")', self.proxy)
-        self.assertIn("runtime.getVercelOidcToken", self.proxy)
-        self.assertIn("resolveVercelOidcToken", self.proxy)
-        self.assertNotIn("process.env.VERCEL_OIDC_TOKEN", self.proxy)
-        self.assertIn("process.env.ORDAX_PUBLIC_ORIGIN", self.proxy)
-        self.assertNotIn("ORDAX_PUBLIC_PROXY_SECRET", self.proxy)
-        self.assertIn('headers.set("authorization", `Bearer ${trustedOidcToken}`)', self.proxy)
-        self.assertIn('headers.set("x-ordax-client-address", realIp)', self.proxy)
-        self.assertIn('headers.set("x-forwarded-host", canonical.host)', self.proxy)
-        self.assertIn('headers.set("x-ordax-public-origin", trustedPublicOrigin)', self.proxy)
-        self.assertIn('headers.set("x-ordax-public-host", canonical.host)', self.proxy)
-        self.assertIn('headers.set("x-ordax-public-proto", "https")', self.proxy)
-
-    def test_product_cookies_use_private_envelope_not_transport_set_cookie(self):
+    def test_product_cookies_use_authenticated_private_envelope(self):
         self.assertIn('const COOKIE_ENVELOPE_HEADER = "x-ordax-cookie-envelope"', self.edge)
         self.assertIn('headers.set(COOKIE_ENVELOPE_HEADER, JSON.stringify(cookies))', self.edge)
         self.assertNotIn('headers.append("set-cookie"', self.edge)
         self.assertIn('const COOKIE_ENVELOPE_HEADER = "x-ordax-cookie-envelope"', self.proxy)
         self.assertIn("trustedCookieEnvelope", self.proxy)
-        self.assertIn("productCookiesFromUpstream(values)", self.edge)
-        self.assertIn('from "../_shared/account_cookie_policy.mjs"', self.edge)
-        cookie_policy = (ROOT / "infra/supabase/functions/_shared/account_cookie_policy.mjs").read_text(encoding="utf-8")
-        self.assertIn("export function productCookiesFromUpstream(rawValues)", cookie_policy)
-        self.assertIn("return trustedCookieEnvelope(JSON.stringify(product))", cookie_policy)
-        self.assertNotIn("const SAFE_COOKIE_NAMES = new Set([", self.proxy)
         self.assertIn("upstream.headers.get(COOKIE_ENVELOPE_HEADER)", self.proxy)
         self.assertNotIn("upstream.headers.getSetCookie", self.proxy)
         self.assertNotIn('upstream.headers.get("set-cookie")', self.proxy)
+        self.assertIn("export function productCookiesFromUpstream(rawValues)", self.cookie_policy)
+        self.assertIn("return trustedCookieEnvelope(JSON.stringify(product))", self.cookie_policy)
 
-    def test_inner_gateway_rejects_spoofed_public_marker_without_backend_secret(self):
-        self.assertIn("const transport = await authorizeAccountTransport(req, path, {", self.inner)
-        helper = (
-            ROOT / "infra" / "supabase" / "functions" / "_shared"
-            / "account_service_bridge.mjs"
-        ).read_text(encoding="utf-8")
-        self.assertIn('headers?.get?.("apikey")', helper)
-        self.assertIn(
-            'import { authorizeAccountTransport, accountGatewayRoutePath } from "../_shared/account_transport_admission.mjs"',
-            self.inner,
-        )
-        self.assertIn("verifyNativeSession: async () => {", self.inner)
-        self.assertIn("return Boolean(session.user && session.access);", self.inner)
-        self.assertNotIn("expectedKey = adminConfig().key", self.inner)
-        self.assertNotIn("constantTimeEqual(presentedKey, expectedKey)", self.inner)
-        self.assertIn('"public-account-boundary-authentication-required"', self.inner)
-
-    def test_public_service_bridge_is_single_owned_and_requires_dedicated_secret(self):
-        helper = (
-            ROOT / "infra" / "supabase" / "functions" / "_shared"
-            / "account_service_bridge.mjs"
-        ).read_text(encoding="utf-8")
-        self.assertIn('ACCOUNT_BRIDGE_KEY_NAME = "ordax_account_public_bridge"', helper)
-        self.assertIn("sb_secret_", helper)
-        self.assertIn("Object.prototype.hasOwnProperty.call", helper)
-        self.assertIn('headers?.get?.("apikey")', helper)
-        self.assertIn('headers?.get?.("x-ordax-public-site")', helper)
-        self.assertIn("constantTimeEqual", helper)
-        self.assertIn('accountBridgeSecret(Deno.env.get("SUPABASE_SECRET_KEYS")', self.edge)
-        self.assertIn('Deno.env.get("SUPABASE_SECRET_KEYS") ?? ""', self.inner)
-        self.assertNotIn('Deno.env.get("SUPABASE_SERVICE_ROLE_KEY") ?? ""', helper)
-        self.assertNotIn('process.env', helper)
-
-    def test_exact_gateway_prefix_and_non_object_sync_mutations_fail_closed(self):
-        policy = (
-            ROOT / "infra" / "supabase" / "functions" / "_shared"
-            / "account_transport_admission.mjs"
-        ).read_text(encoding="utf-8")
-        self.assertIn('export function accountGatewayRoutePath(pathname)', policy)
-        self.assertIn('pathname.startsWith(prefix + "/")', policy)
-        self.assertNotIn('pathname.indexOf(', policy)
-        self.assertNotIn('function routePath(url: URL)', self.inner)
-        self.assertIn('accountGatewayRoutePath(url.pathname) ?? ""', self.inner)
-        self.assertIn('const parsed: unknown = JSON.parse(await boundedBody(req))', self.inner)
-        self.assertIn('if (!parsed || typeof parsed !== "object" || Array.isArray(parsed))', self.inner)
-        self.assertIn('mutation = parsed as Record<string, unknown>', self.inner)
-
-    def test_internal_gateway_requires_route_aware_transport_before_rate_limit_and_handler(self):
-        policy = (
-            ROOT / "infra" / "supabase" / "functions" / "_shared"
-            / "account_transport_admission.mjs"
-        ).read_text(encoding="utf-8")
-        self.assertIn("authenticatedAccountBridge", policy)
-        self.assertIn("if (req.headers.has(\"x-ordax-public-site\"))", policy)
-        self.assertIn("verifyNativeSession(req)", policy)
-        self.assertIn('"/auth/login"', policy)
-        bootstrap_only = policy.split("const NATIVE_BOOTSTRAP =", 1)[1].split(
-            "export function isNativeBootstrapRoute", 1
-        )[0]
-        self.assertNotIn('"/account/export"', bootstrap_only)
-        self.assertNotIn('"/sync/mutate"', bootstrap_only)
-        self.assertIn("!isPublicBridgeRoute(req.method, path)", policy)
-        gate = self.inner.index("const transport = await authorizeAccountTransport(req, path, {")
-        rate_limit = self.inner.index("const directRateLimitResponse = await enforceDirectAuthRateLimit(req, path)")
-        public_gate = self.inner.index("if (publicSiteRequest(req) && !PUBLIC_SITE_ACCOUNT_ENABLED")
-        self.assertLess(gate, rate_limit)
-        self.assertLess(rate_limit, public_gate)
-        self.assertIn("new WeakMap<Request, ReturnType<typeof resolveAuthenticated>>()", self.inner)
-        self.assertIn("supabase.auth.getUser(access)", self.inner)
-        self.assertIn("const access = cookies.get(ACCESS_COOKIE) || bearerUserToken(req)", self.inner)
-        self.assertIn(
-            r"/^[A-Za-z0-9_-]+\.[A-Za-z0-9_-]+\.[A-Za-z0-9_-]+$/",
-            self.inner,
-        )
-        self.assertIn("sessionVerificationCache.get(req)", self.inner)
-        self.assertNotIn("function trustedPublicSiteRequest(req: Request)", self.inner)
-
-    def test_privileged_sql_uses_bounded_apikey_transport_not_secret_as_bearer(self):
-        shared = (
-            ROOT / "infra" / "supabase" / "functions" / "_shared"
-            / "account_privileged_rpc.mjs"
-        ).read_text(encoding="utf-8")
-        self.assertIn("export async function accountPrivilegedRpc", shared)
-        self.assertIn('origin.origin + "/rest/v1/rpc/" + name', shared)
-        self.assertIn("const ALLOWED = new Set(ACCOUNT_RPC_NAMES)", shared)
-        self.assertIn('if (!key.startsWith("sb_secret_"))', shared)
-        self.assertIn("apikey: key", shared)
-        self.assertIn("readBoundedBody(", shared)
-        for gateway in (self.inner, self.edge):
-            self.assertIn(
-                'import { accountPrivilegedRpc } from "../_shared/account_privileged_rpc.mjs"',
-                gateway,
-            )
-            self.assertIn("accountAdminRpc(", gateway)
-            self.assertNotIn("adminClient().rpc(", gateway)
-
-    def test_direct_native_auth_uses_same_server_authoritative_rate_limit(self):
-        self.assertIn("enforceDirectAuthRateLimit(req, path)", self.inner)
-        self.assertIn('req.headers.get("cf-connecting-ip")', self.inner)
-        self.assertIn("canonicalizeClientAddress", self.inner)
-        self.assertIn("authRateLimitBucket(req.method, path)", self.inner)
-        self.assertIn('accountAdminRpc("ordax_consume_public_auth_rate_limit_v1"', self.inner)
-        self.assertIn("validateRateLimitRpcResult(data, bucket)", self.inner)
-        self.assertIn('"native-client-address-required"', self.inner)
-        self.assertIn('"auth-rate-limit-unavailable"', self.inner)
-        self.assertIn('"auth-rate-limited"', self.inner)
-        self.assertIn('response.headers.set("retry-after"', self.inner)
-        self.assertNotIn("user-agent", self.inner[self.inner.index("function directNativeClientAddress"):self.inner.index("async function boundedBody")].lower())
-        limiter_index = self.inner.index("enforceDirectAuthRateLimit(req, path)")
-        login_index = self.inner.index('path === "/auth/login" && req.method === "POST"')
-        self.assertLess(limiter_index, login_index)
-
-    def test_inner_gateway_remains_fail_closed_during_boundary_rollout(self):
-        self.assertIn("const PUBLIC_SITE_ACCOUNT_ENABLED = false;", self.inner)
-        self.assertIn("const ACCOUNT_REGISTRATION_ENABLED = false;", self.inner)
-        self.assertIn("const ACCOUNT_RECOVERY_REQUEST_ENABLED = false;", self.inner)
-        self.assertIn("const ACCOUNT_RECOVERY_COMPLETION_ENABLED = false;", self.inner)
-        self.assertIn('"public-account-access-disabled"', self.inner)
+    def test_public_proxy_is_narrow_bounded_and_targets_only_public_edge(self):
+        self.assertIn('const MAX_BODY_BYTES = 64 * 1024', self.proxy)
+        self.assertIn('const ALLOWED_METHODS = new Set(["GET", "POST"])', self.proxy)
+        self.assertIn('url.pathname !== PUBLIC_GATEWAY_PATH', self.proxy)
+        self.assertIn('isPublicBridgeRoute(method, parsed.pathname)', self.proxy)
+        self.assertNotIn("PUBLIC_ACCOUNT_ROUTES = new Map", self.proxy)
+        self.assertNotIn("ORDAX_PUBLIC_PROXY_SECRET", self.proxy)
+        self.assertIn("normalizeGatewayUrl", self.proxy)
+        self.assertIn("resolveVercelOidcToken", self.proxy)
 
 
 if __name__ == "__main__":

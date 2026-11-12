@@ -146,4 +146,14 @@ PRIVATE_KEY_ARTIFACT_UPLOAD=NO
 
 The production/canonical private key must come from a separate explicit custody decision.
 
+Expensive build/boot candidate workflows retain the canonical release signer as a causal
+source but exclude the physical writer signer (`cmd/ordax-physical-release-signing/`),
+Windows ceremony scripts, public trust promoter and this README. In particular,
+`.github/workflows/local-ai-runtime-candidate.yml` proves signed-v4 materialization
+using the canonical Go signer, not the physical writer signer. A physical-signing-only
+change must run its own `release-signing`, `release-pipeline` and Creator safety
+checks without needlessly compiling the local AI EROFS twice. The exclusions follow
+the existing `tests/test_release_signing_heavy_workflow_scope.py` policy; changes to
+the canonical signer itself still trigger the heavyweight proofs.
+
 See `docs/RELEASE-SIGNING.md` and `docs/RELEASE-TRUST-CEREMONY.md`.

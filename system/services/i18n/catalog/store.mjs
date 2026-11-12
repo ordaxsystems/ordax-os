@@ -1,4 +1,13 @@
 export const STORE_SOURCE_MESSAGES = Object.freeze({
+  "store.presentation.planned": "Loja · recursos planejados",
+  "store.presentation.official": "Loja · catálogo real",
+  "store.presentation.planned.note": "Dados demonstrativos e ações simuladas. Os exemplos permanecem disponíveis para evolução.",
+  "store.presentation.official.note": "Disponibilidade e operações recebidas dos serviços do sistema.",
+  "store.presentation.switch.planned": "Consultar catálogo real",
+  "store.presentation.switch.official": "Ver recursos planejados",
+  "store.presentation.loading": "Carregando recursos planejados…",
+  "store.presentation.failed": "Não foi possível carregar a prévia. Alterne para o catálogo real ou tente novamente.",
+
   "store.request.reason": "Motivo informado pela plataforma: {reason}",
   "store.details.openFor": "Ver detalhes de {title}",
   "store.details.notApplicable": "Não se aplica: sem versão candidata",
@@ -118,6 +127,15 @@ export const STORE_SOURCE_MESSAGES = Object.freeze({
 });
 
 export const STORE_ENGLISH_MESSAGES = Object.freeze({
+  "store.presentation.planned": "Store · planned features",
+  "store.presentation.official": "Store · real catalog",
+  "store.presentation.planned.note": "Example data and simulated actions. The examples remain available for future development.",
+  "store.presentation.official.note": "Availability and operations provided by system services.",
+  "store.presentation.switch.planned": "View real catalog",
+  "store.presentation.switch.official": "View planned features",
+  "store.presentation.loading": "Loading planned features…",
+  "store.presentation.failed": "The preview could not be loaded. Switch to the real catalog or try again.",
+
   "store.request.reason": "Platform reason: {reason}",
   "store.details.openFor": "View details for {title}",
   "store.details.notApplicable": "Not applicable: no candidate version",

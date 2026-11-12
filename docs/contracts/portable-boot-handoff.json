@@ -143,6 +143,7 @@
       "read-slot",
       "resolve",
       "select",
+      "inspect",
       "prepare",
       "select-boot",
       "commit",
@@ -233,6 +234,9 @@
     "candidate_is_not_boot_authority_until_promoted": false,
     "rollback_must_not_require_network": true,
     "selection_helper_implemented": true,
+    "state_inspection_read_only": true,
+    "state_inspection_signature_authority": false,
+    "state_inspection_schema": "ordax.portable-state-inspection/1",
     "selection_helper_read_only": false,
     "selection_helper_order": [
       "candidate-one-shot",

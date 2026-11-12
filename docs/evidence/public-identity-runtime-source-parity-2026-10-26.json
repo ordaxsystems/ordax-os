@@ -1,0 +1,45 @@
+{
+  "$schema": "prototype-ordax.public-identity-runtime-source-parity/1",
+  "observed_date": "2026-10-26",
+  "scope": "live-active-edge-function-source-parity-and-anonymous-transport-only",
+  "project_ref": "jhfphsjptrpmtnzkpwud",
+  "project_status": "ACTIVE_HEALTHY",
+  "source_repository": "ordaxsystems/ordax-os",
+  "source_revision": "4b4c715cc8b0e7a792da2170e801aefffc1687db",
+  "method": "Supabase list_edge_functions and get_edge_function versus GitHub fetch_file of each deployed source file; read-only HTTPS GET of canonical origins without cookie or login",
+  "public_gateway": {
+    "name": "ordax-public-account-gateway",
+    "version": 9,
+    "status": "ACTIVE",
+    "verify_jwt": false,
+    "bundle_sha256": "143673878567705d700f5b596e88323ab63f6028370b3b26e3254b21581825b4",
+    "file_count": 10,
+    "all_deployed_source_files_match_main": true
+  },
+  "internal_gateway": {
+    "name": "ordax-account-gateway",
+    "version": 16,
+    "status": "ACTIVE",
+    "verify_jwt": false,
+    "bundle_sha256": "a7b7572309b4ebdec9806dbd2a7743c1dd5d9393529a03134576adee27b56a6a",
+    "file_count": 8,
+    "all_deployed_source_files_match_main": true
+  },
+  "anonymous_transport": {
+    "site_session_http": 200,
+    "site_registration_policy_http": 200,
+    "web_session_http": 200,
+    "public_registration_enabled": false,
+    "public_account_activation_enabled": false
+  },
+  "historical_e2e_proof": "docs/evidence/web-account-runtime-2026-10-16.json",
+  "proof_scope_exclusions": [
+    "no authenticating user",
+    "no state-changing requests",
+    "no new-user registration",
+    "no real session revocation/recovery/export or sync proof",
+    "no HTTP-authenticated OIDC e2e attribution to upgraded function versions",
+    "no production public-Account approval"
+  ],
+  "public_auth_gates_changed": false
+}

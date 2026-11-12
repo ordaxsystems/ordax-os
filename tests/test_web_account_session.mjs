@@ -7,7 +7,7 @@ const signedIn = subject => ({
   provider: 'configured', authenticated: true, status: 'authenticated',
   subject, email: subject + '@example.invalid',
 });
-const signedOut = { $schema: 'prototype-ordax.public-identity-session/1', provider: 'configured', authenticated: false, status: 'signed-out' };
+const signedOut = { $schema: 'prototype-ordax.public-identity-session/1', provider: 'configured', authenticated: false, status: 'anonymous' };
 const catalog = subject => ({
   $schema: 'prototype-ordax.account-spaces/1',
   spaces: [{ id: 'space-' + subject, name: 'Space ' + subject, kind: 'personal', state: 'active', ownerId: subject }],
@@ -17,18 +17,20 @@ function fixture(sessionValue = signedOut, { online = true } = {}) {
   const windowRef = new EventTarget();
   const document = Object.assign(new EventTarget(), { visibilityState: 'visible' });
   const requests = [];
-  const server = { session: sessionValue, readSpaces: () => response(catalog(server.session.subject)) };
+  const server = { session: sessionValue, readSpaces: () => response(catalog(server.session.subject)), readPolicy: () => ({ok: false, status: 503}) };
+  const navigations = [];
   Object.assign(windowRef, {
-    navigator: { onLine: online }, document,
+    navigator: { onLine: online }, document, location: {assign: path => navigations.push(path)},
     fetch: async (path, options) => {
       requests.push({ path, options });
       if (path === '/auth/session') return response(server.session);
       if (path === '/account/spaces') return server.readSpaces(options);
+      if (path === '/auth/registration-policy') return server.readPolicy(options);
       if (path === '/auth/logout') { server.session = signedOut; return response({}); }
       throw Error('Unexpected endpoint');
     },
   });
-  return { windowRef, requests, server, session: createWebAccountSession(windowRef) };
+  return { windowRef, requests, server, navigations, session: createWebAccountSession(windowRef) };
 }
 function deferred() {
   let resolve;
@@ -42,7 +44,7 @@ test('anonymous refresh reads no Spaces and shares one in-flight session request
     const first = f.session.refresh();
     assert.equal(f.session.refresh(), first);
     await first;
-    assert.equal(f.requests.length, 1);
+    assert.deepEqual(f.requests.map(request => request.path), ['/auth/session', '/auth/registration-policy']);
     assert.equal(f.session.identity.getSnapshot().state, 'signed-out');
     assert.deepEqual(f.session.actions.getSnapshot().supportedActions, ['sign-in']);
     assert.equal(f.session.spaces.getSnapshot().state, 'idle');
@@ -64,6 +66,122 @@ test('authenticated session and logout use existing same-origin ports', async ()
     assert.equal(f.session.identity.getSnapshot().state, 'signed-out');
     assert.deepEqual(f.session.spaces.getSnapshot().spaces, []);
   } finally { f.session.dispose(); }
+});
+
+test('Web Space members, actor capability and membership actions reuse one authorized context', async () => {
+  const f = fixture(signedIn('account-a'));
+  const spaceId = 'space-account-a';
+  const actionKey = '123e4567-e89b-42d3-a456-426614174000';
+  const originalFetch = f.windowRef.fetch;
+  const requests = [];
+  f.windowRef.fetch = (path, options) => {
+    if (path.startsWith('/account/space-members?')) {
+      requests.push({ path, options });
+      return response({
+        schema: 'ordax.space-members-page/3', spaceId, members: [], nextCursor: null,
+      });
+    }
+    if (path.startsWith('/account/space-actor-capability?')) {
+      requests.push({ path, options });
+      return response({
+        schema: 'ordax.space-actor-capability/1', spaceId,
+        userId: 'account-a', role: 'owner', state: 'active', canManageMembers: true,
+      });
+    }
+    if (path === '/account/space-membership-actions') {
+      requests.push({ path, options });
+      return response({
+        schema: 'ordax.space-membership-action-result/1', spaceId,
+        targetUserId: 'member-1', role: 'member',
+        state: 'active', removed: true, changed: true,
+      });
+    }
+    return originalFetch(path, options);
+  };
+  try {
+    await assert.rejects(f.session.members.list({ spaceId }), /context is unavailable/);
+    await assert.rejects(f.session.actorCapability.read({ spaceId }), /context is unavailable/);
+    await assert.rejects(f.session.membershipActions.removeMember(spaceId, 'member-1', actionKey), /context is unavailable/);
+    assert.equal(requests.length, 0, 'Anonymous/unverified context cannot initiate a read or mutation');
+    await f.session.refresh();
+    assert.equal((await f.session.members.list({ spaceId })).spaceId, spaceId);
+    assert.equal((await f.session.actorCapability.read({ spaceId })).canManageMembers, true);
+    assert.equal((await f.session.membershipActions.removeMember(spaceId, 'member-1', actionKey)).removed, true);
+    assert.deepEqual(requests.map(r => r.options.method), ['GET', 'GET', 'POST']);
+    assert.equal(requests[2].options.credentials, 'same-origin');
+  } finally {
+    f.session.dispose();
+  }
+});
+
+test('Web Space responses started for another account cannot reach the current account', async () => {
+  const f = fixture(signedIn('account-a'));
+  const spaceId = 'space-account-a';
+  const actionKey = '123e4567-e89b-42d3-a456-426614174000';
+  const oldMembers = deferred(), oldCapability = deferred(), oldMutation = deferred();
+  const originalFetch = f.windowRef.fetch;
+  const operations = [];
+  f.windowRef.fetch = (path, options) => {
+    if (path.startsWith('/account/space-members?')) {
+      operations.push('members'); return oldMembers.promise;
+    }
+    if (path.startsWith('/account/space-actor-capability?')) {
+      operations.push('capability'); return oldCapability.promise;
+    }
+    if (path === '/account/space-membership-actions') {
+      operations.push('mutation'); return oldMutation.promise;
+    }
+    return originalFetch(path, options);
+  };
+  try {
+    await f.session.refresh();
+    const memberRead = f.session.members.list({ spaceId });
+    const capabilityRead = f.session.actorCapability.read({ spaceId });
+    const mutation = f.session.membershipActions.removeMember(spaceId, 'member-1', actionKey);
+    assert.deepEqual(operations, ['members', 'capability', 'mutation']);
+    f.server.session = signedIn('account-b');
+    await f.session.refresh();
+    assert.equal(f.session.identity.getSnapshot().subjectId, 'account-b');
+    oldMembers.resolve(response({
+      schema: 'ordax.space-members-page/3', spaceId, members: [], nextCursor: null,
+    }));
+    oldCapability.resolve(response({
+      schema: 'ordax.space-actor-capability/1', spaceId, userId: 'account-a',
+      role: 'owner', state: 'active', canManageMembers: true,
+    }));
+    oldMutation.resolve(response({
+      schema: 'ordax.space-membership-action-result/1', spaceId,
+      targetUserId: 'member-1', role: 'member',
+      state: 'active', removed: true, changed: true,
+    }));
+    await assert.rejects(memberRead, /context changed/);
+    await assert.rejects(capabilityRead, /context changed/);
+    await assert.rejects(mutation, /context changed/);
+    assert.deepEqual(operations, ['members', 'capability', 'mutation'],
+      'Mutating commands must not be repeated or sent under the new session');
+  } finally {
+    f.session.dispose();
+  }
+});
+
+test('Web Space catalog refresh invalidates in-flight member results even for the same account', async () => {
+  const f = fixture(signedIn('account-a'));
+  const oldPage = deferred();
+  const originalFetch = f.windowRef.fetch;
+  f.windowRef.fetch = (path, options) => path.startsWith('/account/space-members?')
+    ? oldPage.promise : originalFetch(path, options);
+  try {
+    await f.session.refresh();
+    const late = f.session.members.list({ spaceId: 'space-account-a' });
+    await f.session.spaces.refresh();
+    oldPage.resolve(response({
+      schema: 'ordax.space-members-page/3', spaceId: 'space-account-a',
+      members: [], nextCursor: null,
+    }));
+    await assert.rejects(late, /context changed/);
+  } finally {
+    f.session.dispose();
+  }
 });
 
 test('account replacement invalidates a previous catalog before its late response', async () => {
@@ -347,4 +465,109 @@ test('late cancelled identity body cannot replace the subject verified after rec
     assert.equal(f.session.identity.getSnapshot().subjectId, 'account-a');
     assert.equal(f.session.spaces.getSnapshot().spaces[0].ownerId, 'account-a');
   } finally { f.session.dispose(); }
+});
+
+
+const registrationPolicy = enabled => ({
+  $schema: 'prototype-ordax.registration-legal-policy/1', active: true, registrationEnabled: enabled,
+  policyId: '11111111-1111-4111-8111-111111111111',
+  privacy: {version: '2026-10-02', effectiveDate: '2026-10-02', sha256: 'a'.repeat(64), url: 'https://ordax.example/privacidade/'},
+  terms: {version: '2026-10-02', effectiveDate: '2026-10-02', sha256: 'b'.repeat(64), url: 'https://ordax.example/termos/'},
+});
+
+test('anonymous Web registration follows validated server policy and revalidates before navigation', async () => {
+  const f = fixture();
+  let enabled = true;
+  f.server.readPolicy = options => {
+    assert.equal(options.credentials, 'same-origin');
+    assert.equal(options.redirect, 'error');
+    return response(registrationPolicy(enabled));
+  };
+  try {
+    await f.session.refresh();
+    assert.deepEqual(f.session.actions.getSnapshot().supportedActions, ['sign-in', 'register']);
+    await f.session.actions.execute('register');
+    assert.deepEqual(f.navigations, ['/cadastro/']);
+    enabled = false;
+    await assert.rejects(f.session.actions.execute('register'));
+    assert.deepEqual(f.navigations, ['/cadastro/'], 'Revoked policy must not navigate again');
+    assert.deepEqual(f.session.actions.getSnapshot().supportedActions, ['sign-in']);
+  } finally { f.session.dispose(); }
+});
+
+test('invalid or failed registration policy never enables signup and does not block sign-in', async () => {
+  const f = fixture();
+  try {
+    f.server.readPolicy = () => response({registrationEnabled: true});
+    await f.session.refresh();
+    assert.deepEqual(f.session.actions.getSnapshot().supportedActions, ['sign-in']);
+    f.server.readPolicy = () => { throw Error('gateway unavailable'); };
+    await f.session.refresh();
+    await assert.rejects(f.session.actions.execute('register'));
+    assert.equal(f.requests.some(request => request.path === '/account/spaces'), false);
+    await f.session.actions.execute('sign-in');
+    assert.deepEqual(f.navigations, ['/login/']);
+  } finally { f.session.dispose(); }
+});
+
+test('signed-in and unavailable identities do not query public signup policy', async () => {
+  for (const value of [signedIn('account-a'), {$schema: 'prototype-ordax.public-identity-session/1', provider: 'unconfigured'}]) {
+    const f = fixture(value);
+    try {
+      await f.session.refresh();
+      assert.equal(f.requests.some(request => request.path === '/auth/registration-policy'), false);
+      assert.equal(f.session.actions.getSnapshot().supportedActions.includes('register'), false);
+    } finally { f.session.dispose(); }
+  }
+});
+
+test('offline aborts a stalled signup policy and ignores its late permission', async () => {
+  const f = fixture();
+  const late = deferred(), started = deferred();
+  let signal;
+  f.server.readPolicy = options => { signal = options.signal; started.resolve(); return late.promise; };
+  try {
+    const pending = f.session.refresh();
+    await started.promise;
+    f.windowRef.navigator.onLine = false;
+    f.windowRef.dispatchEvent(new Event('offline'));
+    await pending;
+    assert.equal(signal.aborted, true);
+    late.resolve(response(registrationPolicy(true)));
+    await Promise.resolve();
+    assert.equal(f.session.actions.getSnapshot().supportedActions.includes('register'), false);
+  } finally { f.session.dispose(); }
+});
+
+test('account replacement cancels old anonymous signup permission', async () => {
+  const f = fixture();
+  const late = deferred(), started = deferred();
+  let signal;
+  f.server.readPolicy = options => { signal = options.signal; started.resolve(); return late.promise; };
+  try {
+    const pending = f.session.refresh();
+    await started.promise;
+    f.server.session = signedIn('account-b');
+    await f.session.identity.refresh();
+    await pending;
+    assert.equal(signal.aborted, true);
+    late.resolve(response(registrationPolicy(true)));
+    await Promise.resolve();
+    assert.deepEqual(f.session.actions.getSnapshot().supportedActions, ['sign-out']);
+  } finally { f.session.dispose(); }
+});
+
+test('disposing Web session aborts a pending registration policy', async () => {
+  const f = fixture();
+  const late = deferred(), started = deferred();
+  let signal;
+  f.server.readPolicy = options => { signal = options.signal; started.resolve(); return late.promise; };
+  const pending = f.session.refresh();
+  await started.promise;
+  f.session.dispose();
+  await pending;
+  assert.equal(signal.aborted, true);
+  late.resolve(response(registrationPolicy(true)));
+  await Promise.resolve();
+  assert.equal(f.session.actions.getSnapshot().supportedActions.includes('register'), false);
 });

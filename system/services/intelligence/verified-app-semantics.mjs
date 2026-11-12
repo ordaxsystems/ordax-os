@@ -18,6 +18,7 @@ import { assertVerifiedComponentPackageSource } from "../../contracts/verified-c
 import {
   EXTERNAL_FIRST_PARTY_COMPONENT_IDS,
   EXTERNAL_FIRST_PARTY_OWNER,
+  isNativeExternalFirstPartyCurrentSlotBlockedByBundledOwner,
 } from "../apps/external-first-party-policy.mjs";
 
 const MAX_APP_MANIFESTS = 32;
@@ -208,7 +209,9 @@ export async function loadVerifiedFirstPartyApplicationSemantics({
   source,
   fetchImpl,
 } = {}) {
-  const ids = validateAppIds(appIds);
+  const ids = validateAppIds(appIds).filter(
+    (appId) => !isNativeExternalFirstPartyCurrentSlotBlockedByBundledOwner(appId),
+  );
   const packageSource = assertVerifiedComponentPackageSource(source);
   if (typeof fetchImpl !== "function") {
     throw new TypeError("Verified app semantics requires fetchImpl()");
@@ -322,8 +325,9 @@ function validateVerifiedOverlayEntry(entry) {
     throw new TypeError("Verified app semantics overlay application is invalid");
   }
   const id = validateComponentId(app.id);
-  if (!EXTERNAL_FIRST_PARTY_COMPONENT_IDS.includes(id)) {
-    throw new TypeError(`Verified app semantics overlay app is not an allowed external first-party app: ${id}`);
+  if (!EXTERNAL_FIRST_PARTY_COMPONENT_IDS.includes(id)
+    || isNativeExternalFirstPartyCurrentSlotBlockedByBundledOwner(id)) {
+    throw new TypeError(`Verified app semantics overlay app is not an available external first-party app: ${id}`);
   }
   const component = defineComponentManifest(app.component);
   if (
@@ -353,9 +357,26 @@ function validateVerifiedOverlayEntry(entry) {
       `Verified app provider manifest cannot exist without Application Actions: ${id}`,
     );
   }
-  const providerManifest = entry.providerManifest == null
+  // The package loader already normalizes provider "sha256" to
+  // "artifactSha256". The overlay accepts either shape but must round-trip
+  // through the SAME strict raw-manifest validator. Preserve every other key
+  // so malformed or extra fields remain rejected (no trust downgrade).
+  const rawProviderManifest = entry.providerManifest == null ? null : {
+    ...entry.providerManifest,
+    providers: Array.isArray(entry.providerManifest.providers)
+      ? entry.providerManifest.providers.map(provider => {
+          if (!provider || typeof provider !== "object" || Array.isArray(provider) ||
+              !Object.hasOwn(provider, "artifactSha256") ||
+              Object.hasOwn(provider, "sha256")) return provider;
+          const raw = { ...provider, sha256: provider.artifactSha256 };
+          delete raw.artifactSha256;
+          return raw;
+        })
+      : entry.providerManifest.providers,
+  };
+  const providerManifest = rawProviderManifest === null
     ? null
-    : validateApplicationActionProviderManifest(entry.providerManifest, {
+    : validateApplicationActionProviderManifest(rawProviderManifest, {
         appId: component.id,
         appVersion: component.version,
         actionManifest,

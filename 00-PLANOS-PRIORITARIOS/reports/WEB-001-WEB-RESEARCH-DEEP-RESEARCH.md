@@ -1,17 +1,18 @@
 # WEB-001 — Deep Research: Web Research no OrdaX OS
 
 - **Tipo:** RESEARCH / ARCHITECTURAL ANALYSIS
-- **Status:** ACTIVE REFERENCE
+- **Status documental:** REFERENCE
+- **Execução:** NOT APPLICABLE — recomendações preservadas para eventual plano pós-MVP
 - **Data da pesquisa:** 2026-10-14
-- **Prioridade resultante:** P1 pós-fundação
+- **Prioridade resultante:** P1 para reavaliação pós-MVP
 - **Plano relacionado:** `../plans/WEB-001-WEB-RESEARCH.md`
 - **Natureza:** resumo durável e triado do relatório de Deep Research fornecido ao projeto
 
-> Este documento registra conclusões e números relevantes do relatório de pesquisa. Preços, rate limits e termos de terceiros são snapshots de 14/10/2026 e precisam ser revalidados antes de contratação/rollout. Este relatório não é owner canônico de arquitetura nem prova de implementação.
+> Este documento registra conclusões e números relevantes do relatório de pesquisa. Preços, rate limits e termos de terceiros são snapshots de 14/10/2026 e precisam ser revalidados antes de contratação/rollout. Este relatório não é owner canônico de arquitetura, não prova implementação e não autoriza iniciar trabalho durante a janela atual de fechamento do MVP.
 
 ## Conclusão
 
-Vale implementar Web Research como capability sistêmica do OrdaX, porém **fora do kernel, boot, initramfs e Base mínima**.
+A pesquisa conclui que Web Research faz sentido como capability sistêmica do OrdaX, porém **fora do kernel, boot, initramfs e Base mínima** e somente quando sua janela de execução for liberada após o MVP.
 
 O OrdaX deve possuir a semântica, política, provenance, grants, orçamento e orquestração. Tavily, Brave, Exa, Firecrawl e outros entram como **adapters substituíveis**.
 
@@ -44,7 +45,7 @@ MCP deve ser borda de interoperabilidade externa, não o contrato interno do dom
 | Research | Orquestrador OrdaX |
 | IA externa | OrdaX MCP -> `ordax.web.*` |
 
-A recomendação não é “integrar Tavily ao Aura”. É criar **OrdaX Web** e colocar Tavily atrás de um adapter.
+A recomendação não é “integrar Tavily ao Aura”. É criar **OrdaX Web** e colocar Tavily atrás de um adapter quando essa frente se tornar elegível para execução.
 
 ## Por que isso ajuda a IA local
 
@@ -157,7 +158,7 @@ Offline-first significa usar cache/corpus com freshness explícita, não fingir 
 
 ## Research Orchestrator
 
-`ordax.web.research/1` deve controlar:
+`ordax.web.research/1` deve controlar, quando implementado:
 
 ```text
 pergunta
@@ -176,15 +177,17 @@ pergunta
 
 Provider-native research pode ser usado como otimização, nunca como definição canônica do contrato.
 
-## Recomendação final
+## Recomendação preservada para reavaliação pós-MVP
 
-1. criar OrdaX Web como capability sistêmica;
-2. manter provider-neutral desde o primeiro contrato;
-3. Tavily como provider inicial, Brave como segundo índice/fallback;
-4. provenance, grants e budget desde o MVP;
+Quando `WEB-001` se tornar `EXECUTION-ELIGIBLE`, revalidar custos, contratos, providers e owners antes de usar esta sequência como base:
+
+1. OrdaX Web como capability sistêmica;
+2. provider-neutral desde o primeiro contrato;
+3. Tavily como possível provider inicial e Brave como segundo índice/fallback;
+4. provenance, grants e budget desde a primeira versão;
 5. local HTTP extract cedo para reduzir dependência/custo;
 6. browser apenas como fallback;
 7. OrdaX controlar `research`;
-8. não colocar nada disso no caminho crítico de boot;
-9. evoluir para offline/index próprio conforme uso/custo justificar;
-10. implementar antes de investir pesadamente em agentes autônomos complexos.
+8. nada no caminho crítico de boot;
+9. evolução para offline/index próprio somente se uso/custo justificar;
+10. não investir pesadamente em agentes autônomos complexos antes de medir essa fundação.

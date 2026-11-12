@@ -2,7 +2,7 @@ import assert from "node:assert/strict";
 import test from "node:test";
 import { readFile } from "node:fs/promises";
 
-import { storeApp } from "../system/apps/store/app.mjs";
+import { storeApp } from "../system/services/system-ui/store/app.mjs";
 import { createStoreRequestSessionId, filterStoreEntries, sortStoreEntries } from "../system/surface/ui/store-overview-controls.mjs";
 import {
   APP_STORE_CATALOG_SCHEMA,
@@ -41,7 +41,7 @@ test("Store is a bundled structural presentation surface", () => {
   assert.equal(storeApp.id, "store");
   assert.equal(storeApp.component.id, "store");
   assert.equal(storeApp.component.releaseMode, "bundled");
-  assert.equal(storeApp.component.owner, "system/apps/store");
+  assert.equal(storeApp.component.owner, "system/services/system-ui/store");
   assert.equal(storeApp.panels[0].extensionId, "store-overview");
   assert.deepEqual(storeApp.requiredCapabilities, []);
 });
@@ -345,14 +345,24 @@ test("Store lifecycle controls confirm removal and survive synchronous as well a
   // The delegate may only run while its request still belongs to the
   // exact signed catalog generation and the currently pending request.
   assert.match(source, /const isCurrentRequest = \(\) => !destroyed/);
-  assert.match(source, /catalogGeneration === requestGeneration/);
+  assert.match(source, /pendingRequest\?\.candidateSignature === candidateSignature/);
+  assert.match(source, /sameLifecycleCandidate\(snapshot, appId, operation, candidateSignature\)/);
   assert.match(source, /pendingRequest\?\.requestId === request\.requestId/);
   assert.match(source, /Promise\.resolve\(\)\s*\.then\(\(\) => \{\s*if \(!isCurrentRequest\(\)\) return null;\s*return lifecycleRequests\.requestLifecycle\(request\);/);
-  assert.match(source, /\.catch\(\(\) => \{\s*if \(!isCurrentRequest\(\)\) return;\s*pendingRequest = null;/);
-  assert.match(source, /restoreSearchFocus/);
+  assert.match(source, /\.catch\(\(\) => \{\s*if \(!isCurrentRequest\(\)\) return;/);
+  assert.match(source, /No authoritative outcome arrived; keep the pre-delegation receipt/);
+  assert.match(source, /pendingRequest = null;\s*requestMessageId = "store\.request\."/);
+  assert.match(source, /captureStoreControlFocus\(slot, slot\.ownerDocument\)/);
+  assert.match(source, /restoreStoreControlFocus\(slot, previousControlFocus\)/);
+  assert.match(source, /fallback\?\.focus\?\.\(\{ preventScroll: true \}\)/);
   assert.match(source, /root\.addEventListener\("keydown", onKeyDown\)/);
   assert.match(source, /root\.removeEventListener\("keydown", onKeyDown\)/);
-  assert.match(source, /candidate\.dataset\.storeDetails === previousAppId/);
+  // Current Surface navigates details through the selected app identity
+  // and revalidates it against the live Store snapshot before opening.
+  // The retired previousAppId focus branch is not an authorization gate.
+  assert.match(source, /const appId = detailButton\.dataset\.storeDetails/);
+  assert.match(source, /snapshot\.entries\.some\(\(entry\) => entry\.appId === appId\)/);
+  assert.match(source, /selectedAppId = appId/);
   assert.doesNotMatch(source, /Promise\.resolve\(lifecycleRequests\.requestLifecycle/);
 });
 
@@ -411,15 +421,24 @@ test("Store never reactivates a stale lifecycle request after catalog replacemen
     "utf8",
   );
   assert.match(source, /let catalogFingerprint = JSON\.stringify\(snapshot\)/);
-  assert.match(source, /let catalogGeneration = 0;/);
+  // The canonical Surface now fences the exact signed lifecycle candidate,
+  // preserving requests when an unrelated catalog entry changes.
+  assert.match(source, /const candidateSignature = lifecycleCandidateSignature\(entry, operation\)/);
+  assert.match(source, /let pendingRequest = null;/);
   assert.match(source, /fingerprint !== catalogFingerprint/);
-  assert.match(source, /catalogGeneration \+= 1;\s*pendingRequest = null;/);
+  assert.match(source, /pendingRequest !== null && !sameLifecycleCandidate\(verified/);
+  assert.match(source, /pendingRequest = null;\s*requestMessageId = null;\s*requestReason = null;/);
   assert.match(source, /const isCurrentRequest = \(\) => !destroyed/);
-  assert.match(source, /catalogGeneration === requestGeneration/);
+  assert.match(source, /pendingRequest\?\.candidateSignature === candidateSignature/);
+  assert.match(source, /sameLifecycleCandidate\(snapshot, appId, operation, candidateSignature\)/);
   assert.match(source, /pendingRequest\?\.requestId === request\.requestId/);
   assert.match(source, /if \(!isCurrentRequest\(\)\) return null;/);
   assert.match(source, /if \(!isCurrentRequest\(\)\) return;/);
-  assert.doesNotMatch(source, /localStorage|sessionStorage|new Map\(\)/);
+  // An in-memory retry receipt is not another catalog or persisted grant.
+  assert.match(source, /const uncertainRequestIds = new Map\(\)/);
+  assert.match(source, /uncertainRequestIds\.set\(retryScope/);
+  assert.match(source, /uncertainRequestIds\.delete\(scope\)/);
+  assert.doesNotMatch(source, /localStorage|sessionStorage/);
 });
 
 test("Store Essentials is a view over existing verified entries, not a second catalog or installed claim", async () => {

@@ -44,6 +44,37 @@ class AuthProviderProbeTests(unittest.TestCase):
         self.assertTrue(proof["checks"]["resend_smtp_settings"])
         self.assertTrue(proof["checks"]["branded_confirmation_template"])
 
+    def test_actual_provider_probe_passes_final_release_proof_validator(self):
+        # Exercise the real producer and consumer with the SAME sanitized
+        # proof to prevent another five-vs-seven-check schema divergence.
+        import importlib.util
+
+        path = ROOT / "tools" / "public-site" / "require_account_release_ready.py"
+        spec = importlib.util.spec_from_file_location("release_gate_probe_consumer", path)
+        gate = importlib.util.module_from_spec(spec)
+        spec.loader.exec_module(gate)
+        origin, commit = "https://ordax.com.br", "a" * 40
+        ref, _ = gate.resolve_target(ROOT, origin)
+        proof = MODULE.evaluate(
+            self.base_config(), origin, project_ref=ref, commit=commit
+        )
+        self.assertEqual(set(proof["checks"]), set(MODULE.PROVIDER_CHECK_NAMES))
+        self.assertEqual(set(proof["checks"]), set(gate.REQUIRED_CHECKS))
+        self.assertTrue(proof["ready"])
+        self.assertEqual(gate.validate_provider_proof(proof, origin, commit, ROOT), [])
+
+        # The release must NEVER accept a proof whose hosted SMTP/brand
+        # checks fail, even if password/redirect/confirmation checks pass.
+        for name in ("resend_smtp_settings", "branded_confirmation_template"):
+            unsafe = dict(proof)
+            unsafe["checks"] = dict(proof["checks"])
+            unsafe["checks"][name] = False
+            unsafe["ready"] = False
+            self.assertIn(
+                "provider-proof-" + name,
+                gate.validate_provider_proof(unsafe, origin, commit, ROOT),
+            )
+
     def test_project_and_commit_binding_is_deterministic_and_validated(self):
         ref, commit = "a" * 20, "b" * 40
         proof = MODULE.evaluate(
@@ -116,11 +147,43 @@ class AuthProviderProbeTests(unittest.TestCase):
                 self.assertFalse(proof["checks"]["branded_confirmation_template"])
                 self.assertFalse(proof["ready"])
 
+    def test_canonical_redirect_policy_matches_public_email_runtime(self):
+        import json
+
+        policy = json.loads(MODULE.PROVIDER_POLICY_PATH.read_text(encoding="utf-8"))
+        paths = policy["redirect_policy"]["required_paths"]
+        shared = (ROOT / "infra/supabase/functions/_shared/account_email_confirmation.mjs").read_text(
+            encoding="utf-8"
+        )
+        self.assertEqual(paths, ["/auth/recover/verify", "/login/"])
+        self.assertIn('PUBLIC_SIGNUP_REDIRECT = PUBLIC_ACCOUNT_ORIGIN + "/login/"', shared)
+        self.assertIn('PUBLIC_CONFIRMATION_PATH = "/auth/confirm"', shared)
+        self.assertEqual(
+            policy["redirect_policy"]["signup_confirm_url"],
+            "https://ordax.com.br/auth/confirm",
+        )
+        self.assertNotIn("/auth/confirm", paths)
+
     def test_missing_signup_redirect_blocks(self):
         config = self.base_config()
         config["uri_allow_list"] = "https://ordax.com.br/auth/recover/verify"
         proof = MODULE.evaluate(config, "https://ordax.com.br")
         self.assertFalse(proof["checks"]["redirect_allowlist"])
+
+    def test_redirect_policy_drift_fails_closed(self):
+        import json
+        import tempfile
+        from unittest.mock import patch
+
+        config = self.base_config()
+        policy = json.loads(MODULE.PROVIDER_POLICY_PATH.read_text(encoding="utf-8"))
+        policy["redirect_policy"]["required_paths"] = ["/auth/confirm"]
+        with tempfile.TemporaryDirectory() as tmp:
+            file = Path(tmp) / "provider-policy.json"
+            file.write_text(json.dumps(policy), encoding="utf-8")
+            with patch.object(MODULE, "PROVIDER_POLICY_PATH", file):
+                with self.assertRaisesRegex(ValueError, "invalid-canonical-provider-redirect-policy"):
+                    MODULE.evaluate(config, "https://ordax.com.br")
 
     def test_origin_must_be_clean_https_origin(self):
         for value in (

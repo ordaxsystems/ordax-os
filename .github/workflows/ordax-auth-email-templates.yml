@@ -7,6 +7,13 @@ on:
     types: [completed]
     branches: [main]
   workflow_dispatch:
+  pull_request:
+    paths:
+      - 'tools/brand/**'
+      - 'tests/test_brand_pipeline.py'
+      - 'docs/contracts/surface-source.json'
+      - '.github/actions/prepare-verified-surface/**'
+      - '.github/workflows/ordax-auth-email-templates.yml'
 
 permissions:
   contents: read
@@ -16,6 +23,28 @@ concurrency:
   cancel-in-progress: false
 
 jobs:
+  validate-visual-source:
+    if: github.event_name == 'pull_request'
+    runs-on: ubuntu-24.04
+    timeout-minutes: 8
+    steps:
+      - name: Checkout review candidate
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
+        with:
+          persist-credentials: false
+      - name: Prepare exact verified Surface for read-only brand tests
+        uses: ./.github/actions/prepare-verified-surface
+      - name: Set up Python
+        uses: actions/setup-python@ece7cb06caefa5fff74198d8649806c4678c61a1 # v6
+        with:
+          python-version: '3.12'
+          check-latest: false
+      - name: Verify generated templates without production credentials
+        run: |
+          set -euo pipefail
+          python tools/brand/build.py check
+          python -m unittest tests.test_brand_pipeline -v
+
   publish:
     if: >-
       github.event_name == 'workflow_dispatch' ||
@@ -40,6 +69,8 @@ jobs:
           CURRENT="$(git ls-remote https://github.com/ordaxsystems/ordax-os.git refs/heads/main | cut -f1)"
           test "$ACTUAL" = "$APPROVED_SHA"
           test "$APPROVED_SHA" = "$CURRENT"
+      - name: Prepare pinned visual tokens after approved SHA verification
+        uses: ./.github/actions/prepare-verified-surface
       - name: Set up Python
         uses: actions/setup-python@ece7cb06caefa5fff74198d8649806c4678c61a1 # v6
         with:

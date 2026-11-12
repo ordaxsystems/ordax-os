@@ -11,6 +11,7 @@ import hmac
 import json
 import math
 import os
+import platform
 import re
 import secrets
 import stat
@@ -28,7 +29,11 @@ _RUNTIME_DIR = os.path.dirname(os.path.abspath(__file__))
 if _RUNTIME_DIR not in sys.path:
     sys.path.insert(0, _RUNTIME_DIR)
 
-from native_request_boundary import expected_surface_authority, request_is_trusted
+from native_request_boundary import (
+    expected_surface_authority,
+    opaque_signed_module_read_is_trusted,
+    request_is_trusted,
+)
 from native_local_ai_bridge import (
     MAX_REQUEST_BYTES as MAX_LOCAL_AI_REQUEST_BYTES,
     NATIVE_LOCAL_AI_PREFIX,
@@ -37,7 +42,8 @@ from native_local_ai_bridge import (
     PATHS as LOCAL_AI_BRIDGE_PATHS,
     forward_local_ai,
 )
-from native_account_gateway import NativeAccountGateway, NativeAccountGatewayError
+from native_account_gateway import NativeAccountGateway, NativeAccountGatewayError, verified_account_session_reply
+from native_account_vault import AccountVaultError
 from native_component_slots import (
     COMPONENT_MODULE_PREFIX,
     ComponentSlotRequestError,
@@ -83,16 +89,24 @@ from native_app_lifecycle_executor import (
     execute_offline_lifecycle_plan,
     validate_lifecycle_plan,
 )
+from display_outputs import DisplayOutputError, WaylandDisplayOutputProvider
+from audio_outputs import AudioOutputError, PipeWirePulseOutputProvider
 
 SESSION_PATH = "/__ordax/native/session"
 POWER_PATH = "/__ordax/native/power"
 UPDATE_PATH = "/__ordax/native/update"
+UPDATE_CHECK_PATH = "/__ordax/native/update-check"
+UPDATE_MANUAL_REQUEST_FILE = "/run/ordax-update/manual-check-request"
+UPDATE_TOKEN_HEADER = "X-OrdaX-Update-Token"
 HEALTH_PATH = "/__ordax/native/health"
 SURFACE_HEARTBEAT_PATH = "/__ordax/native/surface-heartbeat"
 CLIENT_DIAGNOSTIC_PATH = "/__ordax/native/client-diagnostic"
 PREFERENCES_PATH = "/__ordax/native/preferences"
 KEYBOARD_LAYOUT_PATH = "/__ordax/native/keyboard-layout"
+KEYBOARD_LAYOUT_APPLY_PATH = "/__ordax/native/keyboard-layout/apply"
+KEYBOARD_SESSION_RESTART_REQUEST = "/run/ordax-surface/keyboard-session-restart-request"
 FIRST_RUN_PATH = "/__ordax/native/first-run"
+FIRST_RUN_CURSOR_PATH = "/__ordax/native/first-run-cursor"
 DEVICE_PROFILE_PATH = "/__ordax/native/device-profile"
 LOCAL_SESSION_PATH = "/__ordax/native/local-session"
 MEMORY_PATH = "/__ordax/native/intelligence-memory"
@@ -105,10 +119,11 @@ PROFILE_ACTIVATION_COMMAND_PATH = "/__ordax/native/profile-activation-command"
 SYNC_STATE_PATH = "/__ordax/native/sync-state"
 SYNC_CHECKPOINT_PATH = "/__ordax/native/sync-checkpoint"
 ACCOUNT_SESSION_PATH = "/auth/session"
+PRODUCT_CONNECTOR_SETTINGS_PATH = "/__ordax/native/product-connector"
+MAX_PRODUCT_CONNECTOR_SETTINGS_BODY = 128
 ACCOUNT_REGISTRATION_POLICY_PATH = "/auth/registration-policy"
 ACCOUNT_LOGIN_PATH = "/auth/login"
 ACCOUNT_REGISTER_PATH = "/auth/register"
-ACCOUNT_REGISTRATION_ENABLED = False
 ACCOUNT_LOGOUT_PATH = "/auth/logout"
 ACCOUNT_CLOSE_PATH = "/account/close"
 ACCOUNT_EXPORT_PATH = "/account/export"
@@ -128,12 +143,23 @@ IMAGE_PREVIEW_PATH = "/__ordax/native/image-preview"
 MEDIA_PREVIEW_PATH = "/__ordax/native/media-preview"
 DOCUMENT_PREVIEW_PATH = "/__ordax/native/document-preview"
 FILE_IMPORT_PATH = "/__ordax/native/file-import"
+
+# All native user-file HTTP operations use the same host-owned local-session
+# admission lock. This closes the locked-Surface direct-fetch bypass without
+# creating a second filesystem service or pretending same-origin app isolation.
+USER_FILE_PATHS = frozenset({
+    FILES_PATH, TRASH_PATH, FILE_CONTENT_PATH, FILE_EXPORT_PATH,
+    IMAGE_PREVIEW_PATH, MEDIA_PREVIEW_PATH, DOCUMENT_PREVIEW_PATH,
+    FILE_IMPORT_PATH,
+})
 METRICS_PATH = "/__ordax/native/metrics"
 RECOVERY_STATUS_PATH = "/__ordax/native/recovery-status"
 POWER_STATUS_PATH = "/__ordax/native/power-status"
 HARDWARE_INVENTORY_PATH = "/__ordax/native/hardware-inventory"
 NETWORK_STATUS_PATH = "/__ordax/native/network-status"
 NETWORK_MANAGEMENT_PATH = "/__ordax/native/network-management"
+DISPLAY_OUTPUTS_PATH = "/__ordax/native/display-outputs"
+AUDIO_OUTPUTS_PATH = "/__ordax/native/audio-outputs"
 UPDATE_HISTORY_PATH = "/__ordax/native/update-history"
 NATIVE_INSTALL_TARGETS_PATH = "/__ordax/native/native-install-targets"
 COMPONENT_RUNTIME_PATH = "/__ordax/native/component-runtime"
@@ -146,10 +172,13 @@ DEFAULT_STORE_CATALOG_ENVELOPE_PATH = "/var/lib/ordax/store/catalog-envelope.jso
 DEFAULT_STORE_CATALOG_WATERMARK_PATH = "/var/lib/ordax/store/catalog-watermark.json"
 DEFAULT_STORE_ARTIFACT_ROOT = DEFAULT_ARTIFACT_ROOT
 UPDATE_STATE_FILE = "/run/ordax-update/state.json"
+OWNER_USB_POWER_RECEIPTS = "/srv/ordax-power-receipts"
 HEALTH_STATE_FILE = "/run/ordax-update/healthy-sha"
 PREFERENCES_FILE = "/var/lib/ordax/preferences.json"
 KEYBOARD_LAYOUT_FILE = "/var/lib/ordax/keyboard-layout"
 FIRST_RUN_FILE = "/var/lib/ordax/first-run.json"
+FIRST_RUN_CURSOR_FILE = "/var/lib/ordax/first-run-cursor.json"
+FIRST_RUN_CURSOR_STEPS = frozenset(("welcome", "regional", "network", "security", "account"))
 # Threaded native host: serialize OOBE completion checks with persistent writes.
 _FIRST_RUN_WRITE_LOCK = threading.Lock()
 DEVICE_PROFILE_FILE = "/var/lib/ordax/device-profile.json"
@@ -158,6 +187,7 @@ COMPONENT_STATE_FILE = "/var/lib/ordax/component-state.json"
 SYNC_STATE_FILE = "/var/lib/ordax/sync-state.json"
 SYNC_CHECKPOINT_FILE = "/var/lib/ordax/sync-checkpoint.json"
 ACCOUNT_SESSION_FILE = "/var/lib/ordax/account/session.json"
+ACCOUNT_VAULT_FILE = "/var/lib/ordax/account/session.vault"
 DIAGNOSTIC_JOURNAL_FILE = "/var/lib/ordax/diagnostic-journal.json"
 UPDATE_HISTORY_FILE = "/var/lib/ordax/update-history.tsv"
 RELEASE_HISTORY_FILE = "/var/lib/ordax/release-history.tsv"
@@ -168,6 +198,8 @@ RESCUE_STATUS_FILE = "/var/lib/ordax/rescue-status.json"
 BOOT_ID_FILE = "/run/ordax-update/base-boot-id"
 TOKEN_HEADER = "X-OrdaX-Power-Token"
 NETWORK_TOKEN_HEADER = "X-OrdaX-Network-Token"
+DISPLAY_OUTPUTS_TOKEN_HEADER = "X-OrdaX-Display-Token"
+AUDIO_OUTPUTS_TOKEN_HEADER = "X-OrdaX-Audio-Token"
 NATIVE_INSTALL_TOKEN_HEADER = "X-OrdaX-Native-Install-Token"
 PROFILE_ACTIVATION_TOKEN_HEADER = "X-OrdaX-Profile-Activation-Token"
 DIAGNOSTIC_TOKEN_HEADER = "X-OrdaX-Diagnostic-Token"
@@ -175,6 +207,8 @@ HEALTH_TOKEN_HEADER = "X-OrdaX-Health-Token"
 MAX_CONTROL_BODY = 512
 MAX_STORE_LIFECYCLE_BODY = 16 * 1024
 MAX_NETWORK_ACTION_BODY = 1024
+MAX_DISPLAY_OUTPUT_ACTION_BODY = 512
+MAX_AUDIO_OUTPUT_ACTION_BODY = 512
 MAX_NETWORK_SCAN_BYTES = 512 * 1024
 MAX_NETWORKS = 32
 MAX_NATIVE_INSTALL_SNAPSHOT_BYTES = 256 * 1024
@@ -268,6 +302,7 @@ DEFAULT_POWER_REQUEST_PATH = "/run/ordax-surface/power-request"
 DEFAULT_NETWORK_SESSION_DIR = "/run/ordax-surface"
 SURFACE_HOST_RECOVERY_GENERATION = 1
 RENAME_NOREPLACE = 1
+_SYS_RENAMEAT2_X86_64 = 316
 
 
 def read_small_text(path: str, max_chars: int = 4096) -> str:
@@ -450,18 +485,34 @@ def start_telemetry_heartbeat(config_path: str) -> bool:
 
 
 def supported_power_actions(power_request_path: str) -> tuple[str, ...]:
+    """Advertise host power only while a private FIFO has a live reader.
+
+    Existence and mode alone are insufficient: the broker can exit while its
+    FIFO remains on disk. Probe O_WRONLY|O_NONBLOCK, so an absent reader fails
+    immediately without blocking the Native HTTP session or sending an action.
+    The open descriptor, rather than a path stat, is checked for identity.
+    """
     try:
-        metadata = os.stat(power_request_path)
+        descriptor = os.open(
+            power_request_path,
+            os.O_WRONLY
+            | getattr(os, "O_NONBLOCK", 0)
+            | getattr(os, "O_CLOEXEC", 0)
+            | getattr(os, "O_NOFOLLOW", 0),
+        )
     except OSError:
         return ()
-    if (
-        not stat.S_ISFIFO(metadata.st_mode)
-        or metadata.st_uid != os.geteuid()
-        or stat.S_IMODE(metadata.st_mode) != 0o600
-        or not os.access(power_request_path, os.W_OK)
-    ):
-        return ()
-    return POWER_ACTIONS
+    try:
+        metadata = os.fstat(descriptor)
+        if (
+            not stat.S_ISFIFO(metadata.st_mode)
+            or metadata.st_uid != os.geteuid()
+            or stat.S_IMODE(metadata.st_mode) != 0o600
+        ):
+            return ()
+        return POWER_ACTIONS
+    finally:
+        os.close(descriptor)
 
 
 def queue_power_action(power_request_path: str, action: str) -> None:
@@ -488,6 +539,146 @@ def queue_power_action(power_request_path: str, action: str) -> None:
             raise OSError("short write to host power broker")
     finally:
         os.close(descriptor)
+
+
+def manual_update_request_pending(path: str = UPDATE_MANUAL_REQUEST_FILE) -> bool:
+    return os.path.isfile(path) and not os.path.islink(path)
+
+
+def queue_manual_update_check(path: str = UPDATE_MANUAL_REQUEST_FILE) -> bool:
+    """Queue the canonical Supervisor's next main check; never run Git here."""
+    parent = os.path.dirname(path)
+    if not os.path.isdir(parent) or os.path.islink(parent):
+        raise OSError("Supervisor update run directory unavailable")
+    try:
+        fd = os.open(path, os.O_WRONLY | os.O_CREAT | os.O_EXCL | getattr(os, "O_NOFOLLOW", 0), 0o600)
+    except FileExistsError:
+        if manual_update_request_pending(path):
+            return False
+        raise OSError("unsafe update request path")
+    try:
+        with os.fdopen(fd, "w", encoding="ascii") as handle:
+            handle.write("check-main\n")
+            handle.flush()
+            os.fsync(handle.fileno())
+    except BaseException:
+        try:
+            os.unlink(path)
+        except OSError:
+            pass
+        raise
+    return True
+
+
+# Native runtime is chrooted: the host /state/ordax is NOT its /ordax mount.
+# Surface owns a dedicated, verified read-only bind at /srv/ordax-power-receipts.
+# Never disclose boot IDs, timestamps, paths or logs through the update API.
+POWER_ACTION_TOKENS = frozenset(("restart", "shutdown"))
+POWER_REQUEST_STATUS_TOKENS = frozenset(("pending", "stopping", "syncing", "rebooting", "powering-off", "failed"))
+POWER_STAGE_TOKENS = frozenset(("accepted", "supervisor-quiesce", "host-agents", "filesystem-sync", "root-readonly"))
+POWER_FAILURE_TOKENS = frozenset(("supervisor-quiesce-failed", "host-agents-failed", "sync-failed", "remount-failed", "root-still-writable", "kernel-transition-returned"))
+
+# The Guardian already captured BusyBox mount stderr in an ephemeral log.
+# Extract a fixed diagnostic *category* from the existing shutdown attempt;
+# never return any untrusted log line, filesystem path or raw kernel output.
+OWNER_GUARDIAN_LOG = "/run/ordax-update/guardian.log"
+HOST_REMOUNT_ERROR_CODES = (
+    ("device-busy", ("device or resource busy", "target is busy", "mount point is busy", "mountpoint is busy")),
+    ("invalid-argument", ("invalid argument",)),
+    ("permission-denied", ("permission denied", "operation not permitted", "are you root")),
+    ("not-a-mountpoint", ("not a mountpoint", "not a mount point")),
+    ("unsupported-operation", ("operation not supported", "not supported")),
+    ("read-only-filesystem", ("read-only file system", "read only file system")),
+    ("missing-target", ("no such file or directory", "can't find", "not found")),
+)
+
+
+def read_guardian_remount_error(log_path: str = OWNER_GUARDIAN_LOG) -> str:
+    """Classify latest failed shutdown remount in existing, size-bounded log."""
+    try:
+        fd = os.open(log_path, os.O_RDONLY | os.O_CLOEXEC | os.O_NOFOLLOW)
+        with os.fdopen(fd, "rb") as stream:
+            details = os.fstat(stream.fileno())
+            if not stat.S_ISREG(details.st_mode):
+                return "unavailable"
+            stream.seek(max(0, details.st_size - 262144))
+            lines = stream.read(262144).decode("utf-8", "replace").splitlines()
+    except (OSError, ValueError):
+        return "unavailable"
+    target = "root filesystem could not be remounted read-only for shutdown"
+    for index in range(len(lines) - 1, -1, -1):
+        if target not in lines[index]:
+            continue
+        # Match only the error emitted in this exact attempt. The Guardian
+        # records the failed transition right after the mount command returns.
+        for line in reversed(lines[max(0, index - 15):index]):
+            lower = line.lower()
+            if "host power owner accepted shutdown" in lower:
+                break
+            if not lower.lstrip().startswith("mount:"):
+                continue
+            for code, phrases in HOST_REMOUNT_ERROR_CODES:
+                if any(phrase in lower for phrase in phrases):
+                    return code
+            return "unclassified-mount-error"
+        return "no-mount-error-output"
+    return "unavailable"
+
+
+
+
+def _read_owner_power_receipt(root: str, basename: str) -> str | None:
+    """Read a bounded, symlink-resistant local receipt, never arbitrary logs."""
+    if basename not in ("last-request", "last-stage", "last-failure"):
+        raise ValueError("unsupported host power receipt")
+    try:
+        fd = os.open(
+            os.path.join(root, basename),
+            os.O_RDONLY | os.O_CLOEXEC | os.O_NOFOLLOW,
+        )
+        with os.fdopen(fd, "rb") as handle:
+            details = os.fstat(handle.fileno())
+            if not stat.S_ISREG(details.st_mode) or details.st_size > 128:
+                return None
+            content = handle.read(129)
+    except OSError:
+        return None
+    if len(content) > 128 or not content.endswith(b"\n") or content.count(b"\n") != 1:
+        return None
+    try:
+        return content[:-1].decode("ascii")
+    except UnicodeError:
+        return None
+
+
+def read_owner_usb_power_receipts(root: str = OWNER_USB_POWER_RECEIPTS, *, log_path: str = OWNER_GUARDIAN_LOG) -> dict[str, str]:
+    """Return only canonical status enums of the last physical power request."""
+    result = {
+        "lastAction": "unavailable",
+        "lastStatus": "unavailable",
+        "lastStage": "unavailable",
+        "lastFailure": "unavailable",
+        "lastMountError": "unavailable",
+    }
+    request = _read_owner_power_receipt(root, "last-request")
+    if request is not None:
+        fields = request.split("|")
+        if len(fields) == 4:
+            action, _boot_id, _epoch, status = fields
+            result["lastAction"] = action if action in POWER_ACTION_TOKENS else "unknown"
+            result["lastStatus"] = status if status in POWER_REQUEST_STATUS_TOKENS else "unknown"
+        else:
+            result["lastAction"] = "unknown"
+            result["lastStatus"] = "unknown"
+    stage = _read_owner_power_receipt(root, "last-stage")
+    if stage is not None:
+        result["lastStage"] = stage if stage in POWER_STAGE_TOKENS else "unknown"
+    failure = _read_owner_power_receipt(root, "last-failure")
+    if failure is not None:
+        result["lastFailure"] = failure if failure in POWER_FAILURE_TOKENS else "unknown"
+    if result["lastAction"] == "shutdown" and result["lastFailure"] == "remount-failed":
+        result["lastMountError"] = read_guardian_remount_error(log_path)
+    return result
 
 
 def read_update_state() -> dict | None:
@@ -595,7 +786,7 @@ def read_preferences() -> dict:
             payload = json.load(handle)
     except FileNotFoundError:
         return {}
-    except (OSError, json.JSONDecodeError):
+    except (OSError, UnicodeError, json.JSONDecodeError):
         return {}
     return payload if valid_preference_record(payload) else {}
 
@@ -606,12 +797,22 @@ def write_preferences(preferences: dict) -> None:
     directory = os.path.dirname(PREFERENCES_FILE)
     os.makedirs(directory, mode=0o700, exist_ok=True)
     temporary = f"{PREFERENCES_FILE}.tmp.{os.getpid()}.{threading.get_ident()}"
-    with open(temporary, "w", encoding="utf-8") as handle:
-        json.dump(preferences, handle, separators=(",", ":"), sort_keys=True, allow_nan=False)
-        handle.write("\n")
-        handle.flush()
-        os.fsync(handle.fileno())
-    os.replace(temporary, PREFERENCES_FILE)
+    try:
+        with open(temporary, "w", encoding="utf-8") as handle:
+            # Preferences are device-local user data; do not depend on umask.
+            os.fchmod(handle.fileno(), 0o600)
+            json.dump(preferences, handle, separators=(",", ":"), sort_keys=True, allow_nan=False)
+            handle.write("\n")
+            handle.flush()
+            os.fsync(handle.fileno())
+        os.replace(temporary, PREFERENCES_FILE)
+    finally:
+        # On a failed replace, keep the last durable record and remove only
+        # this writer's uncommitted candidate. Never touch the destination.
+        try:
+            os.unlink(temporary)
+        except FileNotFoundError:
+            pass
     try:
         directory_fd = os.open(directory, os.O_RDONLY | getattr(os, "O_DIRECTORY", 0))
     except OSError:
@@ -663,6 +864,36 @@ def write_keyboard_layout_id(layout_id: str) -> None:
         os.close(directory_fd)
 
 
+def queue_keyboard_session_restart(
+    layout_id: str,
+    request_path: str = KEYBOARD_SESSION_RESTART_REQUEST,
+) -> None:
+    if layout_id not in KEYBOARD_LAYOUT_ID_SET:
+        raise ValueError("invalid keyboard layout for session restart")
+    info = os.lstat(request_path)
+    if not stat.S_ISFIFO(info.st_mode) or stat.S_ISLNK(info.st_mode):
+        raise ValueError("keyboard session restart request must be a FIFO")
+    if stat.S_IMODE(info.st_mode) != 0o600:
+        raise ValueError("keyboard session restart FIFO must be private")
+    descriptor = os.open(
+        request_path,
+        os.O_WRONLY | os.O_NONBLOCK | getattr(os, "O_NOFOLLOW", 0),
+    )
+    try:
+        opened = os.fstat(descriptor)
+        if (
+            not stat.S_ISFIFO(opened.st_mode)
+            or opened.st_ino != info.st_ino
+            or opened.st_dev != info.st_dev
+        ):
+            raise ValueError("keyboard session restart FIFO changed during request")
+        payload = (layout_id + "\n").encode("ascii")
+        if os.write(descriptor, payload) != len(payload):
+            raise OSError("incomplete keyboard session restart request")
+    finally:
+        os.close(descriptor)
+
+
 def keyboard_layout_snapshot() -> dict:
     configured_layout_id = read_keyboard_layout_id()
     applied_layout_id = os.environ.get(
@@ -689,10 +920,57 @@ def initial_first_run_state() -> dict:
     }
 
 
+def valid_first_run_cursor(value: object) -> bool:
+    return (
+        isinstance(value, dict)
+        and set(value) == {"schema", "step"}
+        and value["schema"] == "ordax.first-run-cursor/1"
+        and isinstance(value["step"], str)
+        and value["step"] in FIRST_RUN_CURSOR_STEPS
+    )
+
+
+def read_first_run_cursor() -> dict:
+    fallback = {"schema": "ordax.first-run-cursor/1", "step": "welcome"}
+    try:
+        with open(FIRST_RUN_CURSOR_FILE, "r", encoding="utf-8") as handle:
+            payload = json.load(handle)
+    except (FileNotFoundError, OSError, UnicodeError, json.JSONDecodeError):
+        return fallback
+    return payload if valid_first_run_cursor(payload) else fallback
+
+
+def write_first_run_cursor(value: dict) -> None:
+    if not valid_first_run_cursor(value):
+        raise ValueError("invalid first-run cursor")
+    directory = os.path.dirname(FIRST_RUN_CURSOR_FILE)
+    os.makedirs(directory, mode=0o700, exist_ok=True)
+    with _FIRST_RUN_WRITE_LOCK:
+        if read_first_run_state()["completed"]:
+            raise ValueError("cannot checkpoint a completed first-run")
+        if os.path.islink(FIRST_RUN_CURSOR_FILE):
+            raise ValueError("first-run cursor cannot be a symlink")
+        temporary = f"{FIRST_RUN_CURSOR_FILE}.tmp.{os.getpid()}.{threading.get_ident()}"
+        try:
+            with open(temporary, "x", encoding="utf-8") as handle:
+                os.fchmod(handle.fileno(), 0o600)
+                json.dump(value, handle, separators=(",", ":"), sort_keys=True)
+                handle.write("\n")
+                handle.flush()
+                os.fsync(handle.fileno())
+            os.replace(temporary, FIRST_RUN_CURSOR_FILE)
+        finally:
+            try:
+                os.unlink(temporary)
+            except FileNotFoundError:
+                pass
+        _fsync_first_run_directory(directory)
+
+
 def valid_first_run_state(value: object) -> bool:
-    if not isinstance(value, dict) or set(value) != {
+    if not isinstance(value, dict) or set(value) not in ({
         "schema", "completed", "locale", "timeZone", "accountMode"
-    }:
+    }, {"schema", "completed", "locale", "timeZone", "accountMode", "systemTerms"}):
         return False
     if value.get("schema") != "ordax.first-run-state/1":
         return False
@@ -702,6 +980,15 @@ def valid_first_run_state(value: object) -> bool:
         return False
     if value.get("timeZone") not in FIRST_RUN_TIME_ZONES:
         return False
+    if "systemTerms" in value:
+        terms = value["systemTerms"]
+        if (value["completed"] is not True or not isinstance(terms, dict)
+                or set(terms) != {"documentId", "version", "status", "accepted"}
+                or terms.get("documentId") != "ordax-os-terms"
+                or terms.get("status") != "draft" or terms.get("accepted") is not True
+                or not isinstance(terms.get("version"), str)
+                or re.fullmatch(r"draft-[A-Za-z0-9._-]{1,64}", terms["version"]) is None):
+            return False
     account_mode = value.get("accountMode")
     if value["completed"]:
         return account_mode in FIRST_RUN_ACCOUNT_MODES
@@ -1758,16 +2045,27 @@ def network_broker_paths(session_dir: str) -> dict[str, str]:
 
 
 def network_broker_available(paths: dict[str, str]) -> bool:
+    # A FIFO may remain on disk after its broker process exits. Advertise the
+    # capability only while the real broker has opened the read end.
     try:
-        metadata = os.stat(paths["control"])
+        descriptor = os.open(
+            paths["control"],
+            os.O_WRONLY
+            | os.O_NONBLOCK
+            | getattr(os, "O_CLOEXEC", 0)
+            | getattr(os, "O_NOFOLLOW", 0),
+        )
     except OSError:
         return False
-    return (
-        stat.S_ISFIFO(metadata.st_mode)
-        and metadata.st_uid == os.geteuid()
-        and stat.S_IMODE(metadata.st_mode) == 0o600
-        and os.access(paths["control"], os.W_OK)
-    )
+    try:
+        metadata = os.fstat(descriptor)
+        return (
+            stat.S_ISFIFO(metadata.st_mode)
+            and metadata.st_uid == os.geteuid()
+            and stat.S_IMODE(metadata.st_mode) == 0o600
+        )
+    finally:
+        os.close(descriptor)
 
 
 def _read_bounded_bytes(path: str, max_bytes: int) -> bytes:
@@ -2942,22 +3240,47 @@ def _renameat2_noreplace_between(
 ) -> None:
     libc = ctypes.CDLL(None, use_errno=True)
     renameat2 = getattr(libc, "renameat2", None)
-    if renameat2 is None:
-        raise OSError(errno.ENOSYS, "renameat2 is unavailable")
-    renameat2.argtypes = [
-        ctypes.c_int,
-        ctypes.c_char_p,
-        ctypes.c_int,
-        ctypes.c_char_p,
-        ctypes.c_uint,
-    ]
-    renameat2.restype = ctypes.c_int
-    result = renameat2(
-        source_directory_fd,
-        os.fsencode(old_name),
-        destination_directory_fd,
-        os.fsencode(new_name),
-        RENAME_NOREPLACE,
+    if renameat2 is not None:
+        renameat2.argtypes = [
+            ctypes.c_int,
+            ctypes.c_char_p,
+            ctypes.c_int,
+            ctypes.c_char_p,
+            ctypes.c_uint,
+        ]
+        renameat2.restype = ctypes.c_int
+        result = renameat2(
+            source_directory_fd,
+            os.fsencode(old_name),
+            destination_directory_fd,
+            os.fsencode(new_name),
+            RENAME_NOREPLACE,
+        )
+        if result == 0:
+            return
+        error_number = ctypes.get_errno()
+        if error_number != errno.ENOSYS:
+            if error_number == errno.EEXIST:
+                raise FileExistsError(error_number, os.strerror(error_number), new_name)
+            raise OSError(error_number, os.strerror(error_number), new_name)
+
+    # Alpine's musl libc may omit the renameat2 wrapper even though its Linux
+    # kernel supports the operation. Use the x86_64 syscall directly (the only
+    # architecture currently shipped for the Native USB), preserving the
+    # kernel's atomic RENAME_NOREPLACE behavior. Unknown platforms fail closed.
+    if sys.platform != "linux" or platform.machine().lower() not in ("x86_64", "amd64"):
+        raise OSError(errno.ENOSYS, "renameat2 is unavailable on this platform", new_name)
+    syscall = getattr(libc, "syscall", None)
+    if syscall is None:
+        raise OSError(errno.ENOSYS, "Linux syscall interface is unavailable", new_name)
+    syscall.restype = ctypes.c_long
+    result = syscall(
+        ctypes.c_long(_SYS_RENAMEAT2_X86_64),
+        ctypes.c_long(source_directory_fd),
+        ctypes.c_char_p(os.fsencode(old_name)),
+        ctypes.c_long(destination_directory_fd),
+        ctypes.c_char_p(os.fsencode(new_name)),
+        ctypes.c_long(RENAME_NOREPLACE),
     )
     if result == 0:
         return
@@ -3303,6 +3626,11 @@ class NativeHostServer(ThreadingHTTPServer):
     daemon_threads = True
     allow_reuse_address = True
 
+    @property
+    def supported_actions(self) -> tuple[str, ...]:
+        # No cached capability: the FIFO reader can disappear after startup.
+        return supported_power_actions(self.power_request_path)
+
     def __init__(
         self,
         server_address,
@@ -3323,16 +3651,32 @@ class NativeHostServer(ThreadingHTTPServer):
         store_artifact_root: str = DEFAULT_STORE_ARTIFACT_ROOT,
         store_artifact_base_origin: str = "",
         account_gateway_origin: str = "",
+        display_outputs_provider=None,
+        audio_outputs_provider=None,
     ):
         super().__init__(server_address, handler_class)
         self.power_token = secrets.token_urlsafe(32)
         self.network_token = secrets.token_urlsafe(32)
+        self.display_outputs_token = secrets.token_urlsafe(32)
+        self.display_outputs_provider = (
+            display_outputs_provider
+            if display_outputs_provider is not None
+            else WaylandDisplayOutputProvider()
+        )
+        self.audio_outputs_token = secrets.token_urlsafe(32)
+        self.audio_outputs_provider = (
+            audio_outputs_provider
+            if audio_outputs_provider is not None
+            else PipeWirePulseOutputProvider()
+        )
         self.diagnostic_token = secrets.token_urlsafe(32)
         self.health_token = secrets.token_urlsafe(32)
+        self.manual_update_token = secrets.token_urlsafe(32)
+        self.manual_update_lock = threading.Lock()
         self.power_request_path = power_request_path
-        self.supported_actions = supported_power_actions(power_request_path)
         self.network_paths = network_broker_paths(network_session_dir)
         self.network_lock = threading.Lock()
+        self.keyboard_layout_lock = threading.Lock()
         self.native_install_paths = native_install_broker_paths(network_session_dir)
         self.native_install_lock = threading.Lock()
         self.file_trash_lock = threading.Lock()
@@ -3407,6 +3751,7 @@ class NativeHostServer(ThreadingHTTPServer):
                 self.account_gateway = NativeAccountGateway(
                     account_gateway_origin,
                     ACCOUNT_SESSION_FILE,
+                    vault_path=ACCOUNT_VAULT_FILE,
                 )
             except (TypeError, ValueError):
                 self.account_gateway = None
@@ -3451,6 +3796,23 @@ class NativeHostServer(ThreadingHTTPServer):
             raise PermissionError("Profile activation was rejected by the user")
         return receipt
 
+    def server_close(self) -> None:
+        close_display_provider = getattr(self.display_outputs_provider, "close", None)
+        close_audio_provider = getattr(self.audio_outputs_provider, "close", None)
+        try:
+            if callable(close_display_provider):
+                close_display_provider()
+        except Exception as exc:
+            print(f"ordax-native-host: display provider shutdown failed: {exc}", file=sys.stderr, flush=True)
+        finally:
+            try:
+                if callable(close_audio_provider):
+                    close_audio_provider()
+            except Exception as exc:
+                print(f"ordax-native-host: audio provider shutdown failed: {exc}", file=sys.stderr, flush=True)
+            finally:
+                super().server_close()
+
 
 class NativeHostHandler(SimpleHTTPRequestHandler):
     server_version = "OrdaXNativeHost/1"
@@ -3470,15 +3832,27 @@ class NativeHostHandler(SimpleHTTPRequestHandler):
         return self._request_is_trusted()
 
     def _request_is_trusted(self) -> bool:
-        if request_is_trusted(self.headers, self.server.server_address, self.path):
+        if request_is_trusted(
+            self.headers, self.server.server_address, self.path, self.command,
+        ):
             return True
         self._empty(403)
         return False
 
     def end_headers(self) -> None:
-        if not urlsplit(self.path).path.startswith("/__ordax/native/"):
+        parsed_path = urlsplit(self.path).path
+        if not parsed_path.startswith("/__ordax/native/"):
             self.send_header("Cache-Control", "no-store, max-age=0")
             self.send_header("Pragma", "no-cache")
+        if parsed_path in USER_FILE_PATHS:
+            # Reject no-cors cross-origin embeds in addition to ingress checks.
+            self.send_header("Cross-Origin-Resource-Policy", "same-origin")
+        if opaque_signed_module_read_is_trusted(self.headers, self.path, self.command):
+            # Only signed script bytes may be imported from an isolated,
+            # sandboxed document with an opaque origin. Never use wildcard
+            # CORS or allow credentials on the privileged Native API.
+            self.send_header("Access-Control-Allow-Origin", "null")
+            self.send_header("Vary", "Origin")
         super().end_headers()
 
     def _write_local_ai_result(self, status: int, payload: bytes) -> None:
@@ -3672,12 +4046,56 @@ class NativeHostHandler(SimpleHTTPRequestHandler):
         # native control/state APIs through browser preflight.
         self._empty(405)
 
+    def _serve_unlocked_user_file_request(self, handler) -> None:
+        """Hold the session lock through completion, not just an entry check.
+
+        A lock transition waits for admitted I/O to finish; a request that
+        arrives while locked cannot read, import or mutate user files.
+        This does NOT make same-origin app JavaScript a separate principal.
+        """
+        if self.client_address[0] != "127.0.0.1":
+            self._empty(403)
+            return
+        with self.server.local_session_lock:
+            if self.server.local_session_locked:
+                self._empty(423)
+                return
+            handler()
+
+    def do_HEAD(self) -> None:  # noqa: N802
+        if urlsplit(self.path).path in USER_FILE_PATHS:
+            self._serve_unlocked_user_file_request(lambda: self._empty(405))
+            return
+        super().do_HEAD()
+
     def do_GET(self) -> None:  # noqa: N802
+        if urlsplit(self.path).path in USER_FILE_PATHS:
+            self._serve_unlocked_user_file_request(self._do_GET)
+            return
+        self._do_GET()
+
+    def _do_GET(self) -> None:
         parsed_path = urlsplit(self.path).path
+        if parsed_path == PRODUCT_CONNECTOR_SETTINGS_PATH:
+            if urlsplit(self.path).query or self.client_address[0] != "127.0.0.1":
+                self._empty(403)
+                return
+            status_reader = getattr(self.server.account_gateway, "connector_status", None)
+            if not callable(status_reader):
+                self._empty(503)
+                return
+            try:
+                self._write_json(200, status_reader())
+            except (OSError, TypeError, ValueError):
+                self._empty(503)
+            return
         if parsed_path.startswith(NATIVE_LOCAL_AI_PREFIX + "/"):
             self._serve_local_ai("GET", parsed_path)
             return
         if parsed_path in {ACCOUNT_SESSION_PATH, ACCOUNT_REGISTRATION_POLICY_PATH, ACCOUNT_EXPORT_PATH, ACCOUNT_SPACES_PATH, ACCOUNT_MEMORY_ENTITLEMENT_PATH, ACCOUNT_SYNC_OBJECTS_PATH, ACCOUNT_SYNC_SNAPSHOT_PATH, ACCOUNT_SYNC_CHANGES_PATH}:
+            if self.server.local_session_locked:
+                self._empty(423)
+                return
             if self.client_address[0] != "127.0.0.1":
                 self._empty(403)
                 return
@@ -3724,11 +4142,6 @@ class NativeHostHandler(SimpleHTTPRequestHandler):
                 payload = json.loads(reply.body.decode("utf-8"))
                 if not isinstance(payload, dict):
                     raise ValueError("gateway JSON object required")
-                if parsed_path == ACCOUNT_REGISTRATION_POLICY_PATH:
-                    payload["registrationEnabled"] = bool(
-                        payload.get("registrationEnabled") is True
-                        and ACCOUNT_REGISTRATION_ENABLED
-                    )
             except NativeMemoryEntitlementProxyError:
                 self._empty(503)
                 return
@@ -3737,13 +4150,13 @@ class NativeHostHandler(SimpleHTTPRequestHandler):
                 return
             self._write_json(reply.status, payload)
             return
-        if parsed_path in {SESSION_PATH, MEMORY_PATH, FILES_PATH, TRASH_PATH, FILE_CONTENT_PATH, FILE_EXPORT_PATH, IMAGE_PREVIEW_PATH, MEDIA_PREVIEW_PATH, DOCUMENT_PREVIEW_PATH, METRICS_PATH, RECOVERY_STATUS_PATH, POWER_STATUS_PATH, HARDWARE_INVENTORY_PATH, NETWORK_STATUS_PATH, NETWORK_MANAGEMENT_PATH, KEYBOARD_LAYOUT_PATH, NATIVE_INSTALL_TARGETS_PATH, COMPONENT_RUNTIME_PATH, STORE_CATALOG_PATH, UPDATE_HISTORY_PATH, DIAGNOSTIC_JOURNAL_PATH} and self.client_address[0] != "127.0.0.1":
+        if parsed_path in {SESSION_PATH, MEMORY_PATH, FILES_PATH, TRASH_PATH, FILE_CONTENT_PATH, FILE_EXPORT_PATH, IMAGE_PREVIEW_PATH, MEDIA_PREVIEW_PATH, DOCUMENT_PREVIEW_PATH, METRICS_PATH, RECOVERY_STATUS_PATH, POWER_STATUS_PATH, HARDWARE_INVENTORY_PATH, NETWORK_STATUS_PATH, NETWORK_MANAGEMENT_PATH, DISPLAY_OUTPUTS_PATH, AUDIO_OUTPUTS_PATH, KEYBOARD_LAYOUT_PATH, NATIVE_INSTALL_TARGETS_PATH, COMPONENT_RUNTIME_PATH, STORE_CATALOG_PATH, UPDATE_HISTORY_PATH, DIAGNOSTIC_JOURNAL_PATH} and self.client_address[0] != "127.0.0.1":
             self._empty(403)
             return
         if parsed_path.startswith(COMPONENT_MODULE_PREFIX) and self.client_address[0] != "127.0.0.1":
             self._empty(403)
             return
-        if parsed_path in {SYNC_STATE_PATH, SYNC_CHECKPOINT_PATH, COMPONENT_STATE_PATH, PROFILE_COMPONENT_INVENTORY_PATH, PROFILE_CONTENT_CONTEXT_PATH, PROFILE_CONTENT_CONTEXT_CAPABILITY_PATH, FIRST_RUN_PATH, DEVICE_PROFILE_PATH, LOCAL_SESSION_PATH} and self.client_address[0] != "127.0.0.1":
+        if parsed_path in {SYNC_STATE_PATH, SYNC_CHECKPOINT_PATH, COMPONENT_STATE_PATH, PROFILE_COMPONENT_INVENTORY_PATH, PROFILE_CONTENT_CONTEXT_PATH, PROFILE_CONTENT_CONTEXT_CAPABILITY_PATH, FIRST_RUN_PATH, FIRST_RUN_CURSOR_PATH, DEVICE_PROFILE_PATH, LOCAL_SESSION_PATH} and self.client_address[0] != "127.0.0.1":
             self._empty(403)
             return
         if parsed_path == METRICS_PATH:
@@ -3817,6 +4230,34 @@ class NativeHostHandler(SimpleHTTPRequestHandler):
                 return
             self._write_json(200, snapshot)
             return
+        if parsed_path == DISPLAY_OUTPUTS_PATH:
+            if urlsplit(self.path).query:
+                self._empty(400)
+                return
+            supplied_token = self.headers.get(DISPLAY_OUTPUTS_TOKEN_HEADER, "")
+            if not hmac.compare_digest(supplied_token, self.server.display_outputs_token):
+                self._empty(403)
+                return
+            try:
+                self._write_json(200, self.server.display_outputs_provider.read())
+            except (OSError, RuntimeError, TypeError, ValueError) as exc:
+                print(f"ordax-native-host: display output discovery unavailable: {exc}", file=sys.stderr, flush=True)
+                self._empty(503)
+            return
+        if parsed_path == AUDIO_OUTPUTS_PATH:
+            if urlsplit(self.path).query:
+                self._empty(400)
+                return
+            supplied_token = self.headers.get(AUDIO_OUTPUTS_TOKEN_HEADER, "")
+            if not hmac.compare_digest(supplied_token, self.server.audio_outputs_token):
+                self._empty(403)
+                return
+            try:
+                self._write_json(200, self.server.audio_outputs_provider.read())
+            except (OSError, RuntimeError, TypeError, ValueError) as exc:
+                print(f"ordax-native-host: audio output discovery unavailable: {exc}", file=sys.stderr, flush=True)
+                self._empty(503)
+            return
         if parsed_path == NATIVE_INSTALL_TARGETS_PATH:
             if self.server.product_mode != "usb" or not self.server.native_install_available:
                 self._empty(404)
@@ -3884,6 +4325,26 @@ class NativeHostHandler(SimpleHTTPRequestHandler):
                 mime = "text/css; charset=utf-8"
             elif request.requested_path.endswith(".json"):
                 mime = "application/json; charset=utf-8"
+            elif request.requested_path.endswith(".svg"):
+                mime = "image/svg+xml"
+            elif request.requested_path.endswith(".png"):
+                mime = "image/png"
+            elif request.requested_path.endswith((".jpg", ".jpeg")):
+                mime = "image/jpeg"
+            elif request.requested_path.endswith(".webp"):
+                mime = "image/webp"
+            elif request.requested_path.endswith(".avif"):
+                mime = "image/avif"
+            elif request.requested_path.endswith(".gif"):
+                mime = "image/gif"
+            elif request.requested_path.endswith(".woff2"):
+                mime = "font/woff2"
+            elif request.requested_path.endswith(".woff"):
+                mime = "font/woff"
+            elif request.requested_path.endswith(".ttf"):
+                mime = "font/ttf"
+            elif request.requested_path.endswith(".otf"):
+                mime = "font/otf"
 
             self.send_response(200)
             self.send_header("Content-Type", mime)
@@ -4198,6 +4659,8 @@ class NativeHostHandler(SimpleHTTPRequestHandler):
                 {
                     "token": self.server.power_token,
                     "networkToken": self.server.network_token,
+                    "displayOutputsToken": self.server.display_outputs_token,
+                    "audioOutputsToken": self.server.audio_outputs_token,
                     "diagnosticToken": self.server.diagnostic_token,
                     "productMode": self.server.product_mode,
                     "nativeInstallAvailable": self.server.native_install_available,
@@ -4231,6 +4694,15 @@ class NativeHostHandler(SimpleHTTPRequestHandler):
                 update_state = dict(update_state)
                 status = 200
             update_state["healthToken"] = self.server.health_token
+            owner_usb = (
+                self.server.distribution_profile == "owner-development"
+                and self.server.product_mode == "usb"
+            )
+            update_state["manualCheckAvailable"] = owner_usb
+            update_state["manualCheckPending"] = owner_usb and manual_update_request_pending()
+            update_state["manualCheckToken"] = self.server.manual_update_token if owner_usb else ""
+            if owner_usb:
+                update_state["hostPower"] = read_owner_usb_power_receipts()
             self._write_json(status, update_state)
             return
         if self.path == PREFERENCES_PATH:
@@ -4241,6 +4713,9 @@ class NativeHostHandler(SimpleHTTPRequestHandler):
             return
         if parsed_path == FIRST_RUN_PATH:
             self._write_json(200, read_first_run_state())
+            return
+        if parsed_path == FIRST_RUN_CURSOR_PATH:
+            self._write_json(200, read_first_run_cursor())
             return
         if parsed_path == DEVICE_PROFILE_PATH:
             try:
@@ -4354,11 +4829,66 @@ class NativeHostHandler(SimpleHTTPRequestHandler):
         super().do_GET()
 
     def do_POST(self) -> None:  # noqa: N802
+        if urlsplit(self.path).path in USER_FILE_PATHS:
+            self._serve_unlocked_user_file_request(self._do_POST)
+            return
+        self._do_POST()
+
+    def _do_POST(self) -> None:
         if self.client_address[0] != "127.0.0.1":
             self._empty(403)
             return
 
         parsed_path = urlsplit(self.path).path
+        if parsed_path == UPDATE_CHECK_PATH:
+            if self.path != UPDATE_CHECK_PATH:
+                self._empty(400)
+                return
+            if (self.server.distribution_profile != "owner-development"
+                    or self.server.product_mode != "usb"):
+                self._empty(404)
+                return
+            if not hmac.compare_digest(
+                self.headers.get(UPDATE_TOKEN_HEADER, ""),
+                self.server.manual_update_token,
+            ):
+                self._empty(403)
+                return
+            body = self._read_json_body(MAX_CONTROL_BODY)
+            if not isinstance(body, dict) or set(body) != {"action"} or body.get("action") != "check-main":
+                self._empty(400)
+                return
+            try:
+                with self.server.manual_update_lock:
+                    queued = queue_manual_update_check()
+            except OSError as exc:
+                print(f"ordax-native-host: update check queue unavailable: {exc}", file=sys.stderr, flush=True)
+                self._empty(503)
+                return
+            self._write_json(202, {
+                "schema": "ordax.owner-manual-update-request/1",
+                "state": "queued" if queued else "pending",
+            })
+            return
+        if parsed_path == PRODUCT_CONNECTOR_SETTINGS_PATH:
+            if urlsplit(self.path).query:
+                self._empty(400)
+                return
+            configure = getattr(self.server.account_gateway, "configure_connector_visibility", None)
+            if not callable(configure):
+                self._empty(503)
+                return
+            body = self._read_json_body(MAX_PRODUCT_CONNECTOR_SETTINGS_BODY)
+            if body is None or set(body) != {"enabled"} or type(body["enabled"]) is not bool:
+                self._empty(400)
+                return
+            try:
+                self._write_json(200, configure(body["enabled"]))
+            except PermissionError:
+                self._empty(401)
+            except (OSError, RuntimeError, TypeError, ValueError):
+                self._empty(503)
+            return
         if parsed_path.startswith(NATIVE_LOCAL_AI_PREFIX + "/"):
             self._serve_local_ai("POST", parsed_path)
             return
@@ -4420,13 +4950,13 @@ class NativeHostHandler(SimpleHTTPRequestHandler):
             return
 
         if parsed_path in {ACCOUNT_LOGIN_PATH, ACCOUNT_REGISTER_PATH, ACCOUNT_LOGOUT_PATH, ACCOUNT_CLOSE_PATH, ACCOUNT_SYNC_MUTATE_PATH, NETWORK_MESSAGE_SEND_PATH}:
+            if self.server.local_session_locked:
+                self._empty(423)
+                return
             if self.server.account_gateway is None:
                 self._empty(503)
                 return
             try:
-                if parsed_path == ACCOUNT_REGISTER_PATH and not ACCOUNT_REGISTRATION_ENABLED:
-                    self._empty(503)
-                    return
                 if parsed_path in {ACCOUNT_LOGIN_PATH, ACCOUNT_REGISTER_PATH}:
                     payload = self._read_account_credentials()
                     expected_keys = (
@@ -4454,10 +4984,13 @@ class NativeHostHandler(SimpleHTTPRequestHandler):
                         self._empty(reply.status)
                         return
                     session_reply = self.server.account_gateway.session()
-                    session_payload = json.loads(session_reply.body.decode("utf-8"))
-                    if not isinstance(session_payload, dict):
-                        raise ValueError("invalid session payload")
-                    if parsed_path == ACCOUNT_REGISTER_PATH and not session_payload.get("authenticated"):
+                    session_payload = verified_account_session_reply(
+                        session_reply,
+                        allow_anonymous=(parsed_path == ACCOUNT_REGISTER_PATH),
+                    )
+                    if not session_payload["authenticated"]:
+                        # Registration is an explicit email-confirmation state,
+                        # never a signed-in identity.
                         session_payload["confirmationRequired"] = True
                         self._write_json(202, session_payload)
                     else:
@@ -4612,6 +5145,8 @@ class NativeHostHandler(SimpleHTTPRequestHandler):
                             self._empty(409)
                             return
                         write_local_session_credential(secret)
+                        if self.server.account_gateway is not None:
+                            self.server.account_gateway.unlock_local_session(secret)
                         self.server.local_session_locked = False
                         self.server.local_session_failures = 0
                         self.server.local_session_retry_after = 0.0
@@ -4625,6 +5160,8 @@ class NativeHostHandler(SimpleHTTPRequestHandler):
                         if not verify_local_session_secret(secret):
                             self._empty(401)
                             return
+                        if self.server.account_gateway is not None:
+                            self.server.account_gateway.clear_local_session_vault()
                         remove_local_session_credential()
                         self.server.local_session_locked = False
                         self.server.local_session_failures = 0
@@ -4634,6 +5171,8 @@ class NativeHostHandler(SimpleHTTPRequestHandler):
                             self._empty(409)
                             return
                         self.server.local_session_locked = True
+                        if self.server.account_gateway is not None:
+                            self.server.account_gateway.lock_local_session()
                     elif action == "unlock":
                         if credential is None:
                             self._empty(409)
@@ -4652,6 +5191,8 @@ class NativeHostHandler(SimpleHTTPRequestHandler):
                             self.server.local_session_retry_after = now + delay
                             self._empty(401)
                             return
+                        if self.server.account_gateway is not None:
+                            self.server.account_gateway.unlock_local_session(secret)
                         self.server.local_session_locked = False
                         self.server.local_session_failures = 0
                         self.server.local_session_retry_after = 0.0
@@ -4659,9 +5200,9 @@ class NativeHostHandler(SimpleHTTPRequestHandler):
                         self._empty(400)
                         return
                     snapshot = local_session_snapshot(self.server)
-            except (OSError, ValueError) as exc:
+            except (OSError, ValueError, AccountVaultError) as exc:
                 print(
-                    f"ordax-native-host: local session action failed safely: {exc}",
+                    "ordax-native-host: local session action failed safely",
                     file=sys.stderr,
                     flush=True,
                 )
@@ -4776,6 +5317,105 @@ class NativeHostHandler(SimpleHTTPRequestHandler):
             self._empty(204)
             return
 
+        if parsed_path == DISPLAY_OUTPUTS_PATH:
+            if urlsplit(self.path).query:
+                self._empty(400)
+                return
+            supplied_token = self.headers.get(DISPLAY_OUTPUTS_TOKEN_HEADER, "")
+            if not hmac.compare_digest(supplied_token, self.server.display_outputs_token):
+                self._empty(403)
+                return
+            payload = self._read_json_body(MAX_DISPLAY_OUTPUT_ACTION_BODY)
+            if payload is None or not isinstance(payload.get("action"), str):
+                self._empty(400)
+                return
+            action = payload["action"]
+            try:
+                if action == "preview" and set(payload) == {"action", "outputId", "modeId"}:
+                    if not isinstance(payload["outputId"], str) or not isinstance(payload["modeId"], str):
+                        self._empty(400)
+                        return
+                    snapshot = self.server.display_outputs_provider.preview(payload["outputId"], payload["modeId"])
+                elif action == "confirm" and set(payload) == {"action", "previewId"}:
+                    if not isinstance(payload["previewId"], str):
+                        self._empty(400)
+                        return
+                    snapshot = self.server.display_outputs_provider.confirm(payload["previewId"])
+                elif action == "revert" and set(payload) == {"action", "previewId"}:
+                    if not isinstance(payload["previewId"], str):
+                        self._empty(400)
+                        return
+                    snapshot = self.server.display_outputs_provider.revert(payload["previewId"])
+                else:
+                    self._empty(400)
+                    return
+            except DisplayOutputError as exc:
+                message = str(exc)
+                status = 503 if "unavailable" in message else 409
+                print(f"ordax-native-host: display output action unavailable: {message}", file=sys.stderr, flush=True)
+                self._empty(status)
+                return
+            except Exception as exc:
+                print(f"ordax-native-host: display output action failed safely: {exc}", file=sys.stderr, flush=True)
+                self._empty(503)
+                return
+            self._write_json(200, snapshot)
+            return
+
+        if parsed_path == AUDIO_OUTPUTS_PATH:
+            if urlsplit(self.path).query:
+                self._empty(400)
+                return
+            supplied_token = self.headers.get(AUDIO_OUTPUTS_TOKEN_HEADER, "")
+            if not hmac.compare_digest(supplied_token, self.server.audio_outputs_token):
+                self._empty(403)
+                return
+            payload = self._read_json_body(MAX_AUDIO_OUTPUT_ACTION_BODY)
+            if payload is None or not isinstance(payload.get("action"), str):
+                self._empty(400)
+                return
+            action = payload["action"]
+            try:
+                if action == "set-default-output" and set(payload) == {"action", "outputId"}:
+                    if not isinstance(payload["outputId"], str):
+                        self._empty(400)
+                        return
+                    snapshot = self.server.audio_outputs_provider.set_default_output(payload["outputId"])
+                elif action == "set-volume" and set(payload) == {"action", "outputId", "volumePercent"}:
+                    if (
+                        not isinstance(payload["outputId"], str)
+                        or isinstance(payload["volumePercent"], bool)
+                        or not isinstance(payload["volumePercent"], int)
+                        or not 0 <= payload["volumePercent"] <= 100
+                    ):
+                        self._empty(400)
+                        return
+                    snapshot = self.server.audio_outputs_provider.set_volume(
+                        payload["outputId"], payload["volumePercent"],
+                    )
+                elif action == "set-muted" and set(payload) == {"action", "outputId", "muted"}:
+                    if not isinstance(payload["outputId"], str) or not isinstance(payload["muted"], bool):
+                        self._empty(400)
+                        return
+                    snapshot = self.server.audio_outputs_provider.set_muted(
+                        payload["outputId"], payload["muted"],
+                    )
+                else:
+                    self._empty(400)
+                    return
+            except AudioOutputError as exc:
+                message = str(exc)
+                status = 503 if "unavailable" in message or "server" in message else 409
+                print(f"ordax-native-host: audio output action unavailable: {message}", file=sys.stderr, flush=True)
+                self._empty(status)
+                return
+            except Exception as exc:
+                print(f"ordax-native-host: audio output action failed safely: {exc}", file=sys.stderr, flush=True)
+                self._empty(503)
+                return
+            self._write_json(200, snapshot)
+            return
+
         if self.path == NETWORK_MANAGEMENT_PATH:
             supplied_token = self.headers.get(NETWORK_TOKEN_HEADER, "")
             if not hmac.compare_digest(supplied_token, self.server.network_token):
@@ -4812,6 +5452,32 @@ class NativeHostHandler(SimpleHTTPRequestHandler):
             self._write_json(200, snapshot)
             return
 
+        if parsed_path == KEYBOARD_LAYOUT_APPLY_PATH:
+            payload = self._read_json_body(MAX_KEYBOARD_LAYOUT_BODY)
+            if (
+                payload is None
+                or set(payload) != {"layoutId"}
+                or payload.get("layoutId") not in KEYBOARD_LAYOUT_ID_SET
+            ):
+                self._empty(400)
+                return
+            try:
+                with self.server.keyboard_layout_lock:
+                    write_keyboard_layout_id(payload["layoutId"])
+                    pending = keyboard_layout_snapshot()
+                    if pending["restartRequired"]:
+                        queue_keyboard_session_restart(payload["layoutId"])
+            except (OSError, ValueError) as exc:
+                print(
+                    f"ordax-native-host: keyboard session restart unavailable: {exc}",
+                    file=sys.stderr,
+                    flush=True,
+                )
+                self._empty(503)
+                return
+            self._write_json(202 if pending["restartRequired"] else 200, pending)
+            return
+
         if parsed_path == KEYBOARD_LAYOUT_PATH:
             payload = self._read_json_body(MAX_KEYBOARD_LAYOUT_BODY)
             if (
@@ -4822,7 +5488,8 @@ class NativeHostHandler(SimpleHTTPRequestHandler):
                 self._empty(400)
                 return
             try:
-                write_keyboard_layout_id(payload["layoutId"])
+                with self.server.keyboard_layout_lock:
+                    write_keyboard_layout_id(payload["layoutId"])
             except (OSError, ValueError) as exc:
                 print(
                     f"ordax-native-host: could not persist keyboard layout: {exc}",
@@ -4852,6 +5519,20 @@ class NativeHostHandler(SimpleHTTPRequestHandler):
                 self._empty(500)
                 return
             self._write_json(200, updated)
+            return
+
+        if parsed_path == FIRST_RUN_CURSOR_PATH:
+            payload = self._read_json_body(128)
+            if payload is None or not valid_first_run_cursor(payload):
+                self._empty(400)
+                return
+            try:
+                write_first_run_cursor(payload)
+            except (OSError, ValueError) as exc:
+                print(f"ordax-native-host: could not persist first-run cursor: {exc}", file=sys.stderr, flush=True)
+                self._empty(503)
+                return
+            self._empty(204)
             return
 
         if parsed_path == FIRST_RUN_PATH:

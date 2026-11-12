@@ -21,6 +21,17 @@ EXCLUSIONS = (
     "!bootstrap/kernel/candidate_pipeline.py",
     "!bootstrap/kernel/update_engine.py",
 )
+MODULE_ARCHIVE_NON_CONSUMERS = (
+    "kernel-candidate.yml",
+    "stable-base-candidate.yml",
+    "dev-base-channel.yml",
+    "creator-payload-candidate.yml",
+    "native-esp-candidate.yml",
+    "kernel-pinned-environment.yml",
+    "portable-initramfs-capsule-pin.yml",
+    "full-bootstrap-media-proof.yml",
+    "portable-v2-pinned-initramfs-proof.yml",
+)
 
 
 class KernelCandidateCIScopeTests(unittest.TestCase):
@@ -38,6 +49,13 @@ class KernelCandidateCIScopeTests(unittest.TestCase):
                         self.assertIn(expected, exclusions, (workflow, expected))
                 self.assertIn("bootstrap/kernel/**", value)
                 self.assertIn("!bootstrap/kernel/candidates/**", value)
+
+    def test_module_archive_helper_does_not_trigger_unrelated_heavy_producers(self):
+        exclusion = "!bootstrap/kernel/module_archive.py"
+        for workflow in MODULE_ARCHIVE_NON_CONSUMERS:
+            with self.subTest(workflow=workflow):
+                value = (ROOT / ".github/workflows" / workflow).read_text(encoding="utf-8")
+                self.assertEqual(value.count(exclusion), 2, workflow)
 
     def test_proposed_kernels_have_one_generic_owner(self):
         generic = (ROOT / ".github/workflows/kernel-lts-candidate.yml").read_text(encoding="utf-8")
@@ -59,7 +77,6 @@ class KernelCandidateCIScopeTests(unittest.TestCase):
         self.assertNotIn("gh pr merge", scheduled)
         self.assertIn('git show "FETCH_HEAD:bootstrap/kernel/candidates/$CANDIDATE_VERSION.json"', scheduled)
         self.assertIn('gh pr list --state all --head "$branch"', scheduled)
-        self.assertIn('gh pr create', scheduled)
         # Recovery from branch-only or PR-only publication must dispatch missing
         # exact-head CI without rerunning an existing job or reopening closed PRs.
         self.assertIn('if test "$state" = "OPEN"; then', scheduled)

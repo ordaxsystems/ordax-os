@@ -4,6 +4,7 @@ set -eu
 SURFACE_ROOT=${0%/*}
 SURFACE_RUNTIME="$SURFACE_ROOT/bin/ordax-surface"
 RECOVERY_ENTRYPOINT=/ordax/bootstrap/recovery/entrypoint
+ACCOUNT_GATEWAY_CONFIG=${ORDAX_SYSTEM_ROOT:-}/services/account/gateway-base-url
 
 log() {
     echo "ordax-surface: $*" >&2
@@ -24,6 +25,15 @@ case "${ORDAX_PRODUCT_MODE:-}" in
     *) fail_closed "product mode identity is missing or invalid" ;;
 esac
 [ -x "$SURFACE_RUNTIME" ] || fail_closed "surface runtime is missing"
+
+# The Native Surface owns validation of the configured HTTPS gateway. The
+# entrypoint only carries the repository configuration into its environment when
+# no explicit runtime override was supplied. Missing/unsafe config remains
+# fail-soft: account identity stays unavailable without affecting local boot.
+if [ -z "${ORDAX_ACCOUNT_GATEWAY_ORIGIN:-}" ] && [ -f "$ACCOUNT_GATEWAY_CONFIG" ] && [ ! -L "$ACCOUNT_GATEWAY_CONFIG" ]; then
+    ORDAX_ACCOUNT_GATEWAY_ORIGIN=$(/bin/busybox cat "$ACCOUNT_GATEWAY_CONFIG" 2>/dev/null || true)
+    export ORDAX_ACCOUNT_GATEWAY_ORIGIN
+fi
 
 ORDAX_SURFACE_MODE=native-auto
 export ORDAX_SURFACE_MODE

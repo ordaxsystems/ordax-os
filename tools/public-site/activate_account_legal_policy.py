@@ -22,7 +22,6 @@ from pathlib import Path
 # Both public activation gates use one implementation of operator identity rules.
 sys.path.insert(0, str(Path(__file__).resolve().parent))
 from legal_operator import operator_blockers
-from public_html_render import render_public_html
 from public_legal_integrity import canonical_legal_route, LAST_LEGACY_DOCUMENT_VERSION
 from legal_snapshots import LegalSnapshotError, validate_immutable_legal_snapshots
 from urllib.parse import urlsplit
@@ -32,7 +31,7 @@ LEGAL = ROOT / "docs" / "contracts" / "public-legal-readiness.json"
 CANONICAL_ACCOUNT_DESTINATION = ROOT / "infra" / "supabase" / "product" / "account_destination_migration_plan.json"
 PUBLIC_AUTH_CONTRACT = ROOT / "docs" / "contracts" / "public-auth-provider-policy.json"
 MAX_PUBLIC_DOCUMENT_BYTES = 2 * 1024 * 1024
-SITE = ROOT / "sites" / "public"
+SITE = ROOT / "out" / "verified-ordax-site"  # externally verified static bundle, never legacy source
 SNAPSHOT_LEDGER = ROOT / "docs" / "contracts" / "public-legal-snapshots.json"
 SCHEMA = "prototype-ordax.account-legal-policy-candidate/1"
 RECEIPT_SCHEMA = "prototype-ordax.account-legal-policy-activation-receipt/1"
@@ -178,18 +177,18 @@ def route_file(route: str) -> Path:
 
 
 def sha256_published_html_source(path: Path) -> str:
-    """Hash the exact HTML emitted by the canonical public-site builder.
+    """Hash exactly the bytes built and verified by ordax-site.
 
-    Source markup is not the production publication: the canonical build
-    injects the shared brand stylesheet link. Policy digests MUST use those
-    emitted bytes, not a separately hashed source or a guessed visual asset.
+    The OS must not re-render the Site's HTML or own a duplicate renderer.
+    A missing verified static bundle fails closed in route_file/build_candidate.
+    Immutable versioned pages are additionally pinned by the legal ledger.
     """
-    # Immutable snapshots are copied byte-for-byte by the public builder.
-    # Do not inject theme markup or cache-bust links into accepted legal bytes.
-    if "legal" in path.parts and path.parent.parent.parent == SITE / "legal":
-        return hashlib.sha256(path.read_bytes()).hexdigest()
-    markup = render_public_html(path.read_text(encoding="utf-8"))
-    return hashlib.sha256(markup.encode("utf-8")).hexdigest()
+    if not path.is_file() or path.is_symlink():
+        raise ValueError("verified independent Site document unavailable")
+    data = path.read_bytes()
+    if not data or len(data) > MAX_PUBLIC_DOCUMENT_BYTES:
+        raise ValueError("invalid independent Site document size")
+    return hashlib.sha256(data).hexdigest()
 
 
 def build_candidate(origin: str) -> dict:

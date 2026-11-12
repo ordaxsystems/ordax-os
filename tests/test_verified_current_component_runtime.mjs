@@ -1,12 +1,33 @@
 import assert from "node:assert/strict";
 import test from "node:test";
 import { COMPONENT_RUNTIME_SCHEMA } from "../system/contracts/component-runtime.mjs";
+import { DEVICE_LOCAL_FILE_SPACE_SCOPE, FILE_SPACE_SCHEMA } from "../system/contracts/file-space.mjs";
+import { APP_DATA_SCHEMA } from "../system/contracts/app-data.mjs";
 import { createNativeComponentSlotSource } from "../system/adapters/native/component-slot-source.mjs";
 import { loadVerifiedCurrentComponentRuntime as load } from "../system/services/components/current-slot-loader.mjs";
 import { installTrustedComponentContextProvider } from "../system/services/components/runtime-loader.mjs";
 
-installTrustedComponentContextProvider(async (componentId) => componentId === "internet"
-  ? Object.freeze({ nativeAppDataMarker: "bound-by-host" }) : null);
+let suppliedFileSpace = null;
+let suppliedFilesContext = null;
+installTrustedComponentContextProvider(async (componentId) => {
+  if (componentId === "files") return suppliedFilesContext;
+  if (componentId !== "internet") return null;
+  return Object.freeze({
+    nativeAppDataMarker: "bound-by-host",
+    ...(suppliedFileSpace === null ? {} : { fileSpace: suppliedFileSpace }),
+  });
+});
+
+function filePort(list = async (path) => ({ path, entries: [] })) {
+  const method = async () => ({ entries: [] });
+  return Object.freeze({
+    schema: FILE_SPACE_SCHEMA, scope: DEVICE_LOCAL_FILE_SPACE_SCOPE, list,
+    createDirectory: method, readTextFile: method, renameEntry: method,
+    readImagePreview: method, readMediaPreview: method, readDocumentPreview: method,
+    copyFile: method, moveEntry: method, trashEntry: method, listTrash: method,
+    restoreTrashEntry: method, exportFile: method, importFile: method,
+  });
+}
 
 const revision = Object.freeze({
   componentId: "internet", state: "current", source: "slot", revision: 4,
@@ -51,7 +72,7 @@ function makeSurfaceRoot() {
   return new FakeElement(documentObject);
 }
 
-function fixture(states = [revision]) {
+function fixture(states = [revision], { componentId = "internet", version = "0.3.0" } = {}) {
   let reads = 0, imports = 0, mounts = 0, destroys = 0, reported = null;
   const fetchImpl = async (_, options) => {
     assert.equal(options.credentials, "same-origin");
@@ -61,9 +82,10 @@ function fixture(states = [revision]) {
   const importModule = async () => {
     imports++;
     return { componentRuntime: {
-      schema: COMPONENT_RUNTIME_SCHEMA, componentId: "internet", version: "0.3.0",
+      schema: COMPONENT_RUNTIME_SCHEMA, componentId, version,
       mount: async (context) => {
-        assert.equal(context.nativeAppDataMarker, "bound-by-host");
+        if (componentId === "internet") assert.equal(context.nativeAppDataMarker, "bound-by-host");
+        if (componentId === "files") assert.strictEqual(context.fileSpace, suppliedFilesContext.fileSpace);
         mounts++;
         return { destroy() { destroys++; } };
       },
@@ -71,7 +93,7 @@ function fixture(states = [revision]) {
   };
   return {
     run: (override = {}) => load({
-      componentId: "internet", source, fetchImpl, importModule,
+      componentId, source, fetchImpl, importModule,
       onError(error) { reported = error; }, ...override,
     }),
     state: () => ({ reads, imports, mounts, destroys, reported }),
@@ -82,7 +104,7 @@ test("current verified slot mounts without a local app import", async () => {
   const mounted = await f.run();
   assert.ok(mounted);
   assert.deepEqual({ ...f.state(), reported: null }, { reads: 3, imports: 1, mounts: 1, destroys: 0, reported: null });
-  mounted.destroy();
+  await mounted.destroy();
   assert.equal(f.state().destroys, 1);
 });
 
@@ -114,8 +136,8 @@ test("DOM app runtime receives an empty per-component root and releases it on de
   assert.ok(mounted);
   assert.equal(surfaceRoot.childNodes.length, 1);
   assert.equal(appRoot.childNodes.length, 1);
-  mounted.destroy();
-  mounted.destroy();
+  await mounted.destroy();
+  await mounted.destroy();
   assert.equal(destroyed, 1);
   assert.equal(surfaceRoot.childNodes.length, 0);
   assert.equal(appRoot.removed, true);
@@ -251,4 +273,81 @@ test("a forged discovery identity fails before network access", async () => {
   }), /component identity mismatch/);
   assert.equal(f.state().reads, 0);
   assert.equal(f.state().imports, 0);
+});
+
+// Signed source identity is not an isolation boundary. Reject the Native
+// File Space BEFORE executing any app module in the privileged Surface realm.
+test("current slot denies trusted File Space before module import", async () => {
+  const host = filePort();
+  suppliedFileSpace = host;
+  try {
+    const f = fixture();
+    const parent = makeSurfaceRoot();
+    const mounted = await f.run({ context: { root: parent } });
+    assert.equal(mounted, null);
+    assert.equal(f.state().imports, 0);
+    assert.equal(f.state().mounts, 0);
+    assert.equal(f.state().reads, 1);
+    assert.equal(parent.childNodes.length, 0);
+    assert.match(f.state().reported.message, /Native File Space is available only to the verified Files slot/);
+    assert.deepEqual(await host.list("/"), { path: "/", entries: [] });
+  } finally {
+    suppliedFileSpace = null;
+  }
+});
+
+test("caller-supplied File Space never reaches an imported component", async () => {
+  const f = fixture();
+  const mounted = await f.run({ context: { fileSpace: filePort() } });
+  assert.equal(mounted, null);
+  assert.equal(f.state().imports, 0);
+  assert.equal(f.state().mounts, 0);
+  assert.match(f.state().reported.message, /Caller-supplied Native File Space is not trusted/);
+});
+
+test("injected File Space blocks untrusted import after verified current identity", async () => {
+  suppliedFileSpace = filePort();
+  try {
+    const f = fixture([revision, { ...revision, revision: 5 }]);
+    const mounted = await f.run();
+    assert.equal(mounted, null);
+    assert.equal(f.state().imports, 0);
+    assert.equal(f.state().reads, 1);
+    assert.match(f.state().reported.message, /Native File Space is available only to the verified Files slot/);
+  } finally {
+    suppliedFileSpace = null;
+  }
+});
+
+test("only the verified Files slot receives the host-bound device-local File Space", async () => {
+  const appData = Object.freeze({
+    schema: APP_DATA_SCHEMA,
+    identity: Object.freeze({ appId: "files", publisherId: "ordaxsystems", ownerScope: "device" }),
+    async get() { return { revision: 0, found: false, key: "unused", value: new Uint8Array() }; },
+    async list() { return { revision: 0, keys: [] }; },
+    async put() { return { revision: 1, stored: true }; },
+    async delete() { return { revision: 1, deleted: true }; },
+  });
+  const hostFileSpace = filePort();
+  suppliedFilesContext = Object.freeze({ appData, fileSpace: hostFileSpace });
+  try {
+    const filesRevision = Object.freeze({
+      componentId: "files", state: "current", source: "slot", revision: 21,
+      version: "0.3.0", sourceCommit: "b".repeat(40),
+      entrypoint: "src/runtime.mjs", pendingHealth: null,
+    });
+    const f = fixture([filesRevision], { componentId: "files", version: "0.3.0" });
+    const root = makeSurfaceRoot();
+    const mounted = await f.run({
+      context: { root },
+      requireTrustedAppData: true,
+    });
+    assert.ok(mounted);
+    assert.equal(f.state().imports, 1);
+    assert.equal(f.state().mounts, 1);
+    await mounted.destroy();
+    assert.equal(root.childNodes.length, 0);
+  } finally {
+    suppliedFilesContext = null;
+  }
 });

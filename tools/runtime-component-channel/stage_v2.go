@@ -163,9 +163,20 @@ func verifySlotV2WithTrustBytes(slot string, trustBytes []byte) (releaseDescript
 		}
 	}
 	for _, record := range manifest.Files {
+		filePath := filepath.Join(absolute, filepath.FromSlash(record.Path))
+		if runtime.GOOS != "windows" {
+			info, err := os.Lstat(filePath)
+			if err != nil {
+				return releaseDescriptorV2{}, err
+			}
+			if executablePackageFile(manifest.Component.ID, record) &&
+				info.Mode().Perm() != verifiedFileMode(manifest.Component.ID, record) {
+				return releaseDescriptorV2{}, fmt.Errorf("installed runtime component release/2 file mode mismatch: %s", record.Path)
+			}
+		}
 		payload, err := readRegular(
-			filepath.Join(absolute, filepath.FromSlash(record.Path)),
-			maxFileBytes,
+			filePath,
+			productRuntimeFileLimit(manifest.Component.ID, record),
 			false,
 		)
 		if err != nil {
@@ -259,7 +270,7 @@ func stageComponentV2(
 	); err != nil {
 		return releaseDescriptorV2{}, "", false, err
 	}
-	if err := makeSlotReadOnly(tempDir); err != nil {
+	if err := makeSlotReadOnly(tempDir, verified.Manifest); err != nil {
 		return releaseDescriptorV2{}, "", false, err
 	}
 	staged, err := verifySlotV2WithTrustBytes(tempDir, trustBytes)

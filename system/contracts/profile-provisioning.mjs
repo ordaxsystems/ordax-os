@@ -55,6 +55,7 @@ function componentValue(value, label) {
   const component = objectValue(value, label);
   const id = boundedText(component.id, `${label}.id`, 128);
   if (!COMPONENT_ID_PATTERN.test(id)) throw new TypeError(`${label}.id is invalid`);
+  if (component.kind === "app") throw new TypeError(`${label} app packages belong to the Store, not Profile provisioning`);
   if (!COMPONENT_KINDS.has(component.kind)) throw new TypeError(`${label}.kind is invalid`);
   const version = boundedText(component.version, `${label}.version`, 64);
   if (!SEMVER_PATTERN.test(version)) throw new TypeError(`${label}.version is invalid`);

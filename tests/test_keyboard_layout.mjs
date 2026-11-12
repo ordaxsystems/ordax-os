@@ -67,4 +67,12 @@ test("native keyboard layout adapter is GET/POST bounded and validated", async (
   assert.equal(configured.restartRequired, true);
   assert.equal(calls.at(-1).options.method, "POST");
   assert.deepEqual(JSON.parse(calls.at(-1).options.body), { layoutId: "us" });
+
+  const pending = await port.apply("us");
+  assert.equal(pending.configuredLayoutId, "us");
+  assert.equal(pending.appliedLayoutId, "br-abnt2");
+  assert.equal(pending.restartRequired, true);
+  assert.equal(calls.at(-1).url, "/__ordax/native/keyboard-layout/apply");
+  assert.equal(calls.at(-1).options.method, "POST");
+  assert.deepEqual(JSON.parse(calls.at(-1).options.body), { layoutId: "us" });
 });

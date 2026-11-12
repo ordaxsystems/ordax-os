@@ -81,8 +81,9 @@ printf 'known-good-initramfs\n' | sudo tee "$ESP_MOUNT/ordax/initrd.gz" >/dev/nu
 sync
 sudo umount "$ESP_MOUNT"
 
-python3 - "$CANDIDATE_ROOT" "$VERSION_ROOT" "$SOURCE_SHA" <<'PY'
+python3 - "$CANDIDATE_ROOT" "$VERSION_ROOT" "$SOURCE_SHA" "$ROOT" <<'PY'
 import hashlib
+import importlib.util
 import json
 import pathlib
 import sys
@@ -132,30 +133,20 @@ manifest = {
 )
 
 version = version_root / source
-for relative in (
-    "bin/busybox",
-    "bin/sh",
-    "usr/bin/git",
-    "sbin/ordax-dev-init",
-    "usr/local/bin/ordax-network",
-    "usr/local/bin/ordax-pull",
-    "usr/local/bin/ordax-rollback",
-    "usr/local/bin/ordax-run",
-):
+# Reuse the receiving Base channel's exact required paths in the physical
+# one-shot fixture; do not let this proof maintain another stale allowlist.
+channel_path = pathlib.Path(sys.argv[4]) / "system/services/base-update/dev_channel.py"
+spec = importlib.util.spec_from_file_location("ordax_arm_proof_channel", channel_path)
+if spec is None or spec.loader is None:
+    raise RuntimeError("canonical Dev Base channel loader is unavailable")
+channel = importlib.util.module_from_spec(spec)
+spec.loader.exec_module(channel)
+for relative in channel.REQUIRED_ROOTFS_PATHS:
     target = version / relative
     target.parent.mkdir(parents=True, exist_ok=True)
     target.write_text("#!/bin/sh\nexit 0\n", encoding="utf-8")
     target.chmod(0o755)
-for relative in (
-    "state",
-    "workspace",
-    "home",
-    "proc",
-    "sys",
-    "dev",
-    "run",
-    ".ordax-base",
-):
+for relative in (*channel.REQUIRED_ROOTFS_DIRS, ".ordax-base"):
     (version / relative).mkdir(parents=True, exist_ok=True)
 (version / ".ordax-rootfs-commit").write_text(source + "\n", encoding="ascii")
 PY

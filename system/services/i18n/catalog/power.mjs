@@ -45,7 +45,7 @@ export const POWER_SOURCE_MESSAGES = Object.freeze({
   "power.controls.request.restart": "Solicitando reinício ao host…",
   "power.controls.request.shutdown": "Solicitando desligamento ao host…",
   "power.controls.accepted": "Solicitação aceita pelo host.",
-  "power.controls.hostStillActive": "O host permaneceu ativo; a ação pode ser tentada novamente.",
+  "power.controls.hostStillActive": "O host ainda está concluindo a ação. Aguarde; tente novamente somente se ele permanecer ativo.",
   "power.controls.failed": "A ação de energia não pôde ser concluída.",
 });
 
@@ -96,6 +96,6 @@ export const POWER_ENGLISH_MESSAGES = Object.freeze({
   "power.controls.request.restart": "Requesting restart from the host…",
   "power.controls.request.shutdown": "Requesting shutdown from the host…",
   "power.controls.accepted": "Request accepted by the host.",
-  "power.controls.hostStillActive": "The host remained active; the action can be tried again.",
+  "power.controls.hostStillActive": "The host is still completing the action. Wait; retry only if it remains active.",
   "power.controls.failed": "The power action could not be completed.",
 });

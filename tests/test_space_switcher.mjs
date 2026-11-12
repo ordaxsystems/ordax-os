@@ -94,6 +94,9 @@ test("Native shell uses real ports; canonical Web preserves the Spaces interface
   assert.doesNotMatch(web, /WebShell/);
   assert.doesNotMatch(web, /adapters\/native/);
   assert.match(component, /selectionPort\.select\(match\.id\)/);
+  assert.match(component, /describeSpacePresentation/);
+  assert.match(component, /semanticTypeLabel/);
+  assert.doesNotMatch(component, /activeProfile \? profileLabel\(activeProfile\)/);
   assert.match(component, /activationPort\.publish\(\{ appId: "account", target: "spaces" \}\)/);
   assert.doesNotMatch(component, /\.createSpace\(|\.create\(|localStorage|sessionStorage/);
   assert.equal(account.split('"account.spaces.switcher.manage"').length - 1, 2);

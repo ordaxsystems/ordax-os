@@ -1,3 +1,10 @@
+import { resolveWebLocalStorage } from "../system/adapters/web/local-storage.mjs";
+import { createWebWorkspaceStore } from "../system/adapters/web/workspace.mjs";
+import { WORKSPACE_STORE_SCHEMA } from "../system/contracts/workspace-store.mjs";
+import { createWebMemoryStore } from "../system/adapters/web/memory.mjs";
+import { createWebSyncStateStore } from "../system/adapters/web/sync-state.mjs";
+import { createWebSyncCheckpointStore } from "../system/adapters/web/sync-checkpoint.mjs";
+
 import { homeShortcutsPreference, HOME_SHORTCUTS_PREFERENCE_ID } from '../system/services/preferences/home-shortcuts.mjs';
 import assert from "node:assert/strict";
 import test from "node:test";
@@ -9,6 +16,7 @@ import {
 } from "../system/services/preferences/catalog.mjs";
 import { resolveRegionalTimeZone } from "../system/services/preferences/regional.mjs";
 import { createWebPreferenceStore } from "../system/adapters/web/preferences.mjs";
+import { MAX_PREFERENCE_ENTRIES, MAX_PREFERENCE_STRING_LENGTH, validatePreferenceRecord } from "../system/contracts/preference-store.mjs";
 
 const REGIONAL_DEFAULTS = Object.freeze({
   "regional.locale": "pt-BR",
@@ -18,6 +26,7 @@ const REGIONAL_DEFAULTS = Object.freeze({
 function expectedPreferences(values = {}) {
   return {
     "appearance.theme": "light",
+    "display.scale": "automatic",
     "surface.color-palette": "standard",
     "memory.auto-capture": "on",
     [HOME_SHORTCUTS_PREFERENCE_ID]: homeShortcutsPreference.defaultValue,
@@ -191,4 +200,80 @@ test("memory automatic capture preference persists through the shared store", ()
     recoverPreferenceSnapshot({ "memory.auto-capture": "invalid" })["memory.auto-capture"],
     "on",
   );
+});
+
+test("bounded preference records share finite number, key and Unicode text semantics across hosts", () => {
+  const valid = { "test.null": null, "test.bool": true, "test.number": -0.5, "test.string": "abc" };
+  assert.deepEqual(validatePreferenceRecord(valid), valid);
+  for (const value of [NaN, Infinity, -Infinity]) {
+    assert.throws(() => validatePreferenceRecord({ "test.number": value }), /scalar/);
+  }
+  assert.equal(validatePreferenceRecord({ "test.text": "x".repeat(MAX_PREFERENCE_STRING_LENGTH) })["test.text"].length, 4096);
+  assert.throws(() => validatePreferenceRecord({ "test.text": "x".repeat(MAX_PREFERENCE_STRING_LENGTH + 1) }), /scalar/);
+  assert.doesNotThrow(() => validatePreferenceRecord({ "test.emoji": "😀".repeat(MAX_PREFERENCE_STRING_LENGTH) }));
+  assert.throws(() => validatePreferenceRecord({ "test.emoji": "😀".repeat(MAX_PREFERENCE_STRING_LENGTH + 1) }), /scalar/);
+  const full = Object.fromEntries(Array.from({ length: MAX_PREFERENCE_ENTRIES }, (_, i) => [`key.${i}`, i]));
+  assert.equal(Object.keys(validatePreferenceRecord(full)).length, MAX_PREFERENCE_ENTRIES);
+  assert.throws(() => validatePreferenceRecord({ ...full, "key.extra": 1 }), /entry limit/);
+});
+
+test("Web store refuses invalid Native preference shapes without corrupting last good record", () => {
+  const storage = new FakeStorage();
+  const store = createWebPreferenceStore({ localStorage: storage });
+  assert.equal(store.save({ "appearance.theme": "dark" }), true);
+  for (const value of [NaN, Infinity, -Infinity]) {
+    assert.throws(() => store.save({ "test.number": value }), TypeError);
+  }
+  assert.throws(() => store.save({ "test.text": "a".repeat(MAX_PREFERENCE_STRING_LENGTH + 1) }), TypeError);
+  assert.deepEqual(store.load(), { "appearance.theme": "dark" });
+});
+
+test("Web storage SSOT returns the original compatible browser storage without wrapping data", () => {
+  const persistent = new FakeStorage();
+  assert.equal(resolveWebLocalStorage({ localStorage: persistent }), persistent);
+  assert.equal(resolveWebLocalStorage({}), null);
+  assert.equal(resolveWebLocalStorage(null), null);
+  assert.equal(resolveWebLocalStorage({ localStorage: { getItem() {} } }), null);
+  assert.equal(resolveWebLocalStorage({ localStorage: { setItem() {} } }), null);
+});
+
+test("Web storage SSOT fails closed when browser policy denies the storage property or methods", () => {
+  const denied = {};
+  Object.defineProperty(denied, "localStorage", { get() { throw new Error("SecurityError"); } });
+  assert.equal(resolveWebLocalStorage(denied), null);
+  const broken = {};
+  Object.defineProperty(broken, "localStorage", { get() {
+    return { get getItem() { throw new Error("SecurityError"); }, setItem() {} };
+  } });
+  assert.equal(resolveWebLocalStorage(broken), null);
+});
+
+test("five Web state adapters use one optional-storage boundary without changing their semantics", () => {
+  const persistent = new FakeStorage();
+  const windowRef = { localStorage: persistent };
+  const preferences = createWebPreferenceStore(windowRef);
+  assert.deepEqual(preferences.load(), {});
+  assert.equal(preferences.save({ "appearance.theme": "dark" }), true);
+  assert.equal(createWebPreferenceStore(windowRef).load()["appearance.theme"], "dark");
+
+  const workspace = createWebWorkspaceStore(windowRef);
+  assert.equal(workspace.schema, WORKSPACE_STORE_SCHEMA);
+  assert.ok(workspace.load());
+
+  const memory = createWebMemoryStore(windowRef);
+  const syncState = createWebSyncStateStore(windowRef);
+  const checkpoint = createWebSyncCheckpointStore(windowRef);
+  assert.equal(memory.scope, "device");
+  assert.equal(syncState.scope, "device");
+  assert.equal(checkpoint.scope, "device");
+});
+
+test("optional Web storage denial retains explicit session fallback in every state adapter", () => {
+  const denied = {};
+  Object.defineProperty(denied, "localStorage", { get() { throw new Error("SecurityError"); } });
+  assert.equal(createWebPreferenceStore(denied).save({ "appearance.theme": "dark" }), false);
+  assert.ok(createWebWorkspaceStore(denied).load());
+  assert.equal(createWebMemoryStore(denied).scope, "session");
+  assert.equal(createWebSyncStateStore(denied).scope, "session");
+  assert.equal(createWebSyncCheckpointStore(denied).scope, "session");
 });

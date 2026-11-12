@@ -1,0 +1,219 @@
+from __future__ import annotations
+
+import importlib.util
+import json
+from pathlib import Path
+import sys
+import types
+import unittest
+from unittest.mock import patch
+
+
+ROOT = Path(__file__).resolve().parents[1]
+RUNTIME = ROOT / "system" / "surface" / "runtime"
+MODULE_PATH = RUNTIME / "product_device_runtime.py"
+APP_DATA_RUNTIME = RUNTIME / "native_app_data_runtime.py"
+
+if str(RUNTIME) not in sys.path:
+    sys.path.insert(0, str(RUNTIME))
+
+spec = importlib.util.spec_from_file_location("product_device_runtime_under_test", MODULE_PATH)
+module = importlib.util.module_from_spec(spec)
+assert spec.loader is not None
+spec.loader.exec_module(module)
+
+
+SUBJECT = "123e4567-e89b-42d3-a456-426614174000"
+
+class Reply:
+    def __init__(self, status: int, payload: dict | None = None):
+        self.status = status
+        self.body = b"" if payload is None else json.dumps(payload).encode("utf-8")
+
+
+class FakeGateway:
+    def __init__(self, *, login_status: int = 200, authenticated: bool = True):
+        self.login_status = login_status
+        self.authenticated = authenticated
+        self.login_calls = []
+        self.session_calls = 0
+        self.subject = SUBJECT
+
+    def login(self, email: str, password: str):
+        self.login_calls.append((email, password))
+        return Reply(self.login_status, {"login": "canonical"})
+
+    def session(self):
+        self.session_calls += 1
+        return Reply(200, {
+            "$schema": "prototype-ordax.public-identity-session/1",
+            "authenticated": self.authenticated, "subject": self.subject,
+            "status": "authenticated" if self.authenticated else "anonymous",
+            "provider": "supabase", "email": "owner@example.test",
+        })
+
+    def logout(self):
+        return Reply(204)
+
+
+class FakeCoordinator:
+    def __init__(self, *, raises: Exception | None = None):
+        self.calls = []
+        self.raises = raises
+        self.stop_calls = 0
+        self.wait_values = []
+
+    def stop_presence(self, *, wait=False):
+        self.stop_calls += 1
+        self.wait_values.append(wait)
+
+    def after_authenticated_login(self, profile: dict, *, subject=None):
+        self.calls.append((profile, subject))
+        if self.raises is not None:
+            raise self.raises
+        return types.SimpleNamespace(status="enrolled")
+
+
+class ProductDeviceAuthenticatedLoginTriggerTests(unittest.TestCase):
+    def test_authenticated_login_triggers_once_and_preserves_reply(self):
+        gateway = FakeGateway()
+        coordinator = FakeCoordinator()
+        profile = {"displayName": "OrdaX Notebook"}
+        proxy = module.ProductDeviceAccountGatewayProxy(
+            gateway,
+            coordinator,
+            lambda: profile,
+        )
+
+        reply = proxy.login("owner@example.test", "secret")
+
+        self.assertEqual(reply.status, 200)
+        self.assertEqual(gateway.login_calls, [("owner@example.test", "secret")])
+        self.assertEqual(gateway.session_calls, 1)
+        self.assertEqual(coordinator.calls, [(profile, SUBJECT)])
+
+    def test_switching_accounts_stops_the_prior_device_presence(self):
+        gateway = FakeGateway()
+        coordinator = FakeCoordinator()
+        proxy = module.ProductDeviceAccountGatewayProxy(gateway, coordinator, lambda: {"displayName": "USB"})
+        proxy.login("first@example.test", "password")
+        self.assertEqual(coordinator.stop_calls, 0)
+        gateway.subject = "123e4567-e89b-42d3-a456-426614174001"
+        proxy.login("second@example.test", "password")
+        self.assertEqual(coordinator.stop_calls, 1)
+        self.assertEqual(coordinator.calls[-1][1], gateway.subject)
+
+    def test_failed_or_anonymous_login_never_enrolls(self):
+        for login_status, authenticated in ((401, True), (200, False)):
+            with self.subTest(login_status=login_status, authenticated=authenticated):
+                gateway = FakeGateway(login_status=login_status, authenticated=authenticated)
+                coordinator = FakeCoordinator()
+                proxy = module.ProductDeviceAccountGatewayProxy(gateway, coordinator, lambda: {"displayName": "N"})
+                reply = proxy.login("x@example.test", "bad")
+                self.assertEqual(reply.status, login_status)
+                self.assertEqual(coordinator.calls, [])
+
+    def test_enrollment_side_effect_cannot_change_successful_login(self):
+        gateway = FakeGateway()
+        coordinator = FakeCoordinator(raises=OSError("control plane unavailable"))
+        proxy = module.ProductDeviceAccountGatewayProxy(gateway, coordinator, lambda: {"displayName": "N"})
+        reply = proxy.login("owner@example.test", "secret")
+        self.assertEqual(reply.status, 200)
+        self.assertEqual(gateway.session_calls, 1)
+
+    def test_logout_stops_native_presence_only_after_success(self):
+        gateway = FakeGateway()
+        coordinator = FakeCoordinator()
+        proxy = module.ProductDeviceAccountGatewayProxy(gateway, coordinator, lambda: {})
+        self.assertEqual(proxy.logout().status, 204)
+        self.assertEqual(coordinator.stop_calls, 1)
+        proxy.close_product_presence()
+        self.assertEqual(coordinator.stop_calls, 2)
+        self.assertEqual(coordinator.wait_values, [False, True])
+
+    def test_session_refresh_recovers_enrollment_failure_without_another_login(self):
+        gateway = FakeGateway()
+        coordinator = FakeCoordinator(raises=OSError("offline"))
+        proxy = module.ProductDeviceAccountGatewayProxy(gateway, coordinator, lambda: {"displayName": "USB"})
+        with patch.object(module.time, "monotonic", return_value=100):
+            proxy.login("owner@example.test", "secret")
+            proxy.session()
+        self.assertEqual(len(coordinator.calls), 1)
+        coordinator.raises = None
+        with patch.object(module.time, "monotonic", return_value=160):
+            proxy.session()
+            proxy.session()
+        self.assertEqual(len(coordinator.calls), 2)
+        self.assertEqual(len(gateway.login_calls), 1)
+        self.assertEqual(proxy._enrolled_subject, SUBJECT)
+
+    def test_session_observation_enrolls_an_already_authenticated_account_once(self):
+        gateway = FakeGateway()
+        coordinator = FakeCoordinator()
+        profile = {"displayName": "USB"}
+        proxy = module.ProductDeviceAccountGatewayProxy(gateway, coordinator, lambda: profile)
+        reply = proxy.session()
+        proxy.session()
+        self.assertEqual(reply.status, 200)
+        self.assertEqual(coordinator.calls, [(profile, SUBJECT)])
+        self.assertEqual(gateway.login_calls, [])
+
+    def test_session_expiration_stops_presence(self):
+        gateway = FakeGateway()
+        coordinator = FakeCoordinator()
+        proxy = module.ProductDeviceAccountGatewayProxy(gateway, coordinator, lambda: {"displayName": "USB"})
+        proxy.session()
+        gateway.authenticated = False
+        proxy.session()
+        self.assertFalse(proxy._authenticated)
+        self.assertIsNone(proxy._subject)
+        self.assertEqual(coordinator.stop_calls, 1)
+
+    def test_account_gateway_unreachable_stops_presence_and_preserves_error(self):
+        gateway = FakeGateway()
+        coordinator = FakeCoordinator()
+        proxy = module.ProductDeviceAccountGatewayProxy(gateway, coordinator, lambda: {"displayName": "USB"})
+        proxy.session()
+        def offline_session():
+            raise module.NativeAccountGatewayError("gateway-unreachable")
+        gateway.session = offline_session
+        with self.assertRaises(module.NativeAccountGatewayError):
+            proxy.session()
+        self.assertEqual(coordinator.stop_calls, 1)
+        self.assertFalse(proxy._authenticated)
+
+    def test_malformed_and_non_success_sessions_cannot_enroll(self):
+        for reply in (Reply(503, {"authenticated": True, "subject": SUBJECT}),
+                      Reply(200, {"authenticated": True, "subject": SUBJECT}),
+                      Reply(200, {"$schema": "prototype-ordax.public-identity-session/1",
+                                  "authenticated": True, "status": "authenticated",
+                                  "provider": "supabase", "email": "owner@example.test",
+                                  "subject": "not-a-uuid"})):
+            with self.subTest(reply=reply.body):
+                gateway = FakeGateway()
+                gateway.session = lambda: reply
+                coordinator = FakeCoordinator()
+                proxy = module.ProductDeviceAccountGatewayProxy(gateway, coordinator, lambda: {})
+                self.assertIs(proxy.session(), reply)
+                self.assertEqual(coordinator.calls, [])
+                self.assertFalse(proxy._authenticated)
+
+    def test_other_gateway_methods_delegate_unchanged(self):
+        gateway = FakeGateway()
+        proxy = module.ProductDeviceAccountGatewayProxy(gateway, FakeCoordinator(), lambda: {})
+        self.assertEqual(proxy.logout().status, 204)
+
+    def test_native_runtime_consumes_inherited_owner_control_plane_without_ui_route(self):
+        text = APP_DATA_RUNTIME.read_text(encoding="utf-8")
+        module_text = MODULE_PATH.read_text(encoding="utf-8")
+        self.assertIn('os.environ.get("ORDAX_PRODUCT_CONTROL_PLANE_URL", "")', text)
+        self.assertIn("device_profile_reader=read_device_profile", text)
+        self.assertIn("compose_product_device_account_gateway", text)
+        self.assertNotIn("/__ordax/native/device-enroll", text)
+        self.assertNotIn("import threading", module_text)
+        self.assertNotIn("time.sleep", module_text)
+        self.assertNotIn("while True", module_text)
+
+
+if __name__ == "__main__":
+    unittest.main()

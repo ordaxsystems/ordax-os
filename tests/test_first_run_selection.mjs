@@ -24,7 +24,8 @@ test("default selection references existing removable app policies without chang
   const defaults = listFirstRunDefaultAppIds();
   assert.equal(defaults.length, 15);
   assert.equal(new Set(defaults).size, defaults.length);
-  assert.ok(defaults.includes("files") && defaults.includes("internet"));
+  assert.equal(defaults.includes("files"), false); assert.ok(defaults.includes("internet"));
+  assert.ok(defaults.includes("assistant"), "Aura is selected using its existing app id");
   assert.ok(defaults.includes("notes") && defaults.includes("calculator"));
   for (const appId of defaults) {
     const policy = getFirstPartyAppDeliveryPolicy(appId);
@@ -54,14 +55,14 @@ test("no verified packages means no claimed default installation", () => {
 test("first provisioning considers only verified absent candidates, never previously removed apps", () => {
   const plan = planFirstRunAppSelection({
     initialProvisioning: true,
-    installedAppIds: ["files"],
+    installedAppIds: ["internet"],
     explicitlyRemovedAppIds: ["notes"],
-    verifiedCandidateAppIds: ["calculator", "clock", "notes", "files"],
+    verifiedCandidateAppIds: ["calculator", "clock", "notes", "internet"],
   });
-  assert.deepEqual(plan.alreadyInstalledAppIds, ["files"]);
+  assert.deepEqual(plan.alreadyInstalledAppIds, ["internet"]);
   assert.deepEqual(plan.suppressedAppIds, ["notes"]);
   assert.deepEqual(plan.eligibleCandidateAppIds, ["calculator", "clock"]);
-  assert.ok(plan.unavailableAppIds.includes("internet"));
+  assert.ok(plan.unavailableAppIds.includes("assistant"));
   assert.equal(plan.reinstallAfterUserRemoval, false);
 });
 
@@ -137,10 +138,51 @@ test("Store-backed first-run selection uses only actual verified current-slot an
   assert.deepEqual(plan.alreadyInstalledAppIds, ["notes"]);
   assert.deepEqual(plan.eligibleCandidateAppIds, ["calculator"]);
   assert.deepEqual(plan.suppressedAppIds, ["clock"]);
-  assert.ok(plan.unavailableAppIds.includes("files"), "bundled OS app absent from this Store projection is unknown, not installed");
+  assert.equal(plan.defaultAppIds.includes("files"), false);
   assert.equal(plan.defaultAppIds.includes("studio"), false);
   assert.equal(plan.authority, "none");
   assert.equal(plan.installedByThisPlan, false);
+});
+
+test("Aura default candidate is selected only with verified Native absence; removal is respected", () => {
+  const catalog = storeSnapshot([storeEntry("assistant", {
+    availableVersion: "0.1.2",
+  })]);
+  const candidate = planFirstRunAppSelectionFromStore({
+    initialProvisioning: true,
+    explicitlyRemovedAppIds: [],
+    storeCatalogSnapshot: catalog,
+    nativeCurrentMetadata: [nativeCurrent("assistant", "absent")],
+  });
+  assert.ok(candidate.eligibleCandidateAppIds.includes("assistant"));
+  assert.equal(candidate.installedByThisPlan, false);
+  assert.equal(candidate.authority, "none");
+
+  const withoutProof = planFirstRunAppSelectionFromStore({
+    initialProvisioning: true,
+    explicitlyRemovedAppIds: [],
+    storeCatalogSnapshot: catalog,
+  });
+  assert.ok(withoutProof.unavailableAppIds.includes("assistant"));
+  assert.ok(!withoutProof.eligibleCandidateAppIds.includes("assistant"));
+
+  const userRemoved = planFirstRunAppSelectionFromStore({
+    initialProvisioning: true,
+    explicitlyRemovedAppIds: [],
+    storeCatalogSnapshot: catalog,
+    nativeCurrentMetadata: [nativeCurrent("assistant", "removed")],
+  });
+  assert.ok(userRemoved.suppressedAppIds.includes("assistant"));
+  assert.ok(!userRemoved.eligibleCandidateAppIds.includes("assistant"));
+
+  const afterFirstRun = planFirstRunAppSelectionFromStore({
+    initialProvisioning: false,
+    explicitlyRemovedAppIds: [],
+    storeCatalogSnapshot: catalog,
+    nativeCurrentMetadata: [nativeCurrent("assistant", "absent")],
+  });
+  assert.ok(afterFirstRun.suppressedAppIds.includes("assistant"));
+  assert.ok(!afterFirstRun.eligibleCandidateAppIds.includes("assistant"));
 });
 
 test("Store displayed installedVersion never substitutes Native current-slot proof", () => {

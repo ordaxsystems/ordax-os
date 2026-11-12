@@ -2,6 +2,7 @@
 param(
     [switch]$PreflightOnly,
     [switch]$GenerateKey,
+    [switch]$ResumeExistingKey,
     [string]$PrivateKeyPath = "",
     [string]$ReviewDirectory = "",
     [string]$ToolkitProvenancePath = ""
@@ -133,59 +134,179 @@ if ($PreflightOnly) {
     Write-Host 'FILESYSTEM_MUTATION=NO'
     exit 0
 }
-if (-not $GenerateKey) {
+if ($GenerateKey -and $ResumeExistingKey) {
+    throw 'GenerateKey and ResumeExistingKey are mutually exclusive.'
+}
+if (-not $GenerateKey -and -not $ResumeExistingKey) {
     throw 'Refusing key generation without explicit -GenerateKey.'
 }
 
 Assert-OutsideToolkit $PrivateKeyPath 'Private key'
 Assert-OutsideToolkit $ReviewDirectory 'Review directory'
-
 $PrivateKeyPath = [IO.Path]::GetFullPath($PrivateKeyPath)
 $PrivateDirectory = Split-Path -Parent $PrivateKeyPath
 $ReviewDirectory = [IO.Path]::GetFullPath($ReviewDirectory)
+$ResumeTarget = Join-Path $ReviewDirectory 'resumed-current-toolkit'
+$ResumeStage = ''
+$PriorTrustHash = $null
+$PriorDerivedHash = $null
+$PriorProofSourceCommit = ''
 
-if (Test-Path -LiteralPath $PrivateKeyPath) {
-    throw "Refusing to replace existing private key: $PrivateKeyPath"
-}
-if (Test-Path -LiteralPath $ReviewDirectory) {
-    $existing = @(Get-ChildItem -LiteralPath $ReviewDirectory -Force)
-    if ($existing.Count -ne 0) {
-        throw "Review directory must be empty: $ReviewDirectory"
-    }
-} else {
-    New-Item -ItemType Directory -Path $ReviewDirectory -Force | Out-Null
-}
-New-Item -ItemType Directory -Path $PrivateDirectory -Force | Out-Null
-
-$TrustPath = Join-Path $ReviewDirectory 'runtime-components-ed25519.json'
-$DerivedPath = Join-Path $ReviewDirectory 'runtime-components-ed25519-derived.json'
-$ProofReleasePath = Join-Path $ReviewDirectory 'component-trust-proof-release.json'
-$ProofEnvelopePath = Join-Path $ReviewDirectory 'component-trust-proof-envelope.json'
-$ResultPath = Join-Path $ReviewDirectory 'ceremony-result.json'
-
-foreach ($path in @(
-    $TrustPath,
-    $DerivedPath,
-    $ProofReleasePath,
-    $ProofEnvelopePath,
-    $ResultPath
-)) {
-    if (Test-Path -LiteralPath $path) {
-        throw "Refusing to replace existing ceremony output: $path"
+function Assert-PublicBytesEqual([string]$A, [string]$B) {
+    Assert-RegularFile $A 'public trust'
+    Assert-RegularFile $B 'derived public trust'
+    $aBytes = [IO.File]::ReadAllBytes($A)
+    $bBytes = [IO.File]::ReadAllBytes($B)
+    if ($aBytes.Length -ne $bBytes.Length) { throw 'Existing public trust length mismatch.' }
+    for ($j = 0; $j -lt $aBytes.Length; $j++) {
+        if ($aBytes[$j] -ne $bBytes[$j]) { throw "Existing public trust identity mismatch at byte $j." }
     }
 }
 
-Write-Host 'Generating external component signing key and public trust...'
-& $Signer generate-key --private-key $PrivateKeyPath --trust $TrustPath --key-id $KeyId
-if ($LASTEXITCODE -ne 0) {
-    throw 'Component key generation failed.'
-}
+try {
+    if ($ResumeExistingKey) {
+        Assert-RegularFile $PrivateKeyPath 'existing component private key'
+        if (-not (Test-Path -LiteralPath $ReviewDirectory -PathType Container)) {
+            throw 'Existing component review directory is missing.'
+        }
+        if (((Get-Item -LiteralPath $ReviewDirectory -Force).Attributes -band [IO.FileAttributes]::ReparsePoint) -ne 0) {
+            throw 'Existing component review cannot be a reparse point.'
+        }
+        $OldTrust = Join-Path $ReviewDirectory 'runtime-components-ed25519.json'
+        $OldDerived = Join-Path $ReviewDirectory 'runtime-components-ed25519-derived.json'
+        Assert-PublicBytesEqual $OldTrust $OldDerived
+        $PriorTrustHash = (Get-FileHash -Algorithm SHA256 -LiteralPath $OldTrust).Hash.ToLowerInvariant()
+        $PriorDerivedHash = (Get-FileHash -Algorithm SHA256 -LiteralPath $OldDerived).Hash.ToLowerInvariant()
+        $oldTrustJson = Get-Content -LiteralPath $OldTrust -Raw | ConvertFrom-Json
+        if ($oldTrustJson.'$schema' -ne 'prototype-ordax.runtime-component-trust/1' -or
+            $oldTrustJson.key_id -cne $KeyId -or
+            ([Convert]::FromBase64String([string]$oldTrustJson.public_key_base64)).Length -ne 32) {
+            throw 'Existing review identity is not the component Ed25519 key.'
+        }
+        $allowed = @(
+            'runtime-components-ed25519.json', 'runtime-components-ed25519-derived.json',
+            'component-trust-proof-release.json', 'component-trust-proof-envelope.json',
+            'ceremony-result.json', 'resumed-current-toolkit'
+        )
+        foreach ($entry in @(Get-ChildItem -LiteralPath $ReviewDirectory -Force)) {
+            if ($entry.Name -notin $allowed -or
+                ($entry.Attributes -band [IO.FileAttributes]::ReparsePoint) -ne 0 -or
+                ($entry.Name -ne 'resumed-current-toolkit' -and $entry.PSIsContainer)) {
+                throw "Unexpected or redirected review entry: $($entry.Name)"
+            }
+        }
+        $oldProofFile = Join-Path $ReviewDirectory 'component-trust-proof-release.json'
+        if (Test-Path -LiteralPath $oldProofFile) {
+            Assert-RegularFile $oldProofFile 'old component proof'
+            $oldProof = Get-Content -LiteralPath $oldProofFile -Raw | ConvertFrom-Json
+            if ([string]$oldProof.source_commit -match '^[0-9a-f]{40}$') {
+                $PriorProofSourceCommit = [string]$oldProof.source_commit
+            }
+        }
 
-Write-Host 'Deriving public trust independently...'
-& $Signer derive-trust --private-key $PrivateKeyPath --out $DerivedPath --key-id $KeyId
-if ($LASTEXITCODE -ne 0) {
-    throw 'Independent component trust derivation failed.'
-}
+        # Read ACL only: current restrictions do NOT establish absence of past exposure.
+        $privateAcl = Get-Acl -LiteralPath $PrivateKeyPath
+        $broadReaders = @($privateAcl.Access | Where-Object {
+            $_.AccessControlType -eq 'Allow' -and
+            $_.IdentityReference.Value -match '(?i)(CodexSandboxUsers|Everyone|Authenticated Users|\\Users)$' -and
+            ($_.FileSystemRights -band [Security.AccessControl.FileSystemRights]::ReadData) -ne 0
+        })
+        if ($broadReaders.Count -gt 0) {
+            Write-Warning 'Existing key ACL has broad read rights; custody approval remains blocked.'
+        }
+        Write-Host 'COMPONENT_TRUST_CUSTODY_REVIEW_REQUIRED=YES'
+
+        if (Test-Path -LiteralPath $ResumeTarget) {
+            if (-not (Test-Path -LiteralPath $ResumeTarget -PathType Container) -or
+                ((Get-Item -LiteralPath $ResumeTarget -Force).Attributes -band [IO.FileAttributes]::ReparsePoint) -ne 0) {
+                throw 'Resumed ceremony directory is invalid.'
+            }
+            $resumeTrust = Join-Path $ResumeTarget 'runtime-components-ed25519.json'
+            $resumeDerived = Join-Path $ResumeTarget 'runtime-components-ed25519-derived.json'
+            $resumeRelease = Join-Path $ResumeTarget 'component-trust-proof-release.json'
+            $resumeEnvelope = Join-Path $ResumeTarget 'component-trust-proof-envelope.json'
+            $resumeResultPath = Join-Path $ResumeTarget 'ceremony-result.json'
+            foreach ($p in @($resumeTrust,$resumeDerived,$resumeRelease,$resumeEnvelope,$resumeResultPath)) {
+                Assert-RegularFile $p 'completed resumed ceremony'
+            }
+            Assert-PublicBytesEqual $resumeTrust $OldTrust
+            Assert-PublicBytesEqual $resumeDerived $OldDerived
+            $existingResult = Get-Content -LiteralPath $resumeResultPath -Raw | ConvertFrom-Json
+            $existingProof = Get-Content -LiteralPath $resumeRelease -Raw | ConvertFrom-Json
+            if ($existingResult.existing_key_resumed -ne $true -or
+                $existingResult.source_commit -cne $SourceCommit -or
+                $existingResult.key_id -cne $KeyId -or
+                $existingResult.prior_review_trust_sha256 -cne $PriorTrustHash -or
+                $existingResult.prior_review_derived_sha256 -cne $PriorDerivedHash -or
+                $existingResult.public_trust_sha256 -cne $PriorTrustHash -or
+                $existingResult.proof_release_sha256 -cne (Get-FileHash -Algorithm SHA256 -LiteralPath $resumeRelease).Hash.ToLowerInvariant() -or
+                $existingResult.proof_envelope_sha256 -cne (Get-FileHash -Algorithm SHA256 -LiteralPath $resumeEnvelope).Hash.ToLowerInvariant() -or
+                $existingResult.ready_to_pin_public_anchor -ne $false -or
+                $existingResult.offline_recovery_verified -ne $false -or
+                $existingProof.source_commit -cne $SourceCommit -or
+                $existingProof.source_repository -cne 'ordaxsystems/ordax-os' -or
+                $existingProof.component.id -cne 'local-ai-service' -or
+                $existingProof.component.release_mode -cne 'bundled') {
+                throw 'Completed resumed ceremony does not match the current identity and toolkit.'
+            }
+            $repeatDerived = Join-Path $env:TEMP ('.ordax-repeat-derive-' + [Guid]::NewGuid().ToString('N') + '.json')
+            try {
+                & $Signer derive-trust --private-key $PrivateKeyPath --out $repeatDerived --key-id $KeyId
+                if ($LASTEXITCODE -ne 0) { throw 'Repeat existing key derivation failed.' }
+                Assert-PublicBytesEqual $OldTrust $repeatDerived
+            } finally {
+                Remove-Item -LiteralPath $repeatDerived -Force -ErrorAction SilentlyContinue
+            }
+            & $Signer verify-envelope --envelope $resumeEnvelope --trust $OldTrust
+            if ($LASTEXITCODE -ne 0) { throw 'Completed resumed proof does not verify.' }
+            Write-Host 'COMPONENT_TRUST_RESUME=ALREADY_COMPLETE'
+            Write-Host 'PRIVATE_KEY_PRESERVED=YES'
+            Write-Host 'PRODUCTION_AUTHORITY=NO'
+            Write-Host "REVIEW_DIRECTORY=$ResumeTarget"
+            exit 0
+        }
+        $ResumeStage = Join-Path $ReviewDirectory ('.resume-stage-' + [Guid]::NewGuid().ToString('N'))
+        New-Item -ItemType Directory -Path $ResumeStage -ErrorAction Stop | Out-Null
+        $WorkingReview = $ResumeStage
+    } else {
+        if (Test-Path -LiteralPath $PrivateKeyPath) {
+            throw "Refusing to replace existing private key: $PrivateKeyPath"
+        }
+        if (Test-Path -LiteralPath $ReviewDirectory) {
+            if (@(Get-ChildItem -LiteralPath $ReviewDirectory -Force).Count -gt 0) {
+                throw "Review directory must be empty: $ReviewDirectory"
+            }
+        } else {
+            New-Item -ItemType Directory -Path $ReviewDirectory -Force | Out-Null
+        }
+        New-Item -ItemType Directory -Path $PrivateDirectory -Force | Out-Null
+        $WorkingReview = $ReviewDirectory
+    }
+
+    $TrustPath = Join-Path $WorkingReview 'runtime-components-ed25519.json'
+    $DerivedPath = Join-Path $WorkingReview 'runtime-components-ed25519-derived.json'
+    $ProofReleasePath = Join-Path $WorkingReview 'component-trust-proof-release.json'
+    $ProofEnvelopePath = Join-Path $WorkingReview 'component-trust-proof-envelope.json'
+    $ResultPath = Join-Path $WorkingReview 'ceremony-result.json'
+
+    foreach ($p in @($TrustPath, $DerivedPath, $ProofReleasePath, $ProofEnvelopePath, $ResultPath)) {
+        if (Test-Path -LiteralPath $p) { throw "Refusing to replace existing ceremony output: $p" }
+    }
+    if ($ResumeExistingKey) {
+        Copy-Item -LiteralPath $OldTrust -Destination $TrustPath -ErrorAction Stop
+        Write-Host 'Deriving public identity from preserved Ed25519 key; no key generation...'
+    } else {
+        Write-Host 'Generating external component signing key and public trust...'
+        & $Signer generate-key --private-key $PrivateKeyPath --trust $TrustPath --key-id $KeyId
+        if ($LASTEXITCODE -ne 0) { throw 'Component key generation failed.' }
+        Write-Host 'Deriving public trust independently...'
+    }
+    & $Signer derive-trust --private-key $PrivateKeyPath --out $DerivedPath --key-id $KeyId
+    if ($LASTEXITCODE -ne 0) { throw 'Independent component trust derivation failed.' }
+    if ($ResumeExistingKey) {
+        Assert-PublicBytesEqual $OldTrust $DerivedPath
+        Assert-PublicBytesEqual $OldDerived $DerivedPath
+    }
 
 $TrustBytes = [IO.File]::ReadAllBytes($TrustPath)
 $DerivedBytes = [IO.File]::ReadAllBytes($DerivedPath)
@@ -227,13 +348,13 @@ $Proof = [ordered]@{
     source_commit = $SourceCommit
     created_from_ci_recipe = 'runtime-component/package/1'
     component = [ordered]@{
-        id = 'internet'
+        id = 'local-ai-service'
         version = '0.0.0-trust-proof'
-        release_mode = 'component-slot'
+        release_mode = 'bundled'
         package_schema = 'prototype-ordax.runtime-component-package/1'
     }
     package = [ordered]@{
-        name = 'internet.zip'
+        name = 'local-ai-service.zip'
         sha256 = ('0' * 64)
         size = 1
         manifest_sha256 = ('1' * 64)
@@ -277,6 +398,11 @@ $Result = [ordered]@{
     proof_release_sha256 = $ProofHash
     proof_envelope_sha256 = $EnvelopeHash
     independent_public_derivation_match = $true
+    existing_key_resumed = [bool]$ResumeExistingKey
+    prior_review_trust_sha256 = $PriorTrustHash
+    prior_review_derived_sha256 = $PriorDerivedHash
+    prior_review_proof_source_commit = $PriorProofSourceCommit
+    production_authority = $false
     proof_signature_verified = $true
     offline_encrypted_backup_required = $true
     offline_recovery_verified = $false
@@ -290,6 +416,13 @@ $Result = [ordered]@{
     $Utf8NoBom
 )
 
+if ($ResumeExistingKey) {
+    # Atomic directory rename; the original review and private PEM remain unchanged.
+    Move-Item -LiteralPath $ResumeStage -Destination $ResumeTarget -ErrorAction Stop
+    $ResumeStage = ''
+    $WorkingReview = $ResumeTarget
+}
+
 Write-Host ''
 Write-Host 'COMPONENT_TRUST_INITIALIZATION=PASS'
 Write-Host "SOURCE_COMMIT=$SourceCommit"
@@ -302,4 +435,14 @@ Write-Host 'PRIVATE_KEY_PRINTED=NO'
 Write-Host 'OFFLINE_RECOVERY_VERIFIED=NO'
 Write-Host 'READY_TO_PIN_PUBLIC_ANCHOR=NO'
 Write-Host "PRIVATE_KEY_PATH=$PrivateKeyPath"
-Write-Host "REVIEW_DIRECTORY=$ReviewDirectory"
+Write-Host "REVIEW_DIRECTORY=$WorkingReview"
+Write-Host "COMPONENT_TRUST_RESUME=$(if ($ResumeExistingKey) { 'PASS' } else { 'NO' })"
+Write-Host 'PRIVATE_KEY_PRESERVED=YES'
+Write-Host 'PRODUCTION_AUTHORITY=NO'
+
+} finally {
+    if ($ResumeStage -and (Test-Path -LiteralPath $ResumeStage)) {
+        # Only ephemeral public staging is removed; never a private key or legacy review.
+        Remove-Item -LiteralPath $ResumeStage -Recurse -Force -ErrorAction SilentlyContinue
+    }
+}

@@ -358,8 +358,10 @@ Mutações de recursos sujeitos a quota/entitlement são **server-authoritative*
 
 ## 7.1 Perfis profissionais no MVP
 
-A decisão canônica de distribuição está em
-`PLANO-06-PERFIS-PROFISSIONAIS-E-DISTRIBUICAO-SOB-DEMANDA.md`.
+A jornada canônica pertence a
+`docs/SPACES-AND-PROFILES.md`; composição e distribuição são governadas por
+`system/profile-packs/README.md`, manifests versionados e contratos,
+sem fluxo independente de Perfis na Conta.
 
 O MVP passa a incluir a fundação real de provisioning de Profiles:
 
