@@ -222,7 +222,7 @@ test("Native Surface exposes only explicit manual Memory conflict review decisio
 test("Native Home refreshes the single authorized Spaces catalog at boot and reconnect", () => {
   const root = resolve(dirname(fileURLToPath(import.meta.url)), "..");
   const source = readFileSync(resolve(root, "system/composition/native/main.mjs"), "utf8");
-  const section = source.slice(source.indexOf("const refreshCurrentSpaceCatalog = () => {"),
+  const section = source.slice(source.indexOf("const refreshCurrentSpaceCatalog = "),
     source.indexOf("const spaceSwitcherControls = mountSpaceSwitcherControls("));
   assert.ok(section.length > 100, "canonical Native account connectivity section exists");
   assert.match(section, /identitySession\.getSnapshot\(\)\.state !== "signed-in"/);
