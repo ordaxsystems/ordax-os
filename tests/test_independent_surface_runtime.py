@@ -154,6 +154,74 @@ class IndependentSurfaceRuntimeTests(unittest.TestCase):
             with self.assertRaisesRegex(builder.SurfaceBuildError, "unsafe"):
                 builder.materialize_surface_workspace(root / "dummy", base, work)
 
+    def test_sealed_workspace_rejects_redirected_buildroot_makefile(self):
+        builder = self.builder
+        with tempfile.TemporaryDirectory() as td:
+            root = Path(td)
+            work = root / "work"
+            work.mkdir()
+            _, base = builder.contracts()
+            source = work / f'buildroot-{base["buildroot"]["version"]}'
+            source.mkdir()
+            external = root / "outside-Makefile"
+            external.write_text("all:\n\t@false\n", encoding="utf-8")
+            (source / "Makefile").symlink_to(external)
+            (work / ".ordax-surface-workspace.json").write_text(
+                json.dumps(builder.workspace_identity(base)), encoding="utf-8"
+            )
+            with self.assertRaisesRegex(builder.SurfaceBuildError, "redirected"):
+                builder.materialize_surface_workspace(None, base, work)
+            self.assertTrue(external.is_file())
+
+    def test_persistent_config_rejects_redirected_paths_without_make(self):
+        builder = self.builder
+        with tempfile.TemporaryDirectory() as td:
+            root = Path(td)
+            work = root / "work"
+            work.mkdir()
+            tree = root / "buildroot"
+            tree.mkdir()
+            source = root / "original.defconfig"
+            source.write_text("BR2_x86_64=y\n", encoding="utf-8")
+            external = root / "external-build"
+            external.mkdir()
+            sentinel = external / "sentinel"
+            sentinel.write_text("keep", encoding="utf-8")
+            build_dir = work / "build"
+            build_dir.symlink_to(external, target_is_directory=True)
+            with mock.patch.object(builder, "run", side_effect=AssertionError("make was called")):
+                with self.assertRaisesRegex(builder.SurfaceBuildError, "redirected"):
+                    builder.prepare_surface_config(tree, build_dir, source, work, persistent=True)
+                build_dir.unlink()
+                build_dir.mkdir()
+                linked_defconfig = work / "ordax-surface-resolved.defconfig"
+                linked_defconfig.symlink_to(source)
+                with self.assertRaisesRegex(builder.SurfaceBuildError, "redirected"):
+                    builder.prepare_surface_config(
+                        tree, build_dir, linked_defconfig, work, persistent=True
+                    )
+            self.assertEqual(sentinel.read_text(encoding="utf-8"), "keep")
+            self.assertEqual(source.read_text(encoding="utf-8"), "BR2_x86_64=y\n")
+
+    @unittest.skipUnless(sys.platform.startswith("linux"), "Buildroot producer runs on Linux")
+    def test_persistent_producer_rejects_redirected_children_before_network(self):
+        builder = self.builder
+        with tempfile.TemporaryDirectory() as td:
+            root = Path(td)
+            work = root / "trusted-work"
+            work.mkdir()
+            outside = root / "outside"
+            outside.mkdir()
+            for name in ("build", "ordax-surface-resolved.defconfig"):
+                redirected = work / name
+                redirected.symlink_to(outside, target_is_directory=True)
+                with mock.patch.object(builder.shutil, "which", return_value="/usr/bin/true"), \
+                        mock.patch.object(builder, "source_archive", side_effect=AssertionError("download attempted")):
+                    with self.assertRaisesRegex(builder.SurfaceBuildError, "build paths are redirected"):
+                        builder.build(root / "artifact-out", root / "downloads", 1, persistent_work_dir=work)
+                redirected.unlink()
+            self.assertEqual(list(outside.iterdir()), [])
+
     def test_verified_workspace_can_resume_without_reopening_buildroot_upstream(self):
         builder = self.builder
         with tempfile.TemporaryDirectory() as td:

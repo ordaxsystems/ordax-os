@@ -522,8 +522,9 @@ def materialize_surface_workspace(archive: Path | None, base: dict, work: Path) 
             raise SurfaceBuildError("persistent Surface workspace receipt is corrupt") from exc
         if stored != record:
             raise SurfaceBuildError("persistent Surface workspace native inputs changed")
-        if source.is_symlink() or not (source / "Makefile").is_file():
-            raise SurfaceBuildError("persistent Surface Buildroot source tree is incomplete")
+        if (source.is_symlink() or (source / "Makefile").is_symlink()
+                or not (source / "Makefile").is_file()):
+            raise SurfaceBuildError("persistent Surface Buildroot source tree is incomplete or redirected")
         return source
     if any(path.name != ".ordax-workspace.lock" for path in work.iterdir()):
         raise SurfaceBuildError("unsealed persistent Surface workspace cannot be resumed")
@@ -554,6 +555,10 @@ def prepare_surface_config(
     """
     receipt = work / ".ordax-surface-resolved-config.json"
     resolved = build_dir / ".config"
+    # A sealed .config cannot authorize an O= tree (or a generated
+    # defconfig) redirected outside the trusted persistent workspace.
+    if persistent and (build_dir.is_symlink() or config.is_symlink()):
+        raise SurfaceBuildError("persistent Surface build directory or defconfig is redirected")
     if receipt.is_symlink() or resolved.is_symlink():
         raise SurfaceBuildError("persistent Surface config receipt is unsafe")
     source_sha = sha256_file(config)
@@ -635,6 +640,11 @@ def build(out_dir: Path, cache_dir: Path, jobs: int, *, persistent_work_dir: Pat
             if work == ROOT or ROOT in work.parents:
                 raise SurfaceBuildError("persistent workspace cannot write into the OS source")
             work.mkdir(parents=True, exist_ok=True, mode=0o700)
+            # Refuse redirected child inputs before downloading the pinned
+            # archive, regenerating Kconfig or invoking expensive make.
+            if any((work / name).is_symlink() for name in
+                   ("build", "ordax-surface-resolved.defconfig")):
+                raise SurfaceBuildError("persistent Surface build paths are redirected")
             lock_file = work / ".ordax-workspace.lock"
             if lock_file.is_symlink():
                 raise SurfaceBuildError("persistent workspace lock is unsafe")
