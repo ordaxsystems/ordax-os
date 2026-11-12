@@ -419,6 +419,9 @@ class IndependentSurfaceRuntimeTests(unittest.TestCase):
         self.assertIn("ORDAX_SURFACE_BUILD_JOBS:", build_step)
         self.assertIn("work_args", build_step)
         self.assertIn("ORDAX_SURFACE_BUILD_JOBS", build_step)
+        self.assertIn('ORDAX_SURFACE_RESOLVED_BUILD_WORK_ROOT', build_step)
+        self.assertIn('--work-dir "$ORDAX_SURFACE_RESOLVED_BUILD_WORK_ROOT/', build_step)
+        self.assertNotIn('--work-dir "$ORDAX_SURFACE_PERSISTENT_WORK_ROOT/', build_step)
 
     def test_fast_gate_reports_producer_variable_presence_without_exposing_values(self):
         gate = (ROOT / ".github/workflows/remove-alpine-fast.yml").read_text(encoding="utf-8")
@@ -427,6 +430,7 @@ class IndependentSurfaceRuntimeTests(unittest.TestCase):
         for variable in (
             "ORDAX_SURFACE_RUNNER_LABEL",
             "ORDAX_SURFACE_PERSISTENT_WORK_ROOT",
+            "ORDAX_SURFACE_BUILD_WORK_ROOT",
             "ORDAX_SURFACE_PRODUCER_ENVIRONMENT",
         ):
             self.assertIn("vars." + variable + " != ''", diagnostic)
@@ -446,8 +450,9 @@ class IndependentSurfaceRuntimeTests(unittest.TestCase):
         )[0]
         self.assertIn("steps.surface-artifact-cache.outputs.cache-hit != 'true'", guard)
         self.assertIn("steps.surface-r2.outputs.hit != 'true'", guard)
-        self.assertIn('if [ -z "${ORDAX_SURFACE_PERSISTENT_WORK_ROOT:-}" ]; then', guard)
+        self.assertIn('if [ -z "${ORDAX_SURFACE_PERSISTENT_WORK_ROOT:-}" ] || [ -z "${ORDAX_SURFACE_BUILD_WORK_ROOT:-}" ]; then', guard)
         self.assertIn("Refusing another hosted 330-minute rebuild", guard)
+        self.assertIn("separately sized build workspace", guard)
         self.assertLess(
             workflow.index("Require persistent producer on verified Surface artifact miss"),
             workflow.index("Install full Surface Buildroot host dependencies on durable artifact miss"),
@@ -474,7 +479,11 @@ class IndependentSurfaceRuntimeTests(unittest.TestCase):
         self.assertIn('if [ -n "${ORDAX_SURFACE_PERSISTENT_WORK_ROOT:-}" ]; then', resolver)
         self.assertIn('if [ -z "${ORDAX_SURFACE_PRODUCER_ENVIRONMENT:-}" ]; then', resolver)
         self.assertIn('cache_root="$(realpath -m -- "$ORDAX_SURFACE_PERSISTENT_WORK_ROOT")"', resolver)
+        self.assertIn('build_work_root="$(realpath -m -- "$ORDAX_SURFACE_BUILD_WORK_ROOT")"', resolver)
         self.assertIn("Surface persistent cache must be outside workspace and runner temp", resolver)
+        self.assertIn("Surface build workspace must be outside checkout and runner temp", resolver)
+        self.assertIn("Surface build workspace requires at least 50 GiB free before Buildroot starts", resolver)
+        self.assertIn('echo "ORDAX_SURFACE_RESOLVED_BUILD_WORK_ROOT=$build_work_root"', resolver)
         config = workflow.split(
             "      - name: Resolve exact Kconfig before expensive graphical build", 1
         )[1].split("      - name: Build Buildroot/musl Surface runtime on durable artifact miss", 1)[0]
@@ -499,6 +508,7 @@ class IndependentSurfaceRuntimeTests(unittest.TestCase):
         trusted = "github.event_name == 'workflow_dispatch' && github.ref == 'refs/heads/integration/dev-usb-buildroot-surface-20261024'"
         self.assertIn("runs-on: ${{ " + trusted + " && vars.ORDAX_SURFACE_RUNNER_LABEL || 'ubuntu-24.04' }}", build)
         self.assertIn("ORDAX_SURFACE_PERSISTENT_WORK_ROOT: ${{ " + trusted + " && vars.ORDAX_SURFACE_PERSISTENT_WORK_ROOT || '' }}", build)
+        self.assertIn("ORDAX_SURFACE_BUILD_WORK_ROOT: ${{ " + trusted + " && vars.ORDAX_SURFACE_BUILD_WORK_ROOT || '' }}", build)
         self.assertIn("timeout-minutes: ${{ " + trusted + " && vars.ORDAX_SURFACE_RUNNER_LABEL != ''", build)
         self.assertIn("ORDAX_SURFACE_PRODUCER_ENVIRONMENT: ${{ vars.ORDAX_SURFACE_PRODUCER_ENVIRONMENT }}", build)
         self.assertIn("Require persistent producer on verified Surface artifact miss", build)
@@ -546,6 +556,7 @@ class IndependentSurfaceRuntimeTests(unittest.TestCase):
         self.assertNotIn('process.stdout.read(65536)', source)
         self.assertIn("vars.ORDAX_SURFACE_RUNNER_LABEL != ''", workflow)
         self.assertIn("vars.ORDAX_SURFACE_PERSISTENT_WORK_ROOT != ''", workflow)
+        self.assertIn("vars.ORDAX_SURFACE_BUILD_WORK_ROOT != ''", workflow)
         self.assertIn("vars.ORDAX_SURFACE_PRODUCER_ENVIRONMENT != ''", workflow)
         self.assertIn('&& 720 || 360', workflow)
         self.assertEqual(720 - self.builder.surface_make_timeout_minutes(persistent=True), 30)
