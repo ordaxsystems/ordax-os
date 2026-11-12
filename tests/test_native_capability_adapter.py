@@ -176,15 +176,27 @@ class NativeCapabilityAdapterTests(unittest.TestCase):
         surface_mount = text.index("const surface = mountSurface(")
         pre_surface = text[:surface_mount]
         self.assertNotIn("await accountLifecycle.refresh();", pre_surface)
-        self.assertIn(
-            "const resumeAccountConnectivity = async () => {\n"
-            "    await identitySession.refresh();\n"
-            "    await identityActions.refresh();\n"
-            "    await accountLifecycle.refresh();\n"
-            "    await accountSync.refresh();\n"
-            "  };",
-            text,
+        refresh_start = text.index("const resumeAccountConnectivity = async () => {")
+        refresh_end = text.index("const onOnline = () => {", refresh_start)
+        refresh = text[refresh_start:refresh_end]
+        required_steps = (
+            "await identitySession.refresh();",
+            'currentIdentity.state === "signed-in"',
+            'priorIdentity.state === "signed-in"',
+            "priorIdentity.subjectId === currentIdentity.subjectId",
+            "refreshCurrentSpaceCatalog({ force: true });",
+            "await identityActions.refresh();",
+            "await accountLifecycle.refresh();",
+            "await accountSync.refresh();",
         )
+        for step in required_steps:
+            self.assertIn(step, refresh)
+        # Boot health is independent of the authorized catalog read and
+        # reconnect never promotes an unauthenticated identity.
+        for previous, current in zip(required_steps, required_steps[1:]):
+            self.assertLess(refresh.index(previous), refresh.index(current))
+        self.assertIn("unsubscribeSpacesIdentity();", text)
+        self.assertNotIn("await spaces.refresh();", pre_surface)
         health = text.index("void updateWatcher.markHealthy();")
         deferred_refresh = text.index(
             "void resumeAccountConnectivity().catch((error) => {",
