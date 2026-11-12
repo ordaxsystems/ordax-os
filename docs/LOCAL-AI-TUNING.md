@@ -25,6 +25,25 @@ tools/local-ai-baseline/compare.py
 
 All four are covered by the `Intelligence Foundation` source gate.
 
+## CPU contention policy in the Native system (source)
+
+Both Stable and Owner/Development launch the **same** verified Local AI
+backend through `system/services/local-ai/run-low-priority.sh`. The helper
+uses POSIX `nice -n 10` if available and execs the original command
+unchanged otherwise. This is a kernel CPU-scheduling hint to avoid stealing
+Surface CPU time on small devices; it does not change the model/engine
+artifact, model responses, signature, available RAM or inference readiness.
+The helper runs only with the Local AI subprocess, never the Surface, Base,
+updates or recovery. No new long-lived daemon or polling loop is introduced.
+
+**Not yet proven for weak hardware:** peak RSS, mmap/page-cache impact,
+first-token latency, throughput, context size, model quality and steady-state
+swap pressure. Do not advertise a memory limit, lazy loading, benchmark win
+or device compatibility minimum without physical measurements. The pinned
+launcher in `local-ai-runtime.erofs` is intentionally unmodified: any future
+engine/thread/context tuning must produce a new reproducible, signed artifact
+with fresh performance qualification and rollback evidence.
+
 ## 1. Hardware capability probe
 
 For engineering qualification, run:

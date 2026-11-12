@@ -20,6 +20,28 @@ The bootstrap activates that immutable release through `/ordax/current` only aft
 
 The bundler receives a source root containing `system/` and emits a new `system.tar`. For the Native product release, that source root is prepared by `tools/native-release-assembly/build.py`: it starts from the canonical shared `system/` source and injects only explicitly contracted, prebuilt Native release tools plus their provenance. The bundler itself remains platform-neutral and does not compile or invent Native content.
 
+### External Surface assembly (migration candidate)
+
+The UI presentation code is now owned by `ordaxsystems/ordax-surface` as a
+pinned Git revision in [`docs/contracts/surface-source.json`](contracts/surface-source.json).
+The `tools/surface-source/assemble.py` recipe (invoked through the single
+`.github/actions/assemble-surface` action) creates a disposable release source
+root. It retains the OS-owned services/Native host, omits every tracked OS copy
+under `system/surface/{ui,workspace}`, and inserts only the verified external
+visual source. The assembled output includes
+`system/surface/source-provenance.json` with both commit identities and the
+source fingerprint. It is the *same system/ input* for the existing deterministic
+release-bundle and portable EROFS builders, not another bundler or update channel.
+
+This release-build integration is a **candidate**, not Native activation authority.
+The separate `tools/native-release-assembly/build.py` still injects the OS-owned
+Native helpers into the final signed system payload; it must consume the composed
+system tree before the cutover is complete. The Owner/Development Supervisor and
+signed Stable activation still require QEMU, cold-health and known-good rollback
+validation before the OS-tracked UI directories can be deleted. Source assembly
+is build-host work; no network checkout of Surface is allowed during ordinary
+Stable device boot.
+
 Required:
 
 - `system/` is a real directory with mode `0755`;

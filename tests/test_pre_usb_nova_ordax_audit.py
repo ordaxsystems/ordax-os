@@ -143,8 +143,32 @@ class PreUsbNovaOrdaxAuditTests(unittest.TestCase):
         }
 
         self.assertIn("tools/creator/pre_usb_nova_ordax_audit.py", context_paths)
+        external_ui = {
+            "system/surface/ui/first-run.mjs",
+            "system/surface/ui/local-session-lock.mjs",
+            "system/surface/ui/settings-overview-controls.mjs",
+            "system/surface/ui/system-overview-controls.mjs",
+        }
+        asserted_external = set()
         for source in audit.required_source_paths(ROOT):
-            self.assertIn(source.relative_to(ROOT).as_posix(), context_paths)
+            relative = source.relative_to(ROOT).as_posix()
+            if relative in external_ui:
+                # Auditing the verified Source is mandatory; the OS must not
+                # hash a duplicate or disposable copy of Surface visual files.
+                self.assertNotIn(relative, context_paths)
+                asserted_external.add(relative)
+            else:
+                self.assertIn(relative, context_paths)
+        self.assertEqual(asserted_external, external_ui)
+        self.assertIn("docs/contracts/surface-source.json", context_paths)
+        self.assertIn(".github/actions/prepare-verified-surface/action.yml", context_paths)
+        preparer = (
+            ROOT / ".github/actions/prepare-verified-surface/action.yml"
+        ).read_text(encoding="utf-8")
+        self.assertIn("uses: ./.github/actions/assemble-surface", preparer)
+        self.assertIn("Materialize one canonical external source", preparer)
+        self.assertIn("diff -qr", preparer)
+        self.assertIn("ORDAX_VISUAL_SOURCE_REPOSITORY=ordaxsystems/ordax-surface", preparer)
 
 
 if __name__ == "__main__":

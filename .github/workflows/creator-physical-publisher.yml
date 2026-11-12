@@ -10,6 +10,10 @@ on:
       - 'tests/test_creator_physical_publisher_boundary.py'
       - 'tests/test_creator_physical_signing_source_boundary.py'
       - '.github/workflows/creator-physical-publisher.yml'
+      - '.github/actions/prepare-verified-surface/**'
+      - '.github/actions/assemble-surface/**'
+      - 'docs/contracts/surface-source.json'
+      - 'tools/creator/physical_promotion.py'
   pull_request:
     paths:
       - 'docs/contracts/creator-consumer-flow.json'
@@ -18,6 +22,10 @@ on:
       - 'tests/test_creator_physical_publisher_boundary.py'
       - 'tests/test_creator_physical_signing_source_boundary.py'
       - '.github/workflows/creator-physical-publisher.yml'
+      - '.github/actions/prepare-verified-surface/**'
+      - '.github/actions/assemble-surface/**'
+      - 'docs/contracts/surface-source.json'
+      - 'tools/creator/physical_promotion.py'
 
 permissions:
   contents: read
@@ -31,6 +39,9 @@ jobs:
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
         with:
           persist-credentials: false
+      - name: Prepare pinned independent Surface for read-only policy tests
+        uses: ./.github/actions/prepare-verified-surface
+
       - name: Set up Python
         uses: actions/setup-python@ece7cb06caefa5fff74198d8649806c4678c61a1 # v6
         with:

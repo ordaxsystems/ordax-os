@@ -42,13 +42,14 @@ export async function verifyFirstRunIdentitySession(sessionPort, selectedSubject
   }
 }
 
-export function completeFirstRunState({ locale, timeZone, accountMode }) {
+export function completeFirstRunState({ locale, timeZone, accountMode, systemTerms }) {
   return validateFirstRunState({
     schema: FIRST_RUN_STATE_SCHEMA,
     completed: true,
     locale,
     timeZone,
     accountMode,
+    ...(systemTerms !== undefined ? { systemTerms } : {}),
   });
 }
 

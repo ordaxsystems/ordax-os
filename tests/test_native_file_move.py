@@ -1,6 +1,8 @@
 import errno
 import importlib.util
 import os
+import platform
+import sys
 import tempfile
 import unittest
 from pathlib import Path
@@ -16,6 +18,45 @@ spec.loader.exec_module(native_host)
 
 
 class NativeFileMoveTests(unittest.TestCase):
+    def test_musl_without_renameat2_uses_atomic_linux_syscall(self):
+        if sys.platform != "linux" or platform.machine().lower() not in ("x86_64", "amd64"):
+            self.skipTest("the Native USB syscall fallback targets Linux amd64")
+
+        real_libc = native_host.ctypes.CDLL(None, use_errno=True)
+        if not hasattr(real_libc, "syscall"):
+            self.skipTest("libc does not expose syscall")
+
+        class SyscallOnlyLibc:
+            syscall = real_libc.syscall
+
+        with tempfile.TemporaryDirectory() as temporary:
+            source = Path(temporary) / "source"
+            destination = Path(temporary) / "destination"
+            source.mkdir()
+            destination.mkdir()
+            (source / "note.txt").write_text("preserve", encoding="utf-8")
+            (source / "occupied.txt").write_text("source", encoding="utf-8")
+            source_fd = os.open(source, os.O_RDONLY | os.O_DIRECTORY)
+            destination_fd = os.open(destination, os.O_RDONLY | os.O_DIRECTORY)
+            try:
+                with mock.patch.object(
+                    native_host.ctypes, "CDLL", return_value=SyscallOnlyLibc()
+                ):
+                    native_host._renameat2_noreplace_between(
+                        source_fd, "note.txt", destination_fd, "note.txt"
+                    )
+                    with self.assertRaises(FileExistsError):
+                        native_host._renameat2_noreplace_between(
+                            source_fd, "occupied.txt", destination_fd, "note.txt"
+                        )
+            finally:
+                os.close(source_fd)
+                os.close(destination_fd)
+
+            self.assertFalse((source / "note.txt").exists())
+            self.assertEqual((destination / "note.txt").read_text(encoding="utf-8"), "preserve")
+            self.assertEqual((source / "occupied.txt").read_text(encoding="utf-8"), "source")
+
     def test_file_and_directory_move_is_no_clobber_within_user_root(self):
         with tempfile.TemporaryDirectory() as temporary:
             user_root = Path(temporary) / "home"

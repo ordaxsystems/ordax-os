@@ -2,6 +2,7 @@
 
 from importlib.util import module_from_spec, spec_from_file_location
 import json
+import os
 from pathlib import Path
 import tempfile
 import unittest
@@ -119,10 +120,18 @@ class KernelConsumerSSOTTests(unittest.TestCase):
         self.assertIn("ORDAX_OWNER_SOURCE_COMMIT: ${{ github.event.pull_request.head.sha || github.sha }}", workflow)
         self.assertIn("'source_commit': os.environ['ORDAX_OWNER_SOURCE_COMMIT']", workflow)
         self.assertIn("-X main.buildPhysicalWriteAuthorized=YES", workflow)
-        writer = (ROOT / "tools/creator/cmd/ordax-creator-physical-test/main_windows.go").read_text(encoding="utf-8")
-        self.assertIn("validLowerHex(buildReleaseSourceCommit, 20)", writer)
-        self.assertIn("Ready: ready", writer)
-        self.assertEqual(json.loads((ROOT / "tools/creator/version.json").read_text(encoding="utf-8"))["version"], "0.6.2-dev")
+        independent = os.environ.get("ORDAX_CREATOR_NATIVE_SOURCE")
+        pin = json.loads((ROOT / "docs/contracts/native-release-assembly.json").read_text(encoding="utf-8"))["creator_source"]
+        self.assertEqual(pin["repository"], "ordaxsystems/ordax-creator")
+        self.assertIs(pin["physical_apply_authorized"], False)
+        self.assertIn("uses: ./.github/actions/resolve-creator-source", workflow)
+        if independent:
+            writer = (Path(independent) / "cmd/ordax-creator-physical-test/main_windows.go").read_text(encoding="utf-8")
+            self.assertIn("validLowerHex(buildReleaseSourceCommit, 20)", writer)
+            self.assertIn("Ready: ready", writer)
+        self.assertIn('"$creator/version.json" "$GITHUB_ENV"', workflow)
+        self.assertIn('ORDAX_CREATOR_PRODUCT_VERSION', workflow)
+        self.assertNotIn('tools/creator/version.json', workflow)
         self.assertIn("creator_version", workflow)
 
     def test_stale_bootstrap_manifest_rejected_before_output(self):

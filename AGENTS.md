@@ -3,13 +3,32 @@
 Este arquivo e a entrada obrigatoria para qualquer IA, agente, Codex ou pessoa que trabalhe neste repositorio.
 
 ## 1. Identidade do repositorio
-## Handoff transversal obrigatório — Intelligence / ChatGPT / Apps
-
-Antes de alterar Intelligence, chat, plugins, MCP, Studio ou a UI global do OrdaX Web, leia [INTELLIGENCE-HANDOFF.md](INTELLIGENCE-HANDOFF.md). É um guia de retomada que aponta aos contratos e donos existentes, **não substitui os contratos canônicos**. Diferencie explicitamente **chat OrdaX → provedor** de **ChatGPT externo → plugin MCP → OrdaX** e não ative bridges experimentais nem crie outra autoridade em Apps/Lovable.
-
 `ordaxsystems/ordax-os` é o **repositório oficial e canônico do OrdaX OS**. A identidade e os responsáveis atuais são definidos por `docs/contracts/repository-ownership.json` e `docs/contracts/repository-migration-status.json`.
 
 O produto continua em desenvolvimento e homologação: a promoção/renomeação do repositório **não equivale à aprovação de uma release Stable/MVP**, assinatura, aceite físico ou autorização para publicação e gravação de dispositivos. Esses gates permanecem independentes; consulte `MVP.md` e `docs/PROMOTION-GATES.md`.
+
+## Retomada ativa — não repetir missão antiga (04/11/2026)
+
+Antes de **continuar** uma missão envolvendo Fabric, Aura, aplicativos
+ou Product MCP, consulte **somente o trecho atual** do
+[handoff transversal](INTELLIGENCE-HANDOFF.md#checkpoint-operacional-e-regra-de-retomada--2026-11-04)
+e o [estado canônico](docs/CURRENT-STATE.md).
+Reverifique HEAD/PRs e execute a menor entrega pendente no **owner
+correto**, sem reiniciar auditoria, criar outro plano/SSOT, repetir
+migração ou executar tarefas encerradas. Documentos antigos e seções
+datadas são contexto histórico, **não** autorização para recomeçar.
+O fluxo Windows MCP DEV da [Platform #291](https://github.com/ordaxsystems/ordax-platform/issues/291)
+foi encerrado com recibos reais e cinco devices obsoletos revogados;
+**não** repetir limpeza/grants/instalação. A integração Aura ↔
+Native Store `CURRENT` ↔ Product MCP **continua pendente** e deve
+preservar OS #2400 (aberta/conflitante na última checagem) e a
+separação de release da OS #2405.
+
+
+
+Antes de alterar Intelligence, chat, plugins, MCP, Studio ou a UI global do OrdaX Web, leia [INTELLIGENCE-HANDOFF.md](INTELLIGENCE-HANDOFF.md). É um guia de retomada que aponta aos contratos e donos existentes, **não substitui os contratos canônicos**. Diferencie explicitamente **chat OrdaX → provedor** de **ChatGPT externo → plugin MCP → OrdaX** e não ative bridges experimentais nem crie outra autoridade em Apps/Lovable.
+
+**Capability Fabric — leitura obrigatória somente quando a tarefa o envolver:** [docs/CAPABILITY-FABRIC.md](docs/CAPABILITY-FABRIC.md) reúne o estado do v1 **integrado pela PR #2406**, o contrato `ordax.capability-discovery/1`, fontes Native/Store/Aura/Personal, evidências e gates futuros de UI/MCP. A descoberta tem `authority=none` e `toolExecution=false` e NÃO substitui Product tools, grants ou atestação da Platform. O plano `docs/plans/CAPABILITY-FABRIC-V1.md` é histórico; não reexecutar suas etapas nem criar catálogo, Runtime ou executor paralelos.
 
 `washingtonmsdj/novo-ordax-os` e os slugs anteriores do repositório canônico são somente referências históricas e de proveniência, nunca uma segunda autoridade de desenvolvimento.
 
@@ -20,6 +39,7 @@ Toda alteração de código runtime do OS deve avançar a versão SemVer do owne
 ## 2. Fonte de verdade
 
 - `main` e o unico source authority deste prototipo.
+- Preservar a ancestralidade de commits da `main` já consumidos por dispositivos Owner/Development: preferir merge commit nas PRs; nunca reescrever/forçar `main` nem transformar por squash/rebase um HEAD publicado para esses dispositivos. A recuperação automática de divergência é uma proteção transacional do Supervisor, não autorização para quebrar o histórico intencionalmente.
 - Midia fisica, notebook, imagens, backups e copias locais nao sao source authority.
 - Nenhuma alteracao fisica sem equivalente reproduzivel no source.
 - Nao criar caminhos paralelos para a mesma responsabilidade.
@@ -27,9 +47,13 @@ Toda alteração de código runtime do OS deve avançar a versão SemVer do owne
 
 Para geometria fisica, os contratos machine-readable vencem texto historico: `docs/contracts/physical-media.json` define o seed bootstrap independente de capacidade e `docs/contracts/physical-prepared-media.json` define o USB fisico final preparado pelo Creator.
 
-## 3. Ordem obrigatoria de leitura
+## 3. Leitura proporcional ao impacto (sem auditoria integral obrigatoria)
 
-Antes de alterar codigo, contratos ou midia:
+**Regra de Evolução Rápida DEV:** seguir a sequência de execução da [política operacional canônica](docs/DEVELOPMENT-WORKFLOW.md#regra-operacional-transversal--evolucao-rapida-dev-2026-11-04): localizar o owner e o ponto de mudança, **executar a tarefa**, integrar, realizar testes pertinentes e entregar. Não antecipar pesquisa ampla, relatório, novo workflow ou leitura de todo o projeto para uma mudança simples.
+
+Para mudanças localizadas, ler este `AGENTS.md`, os arquivos afetados e somente os contratos/documentos relevantes. A lista abaixo é um **roteiro de referência para tarefas transversais**, não um checklist obrigatório de dezessete leituras antes de cada edição. Alterações físicas, de trust, identidade, segurança, release ou arquitetura exigem os contratos e preflights específicos, independentemente da pressa.
+
+Roteiro de referência por assunto/impacto:
 
 1. `README.md`
 2. `MVP.md`
@@ -69,6 +93,8 @@ O hub de planejamento e **nao canonico**. Ele separa maturidade documental de el
 
 Se `MVP.md`, um contrato, `docs/CURRENT-STATE.md`, `docs/PROMOTION-GATES.md` ou outro owner canonico ja exigir uma capacidade, o trabalho pertence a esse owner. O plano correspondente nao cria uma segunda fila nem uma segunda autoridade.
 
+**Fundação arquitetural, boot, atualizações e Creator:** para retomar a auditoria/consolidação entre agentes sem depender de histórico de conversa, consulte [`FOUNDATION-001`](00-PLANOS-PRIORITARIOS/plans/FOUNDATION-001-OS-ARCHITECTURE-CONSOLIDATION.md) após a leitura canônica e do roadmap. É roteiro/handoff, não novo SSOT, nem consentimento para gravação física; revalide sempre o source e as PRs.
+
 ### Plano funcional da Surface e dos aplicativos
 
 Antes de revisar historicamente a area de trabalho, a barra lateral ou os apps Arquivos, Ajustes, Conta e Sistema, pode ser util ler [PLANO-FUNCIONAL-SURFACE-E-APPS.md](PLANO-FUNCIONAL-SURFACE-E-APPS.md), na raiz do repositorio, depois da leitura canonica acima.
@@ -94,7 +120,7 @@ mesmo domínio e o mesmo Action Gateway, sem backend paralelo por plataforma.
 
 Antes de alterar landing page, download, login/cadastro ou futura area publica da conta, leia `MVP.md`, `docs/PUBLIC-SITE.md` e `docs/contracts/public-site.json`.
 
-O portal em `sites/public/` e um artefato separado do modo **OrdaX Web**. Nao importar a Surface para montar o site, nao duplicar identidade/conta e nao hard-codear uma release como "latest". Login/cadastro e download so ficam disponiveis quando seus owners reais estiverem configurados; o estado padrao deve falhar fechado sem credenciais, contas ou artefatos ficticios.
+O source da apresentacao do portal pertence **exclusivamente** a `ordaxsystems/ordax-site`; a revisao consumida pelo OS e fixada por `docs/contracts/public-site-source.json`. Nao reintroduzir `sites/public/`, `tools/public-site/build.py`, compiladores de UI ou tokens visuais como segunda autoridade. O portal e separado do modo **OrdaX Web**; no OS permanecem somente gateways, Identity, autorizacao e contratos de publicacao. Nao importar Surface para montar o Site, duplicar identidade/conta ou hard-codear release como "latest". Login/cadastro e download ficam fail-closed sem gates de seus owners.
 
 ## 4. Arquitetura fisica alvo
 
@@ -127,7 +153,7 @@ OrdaX Web
 
 Sao modos de capacidade do mesmo produto, nao forks. Nomes publicos e vinculo de versoes: `system/contracts/product-family.mjs`; IDs de modo permanecem `web`, `mobile`, `desktop`, `usb`, `native-disk`. Tablet nao e um sexto modo; Studio e app. Nao inventar versao de APK/Web/Desktop nao publicado.
 
-Surface, apps e logica compartilhada possuem uma unica fonte em `system/`. Diferencas de ambiente vivem apenas em adapters de capacidade.
+A Surface **visual** tem SSOT no repositório `ordaxsystems/ordax-surface`, fixada por `docs/contracts/surface-source.json` e materializada exclusivamente no staging de build/release/CI; o host Native, os serviços, as composições, contratos e adapters permanecem no `ordax-os/system/`. Os aplicativos pertencem aos respectivos owners. Diferencas de ambiente vivem apenas em adapters de capacidade.
 
 ## 6. Pendrive inicial minimo
 
@@ -339,6 +365,8 @@ Antes de alterar versionamento, histórico ou a UI de atualizações, leia `docs
 Não reintroduzir derivação de versão/entrega a partir de `Merge pull request #N`. Não alterar versão ou `releaseMode` sem atualizar no mesmo change set os snapshots/contratos canônicos que registram esses valores.
 
 ## 16. Regra de execução: baseline funcional primeiro
+
+**Aplicação obrigatória:** a política transversal de Evolução Rápida está em `docs/DEVELOPMENT-WORKFLOW.md`. O baseline funcional primeiro também significa **implementar antes de ampliar análise, documentação ou CI**, e validar depois com testes proporcionais e gates aplicáveis; não repetir provas nem sair do escopo para resolver vermelho não relacionado. As exceções críticas de segurança, integridade e autorização continuam obrigatórias.
 
 Esta regra vale para qualquer IA, agente, Codex ou pessoa trabalhando no repositorio, inclusive quando o pedido do operador for curto como `continue`, `prossiga`, `deixe pronto` ou equivalente.
 

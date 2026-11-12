@@ -2,9 +2,12 @@
 # Buildroot 2026.08 merges this fragment with its upstream BusyBox config.
 # stat -c '%a' enforces the ephemeral local-AI secret's file mode;
 # timeout -k bounds Wi-Fi coldplug before the verified product handoff.
+CONFIG_ACPID=y
 CONFIG_STAT=y
 CONFIG_FEATURE_STAT_FORMAT=y
 CONFIG_TIMEOUT=y
 CONFIG_FLOCK=y
+# Private, bounded Git discovery diagnostics in Owner/Development Pull.
+CONFIG_MKTEMP=y
 # iproute2 owns /sbin/ip: the BusyBox IP applet lacks address replace.
 # CONFIG_IP is not set

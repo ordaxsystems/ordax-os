@@ -28,7 +28,7 @@
     "zstd"
   ],
   "apk_package_versions_pinned": true,
-  "apk_package_lock_status": "pinned-from-verified-candidate-daf33badda46b82b1d4e3faafcf040ca8dca479c",
+  "apk_package_lock_status": "pinned-from-verified-candidate-e0b8caa6ed447710465b8ab5ee91a599ccfaa3c3",
   "git_client_allowed": false,
   "source_checkout_allowed": false,
   "development_helpers_allowed": false,
@@ -101,7 +101,7 @@
     "apk-tools": "2.14.10-r0",
     "busybox": "1.37.0-r20",
     "busybox-binsh": "1.37.0-r20",
-    "ca-certificates": "20260909-r0",
+    "ca-certificates": "20261020-r0",
     "ca-certificates-bundle": "20260611-r0",
     "dbus-libs": "1.16.2-r1",
     "iproute2": "6.15.0-r0",
@@ -136,15 +136,42 @@
     "zstd-libs": "1.5.7-r0"
   },
   "apk_package_lock_scope": "all-installed-packages-including-transitive-dependencies",
-  "apk_package_lock_source": "verified-candidate-daf33badda46b82b1d4e3faafcf040ca8dca479c",
+  "apk_package_lock_source": "verified-candidate-e0b8caa6ed447710465b8ab5ee91a599ccfaa3c3",
   "apk_package_lock_count": 40,
+  "apk_package_lock_refresh": {
+    "status": "candidate-reproof-passed",
+    "detected_by_workflow_run_id": 39476365071,
+    "detected_by_job_id": 118813346675,
+    "detected_on_commit": "73d6923ca2cb9e7c37fcc712f21dda9c20414c48",
+    "changes": [
+      {
+        "package": "ca-certificates",
+        "from": "20260909-r0",
+        "to": "20261020-r0"
+      }
+    ],
+    "candidate_source_commit": "e0b8caa6ed447710465b8ab5ee91a599ccfaa3c3",
+    "candidate_workflow_run_id": 39497041081,
+    "candidate_job_id": 118884662201,
+    "candidate_artifact_id": 12297049355,
+    "candidate_artifact_archive_sha256": "8727e15cc902c13bbf1bf8ca17e31857819005c3b10d20aa5c2999a1f7abfa6e",
+    "candidate_normalized_rootfs_tar_sha256": "df668955408b50adc3541daca844440eac2aa1cd47deab25de40bb59564e5a5f",
+    "candidate_erofs_sha256": "081fef6e9c9c4c991363f07ddcc08856b2a3ed65b5ec844108da43cd232396a6",
+    "candidate_artifact_recorded": true,
+    "physical_artifact_authorized": false
+  },
   "apk_install_policy": "full-transitive-lock-exact-version-specs",
   "discovery_evidence": {
     "workflow": "Stable MVP Base Candidate",
-    "source_commit": "daf33badda46b82b1d4e3faafcf040ca8dca479c",
+    "workflow_run_id": 39497041081,
+    "job_id": 118884662201,
+    "source_commit": "e0b8caa6ed447710465b8ab5ee91a599ccfaa3c3",
+    "artifact_id": 12297049355,
+    "artifact_archive_sha256": "8727e15cc902c13bbf1bf8ca17e31857819005c3b10d20aa5c2999a1f7abfa6e",
     "alpine_archive_sha256": "4b4daa9fe2fc696c4919c4412a4c3d3e770d8fb70292a004a2c72f5096175282",
     "installed_package_count": 40,
-    "stable_base_erofs_sha256": "f690310f868377b139fda0b6730ae091118efb0ba73516b4fae4ce737ece43c5",
+    "normalized_rootfs_tar_sha256": "df668955408b50adc3541daca844440eac2aa1cd47deab25de40bb59564e5a5f",
+    "stable_base_erofs_sha256": "081fef6e9c9c4c991363f07ddcc08856b2a3ed65b5ec844108da43cd232396a6",
     "physical_artifact_authorized": false
   }
 }

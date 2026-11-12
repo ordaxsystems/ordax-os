@@ -67,12 +67,74 @@ record_boot_handoff() {
 }
 
 # Wi-Fi kernel modules are needed by First Run, not an early DHCP/Git session.
+# The minimal development Base has no systemd-efi-boot generator. Before
+# handing /sys to the Git-owned runtime, establish the standard efivarfs mount
+# exactly once on a real UEFI boot. The base-update owner independently checks
+# the mount and its writability; this step never authorizes or writes EFI vars.
+ensure_uefi_efivarfs() {
+    efi_root=/sys/firmware/efi
+    efivars=$efi_root/efivars
+
+    # BIOS/non-UEFI boot must remain bootable for diagnostics/recovery.
+    [ -d "$efi_root" ] || return 0
+    if [ -L "$efi_root" ] || [ ! -d "$efivars" ] || [ -L "$efivars" ]; then
+        printf 'OrdaX: UEFI efivarfs path unavailable or unsafe; Base activation stays blocked.\\n' >&2
+        return 0
+    fi
+
+    # Never mount over an existing filesystem, including unexpected mounts:
+    # the strict efivarfs preflight rejects those independently.
+    if /bin/busybox awk '$2 == "/sys/firmware/efi/efivars" { present=1 } END { exit !present }' /proc/mounts; then
+        return 0
+    fi
+    if ! /bin/busybox mount -t efivarfs efivarfs "$efivars"; then
+        printf 'OrdaX: cannot mount UEFI efivarfs; Base activation stays blocked.\\n' >&2
+    fi
+    return 0
+}
+
 initialize_network_hardware() {
     if ! "$BIN_DIR/ordax-network" --init-hardware >/dev/null 2>&1; then
         printf 'OrdaX: Wi-Fi hardware init failed; local Surface can still start.\n' >&2
     fi
 }
 
+rebind_independent_console() {
+    # The ext4 superblock, not the literal /dev mount ID, defines safety.
+    # /dev/console can resolve through an independent nested/bind mount, so
+    # checking equality with the /dev mount ID incorrectly rejects healthy
+    # boots. Use the kernel major:minor for each actual stdout/stderr FD.
+    [ -c /dev/console ] || {
+        printf 'OrdaX Dev: /dev/console character device unavailable\n' >&2
+        return 1
+    }
+    root_fs=$(/bin/busybox awk '$5 == "/" { fs=$3 } END { print fs }' /proc/self/mountinfo 2>/dev/null || true)
+    [ -n "$root_fs" ] || {
+        printf 'OrdaX Dev: root filesystem identity unavailable\n' >&2
+        return 1
+    }
+    exec 1>/dev/console 2>&1
+    # Resolve the calling shell's PID with a builtin (no fork). A child awk
+    # opening /proc/self/fdinfo/1 observes its OWN stdout capture pipe,
+    # not init's console, and yields a false missing-mount failure.
+    console_owner_pid=0
+    read -r console_owner_pid _console_owner_stat </proc/self/stat || return 1
+    case "$console_owner_pid" in
+        ''|*[!0-9]*) return 1 ;;
+    esac
+    out_mount_id=$(/bin/busybox awk '$1 == "mnt_id:" { print $2; exit }' "/proc/$console_owner_pid/fdinfo/1" 2>/dev/null || true)
+    err_mount_id=$(/bin/busybox awk '$1 == "mnt_id:" { print $2; exit }' "/proc/$console_owner_pid/fdinfo/2" 2>/dev/null || true)
+    [ -n "$out_mount_id" ] && [ -n "$err_mount_id" ] || return 1
+    out_fs=$(/bin/busybox awk -v id="$out_mount_id" '$1 == id { fs=$3 } END { print fs }' /proc/self/mountinfo 2>/dev/null || true)
+    err_fs=$(/bin/busybox awk -v id="$err_mount_id" '$1 == id { fs=$3 } END { print fs }' /proc/self/mountinfo 2>/dev/null || true)
+    if [ -z "$out_fs" ] || [ -z "$err_fs" ] ||
+       [ "$out_fs" = "$root_fs" ] || [ "$err_fs" = "$root_fs" ]; then
+        printf 'OrdaX Dev: console/root superblock not isolated root=%s out=%s err=%s\n' \
+            "$root_fs" "$out_fs" "$err_fs" >&2
+        return 1
+    fi
+    return 0
+}
 start_local_surface() {
     record_boot_handoff "$1"
     printf 'OrdaX: iniciando a Surface local sem internet...\n'
@@ -159,11 +221,20 @@ activate_versioned_rootfs() {
     mkdir -p "$root/.ordax-base"
     /bin/busybox mount -o bind "$root" "$root" || return 1
 
-    # Retain the ephemeral verified EROFS view across Dev Base A/B pivot.
-    # Without /run the next root would lose the mounted graphical runtime.
+    # Retain nested mount trees across the A/B root pivot. A plain bind
+    # copies only the top mount, hiding efivarfs below /sys, EROFS/overlay
+    # runtime mounts below /run, devpts below /dev, and proc submounts.
+    # Ordinary durable directories intentionally keep nonrecursive bind.
     for shared in state workspace home proc sys dev run; do
         mkdir -p "$root/$shared"
-        /bin/busybox mount -o bind "/$shared" "$root/$shared" || return 1
+        case "$shared" in
+            proc|sys|dev|run)
+                /bin/busybox mount -o rbind "/$shared" "$root/$shared" || return 1
+                ;;
+            *)
+                /bin/busybox mount -o bind "/$shared" "$root/$shared" || return 1
+                ;;
+        esac
     done
 
     ORDAX_DEV_ROOT_SELECTED=1
@@ -265,7 +336,22 @@ select_development_rootfs() {
 
 mkdir -p "$WORKSPACE_DIR" "$STATE_DIR" "$NETWORK_STATE_DIR" /home /run /tmp /root
 chmod 1777 /tmp 2>/dev/null || true
+ensure_uefi_efivarfs
 select_development_rootfs
+# Only the real boot PID 1 owns the switch_root console handoff.
+# CLI/CI invocations do not own host console and must not reopen it;
+# the actual kernel boot must establish independent stdout/stderr
+# before starting any Surface or background runtime processes.
+# 'read' is a shell builtin: /proc/self/stat resolves the actual init
+# process, never a child "date"/"awk" PID or an inherited environment value.
+boot_pid=0
+read -r boot_pid _boot_kernel_stat </proc/self/stat || boot_pid=0
+if [ "$boot_pid" -eq 1 ]; then
+    if ! rebind_independent_console; then
+        printf 'OrdaX Dev: console nao independente do ext4; recuperacao local.\n' >&2
+        maintenance_shell
+    fi
+fi
 
 printf '\033[2J\033[H'
 printf 'OrdaX Development Base\n'

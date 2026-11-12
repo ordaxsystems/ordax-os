@@ -4,6 +4,12 @@ This directory owns the source-controlled schema used by the OrdaX product domai
 
 It is deliberately separate from development-device control tables already present in the `ordax-control-plane` project.
 
+## Estado operacional e autoridade
+
+As seções datadas abaixo documentam etapas históricas da migração e **não** são um runbook para avaliar o deployment atual. Relatos antigos de `ordax-os-public` ausente na Vercel, `verify_jwt=true` no primeiro gateway interno ou falta de transporte OIDC foram superados pelas provas posteriores; **não** devem ser usados para restaurar bloqueios já resolvidos nem para ativar a Conta.
+
+O estado atual, os gates ainda bloqueados e os owners ficam exclusivamente nos contratos canônicos [`docs/contracts/public-site-deployment.json`](../../../docs/contracts/public-site-deployment.json), [`public-auth-hardening.json`](../../../docs/contracts/public-auth-hardening.json) e [`public-legal-readiness.json`](../../../docs/contracts/public-legal-readiness.json). Provas históricas permanecem em `docs/evidence/`; comparação byte a byte do deployment vigente pertence ao recibo datado indicado pelo contrato. Abertura pública de cadastro/recuperação exige o preflight canônico, não a existência de funções ativas.
+
 ## Boundaries
 
 Product tables own account bootstrap, Spaces, server-authoritative entitlement grants, profile-pack catalog metadata, memory metadata/semantic index and project-connection metadata.

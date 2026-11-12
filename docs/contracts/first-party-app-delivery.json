@@ -40,10 +40,7 @@
       "system",
       "store"
     ],
-    "bootstrap": [
-      "files",
-      "internet"
-    ],
+    "bootstrap": [],
     "on_demand": [
       "assistant",
       "studio",
@@ -62,7 +59,9 @@
       "paint",
       "media-player",
       "pdf-viewer",
-      "toolbox"
+      "toolbox",
+      "files",
+      "internet"
     ]
   },
   "surface_projection": {

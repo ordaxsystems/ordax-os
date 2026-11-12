@@ -109,7 +109,6 @@ test("canonical component catalog has one unique owner identity per app and serv
     "local-ai-service",
     "ordax-intelligence",
     "clock-service",
-    "files",
     "settings",
     "account",
     "system",

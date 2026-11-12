@@ -29,7 +29,9 @@ function metadataResponse({
   version = componentId === "notes" ? "0.4.1" : "0.4.0",
   entrypoint = componentId === "notes"
     ? "system/apps/notes/src/runtime.mjs"
-    : `system/apps/${componentId}/runtime.mjs`,
+    : componentId === "files"
+      ? "system/surface/ui/files-component-runtime.mjs"
+      : `system/apps/${componentId}/runtime.mjs`,
   ...overrides
 } = {}) {
   return {
@@ -83,7 +85,7 @@ test("Native and Surface probation use exactly the same canonical policy", () =>
       NATIVE_COMPONENT_PROBE_MODE_BY_ID[id],
     );
   }
-  for (const id of ["calculator", "studio", "assistant", "clock", "files"]) {
+  for (const id of ["studio", "assistant", "clock"]) {
     assert.throws(() => systemComponentProbationProbeMode(id),
       /Unsupported system component probation probe/);
   }
@@ -94,10 +96,8 @@ test("system probation exposes fixed probes only for explicit supported componen
   assert.throws(() => systemComponentProbationProbeMode("internet"),
     /Unsupported system component probation probe/);
   assert.equal(systemComponentProbationProbeMode("notes"), "import-contract");
-  assert.throws(
-    () => systemComponentProbationProbeMode("files"),
-    /Unsupported system component probation probe/,
-  );
+  assert.equal(systemComponentProbationProbeMode("calculator"), "import-contract");
+  assert.equal(systemComponentProbationProbeMode("files"), "mount-contract");
   assert.throws(
     () => systemComponentProbationProbeMode("assistant"),
     /Unsupported system component probation probe/,
@@ -131,27 +131,43 @@ test("unavailable Internet cannot trigger a probation probe or materialize nativ
   assert.deepEqual(imported, []);
 });
 
-test("Files cannot trigger system probation before its explicit cutover grant", async () => {
+test("Calculator pending probation imports the verified 0.2.1 runtime without mounting or promoting", async () => {
   const fetched = [];
   const imported = [];
-  await assert.rejects(
-    () => runSystemPendingComponentProbation({
-      componentId: "files",
-      source: createNativeComponentSlotSource(windowRef()),
-      fetchImpl: async (url) => {
-        fetched.push(url);
-        return metadataResponse({ componentId: "files" });
-      },
-      importModule: async (url) => {
-        imported.push(url);
-        return runtimeModule({ componentId: "files" });
-      },
-      timeoutMs: 500,
-    }),
-    /Unsupported system component probation probe/,
-  );
-  assert.deepEqual(fetched, []);
-  assert.deepEqual(imported, []);
+  let mounts = 0;
+  const result = await runSystemPendingComponentProbation({
+    componentId: "calculator",
+    source: createNativeComponentSlotSource(windowRef()),
+    fetchImpl: async (url) => {
+      fetched.push(url);
+      return metadataResponse({
+        componentId: "calculator",
+        version: "0.2.1",
+        entrypoint: "system/apps/calculator/src/runtime.mjs",
+      });
+    },
+    importModule: async (url) => {
+      imported.push(url);
+      return runtimeModule({
+        componentId: "calculator",
+        version: "0.2.1",
+        mount: async () => { mounts += 1; return { destroy() {} }; },
+      });
+    },
+    timeoutMs: 500,
+  });
+  assert.equal(result.componentId, "calculator");
+  assert.equal(result.version, "0.2.1");
+  assert.equal(result.sourceCommit, COMMIT);
+  assert.equal(result.revision, 7);
+  assert.equal(result.health, "healthy");
+  assert.equal(result.probeMode, "import-contract");
+  assert.equal(mounts, 0);
+  assert.match(fetched[0], /component=calculator&state=pending$/);
+  assert.match(imported[0], new RegExp(
+    "/__ordax/native/component-module/calculator/pending/0\\.2\\.1/"
+    + COMMIT + "/system/apps/calculator/src/runtime\\.mjs$",
+  ));
 });
 
 test("Notes probation imports the external component contract without mounting the app", async () => {

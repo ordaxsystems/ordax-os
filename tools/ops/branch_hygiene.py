@@ -1,8 +1,7 @@
 #!/usr/bin/env python3
 """Plan and apply safe repository branch cleanup through the GitHub CLI.
 
-The cleanup is intentionally single-process so the merged, closed-unmerged and
-fully-contained rules cannot race each other. Every destructive delete is
+The cleanup is intentionally single-process so the merged and fully-contained rules cannot race each other. Every destructive delete is
 revalidated against the branch SHA observed during planning.
 """
 
@@ -14,6 +13,7 @@ import json
 import re
 import subprocess
 import sys
+import time
 import urllib.parse
 from collections.abc import Callable, Iterable
 from typing import Any
@@ -24,6 +24,11 @@ PROTECTED_BRANCHES = frozenset({"main", "ordax-rescue"})
 # main" cleanup must not invalidate the operator's cryptographic provenance.
 # This is retention only, never release/signing/physical-write authority.
 FROZEN_CANDIDATE_REF = re.compile(r"release-candidate/[0-9a-f]{40}\Z")
+
+# Retry only idempotent GitHub reads. A failed compare must never qualify
+# a branch for deletion; retries are bounded and unsuccessful reads fail closed.
+RETRYABLE_READ_HTTP_CODES = frozenset({429, 500, 502, 503, 504})
+MAX_READ_ATTEMPTS = 3
 
 
 def is_protected_ref(ref: str, source_sha: str | None = None) -> bool:
@@ -113,13 +118,9 @@ def plan_deletions(
         if current[ref] == expected_sha:
             selected[ref] = DeleteCandidate(ref, expected_sha, "merged-head-unchanged")
 
-    latest_unmerged = _latest_pr_by_ref(closed_prs, repository, merged=False)
-    for ref, pr in sorted(latest_unmerged.items()):
-        if ref in preserve or ref not in current or ref in selected:
-            continue
-        expected_sha = pr["head"]["sha"]
-        if current[ref] == expected_sha:
-            selected[ref] = DeleteCandidate(ref, expected_sha, "closed-unmerged-head-unchanged")
+    # Closing a PR without merge does not prove that its head is disposable.
+    # Preserve unique commits; only the containment proof below may qualify
+    # such a branch for cleanup, followed by exact SHA revalidation.
 
     for ref, expected_sha in sorted(current.items()):
         if ref in preserve or ref in selected:
@@ -135,12 +136,29 @@ class GitHubApi:
         self.repository = repository
 
     def _run(self, *args: str) -> subprocess.CompletedProcess[str]:
-        return subprocess.run(
-            ["gh", "api", *args],
-            check=False,
-            capture_output=True,
-            text=True,
-        )
+        # Destructive requests are never retried: the first DELETE could
+        # have succeeded despite a failed response from the API.
+        read_only = "--method" not in args
+        attempts = MAX_READ_ATTEMPTS if read_only else 1
+        for attempt in range(attempts):
+            result = subprocess.run(
+                ["gh", "api", *args],
+                check=False,
+                capture_output=True,
+                text=True,
+            )
+            if result.returncode == 0:
+                return result
+            transient = any(
+                f"HTTP {status}" in result.stderr
+                for status in RETRYABLE_READ_HTTP_CODES
+            )
+            if not read_only or not transient or attempt == attempts - 1:
+                return result
+            # Short bounded exponential backoff, without interpreting
+            # any transport failure as an empty, deleted or merged ref.
+            time.sleep(0.5 * (2 ** attempt))
+        raise AssertionError("unreachable")
 
     @staticmethod
     def _raise(result: subprocess.CompletedProcess[str], operation: str) -> None:

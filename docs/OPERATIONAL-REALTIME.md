@@ -62,6 +62,11 @@ device.telemetry
 ## Device actions
 
 Remote control is a different boundary from event observation.
+The [Capability Fabric](CAPABILITY-FABRIC.md) is only a current, read-only
+semantic discovery projection (`ordax.capability-discovery/1`); its
+`system:action.*` or `app:*` entries are **not** Device Agent grants or
+published Product MCP tools. The authenticated Device Agent and Platform
+authorities described below remain mandatory for real remote effects.
 
 A phone or Web client may request an action, but the request itself grants no authority.
 The server-side Action Gateway must bind the request to a real account/Space/project/device

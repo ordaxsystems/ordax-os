@@ -87,7 +87,7 @@ export function createRuntimeMountHealthCheck({
       );
       return "healthy";
     } finally {
-      try { mounted?.destroy(); } finally { mountContext.releaseRoot?.(); }
+      try { await mounted?.destroy(); } finally { mountContext.releaseRoot?.(); }
     }
   };
 }

@@ -1,10 +1,13 @@
 #!/usr/bin/env node
 import { spawn, spawnSync } from 'node:child_process';
+import { existsSync } from 'node:fs';
 import { fileURLToPath } from 'node:url';
 import { dirname, resolve } from 'node:path';
+import { nextLocalViteRestart } from './dev-restart-policy.mjs';
 
 const HERE = dirname(fileURLToPath(import.meta.url));
 const REPO_ROOT = resolve(HERE, '../..');
+const HAS_GIT = existsSync(resolve(REPO_ROOT, '.git'));
 const BRANCH = process.env.ORDAX_REPO_BRANCH ?? 'main';
 const UPDATE_INTERVAL_MS = Math.max(5, Number.parseInt(process.env.ORDAX_UPDATE_INTERVAL_SECONDS ?? '5', 10) || 5) * 1000;
 const REMOTE_TIMEOUT_MS = Math.max(5, Number.parseInt(process.env.ORDAX_REMOTE_TIMEOUT_SECONDS ?? '20', 10) || 20) * 1000;
@@ -115,44 +118,88 @@ function syncMainOnce() {
 }
 
 const viteEntry = resolve(REPO_ROOT, 'node_modules/vite/bin/vite.js');
-const vite = spawn(process.execPath, [
-  viteEntry,
-  '--config',
-  'tools/windows-emulator/vite.config.mjs',
-  '--open',
-  '/tools/windows-emulator/index.html',
-], {
-  cwd: REPO_ROOT,
-  stdio: 'inherit',
-  windowsHide: false,
-});
-
+// One canonical child, even when the Vite config watcher restarts too quickly.
+// Installed/packaged runs do NOT recover automatically: only an explicitly
+// launched local Desktop HMR session can retry after a transient compiler exit.
+const localDesktopHmr = process.env.ORDAX_DESKTOP_HOST === '1' &&
+  process.env.ORDAX_DESKTOP_LOCAL_DEV === '1' &&
+  process.env.ORDAX_EMULATOR_NO_BROWSER === '1';
+let vite = null;
+let restartTimer = null;
+let crashStreak = 0;
+function launchVite() {
+  if (stopping) return;
+  const startedAt = Date.now();
+  const child = spawn(process.execPath, [
+    viteEntry,
+    '--config',
+    'tools/windows-emulator/vite.config.mjs',
+    // Native ESM loader does not bundle config under node_modules/.vite-temp.
+    ...(process.env.ORDAX_EMULATOR_NO_BROWSER === '1' ? ['--configLoader', 'native'] : []),
+    ...(process.env.ORDAX_EMULATOR_NO_BROWSER === '1' ? [] : [
+      '--open', '/tools/windows-emulator/index.html',
+    ]),
+  ], {
+    cwd: REPO_ROOT,
+    stdio: 'inherit',
+    windowsHide: false,
+  });
+  vite = child;
+  let handled = false;
+  const onExit = (code, signal) => {
+    if (handled) return;
+    handled = true;
+    if (vite === child) vite = null;
+    if (stopping) return;
+    if (localDesktopHmr) {
+      const next = nextLocalViteRestart(crashStreak,Date.now()-startedAt);
+      if (next) {
+        crashStreak = next.failures;
+        log(`Native Vite exited (${signal ?? code ?? 'unknown'}); local recovery ${crashStreak}/3 in ${next.delayMs}ms`);
+        restartTimer = setTimeout(() => {
+          restartTimer = null;
+          launchVite();
+        },next.delayMs);
+        return;
+      }
+    }
+    if (timer) clearInterval(timer);
+    log(`Vite exited unexpectedly (${signal ?? code ?? 'unknown'}); development supervisor is stopping`);
+    process.exitCode = code === 0 ? 1 : (code ?? 1);
+    stopping = true;
+  };
+  child.once('error',(error)=>{
+    // A failing child must exit before a replacement is launched.
+    log('Vite child error: '+(error?.code || 'SPAWN_FAILURE'));
+    if (child.pid && child.exitCode === null && child.signalCode === null) {
+      try { child.kill('SIGTERM'); } catch {}
+    } else onExit(1,null);
+  });
+  child.once('exit',onExit);
+}
 function stop(signal = 'SIGTERM') {
   if (stopping) return;
   stopping = true;
   if (timer) clearInterval(timer);
-  if (!vite.killed) vite.kill(signal);
-}
-
-vite.once('error', (error) => {
-  log(`Vite failed to start: ${error.message}`);
-  process.exitCode = 1;
-  stop();
-});
-
-vite.once('exit', (code, signal) => {
-  if (timer) clearInterval(timer);
-  if (!stopping && code !== 0) {
-    log(`Vite exited unexpectedly (${signal ?? code ?? 'unknown'}); development supervisor is stopping`);
-    process.exitCode = code ?? 1;
+  if (restartTimer !== null) {
+    clearTimeout(restartTimer);
+    restartTimer = null;
   }
-  stopping = true;
-});
+  if (vite && !vite.killed) vite.kill(signal);
+}
+launchVite();
 
 process.once('SIGINT', () => stop('SIGINT'));
 process.once('SIGTERM', () => stop('SIGTERM'));
 
-log(`local-first session started; watching origin/${BRANCH} every ${UPDATE_INTERVAL_MS / 1000}s`);
-syncMainOnce();
-timer = setInterval(syncMainOnce, UPDATE_INTERVAL_MS);
-timer.unref();
+if (HAS_GIT && process.env.ORDAX_DESKTOP_HOST !== '1') {
+  log(`local-first session started; watching origin/${BRANCH} every ${UPDATE_INTERVAL_MS / 1000}s`);
+  syncMainOnce();
+  timer = setInterval(syncMainOnce, UPDATE_INTERVAL_MS);
+  timer.unref();
+} else {
+  // Bundled offline fallback has no .git: there is no HEAD to poll or mutate.
+  log(process.env.ORDAX_DESKTOP_HOST === '1'
+    ? 'Desktop source is immutable while running; Dev updates use staged Windows candidates'
+    : 'bundled source has no Git checkout; Pull unavailable until a compatible checkout exists');
+}

@@ -229,6 +229,31 @@ jobs:
           psql -v ON_ERROR_STOP=1 -f tests/sql/test_cloud_memory_privacy_hardening.sql
           psql -v ON_ERROR_STOP=1 -f tests/sql/test_space_subject_access_ssot_v1.sql
 
+      # Native Account is owned by Surface after the source cutover. Reuse
+      # the existing immutable OS materializer before testing its UI wiring;
+      # never restore a second tracked copy of the visual files.
+      - name: Materialize verified pinned Surface UI for account-memory UI contract
+        shell: bash
+        run: |
+          set -euo pipefail
+          surface_sha=$(python3 - <<'PY'
+          import json
+          from pathlib import Path
+          lock=json.loads(Path("docs/contracts/surface-source.json").read_text())
+          print(lock["source_commit"])
+          PY
+          )
+          git clone --single-branch --branch main --filter=blob:none --no-tags \
+            https://github.com/ordaxsystems/ordax-surface.git "$RUNNER_TEMP/account-surface-source"
+          git -C "$RUNNER_TEMP/account-surface-source" checkout --detach "$surface_sha"
+          test "$(git -C "$RUNNER_TEMP/account-surface-source" rev-parse HEAD)" = "$surface_sha"
+          python3 tools/surface-source/materialize.py stage \
+            --source-dir "$RUNNER_TEMP/account-surface-source" \
+            --out-dir "$RUNNER_TEMP/account-surface-stage"
+          test ! -e system/surface/ui && test ! -L system/surface/ui
+          cp -a "$RUNNER_TEMP/account-surface-stage/system/surface/ui" system/surface/ui
+          diff -qr "$RUNNER_TEMP/account-surface-stage/system/surface/ui" system/surface/ui
+
       - name: Run Memory sync foundation tests
         run: |
           set -euo pipefail

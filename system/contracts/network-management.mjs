@@ -47,7 +47,22 @@ export function validateNetworkManagementSnapshot(value) {
   if (!value || typeof value !== "object") {
     throw new TypeError("Network management snapshot must be an object");
   }
-  if (typeof value.wifiInterface !== "string" || !INTERFACE_RE.test(value.wifiInterface)) {
+  // A host without a Windows/Linux WLAN interface is not a connected Wi-Fi
+  // device. Preserve v1's successful shape for the Linux broker; use this
+  // explicit unavailable envelope only when the host proved no interface.
+  if (value.wifiInterface === null) {
+    if (value.unavailableReason !== "no-wlan-interface" ||
+        value.currentSsid !== null || value.savedSsid !== null ||
+        !Array.isArray(value.networks) || value.networks.length !== 0) {
+      throw new TypeError("Absent Wi-Fi interface must not advertise networks or credentials");
+    }
+    return Object.freeze({
+      wifiInterface: null, currentSsid: null, savedSsid: null,
+      networks: Object.freeze([]), unavailableReason: "no-wlan-interface",
+    });
+  }
+  if (typeof value.wifiInterface !== "string" || !INTERFACE_RE.test(value.wifiInterface) ||
+      value.unavailableReason !== undefined) {
     throw new TypeError("Network management wifiInterface is invalid");
   }
   if (!Array.isArray(value.networks) || value.networks.length > MAX_NETWORKS) {

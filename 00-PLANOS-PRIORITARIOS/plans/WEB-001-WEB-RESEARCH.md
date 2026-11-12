@@ -1,19 +1,19 @@
 # WEB-001 — OrdaX Web Research
 
 - **Tipo:** PLAN / ROADMAP
-- **Status documental:** READY — NOT IMPLEMENTED
+- **Status documental:** SOURCE FOUNDATION PRESENT — PROVIDERS DISABLED
 - **Elegibilidade de execução:** **DEFERRED FOR EXECUTION**
 - **Prioridade preservada:** P1 para reavaliação pós-MVP
 - **Criado:** 2026-10-14
-- **Owner canônico proposto:** boundary sistêmico de Web Research sob os owners atuais de Intelligence/Action Policy; confirmar paths somente quando a frente voltar a ser elegível
+- **Owner de contrato source:** `docs/WEB-RESEARCH.md` + `system/contracts/web-research.mjs`; execução remota e autorização permanecem nos owners atuais de Intelligence/Action Gateway/egress
 - **Relatório:** `../reports/WEB-001-WEB-RESEARCH-DEEP-RESEARCH.md`
 - **Não boot-critical:** SIM
 
 ## Janela de execução
 
-Este plano está preservado, mas **não deve abrir task, issue, PR ou implementação durante o fechamento atual do MVP**.
+A PR histórica integra apenas contratos, router inerte e testes, sem rede, providers ou grants. **Esta entrega não autoriza abrir novas implementações durante o fechamento atual do MVP**.
 
-Quando o MVP estiver fechado, revalidar `main`, owners, contratos, custos e providers antes de liberar a Fase 0. `READY` significa maturidade documental, não autorização para começar.
+Quando o MVP estiver fechado, revalidar `main`, owners, contratos, custos e providers antes de liberar a execução remota. `READY` significa maturidade documental, não autorização para começar.
 
 Se algum comportamento semelhante já for exigido antes disso por `MVP.md`, contratos ou outro owner canônico, o trabalho pertence a esse owner e não promove automaticamente `WEB-001`.
 

@@ -16,6 +16,18 @@ export function updateStatusLabel(status) {
   return UPDATE_LABELS[status] ?? String(status || "Estado indisponível");
 }
 
+// A docs/helper-only Git delivery can advance the canonical checkout without
+// changing the rendered Surface. This is expected, not a pending restart.
+export function isRepositoryOnlyUpdate(snapshot) {
+  if (!snapshot || snapshot.status !== "running" || snapshot.applyMode !== "none") return false;
+  const source = snapshot.sourceSha;
+  const surface = snapshot.runtimeSurfaceSha;
+  const shaPattern = /^[0-9a-f]{40}$/;
+  return typeof source === "string" && shaPattern.test(source)
+    && typeof surface === "string" && shaPattern.test(surface)
+    && source !== surface;
+}
+
 export function updateIsAlerting(snapshot) {
   return Boolean(snapshot?.bootRefreshRequired) || [
     "network-error",

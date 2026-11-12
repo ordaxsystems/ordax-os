@@ -83,7 +83,7 @@ const source = createNativeComponentSlotSource({
 test("Native installed app catalog combines OS built-ins and signed-slot presentation", () => {
   const output = createNativeVerifiedInstalledAppCatalog([item]);
   assert.equal(output.catalog.get("internet"), null, "Internet cannot be treated as bundled after Gate A");
-  assert.equal(output.catalog.get("files").component.owner, "system/apps/files");
+  assert.equal(output.catalog.get("files"), null, "Files must not be a bundled OS app");
   assert.equal(output.catalog.get("notes").component.owner, "ordaxsystems/ordax-apps");
   assert.equal(output.installed.length, 1);
   assert.equal(output.catalog.get("notes").panels[0].extensionId, "notes");
@@ -96,20 +96,14 @@ test("empty installed inventory cannot create launchable external apps", () => {
   assert.equal(result.installed.length, 0);
 });
 
-test("bundled and signed-slot app collision fails closed during remove-first transition", () => {
-  const forgedBundled = {
-    ...item, component: {
-      ...component, id: "files", title: "Arquivos",
-    },
+test("verified external Files can enter the Native slot inventory without a bundled collision", () => {
+  const signedFiles = { ...item, component: { ...component, id: "files", title: "Arquivos" },
     metadata: { ...metadata, componentId: "files" },
-    presentation: { ...presentation, appId: "files" },
-  };
-  assert.throws(
-    () => createNativeVerifiedInstalledAppCatalog([forgedBundled, item]),
-    /Duplicate bundled and signed-slot app source: files/,
-  );
+    presentation: { ...presentation, appId: "files" } };
+  const result = createNativeVerifiedInstalledAppCatalog([signedFiles, item]);
+  assert.equal(result.catalog.get("files").component.owner, "ordaxsystems/ordax-apps");
+  assert.equal(result.installed.length, 2);
 });
-
 test("falsified current state and owner do not enter Surface", () => {
   for (const corrupt of [
     { ...item, metadata: { ...metadata, source: "absent" } },
@@ -155,7 +149,7 @@ test("verified Native component is rechecked before mount and cleaned on shutdow
   assert.deepEqual(mounts.mountedIds, ["notes"]);
   assert.equal(fetched.length, 3);
   assert.equal(surfaceRoot.childNodes.length, 1);
-  mounts.destroy();
+  await mounts.destroy();
   assert.equal(destroyed, 1);
   assert.equal(surfaceRoot.childNodes.length, 0);
 });
@@ -211,7 +205,7 @@ test("calculator Native slot is discoverable and mountable only with reverified 
     assert.equal(result.mountedCount, 1);
     assert.deepEqual(result.mountedIds, ["calculator"]);
     assert.match(loadedUrls[0], /\/__ordax\/native\/component-module\/calculator\/current\/0\.2\.0\//);
-    result.destroy();
+    await result.destroy();
     assert.equal(destroys, 1);
     assert.equal(surfaceRoot.childNodes.length, 0);
   } finally {
@@ -405,7 +399,7 @@ test("valid minimal Surface context passes the broker without device grants", as
   assert.equal(sawMounted, true);
   assert.deepEqual(mounts.mountedIds, ["notes"]);
   assert.equal(surfaceRoot.childNodes.length, 1);
-  mounts.destroy();
+  await mounts.destroy();
   assert.equal(surfaceRoot.childNodes.length, 0);
 });
 
@@ -417,4 +411,103 @@ test("a caller cannot inject or override the host App Data port", async () => {
     }),
     /caller context cannot supply privileged ports/,
   );
+});
+
+
+test("signed stateless external runtime mounts without App Data, never receiving storage authority", async () => {
+  const stateless = Object.freeze({
+    component: Object.freeze({ ...component, id: "assistant", title: "Aura" }),
+    metadata: Object.freeze({
+      ...metadata, componentId: "assistant",
+      entrypoint: "system/apps/assistant/src/runtime.mjs",
+    }),
+    presentation: Object.freeze({ ...presentation, appId: "assistant", monogram: "AU" }),
+  });
+  const signedDescriptor = Object.freeze({
+    schema: "ordax.component-compatibility/1",
+    componentId: "assistant", componentVersion: "0.4.3",
+    provides: [{ id: "ordax.component-runtime", major: 1 }],
+    requires: [{ id: "ordax.identity-session", minMajor: 1, maxMajor: 1, optional: false }],
+    state: null, authority: "none",
+  });
+  const previousAppData = trustedAppData;
+  trustedAppData = null;
+  try {
+    const installed = createNativeVerifiedInstalledAppCatalog([stateless]).installed;
+    let imported = 0, mounted = 0;
+    const root = makeSurfaceRoot();
+    const mounts = await mountNativeVerifiedInstalledApps({
+      installed, source, context: { root },
+      signedCurrentCompatibility: async (value) => {
+        assert.deepEqual(value, stateless.metadata);
+        return signedDescriptor;
+      },
+      fetchImpl: async () => ({ ok: true, json: async () => stateless.metadata }),
+      importModule: async () => {
+        imported++;
+        return { componentRuntime: {
+          schema: COMPONENT_RUNTIME_SCHEMA, componentId: "assistant",
+          version: "0.4.3",
+          mount(context) {
+            assert.equal(Object.hasOwn(context, "appData"), false);
+            assert.equal(context.root.dataset.ordaxComponentRoot, "assistant");
+            mounted++;
+            return { destroy() {} };
+          },
+        } };
+      },
+      onError(error) { throw error; },
+    });
+    assert.equal(imported, 1);
+    assert.equal(mounted, 1);
+    assert.deepEqual(mounts.mountedIds, ["assistant"]);
+    await mounts.destroy();
+    assert.equal(root.childNodes.length, 0);
+  } finally {
+    trustedAppData = previousAppData;
+  }
+});
+
+test("compatibility failure and wrong component cannot bypass host App Data nor import executable", async () => {
+  const installed = createNativeVerifiedInstalledAppCatalog([item]).installed;
+  const previousAppData = trustedAppData;
+  trustedAppData = null;
+  try {
+    let fetched = 0, imported = 0;
+    for (const signedCurrentCompatibility of [
+      async () => { throw Error("Signed sidecar missing"); },
+      async () => ({
+        schema: "ordax.component-compatibility/1", componentId: "studio",
+        componentVersion: "0.4.3", provides: [], requires: [], state: null,
+        authority: "none",
+      }),
+      async () => ({
+        schema: "ordax.component-compatibility/1", componentId: "notes",
+        componentVersion: "0.4.3", provides: [], requires: [
+          { id: "ordax.app-data", minMajor: 1, maxMajor: 1, optional: false },
+        ], state: null, authority: "none",
+      }),
+      async () => ({
+        schema: "ordax.component-compatibility/1", componentId: "notes",
+        componentVersion: "0.4.3", provides: [], requires: [],
+        state: { id: "ordax.notes-store", writeVersion: 2, readableFrom: 1, readableThrough: 2 },
+        authority: "none",
+      }),
+    ]) {
+      const errors = [];
+      const mounts = await mountNativeVerifiedInstalledApps({
+        installed, source, context: { root: makeSurfaceRoot() },
+        signedCurrentCompatibility,
+        fetchImpl: async () => { fetched++; throw Error("unapproved fetch"); },
+        importModule: async () => { imported++; throw Error("unapproved import"); },
+        onError(error) { errors.push(error.message); },
+      });
+      assert.equal(mounts.mountedCount, 0);
+      assert.equal(errors.length, 1);
+    }
+    assert.equal(fetched, 0);
+    assert.equal(imported, 0);
+  } finally {
+    trustedAppData = previousAppData;
+  }
 });

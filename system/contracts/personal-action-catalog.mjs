@@ -47,7 +47,9 @@ export function validatePersonalActionEntry(value) {
   });
 }
 
-export function assertPersonalActionCatalog(value) {
+// Validate one bounded enumeration before comparing registration identities.
+// No second catalog, persisted snapshot or execution authority is created.
+export function readPersonalActionCatalogEntries(value) {
   if (
     !value
     || typeof value !== "object"
@@ -64,6 +66,18 @@ export function assertPersonalActionCatalog(value) {
   if (!Array.isArray(entries)) {
     throw new TypeError("Personal action catalog list() must return an array");
   }
-  entries.map(validatePersonalActionEntry);
+  const validated = entries.map(validatePersonalActionEntry);
+  const ids = new Set();
+  for (const entry of validated) {
+    if (ids.has(entry.id)) {
+      throw new TypeError("Duplicate Personal action entry in catalog snapshot");
+    }
+    ids.add(entry.id);
+  }
+  return Object.freeze(validated);
+}
+
+export function assertPersonalActionCatalog(value) {
+  readPersonalActionCatalogEntries(value);
   return value;
 }

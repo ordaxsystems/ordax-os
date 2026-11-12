@@ -6,6 +6,7 @@ from pathlib import Path
 import sys
 import types
 import unittest
+from unittest.mock import patch
 
 
 ROOT = Path(__file__).resolve().parents[1]
@@ -44,7 +45,12 @@ class FakeGateway:
 
     def session(self):
         self.session_calls += 1
-        return Reply(200, {"authenticated": self.authenticated, "subject": self.subject})
+        return Reply(200, {
+            "$schema": "prototype-ordax.public-identity-session/1",
+            "authenticated": self.authenticated, "subject": self.subject,
+            "status": "authenticated" if self.authenticated else "anonymous",
+            "provider": "supabase", "email": "owner@example.test",
+        })
 
     def logout(self):
         return Reply(204)
@@ -124,6 +130,73 @@ class ProductDeviceAuthenticatedLoginTriggerTests(unittest.TestCase):
         proxy.close_product_presence()
         self.assertEqual(coordinator.stop_calls, 2)
         self.assertEqual(coordinator.wait_values, [False, True])
+
+    def test_session_refresh_recovers_enrollment_failure_without_another_login(self):
+        gateway = FakeGateway()
+        coordinator = FakeCoordinator(raises=OSError("offline"))
+        proxy = module.ProductDeviceAccountGatewayProxy(gateway, coordinator, lambda: {"displayName": "USB"})
+        with patch.object(module.time, "monotonic", return_value=100):
+            proxy.login("owner@example.test", "secret")
+            proxy.session()
+        self.assertEqual(len(coordinator.calls), 1)
+        coordinator.raises = None
+        with patch.object(module.time, "monotonic", return_value=160):
+            proxy.session()
+            proxy.session()
+        self.assertEqual(len(coordinator.calls), 2)
+        self.assertEqual(len(gateway.login_calls), 1)
+        self.assertEqual(proxy._enrolled_subject, SUBJECT)
+
+    def test_session_observation_enrolls_an_already_authenticated_account_once(self):
+        gateway = FakeGateway()
+        coordinator = FakeCoordinator()
+        profile = {"displayName": "USB"}
+        proxy = module.ProductDeviceAccountGatewayProxy(gateway, coordinator, lambda: profile)
+        reply = proxy.session()
+        proxy.session()
+        self.assertEqual(reply.status, 200)
+        self.assertEqual(coordinator.calls, [(profile, SUBJECT)])
+        self.assertEqual(gateway.login_calls, [])
+
+    def test_session_expiration_stops_presence(self):
+        gateway = FakeGateway()
+        coordinator = FakeCoordinator()
+        proxy = module.ProductDeviceAccountGatewayProxy(gateway, coordinator, lambda: {"displayName": "USB"})
+        proxy.session()
+        gateway.authenticated = False
+        proxy.session()
+        self.assertFalse(proxy._authenticated)
+        self.assertIsNone(proxy._subject)
+        self.assertEqual(coordinator.stop_calls, 1)
+
+    def test_account_gateway_unreachable_stops_presence_and_preserves_error(self):
+        gateway = FakeGateway()
+        coordinator = FakeCoordinator()
+        proxy = module.ProductDeviceAccountGatewayProxy(gateway, coordinator, lambda: {"displayName": "USB"})
+        proxy.session()
+        def offline_session():
+            raise module.NativeAccountGatewayError("gateway-unreachable")
+        gateway.session = offline_session
+        with self.assertRaises(module.NativeAccountGatewayError):
+            proxy.session()
+        self.assertEqual(coordinator.stop_calls, 1)
+        self.assertFalse(proxy._authenticated)
+
+    def test_malformed_and_non_success_sessions_cannot_enroll(self):
+        for reply in (Reply(503, {"authenticated": True, "subject": SUBJECT}),
+                      Reply(200, {"authenticated": True, "subject": SUBJECT}),
+                      Reply(200, {"$schema": "prototype-ordax.public-identity-session/1",
+                                  "authenticated": True, "status": "authenticated",
+                                  "provider": "supabase", "email": "owner@example.test",
+                                  "subject": "not-a-uuid"})):
+            with self.subTest(reply=reply.body):
+                gateway = FakeGateway()
+                gateway.session = lambda: reply
+                coordinator = FakeCoordinator()
+                proxy = module.ProductDeviceAccountGatewayProxy(gateway, coordinator, lambda: {})
+                self.assertIs(proxy.session(), reply)
+                self.assertEqual(coordinator.calls, [])
+                self.assertFalse(proxy._authenticated)
 
     def test_other_gateway_methods_delegate_unchanged(self):
         gateway = FakeGateway()

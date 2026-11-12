@@ -5,6 +5,7 @@ from __future__ import annotations
 import importlib.util
 from pathlib import Path
 import shutil
+import subprocess
 import tempfile
 import tarfile
 import stat
@@ -24,6 +25,10 @@ class OwnerRootfsCapabilitiesTest(unittest.TestCase):
         inventory = capabilities.owner_inventory(ROOT)
         self.assertEqual(inventory["missing_sources"], [])
         self.assertEqual(inventory["unknown_commands"], [])
+        self.assertIn("system/services/device-agent/native-product-lifecycle.sh", inventory["sources"])
+        self.assertNotIn("native_product_reconcile", inventory["commands"])
+        self.assertNotIn("native_product_stop", inventory["commands"])
+        self.assertIn("mktemp", inventory["busybox_applets"])
         self.assertIn("ordax-portable-mount", inventory["fixed_initramfs_commands"])
         self.assertEqual(
             capabilities.fixed_initramfs_commands(ROOT),
@@ -32,9 +37,25 @@ class OwnerRootfsCapabilitiesTest(unittest.TestCase):
         commands = set(inventory["commands"])
         self.assertTrue({
             "git", "ip", "iw", "wpa_supplicant", "wpa_cli", "wpa_passphrase",
-            "udhcpc", "ntpd", "timeout", "stty", "setsid", "killall", "df",
+            "udhcpc", "ntpd", "timeout", "stty", "setsid", "df",
             "tr", "wc", "mount", "pivot_root", "switch_root", "sync", "reboot",
         }.issubset(commands))
+
+    def test_sourced_native_lifecycle_functions_are_derived_not_allowlisted(self) -> None:
+        source = ROOT / "system/services/device-agent/native-product-lifecycle.sh"
+        supervisor = ROOT / "system/supervisor"
+        functions = capabilities._supervisor_sourced_functions(ROOT)
+        self.assertIn("native_product_reconcile", functions)
+        self.assertIn("native_product_stop", functions)
+        self.assertNotIn("native_product_reconcile", capabilities.extract_commands(
+            supervisor, sourced_functions=functions,
+        ))
+        # Scanning without the verified import still surfaces the unresolved
+        # shell command; a missing library cannot invent an executable.
+        self.assertIn("native_product_reconcile", capabilities.extract_commands(supervisor))
+        self.assertTrue(capabilities.extract_commands(source).issubset(
+            set(capabilities.owner_inventory(ROOT)["commands"])
+        ))
 
     def test_explicit_busybox_calls_are_separately_proven(self) -> None:
         inventory = capabilities.owner_inventory(ROOT)
@@ -83,7 +104,7 @@ done
         }.issubset(missing_packages))
         missing_applets = set(result["missing_busybox_symbols"])
         self.assertTrue({
-            "CONFIG_NTPD", "CONFIG_TEST", "CONFIG_STTY", "CONFIG_KILLALL",
+            "CONFIG_NTPD", "CONFIG_TEST", "CONFIG_STTY",
             "CONFIG_UDHCPC", "CONFIG_SETSID",
         }.issubset(missing_applets))
 
@@ -219,6 +240,43 @@ done
             manifest.write_text("# tampered\n", encoding="utf-8")
             with self.assertRaisesRegex(ValueError, "manifest"):
                 capabilities.verify_owner_stage(stage, ROOT)
+
+    def test_alpine_busybox_recursively_binds_real_owner_rootfs(self) -> None:
+        """Reject missing mount flags in the actual Owner/Alpine image."""
+        spec = importlib.util.spec_from_file_location(
+            "ordax_owner_alpine_core_rbind", ROOT / "bootstrap/base/alpine_core.py",
+        )
+        assert spec is not None and spec.loader is not None
+        core = importlib.util.module_from_spec(spec)
+        spec.loader.exec_module(core)
+        rootfs = Path("/nonexistent-isolated-owner-rootfs")
+        for help_text in (
+            "Usage: mount [-o OPT]\\n\\t[r]bind Bind recursively\\n",
+            "Usage: mount\\n[r]bind\\n",
+        ):
+            with self.subTest(help_text=help_text), patch.object(
+                core.subprocess, "run",
+                return_value=subprocess.CompletedProcess([], 0, "", help_text),
+            ) as call:
+                core.verify_busybox_recursive_bind(rootfs)
+                call.assert_called_once_with(
+                    ["chroot", str(rootfs), "/bin/busybox", "mount", "--help"],
+                    check=False, capture_output=True, text=True,
+                )
+
+        for status, stdout, stderr in (
+            (0, "mount present, no recursive bind", ""),
+            (1, "[r]bind", ""),
+        ):
+            with self.subTest(status=status, stdout=stdout), patch.object(
+                core.subprocess, "run",
+                return_value=subprocess.CompletedProcess([], status, stdout, stderr),
+            ):
+                with self.assertRaisesRegex(core.BuildError, "recursive bind"):
+                    core.verify_busybox_recursive_bind(rootfs)
+
+        text = (ROOT / "bootstrap/base/alpine_core.py").read_text(encoding="utf-8")
+        self.assertIn("verify_busybox_recursive_bind(rootfs)", text)
 
     def test_alpine_fallback_verifier_consumes_the_same_inventory(self) -> None:
         text = (ROOT / "bootstrap/base/alpine_core.py").read_text(encoding="utf-8")

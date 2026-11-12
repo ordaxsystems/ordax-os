@@ -44,6 +44,8 @@ def main() -> int:
     parser.add_argument("--metadata", type=Path, required=True)
     parser.add_argument("--checksums", type=Path, required=True)
     parser.add_argument("--source-commit", required=True)
+    parser.add_argument("--creator-version", required=True,
+                        help="Version from the already pinned standalone Creator checkout")
     args = parser.parse_args()
     if not SHA40.fullmatch(args.source_commit):
         fail("invalid-exact-source-commit")
@@ -56,7 +58,7 @@ def main() -> int:
         fail("source-commit-drift")
     if metadata.get("artifact") != "OrdaX-Creator-Owner-Prototype.zip":
         fail("unexpected-artifact-name")
-    version = json.loads((Path(__file__).parent / "version.json").read_text(encoding="utf-8"))["version"]
+    version = args.creator_version
     if not isinstance(version, str) or not CREATOR_VERSION.fullmatch(version):
         fail("invalid-canonical-creator-version")
     if metadata.get("version") != version:

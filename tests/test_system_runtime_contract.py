@@ -1,4 +1,5 @@
 import os
+import re
 from pathlib import Path
 import stat
 import subprocess
@@ -45,6 +46,19 @@ class SystemRuntimeContractTests(unittest.TestCase):
     def test_shell_syntax_is_valid(self):
         for path in (SYSTEM_ENTRYPOINT, SYSTEM_SUPERVISOR, SURFACE_ENTRYPOINT, SURFACE_RUNTIME, RESCUE_AGENT, BASE_TELEMETRY_AGENT):
             subprocess.run(["sh", "-n", str(path)], check=True)
+
+    def test_update_health_and_rescue_receipts_use_unique_staging(self):
+        # Constant temporary filenames can collide during recovery/restart.
+        sources = (
+            (SURFACE_RUNTIME, ("BASE_UPDATE_AGENT", "RUNTIME_PROOF_CONTEXT")),
+            (RESCUE_AGENT, ("LAST_GENERATION_FILE", "LAST_ACTION_FILE", "TELEMETRY_STATUS_FILE")),
+        )
+        for path, destinations in sources:
+            script = path.read_text(encoding="utf-8")
+            for destination in destinations:
+                with self.subTest(path=str(path), destination=destination):
+                    self.assertIn(f"temporary=${destination}.tmp.$$", script)
+            self.assertNotRegex(script, r"\.tmp\.\$(?!\$)")
 
     def test_native_host_user_folder_provisioning_is_fail_soft(self):
         text = NATIVE_HOST_SERVER.read_text(encoding="utf-8")
@@ -122,6 +136,18 @@ class SystemRuntimeContractTests(unittest.TestCase):
         for forbidden in ("curl ", "wget ", "udhcpc", "ssh ", "exec sh"):
             self.assertNotIn(forbidden, text)
 
+    def test_native_composition_imports_have_live_consumers(self):
+        """ESM imports are evaluated before boot even when their values are unused."""
+        source = (NATIVE_COMPOSITION / "main.mjs").read_text(encoding="utf-8")
+        groups = re.findall(r'import\s*\{([^}]+)\}\s*from\s*["\'][^"\']+["\'];', source, re.S)
+        self.assertTrue(groups)
+        for group in groups:
+            for specifier in group.split(","):
+                symbol = specifier.strip().split(" as ")[-1]
+                if symbol:
+                    mentions = re.findall(r"\b" + re.escape(symbol) + r"\b", source)
+                    self.assertGreater(len(mentions), 1, f"Unused eager Native import: {symbol}")
+
     def test_native_graphical_runtime_is_provisioned_from_pulled_system(self):
         text = SURFACE_RUNTIME.read_text(encoding="utf-8")
         self.assertIn("runtime/native-surface", text)
@@ -133,14 +159,14 @@ class SystemRuntimeContractTests(unittest.TestCase):
         self.assertIn("--keys-dir /etc/apk/keys", text)
         self.assertIn("alpine/v3.22/main", text)
         self.assertIn("alpine/v3.22/community", text)
-        self.assertIn("python3 py3-gobject3 gtk+3.0 webkit2gtk-4.1", text)
+        self.assertTrue({"python3", "py3-gobject3", "gtk+3.0", "webkit2gtk-4.1"}.issubset((ROOT / "system/surface/runtime/packages.txt").read_text().splitlines()))
         self.assertNotIn("barkery-browser", text)
-        self.assertIn("xwayland", text)
-        self.assertIn("eudev", text)
-        self.assertIn("libinput-udev", text)
+        self.assertIn("xwayland", (ROOT / "system/surface/runtime/packages.txt").read_text().splitlines())
+        self.assertIn("eudev", (ROOT / "system/surface/runtime/packages.txt").read_text().splitlines())
+        self.assertIn("libinput-udev", (ROOT / "system/surface/runtime/packages.txt").read_text().splitlines())
         self.assertNotIn("\n        cog ", text)
         self.assertIn("/bin/busybox chroot", text)
-        self.assertIn("mesa-dri-gallium", text)
+        self.assertIn("mesa-dri-gallium", (ROOT / "system/surface/runtime/packages.txt").read_text().splitlines())
         self.assertIn("$RUNTIME_ROOT/usr/bin/python3", text)
         self.assertIn("$RUNTIME_ROOT/usr/lib/girepository-1.0/Gtk-3.0.typelib", text)
         self.assertIn("$RUNTIME_ROOT/usr/lib/girepository-1.0/WebKit2-4.1.typelib", text)
@@ -172,7 +198,13 @@ class SystemRuntimeContractTests(unittest.TestCase):
         self.assertIn("runtime_base_is_ready", text)
         self.assertIn("upgrade_existing_runtime", text)
         self.assertIn('run_bounded_apk "$RUNTIME_UPGRADE_TIMEOUT"', text)
-        self.assertIn("xwayland eudev libinput-udev python3 py3-gobject3 gtk+3.0 webkit2gtk-4.1", text)
+        self.assertIn("packages=$(runtime_packages)", text)
+        self.assertIn("runtime_audio_is_ready()", text)
+        self.assertIn("/usr/bin/wireplumber", text)
+        self.assertRegex(
+            text,
+            r"/bin/busybox sh /srv/ordax-system/surface/runtime/audio-session\.sh[ \t]*\\\n[ \t]*--runtime-dir /run/ordax-surface/audio --",
+        )
         self.assertIn("extending existing graphical runtime with WebKit browser host support", text)
         self.assertIn("RUNTIME_ID=alpine-v3.22-cage-webkitgtk-v1", text)
         self.assertIn("LEGACY_RUNTIME_ID=alpine-v3.22-cage-barkery-v1", text)
@@ -224,7 +256,9 @@ class SystemRuntimeContractTests(unittest.TestCase):
         text = SURFACE_RUNTIME.read_text(encoding="utf-8")
         self.assertIn("wait_for_native_server()", text)
         self.assertIn('socket.create_connection(("127.0.0.1", 8765), 0.5)', text)
-        self.assertIn('wait_for_native_server 10', text)
+        self.assertIn('wait_for_native_server 30', text)
+        self.assertIn('remaining=${1:-30}', text)
+        self.assertNotIn('wait_for_native_server 10', text)
         self.assertIn("native HTTP/control server exited while graphics remained active", text)
         self.assertIn('kill -0 "$HTTP_PID"', text)
 
@@ -385,11 +419,14 @@ class SystemRuntimeContractTests(unittest.TestCase):
         self.assertIn("SUPERVISOR_POWER_QUIESCED_FILE=$UPDATE_RUN_DIR/supervisor-power-quiesced", guardian)
         self.assertIn("terminate_persistent_host_agents()", guardian)
         self.assertIn('/bin/busybox mount -o remount,ro /', guardian)
+        self.assertIn('/bin/busybox mount -o remount,bind,ro /', guardian)
         self.assertIn("root_filesystem_is_read_only", guardian)
         self.assertIn('/bin/busybox reboot -f >/dev/null 2>&1', guardian)
         self.assertIn('/bin/busybox poweroff -f >/dev/null 2>&1', guardian)
-        self.assertIn("printf 'b' >/proc/sysrq-trigger", guardian)
-        self.assertIn("printf 'o' >/proc/sysrq-trigger", guardian)
+        # Emergency sysrq b/o reset bypasses clean ext4 teardown and must
+        # never be the Guardian's ordinary fallback after a kernel syscall.
+        self.assertNotIn("/proc/sysrq-trigger", guardian)
+        self.assertIn("kernel-transition-returned", guardian)
         self.assertIn('/bin/busybox mount -o remount,rw /', guardian)
         transition = guardian[
             guardian.index("perform_host_power_transition()") : guardian.index("wait_guardian_interval()")
@@ -400,14 +437,14 @@ class SystemRuntimeContractTests(unittest.TestCase):
         )
         self.assertLess(
             transition.index('/bin/busybox sync >>"$GUARDIAN_LOG"'),
-            transition.index('/bin/busybox mount -o remount,ro /'),
+            transition.index('remount_root_read_only_for_power'),
         )
         self.assertLess(
-            transition.index('/bin/busybox mount -o remount,ro /'),
+            transition.index('remount_root_read_only_for_power'),
             transition.index('/bin/busybox reboot -f'),
         )
         self.assertLess(
-            transition.index('/bin/busybox mount -o remount,ro /'),
+            transition.index('remount_root_read_only_for_power'),
             transition.index('/bin/busybox poweroff -f'),
         )
 
@@ -425,10 +462,10 @@ class SystemRuntimeContractTests(unittest.TestCase):
         text = SURFACE_RUNTIME.read_text(encoding="utf-8")
         self.assertIn("POWER_LAST_REQUEST=$POWER_STATE_DIR/last-request", text)
         guardian = SYSTEM_ENTRYPOINT.read_text(encoding="utf-8")
-        # A literal trailing dollar would reuse the same temporary filename
-        # across the Surface broker and the Guardian; $ is the shell PID.
-        self.assertIn("temporary=$POWER_LAST_REQUEST.tmp.$", text)
-        self.assertIn("temporary=$POWER_LAST_REQUEST.tmp.$", guardian)
+        # $ is a per-process shell PID; a literal $ silently reuses the
+        # same temporary file between the Surface broker and the Guardian.
+        self.assertIn("temporary=$POWER_LAST_REQUEST.tmp.$$", text)
+        self.assertIn("temporary=$POWER_LAST_REQUEST.tmp.$$", guardian)
 
         self.assertIn("record_power_request()", text)
         self.assertIn("record_power_request restart pending", text)
@@ -447,6 +484,63 @@ class SystemRuntimeContractTests(unittest.TestCase):
             text.index("record_power_request shutdown pending"),
             text.index("if ! forward_host_power_request shutdown; then"),
         )
+
+    def test_power_delivery_cannot_hang_without_guardian_fifo_reader(self):
+        surface = SURFACE_RUNTIME.read_text(encoding="utf-8")
+        forward = surface.split("forward_host_power_request() {", 1)[1].split("\n}\n", 1)[0]
+        broker = surface.split("prepare_power_broker() {", 1)[1].split("\n}\n", 1)[0]
+        self.assertIn('/bin/busybox timeout -k 1 3 /bin/sh -c', forward)
+        self.assertIn('host power owner did not accept $action within timeout', forward)
+        self.assertIn('[ -p "$HOST_POWER_REQUEST" ]', broker)
+        self.assertIn('controls disabled', broker)
+        self.assertIn(
+            'prepare_power_broker || echo "ordax-surface: host power broker unavailable;',
+            surface,
+        )
+
+    def test_power_delivery_fifo_without_reader_returns_bounded_failure(self):
+        # Runtime integration: exercise exactly the checked-in shell function,
+        # on a disposable FIFO, never invoking a host reboot or shutdown.
+        if not Path("/bin/busybox").is_file():
+            self.skipTest("BusyBox runtime is not available on this test host")
+        import os
+        import tempfile
+
+        surface = SURFACE_RUNTIME.read_text(encoding="utf-8")
+        forward = "forward_host_power_request() {" + surface.split(
+            "forward_host_power_request() {", 1
+        )[1].split("\n}\n", 1)[0] + "\n}\n"
+        with tempfile.TemporaryDirectory() as temporary:
+            request = Path(temporary) / "power-request"
+            log = Path(temporary) / "host.log"
+            os.mkfifo(request, 0o600)
+            env = dict(os.environ, HOST_POWER_REQUEST=str(request), HOST_LOG=str(log))
+            result = subprocess.run(
+                ["/bin/sh", "-c", forward + "\nforward_host_power_request restart\n"],
+                env=env,
+                stdout=subprocess.PIPE,
+                stderr=subprocess.PIPE,
+                text=True,
+                timeout=8,
+                check=False,
+            )
+            self.assertNotEqual(result.returncode, 0)
+            self.assertIn("did not accept restart within timeout", log.read_text())
+            # A real Guardian reader accepts the same exact allowed request.
+            descriptor = os.open(request, os.O_RDONLY | os.O_NONBLOCK)
+            try:
+                delivered = subprocess.run(
+                    ["/bin/sh", "-c", forward + "\nforward_host_power_request shutdown\n"],
+                    env=env,
+                    stdout=subprocess.PIPE,
+                    stderr=subprocess.PIPE,
+                    timeout=8,
+                    check=False,
+                )
+                self.assertEqual(delivered.returncode, 0, delivered.stderr)
+                self.assertEqual(os.read(descriptor, 32), b"shutdown\n")
+            finally:
+                os.close(descriptor)
 
     def test_stale_same_boot_power_request_is_reconciled_as_failed(self):
         text = SURFACE_RUNTIME.read_text(encoding="utf-8")
@@ -470,18 +564,22 @@ class SystemRuntimeContractTests(unittest.TestCase):
 
     def test_graphical_runtime_receives_bounded_host_dns_configuration(self):
         text = SURFACE_RUNTIME.read_text(encoding="utf-8")
-        self.assertIn("sync_runtime_resolver()", text)
-        self.assertIn("host_resolver=/etc/resolv.conf", text)
-        self.assertIn("runtime_resolver=$RUNTIME_ROOT/etc/resolv.conf", text)
-        self.assertIn("resolver_size=", text)
-        self.assertIn("[ \"$resolver_size\" -gt 16384 ]", text)
-        self.assertIn("/bin/busybox grep -Eq", text)
-        self.assertIn("nameserver", text)
-        self.assertIn('/bin/busybox mv -f "$temporary" "$runtime_resolver"', text)
-        self.assertIn(
-            "external DNS unavailable inside graphical runtime; continuing local Surface",
-            text,
-        )
+        resolver = (ROOT / "system/surface/runtime/resolver_sync.sh").read_text(encoding="utf-8")
+        broker = (ROOT / "system/surface/runtime/network_broker.sh").read_text(encoding="utf-8")
+        self.assertIn("sync_runtime_resolver() {", text)
+        self.assertIn('resolver_sync=$SYSTEM_ROOT/surface/runtime/resolver_sync.sh', text)
+        self.assertIn('/bin/sh "$resolver_sync" "$RUNTIME_ROOT" "$HOST_LOG"', text)
+        self.assertIn('ORDAX_RUNTIME_RESOLVER_SYNC_SCRIPT=', text)
+        self.assertIn('ORDAX_RUNTIME_RESOLVER_ROOT="$RUNTIME_ROOT"', text)
+        self.assertIn('ORDAX_RUNTIME_RESOLVER_LOG="$NETWORK_LOG"', text)
+        self.assertIn('host_resolver=${3:-/etc/resolv.conf}', resolver)
+        self.assertIn('mv -f "$temporary" "$runtime_root/etc/resolv.conf"', resolver)
+        self.assertIn("resolver_size=", resolver)
+        self.assertIn('[ "$resolver_size" -gt 16384 ]', resolver)
+        self.assertIn('no routable nameserver', resolver)
+        self.assertIn('ORDAX_RUNTIME_RESOLVER_SYNC_SCRIPT', broker)
+        self.assertIn('if ! try_dhcp "$wifi"; then', broker)
+        self.assertIn('/bin/sh "$RESOLVER_SYNC_SCRIPT" "$RESOLVER_ROOT" "$RESOLVER_LOG"', broker)
         self.assertLess(
             text.index('ensure_runtime || fallback_with_reason'),
             text.index('sync_runtime_resolver ||'),
@@ -525,8 +623,9 @@ class SystemRuntimeContractTests(unittest.TestCase):
         self.assertIn('cleanup refused; runtime chroot remains active', text)
         self.assertIn('reap_stale_runtime_processes || fallback_with_reason', text)
         self.assertIn('kill -KILL "$pid"', text)
-        self.assertIn('terminate_child "$GRAPHICS_PID" "graphics host"', text)
-        self.assertIn('terminate_child "$HTTP_PID" "native HTTP host"', text)
+        self.assertIn("quiesce_surface_children()", text)
+        self.assertIn('"$GRAPHICS_PID" "$HTTP_PID"', text)
+        self.assertIn('quiesce_surface_children\n', text.split("cleanup() {", 1)[1])
         self.assertLess(
             text.index('reap_stale_runtime_processes || fallback_with_reason'),
             text.index('ensure_runtime || fallback_with_reason'),

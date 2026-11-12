@@ -42,3 +42,16 @@ test("Reject forged action availability, mismatched policy, and invalid input", 
   await assert.rejects(port.configure(true), /differs/);
   await assert.rejects(port.configure("yes"), TypeError);
 });
+
+
+test("DEV discovery can be toggled without an account while preserving remote grant requirements", () => {
+  const dev = validateProductConnectorSnapshot({
+    ...snapshot(true), accountAuthenticated: false, canEnableWithoutLogin: true,
+  });
+  assert.equal(dev.accountAuthenticated, false);
+  assert.equal(dev.canEnableWithoutLogin, true);
+  assert.equal(dev.requiresClientOAuthAndGrants, true);
+  assert.equal(dev.remoteActionsEnabled, false);
+  assert.equal(validateProductConnectorSnapshot(snapshot()).canEnableWithoutLogin, false);
+  assert.throws(() => validateProductConnectorSnapshot({...snapshot(), canEnableWithoutLogin: "true"}));
+});

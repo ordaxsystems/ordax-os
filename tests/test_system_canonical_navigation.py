@@ -24,7 +24,9 @@ class SystemCanonicalNavigationTests(unittest.TestCase):
         self.assertIn('activation.appId === "system"', system)
         self.assertIn("validSystemSection(activation.target)", system)
         self.assertNotIn("sectionId", system)
-        self.assertNotIn("detailId", system)
+        # state.detailId belongs to MCP status presentation, not navigation.
+        self.assertNotIn("dataset.detailId", system)
+        self.assertNotIn("data-detail-id", system)
 
     def test_overview_summary_uses_structured_localized_presentation(self):
         system = SYSTEM.read_text(encoding="utf-8")

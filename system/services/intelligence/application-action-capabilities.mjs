@@ -142,8 +142,18 @@ function capabilityContextItem(capabilities) {
   });
 }
 
-export function createApplicationActionCapabilityRegistry({ awareness, capabilities = [] } = {}) {
+export function createApplicationActionCapabilityRegistry({
+  awareness, capabilities = [], isCurrent = null,
+  isCurrentBatch = null,
+} = {}) {
   assertApplicationIntelligenceAwarenessPort(awareness);
+  if (isCurrent !== null && typeof isCurrent !== "function") {
+    throw new TypeError("Application action current-slot verifier must be a function");
+  }
+  if (isCurrentBatch !== null &&
+      (typeof isCurrentBatch !== "function" || isCurrent === null)) {
+    throw new TypeError("Application action batch verifier requires a current-slot verifier");
+  }
   if (!Array.isArray(capabilities) || capabilities.length > MAX_CAPABILITIES) {
     throw new TypeError("Application action capability catalog is outside bounds");
   }
@@ -185,25 +195,46 @@ export function createApplicationActionCapabilityRegistry({ awareness, capabilit
   }
   for (const [appId, values] of byApp) byApp.set(appId, Object.freeze([...values]));
 
-  const compiledContextItem = capabilityContextItem(frozen);
+  // A Registry remains the single declaration owner. The verifier only
+  // WITHDRAWS actions if the Native Store no longer attests the same current
+  // slot; it never registers actions or creates execution permission.
+  const available = (capability) =>
+    isCurrent === null || isCurrent(capability) === true;
+  const availableList = (selected = frozen) => {
+    if (isCurrent === null) return selected;
+    if (isCurrentBatch !== null) {
+      const flags = isCurrentBatch(selected);
+      if (!Array.isArray(flags) || flags.length !== selected.length ||
+          flags.some(flag => typeof flag !== "boolean")) {
+        throw new TypeError("Native Store batch verifier returned invalid decisions");
+      }
+      return Object.freeze(selected.filter((_, index) => flags[index]));
+    }
+    return Object.freeze(selected.filter(available));
+  };
+  const compiledContextItem = isCurrent === null ? capabilityContextItem(frozen) : null;
 
   const port = {
     schema: APPLICATION_ACTION_CAPABILITY_REGISTRY_PORT_SCHEMA,
     list() {
-      return frozen;
+      return availableList();
     },
     get(appId, actionId) {
       if (typeof appId !== "string" || typeof actionId !== "string") return null;
-      return byKey.get(capabilityKey(appId, actionId)) ?? null;
+      const action = byKey.get(capabilityKey(appId, actionId)) ?? null;
+      return action !== null && available(action) ? action : null;
     },
     listForApp(appId) {
       if (typeof appId !== "string") return EMPTY_LIST;
-      return byApp.get(appId) ?? EMPTY_LIST;
+      const declared = byApp.get(appId) ?? EMPTY_LIST;
+      return availableList(declared);
     },
     propose(appId, actionId, argumentsValue = {}) {
       const key = capabilityKey(appId, actionId);
       const capability = byKey.get(key);
-      if (!capability) throw new TypeError("Application action capability is not declared for this app");
+      if (!capability || !available(capability)) {
+        throw new TypeError("Application action capability is not current for this app");
+      }
       const normalizedArguments = validateArguments(capability, argumentsValue);
       return validateApplicationActionProposal({
         schema: APPLICATION_ACTION_PROPOSAL_SCHEMA,
@@ -219,7 +250,8 @@ export function createApplicationActionCapabilityRegistry({ awareness, capabilit
       });
     },
     contextItem() {
-      return compiledContextItem;
+      return isCurrent === null
+        ? compiledContextItem : capabilityContextItem(availableList());
     },
     contextItemForApps(appIds) {
       if (!Array.isArray(appIds) || appIds.length > 8) {
@@ -237,7 +269,7 @@ export function createApplicationActionCapabilityRegistry({ awareness, capabilit
         seen.add(appId);
         selected.push(...(byApp.get(appId) ?? EMPTY_LIST));
       }
-      return capabilityContextItem(selected);
+      return capabilityContextItem(availableList(selected));
     },
   };
 

@@ -1,3 +1,4 @@
+import { postNativeHostMessage } from "../../adapters/native/host-bridge.mjs";
 import { createNativeIntelligenceService } from "../../services/intelligence/native-service.mjs";
 
 export const NATIVE_INTELLIGENCE_HOST_REQUEST_EVENT =
@@ -36,16 +37,8 @@ function validateHostRequest(value) {
   });
 }
 
-function resolveBrowserBridge(windowRef) {
-  const bridge = windowRef?.webkit?.messageHandlers?.ordaxBrowser;
-  if (!bridge || typeof bridge.postMessage !== "function") {
-    throw new Error("Native Intelligence privileged browser bridge is unavailable");
-  }
-  return bridge;
-}
-
 function postMessage(windowRef, payload) {
-  resolveBrowserBridge(windowRef).postMessage(JSON.stringify(payload));
+  postNativeHostMessage(windowRef, payload);
 }
 
 /**
@@ -72,7 +65,9 @@ export function installNativeIntelligenceHostBridge({
     spaceSelectionPort,
   });
 
+  let active = true;
   const onRequest = async (event) => {
+    if (!active) return;
     let envelope;
     try {
       envelope = validateHostRequest(event?.detail);
@@ -83,6 +78,9 @@ export function installNativeIntelligenceHostBridge({
 
     try {
       const response = await service.respond(envelope.request);
+      // The request can finish after pagehide/remount. The old Surface no
+      // longer owns this host listener, so never publish a stale response.
+      if (!active) return;
       postMessage(windowRef, {
         type: NATIVE_INTELLIGENCE_HOST_RESULT_TYPE,
         nonce: envelope.nonce,
@@ -91,6 +89,7 @@ export function installNativeIntelligenceHostBridge({
         response,
       });
     } catch {
+      if (!active) return;
       // The bridge deliberately does not claim whether model execution started.
       // Upstream transport must treat this as unknown outcome and must not retry
       // automatically until the canonical idempotency/receipt path is composed.
@@ -109,13 +108,18 @@ export function installNativeIntelligenceHostBridge({
   try {
     postMessage(windowRef, { type: NATIVE_INTELLIGENCE_HOST_READY_TYPE });
   } catch (error) {
+    active = false;
     windowRef.removeEventListener(NATIVE_INTELLIGENCE_HOST_REQUEST_EVENT, onRequest);
+    service.dispose();
     throw error;
   }
 
   return Object.freeze({
     dispose() {
+      if (!active) return;
+      active = false;
       windowRef.removeEventListener(NATIVE_INTELLIGENCE_HOST_REQUEST_EVENT, onRequest);
+      service.dispose();
     },
   });
 }

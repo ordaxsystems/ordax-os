@@ -49,6 +49,7 @@ export function validateRegistrationPolicy(value) {
     || value.$schema !== REGISTRATION_POLICY_SCHEMA
     || value.active !== true
     || typeof value.registrationEnabled !== "boolean"
+    || (value.publicRegistrationEnabled !== undefined && typeof value.publicRegistrationEnabled !== "boolean")
     || typeof value.policyId !== "string"
     || !/^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(value.policyId)
     || !validLegalDocument(value.privacy)
@@ -60,6 +61,7 @@ export function validateRegistrationPolicy(value) {
     schema: REGISTRATION_POLICY_SCHEMA,
     policyId: value.policyId.toLowerCase(),
     registrationEnabled: value.registrationEnabled,
+    publicRegistrationEnabled: value.publicRegistrationEnabled === true,
     privacy: Object.freeze({ ...value.privacy }),
     terms: Object.freeze({ ...value.terms }),
   });

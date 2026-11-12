@@ -1,28 +1,28 @@
+import { readNativeSession } from "./session-read.mjs";
+
 import {
   DISPLAY_OUTPUTS_SCHEMA,
   assertDisplayOutputsPort,
   validateDisplayOutputsSnapshot,
 } from "../../contracts/display-outputs.mjs";
 
-const SESSION_ENDPOINT = "/__ordax/native/session";
+
 const DISPLAY_ENDPOINT = "/__ordax/native/display-outputs";
 const TOKEN_HEADER = "X-OrdaX-Display-Token";
 
 async function readDisplayToken(windowRef) {
-  const response = await windowRef.fetch(SESSION_ENDPOINT, {
-    method: "GET",
-    cache: "no-store",
-    credentials: "same-origin",
-  });
+  const response = await readNativeSession(windowRef);
   if (!response.ok) throw new Error(`Native display session failed: ${response.status}`);
-  const payload = await response.json();
+  const payload = response.payload;
   if (typeof payload.displayOutputsToken !== "string" || payload.displayOutputsToken.length < 16) {
     throw new Error("Native display token is unavailable");
   }
   return payload.displayOutputsToken;
 }
 
-export async function createNativeDisplayOutputs(windowRef = globalThis.window) {
+export async function createNativeDisplayOutputs(windowRef = globalThis.window, {
+  deferInitialRead = false,
+} = {}) {
   if (!windowRef || typeof windowRef.fetch !== "function") {
     throw new TypeError("Native display outputs adapter requires window.fetch");
   }
@@ -54,6 +54,11 @@ export async function createNativeDisplayOutputs(windowRef = globalThis.window) 
     revert(previewId) { return request("POST", "revert", { previewId }); },
   };
   assertDisplayOutputsPort(port);
-  await port.read();
+  // Linux still proves the provider at bootstrap. Windows has a real,
+  // authenticated Win32 provider, but eager enumeration competes with other
+  // cold-start Native ports and could permanently discard this port on one
+  // transient 503. The Desktop first reads physical modes when the existing
+  // Settings controls request them; no cached/fabricated display data.
+  if (!deferInitialRead) await port.read();
   return Object.freeze(port);
 }

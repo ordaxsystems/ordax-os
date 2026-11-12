@@ -50,21 +50,6 @@ test("Surface lifecycle v4 requires the shared localization port", () => {
   assert.equal(SURFACE_RENDER_LIFECYCLE_SCHEMA, "ordax.surface-render-lifecycle/5");
 });
 
-test("Files primary journey consumes shared localization and live locale", async () => {
-  const files = await readFile(
-    new URL("../system/surface/ui/file-space-controls.mjs", import.meta.url),
-    "utf8",
-  );
-  assert.match(files, /const localization = lifecycle\.localization/);
-  assert.match(files, /const locale = \(\) => localization\.getLocale\(\)/);
-  assert.match(files, /t\("files\.location\.recents"\)/);
-  assert.match(files, /t\("files\.location\.trash"\)/);
-  assert.match(files, /t\("files\.recents\.boundary"\)/);
-  assert.match(files, /t\("files\.trash\.boundary"\)/);
-  assert.match(files, /localeCompare\(right\.name, locale\(\)/);
-  assert.doesNotMatch(files, /FILE_SEARCH_LOCALE/);
-});
-
 test("Settings and System navigation consume the same localization owner", async () => {
   const settings = await readFile(
     new URL("../system/surface/ui/settings-overview-controls.mjs", import.meta.url),
@@ -106,41 +91,6 @@ test("Account consumes the shared localization owner end to end", async () => {
     account,
     /Conta|Sessão ativa|Sincronização|Nenhuma pendência|Fila offline|Aparência/,
   );
-});
-
-test("English catalog contains primary Files, Settings and System entries", async () => {
-  const filesCatalog = await readFile(
-    new URL("../system/services/i18n/catalog/files.mjs", import.meta.url),
-    "utf8",
-  );
-  const settingsCatalog = await readFile(
-    new URL("../system/services/i18n/catalog/settings.mjs", import.meta.url),
-    "utf8",
-  );
-  const systemCatalog = await readFile(
-    new URL("../system/services/i18n/catalog/system.mjs", import.meta.url),
-    "utf8",
-  );
-  const localSessionCatalog = await readFile(
-    new URL("../system/services/i18n/catalog/local-session.mjs", import.meta.url),
-    "utf8",
-  );
-
-  assert.match(filesCatalog, /"files\.location\.trash": "Trash"/);
-  assert.match(filesCatalog, /"files\.recents\.clearHistory": "Clear history"/);
-  assert.match(filesCatalog, /"files\.trash\.restore": "Restore"/);
-  assert.match(settingsCatalog, /"settings\.section\.regional": "Language and region"/);
-  assert.match(settingsCatalog, /"settings\.notifications\.dnd\.title": "Do Not Disturb"/);
-  assert.match(settingsCatalog, /"settings\.notifications\.sources\.title": "Sources that actually notify"/);
-  assert.match(settingsCatalog, /"settings\.security\.title": "Lock this OrdaX"/);
-  assert.match(settingsCatalog, /"settings\.security\.action\.lock": "Lock now"/);
-  assert.match(settingsCatalog, /"settings\.security\.message\.changeFailed": "The local lock could not be changed\."/);
-  assert.match(systemCatalog, /"system\.section\.diagnostics": "Diagnostics"/);
-  assert.match(systemCatalog, /"system\.overview\.card\.productVersion": "Prototype version"/);
-  assert.match(systemCatalog, /"system\.overview\.update\.status\.networkError": "No connection for updates"/);
-  assert.match(systemCatalog, /"system\.overview\.update\.detail\.activationReady": "The candidate was revalidated/);
-  assert.match(localSessionCatalog, /"localSession\.lock\.title": "Session locked"/);
-  assert.match(localSessionCatalog, /"localSession\.lock\.message\.rateLimited": "Too many attempts\./);
 });
 
 test("Projects app-owned translations are absent from OS during remove-first Gate A", async () => {

@@ -1,17 +1,6 @@
 name: Diagnose Creator Git USB build
 
 on:
-  push:
-    branches: [main]
-    paths:
-      - 'bootstrap/base/alpine_core.py'
-      - 'bootstrap/base/firmware_policy.py'
-      - 'bootstrap/base/runtime_policy.py'
-      - 'bootstrap/dev-base/build.py'
-      - 'tools/ci/portable_component_cache.py'
-      - 'tests/test_portable_component_cache.py'
-      - 'tests/test_creator_kernel_reuse_workflows.py'
-      - '.github/workflows/creator-owner-build-diagnose.yml'
   workflow_dispatch:
 
 permissions:
@@ -61,11 +50,15 @@ jobs:
           path: out/kernel
           key: ordax-portable-component-v1-${{ runner.os }}-${{ runner.arch }}-kernel-${{ steps.component-fingerprints.outputs.kernel }}
 
-      - name: Install development Base build dependency
+      - name: Install tools for pinned kernel UAPI and Development Base
         run: |
           set -euo pipefail
           sudo apt-get update -qq
-          sudo apt-get install -y --no-install-recommends proot
+          # Required even on a verified kernel-cache hit: the native Owner
+          # mountattr helper is compiled with musl-gcc against the canonical
+          # initramfs-exported kernel UAPI. Do not assume cached headers exist.
+          sudo apt-get install -y --no-install-recommends \
+            proot gcc make perl musl-tools binutils gpg gpg-agent
 
       - name: Install kernel build dependencies on cache miss
         if: steps.kernel-cache.outputs.cache-hit != 'true'
@@ -124,6 +117,18 @@ jobs:
           stat "$modules"
           tar -tf "$modules" >/dev/null
           echo 'DEV_BASE_KERNEL_MODULES_INPUT=PASS'
+
+      - name: Export and verify canonical pinned kernel UAPI
+        env:
+          ORDAX_SOURCE_COMMIT: ${{ github.sha }}
+        run: |
+          set -euo pipefail
+          # The SSOT Owner Creator/Dev Base build also runs this exact builder
+          # before compiling its native ext4 mountattr helper.
+          python bootstrap/initramfs/build.py check
+          python bootstrap/initramfs/build.py build --jobs 4
+          python bootstrap/initramfs/build.py verify
+          test -f out/initramfs-work/kernel-uapi-install/include/linux/mount.h
 
       - name: Verify PRoot device virtualization
         run: |

@@ -478,8 +478,8 @@ test("signed module read alone cannot authorize Store install without Native pro
   };
   for (const operation of ["install", "update"]) {
     const projection = entry({
-      appId: "calculator",
-      title: "Calculadora",
+      appId: "assistant",
+      title: "Aura",
       state: operation === "install" ? "available" : "installed",
       installedVersion: operation === "install" ? null : "0.4.2",
       availableVersion: "0.4.3",
@@ -489,12 +489,12 @@ test("signed module read alone cannot authorize Store install without Native pro
     });
     const runtime = service({
       projection: ready(projection),
-      verified: verifiedReady([verifiedEntry({appId:"calculator"})]),
+      verified: verifiedReady([verifiedEntry({appId:"assistant"})]),
       executeLifecycle,
     });
     const ask = request(operation, {
-      appId:"calculator",
-      requestId:"store:" + operation + ":calculator:module-gate",
+      appId:"assistant",
+      requestId:"store:" + operation + ":assistant:module-gate",
     });
     const denied = await runtime.requestLifecycle(ask);
     assert.equal(denied.state,"rejected");
@@ -740,6 +740,50 @@ test("same installed version but a new Native activation revision revokes the de
   assert.equal(result.state, "rejected");
   assert.equal(result.reason, "verified-lifecycle-plan-stale");
   assert.equal(delegated, 0);
+});
+
+test("malformed and throwing Store projections reject and remember an exact denial without Native execution", async () => {
+  for (const owner of ["catalog", "verified"]) {
+    for (const failure of ["malformed", "throws"]) {
+      let corrupted = false;
+      let delegated = 0;
+      const currentSnapshot = (kind) => {
+        if (!corrupted || kind !== owner) return kind === "catalog" ? ready() : verifiedReady();
+        if (failure === "throws") throw new Error("transient invalid catalog read");
+        return { invalid: true };
+      };
+      const runtime = createAppLifecycleRequestService({
+        getCurrentObservations: () => observationsForSnapshot(ready()),
+        catalogPort: Object.freeze({
+          schema: APP_STORE_CATALOG_PORT_SCHEMA,
+          authority: "none",
+          getSnapshot() { return currentSnapshot("catalog"); },
+          subscribe() { return () => {}; },
+        }),
+        verifiedCatalogPort: Object.freeze({
+          schema: VERIFIED_APP_STORE_CATALOG_PORT_SCHEMA,
+          authority: "none",
+          getSnapshot() { return currentSnapshot("verified"); },
+          subscribe() { return () => {}; },
+        }),
+        lifecycleDelegate: delegate(async (plan) => {
+          delegated += 1;
+          return resultFor(plan);
+        }),
+      });
+      corrupted = true;
+      const ask = request("install", {
+        requestId: `store:install:notes:corrupt-${owner}-${failure}`,
+      });
+      const denied = await runtime.requestLifecycle(ask);
+      assert.equal(denied.state, "rejected", owner + "/" + failure);
+      assert.equal(denied.reason, "verified-catalog-unavailable", owner + "/" + failure);
+      corrupted = false;
+      const replay = await runtime.requestLifecycle(ask);
+      assert.deepEqual(replay, denied, "the same rejected request may never gain authority after catalog repair");
+      assert.equal(delegated, 0, "invalid projections must never reach Native");
+    }
+  }
 });
 
 test("bounded lifecycle request ledger never evicts a denied ID into a future install grant", async () => {

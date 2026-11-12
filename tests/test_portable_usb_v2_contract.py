@@ -5,13 +5,15 @@ from __future__ import annotations
 
 import importlib.util
 import json
+import os
 from pathlib import Path
 import unittest
 
 ROOT = Path(__file__).resolve().parents[1]
 CONTRACT_PATH = ROOT / "docs/contracts/portable-usb-v2.json"
 SCRIPT_PATH = ROOT / "tools/creator/proof/portable_usb_v2.py"
-CLI_PATH = ROOT / "tools/creator/cmd/ordax-creator/main.go"
+CLI_PATH = (Path(os.environ["ORDAX_CREATOR_NATIVE_SOURCE"]) / "cmd/ordax-creator/main.go"
+            if os.environ.get("ORDAX_CREATOR_NATIVE_SOURCE") else None)
 
 spec = importlib.util.spec_from_file_location("ordax_portable_usb_v2", SCRIPT_PATH)
 portable = importlib.util.module_from_spec(spec)
@@ -60,10 +62,18 @@ class PortableUSBV2ContractTests(unittest.TestCase):
         self.assertIn('"physical_write_authorized": False', text)
 
     def test_creator_engineering_cli_exposes_pure_portable_planner(self):
-        text = CLI_PATH.read_text(encoding="utf-8")
-        self.assertIn('ordax-creator plan-portable --target-bytes <bytes>', text)
-        self.assertIn('creatorcore.PlanPortableTargetStorage(*targetBytes)', text)
-        self.assertNotIn("PhysicalDrive", text)
+        # The Portable proof resolves and tests the exact independent Creator
+        # before this test, never a Go file copied into the OS repository.
+        workflow = (ROOT / ".github/workflows/portable-usb-v2-proof.yml").read_text(encoding="utf-8")
+        self.assertIn("uses: ./.github/actions/resolve-creator-source", workflow)
+        self.assertIn("tests.test_portable_usb_v2_contract", workflow)
+        self.assertIn("ORDAX_CREATOR_NATIVE_SOURCE", workflow)
+        self.assertIn("go test -count=1 ./core ./cmd/ordax-creator", workflow)
+        if CLI_PATH is not None:
+            text = CLI_PATH.read_text(encoding="utf-8")
+            self.assertIn('ordax-creator plan-portable --target-bytes <bytes>', text)
+            self.assertIn('creatorcore.PlanPortableTargetStorage(*targetBytes)', text)
+            self.assertNotIn("PhysicalDrive", text)
 
 
 if __name__ == "__main__":

@@ -1,6 +1,6 @@
 {
   "$schema": "prototype-ordax.sync-model/1",
-  "status": "account-sync-incremental-web-native-source-integration-implemented-public-rollout-gated",
+  "status": "account-sync-incremental-native-source-integration-implemented-web-source-pending-public-rollout-gated",
   "authority": {
     "domain_owner": "system/services/sync",
     "platform_integration_owner": "system/adapters",
@@ -240,7 +240,9 @@
     "public_copy": "coming-soon-only",
     "backend_foundation_available": true,
     "client_integration_available": true,
-    "web_source_integration": true,
+    "web_source_integration": false,
+    "web_transport_adapter_available": true,
+    "web_composition_sync_runtime_wired": false,
     "native_usb_source_integration": true,
     "mobile_source_integration": false,
     "native_usb_gateway_configuration_required": true,
@@ -279,11 +281,18 @@
       "/sync/objects"
     ],
     "web_transport_contract": "ordax.sync-transport/1",
-    "web_client_data_classes": [
+    "web_client_data_classes": [],
+    "web_transport_supported_data_classes": [
       "appearance",
       "preferences",
       "workspace-metadata"
     ],
+    "native_usb_portable_preference_ids": [
+      "accessibility.contrast",
+      "accessibility.motion",
+      "accessibility.text-scale"
+    ],
+    "regional_preferences_in_account_sync": false,
     "memory_never_sync_guard_source_prepared": true,
     "memory_never_sync_guard_applied": false,
     "memory_forget_history_scrub_source_prepared": true,
@@ -329,3 +338,4 @@
     "memory_local_first_identity_migration": "20260929214500_cloud_memory_local_first_identity_v1"
   }
 }
+

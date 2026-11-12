@@ -54,14 +54,19 @@ jobs:
               -o ../../out/release-bundle/ordax-release-bundle-windows-amd64.exe .
           )
 
+      - name: Assemble release source with pinned external Surface
+        uses: ./.github/actions/assemble-surface
+        with:
+          out-root: ${{ runner.temp }}/ordax-assembled-system
+
       - name: Prove current repository system tree is releasable
         run: |
           set -euo pipefail
           tool="$PWD/out/release-bundle/ordax-release-bundle-linux-amd64"
           work="$RUNNER_TEMP/release-bundle-repository-proof"
           mkdir -p "$work/a" "$work/b"
-          "$tool" --root "$PWD" --out "$work/a/system.tar" | tee "$work/a/result.txt"
-          "$tool" --root "$PWD" --out "$work/b/system.tar" | tee "$work/b/result.txt"
+          "$tool" --root "$RUNNER_TEMP/ordax-assembled-system" --out "$work/a/system.tar" | tee "$work/a/result.txt"
+          "$tool" --root "$RUNNER_TEMP/ordax-assembled-system" --out "$work/b/system.tar" | tee "$work/b/result.txt"
           cmp "$work/a/system.tar" "$work/b/system.tar"
           tar -tf "$work/a/system.tar" > "$work/entries.txt"
           grep -Fx 'system/entrypoint' "$work/entries.txt"

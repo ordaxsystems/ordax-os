@@ -24,7 +24,7 @@ USB_READINESS_PATH = ROOT / "tools" / "creator" / "stable_mvp_usb_readiness.py"
 CODE_SIGNING_PATH = ROOT / "docs" / "contracts" / "creator-code-signing.json"
 CONSUMER_FLOW_PATH = ROOT / "docs" / "contracts" / "creator-consumer-flow.json"
 PHYSICAL_PUBLISHER_PATH = ROOT / "tools" / "release-signing" / "windows" / "8-Sign-Publish-CreatorPhysical.ps1"
-CREATOR_FINALIZER_PATH = ROOT / "tools" / "creator" / "windows" / "Finalize-OrdaXCreatorRelease.ps1"
+CREATOR_FINALIZER_PATH = ROOT / "tools" / "release-signing" / "windows" / "Finalize-OrdaXCreatorRelease.ps1"
 
 STATUS_SCHEMA = "prototype-ordax.first-mvp-operator-readiness/1"
 HEX64 = re.compile(r"^[0-9a-f]{64}$")

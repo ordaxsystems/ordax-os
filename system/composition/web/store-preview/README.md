@@ -2,7 +2,7 @@
 
 Esta página começou como prévia separada, usando as cores e identidade Meridian.
 Em 2026-10-14 o usuário autorizou integrá-la ao Web mantendo os mocks. O renderer,
-as fixtures e a fila agora pertencem a `system/surface/workspace/components/store/presentation/`;
+as fixtures e a fila agora pertencem a `system/services/system-ui/workspace/components/store/presentation/`;
 esta entrada continua disponível como apresentação isolada, sem segundo catálogo
 oficial. Pode ser aberta no host Web existente em
 `/store-preview/` durante o desenvolvimento. Para gerar somente esta página,
@@ -18,13 +18,13 @@ O resultado fica em `out/store-preview` e o preview do build em
 
 ## Inventário factual preservado
 
-- `system/apps/store/` continua sendo o app estrutural.
+- `system/services/system-ui/store/` continua sendo o app estrutural.
 - `system/contracts/app-store.mjs` e o catálogo verificado continuam owners reais.
 - `verified-store-projection.mjs`, `store-lifecycle-request-service.mjs` e
   `store-update-request-batch.mjs` continuam os serviços de projeção e requests.
 - Aquisição HTTPS, CAS, assinatura, staging e ativação permanecem no runtime.
 - Esta página importa o catálogo demonstrativo e o reducer de sessão existentes
-  de `system/surface/workspace/lib/store/`; não conecta ports oficiais.
+  de `system/services/system-ui/workspace/lib/store/`; não conecta ports oficiais.
 - Essenciais usa os IDs do owner `first-run-selection.mjs`.
 
 ## Implementado nesta prévia

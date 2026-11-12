@@ -1,0 +1,67 @@
+{
+  "$schema": "prototype-ordax.postgres-privilege-readonly-observation/1",
+  "observed_date": "2026-10-26",
+  "source_query": "tools/security/probe_control_plane_privileges.py (SQL block, before proposed /4 correction)",
+  "target_owner": "docs/contracts/public-auth-hardening.json#postgresql_destination",
+  "target_project": "ordax-platform",
+  "target_project_ref": "jhfphsjptrpmtnzkpwud",
+  "method": "Supabase execute_sql read-only; aggregated grants, policies and existence flags, no account rows selected",
+  "observed": {
+    "anon_table_grants": 0,
+    "anon_function_execute": 0,
+    "public_function_execute": 0,
+    "unsafe_security_definer_search_path": 0,
+    "anon_private_schema_usage": false,
+    "authenticated_private_schema_usage": true,
+    "private_cloud_storage_rls_enabled_count": 0,
+    "authenticated_private_function_execute": 5,
+    "authenticated_sync_table_grants": 0,
+    "service_role_sync_table_grants": 0,
+    "sync_policy_count": 6,
+    "non_executor_sync_policy_count_under_historical_v3_probe": 1,
+    "service_role_user_sync_rpc_execute": 0,
+    "app_role_sync_sequence_privilege": false,
+    "unexpected_authenticated_write_grant_count": 0,
+    "private_cloud_storage_expected_tables": [
+      {
+        "name": "ordax_user_object_provider_refs",
+        "table_exists": false,
+        "rls_enabled": false
+      },
+      {
+        "name": "ordax_user_upload_reservations",
+        "table_exists": false,
+        "rls_enabled": false
+      }
+    ]
+  },
+  "policy_verification": {
+    "sync_executor_policy_count": 5,
+    "account_export_executor_policy_count": 1,
+    "account_export_policy_name": "ordax_sync_objects_export_own",
+    "account_export_policy_table": "private.ordax_sync_objects",
+    "allowed_roles_source": "infra/supabase/product/migrations/20261007070000_account_export_executor_v1.sql",
+    "unexpected_sync_policy_count_under_exact_v4_contract": 0
+  },
+  "remaining_real_blockers": {
+    "authenticated_private_schema_usage": true,
+    "authenticated_private_functions_executable": 5,
+    "private_cloud_storage_rls_enabled_expected": 2,
+    "private_cloud_storage_rls_enabled_observed": 0,
+    "public_account_release_ready": false,
+    "private_cloud_storage_tables_missing": 2
+  },
+  "evidence_scope": {
+    "sanitized_observation_only": true,
+    "cryptographic_attestation": false,
+    "release_proof": false,
+    "source_commit_bound": false,
+    "authenticated_two_user_isolation_e2e": false,
+    "grants_or_policies_modified": false
+  },
+  "notes": [
+    "The old v3 checker mistakenly treated the one authorized export policy as a non-executor violation; the v4 checker must compare exact six name/table/role tuples.",
+    "Independent read-only to_regclass and pg_class checks confirmed that both expected cloud-storage tables are absent, rather than present with RLS disabled. Their canonical migrations must be examined and safely reconciled; do not synthesize tables from this observation.",
+    "The functions and private schema usage require owner-aware review, not blind REVOKE that could break unrelated Network/Memory consumers."
+  ]
+}

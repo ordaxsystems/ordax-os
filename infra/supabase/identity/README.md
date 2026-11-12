@@ -6,7 +6,7 @@ The **account schema no longer lives here**. Account bootstrap, Spaces, entitlem
 
 ## Current target
 
-The dedicated `ordax-control-plane` Supabase project is the selected pre-MVP backend target. Its product foundation migration has been applied, but the public identity gateway remains fail-closed until deployment, Auth hardening and legal-readiness gates are complete.
+The canonical Auth owner remains `ordax-control-plane` (`docs/contracts/public-auth-hardening.json#target`). The populated `ordax-platform` database is the separate **pre-cutover destination** (`#postgresql_destination`), not an interchangeable active Auth project. `tools/public-site/resolve_auth_provider_target.py` enforces this distinction for `scope=active` and `scope=destination`; it must not be bypassed because a connector happens to expose only the destination. Public login/registration remain fail-closed pending provider, session, storage and legal release gates.
 
 The previously considered shared `Ordax-2026-1` project is not an identity target because it already has another product's `public.profiles` lifecycle and a signup trigger on `auth.users`.
 
@@ -107,18 +107,43 @@ In the hosted Supabase project **ordax-platform**, configure:
   `email-templates/confirmation.html` and the subject
   `Confirme seu e-mail — Conta OrdaX`.
 
-Deployed **ordax-account-gateway** v11 is ACTIVE in `ordax-platform`
-with the server-side signup callback and canonical redirect. The provider's
-SMTP settings, Site URL and confirmation HTML are **still pending**:
-DNS validation and a deployed gateway do not prove successful delivery.
+At the **2026-10-09 observation**, **ordax-account-gateway** v11 was
+ACTIVE with the server-side signup callback. A later live inspection on
+**2026-10-26** found the inner gateway at **v16** and the public gateway at
+**v9** on `ordax-platform`; all 18 deployed source files matched their
+corresponding files in `ordax-os/main`. The earlier version numbers remain
+historical evidence, not the current runtime version. Source/deployment equality
+still does not prove SMTP delivery, Auth provider settings, or public readiness.
 
-`tools/public-site/probe_auth_provider.py` validates the hosted management
-settings and produces sanitized pass/fail fields, never SMTP secrets.
-The older `public-auth-provider-live-proof.yml` target resolver may still
-select the former project from incomplete cutover contracts; do not cite it
-as the destination's production proof until the provider SSOT is reconciled.
-A real new-email signup, confirmation and login end-to-end test is still
-required after SMTP activation.
+`tools/public-site/probe_auth_provider.py` validates hosted management settings
+and produces sanitized pass/fail fields without SMTP secrets. The existing
+`.github/workflows/public-auth-provider-live-proof.yml` resolves `active` and
+`destination` through `resolve_auth_provider_target.py`, and requires an
+authorized GitHub Actions secret named **`SUPABASE_ACCESS_TOKEN`**. This is a
+**Supabase Management API access token**, NOT an anon/publishable key, service
+role key, SMTP password, JWT or GitHub token. Configure it in the GitHub
+repository/organization Actions secrets scope accessible to this workflow;
+never paste it into a workflow input, repository file, issue, logs or chat.
+
+**Observed operational blocker (2026-10-26, read-only log review):** the two
+manual provider workflow executions
+[`40286642728`](https://github.com/ordaxsystems/ordax-os/actions/runs/40286642728)
+and [`40296042265`](https://github.com/ordaxsystems/ordax-os/actions/runs/40296042265)
+failed at **Require provider-management credential without printing it** because
+`SUPABASE_ACCESS_TOKEN` reached the job empty. They did **not** evaluate the
+seven hosted Auth provider checks. Do not infer that SMTP, Site URL, redirects,
+passwords or email templates passed or failed from these runs. Provisioning or
+exposing that secret to the workflow is an operator action; do not weaken the
+credential check or substitute database/Edge service keys.
+
+Once the secret is safely available, run **Public Auth Provider Live Proof**
+from `main` with origin `https://ordax.com.br`, first `active`, then
+`destination`. The workflow updated in PR #2309 preserves the **sanitized proof**
+when the probe returns a valid `ready=false` result, and still fails closed;
+credential absence necessarily stops execution before a provider proof exists.
+A destination PASS is not a cutover approval. After hosted settings and SMTP
+are corrected, real new-email signup, confirmation, recovery and revocation
+E2E with isolated test accounts remain required before any public activation.
 
 ## Password recovery transport (2026-10-09)
 

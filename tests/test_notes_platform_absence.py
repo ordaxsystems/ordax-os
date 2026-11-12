@@ -20,10 +20,12 @@ class NotesPlatformAbsenceTests(unittest.TestCase):
             self.assertFalse((ROOT / relative).exists(), relative)
 
     def test_files_do_not_import_removed_notes_contract(self):
-        controls = (ROOT / "system/surface/ui/file-space-controls.mjs").read_text(encoding="utf-8")
-        self.assertNotIn("notes-file-importer", controls)
-        self.assertNotIn("notesFileImporter", controls)
-        self.assertNotIn("createNoteFromSelected", controls)
+        self.assertFalse((ROOT / "system/surface/ui/file-space-controls.mjs").exists())
+        for path in (ROOT / "system/apps/catalog.mjs", ROOT / "system/composition/native/main.mjs"):
+            controls = path.read_text(encoding="utf-8")
+            self.assertNotIn("notes-file-importer", controls)
+            self.assertNotIn("notesFileImporter", controls)
+            self.assertNotIn("createNoteFromSelected", controls)
 
     def test_local_catalogs_do_not_import_notes_implementation(self):
         app_catalog = (ROOT / "system/apps/catalog.mjs").read_text(encoding="utf-8")

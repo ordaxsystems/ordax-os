@@ -5,6 +5,7 @@ from __future__ import annotations
 
 import argparse
 import hashlib
+import importlib.util
 import json
 import os
 from pathlib import Path, PurePosixPath
@@ -30,6 +31,7 @@ REQUIRED_ROOTFS_PATHS = (
     "sbin/ordax-dev-init",
     "usr/local/bin/ordax-network",
     "usr/local/bin/ordax-pull",
+    "usr/local/bin/ordax-checkout-exchange",
     "usr/local/bin/ordax-rollback",
     "usr/local/bin/ordax-run",
 )
@@ -279,6 +281,57 @@ def binding(name: str, path: Path, source_commit: str) -> dict:
     }
 
 
+def verified_kernel_provenance_commit(
+    kernel_provenance: dict,
+    kernel_dir: Path,
+    integration_commit: str,
+    kernel_reuse_receipt: Path | None,
+) -> str:
+    """Bind cached kernel bytes to the current commit without rewriting origin."""
+    built_at = kernel_provenance.get("source_commit")
+    if not isinstance(built_at, str) or SHA40_RE.fullmatch(built_at) is None:
+        raise CandidateError("kernel provenance source commit is invalid")
+    if kernel_reuse_receipt is None:
+        if built_at != integration_commit:
+            raise CandidateError("reused kernel requires an exact integration receipt")
+        return built_at
+
+    receipt = read_json(kernel_reuse_receipt, "kernel integration receipt")
+    if (receipt.get("$schema") != "prototype-ordax.portable-component-reuse/1"
+            or receipt.get("status") != "verified"
+            or receipt.get("component") != "kernel"
+            or receipt.get("build_source_commit") != built_at
+            or receipt.get("integration_source_commit") != integration_commit
+            or receipt.get("provenance_rewritten") is not False
+            or type(receipt.get("reused")) is not bool):
+        raise CandidateError("kernel integration receipt identity is invalid")
+
+    # The canonical verifier recalculates every cached artifact hash, the
+    # source-input fingerprint and runner environment. A receipt alone is
+    # never sufficient to authorize an old kernel for a newer commit.
+    verifier_path = Path(__file__).resolve().parents[2] / "tools/ci/portable_component_cache.py"
+    spec = importlib.util.spec_from_file_location("ordax_dev_base_kernel_cache", verifier_path)
+    if spec is None or spec.loader is None:
+        raise CandidateError("canonical kernel cache verifier is unavailable")
+    verifier = importlib.util.module_from_spec(spec)
+    spec.loader.exec_module(verifier)
+    try:
+        verified = verifier.verify_component(
+            "kernel",
+            kernel_dir,
+            integration_commit,
+            kernel_reuse_receipt,
+            cache_hit=receipt["reused"],
+        )
+    except verifier.CacheError as exc:
+        raise CandidateError("kernel integration receipt validation failed: " + str(exc)) from exc
+    if (verified.get("build_source_commit") != built_at
+            or verified.get("integration_source_commit") != integration_commit
+            or verified.get("provenance_rewritten") is not False):
+        raise CandidateError("verified kernel reuse identity changed")
+    return built_at
+
+
 def build(
     *,
     source_commit: str,
@@ -286,6 +339,7 @@ def build(
     initramfs_dir: Path,
     rootfs_dir: Path,
     out_dir: Path,
+    kernel_reuse_receipt: Path | None = None,
 ) -> dict:
     if SHA40_RE.fullmatch(source_commit) is None:
         raise CandidateError("source commit must be lowercase 40-hex")
@@ -298,10 +352,16 @@ def build(
         initramfs_dir / "initramfs-provenance.json",
         "initramfs provenance",
     )
+    kernel_origin = verified_kernel_provenance_commit(
+        kernel_provenance,
+        kernel_dir,
+        source_commit,
+        kernel_reuse_receipt,
+    )
     kernel = artifact_from_provenance(
         kernel_provenance,
         kernel_dir,
-        source_commit=source_commit,
+        source_commit=kernel_origin,
         artifact_prefix="vmlinuz-",
         max_bytes=MAX_KERNEL_BYTES,
     )
@@ -431,6 +491,7 @@ def main() -> int:
     build_parser = sub.add_parser("build")
     build_parser.add_argument("--source-commit", required=True)
     build_parser.add_argument("--kernel-dir", type=Path, default=Path("out/kernel"))
+    build_parser.add_argument("--kernel-reuse-receipt", type=Path)
     build_parser.add_argument("--initramfs-dir", type=Path, default=Path("out/initramfs"))
     build_parser.add_argument("--rootfs-dir", type=Path, default=Path("out/dev-rootfs"))
     build_parser.add_argument("--out-dir", type=Path, default=Path("out/dev-base"))
@@ -445,6 +506,7 @@ def main() -> int:
             result = build(
                 source_commit=args.source_commit,
                 kernel_dir=args.kernel_dir,
+                kernel_reuse_receipt=args.kernel_reuse_receipt,
                 initramfs_dir=args.initramfs_dir,
                 rootfs_dir=args.rootfs_dir,
                 out_dir=args.out_dir,

@@ -180,7 +180,14 @@ export function createAppLifecycleRequestService({
       return rejectAndRemember(request, fingerprint, "lifecycle-request-in-flight");
     }
 
-    const snapshot = validateAppStoreCatalogSnapshot(catalog.getSnapshot());
+    let snapshot;
+    try {
+      snapshot = validateAppStoreCatalogSnapshot(catalog.getSnapshot());
+    } catch {
+      // A malformed or throwing read is an unavailable authorization
+      // projection. Remember this specific denial before any Native handoff.
+      return rejectAndRemember(request, fingerprint, "verified-catalog-unavailable");
+    }
     if (snapshot.state !== "ready") {
       return rejectAndRemember(request, fingerprint, "verified-catalog-unavailable");
     }
@@ -192,7 +199,12 @@ export function createAppLifecycleRequestService({
       return rejectAndRemember(request, fingerprint, "lifecycle-operation-not-available");
     }
 
-    const verified = validateVerifiedAppStoreCatalogSnapshot(verifiedCatalog.getSnapshot());
+    let verified;
+    try {
+      verified = validateVerifiedAppStoreCatalogSnapshot(verifiedCatalog.getSnapshot());
+    } catch {
+      return rejectAndRemember(request, fingerprint, "verified-catalog-unavailable");
+    }
     if (verified.state !== "ready") {
       return rejectAndRemember(request, fingerprint, "verified-catalog-unavailable");
     }
@@ -225,7 +237,10 @@ export function createAppLifecycleRequestService({
       plan = createAppLifecyclePlan({
         request,
         verifiedCatalog: verified,
-        candidate,
+        // Removal is bound only to the observed CURRENT activation.
+        // A remote catalog candidate is irrelevant to a local uninstall and
+        // must never be sent as installable artifact identity.
+        candidate: request.operation === "remove" ? null : candidate,
         expectedActivation: expectedActivationFor(request, entry),
       });
       validateAppLifecyclePlan(plan);
@@ -264,7 +279,7 @@ export function createAppLifecycleRequestService({
         const currentPlan = createAppLifecyclePlan({
           request,
           verifiedCatalog: latestCatalog,
-          candidate: latestCandidate,
+          candidate: request.operation === "remove" ? null : latestCandidate,
           expectedActivation: expectedActivationFor(request, currentEntry),
         });
         return JSON.stringify(currentPlan) === JSON.stringify(plan);

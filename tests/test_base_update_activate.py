@@ -106,6 +106,41 @@ class BaseUpdateActivateTests(unittest.TestCase):
                 activate.arm(esp, efivars, release_sha, "b")
             self.assertFalse((efivars / activate.VARIABLE_NAME).exists())
 
+    def test_symlinked_esp_mount_root_is_rejected_before_efi_write(self):
+        with tempfile.TemporaryDirectory() as temporary:
+            root = Path(temporary)
+            esp, efivars, release_sha = self.fixture(root)
+            redirect = root / "esp-redirect"
+            redirect.symlink_to(esp, target_is_directory=True)
+
+            with self.assertRaisesRegex(activate.ActivateError, "ESP root"):
+                activate.arm(redirect, efivars, release_sha, "b")
+            self.assertFalse((efivars / activate.VARIABLE_NAME).exists())
+
+    def test_symlinked_esp_entry_directory_is_rejected_before_efi_write(self):
+        with tempfile.TemporaryDirectory() as temporary:
+            root = Path(temporary)
+            esp, efivars, release_sha = self.fixture(root)
+            entries = esp / "loader/entries"
+            relocated = root / "redirected-entries"
+            entries.rename(relocated)
+            entries.symlink_to(relocated, target_is_directory=True)
+
+            with self.assertRaisesRegex(activate.ActivateError, "ESP directory"):
+                activate.arm(esp, efivars, release_sha, "b")
+            self.assertFalse((efivars / activate.VARIABLE_NAME).exists())
+
+    def test_symlinked_efivarfs_mount_root_is_rejected_before_efi_write(self):
+        with tempfile.TemporaryDirectory() as temporary:
+            root = Path(temporary)
+            esp, efivars, release_sha = self.fixture(root)
+            redirect = root / "efivarfs-redirect"
+            redirect.symlink_to(efivars, target_is_directory=True)
+
+            with self.assertRaisesRegex(activate.ActivateError, "efivarfs root"):
+                activate.arm(esp, redirect, release_sha, "b")
+            self.assertFalse((efivars / activate.VARIABLE_NAME).exists())
+
     def test_preexisting_symlinked_efi_variable_is_rejected(self):
         with tempfile.TemporaryDirectory() as temporary:
             root = Path(temporary)

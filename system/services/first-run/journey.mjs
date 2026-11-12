@@ -2,13 +2,11 @@ export const FIRST_RUN_JOURNEY_SCHEMA = "ordax.first-run-journey/1";
 
 export const FIRST_RUN_JOURNEY = Object.freeze([
   Object.freeze({ id: "welcome", label: "Início", domain: "introduction" }),
-  Object.freeze({ id: "regional", label: "Região", domain: "regional" }),
   Object.freeze({ id: "network", label: "Rede", domain: "network", skippable: true }),
-  Object.freeze({ id: "security", label: "Segurança", domain: "local-session", optional: true }),
   Object.freeze({ id: "account", label: "Conta", domain: "identity", optional: true }),
-  Object.freeze({ id: "privacy", label: "Privacidade", domain: "privacy" }),
-  Object.freeze({ id: "name", label: "Nome", domain: "device-profile" }),
-  Object.freeze({ id: "ready", label: "Pronto", domain: "completion" }),
+  Object.freeze({ id: "security", label: "Segurança", domain: "local-session", optional: true }),
+  Object.freeze({ id: "name", label: "Dispositivo", domain: "device-profile" }),
+  Object.freeze({ id: "ready", label: "Revisão", domain: "completion" }),
 ]);
 
 const byId = new Map(FIRST_RUN_JOURNEY.map(step => [step.id, step]));

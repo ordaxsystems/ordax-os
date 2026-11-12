@@ -7,7 +7,6 @@ from pathlib import Path
 ROOT = Path(__file__).resolve().parents[1]
 SERVER = ROOT / "system" / "surface" / "runtime" / "native_host_server.py"
 ADAPTER = ROOT / "system" / "adapters" / "native" / "file-space.mjs"
-CONTROLS = ROOT / "system" / "surface" / "ui" / "file-space-controls.mjs"
 CONTRACT = ROOT / "system" / "contracts" / "file-space.mjs"
 
 spec = importlib.util.spec_from_file_location("ordax_native_host_export_test", SERVER)
@@ -54,7 +53,6 @@ class NativeFileExportTests(unittest.TestCase):
     def test_adapter_exports_through_same_origin_fetch_and_browser_download(self):
         adapter = ADAPTER.read_text(encoding="utf-8")
         contract = CONTRACT.read_text(encoding="utf-8")
-        controls = CONTROLS.read_text(encoding="utf-8")
         self.assertIn('ordax.file-space/11', contract)
         self.assertIn("MAX_FILE_EXPORT_BYTES = 64 * 1024 * 1024", contract)
         self.assertIn("exportFile()", contract)
@@ -64,8 +62,6 @@ class NativeFileExportTests(unittest.TestCase):
         self.assertIn("createObjectURL", adapter)
         self.assertIn("anchor.download = fileNameFromPath(path)", adapter)
         self.assertIn("revokeObjectURL", adapter)
-        self.assertIn("exportSelected", controls)
-        self.assertIn('"files.export.tooLarge"', controls)
 
     def test_native_server_marks_download_as_attachment_and_nosniff(self):
         server = SERVER.read_text(encoding="utf-8")

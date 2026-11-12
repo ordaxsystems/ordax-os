@@ -1,10 +1,12 @@
+import { readNativeSession } from "./session-read.mjs";
+
 import {
   POWER_ACTIONS_SCHEMA,
   isPowerActionSupported,
   validatePowerActionsSnapshot,
 } from "../../contracts/power-actions.mjs";
 
-const SESSION_ENDPOINT = "/__ordax/native/session";
+
 const POWER_ENDPOINT = "/__ordax/native/power";
 const AUTH_RETRY_STATUSES = new Set([401, 403]);
 
@@ -17,16 +19,12 @@ export async function createNativePowerActions(windowObject) {
   let token;
 
   async function refreshSession() {
-    const sessionResponse = await windowObject.fetch(SESSION_ENDPOINT, {
-      method: "GET",
-      cache: "no-store",
-      credentials: "same-origin",
-    });
+    const sessionResponse = await readNativeSession(windowObject);
     if (!sessionResponse.ok) {
       throw new Error(`Native power session unavailable: ${sessionResponse.status}`);
     }
 
-    const session = await sessionResponse.json();
+    const session = sessionResponse.payload;
     if (!session || typeof session.token !== "string" || session.token.length < 24) {
       throw new TypeError("Native power session token is invalid");
     }

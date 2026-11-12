@@ -204,7 +204,14 @@ async function stopOwnedWindowsProfile(profile) {
  * instances or another user profile. The caller waits before deleting data.
  */
 export async function stopOwnedBrowser(child, getExitState, platform = process.platform, profile = null) {
-  if (platform === 'win32' && profile !== null) await stopOwnedWindowsProfile(profile);
+  if (platform === 'win32' && profile !== null) {
+    await stopOwnedWindowsProfile(profile);
+    // Chromium may close its own profile-scoped processes before Node emits
+    // the launcher child's `exit` event. Give that event a moment to arrive
+    // before taskkill targets the already-closed PID and reports a false error.
+    const exitDeadline = Date.now() + 750;
+    while (!getExitState() && Date.now() < exitDeadline) await sleep(30);
+  }
   if (getExitState() || !Number.isSafeInteger(child.pid) || child.pid <= 0) return;
   if (platform === 'win32') {
     await new Promise((resolvePromise, reject) => {

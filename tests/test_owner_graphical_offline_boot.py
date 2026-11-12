@@ -79,7 +79,7 @@ class OwnerGraphicalOfflineBootTests(unittest.TestCase):
         self.assertIn(marker, WATCHER)
         s = SUPERVISOR.index("first_run_receipt=$STATE_DIR/native-state/first-run.json")
         w = WATCHER.index("first_run_receipt=$STATE_DIR/native-state/first-run.json")
-        self.assertLess(s, SUPERVISOR.index("remote_output=$(run_bounded_git", s))
+        self.assertLess(s, SUPERVISOR.index('run_bounded_git "$REMOTE_TIMEOUT" -C "$WORKTREE" ls-remote', s))
         self.assertLess(w, WATCHER.index("handoff_runtime_drift_if_needed \"$supervisor_pid\"", w))
 
 

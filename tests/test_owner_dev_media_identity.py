@@ -1,4 +1,7 @@
 import json
+import os
+import subprocess
+import tempfile
 from pathlib import Path
 import unittest
 
@@ -126,6 +129,63 @@ class OwnerDevelopmentMediaIdentityTests(unittest.TestCase):
         )
         self.assertFalse(stable["internal_disk_destructive_write_allowed"])
         self.assertEqual(stable["normal_update_transport"], "official-signed-release-channel")
+
+    def test_corrupt_owner_ext4_is_identified_without_writable_mount(self):
+        """Exercise real PID1 discovery against disposable sysfs fixtures."""
+        function = INIT.split("discover_owner_development_device() {\n", 1)[1].split("\n}\n", 1)[0]
+        self.assertIn('ORDAX_ROOT_PROBE_FAILED=0', function)
+        self.assertIn('root_probe_ok=0', function)
+        self.assertIn('ORDAX_DEVICE="/dev/$name"', function)
+        self.assertIn('ORDAX_ROOT_PROBE_FAILED=1', function)
+
+        with tempfile.TemporaryDirectory(prefix="ordax-corrupt-usb-") as temp:
+            root = Path(temp)
+            block = root / "sys/block"
+            cls = root / "sys/class/block"
+            cls.mkdir(parents=True)
+            disk = block / "sdb"
+            disk.mkdir(parents=True)
+            (disk / "removable").write_text("1\n", encoding="ascii")
+            (disk / "dev").write_text("8:16\n", encoding="ascii")
+            for index in (1, 2):
+                part = disk / f"sdb{index}"
+                part.mkdir()
+                (part / "partition").write_text(f"{index}\n", encoding="ascii")
+                (cls / part.name).symlink_to(os.path.relpath(part, cls))
+
+            # The ext4 read-only mount fails; the sibling ESP succeeds.
+            # No writable operation is available in this shell fixture.
+            script = "\n".join((
+                "set -eu",
+                "OWNER_ROOT_PROBE=/tmp/ordax-test-root",
+                "OWNER_ESP_PROBE=/tmp/ordax-test-esp",
+                "blkid() { case \"$1\" in",
+                " */sdb1) echo 'LABEL=\"ORDAX-ESP\"' ;;",
+                " */sdb2) echo 'LABEL=\"ORDAX\"' ;;",
+                " esac; }",
+                "probe_read_only_filesystem() { case \"$2\" in ext4) return 1 ;; vfat) return 0 ;; esac; }",
+                "discover_owner_development_device() {",
+                function.replace("/sys/class/block/*", str(cls) + "/*"),
+                "}",
+                "discover_owner_development_device",
+                "printf '%s|%s|%s\n' \"$ORDAX_DEVICE_MATCHES\" \"$ORDAX_DEVICE\" \"$ORDAX_ROOT_PROBE_FAILED\"",
+            ))
+            run = subprocess.run(["sh", "-c", script], text=True, capture_output=True, timeout=8)
+            self.assertEqual(run.returncode, 0, run.stderr)
+            self.assertEqual(run.stdout.strip(), "1|/dev/sdb2|1")
+            healthy = script.replace('ext4) return 1', 'ext4) return 0')
+            run = subprocess.run(["sh", "-c", healthy], text=True, capture_output=True, timeout=8)
+            self.assertEqual(run.returncode, 0, run.stderr)
+            self.assertEqual(run.stdout.strip(), "1|/dev/sdb2|0")
+
+    def test_corrupt_owner_usb_recovery_is_before_rw_mount(self):
+        reason = 'rescue "ORDAX USB identified, but ext4 read-only probe failed; offline filesystem repair required"'
+        self.assertIn(reason, INIT)
+        self.assertIn('case "$ORDAX_ROOT_PROBE_FAILED" in', INIT)
+        self.assertLess(INIT.index(reason), INIT.index('mount -t ext4 -o rw,errors=remount-ro'))
+        self.assertIn('rescue "cannot mount ORDAX ext4 read-write; offline filesystem check required"', INIT)
+        self.assertIn('A previous software version cannot fix damaged ext4 metadata.', INIT)
+        self.assertNotIn('e2fsck -y', INIT)
 
 
 if __name__ == "__main__":

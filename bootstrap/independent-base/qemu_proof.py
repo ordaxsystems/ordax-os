@@ -76,11 +76,13 @@ def qemu(kernel: Path, initrd: Path, base: Path, state: Path, label: str, log_di
         "-nographic", "-monitor", "none", "-no-reboot", "-serial", "stdio",
         "-kernel", str(kernel), "-initrd", str(initrd),
         "-append", "console=ttyS0 loglevel=4 rdinit=/sbin/ordax-independent-probe-init",
+        # Explicit IDE indices document the intended host attachment order;
+        # guest PID1 still discovers EROFS/ext4 by magic, not /dev/sdX order.
         # IDE emulation requires a writable block backend. QEMU snapshot=on
         # redirects guest writes to disposable COW while leaving base bytes intact.
         # The guest EROFS mount is independently verified read-only by PID1.
-        "-drive", f"file={base},if=ide,format=raw,snapshot=on",
-        "-drive", f"file={state},if=ide,format=raw",
+        "-drive", f"file={base},if=ide,index=0,format=raw,snapshot=on",
+        "-drive", f"file={state},if=ide,index=1,format=raw",
         "-netdev", "user,id=n0", "-device", "e1000,netdev=n0",
     ]
     log_dir.mkdir(parents=True, exist_ok=True)

@@ -1,0 +1,60 @@
+name: Assemble verified OrdaX Surface
+description: "Materialize the one pinned external Surface into a disposable OS release source without touching the OS checkout"
+inputs:
+  out-root:
+    description: "New absolute disposable directory where assembled system/ will be created"
+    required: true
+  source-root:
+    description: OS source checkout containing the canonical Surface lock
+    required: false
+    default: '.'
+outputs:
+  root:
+    description: "Validated disposable OS release root"
+    value: ${{ steps.assemble.outputs.root }}
+runs:
+  using: composite
+  steps:
+    - id: assemble
+      shell: bash
+      working-directory: ${{ inputs.source-root }}
+      env:
+        ORDAX_OUTPUT_ROOT: ${{ inputs.out-root }}
+      run: |
+        set -euo pipefail
+        case "$ORDAX_OUTPUT_ROOT" in
+          /*) ;;
+          *) echo "::error::Release staging requires an absolute output path"; exit 1 ;;
+        esac
+        source_sha=$(python3 - <<'PY'
+        from pathlib import Path
+        import json
+        path = Path("docs/contracts/surface-source.json")
+        data = json.loads(path.read_text(encoding="utf-8"))
+        print(data["source_commit"])
+        PY
+        )
+        cache="$(mktemp -d)"
+        trap 'rm -rf -- "$cache"' EXIT
+        git clone --filter=blob:none --single-branch --branch main --no-tags \
+          https://github.com/ordaxsystems/ordax-surface.git "$cache/surface"
+        git -C "$cache/surface" checkout --detach "$source_sha"
+        test "$(git -C "$cache/surface" rev-parse HEAD)" = "$source_sha"
+        python3 tools/surface-source/assemble.py \
+          --os-root "$PWD" \
+          --surface-root "$cache/surface" \
+          --out-root "$ORDAX_OUTPUT_ROOT" \
+          | tee "$cache/assembly.json"
+        python3 - "$ORDAX_OUTPUT_ROOT" <<'PY'
+        import json
+        import sys
+        from pathlib import Path
+        root = Path(sys.argv[1])
+        manifest = json.loads((root / "system/surface/source-provenance.json").read_text())
+        if manifest["old_os_visual_source_packaged"] is not False:
+            raise SystemExit("assembled release includes legacy OS visual source")
+        if not (root / "system/entrypoint").is_file():
+            raise SystemExit("assembled release lacks OS entrypoint")
+        print("ONE_SURFACE_SOURCE=VERIFIED")
+        PY
+        echo "root=$ORDAX_OUTPUT_ROOT" >> "$GITHUB_OUTPUT"

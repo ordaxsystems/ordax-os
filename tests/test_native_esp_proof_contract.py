@@ -70,7 +70,15 @@ class NativeESPProofContractTests(unittest.TestCase):
         identity = "${{ github.event.pull_request.head.sha || github.sha }}"
         self.assertIn(f"ref: {identity}", WORKFLOW)
         self.assertIn(f"ORDAX_SOURCE_COMMIT: {identity}", WORKFLOW)
-        self.assertIn("go run ./cmd/ordax-creator render-native-boot", WORKFLOW)
+        self.assertIn('uses: ./.github/actions/resolve-creator-source', WORKFLOW)
+        self.assertIn('ORDAX_CREATOR_SOURCE_REPOSITORY', WORKFLOW)
+        self.assertIn("rev-parse 'HEAD^{tree}'", WORKFLOW)
+        self.assertIn('"$creator_cli" render-native-boot', WORKFLOW)
+        self.assertIn("ORDAX_OS_CONTRACTS_DIR=", WORKFLOW)
+        self.assertNotIn("cd tools/creator", WORKFLOW)
+        self.assertNotIn("go run ./cmd/ordax-creator", WORKFLOW)
+        self.assertIn("NATIVE_ESP_PHYSICAL_WRITE_AUTHORIZED=NO", WORKFLOW)
+        self.assertIn("permissions:" + chr(10) + "  contents: read", WORKFLOW)
         self.assertIn("--pool-uuid", WORKFLOW)
         self.assertIn("native-esp-proof/proof.json", WORKFLOW)
         self.assertIn(

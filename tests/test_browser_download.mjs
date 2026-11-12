@@ -6,13 +6,17 @@ import {
   validateBrowserDownloadId,
 } from "../system/contracts/browser-download.mjs";
 import { createNativeBrowserDownload } from "../system/adapters/native/browser-download.mjs";
+import { createNativeHostWindow } from "./support/native-host-window.mjs";
 
 const id="download-0123456789abcdef";
 function fakeWindow() {
   const listeners=new Map(), messages=[];
+  const { windowRef } = createNativeHostWindow({
+    onPostMessage(value){messages.push(JSON.parse(value));},
+  });
   return {
+    ...windowRef,
     listeners,messages,
-    webkit:{messageHandlers:{ordaxBrowser:{postMessage(value){messages.push(JSON.parse(value));}}}},
     addEventListener(name,listener){listeners.set(name,listener);},
     removeEventListener(name,listener){if(listeners.get(name)===listener)listeners.delete(name);},
     emit(detail){listeners.get("ordax-browser-host")?.({detail});},

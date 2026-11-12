@@ -156,9 +156,18 @@ export function createApplicationIntelligenceAwareness({
   firstPartyApplications = [],
   installedApplications = [],
   firstPartyIntelligenceManifests = [],
+  isContextAppCurrent = null,
+  isContextAppCurrentBatch = null,
 } = {}) {
   if (!Array.isArray(firstPartyApplications) || !Array.isArray(installedApplications)) {
     throw new TypeError("Application Intelligence awareness sources must be arrays");
+  }
+  if (isContextAppCurrent !== null && typeof isContextAppCurrent !== "function") {
+    throw new TypeError("Application awareness current-slot context verifier must be a function");
+  }
+  if (isContextAppCurrentBatch !== null &&
+      (typeof isContextAppCurrentBatch !== "function" || isContextAppCurrent === null)) {
+    throw new TypeError("Application awareness batch current verifier requires a current-slot verifier");
   }
   if (firstPartyApplications.length + installedApplications.length > MAX_AWARE_APPLICATIONS) {
     throw new TypeError("Application Intelligence awareness catalog is outside bounds");
@@ -186,7 +195,8 @@ export function createApplicationIntelligenceAwareness({
     byTitle.set(titleKey, titleMatches);
   }
 
-  const compiledContextItem = applicationContextItem(descriptors, semanticsByAppId);
+  const compiledContextItem = isContextAppCurrent === null
+    ? applicationContextItem(descriptors, semanticsByAppId) : null;
 
   const port = {
     schema: APPLICATION_INTELLIGENCE_AWARENESS_PORT_SCHEMA,
@@ -204,7 +214,26 @@ export function createApplicationIntelligenceAwareness({
       return matches.length === 1 ? matches[0] : null;
     },
     contextItem() {
-      return compiledContextItem;
+      // Descriptive indexes used by manifest verification remain immutable;
+      // inference sees only external apps still attested by Native CURRENT.
+      if (isContextAppCurrent === null) return compiledContextItem;
+      if (isContextAppCurrentBatch !== null) {
+        // One bounded Native CURRENT observation for the WHOLE Aura context.
+        // Per-app reads could combine mutually exclusive Store generations.
+        const decisions = isContextAppCurrentBatch(descriptors.map(item => item.appId));
+        if (!Array.isArray(decisions) || decisions.length !== descriptors.length ||
+            decisions.some(value => typeof value !== "boolean")) {
+          throw new TypeError("Application awareness batch current verifier returned invalid decisions");
+        }
+        return applicationContextItem(
+          descriptors.filter((_, index) => decisions[index]),
+          semanticsByAppId,
+        );
+      }
+      return applicationContextItem(
+        descriptors.filter(item => isContextAppCurrent(item.appId) === true),
+        semanticsByAppId,
+      );
     },
   };
 

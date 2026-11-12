@@ -45,7 +45,7 @@ create table public.ordax_spaces (
 create table public.ordax_space_members (
   space_id uuid not null references public.ordax_spaces(space_id) on delete cascade,
   user_id uuid not null references auth.users(id) on delete cascade,
-  role text not null check (role in ('owner','admin','member','viewer')),
+  role text not null check (role in ('admin','member','viewer')),
   state text not null default 'active' check (state in ('active','suspended')),
   created_at timestamptz not null default timezone('utc', now()),
   updated_at timestamptz not null default timezone('utc', now()),
@@ -56,6 +56,7 @@ grant select, insert, update, delete on table public.ordax_spaces to authenticat
 grant select, insert, update, delete on table public.ordax_space_members to authenticated;
 
 \ir ../../infra/supabase/product/migrations/20261016014500_space_creation_authority_v1.sql
+\ir ../../infra/supabase/product/migrations/20261031051500_space_owner_ssot_creation_fix_v1.sql
 
 -- Migration must remove direct client insertion while keeping the exact RPC callable.
 do $$
@@ -179,14 +180,18 @@ begin
   if (select count(*) from public.ordax_spaces where owner_user_id = '11111111-1111-4111-8111-111111111111') <> 1 then
     raise exception 'idempotency did not preserve one Space';
   end if;
-  if not exists (
-    select 1
-    from public.ordax_space_members
+  if exists (
+    select 1 from public.ordax_space_members
     where user_id = '11111111-1111-4111-8111-111111111111'
-      and role = 'owner'
-      and state = 'active'
   ) then
-    raise exception 'creator owner membership missing';
+    raise exception 'Space owner was duplicated into membership';
+  end if;
+  if not exists (
+    select 1 from public.ordax_spaces
+    where owner_user_id = '11111111-1111-4111-8111-111111111111'
+      and name = 'Minha Pizzaria'
+  ) then
+    raise exception 'canonical owner_user_id was not retained';
   end if;
 end;
 $$;

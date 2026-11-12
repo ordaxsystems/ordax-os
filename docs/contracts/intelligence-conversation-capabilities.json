@@ -4,7 +4,7 @@
   "owner": "ordaxsystems/ordax-os",
   "source": "system/contracts/intelligence-conversation-capabilities.mjs",
   "inference_owner": "system/services/intelligence",
-  "conversation_owner": "system/apps/assistant/conversation.mjs",
+  "conversation_owner": "ordaxsystems/ordax-apps/apps/assistant/src/conversation.mjs",
   "provider_source_of_truth": "ordax.intelligence/1",
   "providers_implemented": [
     "local"

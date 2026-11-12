@@ -1,7 +1,0 @@
-/* Web-entry composition only. Meridian tokens and identity components are
-   shared with login/register through account.css and the canonical brand bridge. */
-.web-entry .web-access-actions { display:grid; gap:10px; min-height:46px; margin-top:20px; }
-.web-entry .web-access-actions > a { display:flex; align-items:center; justify-content:space-between; min-height:46px; }
-.web-entry .account-promise p { margin:0; }
-.web-entry .identity-state[data-status="error"] { border-color:var(--account-danger); background:var(--account-danger-soft); }
-.web-entry .identity-state[data-status="error"] strong { color:var(--account-danger); }

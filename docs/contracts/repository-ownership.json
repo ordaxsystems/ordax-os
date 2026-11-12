@@ -7,7 +7,8 @@
       "owns": [
         "base",
         "boot",
-        "surface-shell",
+        "surface-native-host",
+        "surface-composition",
         "identity",
         "global-memory",
         "intelligence",
@@ -27,6 +28,22 @@
         "provider-connectors"
       ]
     },
+    "surface": {
+      "repo": "ordaxsystems/ordax-surface",
+      "owns": [
+        "surface-visual-shell",
+        "surface-workspace-ui",
+        "surface-presentation-assets"
+      ],
+      "must_not_own": [
+        "native-os-host",
+        "kernel-boot-base",
+        "system-capability-authority",
+        "product-grants",
+        "native-composition",
+        "physical-release-activation"
+      ]
+    },
     "apps": {
       "repo": "ordaxsystems/ordax-apps",
       "owns": [
@@ -43,13 +60,15 @@
         "computer-control-authority",
         "oauth-remote",
         "control-plane",
-        "mcp-system-authority"
+        "mcp-system-authority",
+        "windows-mcp-installer"
       ]
     },
     "runtime": {
       "repo": "ordaxsystems/ordax-runtime",
       "owns": [
         "windows-ordax-runtime",
+        "windows-ordax-mcp-distribution",
         "device-host",
         "computer-control",
         "filesystem-process-input-screenshot-app-launch",
@@ -81,6 +100,42 @@
         "windows-device-host",
         "ordax-os-structural-services"
       ]
+    },
+    "public_site": {
+      "repo": "ordaxsystems/ordax-site",
+      "owns": [
+        "public-marketing-presentation",
+        "public-legal-pages-presentation",
+        "public-identity-account-presentation",
+        "public-download-catalog-presentation",
+        "public-site-static-build-and-i18n"
+      ],
+      "must_not_own": [
+        "identity-backend",
+        "account-authorization",
+        "release-publisher-authority",
+        "payments-and-billing",
+        "surface-shared-source",
+        "os-host",
+        "dns-and-domain-routing"
+      ]
+    },
+    "creator": {
+      "repo": "ordaxsystems/ordax-creator",
+      "owns": [
+        "creator-standalone-application-source",
+        "creator-media-verification-core",
+        "creator-windows-ui-and-host-adapters",
+        "creator-signed-channel-consumer"
+      ],
+      "must_not_own": [
+        "kernel-boot-base",
+        "os-media-proof-producers",
+        "os-release-and-signing-authority",
+        "physical-write-authorization",
+        "native-os-host",
+        "desktop-windows-shell"
+      ]
     }
   },
   "legacy": {
@@ -108,7 +163,8 @@
     "native_os_permissions_owned_by_platform_not_studio": true,
     "apps_consume_capability_ports_without_grant_minting": true,
     "remote_mcp_grants_remain_control_plane_owned": true,
-    "windows_studio_is_owner_ui_not_authority": true
+    "windows_studio_is_optional_runtime_consumer": true,
+    "windows_mcp_distribution_independent_of_studio": true
   },
   "namespace_migration": {
     "status": "complete",

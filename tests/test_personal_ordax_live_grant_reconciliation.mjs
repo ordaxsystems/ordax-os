@@ -52,8 +52,10 @@ function fileSpace() {
   };
 }
 
-test("expired live grant is revoked before foreground execution can enter the adapter", async () => {
+test("expired live grant is revoked before foreground execution can enter the adapter", async (t) => {
   let now = Date.parse("2026-09-30T23:00:00.000Z");
+  // Composition and injected authority must observe the same clock throughout expiry.
+  t.mock.method(Date, "now", () => now);
   const files = fileSpace();
   const actions = await createNativePersonalOrdaxFileActions({
     windowRef: {},

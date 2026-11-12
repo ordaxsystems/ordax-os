@@ -32,6 +32,10 @@ Historical wording inside a root `PLANO-*` such as `CANONICAL`, `P0`, `mandatory
 | Current state / handoff | `docs/CURRENT-STATE.md` |
 | Architecture | `docs/ARCHITECTURE.md` |
 | Personal OrdaX orchestration | `docs/PERSONAL-ORDAX.md` |
+| Web Research source boundary (providers disabled) | `docs/WEB-RESEARCH.md`, `system/contracts/web-research.mjs` |
+| Capability Fabric — arquitetura, implementação, gates e retomada | `docs/CAPABILITY-FABRIC.md` (guia canônico); `docs/plans/CAPABILITY-FABRIC-V1.md` (histórico) |
+| Spaces + professional composition (single user journey) | `docs/SPACES-AND-PROFILES.md` + `docs/contracts/spaces-and-profile-packs.json` |
+| Profile knowledge and Intelligence | `docs/PROFILE-INTELLIGENCE-ARCHITECTURE.md` + canonical Profile manifests |
 | Decisions / ADRs | `docs/DECISIONS.md` |
 | Build autonomy | `docs/BUILD-AUTONOMY.md` |
 | Product modes | `docs/PRODUCT-MODES.md` |
@@ -61,15 +65,16 @@ It separates:
 - **document status** — whether a plan/research/reference is useful, ready, historical or superseded;
 - **execution eligibility** — whether implementation may actually start in the current product window.
 
-The current execution window is **MVP closure first**. Until the current MVP is closed, future plans remain preserved but are not implementation queues. Work that is already required by `MVP.md`, contracts, `CURRENT-STATE`, `PROMOTION-GATES` or another canonical owner continues under that owner; the matching plan does not become a second source of work.
+**Current execution window (2026-10-31): Windows Desktop first.** Finish the real installed Desktop experience and its essential capabilities (Account/Spaces with professional composition, Store/apps, Aura, files, Platform and recovery) using focused host-specific proofs. Stabilize integrated owners before revisiting Linux USB/Creator/Buildroot and physical-media homologation. USB and Native disk remain in the launch baseline, but are **not** mandatory prerequisites to functional Windows Desktop or Web. The historic `MVP` label is not the active product strategy (see `MVP.md`); a plan never overrides current source, gates or the owner's scope.
 
 ## Active plans / proposals / references
 
 | Topic | Route | Document status | Execution now |
 | --- | --- | --- | --- |
 | Planning/priorities router | `../00-PLANOS-PRIORITARIOS/README.md` | Active planning index; non-canonical | Documentation/triage only; follow `ROADMAP.md` |
-| Root historical/active plans | `../00-PLANOS-PRIORITARIOS/REGISTRY.md` | Classified centrally as reference/ready/guide/etc. | Per registry; future-plan execution deferred until MVP closure unless a canonical MVP owner already requires it |
-| OrdaX Web Research | `../00-PLANOS-PRIORITARIOS/plans/WEB-001-WEB-RESEARCH.md` | P1 READY / not implemented | **DEFERRED FOR EXECUTION** until MVP closure and revalidation |
+| Root historical/active plans | `../00-PLANOS-PRIORITARIOS/REGISTRY.md` | Classified centrally as reference/ready/guide/etc. | Plans do not authorize work; current Window/owner and relevant evidence decide |
+| OS foundation audit and consolidation handoff | `../00-PLANOS-PRIORITARIOS/plans/FOUNDATION-001-OS-ARCHITECTURE-CONSOLIDATION.md` | ACTIVE planning/handoff; not canonical implementation status | Only canonical MVP-integrity scope; no independent physical authorization |
+| OrdaX Web Research | `../00-PLANOS-PRIORITARIOS/plans/WEB-001-WEB-RESEARCH.md` | Source contracts and inert router implemented; no provider enabled | **DEFERRED FOR EXECUTION** until MVP closure and revalidation |
 | Meridian visual integration | `docs/architecture/MERIDIAN-PROVENANCE.md` | Audited C; PR-01 only | No production/default/release authority |
 
 The planning router exists to organize reports/plans and cross-chat handoffs. It **does not become a second canonical documentation authority**; this file, contracts, current state and canonical topic owners continue to define authority.
@@ -103,12 +108,11 @@ Do **not** create `foo-v2.md`, `foo-final.md`, `foo-new.md` or parallel plans fo
 
 All root planning files are subordinate to the authority order above, including:
 
-- `PLANO-00-ESTADO-ATUAL-E-PRIORIDADES.md` — execution overlay/helper;
+- `PLANO-00-ESTADO-ATUAL-E-PRIORIDADES.md` — **archived 02/10 snapshot**; never use its USB-first priorities as current instructions;
 - `PLANO-FUNCIONAL-SURFACE-E-APPS.md` — functional reference, not canonical current state or changelog;
 - `PLANO-02-EVOLUCAO-E-REAPROVEITAMENTO-DO-LEGADO.md` — dated legacy analysis/reference;
 - `PLANO-03-FECHAMENTO-PRE-USB-NOVA-ORDAX.md` — completed source-closure baseline/reference; live physical gates come from current canonical owners;
 - `PLANO-04-FUNDACAO-ECOSSISTEMA-PRE-MVP.md` — ecosystem foundation reference with implemented and future material mixed;
-- `PLANO-06-PERFIS-PROFISSIONAIS-E-DISTRIBUICAO-SOB-DEMANDA.md` — Profile/product reference; manifests/contracts/current owners define factual state;
 - `PLANO-07-PERSONAL-ORDAX-E-TRABALHO-INTELIGENTE.md` — execution plan/reference; `docs/PERSONAL-ORDAX.md` is the canonical foundation owner;
 - `PLANO-08-ORDAX-NETWORK-COMUNIDADES-E-MENSAGENS.md` — Network reference; any historical self-declaration of MVP canonicity is subordinate to `MVP.md`, contracts and canonical owners.
 
@@ -138,3 +142,7 @@ FUTURE_CUSTODY_TARGET=managed non-exportable KMS/HSM
 ```
 
 The future managed backend is provider-neutral and intentionally deferred. The same-host encrypted backup copy is sufficient for the first controlled prototype because cryptographic recovery was proven, but it is not treated as independent off-device custody; an external/off-device encrypted copy remains required before broad public distribution.
+
+### Assinaturas e benefícios
+
+Owner: `ACCOUNT-SYNC-AND-PLANS.md` e `contracts/entitlements.json`; a apresentação de referência é compartilhada pela landing/Conta. O plano de execução é `../00-PLANOS-PRIORITARIOS/plans/COMMERCE-001-SUBSCRIPTIONS-AND-BENEFITS.md`. Catálogo não ativa billing ou serviços.

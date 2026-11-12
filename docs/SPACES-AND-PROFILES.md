@@ -1,8 +1,12 @@
 # Spaces and Profiles
 
-Status: ACTIVE DESIGN / USER-EXPERIENCE DIRECTION
+Status: CANONICAL PRODUCT UX — one Space journey; Profile Packs are technical composition
 
-This document clarifies the product boundary between **Space** and **Profile Pack** and defines the preferred user-facing creation flow.
+This document is the **single user-facing UX authority** for Spaces and professional composition, subordinate to executable contracts and source. It does not create a second Profile catalog, Space authority, identity, provisioning runtime or Store.
+
+**Normative rule:** the ordinary user creates, switches and manages a **Space**. A professional type automatically resolves its exact, approved Profile Pack as a versioned composition under that Space. Profile Pack catalogs, installation reviews, advanced version/rollback controls and manifest editing may exist for authorized administrators/developers **inside Space configuration**, never as a competing primary product journey.
+
+**Implementation reality (2026-10-31 — source integration, not physical acceptance):** Surface #34 and #35 are integrated and the OS #2369 pins Surface `56e63bc14e7df964beb293bc1d05843b80ebc0c6`. The OS Meridian sidebar now exposes only `spaces`; legacy `profiles` destinations resolve to Spaces. The existing authenticated Windows Space-create port is composed only when the Desktop browser transport is verified. This removes the competing primary journey in source, but **does not** prove delivery to the installed Electron, real account login→create→provision→activate→select→restart, or a healthy Profile Pack lifecycle. Visual acceptance remains tracked by `ordaxsystems/ordax-surface` issue #33; the OS retains its own Native host/contracts. Do not label the full product journey shipped before these operational gates pass.
 
 ## Core distinction
 
@@ -26,27 +30,24 @@ Space "Pizzaria Shopping" -> pizzaria-br@1
 
 The two Spaces use the same composition but keep their customers, orders, stock, staff and settings isolated.
 
-## Preferred user-facing flow
+## Single required user-facing flow
 
-The normal user must **not** need to understand or choose a Profile Pack as a separate technical step.
-
-Preferred creation experience:
+The normal user must **not** need to understand, choose or separately activate a Profile Pack merely to finish creating a professional Space.
 
 ```text
 Criar Space
-  -> escolher tipo
-       Pizzaria
-       Impressão 3D
-       Empresa
-       Desenvolvimento
-       ...
+  -> escolher um tipo efetivamente disponível no catálogo (ex.: Pizzaria, Impressão 3D)
   -> informar nome/dados mínimos
-  -> OrdaX cria o Space
-  -> OrdaX resolve o Profile Pack canônico daquele tipo
-  -> provisiona/revisa componentes permitidos
-  -> ativa a composição após os gates/consentimentos exigidos
-  -> abre o novo Space
+  -> preflight da composição padrão exata e requisitos conhecidos
+  -> criar Space com autoridade da Conta e chave idempotente
+  -> validar o recibo e atualizar o catálogo autorizado
+  -> resolver e preparar o Profile Pack canônico daquele tipo
+  -> revisar permissões/downloads/custos quando exigidos, sem aprovação automática
+  -> ativar somente com provas de componentes, consentimento e saúde
+  -> abrir/selecionar o Space autorizado
 ```
+
+Types whose lifecycle is `deferred` (such as Development or School in the current catalog) must not appear as installable/creatable just because they are described in a design document. If activation cannot complete, **the created Space remains real** and shows an explicit pending/blocked/recoverable composition state: do not fabricate an installed Profile, fake dashboard capabilities, or create a second Space on retry.
 
 For example:
 
@@ -78,14 +79,16 @@ aplicar composição impressao-3d-br@1
 Space "Minha Produção 3D"
 ```
 
-## UX rule
+## Mandatory Surface and account UX
 
 For mainstream product UX:
 
+- **Spaces** is the single primary navigation section and creation/selection entry point; do not expose a parallel top-level **Professional Profiles** journey;
 - the user chooses a **type of Space**;
 - the OrdaX resolves the corresponding Profile Pack automatically;
 - technical identifiers such as `pizzaria-br@1` and `impressao-3d-br@1` stay internal/advanced;
 - the UI may explain the included composition before confirmation when permissions, downloads, entitlements or costs are involved;
+- Profile manifests, version/activation status and recovery appear as secondary **Space settings → Professional composition** context, not as a separate workspace or Account section;
 - activation never bypasses trust, permission, entitlement, provisioning or consent gates;
 - there is no second identity or second runtime per Profile.
 
@@ -167,7 +170,7 @@ The current MVP already has bounded Profile Pack candidates such as `pizzaria-br
 
 This UX direction does **not** expand the current MVP into the complete commercial Food or Fabrication products. It only establishes how the future user-facing Space creation flow should map to the existing Profile architecture.
 
-## Rule for future implementations
+## Invariant for all implementations
 
 Do not build a public flow that requires the ordinary user to perform both:
 
@@ -234,6 +237,32 @@ The canonical account owner now stores Space semantics as paired `ordax_spaces.d
 The Development definition models `project` as a many-valued resource owned by the Space and opened with Studio. A repository is not promoted to a Space merely because it exists, and Studio does not become the owner/SSOT of the Project.
 
 The 3D-printing type declares Jobs as domain resources but does not implement a fabrication owner in this foundation. When that owner is promoted, reprinting must append a new Job and preserve prior Job/history records; a reprint is never modeled as deleting or rewriting the original production history. The Pizzaria type deliberately does not declare `quotes` because no current real owner justified that capability.
+
+### Read-only Native host gate — 2026-10-25
+
+`system/services/spaces/identity-bound-experience.mjs` wraps the **existing**
+`createSpaceExperienceSource` in the Native composition. This is a
+presentation gate, not a new owner of grants, membership, Identity,
+Space selection, capabilities or operational data.
+
+Before exposing a Space projection, the host checks the live signed-in
+Identity subject, server-backed authorized Spaces catalog and selected
+Space from their canonical ports. The requested Space, selected Space and
+catalog entry must match exactly, including owner, semantic type, Profile
+binding and active status. Missing/outdated catalogs, account switching,
+selection changes or disposed sources return `unavailable` with **no**
+navigation, widgets, metrics, Aura context or resource identifiers.
+A second authorization check after the provider read suppresses data if
+the selection changed during that read. Subscriptions propagate upstream
+identity/catalog/selection changes and are released on disposal.
+
+Only the read-only **Space Experience projection** is exposed. Its
+snapshot `ready` is **not** a permission to issue commands, and this
+gate is not a substitute for server-side membership/grants enforcement
+or per-action authorization. Native continues to register only the
+existing selected-Space **Aura** provider. FOOD-001 operational orders,
+Inventory and Payments providers remain absent until their owners have
+authorized, published and tested real transactional ports.
 
 ### Deferred safety constraints
 

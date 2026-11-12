@@ -62,15 +62,26 @@ class StableBaseContractTests(unittest.TestCase):
             )
         )
         self.assertTrue(self.source["apk_package_versions_pinned"])
-        self.assertTrue(
-            self.source["apk_package_lock_status"].startswith(
-                "pinned-from-verified-candidate-"
-            )
+        self.assertEqual(
+            self.source["apk_package_lock_status"],
+            "pinned-from-verified-candidate-e0b8caa6ed447710465b8ab5ee91a599ccfaa3c3",
         )
         lock = self.source["apk_package_lock"]
         self.assertIsInstance(lock, dict)
         self.assertEqual(len(lock), 40)
         self.assertEqual(self.source["apk_package_lock_count"], len(lock))
+        refresh = self.source["apk_package_lock_refresh"]
+        self.assertEqual(refresh["status"], "candidate-reproof-passed")
+        self.assertEqual(
+            refresh["changes"],
+            [{"package": "ca-certificates", "from": "20260909-r0", "to": "20261020-r0"}],
+        )
+        self.assertEqual(refresh["candidate_source_commit"], "e0b8caa6ed447710465b8ab5ee91a599ccfaa3c3")
+        self.assertEqual(refresh["candidate_workflow_run_id"], 39497041081)
+        self.assertEqual(refresh["candidate_artifact_id"], 12297049355)
+        self.assertEqual(refresh["candidate_erofs_sha256"], "081fef6e9c9c4c991363f07ddcc08856b2a3ed65b5ec844108da43cd232396a6")
+        self.assertTrue(refresh["candidate_artifact_recorded"])
+        self.assertFalse(refresh["physical_artifact_authorized"])
         self.assertEqual(
             self.source["apk_package_lock_scope"],
             "all-installed-packages-including-transitive-dependencies",

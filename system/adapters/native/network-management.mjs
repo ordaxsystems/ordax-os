@@ -1,3 +1,5 @@
+import { readNativeSession } from "./session-read.mjs";
+
 import {
   NETWORK_MANAGEMENT_SCHEMA,
   assertNetworkManagementPort,
@@ -5,18 +7,14 @@ import {
   validateWifiCredentials,
 } from "../../contracts/network-management.mjs";
 
-const SESSION_ENDPOINT = "/__ordax/native/session";
+
 const NETWORK_ENDPOINT = "/__ordax/native/network-management";
 const TOKEN_HEADER = "X-OrdaX-Network-Token";
 
 async function readNetworkToken(windowRef) {
-  const response = await windowRef.fetch(SESSION_ENDPOINT, {
-    method: "GET",
-    cache: "no-store",
-    credentials: "same-origin",
-  });
+  const response = await readNativeSession(windowRef);
   if (!response.ok) throw new Error(`Native network session failed: ${response.status}`);
-  const payload = await response.json();
+  const payload = response.payload;
   if (typeof payload.networkToken !== "string" || payload.networkToken.length < 16) {
     throw new Error("Native network token is unavailable");
   }
@@ -74,6 +72,11 @@ export async function createNativeNetworkManagement(windowRef = globalThis.windo
   };
 
   assertNetworkManagementPort(port);
-  await port.status();
+  const first = await port.status();
+  // Status is meaningful for diagnostics, but this is not an operational
+  // management capability until a real WLAN control broker exists.
+  if (first.wifiInterface === null) {
+    throw new Error("Native Wi-Fi management unavailable: no WLAN interface");
+  }
   return Object.freeze(port);
 }

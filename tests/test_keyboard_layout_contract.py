@@ -113,7 +113,14 @@ class NativeKeyboardLayoutTests(unittest.TestCase):
         self.assertIn('with self.server.keyboard_layout_lock:', post_section)
         self.assertNotIn("subprocess", server)
         self.assertNotIn("os.system", server)
-        self.assertNotIn("Access-Control-Allow-Origin", server)
+        # Scoped CORS is only for immutable signed JS module bytes; the
+        # canonical browser-origin policy denies opaque callers to settings
+        # and user data. This is also exercised via HTTP integration tests.
+        self.assertIn(
+            'if opaque_signed_module_read_is_trusted(self.headers, self.path, self.command):',
+            server,
+        )
+        self.assertNotIn('self.send_header("Access-Control-Allow-Origin", "*")', server)
 
     def test_launcher_maps_only_whitelisted_layouts_before_cage(self):
         launcher = LAUNCHER.read_text(encoding="utf-8")

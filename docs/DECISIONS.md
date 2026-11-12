@@ -438,6 +438,8 @@ This decision refines earlier USB-only **MVP scope** language in ADRs/docs; it d
 
 Decision: a Space type owns domain/UX semantics, while runtime availability is projected exclusively from real capability providers. Profile Pack remains the versioned technical composition owner and does not become the owner of Space navigation, dashboard cards, operational metrics or business state.
 
+**UX clarification (2026-10-31):** `Spaces` is the **sole ordinary-user entry point** for professional workspaces. Creation selects a Space type and resolves its exact approved Profile Pack automatically. There must not be a second top-level `Perfis Profissionais` management journey, duplicate Space identity or separate account. Profile versions, permission review, installation state, rollback and advanced changes belong beneath the selected Space's professional-composition settings. Internal create, provisioning, approval, activation and health remain separate authorized operations, with a recoverable pending state; a create receipt must never be misrepresented as completed installation. Canonical UX details: `docs/SPACES-AND-PROFILES.md`. This refines this ADR without inventing another registry or backend.
+
 Canonical flow:
 
 ```text
@@ -457,3 +459,37 @@ Aura remains the single OrdaX Intelligence layer. Space projection may provide o
 Implementation note (2026-10-15): the first promoted provider is `system/services/spaces/aura-provider.mjs`. It reuses the already authorized selected-Space Intelligence owner, requires exact selected-Space identity plus real inference availability, and emits no dashboard metric. This promotion does not imply availability of any domain transaction capability.
 
 Machine-readable/versioned contracts: `system/contracts/space-experience.mjs` and `docs/contracts/spaces-and-profile-packs.json`. Semantic catalog owner: `system/services/spaces/type-catalog.mjs`. User-facing type presentation owner: `system/services/spaces/presentation.mjs`; explicit `domain/subtype` takes precedence and Profile Pack resolution is legacy-only when canonical semantics are absent. Projection owner: `system/services/spaces/composition.mjs`.
+
+## ADR-029 - Client delivery must not depend on USB Creator (2026-10-31)
+
+Decision: OrdaX Desktop Windows and OrdaX Web are independent delivery
+artifacts. Their changes use their own installer/Native Windows or Chromium Web
+build and verification paths, without a dependency on Creator, Buildroot,
+Linux kernel, initramfs, USB provisioning or physical USB testing.
+
+The product remains one canonical codebase/contract graph: Surface visual code
+belongs to `ordax-surface`, shared Account/Spaces semantics to their original
+owners, and product capability availability to authenticated runtime receipts.
+Windows-only behavior lives in `system/adapters/desktop/` or the installed
+Windows host; Web-only composition lives in `system/composition/web/`.
+Do not add Desktop-only conditional wiring into
+`system/composition/native/main.mjs` merely to save a client-layer change.
+Native shared entrypoints, boot code, and Web adapters used by Native still
+require their legitimate impact proofs.
+
+The authoritative dependency relationship is
+`docs/contracts/build-autonomy.json#client_build_independence`.
+`tools/ci/creator_owner_impact.py` and its tests classify only proven
+exclusive client owners as lightweight; unknown and mixed deltas fail
+closed. Neither the client classifications nor the absence of a Creator
+build proves a released Desktop, Web login, Space creation UI, or Profile Pack.
+
+## ADR-030 - First usable integrated Windows delivery before independent USB completion (2026-11-06)
+
+**Decision:** Prioritize one verified **operational first-user release** of OrdaX Desktop Windows, rather than counting isolated repository PRs as product completion or waiting for the separate USB/Buildroot/Creator path. “MVP operacional” means a complete, honest vertical journey for the declared channel, **not** a fork, a second product, a simulated feature or removal of started capabilities from the integrated launch baseline (ADR-026 and `MVP.md`).
+
+**First-channel acceptance:** One canonical installer and actually running Surface; real Account and authorized Space; Store reading the official verified catalog; at least one actual first-party app installed, launched with its own authority, updated and removable; compatible host/app update with appropriate health/recovery; exact source/provenance and physical Windows proof. Source, CI, preview and declared version are not equivalent to installed execution. A controlled early-user cohort may receive only the capabilities actually proven and advertised. Unproven features remain fail-closed and visible as unavailable when relevant.
+
+**Execution/ownership:** `ordax-desktop` owns its Desktop packaging/delivery responsibility; `ordax-os` owns host composition, lifecycle and update boundaries; `ordax-surface` owns shared UI; `ordax-apps` owns removable apps; `ordax-platform` owns identity/grants; `ordax-site` owns public distribution. Use immutable compatible revision pins and verified receipts across owners, **not duplicate modules** or forced identical repository HEADs. Reuse existing PRs, tests and CI by impact; changes confined to Windows/Web must not trigger USB/kernel builds without a causal requirement (ADR-029).
+
+**Scope retained:** USB, Native disk, Runtime/MCP and already started product capabilities remain in their current owners and baseline. They are not prerequisites for an independent Windows release unless they are part of that release's declared user journey or a real safety dependency. Security, isolation, signing, authorization, honest status, update and rollback/recovery gates cannot be deferred merely to claim launch. Record proven state in `docs/CURRENT-STATE.md`; use `MVP.md` as the single scope/acceptance SSOT, not another roadmap or per-repository MVP.

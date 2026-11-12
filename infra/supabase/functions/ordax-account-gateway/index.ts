@@ -6,8 +6,10 @@ import {
   validateRateLimitRpcResult,
 } from "../_shared/auth_rate_limit.mjs";
 import { readBoundedBody } from "../_shared/bounded_body.mjs";
+import { ACCOUNT_MCP_USAGE_PATH, readAccountMcpUsage } from "../_shared/account_mcp_usage.mjs";
 import { accountPrivilegedRpc } from "../_shared/account_privileged_rpc.mjs";
 import { authorizeAccountTransport, accountGatewayRoutePath, isPublicAccountPreActivationRoute } from "../_shared/account_transport_admission.mjs";
+import { parseSpaceCreateRequest, projectSpaceCreateResult, spaceCreateRpcArgs } from "../_shared/space_create_contract.mjs";
 import { PUBLIC_CONFIRMATION_PATH, PUBLIC_SIGNUP_REDIRECT, PUBLIC_RECOVERY_VERIFY_PATH, PUBLIC_RECOVERY_VERIFY_URL, parseSignupConfirmation, parseRecoveryLink } from "../_shared/account_email_confirmation.mjs";
 
 const SESSION_SCHEMA = "prototype-ordax.public-identity-session/1";
@@ -56,6 +58,9 @@ const PWNED_PASSWORDS_USER_AGENT = "OrdaX-Account-Gateway/1";
 const PUBLIC_SITE_ACCOUNT_ENABLED = false;
 const ACCOUNT_REGISTRATION_ENABLED = false;
 const PUBLIC_WEB_AUTH_ENABLED = true;
+// Public login stays available. Signup requires separately approved immutable
+// legal documents; an active database policy alone is not release proof.
+const PUBLIC_WEB_REGISTRATION_ENABLED = false;
 // Limit public login/registration to explicit methods and routes; sync,
 // memory, Network and account-data operations remain behind their own gates.
 const PUBLIC_WEB_AUTH_ROUTES = new Set([
@@ -308,7 +313,9 @@ async function registrationLegalPolicy(publicRequest = false) {
   return {
     $schema: REGISTRATION_POLICY_SCHEMA,
     active: true,
-    registrationEnabled: ACCOUNT_REGISTRATION_ENABLED || (publicRequest && PUBLIC_WEB_AUTH_ENABLED),
+    registrationEnabled: ACCOUNT_REGISTRATION_ENABLED || (publicRequest && PUBLIC_WEB_REGISTRATION_ENABLED),
+    // Read-only, server-owned capability for clients that cannot register natively.
+    publicRegistrationEnabled: PUBLIC_WEB_REGISTRATION_ENABLED,
     policyId: item.policy_id,
     privacy: {
       version: item.privacy_version,
@@ -543,6 +550,30 @@ function authenticated(req: Request) {
     sessionVerificationCache.set(req, result);
   }
   return result;
+}
+
+function safeAccountDisplayName(value: unknown): string | null {
+  if (typeof value !== "string") return null;
+  const displayName = value.trim();
+  if (!displayName || Array.from(displayName).length > 120 || /[\u0000-\u001f\u007f]/u.test(displayName)) {
+    return null;
+  }
+  return displayName;
+}
+
+async function readAccountDisplayName(access: string, userId: string): Promise<string | null> {
+  try {
+    // Use the user's access token and owner-scoped RLS. Profile-read failure
+    // must not invalidate the authenticated session.
+    const { data, error: profileError } = await client(access)
+      .from("ordax_accounts")
+      .select("display_name")
+      .eq("user_id", userId)
+      .maybeSingle();
+    return profileError ? null : safeAccountDisplayName(data?.display_name);
+  } catch {
+    return null;
+  }
 }
 
 async function authenticatedRecovery(req: Request) {
@@ -866,7 +897,7 @@ async function confirmPublicSignup(url: URL) {
 }
 
 async function credentials(req: Request, register: boolean) {
-  if (register && !(ACCOUNT_REGISTRATION_ENABLED || (PUBLIC_WEB_AUTH_ENABLED && publicSiteRequest(req)))) {
+  if (register && !(ACCOUNT_REGISTRATION_ENABLED || (PUBLIC_WEB_REGISTRATION_ENABLED && publicSiteRequest(req)))) {
     return error(
       503,
       "account-registration-disabled",
@@ -1175,7 +1206,7 @@ Deno.serve(async (req: Request) => {
   }
 
   if (path === "/health" && req.method === "GET") {
-    return json(200, { status: "ok", service: "ordax-account-gateway", version: 17 });
+    return json(200, { status: "ok", service: "ordax-account-gateway", version: 18 });
   }
 
   if (path === NETWORK_SEND_PATH && req.method === "POST") {
@@ -1202,6 +1233,9 @@ Deno.serve(async (req: Request) => {
           accountCloseEnabled: false,
         }, session.cookies);
       }
+      const displayName = session.access
+        ? await readAccountDisplayName(session.access, session.user.id)
+        : null;
       return json(200, {
         $schema: SESSION_SCHEMA,
         authenticated: true,
@@ -1209,6 +1243,7 @@ Deno.serve(async (req: Request) => {
         status: "authenticated",
         subject: session.user.id,
         email: session.user.email ?? null,
+        ...(displayName ? { displayName } : {}),
         accountCloseEnabled: ACCOUNT_CLOSE_ENABLED,
       }, session.cookies);
     } catch {
@@ -1264,6 +1299,91 @@ Deno.serve(async (req: Request) => {
     return json(200, data, session.cookies);
   }
 
+  if (path === ACCOUNT_MCP_USAGE_PATH && req.method === "GET") {
+    const session = await authenticated(req);
+    if (!session.user || !session.access) {
+      return json(401, {
+        $schema: ERROR_SCHEMA,
+        error: "authentication-required",
+        message: "Entre na Conta OrdaX para consultar o consumo MCP.",
+      }, session.cookies);
+    }
+    // Separate activation from identity and MCP subscription. A live session
+    // cannot implicitly enable external bearer forwarding or shadow collection.
+    if (Deno.env.get("ORDAX_MCP_USAGE_READ_ENABLED") !== "1") {
+      return error(503, "mcp-usage-unavailable", "A medição MCP ainda não está disponível nesta Conta.");
+    }
+    try {
+      const usage = await readAccountMcpUsage(session.access);
+      return json(200, usage, session.cookies);
+    } catch {
+      // Never expose bearer, provider response, SQL or upstream diagnostics.
+      return error(503, "mcp-usage-unavailable", "Não foi possível consultar a medição MCP.");
+    }
+  }
+
+  if (path === "/account/spaces/create" && req.method === "POST") {
+    const session = await authenticated(req);
+    if (!session.user || !session.access) {
+      return json(401, {
+        $schema: ERROR_SCHEMA,
+        error: "authentication-required",
+        message: "Entre na Conta OrdaX para criar um Space.",
+      }, session.cookies);
+    }
+
+    let request;
+    try {
+      request = parseSpaceCreateRequest(
+        await boundedBody(req),
+        req.headers.get("content-type") ?? "",
+      );
+    } catch (cause) {
+      const code = cause instanceof Error ? cause.message : "invalid-space-create-request";
+      return error(400, code, "Revise os dados informados para criar o Space.");
+    }
+
+    try {
+      const supabase = client(session.access);
+      const { data, error: rpcError } = await supabase.rpc(
+        "ordax_create_space_v1",
+        spaceCreateRpcArgs(request),
+      );
+      if (rpcError) {
+        const code = typeof rpcError.message === "string" ? rpcError.message : "space-create-failed";
+        if ([
+          "invalid-space-name",
+          "space-type-not-creatable",
+          "space-create-idempotency-key-required",
+        ].includes(code)) {
+          return error(400, code, "Não foi possível criar este Space com os dados informados.");
+        }
+        if (["space-create-idempotency-conflict", "owned-space-limit-reached"].includes(code)) {
+          return error(409, code, "A criação deste Space entrou em conflito com o estado atual da conta.");
+        }
+        if (code === "authentication-required" || code === "ordax-account-required") {
+          return error(401, "authentication-required", "Entre novamente na Conta OrdaX.");
+        }
+        return error(502, "space-create-failed", "Não foi possível criar o Space.");
+      }
+      if (!Array.isArray(data) || data.length !== 1) {
+        return error(502, "space-create-failed", "Não foi possível validar o Space criado.");
+      }
+      let projected;
+      try {
+        projected = projectSpaceCreateResult(data[0], {
+          subjectId: session.user.id,
+          request,
+        });
+      } catch {
+        return error(502, "space-create-failed", "Não foi possível validar o Space criado.");
+      }
+      return json(projected.created ? 201 : 200, projected, session.cookies);
+    } catch {
+      return error(503, "space-create-unavailable", "A criação de Spaces está temporariamente indisponível.");
+    }
+  }
+
   if (path === "/account/spaces" && req.method === "GET") {
     const session = await authenticated(req);
     if (!session.user || !session.access) {
@@ -1303,15 +1423,16 @@ Deno.serve(async (req: Request) => {
       if (
         typeof raw.space_id !== "string" ||
         typeof raw.pack_slug !== "string" ||
-        raw.pack_slug.length < 1 ||
-        raw.pack_slug.length > 160 ||
-        !Number.isSafeInteger(Number(raw.pack_version)) ||
-        Number(raw.pack_version) < 1 ||
+        !/^[a-z0-9][a-z0-9-]{1,79}$/.test(raw.pack_slug) ||
+        typeof raw.pack_version !== "number" ||
+        !Number.isSafeInteger(raw.pack_version) ||
+        raw.pack_version < 1 ||
+        `${raw.pack_slug}@${raw.pack_version}`.length > 160 ||
         packBySpace.has(raw.space_id)
       ) {
         return error(502, "spaces-read-failed", "Não foi possível validar seus Spaces.");
       }
-      packBySpace.set(raw.space_id, raw.pack_slug);
+      packBySpace.set(raw.space_id, `${raw.pack_slug}@${raw.pack_version}`);
     }
 
     const spaces = [];

@@ -1,3 +1,4 @@
+import { resolveWebLocalStorage } from "./local-storage.mjs";
 import {
   MEMORY_STORE_SCHEMA,
   assertMemoryStore,
@@ -6,18 +7,6 @@ import {
 } from "../../contracts/memory-store.mjs";
 
 const STORAGE_KEY = "ordax.intelligence.memory.v1";
-
-function resolveStorage(windowRef) {
-  try {
-    const storage = windowRef?.localStorage;
-    if (storage && typeof storage.getItem === "function" && typeof storage.setItem === "function") {
-      return storage;
-    }
-  } catch {
-    // Browser policy may deny persistent storage. Session memory remains explicit.
-  }
-  return null;
-}
 
 function validateForScope(snapshot, scope) {
   const validated = validateMemorySnapshot(snapshot);
@@ -42,7 +31,7 @@ function parseForScope(payload, scope) {
 }
 
 export function createWebMemoryStore(windowRef = globalThis.window) {
-  const storage = resolveStorage(windowRef);
+  const storage = resolveWebLocalStorage(windowRef);
   const scope = storage ? "device" : "session";
   let memory = null;
 

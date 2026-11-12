@@ -1,20 +1,11 @@
-import assert from "node:assert/strict";
 import test from "node:test";
-
-import { filesApp } from "../system/apps/files/app.mjs";
-import { filesComponent } from "../system/apps/files/component.mjs";
+import assert from "node:assert/strict";
+import { existsSync } from "node:fs";
 import { getSystemComponent } from "../system/apps/component-catalog.mjs";
-import { getFirstPartyApp } from "../system/apps/catalog.mjs";
-
-test("Files has one component identity shared by app, catalog and bootstrap", () => {
-  assert.deepEqual(filesApp.component, filesComponent);
-  assert.deepEqual(getSystemComponent("files"), filesComponent);
-  assert.equal(getSystemComponent("files").id, "files");
-  assert.strictEqual(getFirstPartyApp("files"), filesApp);
-  assert.equal(filesComponent.id, "files");
-  assert.equal(filesComponent.version, "0.1.0");
-  assert.equal(filesComponent.releaseMode, "bundled");
-  assert.equal(filesComponent.owner, "system/apps/files");
-  assert.equal(filesComponent.criticality, "optional");
-  assert.deepEqual(filesComponent.dependencies, ["surface-shell"]);
+import { EXTERNAL_FIRST_PARTY_SOURCE_REPOSITORY_BY_COMPONENT, isNativeExternalFirstPartyCurrentSlotBlockedByBundledOwner } from "../system/services/apps/external-first-party-policy.mjs";
+test("Files has only the external product source, not a duplicate built-in owner",()=>{
+  assert.equal(getSystemComponent("files"),null);
+  assert.equal(existsSync(new URL("../system/apps/files",import.meta.url)),false);
+  assert.equal(EXTERNAL_FIRST_PARTY_SOURCE_REPOSITORY_BY_COMPONENT.files,"ordaxsystems/ordax-apps");
+  assert.equal(isNativeExternalFirstPartyCurrentSlotBlockedByBundledOwner("files"),false);
 });

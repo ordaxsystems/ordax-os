@@ -1,9 +1,22 @@
 name: Surface Runtime Candidate
 
 on:
+  # Revalidate the single approved lock on main after its merge; never infer
+  # that PR-time package availability remains true after an upstream index move.
+  push:
+    branches:
+      - main
+    paths:
+      - 'bootstrap/surface-runtime/source.json'
+      - 'system/surface/runtime/packages.txt'
+      - 'system/surface/runtime/media_runtime_probe.py'
+      - 'system/surface/runtime/audio-session.sh'
   pull_request:
     paths:
       - 'bootstrap/surface-runtime/**'
+      - 'system/surface/runtime/packages.txt'
+      - 'system/surface/runtime/media_runtime_probe.py'
+      - 'system/surface/runtime/audio-session.sh'
       - 'bootstrap/base/alpine_core.py'
       - 'bootstrap/stable-base/source.json'
       - 'tests/test_surface_runtime_source_contract.py'
@@ -43,6 +56,7 @@ jobs:
           python -m py_compile bootstrap/surface-runtime/discover_lock.py bootstrap/surface-runtime/build.py
 
       - name: Revalidate full transitive Alpine package lock
+        if: always()
         run: |
           set -euo pipefail
           mkdir -p "$RUNNER_TEMP/surface-runtime"
@@ -51,7 +65,9 @@ jobs:
           python - "$RUNNER_TEMP/surface-runtime/surface-runtime-lock.json" <<'PY'
           import json, pathlib, sys
           result = json.loads(pathlib.Path(sys.argv[1]).read_text())
+          contract = json.loads(pathlib.Path('bootstrap/surface-runtime/source.json').read_text())
           assert result['status'] == 'verified-pinned-lock'
+          assert result['apk_package_lock_sha256'] == contract['apk_package_lock_sha256']
           assert result['first_boot_offline_required'] is True
           assert result['physical_artifact_created'] is False
           assert result['physical_write_authorized'] is False
@@ -126,7 +142,10 @@ jobs:
           assert a['normalized_tar_sha256'] == b['normalized_tar_sha256']
           assert a['image']['sha256'] == b['image']['sha256']
           assert a['image']['size'] == b['image']['size']
-          assert a['apk_package_lock_count'] == b['apk_package_lock_count'] == 253
+          contract = json.loads(pathlib.Path('bootstrap/surface-runtime/source.json').read_text())
+          assert a['apk_package_lock_count'] == b['apk_package_lock_count'] == contract['apk_package_lock_count']
+          assert contract['apk_package_lock_count'] == len(contract['apk_package_lock'])
+          assert a['apk_package_lock_sha256'] == b['apk_package_lock_sha256'] == contract['apk_package_lock_sha256']
           assert a['first_boot_offline_required'] is True
           assert a['network_package_install_during_stable_boot_allowed'] is False
           assert a['machine_identity_baked_into_image'] is False

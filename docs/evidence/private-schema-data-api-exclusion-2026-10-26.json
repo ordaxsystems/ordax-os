@@ -1,0 +1,27 @@
+{
+  "$schema": "prototype-ordax.private-data-api-schema-exclusion/1",
+  "observed_date": "2026-10-26",
+  "project_ref": "jhfphsjptrpmtnzkpwud",
+  "method": "Two anonymous PostgREST GETs on the same intentionally nonexistent relation, with active Supabase publishable key, one Accept-Profile: public, one Accept-Profile: private",
+  "endpoint": "/rest/v1/__ordax_private_schema_probe_nonexistent?select=nonexistent&limit=0",
+  "public_baseline": {
+    "http_status": 404,
+    "postgrest_code": "PGRST205"
+  },
+  "private_profile": {
+    "http_status": 406,
+    "postgrest_code": "PGRST106"
+  },
+  "private_schema_data_api_exclusion_verified": true,
+  "scope": {
+    "no_account_rows_queried": true,
+    "no_real_user_authentication": true,
+    "no_production_ddl": true,
+    "no_service_role_or_secret_keys_used": true,
+    "publishable_key_saved": false,
+    "private_schema_not_exposed_through_postgrest_at_observation": true,
+    "authenticated_two_user_isolation_proven": false,
+    "public_account_activation_approved": false
+  },
+  "note": "PGRST106 is PostgREST schema-not-exposed; PGRST205 on public proves the request reached PostgREST. Runtime configuration can change; run the canonical probe before release. This check is independent of RLS and of real authenticated cross-account isolation."
+}

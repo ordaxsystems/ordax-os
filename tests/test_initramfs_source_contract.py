@@ -295,7 +295,7 @@ class InitramfsSourceContractTests(unittest.TestCase):
         self.assertEqual(reader["runtime_path"], "/sbin/ordax-portable-state")
         self.assertEqual(
             reader["operations"],
-            ["read-slot", "resolve", "select", "prepare", "select-boot", "commit", "rollback"],
+            ["read-slot", "resolve", "select", "inspect", "prepare", "select-boot", "commit", "rollback"],
         )
         self.assertEqual(reader["resolve_boot_slots"], ["current", "known-good"])
         self.assertFalse(reader["resolve_candidate_allowed"])

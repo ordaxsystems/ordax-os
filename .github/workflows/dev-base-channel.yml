@@ -37,6 +37,16 @@ on:
       - 'tests/test_creator_kernel_reuse_workflows.py'
       - '.github/workflows/dev-base-channel.yml'
   workflow_dispatch:
+    inputs:
+      publish_owner_candidate:
+        description: 'Publish an exact-commit development Base for isolated Owner USB physical validation'
+        required: true
+        default: false
+        type: boolean
+      owner_validation_pr:
+        description: 'Open draft PR whose exact HEAD must match the dispatched commit'
+        required: true
+        type: number
 
 permissions:
   contents: read
@@ -76,7 +86,12 @@ jobs:
           sudo bash tools/dev-base-channel/prove-rootfs-selector.sh
 
   publish:
-    if: github.event_name == 'push' && github.ref == 'refs/heads/main'
+    if: >-
+      (github.event_name == 'push' && github.ref == 'refs/heads/main') ||
+      (github.event_name == 'workflow_dispatch' &&
+      inputs.publish_owner_candidate == true &&
+      github.actor == 'ordaxos-admin' &&
+      github.ref != 'refs/heads/main')
     needs: verify
     runs-on: ubuntu-24.04
     timeout-minutes: 120
@@ -93,10 +108,26 @@ jobs:
       - name: Detect Base-byte changes
         id: changes
         shell: bash
+        env:
+          GH_TOKEN: ${{ github.token }}
         run: |
           set -euo pipefail
           publish=false
-          if ! git rev-parse HEAD^ >/dev/null 2>&1; then
+          if [ "${GITHUB_EVENT_NAME:-}" = 'workflow_dispatch' ]; then
+            test "${GITHUB_ACTOR:-}" = 'ordaxos-admin'
+            pr='${{ inputs.owner_validation_pr }}'
+            case "$pr" in
+              ''|*[!0-9]*) echo 'invalid owner validation PR number' >&2; exit 1 ;;
+            esac
+            pr_json="$(gh api "repos/$GITHUB_REPOSITORY/pulls/$pr")"
+            test "$(jq -r '.head.sha' <<<"$pr_json")" = "$GITHUB_SHA"
+            test "$(jq -r '.head.repo.full_name' <<<"$pr_json")" = "$GITHUB_REPOSITORY"
+            test "$(jq -r '.base.ref' <<<"$pr_json")" = 'main'
+            test "$(jq -r '.draft' <<<"$pr_json")" = 'true'
+            echo "DEV_BASE_OWNER_VALIDATION_PR=$pr"
+            echo 'DEV_BASE_OWNER_VALIDATION_EXACT_HEAD=PASS'
+            publish=true
+          elif ! git rev-parse HEAD^ >/dev/null 2>&1; then
             publish=true
           else
             while IFS= read -r path; do
@@ -200,6 +231,14 @@ jobs:
           set -euo pipefail
           module_tar="$(find out/kernel -maxdepth 1 -type f -name 'kernel-modules-*.tar' -print -quit)"
           test -n "$module_tar"
+          # The native Owner USB mountattr helper compiles against the exact
+          # headers_install exported by the pinned initramfs kernel builder.
+          # Build that canonical UAPI before building the development rootfs.
+          python bootstrap/initramfs/build.py check
+          python bootstrap/initramfs/build.py build --jobs 4
+          python bootstrap/initramfs/build.py verify
+          test -f out/initramfs-work/kernel-uapi-install/include/linux/mount.h
+
           sudo env GITHUB_SHA="$GITHUB_SHA" \
             python bootstrap/dev-base/build.py \
               --kernel-modules "$module_tar" \
@@ -208,13 +247,10 @@ jobs:
           test -f out/dev-rootfs/provenance.json
           test -d out/dev-rootfs/rootfs
 
-          python bootstrap/initramfs/build.py check
-          python bootstrap/initramfs/build.py build --jobs 4
-          python bootstrap/initramfs/build.py verify
-
           python tools/dev-base-channel/build.py build \
             --source-commit "$GITHUB_SHA" \
             --kernel-dir out/kernel \
+            --kernel-reuse-receipt "$RUNNER_TEMP/dev-base-channel/metadata/kernel-component-reuse.json" \
             --initramfs-dir out/initramfs \
             --rootfs-dir out/dev-rootfs \
             --out-dir out/dev-base

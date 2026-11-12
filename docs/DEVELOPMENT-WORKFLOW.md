@@ -2,6 +2,124 @@
 
 Status: CANONICAL FOR PROTOTYPE
 
+
+## Regra operacional transversal — Evolução Rápida (DEV, 2026-11-04)
+
+**Princípio:** entregar o que foi pedido primeiro; validar o resultado com o menor conjunto suficiente de provas, depois. Esta é uma regra de trabalho para todos os owners/repositórios OrdaX em desenvolvimento, inclusive quando o operador disser apenas `continue`. Não altera limites de segurança, gates obrigatórios de promoção ou autoridade de cada repositório.
+
+1. **Localizar sem reabrir auditoria:** confirmar somente o owner, o arquivo/fluxo afetado, a revisão atual e o bloqueio concreto. Reutilizar diagnósticos, commits, testes e artefatos já válidos; não fazer inventário integral, pesquisa ou planejamento novo para uma tarefa simples.
+2. **Executar imediatamente:** criar, editar, substituir ou remover no lugar canônico e fechar o menor fluxo funcional completo. Não gerar funcionalidades, registries, wrappers, documentação, tarefas ou infraestrutura adjacentes sem dependência comprovada. Se o pedido é escrever um alfabeto até Z, escrever um alfabeto até Z — não dez variações nem dez workflows.
+3. **Validar depois, proporcionalmente ao impacto:** alterações triviais de texto/configuração exigem apenas checagem pertinente; código exige os testes direcionados da área afetada; integração exige smoke/E2E do fluxo alterado. CI amplo, rebuild de kernel/USB/Creator, testes físicos e repetição de suites só quando uma dependência real, contrato aplicável ou gate de merge/release exigir. Não criar workflow/teste novo para repetir cobertura existente.
+4. **Encerrar a entrega:** corrigir a causa raiz de defeitos no escopo, verificar o resultado utilizável e integrar na `main` quando os gates aplicáveis permitirem. Evitar PRs/branches paralelas e pendências artificiais. Em `continue`, retomar a última mudança ou bloqueio real e avançar código/integração, não reiniciar relatórios.
+5. **Conter desvios:** classificar CI vermelho alheio como externo somente após demonstrar que não depende do change set; corrigi-lo em seu owner sem transformar a tarefa atual em reforma de outro domínio. Melhorias opcionais não bloqueiam o objetivo; não criar fila paralela para elas.
+6. **Comunicar entrega, não atividade:** reportar exatamente o que foi alterado, teste pertinente, revisão/PR e se está na `main`/remoto. Se impedido, identificar **um bloqueio concreto** e a ação necessária; nunca declarar finalizado o que só foi planejado ou documentado.
+
+### Como decidir os testes sem atrasar a entrega
+
+| Impacto real da mudança | Ação padrão em desenvolvimento |
+| --- | --- |
+| Texto, comentário, documentação, CSS ou ajuste visual isolado | Editar imediatamente; conferir o trecho/preview afetado, sem suíte completa, build de release ou novo workflow. |
+| Código/comportamento de um único owner | Implementar no source canônico; executar testes existentes e direcionados; corrigir somente falhas causadas pelo diff. |
+| Integração entre componentes | Concluir o fluxo vertical solicitado; depois executar smoke/E2E específico das interfaces modificadas. Reutilizar artefatos válidos. |
+| Identidade, segurança, trust, dados, disco, boot, update, pagamentos ou promoção | Fazer antes da mutação os preflights realmente exigidos; depois aplicar testes e gates obrigatórios pertinentes. Não dispensar autorização nem integridade. |
+
+### Protocolo anti-loop e critério de parada
+
+- **Sem preparação infinita:** uma verificação objetiva de estado/owner deve produzir uma alteração ou identificar um impedimento comprovado. Não reiniciar a mesma auditoria após um resultado sem mudança no source ou no ambiente.
+- **Sem trabalho artificial:** não criar planos, RFCs, novos testes, workflows, relatórios, branches, PRs ou arquivos de evidência só para demonstrar diligência. Usar os instrumentos existentes; criar um novo apenas se a entrega ou uma obrigação concreta exigir.
+- **Sem efeito cascata:** falha fora do diff não autoriza migrar a missão para outros domínios. Corrigir no owner certo quando for dependência real; caso contrário, manter escopo e registrar apenas o bloqueio indispensável.
+- **Sem recompilar por hábito:** mudanças em client/Surface não disparam kernel/USB/Creator/QEMU por padrão; cache e resultados imutáveis aprovados devem ser reaproveitados.
+- **Sem parar em análise:** ao descobrir a causa de um defeito em escopo, corrigir o código existente; não substituir a correção por explicação, issue ou documentação.
+- **Sem concluir por aparência:** só marcar entregue quando existir diff/artefato real, validação proporcional e integração/publicação requerida; caso a proteção da main ou gate exigido impeça, informar PR, estado e único bloqueio verificável.
+- **Em pedidos de continuação:** retomar a última mudança incompleta no mesmo owner/PR; não abrir etapa lateral nem reiniciar a investigação sem evidência nova.
+
+**Exceções não negociáveis:** antes de uma ação que possa ser destrutiva, vazar dados, alterar identidade, permissões, trust, assinatura, atualização/recovery, pagamento ou promoção pública, executar os preflights e obter as autorizações pertinentes. Não burlar proteção de branch, checks realmente obrigatórios, rollback, integridade, segurança ou fail-closed. Quando há risco, a verificação preventiva necessária antecede a execução; não serve de justificativa para auditorias ou builds sem relação causal.
+
+**Critério de sucesso:** o pedido produz um comportamento/artefato observável e validado no owner correto, não uma coleção de planos, evidências e workflows sem entrega.
+
+
+## P0 — Native MCP no Windows/Desktop DEV (31/10/2026)
+
+**Atualização de handoff (04/11/2026):** o código do Capability Fabric v1
+já foi integrado (OS PR #2406). Consultar
+[`docs/CAPABILITY-FABRIC.md`](CAPABILITY-FABRIC.md) e o estado atual
+antes de aplicar as instruções de 31/10 abaixo. Descoberta semântica
+não significa execução MCP; OS #2400, Runtime, Platform, grants e
+recibos reais mantêm gates próprios. **Este bloco preserva o histórico
+DEV**, não autoriza substituir versões, instalar agentes ou repetir
+processos enquanto não houver verificação do estado atual e owner.
+
+**Missão canônica:** provar o mesmo `ordax-runtime` no OrdaX OS Desktop
+instalado no Windows **e**, depois, no agente auxiliar Windows com outra
+identidade Product Device. Prova DEV antes de assinatura de produção.
+A Platform, OAuth/grants, Worker e Supervisor existentes são as únicas
+autoridades. Não criar Runtime, dispatcher, CLI, banco, sessão, workflow ou
+instalador paralelo.
+## Ponte Native Product — PR #2400 (implementação candidata, não homologada)
+
+Owners: ordax-os (Native Host, Supervisor e ponte autenticada);
+ordax-runtime (dispatcher e ação Product Device);
+ordax-surface (UI e appActivation existentes);
+ordax-platform (Device, identidade, atestação e grants do cliente ChatGPT).
+O MCP auxiliar Windows mantém identidade independente.
+O histórico de testes locais abaixo é evidência de candidato,
+não substitui merge gates atuais, recibo remoto nem Store CURRENT.
+
+
+
+**Estado local comprovado:**
+- A Surface publica estado de aplicativo por appId, sem usar windowId.
+- Apenas o Runtime Product recebe o token de acao; o Electron
+  injeta credencial distinta para a propria Surface. Rotas
+  desktop-surface-state, desktop-surface-command e
+  desktop-surface-receipt negam clientes sem credenciais.
+- ordax.surface.open aceita somente account/settings/system/store,
+  usa appActivation e aguarda confirmacao da janela exibida.
+  Em timeout, app nao instalado, grant ausente ou resposta falsa,
+  retorna erro, nunca sucesso. Sem controle de janelas Windows.
+  O reporte transitorio de HTTP 503 nao repete appActivation:
+  o canal reenvia apenas estado ate o Host aceitar a observacao;
+  uma confirmacao antecipada nao e aceita. O reporter agora espera
+  a janela visivel antes de reconhecer a ativacao, sem repetir o
+  publish se a Surface renderizar mais tarde; abrir a janela que ja
+  esta ativa nao cria outra. Se nao abrir, o Host devolve HTTP 504
+  sem confirmar uma acao inexistente. Prova integrada sobre HTTP
+  loopback com tokens distintos e rejeicao de acesso indevido.
+  Testes: 58 OS e 130 Surface.
+- Compilacao local oficial ordax-runtime em
+  5173f2b01cb7abb1e5d98fdd00750c17fb6f85e4;
+  SHA-256 988f2ee5a57404f03db8536d515551d3ed2976783a1575e92223b8f611fe327e,
+  18.682.343 bytes; self-test congelado offline e dependencias
+  verificadas por hash. Slot DEV atualizado sem reinstalar Electron.
+- Janela Electron real e Surface prontas, reporter e polling autenticados
+  no Native Host, 1 instancia Product (2 processos), 1 MCP Windows separado.
+- Testes de integracao no OS, regressao da Surface, testes Python do
+  Runtime e provas fisicas de loopback invalidado aprovadas.
+- SSOT de evidencias: docs/evidence/desktop-runtime-windows-candidate-2026-10-31.json.
+  Arquivo historico de CI/prova remota da revisao anterior so no Git.
+
+**Gates por responsabilidade (02/11/2026):**
+- Platform #333 ja foi integrada a main (bcb9c8e7), com
+  ordax_surface_status e ordax_surface_open sob perfis de Owner
+  ordax-surface-read/ordax-surface-control, nunca Computer Control.
+- Runtime #306 ja foi integrado a main (f89ab01c), sem segunda
+  implementacao de dispatcher. O pacote Windows valida a lista Native
+  pelo mesmo product_action_scope, e todos os gates de codigo
+  passaram. O executavel DEV instalado continua pinned pelo hash
+  de evidencia OS, sem promocao silenciosa.
+- Esta revisao OS usa os contratos Native e appActivation existentes:
+  credenciais efemeras distintas, relatorios apos comandos, receipt
+  quando o app montou realmente, timeout fail-closed e uma arvore
+  de processos sob o Supervisor. Sem acesso aos arquivos/janelas
+  Windows pelo Device OrdaX Desktop.
+- O MCP publico ainda esta no catalogo antigo e sua publicacao requer
+  check_mcp_release.py, Owner grants reais e E2E atestado.
+  Nao reduzir gate, habilitar full-computer-control, inventar grants
+  ou produzir outro Worker/Runtime. Progresso de runtime/Platform no
+  Git remoto nao e prova de deploy nem de acao GPT.
+- Melhorias de Home/Loja/Spaces/Aura so devem usar novas capacidades
+  canonicamente autorizadas, nunca cliques do Windows como substituto
+  do OrdaX OS. Preservar o fluxo First Run de outros proprietarios.
 ## Source model
 
 `main` is the source authority for this prototype.
@@ -101,6 +219,10 @@ Base-update evolution is now governed by `docs/contracts/base-update.json`: cand
 Prefer one permanent branch: `main`.
 
 A temporary work branch is acceptable for isolated validation, but should be short-lived and integrated only after tests pass. Do not create a forest of long-lived feature branches as alternate source authorities.
+
+A small work-in-progress budget (normally two or three active PRs per repository) is a review goal, not a hard cap or a reason to discard validated work. Keep one owner per responsibility and avoid parallel PRs implementing the same cutover.
+
+The canonical `tools/ops/branch_hygiene.py` may prune an unchanged merged-PR head or a branch verified to have zero commits ahead of `main`, with exact SHA revalidation before deletion. **Closing a PR without merging does not by itself authorize deleting its branch**: exclusive commits must remain accessible for reconciliation or explicit archive. Open-PR heads, frozen release candidates and reserved refs remain excluded. Do not create additional branch pruners or manually force-delete unreviewed histories.
 
 ## Release model
 

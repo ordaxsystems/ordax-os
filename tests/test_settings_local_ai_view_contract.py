@@ -12,7 +12,7 @@ STORE = ROOT / "system/surface/ui/store-overview-controls.mjs"
 NATIVE = ROOT / "system/composition/native/main.mjs"
 SETTINGS_MESSAGES = ROOT / "system/services/i18n/catalog/settings.mjs"
 STORE_MESSAGES = ROOT / "system/services/i18n/catalog/store.mjs"
-SETTINGS_APP = ROOT / "system/apps/settings/ai/manifest.mjs"
+SETTINGS_APP = ROOT / "system/services/system-ui/settings/ai/manifest.mjs"
 
 
 class SettingsLocalAiViewTests(unittest.TestCase):
@@ -40,8 +40,9 @@ class SettingsLocalAiViewTests(unittest.TestCase):
         self.assertIn('next.appId !== "store" || !VIEWS.includes(next.target)', store)
         self.assertIn('activeView = next.target;', store)
         self.assertIn('modelReadState === "idle"', store)
-        self.assertIn("      localAi,\n      productConnector,\n    );", native)
-        self.assertEqual(native.count("      localAi,\n      productConnector,\n    );"), 2)
+        self.assertEqual(native.count("      localAi,\n      productConnector,\n"), 2)
+        self.assertIn("      productConnector,\n      displayOutputs,", native)
+        self.assertIn("      productConnector,\n      null,", native)
         self.assertIn("createNativeProductConnector(window)", native)
         # Native Store uses the canonical window composition, not the retired
         # Store overview mount. Navigation still receives authorized activation.

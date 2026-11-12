@@ -2,7 +2,7 @@ name: Application Action Capability Foundation
 
 on:
   pull_request:
-    paths:
+    paths: &capability_sources
       - 'system/services/intelligence/application-context.mjs'
       - 'system/services/intelligence/application-semantic-router.mjs'
       - 'system/services/intelligence/verified-app-semantics.mjs'
@@ -38,44 +38,49 @@ on:
       - 'tests/test_personal_work_semantic_recovery.mjs'
       - 'tests/test_personal_intelligence_foreground_e2e.mjs'
       - '.github/workflows/application-action-capability-foundation.yml'
+      - 'system/contracts/capability-discovery.mjs'
+      - 'system/services/system-foundation/capability-discovery.mjs'
+      - 'system/services/system-foundation/current-verified-action-gate.mjs'
+      - 'system/services/intelligence/live-verified-app-semantics.mjs'
+      - 'system/services/personal-ordax/action-executor.mjs'
+      - 'system/services/personal-ordax/proposal-planner.mjs'
+      - 'tests/test_capability_discovery.mjs'
+      - 'tests/test_current_verified_action_gate.mjs'
+      - 'tests/test_capability_fabric_aura_context.mjs'
+      - 'tests/test_capability_fabric_native_action_bridge.mjs'
+      - 'tests/test_capability_fabric_windows_file_space_e2e.mjs'
+      - 'tests/test_application_action_manifest.mjs'
+      - 'tests/test_application_action_owner_ssot.mjs'
+      - 'tests/test_application_action_provider.mjs'
+      - 'tests/test_application_action_provider_activation.mjs'
+      - 'tests/test_desktop_browser_transport.mjs'
+      - 'tests/test_desktop_file_space.mjs'
+      - 'tests/test_native_app_lifecycle_delegate.mjs'
+      - 'tests/test_native_intelligence_host_bridge.mjs'
+      - 'tests/test_native_intelligence_service.mjs'
+      - 'tests/test_native_store_catalog_composition.mjs'
+      - 'tests/test_native_verified_app_store_catalog.mjs'
+      - 'tests/test_native_verified_installed_apps.mjs'
+      - 'tests/test_personal_ordax_action_catalog.mjs'
+      - 'tests/test_personal_ordax_action_executor.mjs'
+      - 'tests/test_personal_ordax_action_gateway.mjs'
+      - 'tests/test_personal_ordax_action_lifecycle.mjs'
+      - 'tests/test_personal_ordax_approval_consent.mjs'
+      - 'tests/test_personal_ordax_approvals.mjs'
+      - 'tests/test_personal_ordax_contracts.mjs'
+      - 'tests/test_personal_ordax_first_foreground_action.mjs'
+      - 'tests/test_personal_ordax_live_grant_reconciliation.mjs'
+      - 'tests/test_personal_ordax_native_file_action.mjs'
+      - 'tests/test_personal_ordax_native_state_migration.mjs'
+      - 'tests/test_personal_ordax_native_transport.mjs'
+      - 'tests/test_personal_ordax_runtime.mjs'
+      - 'tests/test_personal_ordax_store_adapters.mjs'
+      - 'tests/test_verified_store_projection.mjs'
   push:
-    branches: [main]
-    paths:
-      - 'system/services/intelligence/application-context.mjs'
-      - 'system/services/intelligence/application-semantic-router.mjs'
-      - 'system/services/intelligence/verified-app-semantics.mjs'
-      - 'system/apps/intelligence-catalog.mjs'
-      - 'system/apps/**/ai/**'
-      - 'tests/test_application_intelligence_context.mjs'
-      - 'tests/test_application_semantic_router.mjs'
-      - 'docs/APPLICATION-ACTIONS.md'
-      - 'system/contracts/application-action-capability.mjs'
-      - 'system/contracts/application-action-preparation.mjs'
-      - 'system/contracts/application-action-provider-binding.mjs'
-      - 'system/contracts/application-action-provider-manifest.mjs'
-      - 'system/contracts/application-action-provider-resolution.mjs'
-      - 'system/contracts/application-intelligence-awareness.mjs'
-      - 'system/services/intelligence/application-action-capabilities.mjs'
-      - 'system/services/personal-ordax/application-action-preparations.mjs'
-      - 'system/services/personal-ordax/application-action-proposal-planner.mjs'
-      - 'system/services/personal-ordax/application-action-provider-bindings.mjs'
-      - 'system/services/personal-ordax/application-action-provider-artifact-resolver.mjs'
-      - 'system/adapters/native/verified-component-artifact-identity.mjs'
-      - 'system/composition/native/personal-ordax.mjs'
-      - 'system/services/intelligence/application-awareness.mjs'
-      - 'tests/test_application_action_capability.mjs'
-      - 'tests/test_application_action_preparations.mjs'
-      - 'tests/test_application_action_provider_bindings.mjs'
-      - 'tests/test_application_action_provider_binding_composition.mjs'
-      - 'tests/test_application_action_provider_manifest.mjs'
-      - 'tests/test_application_action_provider_resolver.mjs'
-      - 'tests/test_native_verified_component_artifact_identity.mjs'
-      - 'tests/test_verified_app_semantics_source.mjs'
-      - 'tests/test_application_action_preparation_composition.mjs'
-      - 'tests/test_personal_ordax_native_composition.mjs'
-      - 'tests/test_personal_work_semantic_recovery.mjs'
-      - 'tests/test_personal_intelligence_foreground_e2e.mjs'
-      - '.github/workflows/application-action-capability-foundation.yml'
+    # Run only this lightweight contract gate on Fabric integration branches;
+    # do not opt the USB, Buildroot, or Windows release pipelines into pushes.
+    branches: [main, 'integration/capability-fabric-v1-*']
+    paths: *capability_sources
 
 permissions:
   contents: read
@@ -89,6 +94,11 @@ jobs:
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
         with:
           persist-credentials: false
+
+      - name: Set up the repository-supported Node runtime
+        uses: actions/setup-node@249970729cb0ef3589644e2896645e5dc5ba9c38 # v6
+        with:
+          node-version: '24'
 
       - name: Validate source syntax
         run: |
@@ -127,6 +137,15 @@ jobs:
           node --check tests/test_personal_work_semantic_recovery.mjs
           node --check tests/test_personal_intelligence_foreground_e2e.mjs
           node --check tests/test_verified_app_semantics_source.mjs
+          node --check system/contracts/capability-discovery.mjs
+          node --check system/services/system-foundation/capability-discovery.mjs
+          node --check system/services/system-foundation/current-verified-action-gate.mjs
+          node --check system/services/intelligence/live-verified-app-semantics.mjs
+          node --check tests/test_capability_discovery.mjs
+          node --check tests/test_current_verified_action_gate.mjs
+          node --check tests/test_capability_fabric_aura_context.mjs
+          node --check tests/test_capability_fabric_native_action_bridge.mjs
+          node --check tests/test_capability_fabric_windows_file_space_e2e.mjs
 
       - name: Run capability, preparation, provider binding, artifact resolution, composition and awareness contract tests
         run: |
@@ -146,3 +165,39 @@ jobs:
           node --test tests/test_application_intelligence_awareness.mjs
           node --test tests/test_application_intelligence_context.mjs
           node --test tests/test_application_semantic_router.mjs
+
+      - name: Verify Capability Fabric CURRENT, Aura, Native approval and File Space contracts
+        run: |
+          set -euo pipefail
+          node --test tests/test_capability_discovery.mjs tests/test_current_verified_action_gate.mjs tests/test_capability_fabric_aura_context.mjs tests/test_capability_fabric_native_action_bridge.mjs tests/test_capability_fabric_windows_file_space_e2e.mjs
+
+      - name: Verify remaining Native, Store, Personal and Desktop Fabric contracts
+        run: |
+          set -euo pipefail
+          node --test tests/test_application_action_manifest.mjs
+          node --test tests/test_application_action_owner_ssot.mjs
+          node --test tests/test_application_action_provider.mjs
+          node --test tests/test_application_action_provider_activation.mjs
+          node --test tests/test_desktop_browser_transport.mjs
+          node --test tests/test_desktop_file_space.mjs
+          node --test tests/test_native_app_lifecycle_delegate.mjs
+          node --test tests/test_native_intelligence_host_bridge.mjs
+          node --test tests/test_native_intelligence_service.mjs
+          node --test tests/test_native_store_catalog_composition.mjs
+          node --test tests/test_native_verified_app_store_catalog.mjs
+          node --test tests/test_native_verified_installed_apps.mjs
+          node --test tests/test_personal_ordax_action_catalog.mjs
+          node --test tests/test_personal_ordax_action_executor.mjs
+          node --test tests/test_personal_ordax_action_gateway.mjs
+          node --test tests/test_personal_ordax_action_lifecycle.mjs
+          node --test tests/test_personal_ordax_approval_consent.mjs
+          node --test tests/test_personal_ordax_approvals.mjs
+          node --test tests/test_personal_ordax_contracts.mjs
+          node --test tests/test_personal_ordax_first_foreground_action.mjs
+          node --test tests/test_personal_ordax_live_grant_reconciliation.mjs
+          node --test tests/test_personal_ordax_native_file_action.mjs
+          node --test tests/test_personal_ordax_native_state_migration.mjs
+          node --test tests/test_personal_ordax_native_transport.mjs
+          node --test tests/test_personal_ordax_runtime.mjs
+          node --test tests/test_personal_ordax_store_adapters.mjs
+          node --test tests/test_verified_store_projection.mjs

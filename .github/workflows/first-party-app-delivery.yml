@@ -4,7 +4,8 @@ on:
   push:
     branches: [main]
     paths:
-      - 'system/apps/files/**'
+      - 'system/composition/native/component-workspace-ports.mjs'
+      - 'system/services/components/verified-host-context.mjs'
       - 'system/apps/projects/**'
       - 'system/apps/internet/**'
       - 'system/apps/assistant/**'
@@ -63,6 +64,7 @@ on:
       - 'tests/test_verified_app_store_catalog.mjs'
       - 'tests/test_verified_store_projection.mjs'
       - 'tests/test_mvp_app_delivery.mjs'
+      - 'tests/test_zero_removable_bootstrap.mjs'
       - 'tests/test_native_store_catalog_composition.mjs'
       - 'tests/test_native_verified_app_store_catalog.mjs'
       - 'system/composition/native/store-catalog.mjs'
@@ -72,7 +74,8 @@ on:
       - '.github/workflows/first-party-app-delivery.yml'
   pull_request:
     paths:
-      - 'system/apps/files/**'
+      - 'system/composition/native/component-workspace-ports.mjs'
+      - 'system/services/components/verified-host-context.mjs'
       - 'system/apps/projects/**'
       - 'system/apps/internet/**'
       - 'system/apps/assistant/**'
@@ -128,6 +131,7 @@ on:
       - 'tests/test_verified_app_store_catalog.mjs'
       - 'tests/test_verified_store_projection.mjs'
       - 'tests/test_mvp_app_delivery.mjs'
+      - 'tests/test_zero_removable_bootstrap.mjs'
       - 'tests/test_native_store_catalog_composition.mjs'
       - 'tests/test_native_verified_app_store_catalog.mjs'
       - 'system/composition/native/store-catalog.mjs'
@@ -150,6 +154,9 @@ jobs:
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
         with:
           persist-credentials: false
+
+      - name: Prepare pinned Surface source in disposable CI checkout
+        uses: ./.github/actions/prepare-verified-surface
 
       - name: Prove six-app portable source boundaries
         run: |
@@ -211,6 +218,7 @@ jobs:
           node --check tests/test_native_app_lifecycle_delegate.mjs
           node --check tests/test_native_store_catalog_composition.mjs
           node --check tests/test_mvp_app_delivery.mjs
+          node --check tests/test_zero_removable_bootstrap.mjs
           python -m json.tool docs/contracts/first-party-app-delivery.json >/dev/null
           python -m json.tool docs/contracts/app-distribution.json >/dev/null
           python -m json.tool docs/contracts/mvp-app-delivery.json >/dev/null
@@ -246,3 +254,4 @@ jobs:
         run: |
           set -euo pipefail
           node --test tests/test_mvp_app_delivery.mjs
+          node --test tests/test_zero_removable_bootstrap.mjs

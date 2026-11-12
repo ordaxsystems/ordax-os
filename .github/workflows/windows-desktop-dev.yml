@@ -1,0 +1,427 @@
+name: Windows Desktop Dev (SSOT)
+on:
+  workflow_call:
+    inputs:
+      os_sha:
+        description: Exact canonical OS commit
+        type: string
+        required: true
+      desktop_sha:
+        description: Exact canonical Electron owner commit
+        type: string
+        required: true
+      publish_dev_release:
+        description: Publish verified unsigned NSIS to the caller Desktop GitHub prerelease
+        type: boolean
+        default: false
+
+# On fast-moving main, do not rebuild an already superseded source commit.
+concurrency:
+  group: windows-desktop-dev-${{ github.workflow }}-${{ github.event.pull_request.number || github.ref }}
+  cancel-in-progress: true
+
+permissions:
+  # The Desktop caller supplies an explicit write grant for opt-in Dev Release.
+  # GitHub never permits a reusable workflow to elevate the caller's token.
+  contents: write
+jobs:
+  desktop-dev:
+    # The pinned Intelligence builder uses Visual Studio 17 2022 / MSVC x64.
+    # Match the independently proven Windows inference runner exactly.
+    runs-on: windows-2022
+    timeout-minutes: 45
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
+        with:
+          repository: ordaxsystems/ordax-os
+          ref: ${{ inputs.os_sha }}
+          persist-credentials: false
+      - name: Checkout canonical Desktop owner source (reusable workflow only)
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
+        with:
+          repository: ordaxsystems/ordax-desktop
+          ref: ${{ inputs.desktop_sha }}
+          path: out/ordax-desktop-source
+          persist-credentials: false
+      - name: Assert exact installer OS source identity
+        shell: pwsh
+        env:
+          EXPECTED_SOURCE_SHA: ${{ inputs.os_sha }}
+        run: |
+          $actual = (& git rev-parse HEAD).Trim()
+          if ($LASTEXITCODE -ne 0 -or $actual -cne $env:EXPECTED_SOURCE_SHA) {
+            throw 'Windows installer source does not match the requested Git SHA'
+          }
+          Write-Output "DESKTOP_INSTALLER_SOURCE_SHA=$actual"
+      - uses: actions/setup-node@249970729cb0ef3589644e2896645e5dc5ba9c38 # v6
+        with:
+          node-version: '24'
+          cache: npm
+      - uses: actions/setup-python@ece7cb06caefa5fff74198d8649806c4678c61a1 # v6
+        with:
+          python-version: '3.12'
+      - name: Verify and mount the single pinned Surface source in disposable Windows CI
+        shell: pwsh
+        run: |
+          $ErrorActionPreference = 'Stop'
+          $lock = Get-Content 'docs/contracts/surface-source.json' -Raw | ConvertFrom-Json
+          if ($lock.source_repository -ne 'ordaxsystems/ordax-surface' -or
+              $lock.status -ne 'canonical' -or
+              $lock.source_commit -notmatch '^[0-9a-f]{40}$') {
+            throw 'Untrusted Surface source lock'
+          }
+          foreach ($part in @('ui','workspace')) {
+            if (Test-Path "system/surface/$part") { throw 'OS visual duplication detected' }
+          }
+          $source = Join-Path $env:RUNNER_TEMP 'ordax-desktop-pinned-surface'
+          $stage = Join-Path $env:RUNNER_TEMP 'ordax-desktop-verified-surface'
+          & git -c core.autocrlf=false clone --config core.autocrlf=false --filter=blob:none --single-branch --branch main --no-tags https://github.com/ordaxsystems/ordax-surface.git $source
+          if ($LASTEXITCODE -ne 0) { throw 'Canonical Surface Git acquisition failed' }
+          & git -C $source checkout --detach $lock.source_commit
+          if ($LASTEXITCODE -ne 0) { throw 'Pinned Surface commit missing' }
+          $head = (& git -C $source rev-parse HEAD).Trim()
+          if ($LASTEXITCODE -ne 0 -or $head -cne $lock.source_commit) {
+            throw 'Pinned Surface differs from OS SSOT'
+          }
+          & python tools/surface-source/materialize.py stage --source-dir $source --out-dir $stage
+          if ($LASTEXITCODE -ne 0) { throw 'Pinned Surface verification failed' }
+          $receipt = Get-Content (Join-Path $stage 'surface-source-receipt.json') -Raw | ConvertFrom-Json
+          if ($receipt.source_commit -cne $lock.source_commit -or
+              $receipt.source_repository -ne $lock.source_repository -or
+              $receipt.file_count -le 0) { throw 'Untrusted Surface receipt' }
+          foreach ($part in @('ui','workspace')) {
+            $verified = Join-Path $stage "system/surface/$part"
+            if (-not (Test-Path $verified -PathType Container)) { throw 'Incomplete pinned Surface tree' }
+            Copy-Item -LiteralPath $verified -Destination "system/surface/$part" -Recurse
+          }
+          Write-Output "WINDOWS_SINGLE_SURFACE_SOURCE=VERIFIED commit=$head"
+      - name: Audit exact Windows packaged Native system footprint
+        run: |
+          node --test out/ordax-desktop-source/package-inventory.test.cjs
+          node out/ordax-desktop-source/package-inventory.cjs
+          node --test out/ordax-desktop-source/standalone-stage.test.cjs
+      - name: Install canonical workspace
+        run: npm ci --no-audit --no-fund
+      - name: Test Native host and desktop contracts
+        shell: pwsh
+        run: |
+          $ErrorActionPreference = 'Stop'
+          $suites = @(
+            "tests/test_desktop_network_status.mjs",
+            "system/adapters/desktop/product-runtime-supervisor.test.mjs",
+            "tests/test_desktop_system_metrics.mjs",
+            "tests/test_desktop_power_status.mjs",
+            "tests/test_windows_desktop_display_current_modes.mjs",
+            "tests/test_windows_desktop_local_ai_package.mjs",
+            "tests/test_windows_desktop_local_ai_host.mjs",
+            "tests/test_desktop_file_space.mjs",
+            "tests/test_desktop_update_status.mjs",
+            "tests/test_desktop_recovery_status.mjs",
+            "tests/test_desktop_recovery_surface.mjs",
+            "tests/test_desktop_boot_gate.mjs",
+            "tests/test_windows_emulator_native_host.mjs",
+            "tests/test_desktop_browser_transport.mjs",
+            "out/ordax-desktop-source/browser-host.test.cjs",
+            "out/ordax-desktop-source/host-startup.test.cjs",
+            "out/ordax-desktop-source/native-build.test.cjs",
+            "out/ordax-desktop-source/surface-stage.test.cjs",
+            "out/ordax-desktop-source/dev-update-real-build.test.cjs",
+            "out/ordax-desktop-source/dev-update.test.cjs",
+            "out/ordax-desktop-source/runtime.test.cjs",
+            "out/ordax-desktop-source/runtime-toolchain.test.cjs",
+            "out/ordax-desktop-source/toolchain-cache.test.cjs",
+            "out/ordax-desktop-source/checkout.test.cjs"
+          )
+          foreach ($suite in $suites) {
+            & node --test $suite
+            if ($LASTEXITCODE -ne 0) {
+              throw "Desktop/Native contract failed: $suite (exit $LASTEXITCODE)"
+            }
+          }
+      - name: Prove signed stateless Native compatibility and verified optional app mounts
+        run: node --test tests/test_native_signed_current_compatibility.mjs tests/test_native_verified_installed_apps.mjs
+      - name: Prove signed-current Desktop bridge remains read-only and fail-closed
+        run: node --test tools/windows-emulator/desktop-verified-component-slot.test.mjs
+      - name: Install desktop shell toolchain
+        working-directory: out/ordax-desktop-source
+        run: npm ci --no-audit --no-fund
+      - name: Prove detached Desktop HMR against disposable OS and Surface Git checkouts
+        run: node --test out/ordax-desktop-source/local-dev.test.cjs
+      - name: Test installed Native HTTP host without Vite
+        run: node --test tools/windows-emulator/desktop-built-assets.test.mjs tools/windows-emulator/desktop-native-server.test.mjs
+      - name: Compile canonical Native Surface for Windows
+        run: npx vite build --config out/ordax-desktop-source/vite-native-build.mjs
+      - name: Measure both verified Native representations before NSIS
+        run: node out/ordax-desktop-source/package-inventory.cjs --compiled
+      - name: Bind installer to exact OS + Surface Native provenance
+        shell: pwsh
+        run: |
+          $ErrorActionPreference = 'Stop'
+          $receipt = Join-Path $env:RUNNER_TEMP 'ordax-desktop-verified-surface/surface-source-receipt.json'
+          if (-not (Test-Path -LiteralPath $receipt -PathType Leaf)) { throw 'Surface materialization receipt missing' }
+          $sha = (& git rev-parse HEAD).Trim()
+          & node out/ordax-desktop-source/bundle-provenance.cjs . $receipt $sha
+          if ($LASTEXITCODE -ne 0) { throw 'Installer OS/Surface source attestation failed' }
+      - name: Verify canonical compiled entry
+        shell: pwsh
+        run: |
+          $html = "out/windows-desktop-native/system/composition/native/index.html"
+          if (-not (Test-Path $html -PathType Leaf)) { throw "Native build did not produce HTML" }
+          $contents = Get-Content $html -Raw
+          if ($contents -notmatch '/__ordax/desktop-assets/assets/') { throw "Native bundle references not fingerprinted assets" }
+          $scripts = @(Get-ChildItem "out/windows-desktop-native/assets" -File -Filter "*.js")
+          if ($scripts.Count -eq 0) { throw "Native bundle has no JavaScript" }
+          Write-Output ("NATIVE_BUNDLE_SMOKE=PASS assets=" + $scripts.Count)
+      - name: Materialize minimal canonical Native runtime dependencies
+        run: node out/ordax-desktop-source/runtime-toolchain.cjs
+      - name: Restore content-pinned Windows Aura engine and model cache
+        id: aura-cache
+        uses: actions/cache/restore@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
+        with:
+          path: out/windows-local-ai-runtime
+          key: ordax-windows-aura-v1-${{ runner.os }}-${{ hashFiles('system/services/local-ai/source-lock.json') }}
+      - name: Acquire exact Intelligence source for Windows engine on cache miss
+        if: steps.aura-cache.outputs.cache-hit != 'true'
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
+        with:
+          repository: ordaxsystems/ordax-intelligence
+          ref: e739adffc566ae8855a9a521754e32e3ab96c1e1
+          path: out/_upstream/ordax-intelligence
+          persist-credentials: false
+      - name: Build and stage exact verified offline Aura payload (cache miss only)
+        if: steps.aura-cache.outputs.cache-hit != 'true'
+        shell: pwsh
+        run: |
+          $ErrorActionPreference = 'Stop'
+          $candidate = Join-Path $env:RUNNER_TEMP 'ordax-windows-ai-candidate'
+          $cache = Join-Path $env:RUNNER_TEMP 'ordax-verified-gguf'
+          & python out/_upstream/ordax-intelligence/tools/inference-builder/windows-candidate.py --os-source . --out-dir $candidate --cache-dir $cache
+          if ($LASTEXITCODE -ne 0) { throw 'Canonical Windows Intelligence engine build failed' }
+          $lock = Get-Content system/services/local-ai/source-lock.json -Raw | ConvertFrom-Json
+          $model = Join-Path $cache $lock.model.filename
+          & node out/ordax-desktop-source/materialize-local-ai.cjs $candidate $model out/windows-local-ai-runtime
+          if ($LASTEXITCODE -ne 0) { throw 'Pinned Aura runtime assembly failed' }
+      - name: Verify complete offline Aura bytes even after cache restoration
+        shell: pwsh
+        run: |
+          node --input-type=module -e "import('./system/adapters/desktop/local-ai-package.mjs').then(m=>m.verifyWindowsLocalAiPackage('out/windows-local-ai-runtime')).then(x=>console.log('WINDOWS_AURA_PAYLOAD_VERIFIED='+x.modelId)).catch(e=>{console.error(e);process.exitCode=1})"
+          if ($LASTEXITCODE -ne 0) { throw 'Windows Aura package digest mismatch' }
+      - name: Save verified content-pinned Windows Aura cache
+        if: steps.aura-cache.outputs.cache-hit != 'true'
+        uses: actions/cache/save@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
+        with:
+          path: out/windows-local-ai-runtime
+          key: ordax-windows-aura-v1-${{ runner.os }}-${{ hashFiles('system/services/local-ai/source-lock.json') }}
+      - name: Set up canonical runtime-component Go toolchain
+        uses: actions/setup-go@b7ad1dad31e06c5925ef5d2fc7ad053ef454303e # v7
+        with:
+          go-version: '1.27.1'
+          cache-dependency-path: tools/runtime-component-channel/go.mod
+      - name: Prove signed component slot file attributes on real Windows
+        shell: pwsh
+        run: |
+          Push-Location tools/runtime-component-channel
+          try {
+            & go test -count=1 -run '^(TestWindowsSignedChannelAllowsCanonicalTempWithoutReparsePoint|TestWindowsSignedProductRuntimeSlotRequiresReadOnlyAttribute|TestWindowsProductRuntimePERejectsMalformedPayload|TestSignedProductRuntimeRejectsCrossTargetPayloads)$' .
+            if ($LASTEXITCODE -ne 0) { throw 'Windows signed component slot regression failed' }
+          } finally {
+            Pop-Location
+          }
+      - name: Build the one canonical read-only Windows component verifier
+        shell: pwsh
+        run: |
+          $ErrorActionPreference = 'Stop'
+          $output = Join-Path $PWD 'out/windows-desktop-components'
+          New-Item -ItemType Directory -Path $output -Force | Out-Null
+          $binary = Join-Path $output 'ordax-runtime-component-channel.exe'
+          Push-Location tools/runtime-component-channel
+          try {
+            $env:CGO_ENABLED = '0'
+            & go build -trimpath -buildvcs=false -ldflags='-s -w' -o $binary .
+            if ($LASTEXITCODE -ne 0) { throw 'Canonical Windows component verifier build failed' }
+          } finally {
+            Pop-Location
+          }
+          $entry = Get-Item -LiteralPath $binary
+          if ($entry.Length -le 0 -or $entry.Length -gt 32MB) {
+            throw 'Canonical component verifier binary size is invalid'
+          }
+          Write-Output "WINDOWS_RUNTIME_COMPONENT_VERIFIER_BUILT=YES"
+          Write-Output ("WINDOWS_RUNTIME_COMPONENT_VERIFIER_SHA256=" + (Get-FileHash -LiteralPath $binary -Algorithm SHA256).Hash.ToLowerInvariant())
+      - name: Stage and verify standalone Windows packaging inputs
+        shell: pwsh
+        env:
+          DESKTOP_OWNER_SHA: ${{ inputs.desktop_sha }}
+        run: |
+          $ErrorActionPreference = 'Stop'
+          $sha = (& git rev-parse HEAD).Trim()
+          if ($env:DESKTOP_OWNER_SHA -cnotmatch '^[a-f0-9]{40}$') { throw 'Exact Desktop SHA required' }
+          $desktopRoot = Join-Path $PWD 'out/ordax-desktop-source'
+          & node out/ordax-desktop-source/standalone-stage.cjs $sha --os-root "$PWD" --desktop-root $desktopRoot --desktop-sha $env:DESKTOP_OWNER_SHA
+          if ($LASTEXITCODE -ne 0) { throw 'Standalone Desktop source staging failed' }
+          $manifest = Get-Content 'out/windows-desktop-standalone/stage-manifest.json' -Raw | ConvertFrom-Json
+          if ($manifest.desktop_sha -cne $env:DESKTOP_OWNER_SHA -or
+              $manifest.desktop_owner -cne 'ordaxsystems/ordax-desktop' -or
+              $manifest.runtime_owner -cne 'ordaxsystems/ordax-os') {
+            throw 'Installer manifest does not bind the canonical source owners'
+          }
+          Write-Output "WINDOWS_DESKTOP_DETACHED_SOURCE=VERIFIED os=$sha desktop=$env:DESKTOP_OWNER_SHA"
+      # Install the Desktop owner dependencies in the disposable stage.
+      - name: Install standalone Windows shell toolchain
+        working-directory: out/windows-desktop-standalone/shell
+        run: npm ci --prefer-offline --no-audit --no-fund
+      - name: Build unsigned Windows installer from verified standalone shell
+        working-directory: out/windows-desktop-standalone/shell
+        run: npm run dist:win
+        env:
+          CSC_IDENTITY_AUTO_DISCOVERY: 'false'
+      - name: Verify isolated NSIS installation and Native files
+        shell: pwsh
+        run: |
+          $version = (Get-Content out/windows-desktop-standalone/shell/package.json -Raw | ConvertFrom-Json).version
+          $installer = "out/windows-desktop-installer/OrdaX-OS-Desktop-Dev-$version-x64.exe"
+          pwsh -NoProfile -File out/ordax-desktop-source/install-smoke.ps1 -Installer $installer
+      # Same canonical NSIS producer, independent durable release gate.
+      # This step runs only AFTER the isolated NSIS/Native installation proof.
+      - name: Publish and verify official unsigned Desktop Dev prerelease
+        if: inputs.publish_dev_release
+        shell: pwsh
+        env:
+          GH_TOKEN: ${{ github.token }}
+          DESKTOP_SOURCE_SHA: ${{ inputs.desktop_sha }}
+          OS_SOURCE_SHA: ${{ inputs.os_sha }}
+        run: |
+          $InstallerRoot = 'out/windows-desktop-installer'
+          $StageManifest = 'out/windows-desktop-standalone/stage-manifest.json'
+          $SurfaceLock = 'docs/contracts/surface-source.json'
+          $SurfaceReceipt = Join-Path $env:RUNNER_TEMP 'ordax-desktop-verified-surface/surface-source-receipt.json'
+          Set-StrictMode -Version Latest
+          $ErrorActionPreference = 'Stop'
+          $repo = $env:GITHUB_REPOSITORY
+          $desktopSha = $env:DESKTOP_SOURCE_SHA
+          $osSha = $env:OS_SOURCE_SHA
+          if ($repo -cne 'ordaxsystems/ordax-desktop' -or
+              $desktopSha -cnotmatch '^[a-f0-9]{40}$' -or
+              $osSha -cnotmatch '^[a-f0-9]{40}$' -or
+              [string]::IsNullOrWhiteSpace($env:GH_TOKEN)) {
+            throw 'Official Desktop caller, source SHAs and release authorization required'
+          }
+          if (-not (Get-Command gh -ErrorAction SilentlyContinue)) { throw 'Official GitHub CLI unavailable' }
+          $osHead = (& git rev-parse HEAD).Trim()
+          if ($LASTEXITCODE -ne 0 -or $osHead -cne $osSha) { throw 'OS source checkout mismatch' }
+          $stage = Get-Content -LiteralPath $StageManifest -Raw | ConvertFrom-Json
+          $surface = Get-Content -LiteralPath $SurfaceLock -Raw | ConvertFrom-Json
+          $receipt = Get-Content -LiteralPath $SurfaceReceipt -Raw | ConvertFrom-Json
+          if ($stage.desktop_sha -cne $desktopSha -or
+              $stage.desktop_owner -cne 'ordaxsystems/ordax-desktop' -or
+              $stage.runtime_owner -cne 'ordaxsystems/ordax-os' -or
+              $surface.source_repository -cne 'ordaxsystems/ordax-surface' -or
+              $surface.source_commit -cnotmatch '^[a-f0-9]{40}$' -or
+              $receipt.source_repository -cne $surface.source_repository -or
+              $receipt.source_commit -cne $surface.source_commit) {
+            throw 'Desktop, OS or verified Surface provenance mismatch'
+          }
+          $version = (Get-Content -LiteralPath 'out/windows-desktop-standalone/shell/package.json' -Raw | ConvertFrom-Json).version
+          if ($version -cnotmatch '^0[.]1[.]0-alpha[.][0-9]+$') { throw 'Only unsigned alpha Dev releases are eligible' }
+          $exeName = "OrdaX-OS-Desktop-Dev-$version-x64.exe"
+          $exePath = Join-Path $InstallerRoot $exeName
+          $exe = Get-Item -LiteralPath $exePath -ErrorAction Stop
+          if ($exe.Length -lt 100MB) { throw 'Incomplete NSIS installer candidate' }
+          $sha256 = (Get-FileHash -LiteralPath $exe.FullName -Algorithm SHA256).Hash.ToLowerInvariant()
+          $tag = "desktop-dev-v$version-$($desktopSha.Substring(0,12))"
+          $dir = Join-Path $env:RUNNER_TEMP 'ordax-desktop-dev-release'
+          New-Item -Path $dir -ItemType Directory -Force | Out-Null
+          $checksumPath = Join-Path $dir "$exeName.sha256"
+          $provenancePath = Join-Path $dir "$exeName.provenance.json"
+          $notesPath = Join-Path $dir 'RELEASE_NOTES.md'
+          $utf8 = [Text.UTF8Encoding]::new($false)
+          [IO.File]::WriteAllText($checksumPath, "$sha256  $exeName" + [Environment]::NewLine, $utf8)
+          $provenance = [ordered]@{
+            schema = 'ordax.desktop-dev-release/1'
+            channel = 'development'
+            unsigned = $true
+            installer = $exeName
+            sha256 = $sha256
+            size_bytes = $exe.Length
+            desktop_repository = $repo
+            desktop_source_commit = $desktopSha
+            os_repository = 'ordaxsystems/ordax-os'
+            os_source_commit = $osSha
+            surface_repository = $surface.source_repository
+            surface_source_commit = $surface.source_commit
+            checks = @('desktop-source-contracts', 'canonical-NSIS', 'isolated-NSIS-and-Native-smoke')
+            component_trust = 'operator-ceremony-pending'
+          }
+          [IO.File]::WriteAllText($provenancePath, ($provenance | ConvertTo-Json -Depth 6) + [Environment]::NewLine, $utf8)
+          $notes = @(
+            "OrdaX Desktop Dev $version - UNSIGNED prerelease. NOT Stable.",
+            "Desktop: $desktopSha",
+            "OS: $osSha",
+            "Surface: $($surface.source_commit)",
+            "Installer SHA-256: $sha256",
+            "CI: $($env:GITHUB_SERVER_URL)/$repo/actions/runs/$($env:GITHUB_RUN_ID)",
+            'The canonical NSIS producer passed isolated Windows install/Native verification.',
+            'Component signing and Calculator activation remain separately gated.'
+          ) -join [Environment]::NewLine
+          [IO.File]::WriteAllText($notesPath, $notes + [Environment]::NewLine, $utf8)
+          # A rerun may adopt only a byte-for-byte matching existing release. Never
+          # silently overwrite another source revision or a partial asset publication.
+          # GitHub deliberately returns 404 for draft releases by tag.
+          # List releases using the caller's write-granted token, including drafts.
+          $releases = @(& gh api "repos/$repo/releases?per_page=100" | ConvertFrom-Json)
+          if ($LASTEXITCODE -ne 0) { throw 'Cannot inspect Desktop Dev Releases' }
+          $found = @($releases | Where-Object { $_.tag_name -ceq $tag })
+          if ($found.Count -gt 1) { throw 'Ambiguous Dev Release tag' }
+          if ($found.Count -eq 0) {
+            & gh release create $tag $exe.FullName $checksumPath $provenancePath -R $repo --target $desktopSha --draft --prerelease --latest=false --title "OrdaX Desktop Dev $version (UNSIGNED)" --notes-file $notesPath
+            if ($LASTEXITCODE -ne 0) { throw 'GitHub Release asset upload failed' }
+            $releases = @(& gh api "repos/$repo/releases?per_page=100" | ConvertFrom-Json)
+            if ($LASTEXITCODE -ne 0) { throw 'Cannot inspect uploaded draft Release' }
+            $found = @($releases | Where-Object { $_.tag_name -ceq $tag })
+          }
+          if ($found.Count -ne 1) { throw 'Dev Release not found in authenticated inventory' }
+          $release = $found[0]
+          if ($release.target_commitish -cne $desktopSha -or
+              $release.prerelease -ne $true) {
+            throw 'Release target commit or prerelease classification mismatch'
+          }
+          $files = @($exe.FullName, $checksumPath, $provenancePath)
+          if (@($release.assets).Count -ne $files.Count) { throw 'Unexpected Release asset inventory' }
+          foreach ($path in $files) {
+            $f = Get-Item -LiteralPath $path -ErrorAction Stop
+            $a = @($release.assets | Where-Object { $_.name -ceq $f.Name })
+            $digest = 'sha256:' + (Get-FileHash -LiteralPath $path -Algorithm SHA256).Hash.ToLowerInvariant()
+            if ($a.Count -ne 1 -or $a[0].size -ne $f.Length -or
+                $a[0].digest -cne $digest -or $a[0].state -cne 'uploaded') {
+              throw "Release digest, size, or upload state mismatch for $($f.Name)"
+            }
+          }
+          if ($release.draft) {
+            & gh release edit $tag -R $repo --draft=false
+            if ($LASTEXITCODE -ne 0) { throw 'Release publication failed' }
+          }
+          $published = (& gh api "repos/$repo/releases/tags/$tag" | ConvertFrom-Json)
+          if ($LASTEXITCODE -ne 0 -or $published.draft -or
+              $published.target_commitish -cne $desktopSha -or
+              $published.prerelease -ne $true -or @($published.assets).Count -ne 3) {
+            throw 'Public GitHub Dev Release verification failed'
+          }
+          $ref = (& gh api "repos/$repo/git/ref/tags/$tag" | ConvertFrom-Json)
+          if ($LASTEXITCODE -ne 0 -or $ref.object.type -cne 'commit' -or $ref.object.sha -cne $desktopSha) {
+            throw 'Published release tag does not point to the exact Desktop source commit'
+          }
+          Write-Output 'ORDAX_DESKTOP_DEV_RELEASE=VERIFIED'
+          Write-Output 'ORDAX_DESKTOP_DEV_UNSIGNED=YES'
+          Write-Output "ORDAX_DESKTOP_DEV_RELEASE_TAG=$tag"
+          Write-Output "ORDAX_DESKTOP_DEV_SHA256=$sha256"
+          Write-Output "ORDAX_DESKTOP_DEV_SOURCE_COMMIT=$desktopSha"
+          Write-Output "ORDAX_DESKTOP_DEV_OS_COMMIT=$osSha"
+          Write-Output "ORDAX_DESKTOP_DEV_SURFACE_COMMIT=$($surface.source_commit)"
+      # Legacy Actions artifact remains mandatory if no durable Release was requested.
+      - uses: actions/upload-artifact@b7c566a772e6b6bfb58ed0dc250532a479d7789f # v6
+        if: ${{ !inputs.publish_dev_release }}
+        with:
+          name: ordax-desktop-dev-alpha-windows
+          path: out/windows-desktop-installer/*.exe
+          if-no-files-found: error
+          retention-days: 14

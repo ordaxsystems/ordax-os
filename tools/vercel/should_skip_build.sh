@@ -21,7 +21,6 @@ fi
 case "$project" in
   prj_mA9ew6hOfjdqlBr1cC757iMLPQJC)
     if git diff --quiet "$previous" "$current" -- \
-      sites/public \
       tools/public-site \
       tools/brand \
       tools/vercel \
@@ -36,19 +35,11 @@ case "$project" in
     fi
     ;;
   prj_ftACluUqk6i9DoD9GPIwmgURwckP)
-    # The Web artifact consumes the Surface plus the exact canonical login
-    # dependency closure. Unrelated public portal pages and the public artifact
-    # builder must not rebuild Web.
+    # Web composes the pinned independent Site login and Surface source.
+    # Neither source is copied into OS Git; their lock changes are watched
+    # through docs/contracts and the resolver through tools/vercel.
     if git diff --quiet "$previous" "$current" -- \
       system \
-      sites/public/login/index.html \
-      sites/public/assets/site.css \
-      sites/public/assets/account.css \
-      sites/public/assets/site.js \
-      sites/public/i18n/catalog.js \
-      sites/public/i18n/runtime.js \
-      sites/public/config/public-site.json \
-      tools/public-site/public_html_render.py \
       tools/surface-web \
       tools/brand \
       tools/source_graph.py \

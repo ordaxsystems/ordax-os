@@ -103,7 +103,7 @@ export async function runPendingComponentProbation({
     });
     const runtimeUrl = slotSource.runtimeUrl(resolution);
     const module = await withTimeout(
-      () => importModule(runtimeUrl),
+      () => importModule(runtimeUrl, resolution),
       timeout,
       "module import",
     );

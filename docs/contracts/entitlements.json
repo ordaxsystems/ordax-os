@@ -1,6 +1,6 @@
 {
   "$schema": "prototype-ordax.entitlements/1",
-  "status": "pre-mvp-plan-structure-defined-pricing-open",
+  "status": "commercial-reference-catalog-defined-billing-and-paid-allocation-disabled",
   "owner": "system/services/entitlements",
   "stable_port": "ordax.entitlements/1",
   "principles": {
@@ -56,10 +56,13 @@
     "default_plan_id": "free",
     "only_free_assignable_before_billing_activation": true,
     "cost_sensitive_cloud_quotas_frozen": false,
-    "cost_sensitive_cloud_quotas_require_measured_unit_cost": true
+    "cost_sensitive_cloud_quotas_require_measured_unit_cost": true,
+    "reference_prices_defined": true,
+    "reference_catalog_authorized_at": "2026-10-22",
+    "reference_catalog_is_purchase_authority": false
   },
   "plan_catalog": {
-    "status": "prelaunch-structure-frozen-pricing-open",
+    "status": "reference-offers-published-purchases-disabled",
     "default_plan_id": "free",
     "purchasable_paid_plans_enabled": false,
     "price_fields": null,
@@ -86,7 +89,21 @@
           "local-intelligence",
           "local-memory",
           "two-private-spaces"
-        ]
+        ],
+        "commercial_offer": {
+          "status": "reference-not-purchasable",
+          "currency": "BRL",
+          "monthly_price_minor": 0,
+          "billing_unit": "account",
+          "summary": "Sistema, apps essenciais e memória locais, com dois Spaces privados.",
+          "reference_capacity": {
+            "storage_bytes": 0,
+            "mcp_calls_monthly": 0,
+            "history_days": 0
+          },
+          "paid_ai_included": false,
+          "capacity_allocated": false
+        }
       },
       {
         "id": "personal",
@@ -110,7 +127,21 @@
           "small-shared-spaces",
           "external-model-routing",
           "basic-connectors-and-automations"
-        ]
+        ],
+        "commercial_offer": {
+          "status": "reference-not-purchasable",
+          "currency": "BRL",
+          "monthly_price_minor": 4990,
+          "billing_unit": "account",
+          "summary": "Continuidade pessoal, memória em nuvem, sincronização, backup e pequeno compartilhamento.",
+          "reference_capacity": {
+            "storage_bytes": 50000000000,
+            "mcp_calls_monthly": 10000,
+            "history_days": 30
+          },
+          "paid_ai_included": false,
+          "capacity_allocated": false
+        }
       },
       {
         "id": "professional",
@@ -134,7 +165,21 @@
           "higher-external-model-compute",
           "advanced-connectors-and-automations",
           "priority-support"
-        ]
+        ],
+        "commercial_offer": {
+          "status": "reference-not-purchasable",
+          "currency": "BRL",
+          "monthly_price_minor": 9990,
+          "billing_unit": "account",
+          "summary": "Maior capacidade para projetos profissionais, conectores, automações e suporte prioritário.",
+          "reference_capacity": {
+            "storage_bytes": 200000000000,
+            "mcp_calls_monthly": 50000,
+            "history_days": 90
+          },
+          "paid_ai_included": false,
+          "capacity_allocated": false
+        }
       },
       {
         "id": "team",
@@ -158,7 +203,21 @@
           "organization-connectors",
           "team-automations",
           "priority-support"
-        ]
+        ],
+        "commercial_offer": {
+          "status": "reference-not-purchasable",
+          "currency": "BRL",
+          "monthly_price_minor": 24990,
+          "billing_unit": "organization",
+          "summary": "Spaces de equipe, administração de acesso e capacidade compartilhada por organização.",
+          "reference_capacity": {
+            "storage_bytes": 500000000000,
+            "mcp_calls_monthly": 100000,
+            "history_days": 90
+          },
+          "paid_ai_included": false,
+          "capacity_allocated": false
+        }
       }
     ],
     "cost_sensitive_quota_keys_pending_unit_cost_validation": [
@@ -176,6 +235,101 @@
       "profile_pack_category_does_not_imply_paid_plan": true,
       "paid_remote_value_requires_server_authoritative_entitlement": true,
       "downgrade_never_silently_deletes_user_data": true
-    }
+    },
+    "commercial_capacity_allocation_enabled": false,
+    "reference_price_fields": [
+      "commercial_offer.currency",
+      "commercial_offer.monthly_price_minor"
+    ],
+    "commercial_rules": {
+      "identity_and_local_os_independent_of_subscription": true,
+      "paid_ai_included": false,
+      "mcp_internal_transport_counts_as_customer_call": false,
+      "duplicate_retry_counts_again": false,
+      "provider_fees_included": false,
+      "silent_data_deletion_on_downgrade": false,
+      "paid_seats_defined": false,
+      "reference_prices_are_checkout_quotes": false,
+      "capacity_targets_require_measured_unit_cost_before_allocation": true
+    },
+    "additional_offers": [
+      {
+        "id": "mcp",
+        "display_name": "OrdaX MCP",
+        "status": "reference-not-purchasable",
+        "currency": "BRL",
+        "monthly_price_minor": 2990,
+        "summary": "10 mil chamadas por mês. Incluído nos planos pagos. A IA é contratada pelo cliente.",
+        "kind": "standalone",
+        "included_in": [
+          "personal",
+          "professional",
+          "team"
+        ],
+        "reference_capacity": {
+          "mcp_calls_monthly": 10000
+        }
+      },
+      {
+        "id": "storage-100gb",
+        "display_name": "Armazenamento adicional",
+        "status": "reference-not-purchasable",
+        "currency": "BRL",
+        "monthly_price_minor": 1990,
+        "summary": "Mais 100 GB para arquivos, versões e backups pessoais.",
+        "kind": "addon",
+        "reference_capacity": {
+          "storage_bytes": 100000000000
+        }
+      },
+      {
+        "id": "mcp-10000",
+        "display_name": "Chamadas MCP adicionais",
+        "status": "reference-not-purchasable",
+        "currency": "BRL",
+        "monthly_price_minor": 990,
+        "summary": "Pacote opcional de 10 mil chamadas. Sem cobrança automática por excedente.",
+        "kind": "addon",
+        "reference_capacity": {
+          "mcp_calls_monthly": 10000
+        }
+      },
+      {
+        "id": "flow",
+        "display_name": "OrdaX Flow",
+        "status": "reference-not-purchasable",
+        "currency": "BRL",
+        "monthly_price_minor": null,
+        "summary": "Conversas e projetos com IA por API autorizada e créditos próprios.",
+        "kind": "product"
+      },
+      {
+        "id": "research",
+        "display_name": "Pesquisa e computação",
+        "status": "reference-not-purchasable",
+        "currency": "BRL",
+        "monthly_price_minor": null,
+        "summary": "Pesquisa web paga, processamento de mídia e computação com orçamento próprio.",
+        "kind": "addon"
+      },
+      {
+        "id": "business",
+        "display_name": "Módulos empresariais",
+        "status": "reference-not-purchasable",
+        "currency": "BRL",
+        "monthly_price_minor": null,
+        "summary": "Food, Fabrication e outros módulos possuem benefícios, implantação e contratos próprios.",
+        "kind": "product"
+      },
+      {
+        "id": "content",
+        "display_name": "Conteúdo especializado",
+        "status": "reference-not-purchasable",
+        "currency": "BRL",
+        "monthly_price_minor": null,
+        "summary": "Packs comerciais e conectores premium conforme licença e disponibilidade.",
+        "kind": "product"
+      }
+    ]
   }
 }

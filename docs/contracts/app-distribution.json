@@ -56,17 +56,16 @@
       "store",
       "system"
     ],
-    "bootstrap_app_ids": [
-      "files",
-      "internet"
-    ],
+    "bootstrap_app_ids": [],
     "on_demand_app_ids": [
       "activity",
       "assistant",
       "network",
       "notes",
       "projects",
-      "studio"
+      "studio",
+      "files",
+      "internet"
     ],
     "optional_apps_block_public_launch": false,
     "physical_payload_shrink_required_before_public_launch": false,

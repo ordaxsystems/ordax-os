@@ -57,7 +57,7 @@ func writeReleaseV2Fixture(t *testing.T) releaseV2Fixture {
 	compatibilityDigest := sha256.Sum256(compatibilityBytes)
 	release := releaseDescriptorV2{
 		Schema:            releaseSchemaV2,
-		SourceRepository:  sourceRepository,
+		SourceRepository:  canonicalSourceRepository("internet"),
 		SourceCommit:      testSourceCommit,
 		CreatedFromRecipe: createdFromRecipe,
 		Component: releaseComponent{

@@ -8,6 +8,9 @@ import { validateProfilePack } from "../../contracts/profile-pack.mjs";
 export const DEFAULT_BUNDLED_PROFILE_PACK_CATALOG =
   "/system/profile-packs/catalog.json";
 
+// Keep same-origin read-only manifest acquisition bounded as catalogs grow.
+const MAX_CONCURRENT_MANIFEST_READS = 4;
+
 function assertCatalogPath(value) {
   if (value !== DEFAULT_BUNDLED_PROFILE_PACK_CATALOG) {
     throw new TypeError("Bundled Profile Pack catalog must use the canonical same-origin path");
@@ -44,18 +47,24 @@ export async function loadBundledProfilePacks({
   );
 
   const packs = [];
-  for (const entry of index.entries) {
-    const path = assertBundledProfilePackPath(entry.manifest);
-    const pack = validateProfilePack(
-      await fetchJson(fetchImpl, path, `Profile Pack manifest ${entry.slug}@${entry.version}`),
-      `Bundled Profile Pack ${entry.slug}@${entry.version}`,
-    );
-    if (pack.slug !== entry.slug || pack.version !== entry.version) {
-      throw new Error(
-        `Bundled Profile Pack identity mismatch for ${entry.slug}@${entry.version}`,
+  // Each manifest has an independent, exact catalog identity. Fetch at most
+  // four at once while retaining original catalog order and fail-closed checks.
+  for (let offset = 0; offset < index.entries.length; offset += MAX_CONCURRENT_MANIFEST_READS) {
+    const batch = index.entries.slice(offset, offset + MAX_CONCURRENT_MANIFEST_READS);
+    const validated = await Promise.all(batch.map(async (entry) => {
+      const path = assertBundledProfilePackPath(entry.manifest);
+      const pack = validateProfilePack(
+        await fetchJson(fetchImpl, path, `Profile Pack manifest ${entry.slug}@${entry.version}`),
+        `Bundled Profile Pack ${entry.slug}@${entry.version}`,
       );
-    }
-    packs.push(pack);
+      if (pack.slug !== entry.slug || pack.version !== entry.version) {
+        throw new Error(
+          `Bundled Profile Pack identity mismatch for ${entry.slug}@${entry.version}`,
+        );
+      }
+      return pack;
+    }));
+    packs.push(...validated);
   }
 
   return Object.freeze({

@@ -98,11 +98,11 @@ Arquivos  0.1.0  Beta  bundled
 Ajustes   0.1.0  Beta  bundled
 Conta     0.1.0  Beta  bundled
 Sistema   0.1.0  Beta  bundled
-Internet  0.3.0  Beta  git-app
-Notas     0.4.0  Beta  git-app
+Loja      0.1.0  Beta  bundled
+Studio    0.1.0  Beta  git-app
 ```
 
-`Internet` e `Notas` já possuem versões próprias sem que isso declare atualização independente de produção. Arquivos, Ajustes, Conta e Sistema também possuem identidade de componente mesmo enquanto seguem `bundled`.
+Esse inventário descreve os componentes presentes em `system/apps/component-catalog.mjs`, não todos os produtos first-party conhecidos nem apps instalados por pacotes externos. Internet, Notas, Projetos, Assistant e Activity não possuem payload embutido no catálogo atual; suas identidades e opções de descoberta não provam instalação. Studio possui versão própria em `git-app` sem que isso declare atualização independente de produção. Arquivos, Ajustes, Conta, Loja e Sistema seguem `bundled`.
 
 O estágio **Beta** vem da convenção first-party `0.x`; não vem do canal de entrega. `1.0.0` é reservado para a primeira versão estável daquele app.
 

@@ -55,6 +55,10 @@ on:
       - 'tests/test_assistant_work_strip.mjs'
       - 'tests/test_web_intelligence_canvas.mjs'
       - 'system/services/local-ai/**'
+      - 'bootstrap/dev-base/ordax-run'
+      - 'tests/test_owner_dev_local_ai_lifecycle.py'
+      - 'tests/test_local_ai_cpu_priority.py'
+      - 'tests/test_local_ai_default_lifecycle_policy.py'
       - 'system/surface/runtime/native_local_ai_bridge.py'
       - 'tests/test_native_local_ai_bridge.py'
       - 'tests/test_local_ai_probe_supervisor.mjs'
@@ -86,6 +90,7 @@ on:
       - 'tests/test_native_memory_integration.py'
       - 'tests/test_ecosystem_contracts.mjs'
       - 'tests/test_intelligence_runtime.mjs'
+      - 'tests/test_intelligence_exact_arithmetic.mjs'
       - 'tests/test_intelligence_conversation_capabilities.mjs'
       - 'tests/test_assistant_conversation.mjs'
       - 'tests/test_intelligence_authorized_memory.mjs'
@@ -122,7 +127,7 @@ on:
       - 'tests/test_profile_pack_runtime.mjs'
       - 'tests/test_profile_discovery.mjs'
       - 'tests/test_profile_pack_runtime.py'
-      - 'PLANO-06-PERFIS-PROFISSIONAIS-E-DISTRIBUICAO-SOB-DEMANDA.md'
+      - 'docs/PROFILE-INTELLIGENCE-ARCHITECTURE.md'
       - 'docs/contracts/profile-provisioning.json'
       - 'system/contracts/profile-provisioning.mjs'
       - 'system/profile-packs/distributions.mjs'
@@ -230,6 +235,10 @@ on:
       - 'tests/test_assistant_work_strip.mjs'
       - 'tests/test_web_intelligence_canvas.mjs'
       - 'system/services/local-ai/**'
+      - 'bootstrap/dev-base/ordax-run'
+      - 'tests/test_owner_dev_local_ai_lifecycle.py'
+      - 'tests/test_local_ai_cpu_priority.py'
+      - 'tests/test_local_ai_default_lifecycle_policy.py'
       - 'system/surface/runtime/native_local_ai_bridge.py'
       - 'tests/test_native_local_ai_bridge.py'
       - 'tests/test_local_ai_probe_supervisor.mjs'
@@ -261,6 +270,7 @@ on:
       - 'tests/test_native_memory_integration.py'
       - 'tests/test_ecosystem_contracts.mjs'
       - 'tests/test_intelligence_runtime.mjs'
+      - 'tests/test_intelligence_exact_arithmetic.mjs'
       - 'tests/test_intelligence_conversation_capabilities.mjs'
       - 'tests/test_assistant_conversation.mjs'
       - 'tests/test_intelligence_authorized_memory.mjs'
@@ -297,7 +307,7 @@ on:
       - 'tests/test_profile_pack_runtime.mjs'
       - 'tests/test_profile_discovery.mjs'
       - 'tests/test_profile_pack_runtime.py'
-      - 'PLANO-06-PERFIS-PROFISSIONAIS-E-DISTRIBUICAO-SOB-DEMANDA.md'
+      - 'docs/PROFILE-INTELLIGENCE-ARCHITECTURE.md'
       - 'docs/contracts/profile-provisioning.json'
       - 'system/contracts/profile-provisioning.mjs'
       - 'system/profile-packs/distributions.mjs'
@@ -362,6 +372,9 @@ jobs:
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
         with:
           persist-credentials: false
+
+      - name: Prepare pinned Surface source in disposable CI checkout
+        uses: ./.github/actions/prepare-verified-surface
 
       - name: Set up Python
         uses: actions/setup-python@ece7cb06caefa5fff74198d8649806c4678c61a1 # v6
@@ -457,6 +470,7 @@ jobs:
           set -euo pipefail
           node --test tests/test_ecosystem_contracts.mjs
           node --test tests/test_intelligence_runtime.mjs
+          node --test tests/test_intelligence_exact_arithmetic.mjs
           node --test tests/test_intelligence_conversation_capabilities.mjs
           node --test tests/test_intelligence_work_canvas.mjs
           node --test tests/test_personal_ordax_first_foreground_action.mjs
@@ -517,6 +531,8 @@ jobs:
           python -m unittest tests.test_local_ai_baseline_compare -v
           python -m unittest tests.test_local_ai_benchmark -v
           python -m unittest tests.test_local_ai_hardware_probe -v
+          python -m unittest tests.test_owner_dev_local_ai_lifecycle -v
+          python -m unittest tests.test_local_ai_cpu_priority tests.test_local_ai_default_lifecycle_policy -v
           python -m unittest tests.test_memory_native_state -v
           python -m unittest tests.test_memory_native_endpoint -v
           node --test tests/test_native_account_memory_foundation.mjs

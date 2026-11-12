@@ -395,5 +395,7 @@ while :; do
         fi
     fi
 
-    /bin/busybox sleep "$interval"
+    # A delayed child can outlive this agent if the Guardian terminates its
+    # parent during shutdown. Never inherit rootfs-backed launcher log FDs.
+    /bin/busybox sleep "$interval" </dev/null >/dev/null 2>&1
 done
