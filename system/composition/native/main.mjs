@@ -935,9 +935,9 @@ async function start() {
   // The Native Home and Space switcher share the one authenticated catalog.
   // Boot and reconnect must refresh it even when Account > Spaces was never
   // opened. Only the current signed-in identity can authorize this read.
-  const refreshCurrentSpaceCatalog = () => {
+  const refreshCurrentSpaceCatalog = ({ force = false } = {}) => {
     if (identitySession.getSnapshot().state !== "signed-in"
-      || spaces.getSnapshot().state === "loading") return;
+      || (!force && spaces.getSnapshot().state === "loading")) return;
     void spaces.refresh().catch((error) => {
       console.warn("OrdaX current Spaces catalog refresh remains unavailable", error);
     });
@@ -954,7 +954,8 @@ async function start() {
     if (currentIdentity.state === "signed-in"
       && priorIdentity.state === "signed-in"
       && priorIdentity.subjectId === currentIdentity.subjectId) {
-      refreshCurrentSpaceCatalog();
+      // A reconnect supersedes any stale pre-offline read for this account.
+      refreshCurrentSpaceCatalog({ force: true });
     }
     await identityActions.refresh();
     await accountLifecycle.refresh();
