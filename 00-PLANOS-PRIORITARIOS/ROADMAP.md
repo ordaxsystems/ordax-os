@@ -187,7 +187,7 @@ Plano detalhado: `plans/DESKTOP-001-DAILY-USE-EXPERIENCE.md`.
 - **Execução agora:** **DEFERRED FOR EXECUTION**
 - **Prioridade preservada:** P1
 
-Capability provider-neutral para pesquisa externa compartilhável por Intelligence/Aura/Studio.
+Contratos e router provider-neutral disponíveis como fonte inerte, com testes isolados; nenhum provider remoto, credencial, egress ou autoridade de ação habilitado. A execução funcional permanece adiada.
 
 Plano detalhado: `plans/WEB-001-WEB-RESEARCH.md`.
 

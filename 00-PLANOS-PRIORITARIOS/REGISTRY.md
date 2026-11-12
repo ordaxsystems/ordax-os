@@ -35,7 +35,7 @@ A janela corrente prioriza **Desktop Windows funcional antes de USB/Creator**. P
 | EDU-001 | plano de vertical | `plans/EDU-001-ORDAX-EDUCATION-SCHOOL-AND-FAMILY-PORTAL.md` | **P2** | READY | **DEFERRED FOR EXECUTION** | Escola operacional no OrdaX + Portal da Família via REL-001; Achegue-se permanece página/descoberta pública; menores recebem privacy gates reforçados |
 | MARKET-001 | plano de comércio/ecossistema | `plans/MARKET-001-OFFERS-DISCOVERY-AND-MARKETPLACE.md` | **P2** | READY | **DEFERRED FOR EXECUTION** | OrdaX pode author/publicar ofertas; Achegue-se é canal territorial natural; targeting sensível e ads baseados em dados privados são proibidos |
 | HEALTH-001 | plano exploratório de vertical | `plans/HEALTH-001-HEALTHCARE-CLINIC-AND-PATIENT-PORTAL.md` | **P3** | TRIAGED | **DEFERRED FOR EXECUTION** | Preserva futura direção clínica/paciente sem declarar prontidão; exige pesquisa jurídica, segurança e owner clínico antes de qualquer promoção para READY |
-| WEB-001 | pesquisa + roadmap | `reports/WEB-001-WEB-RESEARCH-DEEP-RESEARCH.md` + `plans/WEB-001-WEB-RESEARCH.md` | P1 | READY | **DEFERRED FOR EXECUTION** | Capability provider-neutral preservada para pós-MVP; não boot-critical |
+| WEB-001 | pesquisa + roadmap | `reports/WEB-001-WEB-RESEARCH-DEEP-RESEARCH.md` + `plans/WEB-001-WEB-RESEARCH.md` | P1 | SOURCE FOUNDATION | **DEFERRED FOR EXECUTION** | Contratos/router provider-neutral presentes, inertes; nenhum provider, egress ou authority autorizado; não boot-critical |
 
 ## Interpretação obrigatória
 
