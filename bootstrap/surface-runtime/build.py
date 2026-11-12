@@ -636,9 +636,8 @@ def build(out_dir: Path, cache_dir: Path, jobs: int, *, persistent_work_dir: Pat
         raise SurfaceBuildError("output directory must be empty")
 
     transient = persistent_work_dir is None
-    if transient:
-        work = Path(tempfile.mkdtemp(prefix="ordax-independent-surface-"))
-    else:
+    work = None
+    if not transient:
         work = Path(persistent_work_dir).absolute()
         # Reject redirected paths before resolve() follows an ancestor link.
         if any(part.is_symlink() for part in (work, *work.parents)):
@@ -659,7 +658,9 @@ def build(out_dir: Path, cache_dir: Path, jobs: int, *, persistent_work_dir: Pat
     cache_dir.mkdir(parents=True, exist_ok=True)
     lock_fd = None
     try:
-        if not transient:
+        if transient:
+            work = Path(tempfile.mkdtemp(prefix="ordax-independent-surface-"))
+        else:
             if work.is_symlink() or (work.exists() and not work.is_dir()):
                 raise SurfaceBuildError("persistent Surface workspace path is unsafe")
             work.mkdir(parents=True, exist_ok=True, mode=0o700)
@@ -771,7 +772,7 @@ def build(out_dir: Path, cache_dir: Path, jobs: int, *, persistent_work_dir: Pat
     finally:
         if lock_fd is not None:
             os.close(lock_fd)
-        if transient:
+        if transient and work is not None:
             shutil.rmtree(work, ignore_errors=True)
 
 

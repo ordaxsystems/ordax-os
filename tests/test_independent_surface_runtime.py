@@ -183,6 +183,34 @@ class IndependentSurfaceRuntimeTests(unittest.TestCase):
                     self.assertFalse(out.exists())
                     self.assertFalse(cache.exists())
 
+    def test_transient_work_allocation_waits_for_output_and_cache(self):
+        # An unsuccessful mkdir must not leave a new temporary Buildroot tree.
+        builder = self.builder
+        with tempfile.TemporaryDirectory() as td:
+            root = Path(td)
+            actual_mkdir = Path.mkdir
+            for rejected in ("output", "cache"):
+                base = root / rejected
+                out = base / "artifacts"
+                cache = base / "downloads"
+                target = out if rejected == "output" else cache
+
+                def fail_one_mkdir(path, *args, **kwargs):
+                    if path == target:
+                        raise PermissionError("simulated directory creation failure")
+                    return actual_mkdir(path, *args, **kwargs)
+
+                with self.subTest(rejected=rejected), \
+                        mock.patch.object(builder.platform, "system", return_value="Linux"), \
+                        mock.patch.object(builder.platform, "machine", return_value="x86_64"), \
+                        mock.patch.object(builder.shutil, "which", return_value="/usr/bin/true"), \
+                        mock.patch.object(builder.Path, "mkdir", new=fail_one_mkdir), \
+                        mock.patch.object(builder.tempfile, "mkdtemp",
+                                          side_effect=AssertionError("scratch allocated before mkdir")) as scratch:
+                    with self.assertRaisesRegex(PermissionError, "simulated directory creation failure"):
+                        builder.build(out, cache, 1)
+                    scratch.assert_not_called()
+
     def test_persistent_build_rejects_nested_roots_before_creating_directories(self):
         # Production may retain this O= workspace for many hours. A mistaken
         # artifact/download root inside it must fail before touching any path:
