@@ -85,7 +85,9 @@ async function writeRecord(userData, path, route, value) {
   const bytes = Buffer.from(JSON.stringify({ [route.key]: normalized }) + "\n", "utf8");
   if (bytes.length > route.maxFile) throw new TypeError("Native sync payload exceeds storage bounds");
   await mkdir(userData, { recursive: true });
-  await regularOrAbsent(path, route.maxFile);
+  // A malformed or substituted durable checkpoint must not be silently
+  // overwritten. Preserve the existing bytes for explicit recovery.
+  await readRecord(path, route);
   const temporary = join(userData, "." + route.filename + "." + randomUUID());
   let handle = null;
   try {
