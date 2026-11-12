@@ -218,3 +218,22 @@ test("Native Surface exposes only explicit manual Memory conflict review decisio
   assert.match(accountUi, /accept-authoritative-remote/);
   assert.doesNotMatch(accountUi, /last-write-wins.*=.*true/i);
 });
+
+test("Native Home refreshes the single authorized Spaces catalog at boot and reconnect", () => {
+  const root = resolve(dirname(fileURLToPath(import.meta.url)), "..");
+  const source = readFileSync(resolve(root, "system/composition/native/main.mjs"), "utf8");
+  const section = source.slice(source.indexOf("const refreshCurrentSpaceCatalog = () => {"),
+    source.indexOf("const spaceSwitcherControls = mountSpaceSwitcherControls("));
+  assert.ok(section.length > 100, "canonical Native account connectivity section exists");
+  assert.match(section, /identitySession\.getSnapshot\(\)\.state !== "signed-in"/);
+  assert.match(section, /spaces\.getSnapshot\(\)\.state === "loading"/);
+  assert.match(section, /void spaces\.refresh\(\)\.catch/);
+  assert.match(section, /identitySession\.subscribe\(\(snapshot\) => \{\s*if \(snapshot\.state === "signed-in"\) refreshCurrentSpaceCatalog\(\)/);
+  assert.match(section, /const priorIdentity = identitySession\.getSnapshot\(\);\s*await identitySession\.refresh\(\)/);
+  assert.match(section, /priorIdentity\.subjectId === currentIdentity\.subjectId/);
+  assert.match(section, /refreshCurrentSpaceCatalog\(\);[\s\S]*await identityActions\.refresh\(\)/);
+  assert.match(source, /unsubscribeSpacesIdentity\(\);\s*spaceSelection\.dispose\(\);\s*spaceExperience\.dispose\(\);\s*spaces\.dispose\(\)/);
+  // The only read owner is the existing Account Spaces port, not a second
+  // Native cache, synthetic Space selection or implicitly authorized client.
+  assert.doesNotMatch(section, /localStorage|sessionStorage|fetch\s*\(/);
+});
