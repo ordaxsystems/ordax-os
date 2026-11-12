@@ -604,6 +604,49 @@ class IndependentSurfaceRuntimeTests(unittest.TestCase):
             "../../../../lib/udev/rules.d/60-input-id.rules",
         )
 
+    def test_eudev_compatibility_is_idempotent_on_persistent_build_resume(self):
+        # A resumable Buildroot O= tree can preserve rootfs.tar after the
+        # compatibility append and before mkfs.erofs finishes. Retrying must
+        # not fail, duplicate a tar entry, or change verified input bytes.
+        tar_path = self.make_tar(self.buildroot_like_paths())
+        expected = self.builder.SURFACE_COMPAT_LINKS
+        self.assertEqual(self.builder.ensure_surface_runtime_path_compatibility(tar_path), expected)
+        before = self.builder.sha256_file(tar_path)
+        self.assertEqual(self.builder.ensure_surface_runtime_path_compatibility(tar_path), expected)
+        self.assertEqual(self.builder.sha256_file(tar_path), before)
+        with tarfile.open(tar_path, "r:") as archive:
+            names = [self.builder.normalized_member_name(member.name) for member in archive.getmembers()]
+        for exposed in expected:
+            self.assertEqual(names.count(exposed), 1)
+
+    def test_eudev_compatibility_completes_partial_append_without_duplicates(self):
+        tar_path = self.make_tar(self.buildroot_like_paths())
+        first = next(iter(self.builder.SURFACE_COMPAT_LINKS.items()))
+        exposed, target = first
+        with tarfile.open(tar_path, "a:") as archive:
+            archive.addfile(self.builder._compat_symlink(exposed, target))
+        self.assertEqual(
+            self.builder.ensure_surface_runtime_path_compatibility(tar_path),
+            self.builder.SURFACE_COMPAT_LINKS,
+        )
+        with tarfile.open(tar_path, "r:") as archive:
+            names = [self.builder.normalized_member_name(member.name) for member in archive.getmembers()]
+        for exposed in self.builder.SURFACE_COMPAT_LINKS:
+            self.assertEqual(names.count(exposed), 1)
+        self.assertEqual(self.builder.inspect_rootfs_tar(tar_path, self.source)["compatibility_links"],
+                         self.builder.SURFACE_COMPAT_LINKS)
+
+    def test_eudev_compatibility_rejects_conflicting_existing_binding(self):
+        exposed, target = next(iter(self.builder.SURFACE_COMPAT_LINKS.items()))
+        tar_path = self.make_tar(
+            self.buildroot_like_paths(extra={exposed}),
+            symlinks={exposed: target + ".wrong"},
+        )
+        before = self.builder.sha256_file(tar_path)
+        with self.assertRaisesRegex(self.builder.SurfaceBuildError, "review compatibility binding"):
+            self.builder.ensure_surface_runtime_path_compatibility(tar_path)
+        self.assertEqual(self.builder.sha256_file(tar_path), before)
+
     def test_rootfs_inventory_accepts_required_paths_and_rejects_apk(self):
         required = set(self.source["required_runtime_paths"])
         good = self.make_tar(self.buildroot_like_paths(extra={"etc/os-release"}))
