@@ -2,7 +2,7 @@
 
 **Continuação de:** [PLANO-FUNCIONAL-SURFACE-E-APPS.md](PLANO-FUNCIONAL-SURFACE-E-APPS.md).
 
-**Status:** análise comparativa de source, proposta de produto e roteiro de implementação. Não é autorização de migração física, adoção automática de código, promoção de release ou substituição dos contratos canônicos.
+**Status documental:** **REFERENCE / NOT APPLICABLE como fila de execução**, conforme `00-PLANOS-PRIORITARIOS/REGISTRY.md`. É uma análise comparativa datada de source e visão de produto; não é backlog atual, autorização de migração, adoção automática de código, promoção de release ou substituição dos contratos/owners canônicos.
 
 **Data da análise:** 18/09/2026.
 
@@ -15,7 +15,7 @@
 | Verificação complementar do protótipo | `main` — `cbb1257bb86f4b17276ea90b6a9fe636ef7e9dda` | Deltas recebidos durante a análise; avanços de atualização registrados na seção 3.2. |
 | Parte 1 deste plano | Inventário em `4f1ea27d052ca75ff32807f3ee7578a3059b7707` | Especificação funcional dos quatro apps; continua válida como proposta, com estado factual a revalidar. |
 
-**Instrução para o próximo GPT:** leia primeiro `AGENTS.md` e a documentação canônica indicada nele; depois leia as duas partes deste plano. Compare estes inventários datados com a `main` atual. Implemente uma entrega delimitada por vez, aproveitando os contratos existentes. Não comece copiando o repositório antigo.
+**Instrução histórica de retomada:** este parágrafo registrava como o plano deveria ser lido naquele ciclo. Hoje, qualquer GPT deve começar por `AGENTS.md`, `docs/README.md`, `docs/CURRENT-STATE.md` e o owner atual; este arquivo só entra como referência quando uma lacuna contemporânea exigir contexto do legado. **Não iniciar implementação apenas porque algo aparece neste roteiro** e não copiar o repositório antigo.
 
 ## Sumário
 
