@@ -121,7 +121,7 @@ CANONICAL_STABLE_TARGET_HARDWARE_PROOF=PENDING_PHYSICAL
 
 **O primeiro proof físico Stable/MVP já ocorreu; não repetir a escrita com a autorização antiga.**
 
-O conjunto **A — obrigatório pré-USB** abaixo foi criado para impedir que lacunas
+O conjunto **A — obrigatório pré-USB naquele ciclo** abaixo foi criado para impedir que lacunas
 estruturais chegassem à primeira mídia física. Essa missão cumpriu sua função: o primeiro
 writer governado executou o plano de 39 operações/17 artefatos, verificou 17/17 por
 readback e chegou a boot UEFI real. Os achados físicos motivaram o hardening integrado
@@ -145,7 +145,7 @@ Portanto **“boot/release avançado” continua não equivalendo a “produto f
 
 ## 2. Três classes de fechamento
 
-### A — obrigatório antes de uma missão física Stable/MVP
+### A — gates obrigatórios daquela missão física Stable/MVP — baseline histórico
 
 Precisa estar implementado e provado em source/CI antes de uma escrita física autorizada.
 
@@ -410,7 +410,7 @@ O gate é de produto/source. Ele **não** substitui:
 
 ---
 
-## 6. Ordem de implementação antes do USB
+## 6. Ordem histórica de implementação antes do primeiro USB
 
 ### P0 — arquitetura esquecida — concluído em source
 
@@ -433,7 +433,7 @@ O gate é de produto/source. Ele **não** substitui:
 11. Preflight canônico v4 do operador. — **PASS_SOURCE_READ_ONLY**: valida artefatos públicos, source-lock, trust, tooling, commit, URLs HTTPS estáveis e metadados do caminho da chave privada sem ler o PEM, assinar, publicar, materializar ou tocar mídia física.
 12. Gate proof-before-consent. — **PASS_CANONICAL_PRERELEASE_BOUND**: `canonical-v4-release-proof.json` real foi validado contra trust/commit/manifest/envelope/3 artefatos e vinculado por SHA-256 antes de `pre_authorization_ready`.
 13. Primeiro proof físico governado. — **PASS_PRE_HARDENING**: writer 39-op/17-artifact, 17/17 readback e boot UEFI real; evidência preservada sem promover o candidato pós-#588.
-14. Próximo passo condicionado ao hardware: novo consentimento explícito para o contexto pós-hardening atual e execução dos gates físicos antes do reteste Stable/MVP.
+14. **Checkpoint daquele ciclo:** o próximo passo estava condicionado a novo consentimento explícito e aos gates físicos do candidato pós-hardening. **Não reutilizar esta linha como autorização ou fila atual; consultar os gates/owners vigentes.**
 
 ---
 
