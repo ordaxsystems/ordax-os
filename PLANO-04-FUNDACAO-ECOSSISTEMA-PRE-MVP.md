@@ -1,9 +1,9 @@
 # OrdaX — parte 4: fundação de ecossistema pré-MVP
 
-**Estado:** fundação source/backend implementada; runtime público/comercial ainda desativado.  
-**Objetivo:** preparar o primeiro MVP para evoluir para produto gratuito + serviços pagos sem reescrever identidade, Intelligence, apps ou projetos depois do lançamento.
+**Status documental:** **REFERENCE / DEFERRED FOR EXECUTION**, conforme `00-PLANOS-PRIORITARIOS/REGISTRY.md`. O arquivo mistura fundação já implementada com direção futura; qualquer estado factual precisa ser revalidado contra contratos/source atuais.  
+**Objetivo histórico do plano:** preparar o primeiro MVP para evoluir para produto gratuito + serviços pagos sem reescrever identidade, Intelligence, apps ou projetos depois do lançamento.
 
-Este plano não adiciona cobrança ao MVP e não reabre instalação Native. Ele adiciona fronteiras que são caras de corrigir depois que contas e dados reais existirem.
+Este plano não autoriza cobrança, reabertura de instalação Native ou implementação apenas por estar documentada aqui. Fronteiras já adotadas permanecem nos owners/contratos canônicos; partes futuras só avançam quando promovidas pelo MVP/owner vigente.
 
 ## 1. Decisões
 
@@ -321,9 +321,11 @@ Todas as tabelas expostas usam RLS. Tokens de GitHub/OpenAI/xAI não entram ness
 
 Mutações de recursos sujeitos a quota/entitlement são **server-authoritative**: cliente autenticado não pode criar/alterar diretamente Spaces, memberships, memória cloud, conexões de projeto, packs ou grants pelo Data API. Isso impede bypass futuro de planos. O backend/gateway OrdaX deverá aplicar quota, entitlement, auditoria e aprovação antes da mutação.
 
-## 7. Sequência
+## 7. Sequência proposta naquele plano — histórica
 
-### P0 — antes do MVP público
+> A ordem P0/P1 abaixo registra a estratégia daquele ciclo. Ela não redefine o MVP atual nem autoriza execução enquanto este documento estiver `DEFERRED FOR EXECUTION`.
+
+### P0 — antes do MVP público naquele plano
 
 1. contratos de Spaces/Profile Packs/entitlements — **PASS_SOURCE**;
 2. memória provider-neutral — **PASS_SOURCE RUNTIME + PERSISTENCE BOUNDARIES + BACKEND SCHEMA**; ownership `device|account`, busca/review bounded, persistência Native fail-soft e fallback Web explicitamente efêmero;
@@ -334,7 +336,7 @@ Mutações de recursos sujeitos a quota/entitlement são **server-authoritative*
 7. mutações de produto server-authoritative — **PASS_APPLIED**;
 8. manter o primeiro Stable USB e seus gates físicos independentes — **PRESERVADO**.
 
-### P1 — após a fundação, sem bloquear o primeiro USB físico
+### P1 — sequência proposta após a fundação naquele plano
 
 9. UI mínima de Spaces — **PASS_SOURCE + EDGE DEPLOYED READ-ONLY WEB + NATIVE**; Conta exibe somente Spaces reais da sessão via gateway OrdaX/RLS, limpa o snapshot no logout e não expõe criação/edição, billing ou Space fictício; gateway v13 está ativo no `ordax-control-plane` como Edge Function revisão 19; prova visual em USB físico continua separada;
 10. memória local real com revisão/apagar — **PASS_SOURCE RUNTIME + NATIVE REVIEW UI**; Conta → Memória expõe owners `device|account`, busca, paginação, edição e exclusão com `flush()` durável no USB/Native; o Web não finge persistência durável e a memória continua sem injeção automática na IA;

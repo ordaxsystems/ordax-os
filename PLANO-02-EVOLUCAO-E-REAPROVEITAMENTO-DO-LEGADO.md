@@ -2,7 +2,7 @@
 
 **Continuação de:** [PLANO-FUNCIONAL-SURFACE-E-APPS.md](PLANO-FUNCIONAL-SURFACE-E-APPS.md).
 
-**Status:** análise comparativa de source, proposta de produto e roteiro de implementação. Não é autorização de migração física, adoção automática de código, promoção de release ou substituição dos contratos canônicos.
+**Status documental:** **REFERENCE / NOT APPLICABLE como fila de execução**, conforme `00-PLANOS-PRIORITARIOS/REGISTRY.md`. É uma análise comparativa datada de source e visão de produto; não é backlog atual, autorização de migração, adoção automática de código, promoção de release ou substituição dos contratos/owners canônicos.
 
 **Data da análise:** 18/09/2026.
 
@@ -15,7 +15,7 @@
 | Verificação complementar do protótipo | `main` — `cbb1257bb86f4b17276ea90b6a9fe636ef7e9dda` | Deltas recebidos durante a análise; avanços de atualização registrados na seção 3.2. |
 | Parte 1 deste plano | Inventário em `4f1ea27d052ca75ff32807f3ee7578a3059b7707` | Especificação funcional dos quatro apps; continua válida como proposta, com estado factual a revalidar. |
 
-**Instrução para o próximo GPT:** leia primeiro `AGENTS.md` e a documentação canônica indicada nele; depois leia as duas partes deste plano. Compare estes inventários datados com a `main` atual. Implemente uma entrega delimitada por vez, aproveitando os contratos existentes. Não comece copiando o repositório antigo.
+**Instrução histórica de retomada:** este parágrafo registrava como o plano deveria ser lido naquele ciclo. Hoje, qualquer GPT deve começar por `AGENTS.md`, `docs/README.md`, `docs/CURRENT-STATE.md` e o owner atual; este arquivo só entra como referência quando uma lacuna contemporânea exigir contexto do legado. **Não iniciar implementação apenas porque algo aparece neste roteiro** e não copiar o repositório antigo.
 
 ## Sumário
 
@@ -41,7 +41,7 @@ Há três grupos de trabalho diferentes:
 2. **Ideias documentadas no legado que merecem sobreviver:** continuidade do trabalho, Home contextual, perfis profissionais, objetos com proveniência, IA com ferramentas e permissões explícitas, catálogo de apps/perfis/templates, inteligência do projeto baseada em evidências e cooperação entre dispositivos. A maioria ainda era visão ou especificação.
 3. **Problemas que o protótipo já está resolvendo de outra maneira:** bootstrap mínimo, build reproduzível, uma Surface compartilhada, atualização cotidiana sem regravar USB, recuperação supervisionada e observabilidade. Transportar a implementação antiga inteira recriaria responsabilidades duplicadas.
 
-**Prioridade recomendada:** completar Arquivos, a organização das telas e os estados reais; entregar rede e continuidade local; completar identidade e sincronização entre dispositivos; ampliar os modos Mobile/Desktop e a distribuição canônica; somente então abrir apps instaláveis, perfis e IA. As trilhas de confiabilidade física e de UX podem avançar separadamente, sem bloquear recursos locais por ausência de cloud.
+**Prioridade recomendada naquele estudo:** completar Arquivos, a organização das telas e os estados reais; entregar rede e continuidade local; completar identidade e sincronização entre dispositivos; ampliar os modos Mobile/Desktop e a distribuição canônica; somente então abrir apps instaláveis, perfis e IA. **Esta ordem não é a prioridade atual do produto; revalidar em MVP/CURRENT-STATE/owner antes de usar qualquer item.** As trilhas de confiabilidade física e de UX podem avançar separadamente, sem bloquear recursos locais por ausência de cloud.
 
 Este segundo documento amplia o horizonte. Não aumenta automaticamente o escopo da primeira etapa da sidebar. Store, IA, navegador, instalação e federação continuam fora da conclusão básica dos quatro apps.
 
@@ -105,7 +105,7 @@ Fontes centrais: [estado atual](docs/CURRENT-STATE.md), [modos](docs/PRODUCT-MOD
 
 Até a base `640d7e8`, o código distingue melhor o SHA do checkout e o runtime efetivo, envia heartbeat da Surface e vincula a confirmação de saúde ao SHA efetivamente carregado pela interface. Ver [watcher](system/adapters/native/update-runtime.mjs), [heartbeat](system/adapters/native/surface-heartbeat.mjs) e o host nativo.
 
-Portanto, a próxima implementação deve **consumir e preservar esses sinais**, não criar outra solução para detectar versão antiga. Ainda é preciso apresentar isso corretamente em Sistema e verificar o fluxo completo. Um heartbeat da base não comprova que a UI renderizou o candidato; um SHA no Git não comprova que todos os processos já o executam.
+Portanto, **naquele recorte**, a próxima implementação recomendada deveria consumir e preservar esses sinais, não criar outra solução para detectar versão antiga. **Hoje isso é princípio de referência, não tarefa pendente presumida.** Ainda é preciso apresentar isso corretamente em Sistema e verificar o fluxo completo. Um heartbeat da base não comprova que a UI renderizou o candidato; um SHA no Git não comprova que todos os processos já o executam.
 
 O estado canônico registra provas físicas no USB de desenvolvimento para gráficos, entrada, energia, atualização ao vivo, guardian, rescue e telemetria. Também deixa separados o ensaio físico de candidato propositalmente quebrado, a continuidade de certas mutações pendentes após restart e os gates canônicos de instalação/release. **Não classificar o protótipo inteiro como “só mock”; também não classificá-lo como OS canônico concluído.**
 
@@ -628,11 +628,11 @@ As entregas F abaixo complementam, sem substituir, E0–E10 da parte 1. Cada lin
 
 F3, a observabilidade local de F9 e as provas de F8 podem avançar em trilhas independentes, sem esperar IA, Store ou conta. A ordem não autoriza saltar requisitos de integridade, dados ou autorização.
 
-### 8.2 O próximo lote recomendado
+### 8.2 Lote recomendado naquele roteiro — histórico, não fila atual
 
 F0/F1 e os primeiros incrementos de F2 já avançaram na `main`. F3 agora possui observabilidade nativa, owner mutável de Wi-Fi no host, jornada compartilhada em Ajustes para scan/seleção/conexão/desconexão/esquecimento/reconexão via `ordax.network-management/1` e bandeja persistente que deriva Wi‑Fi/cabo/sinal exclusivamente da porta read-only `ordax.network-status/1`. Credenciais, SSID e identificadores de hardware continuam fora dessa bandeja e da telemetria. A próxima revalidação de F3 deve ampliar somente capacidades demonstradas no hardware-alvo (por exemplo redes abertas/WPA3/portal cativo), sem inflar a UI com opções fictícias.
 
-F4 está concluído em seu recorte local no app Arquivos: Recentes registra somente aberturas reais; a navegação retoma a última pasta validada usando o workspace existente; e Projetos referencia pastas autorizadas por metadata local própria, sem virar outro filesystem ou outro workspace. Esse fechamento é deliberadamente menor que C05: estado serializável de rota/documento/posição/rascunho por app, checkpoints e continuidade entre dispositivos continuam pendentes. O próximo lote sequencial do roteiro é F5, sem bloquear as trilhas independentes de F3, F8 e F9.
+**Checkpoint histórico do roteiro:** F4 estava concluído em seu recorte local no app Arquivos: Recentes registra somente aberturas reais; a navegação retoma a última pasta validada usando o workspace existente; e Projetos referencia pastas autorizadas por metadata local própria, sem virar outro filesystem ou outro workspace. Esse fechamento é deliberadamente menor que C05: estado serializável de rota/documento/posição/rascunho por app, checkpoints e continuidade entre dispositivos continuam pendentes. Na sequência original do roteiro, F5 viria depois, sem bloquear as trilhas independentes de F3, F8 e F9. **Não iniciar F5 por esta frase; derive qualquer trabalho atual das autoridades vigentes.**
 
 Não abrir simultaneamente Store, grafo de objetos, federação, IA e um package manager. A entrega de arquivos, rede e retomada já recupera valor concreto que o legado perseguia, mantendo a estrutura limpa.
 
@@ -654,9 +654,9 @@ Não abrir simultaneamente Store, grafo de objetos, federação, IA e um package
 
 Essas decisões não impedem criar navegação, melhorar acessibilidade ou entregar operações locais já autorizadas pela arquitetura.
 
-## 9. Contrato de entrega para o GPT implementador
+## 9. Contrato histórico de entrega para o GPT implementador
 
-### 9.1 Checklist antes de modificar source
+### 9.1 Checklist daquele roteiro antes de modificar source — referência
 
 1. Ler `AGENTS.md`, docs canônicos e os dois planos; atualizar referências remotas e registrar o SHA da execução.
 2. Escolher uma entrega F/E e declarar objetivo, entradas/saídas e o que significa concluí-la.
