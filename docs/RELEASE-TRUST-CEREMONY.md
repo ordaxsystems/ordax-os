@@ -101,7 +101,7 @@ The underlying PowerShell initializer is fail-closed: direct invocation without 
 Before any key is generated, the initializer fails closed unless:
 
 1. `provenance.json` has schema `prototype-ordax.windows-prototype-toolkit/2` and status `candidate`;
-2. the toolkit provenance declares repository `washingtonmsdj/prototipo-ordax-os`, event `push`, ref `refs/heads/main` and `canonical_trust_ceremony_eligible=true`;
+2. the toolkit provenance declares repository `ordaxsystems/ordax-os`, event `push`, ref `refs/heads/main` and `canonical_trust_ceremony_eligible=true`;
 3. `source_commit` is exactly 40 lowercase hexadecimal characters;
 4. the SHA-256 of `ordax-release-signing.exe` matches the toolkit provenance;
 5. the SHA-256 of `Initialize-OrdaXReleaseTrust.ps1` matches the toolkit provenance.
