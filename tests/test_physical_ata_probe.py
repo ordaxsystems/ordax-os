@@ -4,7 +4,7 @@ import tempfile
 import unittest
 
 ROOT = Path(__file__).resolve().parents[1]
-PROBE = ROOT / "system" / "surface" / "runtime" / "physical_ata_probe.py"
+PROBE = ROOT / "system" / "diagnostics" / "physical_ata.py"
 ENTRYPOINT = ROOT / "system" / "surface" / "bin" / "ordax-physical-ata"
 
 spec = importlib.util.spec_from_file_location("ordax_physical_ata_probe", PROBE)
