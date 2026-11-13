@@ -221,4 +221,4 @@ Only after evidence acquisition is stable, define `ordax.web.research/1` as Orda
 - execution plan: `../00-PLANOS-PRIORITARIOS/plans/WEB-001-WEB-RESEARCH.md`;
 - original deep research: `../00-PLANOS-PRIORITARIOS/reports/WEB-001-WEB-RESEARCH-DEEP-RESEARCH.md`;
 - provider update/economic recheck: `../00-PLANOS-PRIORITARIOS/reports/WEB-001-PROVIDER-UPDATE-2026-10-14.md`;
-- cross-plan audit: `../00-PLANOS-PRIORITARIOS/reports/PLAN-AUDIT-2026-10-14.md`.
+- cross-plan audit: [snapshot da auditoria de planos de 14/10 no Git](https://github.com/ordaxsystems/ordax-os/blob/3cc84ffd7498e410fc8da676d766cb8658367e7b/00-PLANOS-PRIORITARIOS/reports/PLAN-AUDIT-2026-10-14.md).
