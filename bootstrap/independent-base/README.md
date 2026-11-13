@@ -65,6 +65,8 @@ O workflow pesado aceita seleção manual `minimal|owner-development`. Em PR vin
 
 Na branch de integração, um push só inicia a prova `stable-mvp` quando a mensagem de commit contém `[stable-mvp-proof]`. Use esse marcador apenas quando o fingerprint Stable mudou e ainda não existe componente verificado para a revisão; não o use para documentação, código client-only ou rerun cosmético.
 
+O gate rápido `remove-alpine-fast` deve concluir seus contratos e testes antes de consumir horas de Buildroot; se ele falhar, corrigir a causa no mesmo owner e deixar o produtor pesado abortado, sem reruns cosméticos.
+
 O gate rápido não substitui o pesado. Ele existe para evitar recompilar a plataforma inteira após mudanças que ainda podem ser rejeitadas por testes baratos. Mudanças normais em `system/`, Surface, apps, contas, Spaces e Web continuam independentes quando seus owners não alteram a base.
 
 ## Uso de recursos no builder

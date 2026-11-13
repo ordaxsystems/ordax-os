@@ -18,7 +18,7 @@ class IndependentHeavyWorkflowTests(unittest.TestCase):
         build = text.index("- name: Build rootfs from official Buildroot source")
         verify = text.index("- name: Verify independent base component and exact integration binding")
         save = text.index("- name: Save verified independent base component")
-        bind = text.index("- name: Bind verified kernel modules to Independent Base")
+        bind = text.index("- name: Resolve verified kernel module archive")
         prove = text.index("- name: Prove Owner rootfs against the real Dev Channel consumer")
         self.assertLess(bind, restore)
         self.assertLess(restore, build)
@@ -181,20 +181,20 @@ class IndependentHeavyWorkflowTests(unittest.TestCase):
         self.assertIn("github.event_name == 'workflow_dispatch'", text)
         self.assertIn("github.event_name == 'pull_request' && !github.event.pull_request.draft", text)
         self.assertEqual(text.count("contains(github.event.head_commit.message, '[stable-mvp-proof]')"), 2)
-        self.assertIn("branches: ['platform/remove-alpine', 'integration/dev-usb-buildroot-surface-20261024']", text)
-        self.assertIn("if: ${{ github.event_name != 'push' || github.ref == 'refs/heads/platform/remove-alpine'", text)
+        self.assertIn("branches: ['integration/dev-usb-buildroot-surface-20261024']", text)
+        self.assertNotIn("platform/remove-alpine", text)
+        self.assertIn("if: ${{ github.event_name != 'push' || (github.ref == 'refs/heads/integration/dev-usb-buildroot-surface-20261024'", text)
         self.assertIn("github.ref == 'refs/heads/integration/dev-usb-buildroot-surface-20261024'", text)
         self.assertIn('elif [ "$EVENT_NAME" = push ] && [ "$GITHUB_REF" = refs/heads/integration/dev-usb-buildroot-surface-20261024 ]; then', text)
         self.assertIn("profile=stable-mvp", text)
         self.assertIn("Stable candidate must reuse an existing verified kernel; no recompilation authorized", text)
         self.assertNotIn("if: github.event_name != 'push'", text)
-        self.assertIn("github.event_name == 'push' && github.ref == 'refs/heads/platform/remove-alpine'", text)
-        self.assertIn("github.event_name == 'pull_request' && github.base_ref == 'platform/remove-alpine'", text)
+        self.assertIn("(github.event_name == 'push' && github.ref == 'refs/heads/integration/dev-usb-buildroot-surface-20261024') || github.event_name == 'pull_request'", text)
 
     def test_verified_kernel_precedes_rootfs_consumer_proof_and_qemu(self) -> None:
         text = self.text()
         verify = text.index("- name: Verify kernel component and exact integration binding")
-        bind = text.index("- name: Bind verified kernel modules to Independent Base")
+        bind = text.index("- name: Resolve verified kernel module archive")
         rootfs = text.index("- name: Build rootfs from official Buildroot source")
         consumer = text.index("- name: Prove Owner rootfs against the real Dev Channel consumer")
         qemu = text.index("- name: QEMU real kernel, EROFS and ext4 persistence/recovery")
@@ -221,7 +221,7 @@ class IndependentHeavyWorkflowTests(unittest.TestCase):
         # non-symlink external root.  Require this binding rather than the
         # obsolete literal paths, which the safer workflow does not emit.
         binding = text[
-            text.index("- name: Bind verified kernel modules to Independent Base"):
+            text.index("- name: Resolve verified kernel module archive"):
             text.index("- name: Restore verified independent base component")
         ]
         self.assertIn('receipt_root="$RUNNER_TEMP/ordax-independent"', binding)

@@ -7,6 +7,7 @@ import os
 from pathlib import Path, PurePosixPath
 import stat
 import subprocess
+import sys
 import tarfile
 import tempfile
 import unittest
@@ -62,10 +63,40 @@ class IndependentRootfsExportTests(unittest.TestCase):
         os.symlink("libc.so", target / "lib/ld-musl*")
         return target
 
-    def _run_post_build(self, target: Path) -> subprocess.CompletedProcess[str]:
+    def _post_build_kernel_env(self, target: Path) -> dict[str, str]:
+        fixture = target.parent / "kernel-input"
+        fixture.mkdir(exist_ok=True)
+        archive = fixture / "kernel-modules-fixture.tar"
+        archive.write_bytes(b"fixture kernel archive\n")
+        receipt = fixture / "kernel-module-selection.json"
+        receipt.unlink(missing_ok=True)
+        shim = fixture / "host-python"
+        shim.write_text(
+            "#!/usr/bin/env python3\n"
+            "from pathlib import Path\n"
+            "import sys\n"
+            "if len(sys.argv) < 4 or not sys.argv[1].endswith('module_archive.py') or sys.argv[2] != 'install-wifi':\n"
+            "    raise SystemExit(2)\n"
+            "args = sys.argv[3:]\n"
+            "receipt = Path(args[args.index('--receipt') + 1])\n"
+            "receipt.write_text('{\"fixture\":true}\\n', encoding='utf-8')\n",
+            encoding="utf-8",
+        )
+        shim.chmod(0o755)
+        env = os.environ.copy()
+        env["ORDAX_HOST_PYTHON"] = str(shim)
+        env["ORDAX_KERNEL_MODULES_ARCHIVE"] = str(archive)
+        env["ORDAX_KERNEL_MODULES_RECEIPT"] = str(receipt)
+        env["ORDAX_FIRMWARE_COVERAGE_RECEIPT"] = str(fixture / "firmware-coverage.json")
+        return env
+
+    def _run_post_build(
+        self, target: Path, profile: str = "minimal", env: dict[str, str] | None = None
+    ) -> subprocess.CompletedProcess[str]:
         return subprocess.run(
-            [str(POST_BUILD), str(target), "minimal"],
+            [str(POST_BUILD), str(target), profile],
             cwd=ROOT,
+            env=env or self._post_build_kernel_env(target),
             capture_output=True,
             text=True,
             check=False,
@@ -150,7 +181,7 @@ class IndependentRootfsExportTests(unittest.TestCase):
                 cwd=ROOT, env=env, capture_output=True, text=True, check=False,
             )
             self.assertNotEqual(result.returncode, 0)
-            self.assertIn("requires ORDAX_HOST_PYTHON", result.stderr)
+            self.assertIn("ORDAX_HOST_PYTHON is required", result.stderr)
             self.assertNotIn("capability leaked into minimal profile", result.stderr)
             self.assertFalse((target / "etc/ordax/stable-mvp-candidate").exists())
             self.assertFalse((target / "etc/ordax/owner-development").exists())
@@ -159,12 +190,7 @@ class IndependentRootfsExportTests(unittest.TestCase):
         with tempfile.TemporaryDirectory() as tmp:
             target = self._minimal_post_build_target(Path(tmp))
             executable_fixture(target / "usr/bin/git")
-            env = os.environ.copy()
-            for key in (
-                "ORDAX_HOST_PYTHON", "ORDAX_KERNEL_MODULES_ARCHIVE",
-                "ORDAX_KERNEL_MODULES_RECEIPT", "ORDAX_FIRMWARE_COVERAGE_RECEIPT",
-            ):
-                env.pop(key, None)
+            env = self._post_build_kernel_env(target)
             result = subprocess.run(
                 [str(POST_BUILD), str(target), "stable-mvp"],
                 cwd=ROOT, env=env, capture_output=True, text=True, check=False,
@@ -172,7 +198,7 @@ class IndependentRootfsExportTests(unittest.TestCase):
             self.assertNotEqual(result.returncode, 0)
             self.assertIn("Stable/MVP candidate contains Development-only capability:", result.stderr)
             self.assertIn("/usr/bin/git", result.stderr)
-            self.assertNotIn("requires ORDAX_HOST_PYTHON", result.stderr)
+            self.assertNotIn("ORDAX_HOST_PYTHON is required", result.stderr)
             self.assertFalse((target / "etc/ordax/stable-mvp-candidate").exists())
 
     def test_post_build_fails_closed_if_runtime_link_drifted(self):
