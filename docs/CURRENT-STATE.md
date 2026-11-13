@@ -2041,10 +2041,11 @@ The canonical graphical source is owned by `ordaxsystems/ordax-surface` and is m
 
 ### Nova OrdaX pre-USB functional closure
 
-The legacy/product-vision audit has been revalidated before the first Stable/MVP
-physical USB. `PLANO-03-FECHAMENTO-PRE-USB-NOVA-ORDAX.md` is now the active
-pre-USB closure plan. Physical media work is intentionally held while the remaining
-class-A product gaps are closed. Ordax Intelligence consumers, Native local
+The legacy/product-vision audit was revalidated before the first Stable/MVP
+physical USB. Its historical plan has been retired from the active tree; the executable
+source audit is `tools/creator/pre_usb_nova_ordax_audit.py` and gate authority is
+`docs/PROMOTION-GATES.md` plus machine-readable contracts. Physical media work remains
+subject to the current explicit authorization and live-proof requirements. Ordax Intelligence consumers, Native local
 session/lock, safe Files removal and PT-BR/en-US launch-language coverage are now
 source-complete. The historical v4 candidate carrying the proven local-AI runtime was
 signed, materialized, exactly verified and bound by a non-activating proof at source
