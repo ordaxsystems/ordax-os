@@ -228,6 +228,8 @@ class StableRuntimeProfileTests(unittest.TestCase):
         self.assertIn("unknown field in runtime proof context", resolver)
         self.assertIn("canonical-stable-mvp", resolver)
         self.assertIn("owner-development:verified-erofs-overlay:development", resolver)
+        self.assertNotIn("dynamic-native-runtime", resolver)
+        self.assertNotIn("alpine-v3.22-cage-webkitgtk-v1", resolver)
         self.assertIn("ORDAX_PROOF_RUNTIME_SHA256", resolver)
 
     def test_stable_base_owner_does_not_run_development_candidate_pipeline(self):
