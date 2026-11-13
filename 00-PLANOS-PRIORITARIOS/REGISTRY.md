@@ -8,7 +8,7 @@ O registry não define uma fila global. Owners independentes avançam em paralel
 
 | ID | Tipo | Documento / rota | Prioridade | Status documental | Execução agora | Observação |
 |---|---|---|---|---|---|---|
-| EXEC-000 | snapshot antigo | `PLANO-00-ESTADO-ATUAL-E-PRIORIDADES.md` | histórico 02/10 | ARCHIVED | NOT APPLICABLE | Não seguir prioridades USB-first; estado e janela atual em `docs/CURRENT-STATE.md` e `docs/DEVELOPMENT-WORKFLOW.md` |
+| EXEC-000 | snapshot antigo | [snapshot Git de 02/10](https://github.com/ordaxsystems/ordax-os/blob/ba81a08db707d032464ae18e521073ef7e416f4f/PLANO-00-ESTADO-ATUAL-E-PRIORIDADES.md) | histórico 02/10 | ARCHIVED | NOT APPLICABLE | Removido da árvore ativa; estado e janela atual em `docs/CURRENT-STATE.md`, `MVP.md` e `docs/DEVELOPMENT-WORKFLOW.md` |
 | FOUNDATION-001 | auditoria e consolidação da fundação | `plans/FOUNDATION-001-OS-ARCHITECTURE-CONSOLIDATION.md` | somente recortes exigidos por owners canônicos | REFERENCE | EXECUTION-ELIGIBLE apenas quando um defeito/gate atual do owner exigir o recorte | Handoff histórico; não é outro SSOT de arquitetura, não duplica NATIVE-001 nem agenda canais |
 | COMMERCE-001 | plano comercial | `plans/COMMERCE-001-SUBSCRIPTIONS-AND-BENEFITS.md` | solicitação explícita | READY | EXECUTION-ELIGIBLE no escopo autorizado em 2026-10-22 | Catálogo e apresentação nos owners existentes; billing/cotas pagas e serviços futuros continuam gated |
 | SURFACE-001 | plano funcional | `PLANO-FUNCIONAL-SURFACE-E-APPS.md` | conforme overlay | REFERENCE | DEFERRED FOR EXECUTION salvo requisito canônico do MVP | Especificação funcional detalhada; não é `CURRENT-STATE` nem changelog canônico |

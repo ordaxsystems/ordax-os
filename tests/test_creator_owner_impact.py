@@ -347,7 +347,6 @@ class CreatorOwnerImpactTests(unittest.TestCase):
             "README.md",
             "00-PLANOS-PRIORITARIOS/REGISTRY.md",
             "00-PLANOS-PRIORITARIOS/README.md",
-            "PLANO-00-ESTADO-ATUAL-E-PRIORIDADES.md",
             "PLANO-04-FUNDACAO-ECOSSISTEMA-PRE-MVP.md",
             "00-PLANOS-PRIORITARIOS/ROADMAP.md",
             "00-PLANOS-PRIORITARIOS/plans/MODE-001-WEB-CLOUD-DEVICE-RUNTIME.md",
