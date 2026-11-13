@@ -10,12 +10,12 @@
 - **Planejamento:** `00-PLANOS-PRIORITARIOS/ROADMAP.md` e `REGISTRY.md`; `NATIVE-001` continua proprietário do plano de instalação whole-disk, sem duplicação.
 - **Base da fotografia inicial (não pin permanente):** OS `eff13564d93ca729cd39b259bc2e41246e4f7928`; Apps `cba14ff9eb742cc462c2dca66d0edc78d792f5fc` após PR #330; Runtime `9154cb977bbad9f007e7734ebfbeeb4997e7db57`; Platform `3ae5d914df03f8f6a677ddd18cf3337cd0bcb89a`. Revalidar antes de executar.
 
-> **Handoff independente de conversa:** este é o roteiro persistente de execução; NÃO é novo SSOT de arquitetura, versões, bugs, grants, estado físico ou releases. Nunca presumir que o snapshot abaixo permanece atual. Nenhuma tarefa pode ser marcada concluída por edição, teste isolado ou PR aberta; exigir evidência no owner correto.
+> **Referência independente de conversa:** este arquivo preserva checklists de auditoria/consolidação que podem ser reutilizados **somente quando um defeito ou gate contemporâneo do owner exigir o recorte correspondente**. Não é roteiro persistente de execução, fila transversal nem novo SSOT de arquitetura, versões, bugs, grants, estado físico ou releases. Nunca presumir que o snapshot abaixo permanece atual. Nenhuma tarefa pode ser marcada concluída por edição, teste isolado ou PR aberta; exigir evidência no owner correto.
 
 
-## Diretriz vigente — 2026-11-13: remoção de pendências, zero legado artificial, paralelismo por owner
+## Guardrails de referência adotados em 2026-11-13 — aplicar apenas ao recorte atualmente elegível
 
-**Precedência:** `ROADMAP.md`, `REGISTRY.md`, `docs/CURRENT-STATE.md` e os contratos atuais vencem fotografias históricas abaixo. Este programa atualiza o handoff de consolidação, **não** cria outro SSOT, outro backlog ou uma nova autorização de release. A pesquisa pública comparou AOSP, GNOME, Linux/Buildroot, VS Code, Element, Bitwarden, discussões Reddit/Hacker News, Electron e práticas SLSA: a fronteira útil é ownership + contrato + build + release, não quantidade de repositórios.
+**Precedência:** `ROADMAP.md`, `REGISTRY.md`, `docs/CURRENT-STATE.md` e os contratos atuais vencem fotografias históricas abaixo. Estes guardrails atualizam a referência de consolidação, **não** criam outro SSOT, backlog ou autorização de release. As subseções `P0-A`…`P2`, fases e checklists abaixo **não são gates ativos por si só**: use apenas o item que corresponda a uma lacuna comprovada do owner atual. A pesquisa pública comparou AOSP, GNOME, Linux/Buildroot, VS Code, Element, Bitwarden, discussões Reddit/Hacker News, Electron e práticas SLSA: a fronteira útil é ownership + contrato + build + release, não quantidade de repositórios.
 
 **Condição de desenvolvimento:** ainda não há uma base pública de usuários a sustentar retrocompatibilidade artificial de APIs internas. Portanto, **preferir corte limpo**: alterar consumidores, contratos e testes e **remover o caminho antigo na mesma migração validada**, sem aliases, wrappers duplicados, flags eternas, cópias de código, mocks permanentes ou fallback silencioso. Isso **não** dispensa preservar dados de desenvolvimento existentes, proveniência Git, releases assinadas já consumidas, trust, consentimento, known-good, rollback e recovery. Não reescrever a `main` nem modificar um protocolo assinado antigo sem migração explícita; segurança não é legado descartável.
 
@@ -74,7 +74,7 @@ ou completude da matriz cross-repo. Revalidar antes de qualquer integração.
 
 **Aceite P0-B:** um motor canônico, nenhum import do legado, contratos/testes dos consumidores afetados verdes, execução real no canal em adoção quando exigida, falha fechada, rollback verificável e status canônico fiel.
 
-**Validação parcial do consumidor Windows (2026-11-01):** a CI de integração agora resolve o SHA do lock OS, materializa a fonte candidata e executa os testes de contratos no runner `windows-2022`. Essa prova usa backend fixture; não é inferência real, Desktop instalado, ativação nem rollback. O primeiro runner Windows revelou a diferença de modos POSIX do filesystem; o materializador agora valida o modo canônico do Git e as representações nativas Windows sem relaxar hashes, regularidade ou rejeição de links. P0-B continua aberto; as cinco implementações OS antigas permanecem no source até o cutover comprovado.
+**Validação parcial do consumidor Windows (2026-11-01):** naquele checkpoint, a CI de integração resolvia o SHA do lock OS, materializava a fonte candidata e executava testes de contratos no runner `windows-2022`. Essa prova usava backend fixture; não era inferência real, Desktop instalado, ativação nem rollback. O primeiro runner Windows revelou a diferença de modos POSIX do filesystem; o materializador passou a validar o modo canônico do Git e as representações nativas Windows sem relaxar hashes, regularidade ou rejeição de links. **Naquele checkpoint, P0-B permanecia aberto.** Estado atual de cutover e implementações substituídas deve vir do lock, source e owner vigentes, não deste parágrafo.
 
 ### P0-C — identidade, Platform e Runtime: uma autoridade por operação
 
@@ -83,7 +83,7 @@ ou completude da matriz cross-repo. Revalidar antes de qualquer integração.
 - [ ] Verificar `ordax-runtime` como owner único de host/device agent, computer-control e MCP local Windows; Desktop integra por API/IPC tipada e grants existentes, sem segundo dispatcher, executor, terminal genérico ou agente auxiliar disfarçado.
 - [ ] Testar sessão expirada, revogada, offline, reconnect, troca de Space, isolamento de device, privilégio mínimo e negativa de ações não autorizadas; preservar a distinção entre Conta, Space, Device e Profile Pack.
 
-**Auditoria parcial P0-C (2026-11-01, source e contratos):** `services/public-identity` no OS é o gateway de Conta, sessão e sync com adapter Supabase; cadastro/recuperação/fechamento continuam gated no contrato. `services/product-oauth` mais `services/product-gateway` são fronteiras de autorização/resource para first-party products (ex.: Achegue-se), com cliente desativado, authority HTTP fail-closed e scopes próprios; não aceitam credenciais/grants do Product MCP. O Platform usa Supabase Auth como issuer OAuth do cliente MCP e mantém grants remotos, fila, audit e projeção MCP em PostgreSQL. Os limites são compatíveis com `repository-ownership.json`; compartilhar o provider Supabase não cria uma segunda sessão ou autoridade de grants. Esta leitura ainda não prova o ciclo integrado de sessão/revogação em Windows real, offline/reconnect ou troca de Space/device; P0-C permanece aberto.
+**Auditoria parcial P0-C (2026-11-01, source e contratos):** naquele checkpoint, `services/public-identity` no OS era o gateway de Conta, sessão e sync com adapter Supabase; `services/product-oauth` mais `services/product-gateway` eram fronteiras de autorização/resource para first-party products, enquanto Platform mantinha grants remotos/queue/audit. Os limites observados eram compatíveis com `repository-ownership.json`. **Naquele checkpoint, P0-C permanecia aberto** por falta de prova integrada de sessão/revogação. Revalidar o owner e os contratos atuais antes de inferir qualquer pendência hoje.
 - [ ] Remover rotas, bridges, flags e serviços de transição obsoletos **no mesmo corte validado** e atualizar os contratos/consumidores em cada repo owner.
 
 **Aceite P0-C:** uma autoridade remota, enforcement local claro, zero rota paralela de concessão e regressões de autenticação/permissão verificadas.
@@ -150,7 +150,7 @@ A decisão de extração já ocorreu para Desktop, Surface, Apps, Runtime, Platf
 
 ## Problema e resultado esperado
 
-Consolidar a fundação do OrdaX OS sem criar subsistemas paralelos, retrocompatibilidade artificial ou reestruturação simultânea incontrolável. **Ordem vigente:** (1) ownership e dependências entre os oito repositórios, (2) limpeza/cutover de Intelligence e autoridade de identidade/Platform, (3) composição de release e contratos versionados, (4) Desktop Windows instalado e testes de integração, (5) CI por impacto, segurança e eliminação de resíduos. **Boot/USB/Creator/Buildroot/Native físico são trabalho posterior**, salvo defeito concreto que bloqueie a janela atual. Auditar antes, corrigir por owner, provar o substituto e remover o antigo no mesmo fechamento; não deixar duas implementações permanentes.
+Consolidar a fundação do OrdaX OS sem criar subsistemas paralelos, retrocompatibilidade artificial ou reestruturação simultânea incontrolável. **Não existe mais ordem global Foundation → Windows → USB/Creator/Native.** Quando um owner/gate contemporâneo expuser um defeito de fundação, usar o checklist pertinente, corrigir no owner correto, provar o substituto e remover o antigo no mesmo fechamento. Owners e canais independentes avançam em paralelo conforme ADR-031; este documento não pode colocá-los em espera nem transformar uma auditoria transversal em programa obrigatório.
 
 Pronto significa: layout reproduzível, cold boot previsível, Surface e sessão saudáveis, atualização determinística com known-good/rollback, shutdown limitado, recuperação diagnóstica, source/CI/documentação alinhados; evidência física separada de testes de CI.
 
@@ -231,9 +231,9 @@ Esta é uma **organização lógica**, não uma autorização para mover diretó
 
 `ordax-pull` e release-agent são **aquisições distintas por política**, não dois sistemas independentes de autoridade de estado/health; consolidar contratos de estado, detecção, ativação, promoção/rollback com seus owners reais sem forçar um único binário para tarefas fisicamente diferentes.
 
-## Fases de execução, dependências e evidência exigida
+## Biblioteca histórica de fases/checklists e evidência exigida
 
-**Nota de precedência (2026-11-01):** as fases 4–7 abaixo preservam obrigações históricas de boot/USB/Creator e suas provas, mas **não são tarefas imediatas** durante a janela Windows-first. O programa atual de limpeza e integração está na seção anterior. Nenhuma menção histórica a P0 ou a uma PR USB reabre essa frente automaticamente.
+**Precedência atual (13/11/2026):** as fases abaixo preservam uma decomposição útil de auditoria, mas **não formam uma sequência executiva e não existe mais “janela Windows-first”**. Qualquer fase só é reutilizada quando um defeito/gate atual do owner exigir exatamente aquele recorte. Nenhuma menção a `P0`, número de fase, PR, Desktop, USB ou Creator cria prioridade, dependência ou autorização por si só.
 
 ### Fase 1 — auditoria real do source e concorrência (P0)
 
@@ -319,22 +319,22 @@ Esta é uma **organização lógica**, não uma autorização para mover diretó
 2. Revalidar imediatamente `main` e PRs que alteram os mesmos paths; uma PR existente é a unidade de coordenação preferida. Não criar segunda PR da mesma área sem demonstrar que a primeira não cobre o defeito.
 3. Uma refatoração por owner, preservando boot/update operáveis. Não mesclar changesets simultâneos e desconectados de Base, EFI, Supervisor e Creator sem contrato/teste de integração.
 4. Antes de cada write: confirmar SHA de base, paths afetados, consentimento físico se aplicável e lock de concorrência por owner. Nenhum force push em `main`.
-5. Após cada merge: registrar no owner factual o commit, prova CI/QEMU/física, limitações, falhas e fase seguinte; usar este plano só como ordem/handoff.
+5. Após cada merge: registrar no owner factual o commit, prova CI/QEMU/física, limitações e falhas; usar este plano apenas como **checklist de referência**, nunca como ordem/handoff que imponha a próxima fase.
 6. Se outro agente já concluiu um item, validar a evidência e avançar; não reimplementar a partir de um snapshot antigo.
 
 ## Segurança, custos, regressão e falha
 
 A autorização física/trust/EFI é controlada exclusivamente por seus contratos e cerimônias; status de desenvolvimento não remove essas condições. Provas em arquivos RAW descartáveis não autorizam escrita em disco real. Mudanças de filesystem e estado exigem preservação de user-data e known-good. Para PC fraco, medir tempo de boot, CPU/RAM, I/O USB e latência da Surface **antes e depois**, fixando regressões por perfil; não introduzir serviços extras em background. Não aumentar superfície de ataque, serviços remotos ou dependências por conforto.
 
-## Próxima ação de execução (handoff imediato — 2026-11-01)
+## Handoff histórico de 2026-11-01 — superseded, não executar como próxima ação
 
-**P0 agora, somente software e Windows Desktop:** revalidar a `main` atual e os PRs/CI dos oito repos; montar o inventário verificável de owners, imports, locks, artefatos, workflows e consumidores; abrir **uma única unidade de correção por owner** para cada defeito comprovado. Preservar a fronteira já validada: sete owners operacionais no OS e `ordax-intelligence` como fonte candidata, sem promovê-lo no contrato de ownership antes do P0-B. Prosseguir o cutover a partir do lock atual e da nova validação candidata em Windows CI; em paralelo, auditar as responsabilidades reais de `services/product-oauth`/`services/public-identity` frente a `ordax-platform`, sem mover código funcional por suposição.
+**Snapshot histórico:** em 01/11 o handoff priorizava software/Windows Desktop e inventário cross-repo. **Essa prioridade foi superseded em 13/11 pelo paralelismo por owner de ADR-031.** Não iniciar inventário, cutover, auditoria de Identity/Platform ou unidade de correção a partir deste parágrafo; derivar a lacuna contemporânea de `CURRENT-STATE`, contratos, owner e PRs vivos.
 
-**Depois, ainda na janela atual:** confirmar se a composição versionada já existente (release protocol + source locks + contratos de componentes) consegue reconstruir o **mesmo** Desktop instalado; preencher apenas os campos/gates faltantes no owner existente; validar login/Conta, Spaces, Store/Apps, Aura, Files, Runtime/MCP, restart, atualização/rollback e segurança Electron no Windows real. Fazer limpeza definitiva de caminhos antigos **na PR que fecha cada cutover**, com testes de ausência e sem shims permanentes. Avaliar `ordax-desktop` apenas pelo gate objetivo deste plano; não criar o repositório antes da decisão.
+**Sequência histórica subsequente:** a janela de 01/11 previa validar composição e Desktop instalado. O repositório `ordax-desktop` já é hoje um owner separado e ativo; portanto as instruções de “avaliar/criar o repo” e a sequência Windows-first **não são aplicáveis**. Critérios técnicos ainda úteis devem ser exercitados apenas quando o owner/candidato atual os exigir.
 
-**Fora desta janela:** a PR histórica Creator #2000, USB/QEMU, Buildroot, Kernel/Native físico e gates de gravação continuam sob seus owners e o `ROADMAP.md`, sem builds ou investigações físicas por impulso deste documento. Os checkpoints abaixo são **históricos de 2026-10-23**, não comandos atuais de execução; seus status devem ser revalidados antes de qualquer retomada.
+**Naquele handoff:** Creator/USB/QEMU/Buildroot/Kernel/Native físico eram colocados fora da janela Windows-first. **Essa exclusão temporal também foi superseded.** Esses owners podem avançar quando seus próprios gates atuais exigirem; este documento não abre nem bloqueia suas frentes. Os checkpoints abaixo continuam históricos e devem ser revalidados antes de qualquer uso.
 
-**Handoff para o chat/agente “remover pendências”:** "Leia `AGENTS.md`, `00-PLANOS-PRIORITARIOS/README.md`, `ROADMAP.md`, `REGISTRY.md` e este `FOUNDATION-001`. Siga primeiro a diretriz de 2026-11-01. Faça inventário real dos oito repos, reconcilie owners e locks, conclua cutovers sem código legado, teste o Desktop Windows instalado e atualize cada owner canônico com evidência. Não crie repos/SSOT/bridges/updaters paralelos, não mantenha implementações obsoletas e não reabra USB/Creator/Native sem nova janela. Nunca confunda CI, instalação Windows e prova física USB." 
+**Rota atual para qualquer chat/agente:** começar em `AGENTS.md` → `docs/README.md` → `docs/CURRENT-STATE.md` → owner/contrato/PR vivo. Consultar `FOUNDATION-001` somente se a lacuna atual precisar de um checklist de consolidação específico. **Não seguir a diretriz de 01/11, não impor Windows-first e não bloquear USB/Creator/Native por este arquivo.** Permanecem válidos os invariantes: não criar SSOT/bridges/updaters paralelos, não manter implementação obsoleta sem consumidor real e nunca confundir CI, instalação Windows e prova física.
 
 ## Checkpoint de execução da Fase 1 — 2026-10-23
 
