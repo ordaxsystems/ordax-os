@@ -1,35 +1,25 @@
 # Roadmap de prioridades — OrdaX OS
 
 Status: **EXECUTION ROUTER**  
-Atualizado: **2026-10-31**
+Atualizado: **2026-11-13**
 
 Este roadmap ordena **janelas de execução**, não redefine arquitetura. Ele não substitui `docs/CURRENT-STATE.md`, `docs/PROMOTION-GATES.md`, `MVP.md`, contratos ou ADRs.
 
-## Janela atual — Desktop Windows funcional antes da mídia física
+## Modelo de execução — paralelismo por owner
 
-O `MVP.md` já aboliu "produto mínimo" como estratégia ativa. A janela atual prioriza o **OrdaX Desktop Windows instalado**, seguido pela integração de Conta/Spaces, Loja/Apps, Aura, arquivos e Platform, estabilização e correção causal; o Web segue por deploy independente. A etapa de USB/Creator/Buildroot/Native físico é **posterior**, não uma dependência para fechar clientes Desktop/Web.
+Este roadmap não impõe “Desktop primeiro”, “USB primeiro” nem outra fila transversal. A execução atual é derivada de owners, contratos, source/PRs e gates reais. Frentes independentes podem avançar simultaneamente; sincronização ocorre somente quando uma composição/candidato precisa adotar a saída de outro owner.
 
-Durante esta janela:
+Durante esse modelo:
 
-- planos P1/P2/P3 permanecem documentados, pesquisáveis e reconciliáveis;
-- nenhum plano futuro abre task/issue/PR de implementação apenas por estar `READY`;
-- requisitos já iniciados no produto continuam integrados pelos owners canônicos, mas com priorização Windows-first e provas host-específicas;
-- corrigir documentação, links, classificação e SSOT não promove capacidade de produto;
-- depois de estabilizar Desktop e funcionalidades básicas, revalidar este roadmap antes de autorizar USB/Native físico.
+- planos P1/P2/P3 permanecem documentados e não abrem implementação por estarem `READY`;
+- trabalho já ativo no OS/USB, Desktop, Surface, Apps, Creator, Site ou Intelligence continua no seu owner sem esperar outros canais;
+- alterações sem causalidade cross-repo não disparam builds/gates pesados de outro owner;
+- um gate físico continua exigindo autorização específica, mas sua existência não bloqueia desenvolvimento independente;
+- mudanças de prioridade operacional devem aparecer em `MVP.md`, `docs/CURRENT-STATE.md`, contratos/owners ou estado real de PRs — não em um snapshot datado deste roadmap.
 
-Isso inclui uma distinção importante:
+## Gates USB/Native — preservados e acionados pelo owner/gate atual
 
-```text
-primeiro proof/release USB
-!=
-fechamento completo da jornada MVP instalável
-```
-
-`MVP.md` já inclui Native SSD/NVMe/HDD no ciclo integrado do MVP. Portanto o trabalho real de Native pode ser P0 **quando exigido pelos owners canônicos**, mesmo que a primeira candidata Stable permaneça temporariamente USB-only até os gates Native passarem.
-
-## Gates históricos de USB/Native — não são P0 da janela Windows
-
-Os requisitos abaixo permanecem preservados no baseline e continuam exigindo suas provas **quando houver liberação específica da etapa física**. A numeração e os gates históricos não autorizam builds USB, Creator, QEMU nem aplicação em disco durante a priorização Windows-first.
+Os requisitos abaixo permanecem preservados no baseline e continuam exigindo suas provas **quando houver liberação específica da etapa física**. A numeração e os gates históricos não autorizam builds, QEMU, Creator ou aplicação física por si sós; executar somente quando houver causalidade e owner/gate atual.
 
 1. **Stable/MVP físico USB:** consentimento explícito válido para o contexto corrente, seleção segura do alvo, escrita autorizada e prova física exigida pelo contrato atual.
 2. **Boot/recovery/cold-health canônicos:** validar o ciclo físico real quando o owner canônico ainda o exigir, sem substituir por mock/synthetic proof.
@@ -39,7 +29,7 @@ Os requisitos abaixo permanecem preservados no baseline e continuam exigindo sua
 6. **Hardware mínimo do modelo Native anunciado:** quando necessário ao claim de produto, áudio e suspend/resume deixam de ser "extras" para aquele hardware específico e passam a integrar a homologação real do modelo; não generalizar suporte para outras máquinas.
 7. **Profiles profissionais já exigidos pelo MVP:** fechar somente os recortes seguros de `pizzaria-br@1` e `impressao-3d-br@1` definidos pelos owners atuais de Profile/MVP; isso **não** promove OrdaX Food ou OrdaX Fabrication comerciais completos para P0.
 
-### FOUNDATION-001 — integridade/SSOT do Desktop na janela atual
+### FOUNDATION-001 — integridade/SSOT quando exigida pelo owner atual
 
 Roteiro de auditoria, SSOT, limpeza de legado comprovado, boot/Supervisor, atualização transacional, Creator/USB e provas está em `plans/FOUNDATION-001-OS-ARCHITECTURE-CONSOLIDATION.md`. É **handoff interagentes**, não um novo instalador, atualizador, gate de release ou source de estado; complementa `EXEC-000` e **não duplica** `NATIVE-001`. Execute apenas defeitos e fechamento já exigidos pelos owners MVP, com testes e evidências por fase; nenhuma autorização de escrita física é concedida.
 
@@ -48,8 +38,8 @@ Fonte de execução: `docs/CURRENT-STATE.md` + `docs/PROMOTION-GATES.md` + `MVP.
 ### NATIVE-001 — implementação preservada para etapa física posterior
 
 - **Status documental:** READY
-- **Elegibilidade:** DEFERRED FOR EXECUTION até liberação do owner após Desktop funcional
-- **Prioridade:** posterior à estabilização Windows/Web
+- **Elegibilidade:** EXECUTION-ELIGIBLE somente nos recortes que um owner/gate atual já exige
+- **Prioridade:** derivada do estado atual, não da ordem de outro canal
 - **Autoridade destrutiva:** continua nos contratos/gates existentes, nunca neste roadmap
 
 Objetivo de produto:
