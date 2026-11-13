@@ -1,0 +1,150 @@
+name: Visual Test Bridge (Windows, isolated)
+on:
+  pull_request:
+    paths:
+      - 'tools/visual-test-bridge/**'
+      - '.github/workflows/visual-test-bridge.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  actions: read
+  pull-requests: read
+
+concurrency:
+  group: visual-test-bridge-${{ github.event.pull_request.number || github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  bridge:
+    runs-on: windows-2022
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
+        with:
+          persist-credentials: false
+      - uses: actions/setup-node@249970729cb0ef3589644e2896645e5dc5ba9c38 # v6
+        with:
+          node-version: '24'
+          cache: npm
+          cache-dependency-path: tools/visual-test-bridge/package-lock.json
+      - name: Install locked, development-only bridge dependencies
+        shell: pwsh
+        run: npm ci --prefix tools/visual-test-bridge --ignore-scripts --no-audit --no-fund
+        env:
+          PLAYWRIGHT_SKIP_BROWSER_DOWNLOAD: '1'
+      - name: Validate bridge security and image difference contracts
+        shell: pwsh
+        run: npm test --prefix tools/visual-test-bridge
+      - name: Provision pinned headless Chromium for bridge adapter integration
+        working-directory: tools/visual-test-bridge
+        shell: pwsh
+        run: npx playwright install chromium
+      - name: Exercise real headless Chromium adapter (not OrdaX E2E)
+        shell: pwsh
+        run: node --test --test-concurrency=1 tools/visual-test-bridge/bridge.browser.test.cjs tools/visual-test-bridge/cli.browser.test.cjs
+      - uses: actions/upload-artifact@b7c566a772e6b6bfb58ed0dc250532a479d7789f # v6
+        if: always()
+        with:
+          name: visual-test-bridge-adapter-evidence
+          path: out/visual-test-bridge/**
+          if-no-files-found: ignore
+          retention-days: 14
+
+  installed-source:
+    name: Verify canonical installed source (explicit product proof)
+    # Installed-product acceptance is downstream of a composed Desktop candidate.
+    # It must not turn development-tool PRs red while that candidate is absent.
+    if: github.event_name == 'workflow_dispatch'
+    runs-on: ubuntu-24.04
+    timeout-minutes: 8
+    outputs:
+      run_id: ${{ steps.source.outputs.run_id }}
+      source_sha: ${{ steps.source.outputs.source_sha }}
+    steps:
+      - name: Resolve latest completed, successful main-only Windows NSIS source
+        shell: pwsh
+        id: source
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          $ErrorActionPreference='Stop'
+          $headers=@{Authorization="Bearer $env:GH_TOKEN";'X-GitHub-Api-Version'='2022-11-28'}
+          $repo=$env:GITHUB_REPOSITORY
+          if($repo -cne 'ordaxsystems/ordax-os'){throw 'Unexpected repository'}
+          $runs=Invoke-RestMethod -Uri "https://api.github.com/repos/$repo/actions/runs?branch=main&event=push&per_page=100" -Headers $headers
+          $source=@($runs.workflow_runs | Where-Object {
+            $_.name -like 'Windows Desktop Dev*' -and $_.head_branch -ceq 'main' -and
+            $_.status -eq 'completed' -and $_.conclusion -eq 'success' -and
+            $_.head_repository.full_name -ceq $repo
+          } | Select-Object -First 1)
+          if($source.Count -ne 1){throw 'No successful trusted Windows Desktop main workflow run'}
+          $run=$source[0]
+          if($run.head_sha -cnotmatch '^[0-9a-f]{40}$'){throw 'Invalid installed source SHA'}
+          # The owner PR is the SSOT of Windows Desktop First Run. Require
+          # its actual merge commit to be an ancestor of the INSTALLED source.
+          # No source-text matching or unchecked draft-branch installer is allowed.
+          $ownerPr=Invoke-RestMethod -Uri "https://api.github.com/repos/$repo/pulls/2343" -Headers $headers
+          if($ownerPr.merged -ne $true -or $ownerPr.merge_commit_sha -cnotmatch '^[0-9a-f]{40}$'){
+            throw 'Canonical Windows Desktop First Run owner PR #2343 is not merged; blocking stale NSIS'
+          }
+          $ownerCommit=$ownerPr.merge_commit_sha
+          $compare=Invoke-RestMethod -Uri "https://api.github.com/repos/$repo/compare/$($ownerCommit)...$($run.head_sha)" -Headers $headers
+          if($compare.status -cnotin @('identical','ahead')){
+            throw "Installed source $($run.head_sha) does not descend from First Run owner merge $ownerCommit"
+          }
+          $artifacts=Invoke-RestMethod -Uri "https://api.github.com/repos/$repo/actions/runs/$($run.id)/artifacts" -Headers $headers
+          $artifact=@($artifacts.artifacts | Where-Object {
+            $_.name -ceq 'ordax-os-desktop-dev-alpha-windows' -and $_.expired -eq $false -and
+            $_.size_in_bytes -gt 10000000 -and $_.digest -match '^sha256:[0-9a-f]{64}$'
+          })
+          if($artifact.Count -ne 1){throw 'Missing unique verified NSIS artifact'}
+          "run_id=$($run.id)" >> $env:GITHUB_OUTPUT
+          "source_sha=$($run.head_sha)" >> $env:GITHUB_OUTPUT
+          Write-Output "VISUAL_INSTALLED_INPUT_MAIN_SHA=$($run.head_sha)"
+          Write-Output "VISUAL_INSTALLED_INPUT_RUN_ID=$($run.id)"
+  installed-desktop:
+    name: Isolated installed OrdaX Desktop (20 full visual E2E journeys)
+    needs: [bridge, installed-source]
+    if: github.event_name == 'workflow_dispatch'
+    runs-on: windows-2022
+    timeout-minutes: 50
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
+        with:
+          persist-credentials: false
+      - uses: actions/setup-node@249970729cb0ef3589644e2896645e5dc5ba9c38 # v6
+        with:
+          node-version: '24'
+          cache: npm
+          cache-dependency-path: tools/visual-test-bridge/package-lock.json
+      - name: Install visual adapter tooling without downloading a second Chromium
+        run: npm ci --prefix tools/visual-test-bridge --ignore-scripts --no-audit --no-fund
+        env:
+          PLAYWRIGHT_SKIP_BROWSER_DOWNLOAD: '1'
+      - name: Download one existing, already-compiled NSIS from main
+        uses: actions/download-artifact@9000827ccba6bdab643e8b6fd33ac0654aef8333 # v8
+        with:
+          name: ordax-os-desktop-dev-alpha-windows
+          run-id: ${{ needs.installed-source.outputs.run_id }}
+          github-token: ${{ github.token }}
+          path: out/visual-test-bridge/installer
+      - name: Install verified Desktop in isolated runner and run 20 real full navigation journeys
+        shell: pwsh
+        env:
+          ORDAX_VISUAL_SOURCE_RUN_ID: ${{ needs.installed-source.outputs.run_id }}
+          ORDAX_VISUAL_SOURCE_SHA: ${{ needs.installed-source.outputs.source_sha }}
+        run: |
+          $ErrorActionPreference='Stop'
+          $installers=@(Get-ChildItem out/visual-test-bridge/installer -Filter '*.exe' -File)
+          if($installers.Count -ne 1){throw 'Expected exactly one NSIS installer'}
+          & .\tools\visual-test-bridge\installed-e2e.ps1 -Installer $installers[0].FullName -ExpectedSourceSha $env:ORDAX_VISUAL_SOURCE_SHA
+          if($LASTEXITCODE -ne 0){throw 'Installed OrdaX visual suite failed'}
+      - uses: actions/upload-artifact@b7c566a772e6b6bfb58ed0dc250532a479d7789f # v6
+        if: always()
+        with:
+          name: visual-test-bridge-installed-windows-evidence
+          path: |
+            out/visual-test-bridge/installed/**
+          if-no-files-found: warn
+          retention-days: 7

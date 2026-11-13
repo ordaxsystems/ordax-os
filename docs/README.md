@@ -45,6 +45,7 @@ Historical wording inside a root `PLANO-*` such as `CANONICAL`, `P0`, `mandatory
 | Minimal USB bootstrap | `docs/MINIMAL-USB-BOOTSTRAP.md` |
 | Physical media | `docs/PHYSICAL-MEDIA.md` |
 | Development workflow | `docs/DEVELOPMENT-WORKFLOW.md` |
+| Windows Desktop visual test automation (developer-only runbook, not a Runtime/MCP owner) | [`tools/visual-test-bridge/README.md`](../tools/visual-test-bridge/README.md) |
 | Multi-repository product composition | `docs/DEVELOPMENT-WORKFLOW.md#integração-multi-repositório--composição-do-produto-2026-11-13` + ADR-031 in `docs/DECISIONS.md` |
 | Promotion gates | `docs/PROMOTION-GATES.md` |
 | Release signing | `docs/RELEASE-SIGNING.md` |
