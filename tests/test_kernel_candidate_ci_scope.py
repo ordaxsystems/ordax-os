@@ -23,13 +23,15 @@ EXCLUSIONS = (
 )
 MODULE_ARCHIVE_NON_CONSUMERS = (
     "kernel-candidate.yml",
-    "stable-base-candidate.yml",
     "dev-base-channel.yml",
     "creator-payload-candidate.yml",
     "native-esp-candidate.yml",
     "kernel-pinned-environment.yml",
     "portable-initramfs-capsule-pin.yml",
     "full-bootstrap-media-proof.yml",
+)
+MODULE_ARCHIVE_FINGERPRINT_CONSUMERS = (
+    "stable-base-candidate.yml",
     "portable-v2-pinned-initramfs-proof.yml",
 )
 
@@ -56,6 +58,15 @@ class KernelCandidateCIScopeTests(unittest.TestCase):
             with self.subTest(workflow=workflow):
                 value = (ROOT / ".github/workflows" / workflow).read_text(encoding="utf-8")
                 self.assertEqual(value.count(exclusion), 2, workflow)
+
+    def test_module_archive_fingerprint_consumers_trigger_on_helper_changes(self):
+        exclusion = "!bootstrap/kernel/module_archive.py"
+        fingerprint = "hashFiles('bootstrap/kernel/module_archive.py'"
+        for workflow in MODULE_ARCHIVE_FINGERPRINT_CONSUMERS:
+            with self.subTest(workflow=workflow):
+                value = (ROOT / ".github/workflows" / workflow).read_text(encoding="utf-8")
+                self.assertEqual(value.count(exclusion), 0, workflow)
+                self.assertGreaterEqual(value.count(fingerprint), 1, workflow)
 
     def test_proposed_kernels_have_one_generic_owner(self):
         generic = (ROOT / ".github/workflows/kernel-lts-candidate.yml").read_text(encoding="utf-8")
