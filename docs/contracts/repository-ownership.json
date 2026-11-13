@@ -25,7 +25,8 @@
         "studio-portable-source",
         "windows-runtime",
         "product-mcp-remote",
-        "provider-connectors"
+        "provider-connectors",
+        "desktop-windows-shell"
       ]
     },
     "surface": {
@@ -61,7 +62,8 @@
         "oauth-remote",
         "control-plane",
         "mcp-system-authority",
-        "windows-mcp-installer"
+        "windows-mcp-installer",
+        "desktop-windows-shell"
       ]
     },
     "runtime": {
@@ -136,6 +138,25 @@
         "native-os-host",
         "desktop-windows-shell"
       ]
+    },
+    "desktop": {
+      "repo": "ordaxsystems/ordax-desktop",
+      "owns": [
+        "desktop-windows-shell",
+        "desktop-electron-host",
+        "desktop-nsis-packaging",
+        "desktop-window-lifecycle",
+        "desktop-delivery-host"
+      ],
+      "must_not_own": [
+        "surface-visual-source",
+        "native-os-services",
+        "kernel-boot-base",
+        "product-mcp-remote",
+        "local-computer-control",
+        "creator-media-verification-core",
+        "os-release-and-signing-authority"
+      ]
     }
   },
   "legacy": {
@@ -164,7 +185,9 @@
     "apps_consume_capability_ports_without_grant_minting": true,
     "remote_mcp_grants_remain_control_plane_owned": true,
     "windows_studio_is_optional_runtime_consumer": true,
-    "windows_mcp_distribution_independent_of_studio": true
+    "windows_mcp_distribution_independent_of_studio": true,
+    "desktop_consumes_os_composition_without_transitive_pins": true,
+    "desktop_shell_is_not_os_source": true
   },
   "namespace_migration": {
     "status": "complete",
