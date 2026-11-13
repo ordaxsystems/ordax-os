@@ -43,7 +43,8 @@ class DesktopSourceOwnerTests(unittest.TestCase):
         lock = json.loads(
             (ROOT / "system/services/local-ai/source-lock.json").read_text(encoding="utf-8")
         )
-        vc = lock["engine"]["windows_artifact"]["msvc_runtime"]
+        windows = lock["engine"]["windows_artifact"]
+        vc = windows["msvc_runtime"]
         self.assertEqual(vc["publisher"], "Microsoft Corporation")
         self.assertEqual(vc["version"], "14.44.35211.0")
         self.assertEqual(
@@ -55,6 +56,10 @@ class DesktopSourceOwnerTests(unittest.TestCase):
             "Materialize pinned private MinGit for Windows Dev updates",
             "Verify source-pinned private MinGit on cache hit and miss",
             "Select exact Microsoft-signed app-local VC143 dependency set",
+            "Fetch and stage exact proven offline Aura payload",
+            "windows-local-ai-engine-$shortBuilder-$proofRun",
+            "Get-FileHash -LiteralPath $archive -Algorithm SHA256",
+            "fetch-pinned-local-ai-model.py",
             "Reject unprovided MSVC dependencies in Windows Aura package",
             "pe-dependency-audit.cjs",
             "ORDAX_VC143_REDIST_SOURCE",
@@ -64,10 +69,18 @@ class DesktopSourceOwnerTests(unittest.TestCase):
             "materialize-local-ai.cjs $candidate $model out/windows-local-ai-runtime $env:ORDAX_VC143_REDIST_SOURCE",
             workflow,
         )
+        self.assertNotIn("windows-candidate.py", workflow)
+        self.assertNotIn("Acquire exact Intelligence source for Windows engine", workflow)
+        self.assertNotIn("repository: ordaxsystems/ordax-intelligence", workflow)
+        helper = (ROOT / "tools/windows-emulator/fetch-pinned-local-ai-model.py").read_text(encoding="utf-8")
+        self.assertIn("builder.download_exact(", helper)
+        self.assertIn("builder.model_url(lock)", helper)
+        self.assertNotIn("urllib", helper)
+        self.assertNotIn("requests", helper)
         mingit = workflow.index("Restore exact private MinGit source archive cache")
         aura = workflow.index("Restore content-pinned Windows Aura engine and model cache")
         vc_gate = workflow.index("Select exact Microsoft-signed app-local VC143 dependency set")
-        materialize = workflow.index("Build and stage exact verified offline Aura payload")
+        materialize = workflow.index("Fetch and stage exact proven offline Aura payload")
         pe_gate = workflow.index("Reject unprovided MSVC dependencies in Windows Aura package")
         save = workflow.index("Save verified content-pinned Windows Aura cache")
         self.assertTrue(mingit < aura < vc_gate < materialize < pe_gate < save)

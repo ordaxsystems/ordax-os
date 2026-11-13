@@ -203,16 +203,6 @@ jobs:
         with:
           path: out/windows-local-ai-runtime
           key: ordax-windows-aura-v1-${{ runner.os }}-${{ hashFiles('system/services/local-ai/source-lock.json') }}
-      - name: Acquire exact Intelligence source for Windows engine on cache miss
-        if: steps.aura-cache.outputs.cache-hit != 'true'
-        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
-        with:
-          repository: ordaxsystems/ordax-intelligence
-          # Reconciled Intelligence main with real GGUF inference proof and
-          # a byte-identical 16-file engine (run 43309006398).
-          ref: 70fc05715e1eb99a43d513caec9f4ac13fbcb1f3
-          path: out/_upstream/ordax-intelligence
-          persist-credentials: false
       - name: Select exact Microsoft-signed app-local VC143 dependency set
         if: steps.aura-cache.outputs.cache-hit != 'true'
         shell: pwsh
@@ -253,19 +243,46 @@ jobs:
           $source = $found | Sort-Object | Select-Object -First 1
           "ORDAX_VC143_REDIST_SOURCE=$source" >> $env:GITHUB_ENV
           Write-Output 'WINDOWS_VC143_MICROSOFT_SIGNATURES_AND_HASHES=PASS files=3'
-      - name: Build and stage exact verified offline Aura payload (cache miss only)
+      - name: Fetch and stage exact proven offline Aura payload (cache miss only)
         if: steps.aura-cache.outputs.cache-hit != 'true'
         shell: pwsh
         run: |
           $ErrorActionPreference = 'Stop'
+          $lock = Get-Content system/services/local-ai/source-lock.json -Raw | ConvertFrom-Json
+          $artifact = $lock.engine.windows_artifact
+          $builder = [string]$artifact.builder_commit
+          $proofRun = [long]$artifact.proof_run_id
+          $proofBundle = [string]$artifact.proof_bundle_sha256
+          if ($artifact.builder_repository -cne 'ordaxsystems/ordax-intelligence' -or
+              $builder -cnotmatch '^[0-9a-f]{40}$' -or $proofRun -le 0 -or
+              $proofBundle -cnotmatch '^[0-9a-f]{64}$') {
+            throw 'Windows Aura proof authority is incomplete'
+          }
+          $shortBuilder = $builder.Substring(0, 7)
+          $tag = "windows-local-ai-engine-$shortBuilder-$proofRun"
+          $asset = "ordax-windows-local-ai-engine-candidate-$shortBuilder.zip"
+          $url = "https://github.com/$($artifact.builder_repository)/releases/download/$tag/$asset"
+          $archive = Join-Path $env:RUNNER_TEMP $asset
           $candidate = Join-Path $env:RUNNER_TEMP 'ordax-windows-ai-candidate'
           $cache = Join-Path $env:RUNNER_TEMP 'ordax-verified-gguf'
-          & python out/_upstream/ordax-intelligence/tools/inference-builder/windows-candidate.py --os-source . --out-dir $candidate --cache-dir $cache
-          if ($LASTEXITCODE -ne 0) { throw 'Canonical Windows Intelligence engine build failed' }
-          $lock = Get-Content system/services/local-ai/source-lock.json -Raw | ConvertFrom-Json
+          if (Test-Path -LiteralPath $candidate) { throw 'Windows Aura candidate destination must start absent' }
+          & curl.exe --fail --location --silent --show-error --connect-timeout 12 --max-time 180 --output $archive $url
+          if ($LASTEXITCODE -ne 0) { throw 'Proven Windows Aura engine download failed' }
+          $archiveHash = (Get-FileHash -LiteralPath $archive -Algorithm SHA256).Hash.ToLowerInvariant()
+          if ($archiveHash -cne $proofBundle) {
+            throw 'Proven Windows Aura engine archive digest mismatch'
+          }
+          Expand-Archive -LiteralPath $archive -DestinationPath $candidate -ErrorAction Stop
+          if (-not (Test-Path -LiteralPath (Join-Path $candidate 'candidate-receipt.json') -PathType Leaf) -or
+              -not (Test-Path -LiteralPath (Join-Path $candidate 'engine') -PathType Container)) {
+            throw 'Proven Windows Aura candidate archive is incomplete'
+          }
+          & python tools/windows-emulator/fetch-pinned-local-ai-model.py --cache-dir $cache
+          if ($LASTEXITCODE -ne 0) { throw 'Pinned Aura GGUF acquisition failed' }
           $model = Join-Path $cache $lock.model.filename
           & node out/ordax-desktop-source/materialize-local-ai.cjs $candidate $model out/windows-local-ai-runtime $env:ORDAX_VC143_REDIST_SOURCE
           if ($LASTEXITCODE -ne 0) { throw 'Pinned Aura runtime assembly failed' }
+          Write-Output "WINDOWS_AURA_PROMOTED_ENGINE_SHA256=$archiveHash"
       - name: Verify complete offline Aura bytes even after cache restoration
         shell: pwsh
         run: |
