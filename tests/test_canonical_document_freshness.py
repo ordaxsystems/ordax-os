@@ -527,16 +527,11 @@ class CanonicalDocumentFreshnessTests(unittest.TestCase):
         self.assertIn("Cutover Buildroot integrado à fonte", CURRENT_STATE.read_text(encoding="utf-8"))
 
     def test_pre_usb_v4_gate_distinguishes_history_from_current_replacement_proof(self):
-        plan = (ROOT / "PLANO-03-FECHAMENTO-PRE-USB-NOVA-ORDAX.md").read_text(encoding="utf-8")
         promotion = (ROOT / "docs/PROMOTION-GATES.md").read_text(encoding="utf-8")
         current = (ROOT / "docs/CURRENT-STATE.md").read_text(encoding="utf-8")
         authorization = json.loads(PHYSICAL_WRITE_AUTHORIZATION.read_text(encoding="utf-8"))
-        self.assertIn(
-            "SIGNED_RELEASE_V4_WITH_LOCAL_AI=REQUIRED_PASS_BEFORE_PHYSICAL_PREFLIGHT",
-            plan,
-        )
-        self.assertNotIn("SIGNED_RELEASE_V4_WITH_LOCAL_AI=PASS\n", plan)
         self.assertIn("SIGNED_RELEASE_V4_WITH_LOCAL_AI=REQUIRED", promotion)
+        self.assertIn("PRE_USB_NOVA_ORDAX_AUDIT=REQUIRED", promotion)
         self.assertIn(
             authorization["status"],
             {"blocked-explicit-physical-authorization-pending", "authorized"},
@@ -560,14 +555,6 @@ class CanonicalDocumentFreshnessTests(unittest.TestCase):
         self.assertIn(
             "PHYSICAL_WRITE_AUTHORITY=BLOCKED_EXPLICIT_OWNER_AUTHORIZATION_PENDING",
             current,
-        )
-        self.assertIn(
-            "FIRST_STABLE_MVP_USB_WRITE=PASS_AUTHORIZED_CONTROLLED_PROOF_PRE_HARDENING",
-            plan,
-        )
-        self.assertIn(
-            "CURRENT_MAIN_STABLE_MVP_PHYSICAL_RETEST=PENDING_EXPLICIT_OWNER_AUTHORIZATION_AND_LIVE_USB_PROOF",
-            plan,
         )
         self.assertIn(
             "PHYSICAL_WRITE_AUTHORITY=BLOCKED_EXPLICIT_OWNER_AUTHORIZATION_PENDING",

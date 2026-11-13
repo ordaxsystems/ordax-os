@@ -2,7 +2,7 @@
 """Evaluate the source-only Nova OrdaX pre-USB functional closure gates.
 
 The audit is read-only and fail-closed. It proves that the structural product
-requirements required by PLANO-03 are still represented by canonical contracts
+requirements required by the canonical pre-USB promotion gates are represented by contracts
 and Native composition source. It never validates operator-owned signing proof,
 selects a physical target, or grants physical-write authority.
 """
@@ -16,8 +16,8 @@ from pathlib import Path
 import stat
 from typing import Any
 
-STATUS_SCHEMA = "prototype-ordax.pre-usb-nova-ordax-audit-status/1"
-PLAN_PATH = "PLANO-03-FECHAMENTO-PRE-USB-NOVA-ORDAX.md"
+STATUS_SCHEMA = "prototype-ordax.pre-usb-nova-ordax-audit-status/2"
+GATE_AUTHORITY_PATH = "docs/PROMOTION-GATES.md"
 
 GATE_NAMES = (
     "INTELLIGENCE_REAL_SYSTEM_CONSUMER",
@@ -411,7 +411,7 @@ def evaluate(repo_root: Path) -> dict[str, Any]:
         "$schema": STATUS_SCHEMA,
         "status": "pass-source" if source_ready else "blocked",
         "source_ready": source_ready,
-        "plan_reference": PLAN_PATH,
+        "gate_authority": GATE_AUTHORITY_PATH,
         "product_scope": "stable-mvp-usb-only",
         "gates": gates,
         "blockers": blockers,
@@ -433,7 +433,7 @@ def main() -> int:
             "$schema": STATUS_SCHEMA,
             "status": "blocked",
             "source_ready": False,
-            "plan_reference": PLAN_PATH,
+            "gate_authority": GATE_AUTHORITY_PATH,
             "product_scope": "stable-mvp-usb-only",
             "gates": {},
             "blockers": ["audit-execution-failed"],

@@ -177,8 +177,9 @@ CI proves both sides of this boundary: the normal Windows build excludes the tag
 This gate is destructive and requires explicit user authorization at execution time.
 
 Before evaluating destructive readiness, the Stable/MVP product must also pass the
-functional closure audit in `PLANO-03-FECHAMENTO-PRE-USB-NOVA-ORDAX.md`. Physical
-write readiness is therefore intentionally stricter than boot/media readiness.
+source functional-closure audit implemented by `tools/creator/pre_usb_nova_ordax_audit.py`
+against the canonical contracts and source listed below. Physical write readiness is
+therefore intentionally stricter than boot/media readiness.
 
 ```text
 PRE_USB_NOVA_ORDAX_AUDIT=REQUIRED
