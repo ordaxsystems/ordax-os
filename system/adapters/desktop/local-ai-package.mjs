@@ -17,6 +17,9 @@ const REQUIRED_CPU_VARIANTS = Object.freeze([
   "ggml-cpu-x64.dll", "ggml-cpu-sandybridge.dll", "ggml-cpu-haswell.dll",
 ]);
 const CPU_BACKEND_FILENAME = /^ggml-cpu-[a-z0-9]+\.dll$/;
+const VC_RUNTIME_FILES = Object.freeze([
+  "msvcp140.dll", "vcruntime140.dll", "vcruntime140_1.dll",
+]);
 
 function trustedIdentity(lock) {
   if (lock?.$schema !== "prototype-ordax.local-ai-source-lock/1" ||
@@ -56,7 +59,28 @@ function trustedIdentity(lock) {
   if (![...FIXED_ENGINE_FILES, ...REQUIRED_CPU_VARIANTS].every(name => pinned.has(name))) {
     throw Error("Incomplete Windows Local AI binary pins");
   }
-  return { model: lock.model, files: [...pinned.values()] };
+  const vc = artifact.msvc_runtime;
+  if (vc?.distribution !== "microsoft-vc143-app-local" ||
+      vc.publisher !== "Microsoft Corporation" ||
+      !Array.isArray(vc.files) || vc.files.length !== VC_RUNTIME_FILES.length) {
+    throw Error("Canonical Windows VC143 runtime pin unavailable");
+  }
+  const runtimeFiles = new Map();
+  for (const entry of vc.files) {
+    if (!entry || typeof entry.name !== "string" ||
+        !VC_RUNTIME_FILES.includes(entry.name) ||
+        runtimeFiles.has(entry.name) ||
+        !SHA.test(entry.sha256) ||
+        !Number.isSafeInteger(entry.size_bytes) ||
+        entry.size_bytes < 1 || entry.size_bytes > 16 * 1024 * 1024) {
+      throw Error("Untrusted Windows VC143 runtime pin");
+    }
+    runtimeFiles.set(entry.name, entry);
+  }
+  if (!VC_RUNTIME_FILES.every(name => runtimeFiles.has(name))) {
+    throw Error("Incomplete Windows VC143 runtime pins");
+  }
+  return { model: lock.model, files: [...pinned.values(), ...runtimeFiles.values()] };
 }
 
 async function realDirectory(path) {
