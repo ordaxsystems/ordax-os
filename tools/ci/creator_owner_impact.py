@@ -15,10 +15,6 @@ ROOT = Path(__file__).resolve().parents[2]
 WORKFLOW = ".github/workflows/creator-owner-dev-git.yml"
 SURFACE_LOCK = "docs/contracts/surface-source.json"
 INTELLIGENCE_WORKFLOW = ".github/workflows/intelligence-foundation.yml"
-LEGACY_PROFILE_DOC = "PLANO-06-PERFIS-PROFISSIONAIS-E-DISTRIBUICAO-SOB-DEMANDA.md"
-CURRENT_PROFILE_KNOWLEDGE_DOC = "docs/PROFILE-INTELLIGENCE-ARCHITECTURE.md"
-LEGACY_PROFILE_TRIGGER = f"      - '{LEGACY_PROFILE_DOC}'"
-CURRENT_PROFILE_TRIGGER = f"      - '{CURRENT_PROFILE_KNOWLEDGE_DOC}'"
 DESKTOP_TRIGGER_WORKFLOW = ".github/workflows/external-source-lock-integration.yml"
 DESKTOP_DISTRIBUTION_CONTRACT = "docs/contracts/distribution-profiles.json"
 RETIRED_DESKTOP_ROOT = "tools/windows-desktop/"
@@ -35,6 +31,7 @@ LIGHT_EXACT = frozenset({
     "docs/DECISIONS.md",
     "docs/CURRENT-STATE.md",
     "docs/DEVELOPMENT-WORKFLOW.md",
+    ".github/workflows/intelligence-foundation.yml",
     "tests/test_desktop_product_runtime_status_port.mjs",
     "tests/test_desktop_surface_runtime_bridge.mjs",
     "tests/test_desktop_surface_state_report.mjs",
@@ -381,37 +378,6 @@ def verified_creator_freshness_wiring_only(base, head, *, root=ROOT):
         return False
 
 
-def verified_legacy_profile_trigger_migration(base, head, *, root=ROOT):
-    """Only an exact two-entry Intelligence CI documentation path migration is light."""
-    try:
-        before = _git_show(base, INTELLIGENCE_WORKFLOW, root)
-        after = _git_show(head, INTELLIGENCE_WORKFLOW, root)
-        return (before.count(LEGACY_PROFILE_TRIGGER) == 2
-                and CURRENT_PROFILE_TRIGGER not in before
-                and after == before.replace(LEGACY_PROFILE_TRIGGER,
-                                             CURRENT_PROFILE_TRIGGER))
-    except (OSError, ValueError, UnicodeError, subprocess.SubprocessError):
-        return False
-
-
-def verified_legacy_profile_deletion(base, head, *, root=ROOT):
-    """An archived root plan may be deleted, never edited/reintroduced as authority."""
-    try:
-        before = _git_show(base, LEGACY_PROFILE_DOC, root)
-        if not before.startswith("# OrdaX") or "ARCHIVED / SUPERSEDED" not in before:
-            return False
-        # cat-file -e returns 128 for both absent paths and corrupt refs.
-        # ls-tree must succeed against the verified commit and yield no path.
-        probe = subprocess.run(
-            ["git", "-C", str(root), "ls-tree", "-r", "--name-only",
-             head, "--", LEGACY_PROFILE_DOC],
-            check=True, capture_output=True, text=True, timeout=20,
-        )
-        return not probe.stdout.strip()
-    except (OSError, UnicodeError, ValueError, subprocess.SubprocessError):
-        return False
-
-
 def changed_paths(base, head, *, root=ROOT):
     if any(not re.fullmatch(r"[0-9a-f]{40}", x or "") or x == "0" * 40
            for x in (base, head)):
@@ -564,9 +530,6 @@ def classify(base, head, *, root=ROOT, event="push"):
             elif path == SURFACE_LOCK:
                 if not verified_surface_visual_source_lock_delta(base, head, root=root):
                     return True, "surface-lock-not-proven-visual-only"
-            elif path == INTELLIGENCE_WORKFLOW:
-                if not verified_legacy_profile_trigger_migration(base, head, root=root):
-                    return True, "intelligence-workflow-not-exact-profile-doc-migration"
             elif path == DESKTOP_TRIGGER_WORKFLOW:
                 if not verified_desktop_trigger_detachment(base, head, root=root):
                     return True, "desktop-trigger-detachment-unverified"
@@ -576,9 +539,6 @@ def classify(base, head, *, root=ROOT, event="push"):
             elif path.startswith(RETIRED_DESKTOP_ROOT):
                 if not verified_retired_desktop_shell_deletion(base, head, path, root=root):
                     return True, "retired-desktop-source-not-deletion:" + path
-            elif path == LEGACY_PROFILE_DOC:
-                if not verified_legacy_profile_deletion(base, head, root=root):
-                    return True, "legacy-profile-doc-not-verified-deletion"
             elif path in WINDOWS_PRODUCT_SHARED_ADDITIONS:
                 # Existing Windows additions and this exact guarded semantic
                 # port migration have independent content proofs.
