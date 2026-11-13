@@ -1,6 +1,6 @@
 # OrdaX — parte 3: fechamento funcional pré-USB da visão Nova OrdaX
 
-**Status:** plano canônico de auditoria pré-USB; fechamento de source concluído e preservado como baseline para retestes físicos.  
+**Status documental:** **REFERENCE / NOT APPLICABLE como plano executável**. Auditoria pré-USB de 28/09/2026 com fechamento de source preservado como baseline histórico para comparação e retestes; gates físicos atuais pertencem aos owners/contratos vigentes, não a este plano.  
 **Data:** 28/09/2026.  
 **Protótipo auditado originalmente:** `main@8405feedb05421ea321cc277c0b7b912b6da7117`.  
 **Referência Nova OrdaX:** `washingtonmsdj/novo-ordax-os@49fe41fa67d9032f2e349e86592304e64d6c2d88`.
@@ -12,8 +12,8 @@
 - `PLANO-02-EVOLUCAO-E-REAPROVEITAMENTO-DO-LEGADO.md`;
 - contratos e estado canônicos em `docs/`.
 
-Este documento existe para evitar que uma capacidade estrutural da Nova OrdaX seja
-descoberta somente depois da primeira mídia Stable/MVP. A existência de uma
+Este documento foi criado para evitar que uma capacidade estrutural da Nova OrdaX fosse
+descoberta somente depois da primeira mídia Stable/MVP. Hoje ele permanece como **baseline de referência**, não como fila pré-USB ativa. A existência de uma
 especificação no legado não a torna requisito do MVP; da mesma forma, a existência
 de um backend no protótipo não prova que a experiência de sistema correspondente
 está integrada.
