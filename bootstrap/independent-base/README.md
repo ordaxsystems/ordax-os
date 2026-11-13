@@ -1,8 +1,9 @@
-# Base independente OrdaX — experimento isolado
+# Base independente OrdaX — Buildroot e fronteira de adoção
 
-**Estado (16/10/2026):** capacidade independente experimental **não promovível**, agora usada também como única trilha técnica da migração temporária `platform/remove-alpine`. A Fase 2 de boot portátil e a Fase 3 de saúde gráfica real já foram validadas em QEMU, incluindo release assinado, recuperação e segundo boot `current`. Isso não comprova Secure Boot, equivalência em hardware físico nem autorização de migração. Esta pasta não cria outra distribuição, linha de atualização, gerenciador de pacotes ou boot de produção.
+> **Estado operacional da PR #2243 em 13/11/2026:** este diretório é o candidato Buildroot/musl para Base Owner/Development e Stable-MVP na branch `integration/dev-usb-buildroot-surface-20261024`. O código elimina Alpine/APK nesses perfis da candidata, mas isso **não declara promoção Stable, mídia física, assinatura pública ou conclusão do USB** antes dos gates correspondentes. `main` continua sendo a autoridade integrada até o merge; não manter branch paralela nem restaurar produtores Alpine como paliativo.
 
-A migração não cria um segundo owner: ela reutiliza este diretório e segue `MIGRATION-REMOVE-ALPINE.md`. `main` continua sendo a única source authority; a branch temporária existe apenas para impedir que builds longos da base bloqueiem o desenvolvimento normal.
+A migração reutiliza este único owner e segue `MIGRATION-REMOVE-ALPINE.md`. O kernel continua sendo produzido apenas por `bootstrap/kernel/`; módulos são selecionados por `bootstrap/kernel/module_archive.py`, firmware permanece sob `bootstrap/base/firmware_policy.py`, e a Surface candidata usa o produtor Buildroot/musl de `bootstrap/surface-runtime`.
+
 
 ## Escolha técnica
 
@@ -35,7 +36,7 @@ No perfil Owner, os receipts externos de módulos e firmware são copiados byte 
 ## Limites importantes
 
 - O builder Alpine Development sem consumidores de produção foi retirado na PR #2243 após a Base Buildroot Owner passar no QEMU. A Base Stable antiga ainda requer migração e validação própria antes da remoção.
-- A branch `platform/remove-alpine` pode alterar consumidores e contratos somente para provar a substituição; nenhum desses bytes é automaticamente Stable ou gravável em mídia física.
+- A branch `integration/dev-usb-buildroot-surface-20261024` pode alterar consumidores e contratos somente para provar a substituição; nenhum desses bytes é automaticamente Stable ou gravável em mídia física.
 - O perfil `minimal` permanece sem Git, Wi-Fi de notebook e firmware Owner. O perfil `owner-development` já passou pela compilação e pelo QEMU da Base; o USB completo e a prova física ainda são gates separados e obrigatórios.
 - A inicialização `ordax-independent-probe-init` é exclusivamente um programa de **teste QEMU**, não substitui `bootstrap/initramfs/portable_init.sh`, os verificadores de release, seleção de slots ou serviços atuais.
 - **Não** se pode distribuir, assinar, instalar, ligar ao Creator, ativar Base Update, substituir `stable-base.erofs` ou modificar USB com este artefato enquanto os gates de promoção permanecerem fechados.
@@ -47,7 +48,7 @@ No perfil Owner, os receipts externos de módulos e firmware são copiados byte 
 O loop de desenvolvimento e a prova de plataforma são deliberadamente diferentes:
 
 ```text
-push em platform/remove-alpine
+push em integration/dev-usb-buildroot-surface-20261024
  -> .github/workflows/remove-alpine-fast.yml
  -> contratos + unitários + sintaxe + Kconfig real dos perfis minimal, Owner e Stable candidato
  -> sem compilar rootfs/kernel/full USB
@@ -60,7 +61,7 @@ marco estrutural / integração final
  -> QEMU + evidência/provenance
 ```
 
-O workflow pesado aceita seleção manual `minimal|owner-development`. Em PR vindo de `platform/remove-alpine`, a prova usa `owner-development`; PRs comuns preservam `minimal`. O kernel é construído somente em cache miss, verificado antes de o rootfs Owner consumir seu archive de módulos e nunca recompilado pelo post-build.
+O workflow pesado aceita seleção manual `minimal|owner-development`. Em PR vindo de `integration/dev-usb-buildroot-surface-20261024`, a prova usa `owner-development`; PRs comuns preservam `minimal`. O kernel é construído somente em cache miss, verificado antes de o rootfs Owner consumir seu archive de módulos e nunca recompilado pelo post-build.
 
 O gate rápido não substitui o pesado. Ele existe para evitar recompilar a plataforma inteira após mudanças que ainda podem ser rejeitadas por testes baratos. Mudanças normais em `system/`, Surface, apps, contas, Spaces e Web continuam independentes quando seus owners não alteram a base.
 
@@ -114,7 +115,7 @@ python3 bootstrap/independent-base/qemu_proof.py \
 | `bootstrap/initramfs/build.py` | BusyBox oficial + `musl-gcc` | independente | preservar |
 | `bootstrap/network/build.py` | BusyBox oficial + `musl-gcc` | independente | preservar scripts e contrato |
 | `bootstrap/native-initramfs/build.py` | builder Ubuntu pinado | outro perfil/build | fora do corte Alpine da base portátil |
-| `bootstrap/surface-runtime` | runtime hoje obtido via pacotes APK | consumidor de distribuição | migrar sem colocar gerenciador de pacotes no runtime base |
+| `bootstrap/surface-runtime` | produtor Buildroot/musl candidato | runtime gráfico separado da Base | preservar sem APK/Alpine e promover somente após EROFS/boot/health aplicáveis |
 
 A ordem de trabalho e os critérios de corte estão em `MIGRATION-REMOVE-ALPINE.md`. Não criar wrapper permanente para manter duas bases ativas.
 

@@ -3,7 +3,7 @@ name: Independent Base Experiment
 on:
   push:
     # Only explicitly marked migration-branch commits activate the heavy jobs.
-    branches: ['platform/remove-alpine', 'integration/dev-usb-buildroot-surface-20261024']
+    branches: ['integration/dev-usb-buildroot-surface-20261024']
     paths:
       - 'bootstrap/independent-base/**'
       - 'tests/test_independent_native_component.py'
@@ -55,8 +55,8 @@ jobs:
   independent-base-contract:
     # Validate the Owner Buildroot profile on draft PRs without building the
     # kernel/rootfs or starting QEMU. The release job must depend on this gate.
-    # Original platform/remove-alpine behavior remains unchanged.
-    if: ${{ github.event_name != 'push' || github.ref == 'refs/heads/platform/remove-alpine' || (github.ref == 'refs/heads/integration/dev-usb-buildroot-surface-20261024' && contains(github.event.head_commit.message, '[stable-mvp-proof]')) }}
+    # Heavy push proof remains explicit on the single active integration branch.
+    if: ${{ github.event_name != 'push' || (github.ref == 'refs/heads/integration/dev-usb-buildroot-surface-20261024' && contains(github.event.head_commit.message, '[stable-mvp-proof]')) }}
     runs-on: ubuntu-24.04
     timeout-minutes: 20
     permissions:
@@ -525,7 +525,7 @@ jobs:
 
   private-native-python:
     name: Compile private Buildroot Python component (no USB install)
-    if: (github.event_name == 'push' && github.ref == 'refs/heads/platform/remove-alpine') || (github.event_name == 'pull_request' && github.base_ref == 'platform/remove-alpine')
+    if: (github.event_name == 'push' && github.ref == 'refs/heads/integration/dev-usb-buildroot-surface-20261024') || github.event_name == 'pull_request'
     runs-on: ubuntu-24.04
     timeout-minutes: 120
     steps:
