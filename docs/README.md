@@ -10,7 +10,7 @@ When two files disagree, use this order:
 
 1. **Source + machine-readable contracts** under `docs/contracts/` for exact structured behavior.
 2. **`docs/CURRENT-STATE.md`** for the current human-readable implementation/proof snapshot.
-3. **`MVP.md`** for current public MVP scope.
+3. **`MVP.md`** for current launch baseline and owner-specific completion scope (not a global minimum-product queue).
 4. **`docs/DECISIONS.md`** for architectural decisions and rationale.
 5. **Canonical topic documents** listed below for active design/runbook detail.
 6. **Plans/proposals** for future work only.
@@ -29,7 +29,7 @@ Para trabalho cross-repo, a ordem operacional é **`AGENTS.md` → `docs/README.
 
 | Responsibility | Canonical owner |
 | --- | --- |
-| MVP scope | `MVP.md` |
+| Launch baseline and owner-specific completion scope | `MVP.md` |
 | Current state / handoff | `docs/CURRENT-STATE.md` |
 | Architecture | `docs/ARCHITECTURE.md` |
 | Repository ownership + dependency direction | `docs/REPOSITORY-OWNERSHIP.md` + `docs/contracts/repository-ownership.json` |
@@ -87,7 +87,7 @@ It separates:
 
 | Topic | Route | Document status | Execution now |
 | --- | --- | --- | --- |
-| Planning/priorities router | `../00-PLANOS-PRIORITARIOS/README.md` | Active planning index; non-canonical | Documentation/triage only; follow `ROADMAP.md` |
+| Planning/priorities router | `../00-PLANOS-PRIORITARIOS/README.md` | Planning index; non-canonical | Consult when planning or reconciling scope; no mandatory roadmap preflight for owner-defined implementation |
 | Root historical/active plans | `../00-PLANOS-PRIORITARIOS/REGISTRY.md` | Classified centrally as reference/ready/guide/etc. | Plans do not authorize work; current Window/owner and relevant evidence decide |
 | OS foundation audit and consolidation handoff | `../00-PLANOS-PRIORITARIOS/plans/FOUNDATION-001-OS-ARCHITECTURE-CONSOLIDATION.md` | **REFERENCE**; historical consolidation handoff, not canonical implementation status | Execution-eligible only when a current owner defect/gate requires that specific slice; no independent queue or physical authorization |
 | OrdaX Web Research | `../00-PLANOS-PRIORITARIOS/plans/WEB-001-WEB-RESEARCH.md` | Source contracts and inert router implemented; no provider enabled | **DEFERRED FOR EXECUTION** until MVP closure and revalidation |
