@@ -13,6 +13,14 @@ import {
   OWNER_PROJECT_ONBOARDING_URL,OWNER_PROJECTS_URL,
   validateAccountOwnerProjectOnboarding,readAccountOwnerProjectOnboarding,
   parseAccountOwnerProjectCreate,createAccountOwnerProject,
+  ACCOUNT_MCP_GITHUB_CHALLENGES_PATH,ACCOUNT_MCP_GITHUB_CALLBACK_PATH,
+  ACCOUNT_MCP_GITHUB_CANDIDATES_PATH,ACCOUNT_MCP_GITHUB_SELECTIONS_PATH,
+  OWNER_GITHUB_CHALLENGES_URL,OWNER_GITHUB_COMPLETIONS_URL,
+  OWNER_GITHUB_CANDIDATES_URL,OWNER_GITHUB_SELECTIONS_URL,
+  parseAccountOwnerGithubAuthorizationStart,startAccountOwnerGithubAuthorization,
+  parseAccountOwnerGithubCallback,completeAccountOwnerGithubAuthorization,
+  readAccountOwnerGithubCandidates,parseAccountOwnerGithubSelection,
+  selectAccountOwnerGithubRepository,
 } from "../infra/supabase/functions/_shared/account_mcp_owner.mjs";
 
 const device="11111111-1111-4111-8111-111111111111";
@@ -21,6 +29,10 @@ const client="22222222-2222-4222-8222-222222222222";
 const group="33333333-3333-4333-8333-333333333333";
 const space="55555555-5555-4555-8555-555555555555";
 const project="66666666-6666-4666-8666-666666666666";
+const challenge="77777777-7777-4777-8777-777777777777";
+const connection="88888888-8888-4888-8888-888888888888";
+const githubState=challenge+"."+"A".repeat(43);
+const githubCode="oauth-code-123456";
 const access="abcDEFghi.abcDEFghi.abcDEFghi";
 const row={device_id:device,name:"OrdaX Desktop",kind:"desktop",
   channel:"development",state:"active",online:true,runtime_ready:true,last_seen_at:null};
@@ -62,6 +74,16 @@ test("Only three explicit MCP Owner routes, not publicly preactivated",()=>{
   assert.equal(isPublicBridgeRoute("POST",ACCOUNT_MCP_PROJECTS_PATH),true);
   assert.equal(isPublicAccountPreActivationRoute("POST",ACCOUNT_MCP_PROJECTS_PATH),false);
   assert.equal(isPublicBridgeRoute("GET",ACCOUNT_MCP_PROJECTS_PATH),false);
+  for(const [method,path] of [
+    ["POST",ACCOUNT_MCP_GITHUB_CHALLENGES_PATH],
+    ["GET",ACCOUNT_MCP_GITHUB_CALLBACK_PATH],
+    ["GET",ACCOUNT_MCP_GITHUB_CANDIDATES_PATH],
+    ["POST",ACCOUNT_MCP_GITHUB_SELECTIONS_PATH],
+  ]){
+    assert.equal(isPublicBridgeRoute(method,path),true);
+    assert.equal(isPublicAccountPreActivationRoute(method,path),false);
+    assert.equal(isPublicBridgeRoute(method==="GET"?"POST":"GET",path),false);
+  }
 });
 test("Gateway Owner routes keep Supabase cookie authorization and fail-closed rollout",()=>{
   const source=readFileSync(new URL("../infra/supabase/functions/ordax-account-gateway/index.ts",import.meta.url),"utf8");
@@ -80,6 +102,12 @@ test("Gateway Owner routes keep Supabase cookie authorization and fail-closed ro
   assert.match(source,/parseAccountOwnerProjectCreate\(projectCreate\)/);
   assert.match(source,/createAccountOwnerProject\(session\.access, projectCreate\)/);
   assert.match(source,/mcp-owner-project-create-unconfirmed/);
+  assert.match(source,/ORDAX_MCP_OWNER_GITHUB_AUTHORIZATION_ENABLED/);
+  assert.match(source,/completeAccountOwnerGithubAuthorization\(session\.access,callback\)/);
+  assert.match(source,/readAccountOwnerGithubCandidates/);
+  assert.match(source,/selectAccountOwnerGithubRepository/);
+  assert.match(source,/githubCallbackRedirect/);
+  assert.match(source,/referrer-policy", "no-referrer"/);
   assert.doesNotMatch(source,/x-ordax-owner-token/);
 });
 test("Authenticated public bridge carries the verified origin, never mutable forwarded host",()=>{
@@ -176,6 +204,175 @@ test("Project onboarding rejects ambiguous state instead of inventing readiness"
       state:"active",github_connection_count:1,repository_full_name:null,
       space_device_execute:false,project_device_bound:false,next_state:"needs_github_installation"}]},
   ]) assert.equal(validateAccountOwnerProjectOnboarding(bad,device),null);
+});
+
+test("GitHub start accepts only Project confirmation and projects a fixed provider destination",async()=>{
+  const input={project_id:project,confirm:"connect_github"};
+  assert.deepEqual(parseAccountOwnerGithubAuthorizationStart(input),input);
+  for(const bad of [
+    {...input,installation_id:"1"},
+    {...input,repository_id:"2"},
+    {...input,repository_full_name:"ordaxsystems/ordax-platform"},
+    {...input,device_id:device},
+    {...input,grant_profile:"terminal"},
+    {...input,confirm:"yes"},
+  ]) assert.equal(parseAccountOwnerGithubAuthorizationStart(bad),null);
+
+  const authorization=new URL("https://github.com/login/oauth/authorize");
+  authorization.searchParams.set("client_id","Iv1.1234567890abcdef");
+  authorization.searchParams.set("redirect_uri","https://ordax.com.br/account/mcp/github/callback");
+  authorization.searchParams.set("state",githubState);
+  authorization.searchParams.set("code_challenge","B".repeat(43));
+  authorization.searchParams.set("code_challenge_method","S256");
+  authorization.searchParams.set("allow_signup","false");
+  authorization.searchParams.set("prompt","select_account");
+  const upstream={ok:true,challenge_id:challenge,project_id:project,
+    authorization_url:authorization.toString(),
+    install_url:"https://github.com/apps/ordax/installations/new",
+    expires_at:"2026-11-14T00:00:00Z",installation_id:"drop"};
+  const calls=[];
+  const result=await startAccountOwnerGithubAuthorization(access,input,async(url,options)=>{
+    calls.push({url,options});
+    return makeResponse(upstream,url,201);
+  });
+  assert.equal(result.schema,"ordax.owner-github-authorization-challenge/1");
+  assert.equal(result.challenge_id,challenge);
+  assert.equal("installation_id" in result,false);
+  assert.equal(calls.length,1);
+  assert.equal(calls[0].url,OWNER_GITHUB_CHALLENGES_URL);
+  assert.equal(calls[0].options.method,"POST");
+  assert.deepEqual(JSON.parse(calls[0].options.body),input);
+  assert.equal(calls[0].options.headers.Authorization,"Bearer "+access);
+
+  for(const mutate of [
+    u=>{u.hostname="evil.invalid";},
+    u=>{u.searchParams.set("redirect_uri","https://evil.invalid/callback");},
+    u=>{u.searchParams.set("state",other+"."+"A".repeat(43));},
+    u=>{u.searchParams.set("installation_id","1");},
+  ]){
+    const bad=new URL(authorization);
+    mutate(bad);
+    await assert.rejects(startAccountOwnerGithubAuthorization(access,input,
+      async(url)=>makeResponse({...upstream,authorization_url:bad.toString()},url,201)),
+      /start-unconfirmed/);
+  }
+});
+
+test("GitHub callback is exact, one-shot, and never returns provider identity",async()=>{
+  const input={code:githubCode,state:githubState};
+  assert.deepEqual(parseAccountOwnerGithubCallback(input),input);
+  for(const bad of [
+    {...input,installation_id:"123"},
+    {...input,repository_id:"456"},
+    {...input,state:"bad"},
+    {...input,code:"x"},
+  ]) assert.equal(parseAccountOwnerGithubCallback(bad),null);
+
+  const upstream={ok:true,challenge_id:challenge,project_id:project,candidate_count:2,
+    next_state:"needs_repository_selection",
+    install_url:"https://github.com/apps/ordax/installations/new",
+    expires_at:"2026-11-14T00:00:00Z",github_user_id:"drop",access_token:"drop"};
+  const calls=[];
+  const result=await completeAccountOwnerGithubAuthorization(access,input,async(url,options)=>{
+    calls.push({url,options});
+    return makeResponse(upstream,url);
+  });
+  assert.deepEqual(result,{ok:true,schema:"ordax.owner-github-authorization-completed/1",
+    challenge_id:challenge,project_id:project,candidate_count:2,
+    next_state:"needs_repository_selection",
+    install_url:"https://github.com/apps/ordax/installations/new",
+    expires_at:"2026-11-14T00:00:00Z"});
+  assert.equal(calls.length,1);
+  assert.equal(calls[0].url,OWNER_GITHUB_COMPLETIONS_URL);
+  assert.deepEqual(JSON.parse(calls[0].options.body),input);
+  assert.equal(JSON.stringify(result).includes("access_token"),false);
+  await assert.rejects(completeAccountOwnerGithubAuthorization(access,input,async()=>{
+    throw Error("uncertain");
+  }));
+});
+
+test("GitHub candidates expose only repository choice and selection POST is preflighted once",async()=>{
+  const candidates={ok:true,challenge_id:challenge,project_id:project,
+    repositories:[{repository_id:"123456789",repository_full_name:"ordaxsystems/ordax-platform",
+      default_branch:"main",installation_account_login:"ordaxsystems",
+      installation_id:"9001",github_user_id:"drop"}],
+    expires_at:"2026-11-14T00:00:00Z"};
+  const readCalls=[];
+  const projected=await readAccountOwnerGithubCandidates(access,challenge,
+    transport([candidates],readCalls));
+  assert.equal(projected.schema,"ordax.owner-github-repository-candidates/1");
+  assert.deepEqual(projected.repositories,[{repository_id:"123456789",
+    repository_full_name:"ordaxsystems/ordax-platform",default_branch:"main",
+    installation_account_login:"ordaxsystems"}]);
+  assert.equal("installation_id" in projected.repositories[0],false);
+  assert.equal(readCalls[0].url,OWNER_GITHUB_CANDIDATES_URL+"?challenge_id="+challenge);
+
+  const selection={challenge_id:challenge,repository_id:"123456789",
+    confirm:"select_repository"};
+  assert.deepEqual(parseAccountOwnerGithubSelection(selection),selection);
+  for(const bad of [
+    {...selection,installation_id:"9001"},
+    {...selection,repository_full_name:"ordaxsystems/ordax-platform"},
+    {...selection,device_id:device},
+    {...selection,grant_profile:"terminal"},
+    {...selection,confirm:"yes"},
+  ]) assert.equal(parseAccountOwnerGithubSelection(bad),null);
+
+  const selected={ok:true,challenge_id:challenge,connection_id:connection,
+    project_id:project,repository_id:"123456789",
+    repository_full_name:"ordaxsystems/ordax-platform",default_branch:"main",
+    state:"active",next_state:"needs_device_binding",installation_id:"drop"};
+  const calls=[];
+  const result=await selectAccountOwnerGithubRepository(access,selection,
+    transport([candidates,selected],calls));
+  assert.equal(result.schema,"ordax.owner-github-repository-selected/1");
+  assert.equal(result.next_state,"needs_device_binding");
+  assert.equal("installation_id" in result,false);
+  assert.deepEqual(calls.map(call=>call.options.method),["GET","POST"]);
+  assert.equal(calls[1].url,OWNER_GITHUB_SELECTIONS_URL);
+  assert.deepEqual(JSON.parse(calls[1].options.body),selection);
+
+  const guessedCalls=[];
+  await assert.rejects(selectAccountOwnerGithubRepository(access,
+    {...selection,repository_id:"987654321"},
+    transport([candidates],guessedCalls)),/repository-not-verified/);
+  assert.equal(guessedCalls.some(call=>call.options.method==="POST"),false);
+});
+
+test("Vercel forwards only exact GitHub OAuth callback and candidate query",async()=>{
+  const {forwardOwnerMcpGithubCallbackQuery,forwardOwnerMcpGithubCandidateQuery}=
+    await import("../lib/account-proxy-core.mjs");
+  const callback=forwardOwnerMcpGithubCallbackQuery(ACCOUNT_MCP_GITHUB_CALLBACK_PATH,
+    new URLSearchParams({ordax_path:ACCOUNT_MCP_GITHUB_CALLBACK_PATH,
+      code:githubCode,state:githubState}));
+  assert.equal(callback,ACCOUNT_MCP_GITHUB_CALLBACK_PATH+"?code="+
+    encodeURIComponent(githubCode)+"&state="+encodeURIComponent(githubState));
+  assert.equal(forwardOwnerMcpGithubCallbackQuery(ACCOUNT_MCP_GITHUB_CALLBACK_PATH,
+    new URLSearchParams({ordax_path:ACCOUNT_MCP_GITHUB_CALLBACK_PATH,
+      code:githubCode,state:githubState,installation_id:"1"})),null);
+  assert.equal(forwardOwnerMcpGithubCallbackQuery(
+    ACCOUNT_MCP_GITHUB_CALLBACK_PATH+"?code="+githubCode+"&state="+githubState,
+    new URLSearchParams({ordax_path:ACCOUNT_MCP_GITHUB_CALLBACK_PATH,
+      code:"different-code",state:githubState})),null);
+
+  assert.equal(forwardOwnerMcpGithubCandidateQuery(ACCOUNT_MCP_GITHUB_CANDIDATES_PATH,
+    new URLSearchParams({ordax_path:ACCOUNT_MCP_GITHUB_CANDIDATES_PATH,
+      challenge_id:challenge})),
+    ACCOUNT_MCP_GITHUB_CANDIDATES_PATH+"?challenge_id="+challenge);
+  assert.equal(forwardOwnerMcpGithubCandidateQuery(ACCOUNT_MCP_GITHUB_CANDIDATES_PATH,
+    new URLSearchParams({ordax_path:ACCOUNT_MCP_GITHUB_CANDIDATES_PATH,
+      challenge_id:challenge,repository_id:"1"})),null);
+});
+
+test("GitHub top-level GET can return with SameSite Lax while state-changing cross-site stays denied",async()=>{
+  const {verifyBrowserOriginContext}=await import(
+    "../infra/supabase/functions/ordax-public-account-gateway/public_request_context.mjs");
+  const callback=new Request("https://ordax.com.br"+ACCOUNT_MCP_GITHUB_CALLBACK_PATH,
+    {method:"GET",headers:{"sec-fetch-site":"cross-site"}});
+  assert.equal(verifyBrowserOriginContext(callback,"https://ordax.com.br").ok,true);
+  const mutation=new Request("https://ordax.com.br"+ACCOUNT_MCP_GITHUB_SELECTIONS_PATH,
+    {method:"POST",headers:{"sec-fetch-site":"cross-site"}});
+  assert.equal(verifyBrowserOriginContext(mutation,"https://ordax.com.br").ok,false);
 });
 
 test("Old grant with withdrawn OAuth consent is still visible to Owner for revocation",()=>{
