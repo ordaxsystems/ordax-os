@@ -1,4 +1,4 @@
-# Physical ATA, kernel-log and performance evidence runbook
+# Physical storage and performance evidence runbook
 
 ## Purpose
 
@@ -19,7 +19,7 @@ The collectors are intentionally read-only entrypoints resolved against the acti
 Run once after the Surface is available, before the manual MVP tour:
 
 ```sh
-/system/surface/bin/ordax-ata-evidence
+/system/surface/bin/ordax-physical-ata
 ```
 
 The ATA collector reads the bounded `/sys/class/ata_port`, `/sys/class/ata_link`, and `/sys/class/ata_device` views exposed to the active runtime. It is intended to preserve evidence relevant to the observed `ata2` reset/identification delay without reading block contents or issuing storage commands.
@@ -30,17 +30,17 @@ Interpretation rules:
 - Do not infer universal SATA compatibility from one machine.
 - Do not disable SATA/AHCI/libata/NVMe support merely to remove a delay observed on one target.
 
-## 2. Capture bounded ATA-related kernel-log evidence
+## 2. Capture bounded boot/storage kernel evidence
 
 If the boot console showed ATA resets, IDENTIFY failures, link negotiation problems, or similar errors, collect the matching printk records from the already-running system:
 
 ```sh
-/system/surface/bin/ordax-kernel-log-evidence
+/system/surface/bin/ordax-physical-boot-storage
 ```
 
-This collector reads `/dev/kmsg` with a separate read-only, non-blocking file descriptor. It scans a bounded amount of the printk ring buffer and emits only records that match both an ATA/libata/AHCI/SATA scope and an explicit recovery/error/link-event allowlist. Identification-only records are excluded so the evidence does not become an accidental model/serial inventory.
+This collector reads `/dev/kmsg` with a separate read-only, non-blocking file descriptor. It scans a bounded amount of the printk ring buffer and emits only storage-scoped AHCI/ATA/NVMe/USB-storage/SCSI records. Records carrying model, serial, WWN or WWID markers are excluded so the evidence does not become an accidental hardware-identity inventory.
 
-The collector does **not** use `/proc/kmsg`, does not invoke `dmesg`, does not clear the ring buffer, and does not write kernel messages. If `/dev/kmsg` is unavailable or permission is denied, the command fails closed with `status=unavailable` instead of falling back to another source.
+The collector does **not** use `/proc/kmsg`, does not invoke `dmesg`, does not clear the ring buffer, and does not write kernel messages. If `/dev/kmsg` is unavailable or permission is denied, the command fails closed with a nonzero exit instead of falling back to another source.
 
 Do not use this evidence to justify a blind storage workaround. In particular, do not trigger rescans, resets, IDENTIFY commands, module unload/reload, `libata.force` changes, or other controller mutations to manufacture a different result.
 
@@ -49,7 +49,7 @@ Do not use this evidence to justify a blind storage workaround. In particular, d
 Immediately before the manual Surface tour, run a bounded sample:
 
 ```sh
-/system/surface/bin/ordax-performance-evidence --samples 20 --interval-seconds 0.5
+/system/surface/bin/ordax-physical-performance --samples 20 --interval-seconds 0.5
 ```
 
 The performance collector samples the active runtime's read-only `/proc` view and reports aggregate CPU/load, memory, PSI, disk statistics, and bounded process-role aggregates. It does not emit process command lines, URLs, filenames, document contents, or a synthetic product verdict.
@@ -73,25 +73,25 @@ Follow `docs/evidence/mvp-surface-smoke-runbook.md` unchanged:
 5. compare;
 6. finalize fail-closed and require `FAIL=0`.
 
-ATA/kernel-log/performance evidence is supplemental. It must not be used to fill manual tour items, override a failed smoke item, or manufacture a physical PASS.
+ATA/boot-storage/performance evidence is supplemental. It must not be used to fill manual tour items, override a failed smoke item, or manufacture a physical PASS.
 
 ## 5. Capture performance after the tour
 
 After the post-tour smoke collection, run the same bounded performance sample again:
 
 ```sh
-/system/surface/bin/ordax-performance-evidence --samples 20 --interval-seconds 0.5
+/system/surface/bin/ordax-physical-performance --samples 20 --interval-seconds 0.5
 ```
 
 Compare baseline and post-tour evidence manually or with a separately reviewed analysis step. The collector deliberately does not choose thresholds or declare regressions by itself.
 
-## 6. Optional second ATA/kernel-log snapshot
+## 6. Optional second ATA/boot-storage snapshot
 
-If the session observed new storage symptoms after the tour, collect another read-only sysfs snapshot and bounded kernel-log view:
+If the session observed new storage symptoms after the tour, collect another read-only sysfs snapshot and bounded boot/storage kernel view:
 
 ```sh
-/system/surface/bin/ordax-ata-evidence
-/system/surface/bin/ordax-kernel-log-evidence
+/system/surface/bin/ordax-physical-ata
+/system/surface/bin/ordax-physical-boot-storage
 ```
 
 Do not trigger rescans, resets, IDENTIFY commands, module unload/reload, libata command-line changes, mounts, writes, or reboots just to force a different result.
@@ -102,7 +102,7 @@ A valid diagnostic session should make the following separation explicit:
 
 - **MVP Surface smoke**: functional physical validation with its own fail-closed finalization.
 - **ATA evidence**: bounded read-only sysfs state useful for investigating the previously observed boot delay.
-- **Kernel-log evidence**: bounded read-only ATA recovery/error records from `/dev/kmsg`, without full-ring disclosure or device identification lines.
+- **Boot/storage evidence**: bounded read-only AHCI/ATA/NVMe/USB-storage/SCSI records from `/dev/kmsg`, without full-ring disclosure or hardware identity lines.
 - **Performance evidence**: bounded read-only runtime measurements useful for investigating the previously observed latency growth.
 - **Release/physical promotion**: separate authority; none of these commands records owner consent or permits destructive apply.
 
