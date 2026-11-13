@@ -2,7 +2,7 @@
 
 **Estado verificado em 2026-11-04:** **Capability Fabric v1 implementado e integrado ao `ordax-os/main`** pela [PR #2406](https://github.com/ordaxsystems/ordax-os/pull/2406), merge `b44659ec8caad2fff8820bcee83201174dc71702`. A documentação de fechamento entrou na `main` por `354d6d1462a14d0f6e708f9262353762588b1f01`. **Não equivale** a liberação de ferramentas MCP, execução remota, produção, nem E2E de interface humana.
 
-**Natureza deste arquivo:** guia de arquitetura e retomada. Não é outro contrato, catálogo, permission store ou registro de execução. Em conflito, prevalecem o código/contratos e `docs/CURRENT-STATE.md`, segundo `docs/README.md`. O diário detalhado de desenvolvimento está em `docs/plans/CAPABILITY-FABRIC-V1.md` e é **histórico**, não fila de tarefas.
+**Natureza deste arquivo:** guia canônico de arquitetura e fronteiras do Fabric. Não é outro contrato, catálogo, permission store ou registro de execução. **As tabelas de status, PRs e sequências marcadas em 04/11/2026 são checkpoints históricos, não fila operacional vigente.** Em conflito, prevalecem o código/contratos e `docs/CURRENT-STATE.md`, segundo `docs/README.md`. A OS #2400 foi integrada em 04/11/2026; qualquer trecho datado abaixo que a descreva como branch-only/aberta deve ser interpretado como fotografia anterior ao merge. O diário detalhado de desenvolvimento está em `docs/plans/CAPABILITY-FABRIC-V1.md` e é **histórico**, não fila de tarefas.
 
 ## Resposta em 30 segundos: o que é e para que serve
 
@@ -202,9 +202,9 @@ Owners: `ordax-os` (Fabric/Personal/Action Gateway local),
 contratos públicos do App SDK/Runtime e o **mesmo serviço de domínio**
 quando disponível; não transformar um app em MCP server próprio.
 
-## Integração vertical Aura ⇄ Product MCP — matriz operacional de implementação
+## Integração vertical Aura ⇄ Product MCP — arquitetura e checkpoint de 04/11/2026
 
-**Esta seção é a fila única para a próxima integração de ação, não outro catálogo de tools, plano genérico ou permissão.** O contrato `ordax.capability-discovery/1` do Fabric v1 está concluído; o objetivo pendente é tornar uma operação de domínio **realmente reutilizável** por Aura/Personal e cliente MCP, sem que ambos usem a mesma credencial ou confundam catálogo com execução.
+**Esta seção preserva a matriz operacional verificada em 04/11/2026; não é mais uma fila executável por si só.** O contrato `ordax.capability-discovery/1` do Fabric v1 está concluído. Use a matriz para entender fronteiras, owners e critérios de aceite, mas derive qualquer pendência atual de `docs/CURRENT-STATE.md` e dos owners Runtime/Platform/OS vigentes, sem reabrir trabalho já integrado.
 
 ### Estado por fronteira (fonte, realidade e próximo gate)
 
@@ -266,13 +266,14 @@ não usam o OS Native, desde que não se apresente como estado vivo.
 
 ### Ponte Native Product existente: o que ela realmente entrega (código da OS #2400)
 
-Auditoria de source da [PR #2400](https://github.com/ordaxsystems/ordax-os/pull/2400)
+Auditoria histórica de source da [PR #2400](https://github.com/ordaxsystems/ordax-os/pull/2400)
 em **04/11/2026** (HEAD `2e2758daffa4288e2c8df35922aa719a20429f70`):
-a ponte de `system/adapters/desktop/surface-runtime-bridge.mjs`
-está **somente na branch da PR, não integrada à `main`**.
-O GitHub informou conflito de merge com a `main` durante a consulta;
-não sobrescrever alterações contemporâneas, não abrir segunda ponte
-e não promover o candidato DEV sem gates.
+naquele instante a ponte de `system/adapters/desktop/surface-runtime-bridge.mjs`
+estava somente na branch e o GitHub reportava conflito. **Esse estado foi
+superado pelo merge da #2400 em 04/11/2026.** Preservar a descrição abaixo
+como evidência de desenho/limites; não usá-la para concluir que a `main`
+atual carece da ponte, não abrir segunda ponte e não promover candidato DEV
+sem gates atuais.
 
 | Port da PR candidata | O que transporta | O que NÃO comprova |
 | --- | --- | --- |
@@ -391,11 +392,11 @@ Para o app **Notas** a ação semântica declarada `notes.create-note` é um bom
 
 **Não mapear `notes.create-note` automaticamente para `computer.type` ou `computer.click`.** Automação gráfica pode ser fallback com target/window e grant específicos, mas não é a semântica de domínio nem substitui provider. O Runtime pode oferecer recursos genéricos de computador independentemente do app; essas permissões são **do dispositivo/ator**, não opções habilitadas em todos os apps.
 
-### Próxima sequência de implementação, sem repetir o Fabric
+### Sequência registrada em 04/11/2026 — histórica, não executar como fila
 
 | Prioridade | Owner | Mudança mínima útil | Prova de aceite |
 | --- | --- | --- | --- |
-| P0 | OS + Runtime + Platform, nos owners atuais | Concluir a ponte Native Product já existente na [OS #2400](https://github.com/ordaxsystems/ordax-os/pull/2400), sem depender da PR #2405 para DEV. A [Platform #291](https://github.com/ordaxsystems/ordax-platform/issues/291) já foi **concluída** para o Windows físico; não reexecutar esse fluxo como pré-requisito. Começar com `ordax.surface.status` (leitura) e depois `ordax.surface.open` (efeito/confirmação), apenas quando atestados | Device selecionado, tool realmente suportada, grant, resultado/recibo real, falha fechada e revogação; `mcpReady` não inferido |
+| P0 | OS + Runtime + Platform, nos owners atuais | **Histórico:** concluir a ponte Native Product da [OS #2400](https://github.com/ordaxsystems/ordax-os/pull/2400). A #2400 já foi integrada; não reabrir nem duplicar essa ponte. Qualquer lacuna atual de Product MCP deve ser obtida de `CURRENT-STATE` e dos owners vigentes. A [Platform #291](https://github.com/ordaxsystems/ordax-platform/issues/291) já foi concluída e não deve ser reexecutada por rotina. | Device selecionado, tool realmente suportada, grant, resultado/recibo real, falha fechada e revogação; `mcpReady` não inferido |
 | P0-release, separado | OS/Platform/Conta/Site | [OS #2405](https://github.com/ordaxsystems/ordax-os/pull/2405) é gateway de Conta/Owner e **não** pré-requisito do MCP DEV. Sua PR foi explicitamente mantida sem merge até autorização coordenada de Supabase/Vercel/Worker e E2E Owner | Sem ativação pública, deploy ou merge prematuro para desbloquear laboratório |
 | P1-discovery | Runtime + OS, sem catálogo novo | Distinguir registro informativo `app_intelligence_registry.json` de inventário de apps **instalados** na Store `CURRENT`; onde o Product oferecer disponibilidade, ligar ao port Native autenticado existente, read-only | Mesmo app, versão e revogação observados pelos dois clientes, com Device/slot/revisão verificáveis |
 | P1 | OS/Apps, com owner único do serviço | Selecionar **uma operação de domínio já executável** e conectar identidade, schema e provider à proposta da Aura e ao adaptador Runtime, com contratos públicos | Mesmo efeito e recibos comparáveis pelas duas rotas, sem segundo executor |
@@ -449,8 +450,8 @@ Para o app **Notas** a ação semântica declarada `notes.create-note` é um bom
 
 1. **UI/Aura (Owner: `ordax-surface` + composição OS):** provar na Surface real Windows a descoberta de capacidades atuais, instalação/remoção ou alteração verificável de app durante a sessão, proposta, solicitação de aprovação, consentimento real, efeito/recibo e revogação sem ação antiga reaparecer. O teste Node/HTTP não substitui esta prova.
 2. **Provedor executável de Application Actions (owners OS/Apps conforme contrato):** resolver artifact/provedor verificado e executar pela aprovação/grant/gateway existentes. Ações de apps anunciadas como `declared-only` não são hoje executáveis só porque aparecem na Aura. Não inventar tool por semelhança de nome.
-3. **Runtime/Product MCP (owners `ordax-runtime` e `ordax-platform`; integração OS na [PR #2400](https://github.com/ordaxsystems/ordax-os/pull/2400)):** concluir a integração existente, atestar Product Device e `capability_digest` verdadeiro, apresentar apenas ferramentas suportadas pelo Runtime, selecionar Device/Owner/grant exatos, executar e revogar em sessão autenticada com recibo `succeeded`/erro verificável. Não usar `mcpReady=true` por inferência. [Runtime #306](https://github.com/ordaxsystems/ordax-runtime/pull/306) e [Platform #333](https://github.com/ordaxsystems/ordax-platform/pull/333) **já foram integradas**; a PR OS #2400 **segue aberta** na data de verificação. Isso **não significa** que todas as ações semânticas Fabric estejam disponíveis como tools MCP.
-4. **Conta/gerência Owner remota:** [OS #2405](https://github.com/ordaxsystems/ordax-os/pull/2405) ainda aberta, sujeita a gates de release/Supabase/Vercel e confirmação de autoridade. [Platform #334](https://github.com/ordaxsystems/ordax-platform/pull/334) já integrada. Não ativar Conta pública ou flags apenas para acelerar o DEV MCP.
+3. **Runtime/Product MCP (owners `ordax-runtime` e `ordax-platform`; integração OS originada na [PR #2400](https://github.com/ordaxsystems/ordax-os/pull/2400)):** a fonte da ponte OS foi integrada. Readiness atual, `capability_digest`, tools realmente suportadas, Device/Owner/grant, execução, revogação e recibos pertencem ao estado contemporâneo dos owners e devem ser verificados antes de qualquer ação. Não usar `mcpReady=true` por inferência nem deduzir disponibilidade remota só porque a #2400 foi mergeada.
+4. **Conta/gerência Owner remota:** [OS #2405](https://github.com/ordaxsystems/ordax-os/pull/2405) é uma frente separada de Conta/Owner sujeita a gates próprios. Seu estado de PR/deploy é volátil e deve ser consultado ao vivo; não ativar Conta pública ou flags apenas para acelerar DEV MCP.
 5. **Ambientes adicionais:** prova física no USB/Linux somente quando aquela entrega for retomada; CI Windows não a substitui, e não é pré-requisito para reabrir o v1.
 
 Os passos de Product MCP e UX são **frentes próprias**, não extensões automáticas do catálogo v1. Estado de dispositivo online/offline, check de PR e publicação de Worker são voláteis: consultar fontes atuais antes de declarar conclusões.
@@ -458,7 +459,7 @@ Os passos de Product MCP e UX são **frentes próprias**, não extensões autom�
 ## Próxima IA: roteiro de retomada em 5 minutos
 
 1. Ler `docs/README.md` → topo de `docs/CURRENT-STATE.md` → **este arquivo**. Consultar `docs/plans/CAPABILITY-FABRIC-V1.md` somente para histórico ou testes causais específicos.
-2. Verificar `ordax-os/main`, PR #2406 (já merged), PRs #2400 e #2405 e estados atuais dos repos `ordax-runtime`, `ordax-platform`, `ordax-surface`. **Não tratar versões antigas do checkout Windows com mudanças não commitadas como fonte remota canônica; não executar reset/pull destrutivo ali.**
+2. Verificar `ordax-os/main`, o estado atual dos owners `ordax-runtime`, `ordax-platform`, `ordax-surface` e somente as PRs ainda relevantes. A #2406 e a #2400 são integrações históricas já concluídas; não tratá-las como fila. **Não tratar versões antigas do checkout Windows com mudanças não commitadas como fonte remota canônica; não executar reset/pull destrutivo ali.**
 3. Começar pelo bloqueio vertical existente no owner correto; **não** criar segundo Fabric, inventário, Store, gateway, daemon, plataforma OAuth, grant ledger, instalação Desktop, PR ou workflow só porque os passos de UI/MCP continuam pendentes.
 4. Preservar `authority=none` e `toolExecution=false`, fail-closed e revalidação de `CURRENT`, provedor/artefato/owner/Space/Work/revisão antes de aprovação, despacho, streaming e recibo.
 5. Executar primeiro a correção em escopo, então os testes **existentes** proporcionais ao risco (`tests/test_capability_*.mjs`, suíte de Application Actions/Personal e, para efeito físico, o E2E File Space já existente). Não repetir build USB/QEMU/Creator/CI sem gate causal. Só marcar concluído o que tiver recibo real no ambiente-alvo.
