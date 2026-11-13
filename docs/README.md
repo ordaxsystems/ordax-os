@@ -33,7 +33,7 @@ Para mudan√ßas cross-repo, **comece por `AGENTS.md`, o owner e o contrato aplic√
 | Current state / handoff | `docs/CURRENT-STATE.md` |
 | Architecture | `docs/ARCHITECTURE.md` |
 | Repository ownership + dependency direction | `docs/REPOSITORY-OWNERSHIP.md` + `docs/contracts/repository-ownership.json` |
-| External Surface source / cutover / staging | `docs/SURFACE-REPOSITORY-MIGRATION.md` + `docs/contracts/surface-source.json` |
+| External Surface source / staging | `docs/contracts/surface-source.json` + `docs/REPOSITORY-OWNERSHIP.md` + `system/surface/README.md` |
 | Brand tokens / derived public + email artifacts | `docs/BRAND-SSOT.md` (visual source remains `ordax-surface`; OS materializes the pinned revision) |
 | External Intelligence source / integration-candidate | `docs/INTELLIGENCE-REPOSITORY-MIGRATION.md` + `docs/contracts/intelligence-source.json` |
 | Personal OrdaX orchestration | `docs/PERSONAL-ORDAX.md` |
