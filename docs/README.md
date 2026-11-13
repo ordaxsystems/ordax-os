@@ -22,9 +22,9 @@ A prose document never silently overrides a machine-readable contract. A snapsho
 Historical wording inside a root `PLANO-*` such as `CANONICAL`, `P0`, `mandatory`, or equivalent does **not** change this authority order. If that wording conflicts with this router, `MVP.md`, current contracts or a canonical topic owner, the higher-authority source wins and the plan is interpreted as planning/reference material.
 
 ## Active canonical map
-## Guia de retomada transversal
+## Retomada transversal: estado atual primeiro
 
-[INTELLIGENCE-HANDOFF.md](../INTELLIGENCE-HANDOFF.md) é a entrada curta para continuar a integração Intelligence + ChatGPT/MCP + apps entre repositórios. **Não é outro owner de inteligência nem status**: `docs/INTELLIGENCE.md`, contratos, código e `docs/CURRENT-STATE.md` mantêm suas prioridades. Antes de implementar, verificar PRs experimentais e o owner correto.
+Para trabalho cross-repo, a ordem operacional é **`AGENTS.md` → `docs/README.md` → topo de `docs/CURRENT-STATE.md` → documento canônico do domínio/owner → PRs e artefatos atuais**. [INTELLIGENCE-HANDOFF.md](../INTELLIGENCE-HANDOFF.md) preserva checkpoints de 04/11 e anteriores como **REFERENCE/HISTORICAL**; não é mais entrada operacional nem fila de tarefas. Use-o somente quando a proveniência histórica for necessária. Para Capability Fabric, `docs/CAPABILITY-FABRIC.md` permanece canônico para arquitetura e fronteiras, mas qualquer tabela de status ou sequência datada deve ser revalidada contra `CURRENT-STATE` e os owners atuais antes de agir.
 
 | Responsibility | Canonical owner |
 | --- | --- |
@@ -33,7 +33,7 @@ Historical wording inside a root `PLANO-*` such as `CANONICAL`, `P0`, `mandatory
 | Architecture | `docs/ARCHITECTURE.md` |
 | Personal OrdaX orchestration | `docs/PERSONAL-ORDAX.md` |
 | Web Research source boundary (providers disabled) | `docs/WEB-RESEARCH.md`, `system/contracts/web-research.mjs` |
-| Capability Fabric — arquitetura, implementação, gates e retomada | `docs/CAPABILITY-FABRIC.md` (guia canônico); `docs/plans/CAPABILITY-FABRIC-V1.md` (histórico) |
+| Capability Fabric — arquitetura e fronteiras canônicas; checkpoints operacionais datados são referência | `docs/CAPABILITY-FABRIC.md` (arquitetura/limites); `docs/plans/CAPABILITY-FABRIC-V1.md` (histórico) |
 | Spaces + professional composition (single user journey) | `docs/SPACES-AND-PROFILES.md` + `docs/contracts/spaces-and-profile-packs.json` |
 | Profile knowledge and Intelligence | `docs/PROFILE-INTELLIGENCE-ARCHITECTURE.md` + canonical Profile manifests |
 | Decisions / ADRs | `docs/DECISIONS.md` |
@@ -75,7 +75,7 @@ It separates:
 | --- | --- | --- | --- |
 | Planning/priorities router | `../00-PLANOS-PRIORITARIOS/README.md` | Active planning index; non-canonical | Documentation/triage only; follow `ROADMAP.md` |
 | Root historical/active plans | `../00-PLANOS-PRIORITARIOS/REGISTRY.md` | Classified centrally as reference/ready/guide/etc. | Plans do not authorize work; current Window/owner and relevant evidence decide |
-| OS foundation audit and consolidation handoff | `../00-PLANOS-PRIORITARIOS/plans/FOUNDATION-001-OS-ARCHITECTURE-CONSOLIDATION.md` | ACTIVE planning/handoff; not canonical implementation status | Only canonical MVP-integrity scope; no independent physical authorization |
+| OS foundation audit and consolidation handoff | `../00-PLANOS-PRIORITARIOS/plans/FOUNDATION-001-OS-ARCHITECTURE-CONSOLIDATION.md` | **REFERENCE**; historical consolidation handoff, not canonical implementation status | Execution-eligible only when a current owner defect/gate requires that specific slice; no independent queue or physical authorization |
 | OrdaX Web Research | `../00-PLANOS-PRIORITARIOS/plans/WEB-001-WEB-RESEARCH.md` | Source contracts and inert router implemented; no provider enabled | **DEFERRED FOR EXECUTION** until MVP closure and revalidation |
 | Meridian visual integration | `docs/architecture/MERIDIAN-PROVENANCE.md` | Audited C; PR-01 only | No production/default/release authority |
 
