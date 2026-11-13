@@ -107,7 +107,25 @@ Não é owner de:
 
 É owner de `system/surface/ui/` e `system/surface/workspace/` (caminhos de montagem do artefato), design tokens, identidade visual e comportamento de interação. Não é owner de serviços nativos, Supervisor, boot, permissões, grants, assinatura, runtime de host ou atualizações do dispositivo. O OS consome um único commit pinado em `docs/contracts/surface-source.json`, preservando os ports e contratos públicos existentes.
 
-### 6. ordaxsystems/ordax-site
+### 6. ordaxsystems/ordax-desktop
+
+**Papel:** host, shell Electron, ciclo de janela e empacotamento/entrega Windows do OrdaX Desktop.
+
+É owner de:
+- shell Electron e integração de host Windows;
+- empacotamento NSIS e proveniência do candidato Desktop;
+- ciclo de vida da janela/processo host e atualização da própria shell;
+- consumo de uma composição OrdaX/OS exata e verificável.
+
+Não é owner de:
+- source visual da Surface, que pertence a `ordax-surface` e é selecionado pela composição do OS;
+- serviços Native, contratos sistêmicos, kernel/boot ou lifecycle de componentes, que permanecem no OS;
+- Runtime/Computer Control local, que pertence a `ordax-runtime`;
+- Creator Core/política de mídia;
+- Product MCP/grants remotos.
+
+Desktop fixa sua **dependência direta de composição OS**; não mantém pins independentes de Surface, Apps ou Intelligence quando esses componentes já são transitivos ao candidato OrdaX.
+### 7. ordaxsystems/ordax-site
 
 **Papel:** fonte e build independentes da apresentação pública (landing, catálogo visual de downloads, páginas legais, login/recuperação e Conta somente na camada visual).
 
@@ -115,7 +133,7 @@ O único código de apresentação, CSS, assets, rotas, i18n e testes do Site pe
 
 Identity, sessão, autorização, billing, publicação assinada de releases, domínios e o proxy do gateway **não** pertencem ao Site. Esses serviços mantêm a autoridade no OS/Platform e apenas fornecem APIs/autorização de mesma origem ao frontend. O ambiente `ordax-site-dev` é separado da operação de produção.
 
-### 7. ordaxsystems/ordax-creator
+### 8. ordaxsystems/ordax-creator
 
 **Papel:** aplicativo independente do Creator, Core de verificação de mídia e interface/adapters Windows.
 
@@ -125,9 +143,9 @@ Identity, sessão, autorização, billing, publicação assinada de releases, do
 
 O corte de fonte do Creator já foi concluído (C6), mas esta declaração de owner **não** promove payload, dispositivo físico, release assinada ou qualquer alteração à PR USB Dev #2243.
 
-### 8. ordaxsystems/ordax-intelligence — fonte portátil candidata, não autoridade ativa
+### 9. ordaxsystems/ordax-intelligence — fonte portátil candidata, não autoridade ativa
 
-O oitavo repositório possui a **fonte portátil candidata** do motor de
+O nono repositório possui a **fonte portátil candidata** do motor de
 Intelligence, router, streaming, compatibilidade e builder técnico. Seu único
 pin de integração, incluindo o grafo portátil completo verificado, é
 `docs/contracts/intelligence-source.json`. Enquanto o lock declarar
@@ -136,10 +154,10 @@ pin de integração, incluindo o grafo portátil completo verificado, é
 ativo no OS nem autoriza remoção de consumidores antigos, assinatura ou boot.
 
 Por isso `docs/contracts/repository-ownership.json#repositories` ainda
-enumera **sete autoridades operacionais**: o OS retém Intelligence de
+enumera **oito autoridades operacionais**: o OS retém Intelligence de
 sistema, Memory, permissões, Supervisor, composição Native e política de
-modelos. O conjunto de **oito repositórios em auditoria** é obtido desses
-sete owners mais o `source_repository` do lock, **sem manter segunda lista
+modelos. O conjunto de **nove repositórios em auditoria** é obtido desses
+oito owners mais o `source_repository` do lock, **sem manter segunda lista
 de versões ou duplicar ownership**. O teste de contrato impede promover
 a candidata como owner operacional antes do cutover atestado.
 
@@ -187,6 +205,17 @@ O Creator **não** aciona rebuild da Base por mudar sua interface. A autorizaç�
 para gravar mídia depende de assinatura, gates físicos e confirmação explícita,
 não da existência de um instalador do Creator ou de testes isolados.
 
+### Desktop Windows como consumidor da composição
+
+```text
+ordaxsystems/ordax-surface / ordax-apps / outros producers
+  -> ordaxsystems/ordax-os (composição e dependência direta)
+  -> candidato OrdaX/OS verificável
+  -> ordaxsystems/ordax-desktop (host Electron + NSIS)
+  -> instalação Windows + recibo/proveniência
+```
+
+O Desktop não reabre a árvore de dependências transitivas nem copia a Surface. Mudanças no host/packaging ficam em `ordax-desktop`; adoção de nova composição ocorre quando um candidato Windows realmente precisa dela.
 ### ChatGPT controlando um computador Windows
 
 ```text
