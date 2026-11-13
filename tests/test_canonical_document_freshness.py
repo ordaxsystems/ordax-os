@@ -136,31 +136,25 @@ class CanonicalDocumentFreshnessTests(unittest.TestCase):
         self.assertIn("Native não autoriza leitura de módulo para Internet", document)
 
     def test_intelligence_app_owners_follow_the_external_source_of_truth(self):
-        canvas = (ROOT / "docs/INTELLIGENCE-CANVAS.md").read_text(encoding="utf-8")
         intelligence = (ROOT / "docs/INTELLIGENCE.md").read_text(encoding="utf-8")
         capabilities = json.loads(
             (ROOT / "docs/contracts/intelligence-conversation-capabilities.json")
             .read_text(encoding="utf-8")
         )
 
-        self.assertIn(
-            "ordaxsystems/ordax-apps/apps/assistant/src/conversation.mjs",
-            canvas,
-        )
+        assistant_owner = "ordaxsystems/ordax-apps/apps/assistant/src/conversation.mjs"
+        self.assertEqual(capabilities["conversation_owner"], assistant_owner)
+        self.assertIn(assistant_owner, intelligence)
         self.assertIn(
             "ordaxsystems/ordax-apps/apps/assistant/src/ui/result-view-model.mjs",
-            canvas,
+            intelligence,
         )
         self.assertIn(
             "ordaxsystems/ordax-apps/apps/activity/src/view-model.mjs",
-            canvas + intelligence,
+            intelligence,
         )
-        self.assertEqual(
-            capabilities["conversation_owner"],
-            "ordaxsystems/ordax-apps/apps/assistant/src/conversation.mjs",
-        )
-        self.assertNotIn("system/apps/assistant/", canvas + intelligence)
-        self.assertNotIn("system/apps/activity/", canvas + intelligence)
+        self.assertNotIn("system/apps/assistant/", intelligence)
+        self.assertNotIn("system/apps/activity/", intelligence)
 
     def test_physical_snapshot_distinguishes_seed_from_prepared_usb(self):
         state = assignment_map(CURRENT_STATE.read_text(encoding="utf-8"))
