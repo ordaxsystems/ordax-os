@@ -1,5 +1,7 @@
 # OrdaX Desktop Identity
 
+Status: **CANONICAL MERIDIAN VISUAL IDENTITY CONTRACT.** The historical filename/title describes the desktop product surface, **not repository ownership**: visual source authority is `ordaxsystems/ordax-surface`; `ordax-desktop` owns the Windows host/shell/packaging and must not become a second visual source.
+
 The sole current visual language is **Meridian**. Its **source owner is `ordaxsystems/ordax-surface`**; paths such as `system/surface/ui/meridian.tokens.css` below refer to the verified staged/materialized Surface tree used by OS/Web/Native builds, not Git ownership in `ordax-os`. Argila/light and Grafite/dark are materials of this identity, not alternate product designs. Historical Midnight/Ice and pre-Meridian presentation notes below are provenance, not permission to reintroduce another identity.
 
 Migration is staged without removing real operations or planned mocks. The current First Run uses Meridian directly in its canonical renderer/CSS, and the Windows emulator loads the actual Native composition used by USB rather than a Web preview. Later shell/app stages remain subject to this same visual rule; completing First Run does not imply that every legacy screen has already migrated.
