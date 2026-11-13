@@ -146,6 +146,18 @@ class CreatorOwnerImpactTests(unittest.TestCase):
             self.assertTrue(impact.classify(base, head, root=self.root, event="pull_request")[0],
                             path)
 
+    def test_test_only_changes_skip_usb_but_mixed_product_delta_remains_gated(self):
+        base = self.commit(WORKFLOW.read_text(encoding="utf-8"), VISUAL)
+        tests_only = self.commit(path="tests/test_canonical_document_freshness.py")
+        self.assertEqual(
+            impact.classify(base, tests_only, root=self.root),
+            (False, "nonproducer-contract-only"),
+        )
+        mixed = self.commit(path="system/supervisor")
+        required, reason = impact.classify(base, mixed, root=self.root)
+        self.assertTrue(required)
+        self.assertEqual(reason, "real-or-unknown-usb-producer:system/supervisor")
+
     def test_boot_and_unknown_owner_changes_require_real_usb(self):
         base = self.commit(WORKFLOW.read_text(encoding="utf-8"), VISUAL)
         for path in ("bootstrap/initramfs/build.py", "bootstrap/surface-runtime/build.py",
@@ -372,8 +384,11 @@ class CreatorOwnerImpactTests(unittest.TestCase):
     def test_intelligence_foundation_workflow_is_ci_only_but_native_source_is_not(self):
         workflow = WORKFLOW.read_text(encoding="utf-8")
         intelligence = (ROOT / impact.INTELLIGENCE_WORKFLOW).read_text(encoding="utf-8")
-        self.commit(workflow=workflow, lock=VISUAL, intelligence_workflow=intelligence)
-        base = self.commit()
+        base = self.commit(
+            workflow=workflow,
+            lock=VISUAL,
+            intelligence_workflow=intelligence,
+        )
         changed_workflow = self.commit(
             intelligence_workflow=intelligence + "\n# CI-only metadata change\n"
         )
