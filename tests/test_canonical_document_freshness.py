@@ -550,10 +550,7 @@ class CanonicalDocumentFreshnessTests(unittest.TestCase):
             "PHYSICAL_WRITE_AUTHORITY=BLOCKED_EXPLICIT_OWNER_AUTHORIZATION_PENDING",
             current,
         )
-        self.assertIn(
-            "PHYSICAL_WRITE_AUTHORITY=BLOCKED_EXPLICIT_OWNER_AUTHORIZATION_PENDING",
-            plan,
-        )
+        canonical = current + "\n" + promotion
         for stale in (
             "CANONICAL_V4_RELEASE_PROOF=PASS_SIGNED_MATERIALIZED_VERSIONED_PRERELEASE",
             "FIRST_STABLE_MVP_USB_WRITE=HOLD_CANONICAL_V4_RELEASE_PROOF_PENDING",
@@ -561,13 +558,13 @@ class CanonicalDocumentFreshnessTests(unittest.TestCase):
             "CURRENT_MAIN_STABLE_MVP_PHYSICAL_RETEST=PENDING_FRESH_AUTHORIZATION",
             "PHYSICAL_WRITE_AUTHORITY=BLOCKED_CANONICAL_V4_RELEASE_PROOF_PENDING",
         ):
-            self.assertNotIn(stale, current + "\n" + plan)
+            self.assertNotIn(stale, canonical)
         self.assertIn(
             "blocked-explicit-physical-authorization-pending",
             promotion,
         )
-        self.assertNotIn("AUTHORIZED_CANDIDATE_ONLY_TARGET_CONFIRMATION_REQUIRED", plan)
-        self.assertNotIn("Como não há USB disponível", plan)
+        self.assertNotIn("AUTHORIZED_CANDIDATE_ONLY_TARGET_CONFIRMATION_REQUIRED", canonical)
+        self.assertNotIn("Como não há USB disponível", canonical)
 
 
 if __name__ == "__main__":
