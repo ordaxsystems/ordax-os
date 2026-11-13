@@ -20,16 +20,18 @@ Regras obrigatórias:
 
 O produto continua em desenvolvimento e homologação: a promoção/renomeação do repositório **não equivale à aprovação de uma release Stable/MVP**, assinatura, aceite físico ou autorização para publicação e gravação de dispositivos. Esses gates permanecem independentes; consulte `MVP.md` e `docs/PROMOTION-GATES.md`.
 
-## Retomada ativa — não repetir missão antiga (04/11/2026)
+## Proteção contra retomada de checkpoints históricos
 
 Antes de **continuar** uma missão envolvendo Fabric, Aura, aplicativos
-ou Product MCP, consulte **somente o trecho atual** do
-[handoff transversal](INTELLIGENCE-HANDOFF.md#checkpoint-operacional-e-regra-de-retomada--2026-11-04)
-e o [estado canônico](docs/CURRENT-STATE.md).
-Reverifique HEAD/PRs e execute a menor entrega pendente no **owner
-correto**, sem reiniciar auditoria, criar outro plano/SSOT, repetir
-migração ou executar tarefas encerradas. Documentos antigos e seções
-datadas são contexto histórico, **não** autorização para recomeçar.
+ou Product MCP, comece pelo topo de [`docs/CURRENT-STATE.md`](docs/CURRENT-STATE.md),
+pelo owner/código/contratos atuais e pelo estado vivo das PRs/artefatos
+pertinentes. [`INTELLIGENCE-HANDOFF.md`](INTELLIGENCE-HANDOFF.md) é
+**REFERENCE/HISTORICAL** e só deve ser consultado quando for necessária
+proveniência de checkpoints anteriores.
+Execute a menor entrega realmente pendente no **owner correto**, sem
+reiniciar auditoria, criar outro plano/SSOT, repetir migração ou executar
+tarefas encerradas. Documentos antigos e seções datadas são contexto
+histórico, **não** autorização para recomeçar.
 O fluxo Windows MCP DEV da [Platform #291](https://github.com/ordaxsystems/ordax-platform/issues/291)
 foi encerrado com recibos reais e cinco devices obsoletos revogados;
 **não** repetir limpeza/grants/instalação. A ponte Native da
