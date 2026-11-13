@@ -1,8 +1,9 @@
 import { compareComponentVersions, validateComponentVersion } from './component-manifest.mjs';
 
-// Version grammar is inherited from the existing canonical component manifest.
-// Channels classify source revisions; no channel independently grants publication.
-export const PRODUCT_VERSION_GOVERNANCE_SCHEMA = 'ordax.product-version-governance/1';
+// SemVer belongs to an explicitly versioned product composition/candidate.
+// Source revisions between version changes remain uniquely identified by Git SHA
+// and provenance; parallel source PRs never compete for the same global version.
+export const PRODUCT_VERSION_GOVERNANCE_SCHEMA = 'ordax.product-version-governance/2';
 const RELEASE_CHANNELS = Object.freeze(['alpha', 'beta', 'rc']);
 const PRODUCT_PRERELEASE = /^(?:0|[1-9]\d*)\.(?:0|[1-9]\d*)\.(?:0|[1-9]\d*)-(alpha|beta|rc)\.(0|[1-9]\d*)$/;
 
@@ -23,8 +24,7 @@ export function assertProductVersionIdentity(record) {
   if (displayVersion !== 'v' + semanticVersion) {
     throw new TypeError('Displayed version must be derived from semanticVersion');
   }
-  if (typeof record.displayName !== 'string' ||
-      !record.displayName.endsWith(displayVersion)) {
+  if (typeof record.displayName !== 'string' || !record.displayName.endsWith(displayVersion)) {
     throw new TypeError('Product displayName must include the current version label');
   }
   if (typeof stableRelease !== 'boolean') {
@@ -36,16 +36,15 @@ export function assertProductVersionIdentity(record) {
   return Object.freeze({ version: semanticVersion, channel, stableRelease });
 }
 
-export function assertVersionAdvance(previous, next, { changedRuntime = true } = {}) {
+export function assertVersionAdvance(previous, next, { required = false } = {}) {
   productVersionChannel(previous);
   productVersionChannel(next);
-  if (compareComponentVersions(next, previous) < 0) {
-    throw new RangeError('Version regression is forbidden');
+  const comparison = compareComponentVersions(next, previous);
+  if (comparison < 0) throw new RangeError('Version regression is forbidden');
+  if (required && comparison === 0) {
+    throw new RangeError('An explicit product-version change must advance SemVer');
   }
-  if (changedRuntime && compareComponentVersions(next, previous) === 0) {
-    throw new RangeError('Runtime changes require a version advance');
-  }
-  return Object.freeze({ previous, next, changedRuntime });
+  return Object.freeze({ previous, next, required });
 }
 
 export function versionGovernancePolicy() {
@@ -54,6 +53,8 @@ export function versionGovernancePolicy() {
     prereleaseChannels: RELEASE_CHANNELS,
     unqualifiedMeansPublished: false,
     sourceVersionAuthorizesRelease: false,
-    componentManifestIsVersionOwner: true,
+    everySourceChangeRequiresVersionAdvance: false,
+    explicitCompositionVersionMustAdvance: true,
+    sourceRevisionIdentity: 'git-sha-and-provenance',
   });
 }
