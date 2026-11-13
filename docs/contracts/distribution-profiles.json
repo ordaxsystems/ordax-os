@@ -5,7 +5,10 @@
     "repository": "ordaxsystems/ordax-os",
     "branch": "main",
     "single_product_codebase": true,
-    "permanent_profile_forks_allowed": false
+    "permanent_profile_forks_allowed": false,
+    "scope": "ordax-os-owned-composition-and-distribution-profile-source",
+    "repository_ownership_contract": "docs/contracts/repository-ownership.json",
+    "external_component_heads_must_match_os_main": false
   },
   "profiles": {
     "owner-development": {
@@ -189,7 +192,10 @@
     "stable_mvp_must_not_expose_native_installation": true,
     "stable_mvp_must_not_write_internal_disk": true,
     "stable_runtime_layout_must_be_explicit": true,
-    "portable_v2_must_not_reuse_legacy_current_symlink": true
+    "portable_v2_must_not_reuse_legacy_current_symlink": true,
+    "same_main_source_authority_scope": "ordax-os-owned-profile-and-composition-source-only",
+    "external_component_owners_keep_independent_source_authority": true,
+    "downstream_profiles_must_not_duplicate_transitive_component_pins": true
   },
   "next_gate": {
     "id": "stable-base-signed-update-integration",
