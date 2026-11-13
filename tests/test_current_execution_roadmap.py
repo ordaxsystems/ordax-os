@@ -13,7 +13,7 @@ PROMOTION = (ROOT / "docs/PROMOTION-GATES.md").read_text(encoding="utf-8")
 def assignments(text: str) -> dict[str, str]:
     values: dict[str, str] = {}
     for line in text.splitlines():
-        match = re.fullmatch(r"([A-Z0-9_]+)=([^\\s]+)", line.strip())
+        match = re.fullmatch(r"([A-Z0-9_]+)=([^\s]+)", line.strip())
         if match:
             values[match.group(1)] = match.group(2)
     return values
