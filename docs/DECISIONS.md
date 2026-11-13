@@ -181,10 +181,12 @@ See `docs/BUILD-AUTONOMY.md` and `docs/contracts/build-autonomy.json`.
 
 ## ADR-017 - Mutable release selector, immutable signed release identity
 
+**Repository namespace update:** the architectural decision remains active, but the repository transfer superseded the original selector owner. The operational selector is defined by `docs/contracts/release-channel.json`; redirects from historical repository slugs are compatibility only and must not be treated as authority.
+
 Decision: the bootstrap release channel uses the stable GitHub Releases selector:
 
 ```text
-https://github.com/washingtonmsdj/prototipo-ordax-os/releases/latest/download/release-envelope.json
+https://github.com/ordaxsystems/ordax-os/releases/latest/download/release-envelope.json
 ```
 
 This URL is a **delivery selector only**. It is allowed to move when a newer release is published. It is not trusted as an authenticity source.
