@@ -7,6 +7,7 @@ CONTRACT = ROOT / "docs" / "contracts" / "local-ai.json"
 PORT = ROOT / "system" / "contracts" / "local-ai.mjs"
 README = ROOT / "system" / "services" / "local-ai" / "README.md"
 SOURCE_LOCK = ROOT / "system" / "services" / "local-ai" / "source-lock.json"
+ATTRIBUTES = ROOT / ".gitattributes"
 
 
 class LocalAiContractTests(unittest.TestCase):
@@ -81,6 +82,15 @@ class LocalAiContractTests(unittest.TestCase):
         self.assertFalse(lock["runtime_security"]["agent_mode_enabled"])
         self.assertFalse(lock["runtime_security"]["mcp_proxy_enabled"])
         self.assertFalse(lock["runtime_security"]["runtime_model_download_allowed"])
+
+    def test_windows_proof_inputs_are_lf_pinned_across_git_checkouts(self):
+        attributes = ATTRIBUTES.read_text(encoding="utf-8").splitlines()
+        for path in (
+            "system/services/local-ai/source-lock.json",
+            "docs/contracts/local-ai.json",
+            "third_party/licenses/Apache-2.0.txt",
+        ):
+            self.assertIn(f"{path} text eol=lf", attributes)
 
     def test_surface_boundary_is_provider_neutral(self):
         port = PORT.read_text(encoding="utf-8")

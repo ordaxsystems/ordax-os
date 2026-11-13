@@ -1,3 +1,9 @@
+# Aura proof compares raw OS-owned input bytes against the committed Git blobs.
+# Explicit LF is required even on Windows with core.autocrlf=true.
+system/services/local-ai/source-lock.json text eol=lf
+docs/contracts/local-ai.json text eol=lf
+third_party/licenses/Apache-2.0.txt text eol=lf
+
 # Canonical byte-pinned release trust must keep identical bytes on every host.
 bootstrap/trust/release-ed25519.json text eol=lf
 
