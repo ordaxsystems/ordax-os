@@ -12,7 +12,7 @@ A public OrdaX release can contain multiple classes of software:
 
 - OrdaX-owned product code;
 - the Linux kernel and selected kernel modules;
-- Alpine base/runtime packages;
+- Buildroot/musl Base and native Surface runtime packages/libraries actually present in the release;
 - firmware and other redistributable binary components;
 - libraries pulled transitively by the graphical/runtime stack.
 
