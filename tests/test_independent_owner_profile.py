@@ -210,7 +210,7 @@ class IndependentOwnerDevelopmentProfileTests(unittest.TestCase):
             "ORDAX_KERNEL_MODULES_ARCHIVE",
             "ORDAX_KERNEL_MODULES_RECEIPT",
         ):
-            self.assertIn(f"requires {variable}", script)
+            self.assertIn(f"${{{variable}:?{variable} is required}}", script)
         self.assertIn('bootstrap/kernel/module_archive.py" install-wifi', script)
         self.assertIn('--archive "$ORDAX_KERNEL_MODULES_ARCHIVE"', script)
         self.assertIn('--receipt "$ORDAX_KERNEL_MODULES_RECEIPT"', script)
