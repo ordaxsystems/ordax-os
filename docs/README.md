@@ -45,6 +45,7 @@ Historical wording inside a root `PLANO-*` such as `CANONICAL`, `P0`, `mandatory
 | Minimal USB bootstrap | `docs/MINIMAL-USB-BOOTSTRAP.md` |
 | Physical media | `docs/PHYSICAL-MEDIA.md` |
 | Development workflow | `docs/DEVELOPMENT-WORKFLOW.md` |
+| Multi-repository product composition | `docs/DEVELOPMENT-WORKFLOW.md#integração-multi-repositório--composição-do-produto-2026-11-13` + ADR-031 in `docs/DECISIONS.md` |
 | Promotion gates | `docs/PROMOTION-GATES.md` |
 | Release signing | `docs/RELEASE-SIGNING.md` |
 | Release trust ceremony | `docs/RELEASE-TRUST-CEREMONY.md` |
@@ -65,7 +66,7 @@ It separates:
 - **document status** — whether a plan/research/reference is useful, ready, historical or superseded;
 - **execution eligibility** — whether implementation may actually start in the current product window.
 
-**Current execution window (2026-10-31): Windows Desktop first.** Finish the real installed Desktop experience and its essential capabilities (Account/Spaces with professional composition, Store/apps, Aura, files, Platform and recovery) using focused host-specific proofs. Stabilize integrated owners before revisiting Linux USB/Creator/Buildroot and physical-media homologation. USB and Native disk remain in the launch baseline, but are **not** mandatory prerequisites to functional Windows Desktop or Web. The historic `MVP` label is not the active product strategy (see `MVP.md`); a plan never overrides current source, gates or the owner's scope.
+**Current execution window (2026-11-13): parallel product completion by owner.** Independent owners (OS/USB, Desktop, Surface, Apps, Creator, Site and Intelligence) advance concurrently and synchronize only at real contract/artifact adoption points. A client-only change must not wait for USB; a Surface change must not trigger Desktop/Creator work until a new product candidate is intentionally composed; Creator consumes verified media rather than rebuilding upstream. Runtime/Control Plane keep their own authority and gates. The historic `MVP` label is not an execution queue (see `MVP.md`); a plan never overrides current source, contracts, gates or the owner's scope.
 
 ## Active plans / proposals / references
 
