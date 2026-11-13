@@ -5,6 +5,7 @@
 > **Repositório:** `ordaxsystems/ordax-os`  
 > **Escopo:** kernel Linux como dependência técnica controlada; OrdaX como sistema/produto independente; boot, contratos, atualização, identidade GPT e recuperação.  
 > **Execução:** NÃO AUTORIZADA automaticamente por este arquivo. Reconciliar com `MVP.md`, `docs/CURRENT-STATE.md`, `docs/PROMOTION-GATES.md`, `00-PLANOS-PRIORITARIOS/ROADMAP.md` e owners vigentes.
+> **Classificação:** REFERENCE em `00-PLANOS-PRIORITARIOS/REGISTRY.md`; ADRs/contratos atuais substituem qualquer recomendação incompatível deste estudo.
 
 ## 0. Resumo executivo e decisão recomendada
 

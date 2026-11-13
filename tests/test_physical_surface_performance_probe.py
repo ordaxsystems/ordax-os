@@ -5,8 +5,8 @@ import unittest
 from unittest import mock
 
 ROOT = Path(__file__).resolve().parents[1]
-PROBE = ROOT / "system" / "surface" / "runtime" / "physical_performance_probe.py"
-ENTRYPOINT = ROOT / "system" / "surface" / "bin" / "ordax-performance-evidence"
+PROBE = ROOT / "system" / "diagnostics" / "physical_surface_performance.py"
+ENTRYPOINT = ROOT / "system" / "surface" / "bin" / "ordax-physical-performance"
 
 spec = importlib.util.spec_from_file_location("ordax_physical_performance_probe", PROBE)
 probe = importlib.util.module_from_spec(spec)
@@ -167,7 +167,7 @@ class PhysicalSurfacePerformanceProbeTests(unittest.TestCase):
         self.assertIn("ordax-proof-runtime.sh", entrypoint)
         self.assertIn("resolve_ordax_proof_runtime_root", entrypoint)
         self.assertIn(
-            "SCRIPT=/srv/ordax-system/surface/runtime/physical_performance_probe.py",
+            "SCRIPT=/srv/ordax-system/diagnostics/physical_surface_performance.py",
             entrypoint,
         )
         self.assertIn('[ -d "$RUNTIME_ROOT/proc" ]', entrypoint)

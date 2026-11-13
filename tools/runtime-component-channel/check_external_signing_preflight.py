@@ -31,7 +31,7 @@ def _load_module(name: str, path: Path):
 
 candidate_verifier = _load_module(
     "ordax_unsigned_candidate_verifier",
-    HERE / "verify_unsigned_candidate.py",
+    ROOT / "sdk/app-sdk-v1/verify_unsigned_candidate.py",
 )
 readiness = _load_module(
     "ordax_component_production_readiness",

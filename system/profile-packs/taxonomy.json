@@ -3,6 +3,14 @@
   "revision": 1,
   "nodes": [
     {
+      "id": "general",
+      "parentId": null,
+      "labels": {
+        "ptBR": "Pessoal e geral",
+        "en": "Personal and general"
+      }
+    },
+    {
       "id": "business",
       "parentId": null,
       "labels": {

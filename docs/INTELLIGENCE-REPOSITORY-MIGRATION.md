@@ -1,14 +1,17 @@
 # OrdaX Intelligence — fonte externa verificada
 
-**Estado: `integration-candidate`, sem cutover físico (2026-11-01).**
+**Estado estrutural vigente: `integration-candidate`, sem cutover físico.**
+A revisão exata, o grafo de fontes e as flags de ativação pertencem ao **único**
+lock [`docs/contracts/intelligence-source.json`](contracts/intelligence-source.json)
+e devem ser lidos dele no momento da execução; **nenhum commit copiado neste
+documento é autoridade corrente**. Este arquivo preserva o histórico da migração
+e explica os gates do consumidor.
 
-A fonte portátil do `ordaxsystems/ordax-intelligence` está fixada no commit
-`9ea04bc09618e1f0e5e1eb9b68c5330e8868a400` pelo **único** lock
-`docs/contracts/intelligence-source.json`. O lock registra o grafo portátil
-completo dessa revisão: todos os oito módulos `src/*.mjs` e o builder técnico
-`tools/inference-builder/build.py`. O verificador canônico deriva a lista da
-árvore Git, exige correspondência exata com o lock, commit exato, conteúdo
-intacto, modos corretos e staging descartável. Um módulo novo, removido,
+O lock registra o grafo portátil completo da revisão selecionada por
+`source_paths`, incluindo os módulos `src/*.mjs` e, quando declarado, o
+builder técnico `tools/inference-builder/build.py`. O verificador canônico
+deriva a lista da árvore Git, exige correspondência exata com o lock, commit
+exato, conteúdo intacto, modos corretos e staging descartável. Um módulo novo, removido,
 vinculado ou executável falha fechado; helpers fora de `src/`, como o candidato
 exclusivo de Windows do builder, não são distribuídos pelo OS. Não inclui GGUF nem
 motor executável; a seleção de modelo, licença, limites e permissões continua
@@ -35,11 +38,11 @@ inferência com modelo real, o instalador Desktop, funcionamento instalado,
 ativação, rollback de release ou hardware físico; o lock permanece
 `integration-candidate`.
 
-## Atualização do builder externo — 2026-11-01
+## Checkpoint histórico — atualização do builder externo — 2026-11-01
 
 A revisão `9ea04bc09618e1f0e5e1eb9b68c5330e8868a400` (PR #28 do repositório Intelligence) atesta o checkout OS real e os bytes commitados do lock, contrato Local AI e licença do modelo antes de baixar ou compilar. Também removeu um downloader sem consumidores. Entre `c5202b2eefa89eee80caed44ead25834e8cac4e6` e `9ea04bc09618e1f0e5e1eb9b68c5330e8868a400`, apenas o builder técnico, seus testes e documentação mudaram; os oito módulos `src/*.mjs` mantêm os mesmos blobs.
 
-A CI do owner nesse SHA ([run #41301047081](https://github.com/ordaxsystems/ordax-intelligence/actions/runs/41301047081)) passou. O source lock OS foi avançado somente no commit e blob do builder; `integration-candidate`, `activation_authorized=false` e `cutover_complete=false` continuam vigentes.
+A CI do owner nesse SHA ([run #41301047081](https://github.com/ordaxsystems/ordax-intelligence/actions/runs/41301047081)) passou. Naquele checkpoint, o source lock OS foi avançado somente no commit e blob do builder. O estado **atual** de `integration-candidate`, `activation_authorized`, `cutover_complete` e `builder_activation_authorized` deve ser lido do contrato vigente; não inferir flags atuais deste snapshot.
 
 ## Integrações validadas
 
@@ -131,8 +134,10 @@ corpos legados ainda rastreados, atualização de
 `repository-ownership.json`, publicação de novo release assinado ou
 instalação no USB. O teste QEMU não substitui prova de hardware real.
 
-Antes de promover a `canonical`: conciliar os ramos Buildroot/USB
-#2242/#2243; validar boot frio realmente offline e rollback na Base final;
-provar ABI do llama.cpp/GGUF, envelope v4 canônico, integridade e assinatura
-de todos os slots; testar atualização e retorno físico. Só então substituir
-os serviços ativos e retirar duplicação no mesmo corte testado.
+Antes de qualquer promoção para `canonical`, usar os gates **atuais** do owner
+Native/USB e do contrato de Intelligence, sem ressuscitar a antiga sequência de
+branches deste documento. Em 13/11/2026, a OS #2242 já estava fechada sem merge
+e a OS #2243 permanecia uma frente independente; ambos os estados são voláteis
+e devem ser revalidados. Promoção continua exigindo as provas aplicáveis de boot
+offline/rollback, ABI do motor/modelo, envelope, integridade/assinatura, update e
+retorno físico antes de substituir serviços ativos ou remover duplicação.

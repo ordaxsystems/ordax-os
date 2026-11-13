@@ -2,6 +2,7 @@ import assert from "node:assert/strict";
 import test from "node:test";
 
 import { IDENTITY_SESSION_SCHEMA } from "../system/contracts/identity-session.mjs";
+import { createNativeSurfaceHost } from "../system/adapters/native/runtime.mjs";
 import {
   INTELLIGENCE_PORT_SCHEMA,
   INTELLIGENCE_RESPONSE_SCHEMA,
@@ -13,6 +14,8 @@ import {
   createApplicationActionCapabilityRegistry,
 } from "../system/services/intelligence/application-action-capabilities.mjs";
 import { createNativePersonalOrdaxComposition } from "../system/composition/native/personal-ordax.mjs";
+import { createCapabilityDiscovery } from "../system/services/system-foundation/capability-discovery.mjs";
+import { createSystemFoundationRuntime } from "../system/services/system-foundation/runtime.mjs";
 
 function memoryStorage() {
   const values = new Map();
@@ -268,6 +271,8 @@ function composition({
   spaces = selectedSpace(),
   ai = intelligence(),
   router = semanticRouter(),
+  getCapabilityDiscovery = null,
+  createPreparationId = null,
 } = {}) {
   let ordinal = 0;
   const runtime = createNativePersonalOrdaxComposition({
@@ -277,8 +282,9 @@ function composition({
     projects,
     intelligence: ai,
     applicationActionCapabilityRegistry: applicationCapabilities(),
+    getCapabilityDiscovery,
     applicationSemanticRouter: router,
-    createApplicationActionPreparationId: () => `prep-${++ordinal}`,
+    createApplicationActionPreparationId: createPreparationId ?? (() => `prep-${++ordinal}`),
   });
   return { runtime, identity, projects, spaces };
 }
@@ -319,6 +325,64 @@ test("Native composition prepares verified Application Actions without creating 
   runtime.dispose();
 });
 
+test("Personal OrdaX withdraws stale app actions and blocks old proposals after a slot change",()=>{
+  let current=true;
+  const source=createCapabilityDiscovery({
+    getFoundation:()=>createSystemFoundationRuntime(),
+    getApplicationActions:()=>applicationCapabilities(),
+    isApplicationActionCurrent:()=>current,
+  });
+  const {runtime}=composition({getCapabilityDiscovery:()=>source});
+  const work=runtime.create("Criar uma nota",{
+    spaceId:"space-a",projectId:"project-1",
+  });
+  assert.equal(runtime.listAvailableApplicationActions("notes").length,1);
+  const old=runtime.proposeApplicationAction(
+    "notes","notes.create-note",{title:"Antes"},
+  );
+  current=false;
+  const revisionBefore=source.snapshot().revision;
+  assert.deepEqual(runtime.listAvailableApplicationActions("notes"),[]);
+  assert.throws(()=>runtime.proposeApplicationAction(
+    "notes","notes.create-note",{title:"Depois"},
+  ),/no longer current/);
+  assert.throws(()=>runtime.prepareApplicationAction(work.id,old),
+    /no longer current/,"an old issued proposal must not be prepared after removal");
+  assert.equal(runtime.getSnapshot().approvals.length,0);
+  assert.equal(runtime.getSnapshot().attempts.length,0);
+  assert.equal(runtime.listApplicationActionPreparations(work.id).length,0);
+  current=true;
+  assert.equal(runtime.listAvailableApplicationActions("notes").length,1);
+  assert.ok(source.snapshot().revision>revisionBefore);
+  runtime.dispose();
+});
+test("a prepared Application Action is revoked when verified current slot is replaced",()=>{
+  let current=true;
+  const fabric=createCapabilityDiscovery({
+    getFoundation:()=>createSystemFoundationRuntime(),
+    getApplicationActions:()=>applicationCapabilities(),
+    isApplicationActionCurrent:()=>current,
+  });
+  const {runtime}=composition({getCapabilityDiscovery:()=>fabric});
+  const work=runtime.create("Criar uma nota",{
+    spaceId:"space-a",projectId:"project-1",
+  });
+  const proposed=runtime.proposeApplicationAction(
+    "notes","notes.create-note",{title:"Preparado antes"},
+  );
+  const prepared=runtime.prepareApplicationAction(work.id,proposed);
+  assert.equal(runtime.resolveApplicationActionPreparation(prepared.resourceRef),prepared);
+  current=false;
+  assert.equal(runtime.resolveApplicationActionPreparation(prepared.resourceRef),null,
+    "removed provider must revoke a pre-existing Work preparation");
+  assert.deepEqual(runtime.listApplicationActionPreparations(work.id),[]);
+  assert.equal(runtime.getSnapshot().approvals.length,0);
+  assert.equal(runtime.getSnapshot().attempts.length,0);
+  current=true;
+  assert.equal(runtime.resolveApplicationActionPreparation(prepared.resourceRef),null,
+    "old preparation must never resurrect after an A-to-B-to-A slot round trip");
+  runtime.dispose();
+});
 test("Application Action preparation is revoked when its Work becomes terminal", () => {
   const { runtime } = composition();
   const work = runtime.create("Criar uma nota", {
@@ -636,4 +700,264 @@ test("prepared app action reference cannot return after A -> B -> A account swit
   } finally {
     runtime.dispose();
   }
+});
+
+test("model Application Action suggestion cannot survive a verified Store slot A-B-A transition during inference", async () => {
+  let current = true;
+  const fabric = createCapabilityDiscovery({
+    getFoundation: () => createSystemFoundationRuntime(),
+    getApplicationActions: () => applicationCapabilities(),
+    isApplicationActionCurrent: () => current,
+  });
+  let release = null;
+  const originalAi = proposalIntelligence(JSON.stringify({
+    kind: "proposal", appId: "notes", actionId: "notes.create-note",
+    arguments: { title: "Untrusted old slot" },
+  }));
+  const ai = {
+    ...originalAi.port,
+    respond(request) {
+      originalAi.requests.push(request);
+      return new Promise(resolve => {
+        release = () => resolve({
+          schema: INTELLIGENCE_RESPONSE_SCHEMA,
+          text: JSON.stringify({
+            kind: "proposal", appId: "notes", actionId: "notes.create-note",
+            arguments: { title: "Untrusted old slot" },
+          }),
+          engineId: "llama.cpp", modelId: "qwen-test", authority: "none",
+        });
+      });
+    },
+  };
+  const { runtime } = composition({ ai, getCapabilityDiscovery: () => fabric });
+  try {
+    const work = runtime.create("Criar uma nota depois da atualização");
+    const previous = fabric.snapshot().revision;
+    const inFlight = runtime.suggestApplicationActionForWork(work.id);
+    assert.equal(typeof release, "function");
+    current = false;
+    assert.equal(fabric.refresh().entries.some(entry => entry.kind === "application-action"), false);
+    current = true;
+    assert.ok(fabric.refresh().revision > previous);
+    release();
+    await assert.rejects(inFlight, /slot|capability|revision|changed|stale/i);
+    assert.deepEqual(runtime.listApplicationActionPreparations(work.id), []);
+  } finally {
+    runtime.dispose();
+  }
+});
+
+test("model Application Action suggestion cannot be prepared after Store slot A-B-A", async () => {
+  let current = true;
+  const fabric = createCapabilityDiscovery({
+    getFoundation: () => createSystemFoundationRuntime(),
+    getApplicationActions: () => applicationCapabilities(),
+    isApplicationActionCurrent: () => current,
+  });
+  const ai = proposalIntelligence(JSON.stringify({
+    kind: "proposal", appId: "notes", actionId: "notes.create-note",
+    arguments: { title: "Old slot suggestion" },
+  }));
+  const { runtime } = composition({ ai: ai.port, getCapabilityDiscovery: () => fabric });
+  try {
+    const work = runtime.create("Criar uma nota depois do slot");
+    const suggested = await runtime.suggestApplicationActionForWork(work.id);
+    assert.ok(suggested);
+    const previous = fabric.snapshot().revision;
+    current = false;
+    fabric.refresh();
+    current = true;
+    assert.ok(fabric.refresh().revision > previous);
+    assert.throws(
+      () => runtime.prepareSuggestedApplicationAction(work.id, suggested),
+      /slot|capability|revision|changed|stale/i,
+    );
+    assert.deepEqual(runtime.listApplicationActionPreparations(work.id), []);
+  } finally {
+    runtime.dispose();
+  }
+});
+
+test("Store slot withdrawal proactively revokes prepared Application Action, even when identical slot returns", () => {
+  let current = true;
+  const fabric = createCapabilityDiscovery({
+    getFoundation: () => createSystemFoundationRuntime(),
+    getApplicationActions: () => applicationCapabilities(),
+    isApplicationActionCurrent: () => current,
+  });
+  const { runtime } = composition({ getCapabilityDiscovery: () => fabric });
+  try {
+    const work = runtime.create("Criar uma nota aprovada para preparação");
+    const proposal = runtime.proposeApplicationAction(
+      "notes", "notes.create-note", { title: "Expired preparation" },
+    );
+    const prepared = runtime.prepareApplicationAction(work.id, proposal);
+    assert.equal(runtime.resolveApplicationActionPreparation(prepared.resourceRef), prepared);
+    current = false;
+    fabric.refresh();
+    assert.equal(runtime.reconcileApprovedAuthority(), true,
+      "the existing event reconciler must also revoke stale action preparations");
+    current = true;
+    fabric.refresh();
+    assert.equal(runtime.resolveApplicationActionPreparation(prepared.resourceRef), null);
+    assert.deepEqual(runtime.listApplicationActionPreparations(work.id), []);
+    assert.deepEqual(runtime.getSnapshot().approvals, []);
+  } finally {
+    runtime.dispose();
+  }
+});
+
+test("Native Host/Store change event withdraws prepared app action before a slot can be restored", () => {
+  let current = true;
+  const host = createNativeSurfaceHost({
+    navigator: { onLine: true },
+    addEventListener() {},
+    removeEventListener() {},
+  });
+  const fabric = createCapabilityDiscovery({
+    getSurfaceHost: () => host,
+    getApplicationActions: () => applicationCapabilities(),
+    isApplicationActionCurrent: () => current,
+  });
+  const { runtime } = composition({ getCapabilityDiscovery: () => fabric });
+  const notices = [];
+  const unsubscribe = fabric.subscribe(snapshot => {
+    notices.push(snapshot.revision);
+    runtime.reconcileApprovedAuthority();
+  });
+  try {
+    const work = runtime.create("Nota durante substituicao de slot");
+    const prepared = runtime.prepareApplicationAction(
+      work.id,
+      runtime.proposeApplicationAction("notes", "notes.create-note", { title: "Old source" }),
+    );
+    assert.equal(runtime.resolveApplicationActionPreparation(prepared.resourceRef), prepared);
+    current = false;
+    const withdrawn = fabric.refresh();
+    assert.equal(notices.length, 1);
+    assert.equal(notices[0], withdrawn.revision);
+    current = true;
+    fabric.refresh();
+    assert.equal(runtime.resolveApplicationActionPreparation(prepared.resourceRef), null);
+    assert.deepEqual(runtime.listApplicationActionPreparations(work.id), []);
+    assert.deepEqual(runtime.getSnapshot().approvals, []);
+  } finally {
+    unsubscribe();
+    runtime.dispose();
+    host.dispose();
+  }
+});
+
+test("unreadable app capability registry revokes preparation and recovery cannot restore it", () => {
+  let broken = false;
+  const fabric = createCapabilityDiscovery({
+    getFoundation: () => createSystemFoundationRuntime(),
+    getApplicationActions: () => {
+      if (broken) throw new Error("Native Store observation failed");
+      return applicationCapabilities();
+    },
+  });
+  const { runtime } = composition({ getCapabilityDiscovery: () => fabric });
+  try {
+    const work = runtime.create("Nota com Store fora do ar");
+    const prepared = runtime.prepareApplicationAction(
+      work.id,
+      runtime.proposeApplicationAction("notes", "notes.create-note", { title: "Uncertain slot" }),
+    );
+    broken = true;
+    assert.throws(() => fabric.refresh(), /Native Store observation failed/);
+    assert.equal(runtime.reconcileApprovedAuthority(), true);
+    broken = false;
+    fabric.refresh();
+    assert.equal(runtime.resolveApplicationActionPreparation(prepared.resourceRef), null);
+    assert.deepEqual(runtime.listApplicationActionPreparations(work.id), []);
+    assert.deepEqual(runtime.getSnapshot().approvals, []);
+  } finally {
+    runtime.dispose();
+  }
+});
+
+test("a synchronous Store A-B-A inside preparation id issuance cannot bind a stale Action", () => {
+  let current = true;
+  const fabric = createCapabilityDiscovery({
+    getFoundation: () => createSystemFoundationRuntime(),
+    getApplicationActions: () => applicationCapabilities(),
+    isApplicationActionCurrent: () => current,
+  });
+  let idCalls = 0;
+  const { runtime } = composition({
+    getCapabilityDiscovery: () => fabric,
+    createPreparationId() {
+      idCalls++;
+      current = false;
+      fabric.refresh();
+      current = true;
+      fabric.refresh();
+      return "prep-reentrant-slot";
+    },
+  });
+  try {
+    const work = runtime.create("Nota durante troca sincrona do Store");
+    const proposal = runtime.proposeApplicationAction(
+      "notes", "notes.create-note", { title: "Old verified slot" },
+    );
+    assert.throws(
+      () => runtime.prepareApplicationAction(work.id, proposal),
+      /slot|capability|revision|changed|stale/i,
+    );
+    assert.equal(idCalls, 1);
+    assert.deepEqual(runtime.listApplicationActionPreparations(work.id), []);
+    assert.deepEqual(runtime.getSnapshot().approvals, []);
+    assert.deepEqual(runtime.getSnapshot().attempts, []);
+  } finally {
+    runtime.dispose();
+  }
+});
+
+test("an owner switch triggered inside preparation issuance cannot bind Action to another owner", () => {
+  const identity = mutableIdentitySession();
+  const { runtime } = composition({
+    identity,
+    createPreparationId() {
+      identity.switchTo("user-b");
+      return "prep-owner-switch";
+    },
+  });
+  try {
+    const work = runtime.create("Nota para conta A");
+    const proposal = runtime.proposeApplicationAction(
+      "notes", "notes.create-note", { title: "Do not cross owners" },
+    );
+    assert.throws(
+      () => runtime.prepareApplicationAction(work.id, proposal),
+      /owner|context|scope|changed/i,
+    );
+    identity.switchTo("user-a");
+    assert.deepEqual(runtime.listApplicationActionPreparations(work.id), []);
+    assert.deepEqual(runtime.getSnapshot().approvals, []);
+  } finally {
+    runtime.dispose();
+  }
+});
+
+test("disposed Personal composition cannot republish app action catalog or create new preparations", () => {
+  const { runtime } = composition();
+  const work = runtime.create("Never issue an Action after Surface teardown");
+  const proposal = runtime.proposeApplicationAction(
+    "notes", "notes.create-note", { title: "Before teardown" },
+  );
+  const prepared = runtime.prepareApplicationAction(work.id, proposal);
+  assert.equal(runtime.resolveApplicationActionPreparation(prepared.resourceRef), prepared);
+  runtime.dispose();
+  assert.deepEqual(runtime.listAvailableApplicationActions("notes"), [],
+    "disposed composition must not expose an old installed app catalog");
+  assert.deepEqual(runtime.listApplicationActionPreparations(work.id), []);
+  assert.equal(runtime.resolveApplicationActionPreparation(prepared.resourceRef), null);
+  assert.throws(() => runtime.proposeApplicationAction(
+    "notes", "notes.create-note", { title: "After teardown" },
+  ), /disposed|unavailable|closed/i);
+  assert.throws(() => runtime.prepareApplicationAction(work.id, proposal),
+    /disposed|unavailable|closed/i);
+  runtime.dispose();
 });

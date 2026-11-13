@@ -8,29 +8,21 @@ The OrdaX architecture must not require WSL, QEMU, PowerShell, Bash, a specific 
 
 This does not mean hardware can be accessed without platform APIs. It means platform differences are isolated behind small adapters while the product logic, media format, verification rules and provisioning plan remain shared.
 
-## Host-neutral core
+## Host-neutral cores and owners
 
-Canonical tools should be designed as portable applications/libraries with a common core:
-
-```text
-tools/creator/core/
-tools/dev/core/
-tools/verify/core/
-```
-
-Host-specific raw-device and integration adapters may exist only where unavoidable:
+Portable behavior remains split by canonical owner rather than copied into one repository:
 
 ```text
-tools/creator/platform/windows/
-tools/creator/platform/linux/
-tools/creator/platform/macos/
+ordaxsystems/ordax-creator     # Creator Core + host adapters + media consumer
+ordaxsystems/ordax-os          # OS artifact/media contracts + producers/proofs
+ordaxsystems/ordax-desktop     # Windows shell/packaging; no raw-media ownership
 ```
 
-The adapter may open disks, request elevation and perform host integration. It must not own partition policy, artifact selection, hashing, release rules or product behavior.
+Creator host adapters may use unavoidable Windows/Linux/macOS device APIs, but the **Creator Core in its own repository** owns target/media-consumer policy. OS-side `tools/creator/` may produce/verify payloads and release evidence but must not duplicate the independent Core. Desktop may launch Creator but must not implement a second privileged writer.
 
 ## OrdaX Creator
 
-The intended end-user installer/provisioner is one product: `OrdaX Creator`.
+The intended end-user media-preparation product is one independently owned product: `OrdaX Creator` (`ordaxsystems/ordax-creator`).
 
 Responsibilities:
 

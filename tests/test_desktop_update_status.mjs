@@ -83,17 +83,17 @@ test("live runtime proof mismatching active Git journal fails closed without fal
 test("staged source, active source and pinned rollback produce real canonical phases", () => {
   const state = {schema:"ordax.desktop-dev-update-state/1", activeSha:a,
     previousSha:null,pendingSha:b,attemptedSha:null,pinnedSha:null,rejectedSha:null};
-  const staged = projectDesktopUpdateState(state);
+  const staged = projectDesktopUpdateState(state,{renderedSourceSha:a});
   assert.equal(staged.sourceSha,a);
   assert.equal(staged.targetSha,b);
   assert.equal(staged.status,"updating");
   assert.equal(staged.phase,"activating","verified staged source waits only for safe health-gated relaunch");
   assert.equal(staged.deliveryNumber,0);
   assert.equal(staged.applyMode,"surface-restart");
-  assert.equal(projectDesktopUpdateState({...state,attemptedSha:b}).phase,"health-wait");
-  assert.equal(projectDesktopUpdateState({...state,pendingSha:null}).status,"running");
-  assert.equal(projectDesktopUpdateState({...state,pendingSha:null,pinnedSha:a}).status,"pinned");
-  assert.equal(projectDesktopUpdateState({...state,pendingSha:null,rejectedSha:b}).status,"rejected");
+  assert.equal(projectDesktopUpdateState({...state,attemptedSha:b},{renderedSourceSha:a}).phase,"health-wait");
+  assert.equal(projectDesktopUpdateState({...state,pendingSha:null},{renderedSourceSha:a}).status,"running");
+  assert.equal(projectDesktopUpdateState({...state,pendingSha:null,pinnedSha:a},{renderedSourceSha:a}).status,"pinned");
+  assert.equal(projectDesktopUpdateState({...state,pendingSha:null,rejectedSha:b},{renderedSourceSha:a}).status,"rejected");
 });
 
 test("incompatible official revision is visible without fabricating a release or hiding known-good", async t => {
@@ -103,7 +103,7 @@ test("incompatible official revision is visible without fabricating a release or
     previousSha:null,pendingSha:null,attemptedSha:null,pinnedSha:null,
     rejectedSha:null,incompatibleSha:b};
   writeFileSync(join(root,"desktop-dev-update-state.json"),JSON.stringify(state));
-  const snap=await readDesktopUpdateStatus(root);
+  const snap=await readDesktopUpdateStatus(root,{renderedSourceSha:a});
   assert.equal(snap.sourceSha,a);
   assert.equal(snap.targetSha,b);
   assert.equal(snap.status,"running");
@@ -116,6 +116,29 @@ test("incompatible official revision is visible without fabricating a release or
   const rejected=await readDesktopUpdateStatus(root);
   assert.equal(rejected.status,"unavailable");
   assert.equal(rejected.phase,"error");
+});
+
+test("journal cannot prove the currently rendered Desktop source or staged activation", async t => {
+  const root=mkdtempSync(join(tmpdir(),"ordax-desktop-unproven-journal-"));
+  t.after(()=>rmSync(root,{recursive:true,force:true}));
+  const journal={schema:"ordax.desktop-dev-update-state/1",activeSha:a,
+    previousSha:null,pendingSha:b,attemptedSha:null,pinnedSha:null,
+    rejectedSha:null,incompatibleSha:null};
+  writeFileSync(join(root,"desktop-dev-update-state.json"),JSON.stringify(journal));
+  const unknown=await readDesktopUpdateStatus(root);
+  assert.equal(unknown.sourceSha,"bundled-desktop","journal SHA is not a running-source receipt");
+  assert.equal(unknown.lastAppliedSha,a,"retain transaction history without claiming it is running");
+  assert.equal(unknown.targetSha,b,"keep pending source visible for diagnosis");
+  assert.equal(unknown.status,"unavailable");
+  assert.equal(unknown.phase,"blocked");
+  assert.match(unknown.lastError,/journal nao confirma execucao/);
+  const verified=await readDesktopUpdateStatus(root,{renderedSourceSha:a});
+  assert.equal(verified.status,"updating");
+  assert.equal(verified.phase,"activating");
+  assert.equal(verified.sourceSha,a);
+  const unprovenPinned=projectDesktopUpdateState({...journal,pendingSha:null,pinnedSha:a});
+  assert.equal(unprovenPinned.status,"unavailable");
+  assert.equal(unprovenPinned.phase,"blocked");
 });
 
 test("corrupt update journals fail closed; never expose successful update state", async t => {
@@ -174,13 +197,9 @@ test("update history contains only actual recorded deliveries, never fabricated 
   assert.equal(value.releases.length,0);
 });
 
-test("the packaged host is configured to read the same journal used by Desktop Dev",async()=>{
+test("OS native update provider uses the canonical Desktop journal",async()=>{
   const {readFileSync} = await import("node:fs");
-  const host = readFileSync(new URL("../tools/windows-desktop/host.cjs", import.meta.url),"utf8");
-  const main = readFileSync(new URL("../tools/windows-desktop/main.cjs", import.meta.url),"utf8");
   const nativeHost = readFileSync(new URL("../tools/windows-emulator/native-host.mjs", import.meta.url),"utf8");
-  assert.ok(host.includes("ORDAX_DESKTOP_UPDATE_USER_DATA:userData"));
-  assert.ok(main.includes("userData,log"));
   // The Native HTTP paths now have a single authorization owner.
   // Keep proving their actual providers use this same Desktop journal.
   assert.ok(observationPolicy.OBSERVATION_ROUTES.includes("/__ordax/native/update"));

@@ -25,5 +25,9 @@
   "publisher_private_key_in_app": false,
   "publisher_private_key_in_ci_artifact": false,
   "unsigned_manifest_may_activate_app": false,
-  "publish_allowed": false
+  "publish_allowed": false,
+  "publisher_repository": "ordaxsystems/ordax-os",
+  "implementation_repository": "ordaxsystems/ordax-creator",
+  "implementation_source_contract": "docs/contracts/native-release-assembly.json#creator_source",
+  "source_repository_semantics": "publisher-recipe-source-legacy-v1"
 }

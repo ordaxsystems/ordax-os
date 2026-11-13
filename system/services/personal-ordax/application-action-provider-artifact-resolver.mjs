@@ -262,17 +262,22 @@ export function createApplicationActionProviderArtifactResolver({
         );
       }
 
-      const finalBindingValue = await providerBindingResolver.resolve(resourceRef);
-      if (finalBindingValue === null || !sameBinding(binding, finalBindingValue)) {
-        throw new Error("Application action provider binding changed during artifact resolution");
-      }
-
       const finalEntry = await currentEntry(appId);
       const finalProvider = providerForBinding(finalEntry, binding);
       if (!sameProviderArtifact(provider, finalProvider)) {
         throw new Error(
           `Application action provider verified semantics changed during artifact resolution: ${appId}`,
         );
+      }
+
+      // This must be the LAST asynchronous check. If the preparation is
+      // revoked while the final verified manifest is being read, an earlier
+      // binding check cannot authorize returning its stale artifact. Reuse
+      // the canonical binding resolver after the final manifest read, with
+      // no fourth binding lookup and no execution authority added.
+      const finalBindingValue = await providerBindingResolver.resolve(resourceRef);
+      if (finalBindingValue === null || !sameBinding(binding, finalBindingValue)) {
+        throw new Error("Application action provider binding changed during artifact resolution");
       }
 
       return validateApplicationActionProviderResolution({

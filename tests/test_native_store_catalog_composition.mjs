@@ -7,6 +7,8 @@ import {
 import {
   createNativeStoreCatalogComposition,
 } from "../system/composition/native/store-catalog.mjs";
+import { createNativeAppLifecycleDelegate } from "../system/adapters/native/app-lifecycle-delegate.mjs";
+import { createAppLifecycleRequestService } from "../system/services/apps/store-lifecycle-request-service.mjs";
 import { listFirstRunDefaultAppIds, planFirstRunAppSelectionFromStore } from "../system/services/apps/first-run-selection.mjs";
 import { listExternalFirstPartyComponentIds } from "../system/services/apps/external-first-party-policy.mjs";
 
@@ -85,6 +87,191 @@ function response(value, status = 200) {
   };
 }
 
+function withWebKitTestHost(windowRef) {
+  return {
+    ...windowRef,
+    location: { protocol: "http:", hostname: "127.0.0.1" },
+    document: {
+      documentElement: {
+        getAttribute(name) {
+          return name === "data-ordax-native-host-bridge" ? "v1" : null;
+        },
+      },
+    },
+  };
+}
+
+test("Electron Store cannot offer installation without a native probation receipt owner", async () => {
+  let storeReads = 0, currentReads = 0, pendingReads = 0;
+  const windowRef = {
+    location: {protocol: "http:", hostname: "127.0.0.1"},
+    ordaxDesktopBrowser: { postMessage() { return true; } },
+    async fetch(url) {
+      if (url === "/__ordax/native/store-catalog") {
+        storeReads++;
+        return response(verifiedCatalog());
+      }
+      const parsed = new URL(url);
+      if (parsed.pathname !== "/__ordax/native/component-runtime") throw Error("Unexpected Native read");
+      const appId = parsed.searchParams.get("component");
+      if (parsed.searchParams.get("state") === "pending") {
+        pendingReads++;
+        return response(null, 204);
+      }
+      currentReads++;
+      return response(metadata(appId));
+    },
+  };
+  const composition = await createNativeStoreCatalogComposition({
+    windowRef, componentSource: componentSource(),
+  });
+  const entry = composition.port.getSnapshot().entries.find(x => x.appId === "notes");
+  assert.equal(entry.state, "blocked");
+  assert.equal(entry.blockedReason, "runtime-probation-host-unavailable");
+  assert.equal(entry.installable, false,
+    "An Electron browser command does not attest system probation or promotion");
+  assert.equal(entry.updatable, false);
+  assert.equal(storeReads, 1);
+  assert.ok(currentReads > 0 && pendingReads > 0,
+    "Status still comes from the signed Native catalog and Go activation reader");
+  composition.destroy();
+
+  // A missing Electron preload is never proof of a Linux WebKit probation host.
+  const missingPreload = await createNativeStoreCatalogComposition({
+    windowRef: { ...windowRef, ordaxDesktopBrowser: undefined },
+    componentSource: componentSource(),
+  });
+  const withoutBridge = missingPreload.port.getSnapshot().entries.find(x => x.appId === "notes");
+  assert.equal(withoutBridge.state, "blocked");
+  assert.equal(withoutBridge.blockedReason, "runtime-probation-host-unavailable");
+  assert.equal(withoutBridge.installable, false);
+  missingPreload.destroy();
+});
+
+test("Windows Store rechecks staged and installed CURRENT on foreground return", { timeout: 8000 }, async () => {
+  let source = "absent", currentRevision = 1, pending = true;
+  let catalogReads = 0, currentReads = 0, pendingReads = 0;
+  const listeners = new Map();
+  const documentListeners = new Map();
+  const doc = {
+    visibilityState: "visible",
+    addEventListener(name, fn) { documentListeners.set(name, fn); },
+    removeEventListener(name, fn) {
+      if (documentListeners.get(name) === fn) documentListeners.delete(name);
+    },
+  };
+  const windowRef = {
+    location: { protocol: "http:", hostname: "127.0.0.1" },
+    ordaxDesktopBrowser: { postMessage() { return true; } },
+    document: doc,
+    addEventListener(name, fn) { listeners.set(name, fn); },
+    removeEventListener(name, fn) {
+      if (listeners.get(name) === fn) listeners.delete(name);
+    },
+    async fetch(url) {
+      if (url === "/__ordax/native/store-catalog") {
+        catalogReads++;
+        return response(verifiedCatalog());
+      }
+      const parsed = new URL(url);
+      if (parsed.pathname !== "/__ordax/native/component-runtime") {
+        throw Error("Unknown Native source read");
+      }
+      const id = parsed.searchParams.get("component");
+      if (parsed.searchParams.get("state") === "pending") {
+        pendingReads++;
+        if (id === "notes" && pending) {
+          return response({
+            componentId: id, state: "pending", source: "slot",
+            revision: currentRevision, version: "0.4.3", sourceCommit: COMMIT,
+            entrypoint: "system/apps/notes/src/runtime.mjs",
+            pendingHealth: "healthy",
+          });
+        }
+        return response(null, 204);
+      }
+      currentReads++;
+      return response(id !== "notes" ? metadata(id) : {
+        componentId: id, state: "current", source,
+        revision: currentRevision,
+        version: source === "slot" ? "0.4.3" : null,
+        sourceCommit: source === "slot" ? COMMIT : null,
+        entrypoint: source === "slot" ? "system/apps/notes/src/runtime.mjs" : null,
+        pendingHealth: null,
+      });
+    },
+  };
+  const composition = await createNativeStoreCatalogComposition({
+    windowRef, componentSource: componentSource(),
+  });
+  const state = () => composition.port.getSnapshot().entries.find(
+    item => item.appId === "notes");
+  assert.equal(state().state, "staged",
+    "Even a healthy pending candidate is not promoted");
+  assert.equal(state().installable, false);
+  assert.equal(catalogReads, 1);
+  assert.ok(pendingReads > 0);
+  assert.ok(listeners.has("focus"));
+  assert.ok(documentListeners.has("visibilitychange"));
+
+  doc.visibilityState = "hidden";
+  documentListeners.get("visibilitychange")();
+  assert.equal(catalogReads, 1, "Hidden document cannot trigger a network read");
+
+  // Native Go promotes the candidate independently while the user is away.
+  source = "slot"; currentRevision = 2; pending = false;
+  doc.visibilityState = "visible";
+  const installed = new Promise(resolve => {
+    const unsubscribe = composition.port.subscribe(snapshot => {
+      if (snapshot.entries.find(item =>
+        item.appId === "notes" && item.state === "installed")) {
+        unsubscribe();
+        resolve();
+      }
+    });
+  });
+  documentListeners.get("visibilitychange")();
+  await installed;
+  assert.equal(catalogReads, 2);
+  assert.equal(state().state, "installed");
+  assert.equal(state().installedVersion, "0.4.3");
+  assert.equal(state().installable, false);
+
+  // Foreground events arriving together must share the bounded refresh.
+  const currentCalls = currentReads;
+  listeners.get("focus")();
+  assert.equal(catalogReads, 2);
+  assert.equal(currentReads, currentCalls);
+
+  // An externally removed CURRENT has no staged candidate. Returning to the
+  // window must still discard the stale installed action and Go observation.
+  await new Promise(resolve => setTimeout(resolve, 1550));
+  source = "removed"; currentRevision = 3;
+  const removed = new Promise(resolve => {
+    const unsubscribe = composition.port.subscribe(snapshot => {
+      const entry = snapshot.entries.find(item => item.appId === "notes");
+      if (entry?.installedVersion === null &&
+          composition.getCurrentObservations().some(item =>
+            item.componentId === "notes" && item.source === "removed")) {
+        unsubscribe();
+        resolve();
+      }
+    });
+  });
+  listeners.get("focus")();
+  await removed;
+  assert.equal(catalogReads, 3);
+  assert.equal(state().installedVersion, null);
+  assert.equal(state().installable, false,
+    "A removed app does not bypass the missing Windows probation owner");
+  assert.equal(state().blockedReason, "runtime-probation-host-unavailable");
+
+  composition.destroy();
+  assert.equal(listeners.has("focus"), false);
+  assert.equal(documentListeners.has("visibilitychange"), false);
+  assert.equal(composition.port.getSnapshot().state, "unavailable");
+});
+
 test("Native Store composition derives installability only from verified catalog plus activation SSOT", async () => {
   const calls = [];
   const windowRef = {
@@ -102,7 +289,7 @@ test("Native Store composition derives installability only from verified catalog
   };
 
   const composition = await createNativeStoreCatalogComposition({
-    windowRef,
+    windowRef: withWebKitTestHost(windowRef),
     componentSource: componentSource(),
   });
   const snapshot = composition.port.getSnapshot();
@@ -192,7 +379,7 @@ test("Native first-run selection shares Store current-state reads and never rest
   let nativeSource = "absent";
   let nativeReads = 0;
   const composition = await createNativeStoreCatalogComposition({
-    windowRef: {
+    windowRef: withWebKitTestHost({
       async fetch(url) {
         if (url === "/__ordax/native/store-catalog") return response(verifiedCatalog());
         const parsed = new URL(url);
@@ -203,7 +390,7 @@ test("Native first-run selection shares Store current-state reads and never rest
         }
         return response({}, 404);
       },
-    },
+    }),
     componentSource: componentSource(),
   });
   const observe = (initialProvisioning) => planFirstRunAppSelectionFromStore({
@@ -247,7 +434,7 @@ test("Native Store revokes install actions and transient current observations wh
     },
   };
   const composition = await createNativeStoreCatalogComposition({
-    windowRef,
+    windowRef: withWebKitTestHost(windowRef),
     componentSource: componentSource(),
   });
   const initial = composition.port.getSnapshot();
@@ -273,4 +460,100 @@ test("Native Store revokes install actions and transient current observations wh
   composition.destroy();
   assert.equal(composition.port.getSnapshot().state, "unavailable");
   assert.equal(composition.verifiedCatalogPort.getSnapshot().state, "unavailable");
+});
+
+test("accepted signed Go remove receipt refreshes the SAME Native Store and CURRENT observation without page restart", { timeout: 8000 }, async t => {
+  let installed = true;
+  let goMutations = 0;
+  let storeReads = 0;
+  const windowRef = {
+    async fetch(url, options = {}) {
+      if (url === "/__ordax/native/store-catalog") {
+        storeReads += 1;
+        return response(verifiedCatalog());
+      }
+      if (url === "/__ordax/native/store-lifecycle") {
+        goMutations += 1;
+        const plan = JSON.parse(options.body);
+        assert.equal(plan.request.operation, "remove");
+        assert.equal(plan.candidate, null);
+        assert.deepEqual(plan.expectedActivation, {
+          source: "slot", revision: 7, version: "0.4.3", sourceCommit: COMMIT,
+        });
+        installed = false;
+        return response({
+          schema: "ordax.app-lifecycle-request-result/1",
+          requestId: plan.request.requestId,
+          appId: plan.request.appId,
+          operation: plan.request.operation,
+          source: plan.request.source,
+          state: "accepted", reason: null, authority: "none",
+        });
+      }
+      const parsed = new URL(url);
+      if (parsed.pathname === "/__ordax/native/component-runtime") {
+        const appId = parsed.searchParams.get("component");
+        if (appId === "notes") {
+          return response(installed ? {
+            componentId: appId, state: "current", source: "slot",
+            revision: 7, version: "0.4.3", sourceCommit: COMMIT,
+            entrypoint: "system/apps/notes/src/runtime.mjs", pendingHealth: null,
+          } : {
+            componentId: appId, state: "current", source: "removed",
+            revision: 8, version: null, sourceCommit: null,
+            entrypoint: null, pendingHealth: null,
+          });
+        }
+        return response(metadata(appId));
+      }
+      return response({}, 404);
+    },
+  };
+  const store = await createNativeStoreCatalogComposition({
+    windowRef: withWebKitTestHost(windowRef), componentSource: componentSource(),
+  });
+  t.after(() => store.destroy());
+  const before = store.port.getSnapshot().entries.find(item => item.appId === "notes");
+  assert.equal(before.state, "installed");
+  assert.equal(before.removable, true);
+  assert.equal(store.getCurrentObservations().find(item => item.componentId === "notes").source, "slot");
+
+  let resolveUpdated;
+  const updated = new Promise(resolve => { resolveUpdated = resolve; });
+  const visibleStates = [];
+  const unsubscribe = store.port.subscribe(snapshot => {
+    visibleStates.push(snapshot.state);
+    const notes = snapshot.entries.find(item => item.appId === "notes");
+    if (snapshot.state === "ready" && notes?.installedVersion === null &&
+        store.getCurrentObservations().find(item => item.componentId === "notes")?.source === "removed") {
+      resolveUpdated();
+    }
+  });
+  t.after(unsubscribe);
+  const service = createAppLifecycleRequestService({
+    catalogPort: store.port,
+    verifiedCatalogPort: store.verifiedCatalogPort,
+    getCurrentObservations: () => store.getCurrentObservations(),
+    lifecycleDelegate: createNativeAppLifecycleDelegate(windowRef, {
+      onAccepted() { return store.refresh(); },
+    }),
+  });
+  const request = {
+    schema: "ordax.app-lifecycle-request/1",
+    requestId: "store:remove:notes:integrated-observation",
+    appId: "notes", operation: "remove", source: "store", authority: "none",
+  };
+  const receipt = await service.requestLifecycle(request);
+  assert.equal(receipt.state, "accepted", JSON.stringify({reason: receipt.reason, goMutations, storeReads, state: store.port.getSnapshot().state}));
+  await updated;
+  const after = store.port.getSnapshot().entries.find(item => item.appId === "notes");
+  assert.equal(after.installedVersion, null);
+  assert.equal(after.installable, true, "signed catalog may still offer explicit reinstallation");
+  assert.equal(goMutations, 1);
+  assert.equal(storeReads, 2, "one bootstrap read and one accepted-receipt refresh");
+  assert.ok(visibleStates.includes("unavailable"),
+    "the native Store revokes old UI affordances before observing post-Go state");
+  assert.equal((await service.requestLifecycle(request)).state, "accepted");
+  assert.equal(goMutations, 1, "replaying an identical request cannot mutate again");
+  assert.equal(storeReads, 2, "replay cannot start another Store refresh");
 });

@@ -1,6 +1,8 @@
 # OrdaX Desktop Identity
 
-The sole current visual authority is **Meridian**, reaffirmed explicitly by the user on 2026-10-18 for the entire OrdaX OS. Argila/light and Grafite/dark are materials of this identity, not alternate product designs. `system/surface/ui/meridian.tokens.css` owns its palette/type/spacing policy; shared component styles consume that owner. Historical Midnight/Ice and pre-Meridian presentation notes below are provenance, not permission to reintroduce another identity.
+Status: **CANONICAL MERIDIAN VISUAL IDENTITY CONTRACT.** The historical filename/title describes the desktop product surface, **not repository ownership**: visual source authority is `ordaxsystems/ordax-surface`; `ordax-desktop` owns the Windows host/shell/packaging and must not become a second visual source.
+
+The sole current visual language is **Meridian**. Its **source owner is `ordaxsystems/ordax-surface`**; paths such as `system/surface/ui/meridian.tokens.css` below refer to the verified staged/materialized Surface tree used by OS/Web/Native builds, not Git ownership in `ordax-os`. Argila/light and Grafite/dark are materials of this identity, not alternate product designs. Historical Midnight/Ice and pre-Meridian presentation notes below are provenance, not permission to reintroduce another identity.
 
 Migration is staged without removing real operations or planned mocks. The current First Run uses Meridian directly in its canonical renderer/CSS, and the Windows emulator loads the actual Native composition used by USB rather than a Web preview. Later shell/app stages remain subject to this same visual rule; completing First Run does not imply that every legacy screen has already migrated.
 
@@ -23,7 +25,7 @@ The user-approved symbol is `system/surface/ui/brand/ordax-symbol.png`, copied b
 
 ## Shared design-system ownership
 
-`system/surface/ui/tokens.css` owns base typography, geometry and accessibility policy. `system/surface/ui/color-palettes.css` owns standard light/dark colors moved from the approved Web stylesheet and semantic aliases for both renderers. These sources form the single source of visual policy. Each palette is declared once; Surface and first-party application styles consume that shared policy without a second palette per application.
+The canonical files are maintained in `ordaxsystems/ordax-surface` and are materialized into the composed tree at `system/surface/ui/...`. Within that staged tree, `system/surface/ui/tokens.css` owns base typography, geometry and accessibility policy. `system/surface/ui/color-palettes.css` owns standard light/dark colors moved from the approved Web stylesheet and semantic aliases for both renderers. These sources form the single source of visual policy. Each palette is declared once; Surface and first-party application styles consume that shared policy without a second palette per application.
 
 `system/surface/ui/identity.css` is the shared component/composition layer for this identity. It may map existing components onto the semantic tokens while older component CSS is migrated, but it must not become a second token source.
 
@@ -106,7 +108,7 @@ New desktop controls must have a real state owner and contract before being pres
 
 ## Acceptance and delivery
 
-Roadmap: shared Surface identity and minimal functional desktop in `PLANO-FUNCIONAL-SURFACE-E-APPS.md`. Owner: OrdaX OS Surface. Dependencies: existing appearance/runtime/workspace/store contracts, local Inter, SVG and PNG; no new public execution contract. Scope: shared Web/Native composition, loading screen, shell, Settings previews and tokens consumed by first-party views. Risks: contrast over artwork, CSS specificity, narrow layout, image size and offline asset resolution.
+Roadmap: shared Surface identity and minimal functional desktop in `PLANO-FUNCIONAL-SURFACE-E-APPS.md`. Historical label only: visual source ownership is now `ordaxsystems/ordax-surface`. Dependencies: existing appearance/runtime/workspace/store contracts, local Inter, SVG and PNG; no new public execution contract. Scope: shared Web/Native composition, loading screen, shell, Settings previews and tokens consumed by first-party views. Risks: contrast over artwork, CSS specificity, narrow layout, image size and offline asset resolution.
 
 Acceptance requires visual/contrast regressions, existing preference/localization tests, source-graph and deterministic bundle verification, and real Chromium shell/composition smoke. Web inspection covers desktop and narrow breakpoints and both materials. Source publication is a reviewable candidate, not production activation, a signed release or proof of USB/mobile hardware operation. A visual refresh does not require a kernel rebuild or USB rewrite.
 
@@ -138,7 +140,7 @@ the next integration phase; the former WebShell is not mounted or exposed as
 a second page. Broad code removal was rejected by automatic approval review,
 so no shared application/window functionality was deleted.
 
-Owner: OrdaX OS Surface, under `PLANO-FUNCIONAL-SURFACE-E-APPS.md`.
+Historical label only: visual source ownership is now `ordaxsystems/ordax-surface`, under `PLANO-FUNCIONAL-SURFACE-E-APPS.md`.
 Provenance and reversible integration adjustments:
 `docs/evidence/web-central-reference-2026-10-11.json`.
 Risk: unconnected example data, viewport/focus behavior, dependency versions
@@ -164,7 +166,7 @@ docs/evidence/web-layout-reference-2026-10-10.json. User approved copying their
 supplied layout and replacing Web presentation. Upstream README states author
 ownership; no LICENSE was found. Distribution license review remains pending.
 
-Owner: OrdaX OS Surface. Root package.json/package-lock.json own dependencies;
+Historical label only: visual source ownership is now `ordaxsystems/ordax-surface`. Root package.json/package-lock.json own dependencies;
 tools/surface-web owns compilation and candidate receipts. React/router/UI code
 is bundled locally. Existing shared Inter and approved symbol remain the asset
 authority. Browsers need no Node, CDN or remote font to render the client.
@@ -199,7 +201,7 @@ authority has been introduced. See [Store boundary and acceptance](STORE-WEB-CAT
 
 ## Responsive compact-window panes — 2026-10-11
 
-Owner: OrdaX OS Surface, within the functional workspace/window increment of
+Historical label only: visual source ownership is now `ordaxsystems/ordax-surface`, within the functional workspace/window increment of
 `PLANO-FUNCIONAL-SURFACE-E-APPS.md`. The canonical Web composition divides the
 available desktop into a primary pane and a compact pane. Expanded compact
 windows receive half the height after the shared navigation and mobile safe
@@ -225,7 +227,7 @@ No App, Runtime, Intelligence, Identity or device-execution authority changes.
 
 ## Mobile workspace navigation — 2026-10-11
 
-Owner: OrdaX OS Surface, within the canonical Web workspace increment of
+Historical label only: visual source ownership is now `ordaxsystems/ordax-surface`, within the canonical Web workspace increment of
 `PLANO-FUNCIONAL-SURFACE-E-APPS.md`. Mobile navigation uses the same
 `WorkspaceNavigation`, catalog and reducer as the desktop sidebar. The bottom
 bar follows the reference order: Início, Aura, Apps, Space and Menu. Aura opens
@@ -294,7 +296,7 @@ shared app/draft retention through compact modes.
 
 ### Full workspace app opening — 2026-10-11
 
-Owner: OrdaX OS Surface, under the same functional-plan window increment. New
+Historical label only: visual source ownership is now `ordaxsystems/ordax-surface`, under the same functional-plan window increment. New
 windows open maximized; detaching a compact app also fills the available
 workspace. Explicit normal geometry, minimizing and compact modes remain
 choices, and reopening a manually restored window retains that choice. Page
@@ -348,7 +350,7 @@ opening and mobile menus at desktop/short/tablet widths.
 
 User-requested increment in the Surface functional plan: minimize, compact,
 collapse, expand, maximize, restore and close in the approved primary Web UI.
-Owner: OrdaX OS Surface. Dependency: shared UI controls and presentation-only
+Historical label only: visual source ownership is now `ordaxsystems/ordax-surface`. Dependency: shared UI controls and presentation-only
 Central data; no new Runtime, grants, identity, storage or intelligence authority.
 
 `central/desktop-state.ts` owns the active window lifecycle for both presentations.
@@ -1307,7 +1309,7 @@ No inference, external command, installation or production activation was valida
 
 ## USB color profile in Web — 2026-10-12
 
-Owner: OrdaX OS Surface; scoped visual increment explicitly requested by the
+Historical label only: visual source ownership is now `ordaxsystems/ordax-surface`; scoped visual increment explicitly requested by the
 user under PLANO-FUNCIONAL-SURFACE-E-APPS.md. Web Settings exposes Claro, Escuro
 and OrdaX USB in one labeled native select with 44px touch height. The USB profile
 uses the existing Midnight Native semantic palette; aliases in the Web stylesheet
@@ -1332,7 +1334,7 @@ is claimed by these presentation checks.
 
 ## Shared color profiles and Native desktop — 2026-10-12
 
-Owner: OrdaX OS Surface, under PLANO-FUNCIONAL-SURFACE-E-APPS.md; explicitly
+Historical label only: visual source ownership is now `ordaxsystems/ordax-surface`, under PLANO-FUNCIONAL-SURFACE-E-APPS.md; explicitly
 requested USB integration. Shared profiles replace the Web-only color selector
 foundation above. color-palette.mjs owns surface.color-palette, derived scheme
 and three choices. The old module and ID have no runtime wrapper, redirect or
@@ -1364,7 +1366,7 @@ and this visual preview do not constitute a signed USB release or physical boot.
 
 ## Shared settings style and sidebar policy — 2026-10-12
 
-Owner: OrdaX OS Surface, linked to the functional Surface plan; explicit user
+Historical label only: visual source ownership is now `ordaxsystems/ordax-surface`, linked to the functional Surface plan; explicit user
 request to reuse USB Settings styling in Web and add a Native profile shortcut.
 Web imports settings.css and the canonical Settings message catalog. Its existing
 appearance and accessibility ports remain authoritative; no duplicate store,
@@ -1440,7 +1442,7 @@ views, immutable destination metadata, localization and redundant SVG updates.
 
 ## Surface gate reconciliation — 2026-10-12
 
-Owner: OrdaX OS Surface. User-requested continuation of the shared Web/Native
+Historical label only: visual source ownership is now `ordaxsystems/ordax-surface`. User-requested continuation of the shared Web/Native
 sidebar, following the five failed Foundation/Surface test cases on main
 9a84bbd1a6ae93141126acb19ed802df7214b96a. Scope is the verification layer;
 no product layout, preference storage, identity, grants or device authority changes.

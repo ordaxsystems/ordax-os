@@ -19,14 +19,15 @@ class LocalAiRuntimeBuilderTests(unittest.TestCase):
         lock = BUILDER.load_source_lock()
         self.assertEqual(lock["engine"]["commit"], "7ab4ee7baad2d920464cbacfad4f4b07cf111fd2")
         self.assertEqual(lock["engine"]["build_targets"], ["llama-server"])
+        self.assertEqual(lock["engine"]["linux_build_toolchain"]["libc6_dev"], "2.39-0ubuntu8.12")
         self.assertEqual(
             lock["engine"]["artifact"],
             {
                 "platform": "linux-x86_64",
                 "binary_format": "ELF",
                 "linkage": "static",
-                "sha256": "4a974691b9905b88cb46d97c85c2b035b33592a16cd0239ae4c6687f68799afe",
-                "size_bytes": 17039584,
+                "sha256": "c170393570f105856508d5d2f5423e853194dbcd8a55e61136f084e9a0619471",
+                "size_bytes": 17039536,
             },
         )
         self.assertEqual(lock["model"]["sha256"], "57d1997790d1744fba5b40a7317df71ea5e2acee28c47e78f0cce39c0703f8cf")
@@ -73,6 +74,15 @@ class LocalAiRuntimeBuilderTests(unittest.TestCase):
             path = Path(directory) / "source-lock.json"
             path.write_text(json.dumps(lock), encoding="utf-8")
             with self.assertRaisesRegex(BUILDER.RuntimeBuildError, "runtime security"):
+                BUILDER.load_source_lock(path)
+
+    def test_builder_rejects_missing_linux_toolchain_authority(self):
+        lock = json.loads(SOURCE_LOCK.read_text(encoding="utf-8"))
+        lock["engine"].pop("linux_build_toolchain")
+        with tempfile.TemporaryDirectory() as directory:
+            path = Path(directory) / "source-lock.json"
+            path.write_text(json.dumps(lock), encoding="utf-8")
+            with self.assertRaisesRegex(BUILDER.RuntimeBuildError, "Linux inference build toolchain pin"):
                 BUILDER.load_source_lock(path)
 
     def test_builder_rejects_malformed_engine_artifact_pin(self):

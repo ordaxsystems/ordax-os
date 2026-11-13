@@ -97,8 +97,8 @@ jobs:
       contents: read
     runs-on: ubuntu-24.04
     outputs:
-      required: ${{ steps.scope.outputs.required }}
-      reason: ${{ steps.scope.outputs.reason }}
+      required: ${{ steps.scope.outputs.required == 'true' && steps.freshness.outputs.publish_allowed != 'false' }}
+      reason: ${{ steps.freshness.outputs.reason || steps.scope.outputs.reason }}
     steps:
       - name: Checkout exact Creator candidate
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
@@ -127,6 +127,17 @@ jobs:
               exit 1
               ;;
           esac
+      # On a queued main push, avoid an expensive build that is already
+      # obsolete. PR proofs and explicit manual dispatch remain unaffected.
+      - name: Skip superseded main USB production
+        id: freshness
+        if: github.event_name == 'push' && steps.scope.outputs.required == 'true'
+        env:
+          ORDAX_SOURCE_SHA: ${{ github.sha }}
+        run: |
+          set -euo pipefail
+          python3 tools/ci/creator_owner_publish_freshness.py \
+            --source "$ORDAX_SOURCE_SHA" --github-output "$GITHUB_OUTPUT"
   build-and-publish:
     needs: impact
     if: needs.impact.outputs.required == 'true'
@@ -902,6 +913,23 @@ jobs:
           set -euo pipefail
           repo='ordaxsystems/ordax-os'
           release="$GITHUB_WORKSPACE/out/owner-prototype/release"
+          # Recheck immediately before mutating the rolling channel: main can
+          # advance during a long Creator/QEMU build after the first CI gate.
+          # A newer non-producer-only main revision may reuse the proved USB.
+          freshness="$(python3 tools/ci/creator_owner_publish_freshness.py \
+            --source "$ORDAX_OWNER_SOURCE_COMMIT")"
+          echo "$freshness"
+          case "$freshness" in
+            'CREATOR_MAIN_FRESHNESS=SKIP '*)
+              echo 'OWNER_CREATOR_PUBLICATION=SKIPPED_SUPERSEDED_SOURCE'
+              exit 0
+              ;;
+            'CREATOR_MAIN_FRESHNESS=ALLOW '*) ;;
+            *)
+              echo 'Creator main freshness result is unrecognized: fail closed' >&2
+              exit 1
+              ;;
+          esac
           if ! gh release view creator-owner-prototype --repo "$repo" >/dev/null 2>&1; then
             gh release create creator-owner-prototype --repo "$repo" --target "$ORDAX_OWNER_SOURCE_COMMIT" \
               --title 'OrdaX Creator - Development Git USB' --prerelease \

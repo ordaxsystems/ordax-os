@@ -2,6 +2,8 @@
 
 Status: LOCAL KEY GENERATED — CRYPTOGRAPHIC RECOVERY VERIFIED — PUBLIC ANCHOR PINNED — PHYSICAL WRITE BLOCKED
 
+**Operational interpretation:** the first canonical release-trust ceremony is already complete. Do **not** run `generate-key` or the initialization sequence below as a routine setup/rebuild step. The detailed ceremony remains as provenance, recovery procedure and protocol reference. Creating a replacement canonical key requires an explicit rotation/recovery decision and the applicable machine-readable trust state; ordinary builds, PRs, new USB candidates or repository updates do not authorize a new identity.
+
 This ceremony exists so the first physical OrdaX prototype can be created without Codex, without committing a private key, and without inventing a CI-only trust anchor.
 
 The repository owns the protocol and policy. The developer owns the canonical private release-signing key. Only the matching public Ed25519 trust anchor may enter Git and the boot payload.
@@ -101,12 +103,12 @@ The underlying PowerShell initializer is fail-closed: direct invocation without 
 Before any key is generated, the initializer fails closed unless:
 
 1. `provenance.json` has schema `prototype-ordax.windows-prototype-toolkit/2` and status `candidate`;
-2. the toolkit provenance declares repository `washingtonmsdj/prototipo-ordax-os`, event `push`, ref `refs/heads/main` and `canonical_trust_ceremony_eligible=true`;
+2. the toolkit provenance declares repository `ordaxsystems/ordax-os`, event `push`, ref `refs/heads/main` and `canonical_trust_ceremony_eligible=true`;
 3. `source_commit` is exactly 40 lowercase hexadecimal characters;
 4. the SHA-256 of `ordax-release-signing.exe` matches the toolkit provenance;
 5. the SHA-256 of `Initialize-OrdaXReleaseTrust.ps1` matches the toolkit provenance.
 
-Artifacts produced for pull requests or manual workflow-dispatch remain useful for CI and review, but they are **not eligible** to create the canonical release-signing identity. After this PR is merged, the ceremony must use the toolkit emitted by the resulting `push` run on `main`.
+Artifacts produced for pull requests or manual workflow-dispatch remain useful for CI and review, but they are **not eligible** to create the canonical release-signing identity. The ceremony must use a toolkit emitted by a canonical `push` run on `main` whose provenance satisfies the prerequisites above; never infer eligibility from the PR that introduced or edited this runbook.
 
 The proof manifest and `ceremony-result.json` are then bound to that provenance `source_commit`. The operator must not type or substitute a placeholder commit. A provenance or component-hash mismatch aborts the ceremony before private-key creation.
 

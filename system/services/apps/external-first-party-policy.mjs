@@ -41,6 +41,7 @@ export const EXTERNAL_FIRST_PARTY_NATIVE_MODULE_READ_IDS = Object.freeze([
   "studio",
 ]);
 export const EXTERNAL_FIRST_PARTY_NATIVE_PROBATION_IDS = Object.freeze([
+  "calculator",
   "files",
   "notes",
 ]);

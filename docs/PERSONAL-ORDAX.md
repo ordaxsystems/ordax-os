@@ -1,5 +1,13 @@
 # Personal OrdaX Runtime
 
+**Capability Fabric v1 (integrado, 2026-11-04):** Personal consome a mesma
+projeção Native de leitura (`discoverCapabilities()`); uma ação Native
+selecionada usa `requestDiscoveredNativeAction()` com revisão e identidade
+vigentes para **solicitar aprovação**, não para executar. O único caminho
+com efeito é a aprovação/grant e Action Gateway/Executor já existente.
+Remoção, troca de provedor, Work ou owner invalidam a aprovação.
+Ver [Capability Fabric — fluxo e estado](CAPABILITY-FABRIC.md).
+
 Status: **CANONICAL FOUNDATION / PUBLIC RUNTIME DISABLED**
 
 ## Goal
@@ -223,15 +231,19 @@ A work item may be executed locally, on an authorized Edge device or in cloud co
 capability, privacy, cost and availability. The work identity, activity stream and permission
 semantics remain stable while the execution backend changes.
 
-## MVP rule
+## Current `stable-mvp` activation boundary
 
-The public Stable/MVP remains USB-only and consultative Intelligence remains the currently promoted
-AI authority. This foundation **does not enable an autonomous agent in the MVP**.
+The machine-readable distribution profile currently named `stable-mvp` remains USB-only, and
+consultative Intelligence remains the promoted AI authority for that profile. This is a **current
+activation gate**, not a global “USB first, Personal later” roadmap rule. Personal slices may evolve
+when their own owners and gates require them, but this foundation **does not by itself enable
+autonomous background authority or expand the public release**.
 
-What it does now is prevent future autonomy from forcing a rewrite of Memory, Spaces, Projects,
-Profiles, permissions or Surface architecture.
+Its purpose is to prevent future bounded autonomy from forcing a rewrite of Memory, Spaces,
+Projects, Profiles, permissions or Surface architecture.
 
-Machine-readable authority: `docs/contracts/personal-ordax.json`.
+Machine-readable authority for Personal: `docs/contracts/personal-ordax.json`. Current distribution
+enablement comes from `docs/contracts/distribution-profiles.json` and the applicable promotion gates.
 
 
 ### Resource-bound execution gate

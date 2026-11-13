@@ -49,9 +49,9 @@ Android- and iOS-specific behavior must remain behind the mobile capability adap
 
 A normally installed desktop application for Windows first, with other host platforms allowed later. It is the intermediate tier between browser/mobile access and the bootable operating system.
 
-It provides capabilities a browser cannot safely or reliably provide, including controlled local filesystem access, native notifications, background tasks where allowed, local application integration, signed automatic updates and the privileged Creator capability for preparing OrdaX USB media.
+It provides capabilities a browser cannot safely or reliably provide, including controlled local filesystem access, native notifications, background tasks where allowed, local application integration and signed application updates. It may **launch or present** the independent OrdaX Creator experience, but it does not own Creator Core, raw-media policy or physical-write authority.
 
-OrdaX Desktop is not the OrdaX operating system and must never own raw host hardware by default. Privileged operations require a narrow, explicit capability boundary and separate user authorization.
+OrdaX Desktop is not the OrdaX operating system and must never own raw host hardware by default. Removable-media preparation belongs to `ordaxsystems/ordax-creator` and remains behind its narrow, explicitly authorized target/write/readback boundary.
 
 ### 4. OrdaX OS — USB
 
@@ -110,29 +110,25 @@ For the MVP, Web, Mobile and synchronization are not active product promises; th
 
 See `docs/ACCOUNT-SYNC-AND-PLANS.md`.
 
-## Single-source Surface
+## Single-source components, multi-repository ownership
 
-The same source files implement the visual shell, apps, settings, design tokens and shared interaction behavior for every supported mode where that UI is applicable.
-
-```text
-system/surface/      # one visual source
-system/apps/         # one app source
-system/services/     # shared service/domain logic
-system/adapters/     # environment capabilities only
-```
-
-Target adapters:
+“Single-source” means **one canonical owner for each component**, not one Git tree for the whole product.
 
 ```text
-system/adapters/web/
-system/adapters/mobile/
-system/adapters/desktop/
-system/adapters/native/
+ordax-surface        # canonical visual Surface source
+ordax-apps           # canonical removable first-party app source
+ordax-os/system/
+  surface/           # OS host/runtime boundary; external visual bytes are staged here
+  apps/              # catalogs, installed-state projection and structural integration
+  services/          # shared OS/domain services and lifecycle
+  adapters/          # environment capabilities only
+  composition/       # verified direct-dependency assembly
+ordax-desktop        # Windows host/packaging consuming OrdaX/OS composition
 ```
 
-`mobile` owns Android/iOS capability differences; `native` is shared by USB and internal OrdaX installations wherever the capability is genuinely the same.
+Target adapters inside the OS remain `web`, `mobile`, `desktop` and `native`; they implement capabilities, not alternate source ownership. `mobile` owns Android/iOS capability differences; `native` is shared by USB and internal OrdaX installations wherever the capability is genuinely the same.
 
-Forbidden architecture includes separate application trees such as `apps-android/`, `apps-ios/`, `apps-desktop/` or independent Surface forks. Thin native bridges are allowed only for genuine platform APIs.
+A compatible visual/app change can integrate in its owner without immediately changing every consumer. A new product candidate explicitly adopts exact compatible revisions through contracts/locks/artifacts. Forbidden architecture includes copied app trees, duplicate Surface source, downstream transitive pins and mode-specific UI forks. Thin bridges are allowed only for genuine platform APIs and must not become a second product source.
 
 ## Capability adapters
 
@@ -171,7 +167,7 @@ Biometric authentication may gate local access to a session or secret, but it do
 
 ## Desktop security boundary
 
-The Desktop application separates its unprivileged UI/runtime from privileged host operations. The privileged helper exposes explicit operations rather than arbitrary command execution. Raw disk access is reserved for removable-media creation/recovery and fails closed on ambiguous device identity.
+The Desktop application separates its unprivileged UI/runtime from host integrations and consumes only bounded capabilities. **Raw removable-media access is not a general Desktop capability**: Creator owns target discovery/revalidation, explicit consent, write and readback. Desktop may invoke that product boundary without absorbing its privileged helper or policy.
 
 ## Update model
 
@@ -185,7 +181,7 @@ USB       -> verified OrdaX release activation
 Native    -> verified OrdaX release activation
 ```
 
-Client application updates and OrdaX OS releases are distinct delivery channels even when both originate from the same repository commit.
+Client application updates and OrdaX OS releases are distinct delivery channels. Their candidates may reference compatible revisions from different canonical repositories; identical Git commits/HEADs are neither required nor meaningful across owners.
 
 ## Synchronization model
 

@@ -15,6 +15,13 @@ class BuildAutonomyContractTest(unittest.TestCase):
     def test_contract_schema_is_current(self):
         self.assertEqual(CONTRACT["$schema"], "prototype-ordax.build-autonomy/2")
 
+    def test_source_authority_is_os_scoped_not_a_monorepo_claim(self):
+        source = CONTRACT["source_authority"]
+        self.assertEqual(source["repository"], "ordaxsystems/ordax-os")
+        self.assertEqual(source["scope"], "ordax-os-owned-source-build-recipes-and-native-composition")
+        self.assertEqual(source["repository_ownership_contract"], "docs/contracts/repository-ownership.json")
+        self.assertEqual(source["external_component_selection"], "verified-direct-dependency-contracts-and-locks")
+
     def test_codex_and_local_toolchains_are_not_required(self):
         independence = CONTRACT["required_independence"]
         self.assertFalse(independence["codex_required"])
@@ -99,6 +106,9 @@ class BuildAutonomyContractTest(unittest.TestCase):
         self.assertTrue(rules["new_product_mode_requires_explicit_artifact_class_or_documented_shared_target"])
         self.assertTrue(rules["new_artifact_class_requires_provenance_owner"])
         self.assertTrue(rules["build_cache_may_accelerate_but_may_not_replace_verification"])
+        self.assertFalse(rules["single_product_requires_single_git_repository"])
+        self.assertFalse(rules["downstream_consumers_pin_transitive_repositories"])
+        self.assertFalse(rules["external_component_source_copy_allowed"])
 
     def test_native_release_assembly_is_repository_owned_and_prebuilt(self):
         native = CONTRACT["native_system_release"]

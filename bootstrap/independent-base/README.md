@@ -1,6 +1,12 @@
-# Base independente OrdaX — experimento isolado
+# Base independente OrdaX — Buildroot e fronteira de adoção
 
-**Estado (13/10/2026):** capacidade independente experimental **não promovível**. A Fase 2 de boot portátil e a Fase 3 de saúde gráfica real foram validadas em QEMU, incluindo release assinado, recuperação e segundo boot `current` (prova [#38422187862](https://github.com/ordaxsystems/ordax-os/actions/runs/38422187862) e integração [PR #1746](https://github.com/ordaxsystems/ordax-os/pull/1746)). Isso não comprova Secure Boot, equivalência em hardware físico, firmware/Wi-Fi ou autorização de migração. A autoridade e o acompanhamento desses gates continuam no [issue #1730](https://github.com/ordaxsystems/ordax-os/issues/1730). Esta pasta não cria outra distribuição, linha de atualização, gerenciador de pacotes ou boot de produção.
+> **Estado operacional conferido na fonte em 13/11/2026:** este diretório implementa o candidato de base independente Buildroot. O workflow `.github/workflows/portable-v2-qemu-boot-proof.yml` possui seleção explícita `base_source=independent` e, nessa rota, constrói/verifica `independent-base.erofs`, reutiliza o formato esperado de `stable-base.erofs` na prova descartável e executa o bridge de boot independente. O caminho padrão desse workflow continua `stable`; outras rotas de produção, como `.github/workflows/creator-owner-dev-git.yml`, ainda consomem `bootstrap/dev-base/build.py` (Alpine). **Esse suporte em CI não comprova adoção padrão, assinatura pública, mídia física nem remoção global do Alpine.** Conferir locks, artefatos, provas e gates vigentes antes de promover; não duplicar perfil, contrato de boot ou produtor.
+
+## Contexto histórico de outubro
+
+
+
+**Estado registrado em 13/10/2026 (histórico):** capacidade independente experimental **não promovível**. A Fase 2 de boot portátil e a Fase 3 de saúde gráfica real foram validadas em QEMU, incluindo release assinado, recuperação e segundo boot `current` (prova [#38422187862](https://github.com/ordaxsystems/ordax-os/actions/runs/38422187862) e integração [PR #1746](https://github.com/ordaxsystems/ordax-os/pull/1746)). Isso não comprova Secure Boot, equivalência em hardware físico, firmware/Wi-Fi ou autorização de migração. A autoridade e o acompanhamento desses gates continuam no [issue #1730](https://github.com/ordaxsystems/ordax-os/issues/1730). Esta pasta não cria outra distribuição, linha de atualização, gerenciador de pacotes ou boot de produção.
 
 ## Escolha técnica
 
@@ -13,7 +19,7 @@ O perfil Buildroot usa `bootstrap/kernel/source.json` como única versão de cab
 - A base atual Alpine dos perfis Development e Stable permanece intacta.
 - Não há SSH, Git, Wi-Fi, firmware de notebooks, gerenciamento de pacotes ou serviços de produto nesta base mínima; DHCP com Ethernet/QEMU user NAT é o escopo.
 - A inicialização `ordax-independent-probe-init` é exclusivamente um programa de **teste QEMU**, não substitui `bootstrap/initramfs/portable_init.sh`, os verificadores de release, seleção de slots ou serviços atuais.
-- **Não** se pode distribuir, assinar, instalar, ligar ao Creator, ativar Base Update, substituir `stable-base.erofs` ou modificar USB com este artefato.
+- **O snapshot de outubro não autorizava** distribuir, assinar publicamente, instalar, ligar ao Creator, ativar Base Update, substituir a base de produção ou modificar USB com esse artefato. Hoje existe uma rota de prova Portable v2 que copia o candidato verificado para o nome `stable-base.erofs` **dentro do staging descartável de CI**; isso não é promoção ou instalação física. Qualquer autorização posterior exige prova e política atuais do canal.
 - O teste QEMU usa o kernel **real** `bootstrap/kernel/build.py` e valida seu provenance. Testa montagem EROFS somente-leitura e escrita rejeitada, imagem ext4 descartável persistente, DHCP e falha segura de EROFS inválido. O QEMU usa `snapshot=on` para permitir emulação IDE com backend COW descartável sem modificar os bytes originais de EROFS, cuja integridade é novamente verificada por SHA-256. Não prova UEFI, mídia física, EROFS/OverlayFS do fluxo portátil completo nem equivalência de recuperação assinada.
 - Exige execução de CI Linux; nenhum passo pertence à estação de trabalho do usuário.
 

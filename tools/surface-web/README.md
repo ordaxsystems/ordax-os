@@ -1,9 +1,8 @@
 # Canonical OrdaX Web build
 
-Presentation: system/surface/workspace/components/central. Thin entry: system/composition/web/main.tsx.
-Approved reference: ordaxsystems/lovable-core-ui@89438133b322e3ef87e862c80af3a3dbe18251f5.
-Central and classic desktop share one account session, navigation metadata and themes; they are views of one page.
-Root package.json/package-lock.json own dependencies.
+The visual source owner is `ordaxsystems/ordax-surface`. The build assembles the exact revision pinned by `ordax-os/docs/contracts/surface-source.json` into the disposable/staged path `system/surface/workspace/components/central`; that path is **not** a second Git source owner. Thin OS entry: `system/composition/web/main.tsx`.
+
+The historical design reference `ordaxsystems/lovable-core-ui@89438133b322e3ef87e862c80af3a3dbe18251f5` is provenance only; current source is the pinned Surface revision. Central and classic desktop are views of the same composed page. Root package.json/package-lock.json own the OS Web build dependencies.
 
 From repository root:
 

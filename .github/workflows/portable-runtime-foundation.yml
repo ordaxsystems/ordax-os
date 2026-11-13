@@ -46,8 +46,19 @@ on:
       - 'tests/test_base_update_contract.py'
       - 'tests/test_base_update_runtime_owner.py'
       - 'tests/test_hot_update_supervisor.py'
-      - 'system/surface/runtime/physical_performance_probe.py'
+      - 'docs/contracts/physical-observability.json'
+      - 'system/diagnostics/physical_ata.py'
+      - 'system/diagnostics/physical_boot_storage.py'
+      - 'system/diagnostics/physical_surface_performance.py'
+      - 'system/surface/bin/ordax-physical-ata'
+      - 'system/surface/bin/ordax-physical-boot-storage'
+      - 'system/surface/bin/ordax-physical-performance'
+      - 'tests/test_physical_ata_probe.py'
+      - 'tests/test_physical_boot_storage_probe.py'
+      - 'tests/test_physical_observability_contract.py'
       - 'tests/test_physical_surface_performance_probe.py'
+      - 'tests/test_physical_ata_performance_runbook.py'
+      - 'tests/test_physical_evidence_entrypoint_roots.py'
       - 'docs/LOCAL-AI-TUNING.md'
       - 'bootstrap/stable-base/source.json'
       - 'bootstrap/stable-base/ordax-stable-init'
@@ -99,8 +110,19 @@ on:
       - 'tests/test_base_update_contract.py'
       - 'tests/test_base_update_runtime_owner.py'
       - 'tests/test_hot_update_supervisor.py'
-      - 'system/surface/runtime/physical_performance_probe.py'
+      - 'docs/contracts/physical-observability.json'
+      - 'system/diagnostics/physical_ata.py'
+      - 'system/diagnostics/physical_boot_storage.py'
+      - 'system/diagnostics/physical_surface_performance.py'
+      - 'system/surface/bin/ordax-physical-ata'
+      - 'system/surface/bin/ordax-physical-boot-storage'
+      - 'system/surface/bin/ordax-physical-performance'
+      - 'tests/test_physical_ata_probe.py'
+      - 'tests/test_physical_boot_storage_probe.py'
+      - 'tests/test_physical_observability_contract.py'
       - 'tests/test_physical_surface_performance_probe.py'
+      - 'tests/test_physical_ata_performance_runbook.py'
+      - 'tests/test_physical_evidence_entrypoint_roots.py'
       - 'docs/LOCAL-AI-TUNING.md'
       - 'bootstrap/stable-base/source.json'
       - 'bootstrap/stable-base/ordax-stable-init'
@@ -144,7 +166,8 @@ jobs:
           python -m json.tool docs/contracts/portable-runtime-policy.json >/dev/null
           python -m json.tool docs/contracts/hardware-pack.json >/dev/null
           python -m json.tool docs/contracts/hardware-support-matrix.json >/dev/null
-          python -m py_compile system/surface/runtime/ordax_browser_host.py system/surface/runtime/browser_session_store.py system/surface/runtime/native_hardware_inventory.py system/surface/runtime/display_outputs.py system/surface/runtime/native_host_server.py system/surface/runtime/physical_performance_probe.py
+          python -m json.tool docs/contracts/physical-observability.json >/dev/null
+          python -m py_compile system/surface/runtime/ordax_browser_host.py system/surface/runtime/browser_session_store.py system/surface/runtime/native_hardware_inventory.py system/surface/runtime/display_outputs.py system/surface/runtime/native_host_server.py system/diagnostics/physical_ata.py system/diagnostics/physical_boot_storage.py system/diagnostics/physical_surface_performance.py
 
       - name: Regress low-write runtime and hardware packs
         run: |
@@ -154,7 +177,7 @@ jobs:
           node --test tests/test_display_outputs_contract.mjs
           node --test tests/test_memory_store_adapters.mjs
           node --test tests/test_memory_native_adapter_bounds.mjs
-          python -m unittest tests.test_browser_session_store tests.test_browser_session_integration_contract tests.test_native_hardware_inventory tests.test_native_hardware_inventory_contract tests.test_display_outputs_provider tests.test_native_display_outputs_host tests.test_native_telemetry tests.test_base_telemetry_agent tests.test_base_update_contract tests.test_base_update_runtime_owner tests.test_hot_update_supervisor tests.test_physical_surface_performance_probe tests.test_stable_hardware_baseline_contract tests.test_stable_base_contract -v
+          python -m unittest tests.test_browser_session_store tests.test_browser_session_integration_contract tests.test_native_hardware_inventory tests.test_native_hardware_inventory_contract tests.test_display_outputs_provider tests.test_native_display_outputs_host tests.test_native_telemetry tests.test_base_telemetry_agent tests.test_base_update_contract tests.test_base_update_runtime_owner tests.test_hot_update_supervisor tests.test_physical_ata_probe tests.test_physical_boot_storage_probe tests.test_physical_observability_contract tests.test_physical_surface_performance_probe tests.test_physical_ata_performance_runbook tests.test_physical_evidence_entrypoint_roots tests.test_stable_hardware_baseline_contract tests.test_stable_base_contract -v
 
       - name: Assert fail-closed portable defaults
         run: |

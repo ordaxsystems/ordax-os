@@ -6,12 +6,17 @@ import { execFile } from "node:child_process";
 import { lstatSync } from "node:fs";
 import { isAbsolute, join } from "node:path";
 import { readDesktopPinnedComponentTrust, withinPinnedRoot as within } from "./pinned-component-trust.mjs";
-import { EXTERNAL_FIRST_PARTY_NATIVE_MODULE_READ_IDS } from "../../services/apps/external-first-party-policy.mjs";
+import {
+  EXTERNAL_FIRST_PARTY_NATIVE_MODULE_READ_IDS,
+  EXTERNAL_FIRST_PARTY_NATIVE_PROBATION_IDS,
+} from "../../services/apps/external-first-party-policy.mjs";
 
 const META = "/__ordax/native/component-runtime";
 const COMPAT = "/__ordax/native/component-compatibility";
 const MODULE = "/__ordax/native/component-module/";
 const IDS = new Set(EXTERNAL_FIRST_PARTY_NATIVE_MODULE_READ_IDS);
+// Pending MODULE bytes are restricted to canonical probation-capable apps.
+const PENDING_IDS = new Set(EXTERNAL_FIRST_PARTY_NATIVE_PROBATION_IDS);
 const ID = /^[a-z][a-z0-9-]{0,63}$/;
 const SHA = /^[0-9a-f]{40}$/;
 const SHA256 = /^[0-9a-f]{64}$/;
@@ -21,6 +26,8 @@ const MAX_META = 16 * 1024;
 const MAX_COMPAT = 96 * 1024;
 const MAX_MODULE = 2 * 1024 * 1024;
 const REQUEST_TIMEOUT = 3000;
+const MAX_ACTIVE_VERIFIER_READS = 6;
+const MAX_QUEUED_VERIFIER_READS = 64;
 const MIME = Object.freeze({
   ".mjs": "text/javascript; charset=utf-8", ".js": "text/javascript; charset=utf-8",
   ".css": "text/css; charset=utf-8", ".json": "application/json; charset=utf-8",
@@ -64,7 +71,9 @@ function parseFields(buffer, id, state, slotRoot) {
     return { componentId: id, state, source: source === "REMOVED" ? "removed" : "absent",
       revision, version: null, sourceCommit: null, entrypoint: null, pendingHealth: null };
   }
-  if (source !== "SLOT" || fields.size !== 9
+  if (source !== "SLOT" || fields.size !== 11
+    || fields.get("RELEASE_MODE") !== "component-slot"
+    || !["runtime", "none"].includes(fields.get("HEALTH_MODE"))
     || !SEMVER.test(fields.get("CURRENT_VERSION") ?? "")
     || !SHA.test(fields.get("CURRENT_SOURCE_COMMIT") ?? "")
     || !within(slotRoot, fields.get("SLOT") ?? "")
@@ -74,6 +83,71 @@ function parseFields(buffer, id, state, slotRoot) {
   return { componentId: id, state, source: "slot", revision,
     version: fields.get("CURRENT_VERSION"), sourceCommit: fields.get("CURRENT_SOURCE_COMMIT"),
     entrypoint: fields.get("ENTRYPOINT"), pendingHealth: null };
+}
+
+function parsePendingActivationStatus(output, id) {
+  if (!Buffer.isBuffer(output) || output.length > MAX_META)
+    throw Error("Pending activation status exceeds bounds");
+  const state = JSON.parse(new TextDecoder("utf-8", { fatal: true }).decode(output));
+  if (!state || Array.isArray(state)
+    || state.$schema !== "prototype-ordax.runtime-component-activation-state/1"
+    || state.component_id !== id
+    || !Number.isSafeInteger(state.revision) || state.revision < 0
+    || !["unknown", "healthy", "failed"].includes(state.pending_health)) {
+    throw Error("Noncanonical pending activation status");
+  }
+  if (state.pending === null) {
+    if (state.pending_health !== "unknown")
+      throw Error("Activation has health without a pending slot");
+    return null;
+  }
+  if (!state.pending || Array.isArray(state.pending)
+    || !SEMVER.test(state.pending.version ?? "")
+    || !SHA.test(state.pending.source_commit ?? "")) {
+    throw Error("Noncanonical pending component identity");
+  }
+  return {
+    revision: state.revision, version: state.pending.version,
+    sourceCommit: state.pending.source_commit, pendingHealth: state.pending_health,
+  };
+}
+
+function parseSignedPendingResolution(output, id, slotRoot, expected) {
+  if (!Buffer.isBuffer(output) || output.length > MAX_META)
+    throw Error("Pending Go verification output exceeds bounds");
+  const raw = new TextDecoder("utf-8", { fatal: true }).decode(output);
+  const fields = new Map();
+  for (const line of raw.trimEnd().split("\n")) {
+    const eq = line.indexOf("=");
+    if (eq < 1) throw Error("Malformed pending Go verification output");
+    const key = line.slice(0, eq);
+    if (!/^[A-Z][A-Z_]*$/.test(key) || fields.has(key))
+      throw Error("Duplicate pending Go verification field");
+    fields.set(key, line.slice(eq + 1));
+  }
+  const path = fields.get("ENTRYPOINT") ?? "";
+  if (fields.size !== 12
+    || fields.get("RELEASE_MODE") !== "component-slot"
+    || fields.get("HEALTH_MODE") !== "runtime"
+    || fields.get("RUNTIME_COMPONENT_PENDING_RESOLVED") !== "YES"
+    || fields.get("COMPONENT_ID") !== id
+    || fields.get("RUNTIME_SERVED_FROM_SLOT") !== "NO"
+    || fields.get("SOURCE") !== "SLOT"
+    || fields.get("REVISION") !== String(expected.revision)
+    || fields.get("PENDING_VERSION") !== expected.version
+    || fields.get("PENDING_SOURCE_COMMIT") !== expected.sourceCommit
+    || fields.get("PENDING_HEALTH") !== expected.pendingHealth
+    || !within(slotRoot, fields.get("SLOT") ?? "")
+    || !path.startsWith("system/apps/" + id + "/")
+    || !path.split("/").every(part => SEGMENT.test(part) && part !== "." && part !== "..")) {
+    throw Error("Signed pending slot differs from Go activation generation");
+  }
+  return {
+    componentId: id, state: "pending", source: "slot",
+    revision: expected.revision, version: expected.version,
+    sourceCommit: expected.sourceCommit, entrypoint: path,
+    pendingHealth: expected.pendingHealth,
+  };
 }
 
 function parseRequest(url) {
@@ -101,15 +175,18 @@ function parseRequest(url) {
     const query = new URLSearchParams(rawQuery);
     if ([...query.keys()].sort().join(",") !== "component,state") return { error: 400 };
     const id = query.get("component"), state = query.get("state");
-    if (!ID.test(id ?? "") || !IDS.has(id) || state !== "current") return { error: 404 };
-    return { id, state, kind: "metadata" };
+    if (!ID.test(id ?? "") || !IDS.has(id)
+      || !["current", "pending"].includes(state)) return { error: 404 };
+    return { id, state, kind: state === "pending" ? "pending-metadata" : "metadata" };
   }
   if (path.startsWith(MODULE)) {
     if (rawQuery !== undefined) return { error: 400 };
     const parts = path.slice(MODULE.length).split("/");
     if (parts.length < 7) return { error: 400 };
     const [id, state, version, sourceCommit, ...fileParts] = parts;
-    if (!ID.test(id) || !IDS.has(id) || state !== "current") return { error: 404 };
+    if (!ID.test(id) || !IDS.has(id)
+      || (state !== "current" && !(state === "pending" && PENDING_IDS.has(id))))
+      return { error: 404 };
     if (!SEMVER.test(version) || !SHA.test(sourceCommit)
       || !fileParts.every(part => SEGMENT.test(part) && part !== "." && part !== "..")
       || fileParts.slice(0, 3).join("/") !== "system/apps/" + id
@@ -182,6 +259,42 @@ export function createDesktopVerifiedComponentSlotMiddleware({
     || typeof verifierRoot !== "string" || !isAbsolute(verifierRoot)
     || typeof userData !== "string" || !isAbsolute(userData)
     || typeof execFileImpl !== "function") throw TypeError("Verified Desktop component paths are required");
+  // Every valid file read launches a Go verifier. Bound both parallel
+  // processes and queued requests so a burst of module imports cannot exhaust
+  // Windows Desktop resources or delay the rest of the Surface indefinitely.
+  // Never cache verified bytes or bypass the Go signed-slot reader.
+  const readQueue = [];
+  let activeReads = 0;
+  const runNextRead = () => {
+    while (activeReads < MAX_ACTIVE_VERIFIER_READS && readQueue.length) {
+      const next = readQueue.shift();
+      next.res.removeListener("close", next.onDisconnect);
+      if (next.res.destroyed) continue;
+      activeReads++;
+      void Promise.resolve().then(next.run)
+        .catch(() => respond(next.res, 409))
+        .finally(() => {
+          activeReads--;
+          runNextRead();
+        });
+    }
+  };
+  const enqueueRead = (res, run) => {
+    if (readQueue.length >= MAX_QUEUED_VERIFIER_READS) {
+      return respond(res, 503);
+    }
+    const entry = {
+      res, run,
+      onDisconnect() {
+        if (res.writableEnded) return;
+        const index = readQueue.indexOf(entry);
+        if (index >= 0) readQueue.splice(index, 1);
+      },
+    };
+    res.once("close", entry.onDisconnect);
+    readQueue.push(entry);
+    runNextRead();
+  };
   const respond = (res, status, body = null, mime = "application/json; charset=utf-8") => {
     if (res.headersSent) return res.destroy();
     res.writeHead(status, {
@@ -197,11 +310,25 @@ export function createDesktopVerifiedComponentSlotMiddleware({
     if (req.method !== "GET") return respond(res, 405);
     if (!["127.0.0.1", "::1", "::ffff:127.0.0.1"].includes(req.socket?.remoteAddress))
       return respond(res, 403);
+    // A loopback peer alone is not an origin proof: DNS rebinding can reach a
+    // local server with an attacker-controlled Host. Browser subresources may
+    // omit Origin, so independently reject explicit cross-site Fetch Metadata.
+    // The installed Surface and Vite Native host both use 127.0.0.1 or ::1.
+    const port = req.socket?.localPort;
+    const host = req.headers.host;
+    if (!Number.isInteger(port) || port < 1 || port > 65535
+      || host !== "127.0.0.1:" + port && host !== "[::1]:" + port
+      || req.headers.origin !== undefined
+        && req.headers.origin !== "http://" + host
+      || req.headers["sec-fetch-site"] !== undefined
+        && !["same-origin", "none"].includes(req.headers["sec-fetch-site"])) {
+      return respond(res, 403);
+    }
     // No Windows signed-slot release is operational until a canonical anchor,
     // verified helper executable and installed slot tree all exist together.
     const config = platform === "win32" ? trustedConfiguration(systemRoot, verifierRoot, userData) : null;
     if (!config) return respond(res, 404);
-    void (async () => {
+    return enqueueRead(res, async () => {
       if (request.kind === "compatibility") {
         const output = await invoke(config.helper, [
           "inspect-activation-compatibility-v2",
@@ -212,6 +339,20 @@ export function createDesktopVerifiedComponentSlotMiddleware({
         const verified = parseSignedCompatibility(output, request, config.trustSha256);
         return respond(res, 200, JSON.stringify(verified));
       }
+      if (request.kind === "pending-metadata") {
+        // A 204 is a real Go state observation of no pending candidate, not
+        // proof of an installed app. Present pending metadata only after a
+        // second signed-slot verification matches the observed exact revision.
+        const status = parsePendingActivationStatus(await invoke(config.helper, [
+          "status", "--component", request.id, "--root", config.root,
+        ], execFileImpl, MAX_META), request.id);
+        if (status === null) return respond(res, 204);
+        const pending = parseSignedPendingResolution(await invoke(config.helper, [
+          "resolve-pending", "--component", request.id,
+          "--trust", config.trust, "--root", config.root,
+        ], execFileImpl, MAX_META), request.id, config.root, status);
+        return respond(res, 200, JSON.stringify(pending));
+      }
       if (request.kind === "metadata") {
         const output = await invoke(config.helper, [
           "resolve-current", "--component", request.id,
@@ -220,14 +361,28 @@ export function createDesktopVerifiedComponentSlotMiddleware({
         const identity = parseFields(output, request.id, request.state, config.root);
         return respond(res, 200, JSON.stringify(identity));
       }
-      // Exact immutable identity: the Go channel revalidates the signed slot
-      // and activation state for every individual file read.
+      // A pending probation read must be tied to the exact UNKNOWN-health
+      // activation generation, independently of the Go file-read signature.
+      // The installed Go channel revalidates the slot for every file read;
+      // never cache verified bytes or fabricate a successful health decision.
+      if (request.state === "pending") {
+        const status = parsePendingActivationStatus(await invoke(config.helper, [
+          "status", "--component", request.id, "--root", config.root,
+        ], execFileImpl, MAX_META), request.id);
+        if (!status || status.pendingHealth !== "unknown"
+          || status.version !== request.version
+          || status.sourceCommit !== request.sourceCommit) return respond(res, 409);
+        parseSignedPendingResolution(await invoke(config.helper, [
+          "resolve-pending", "--component", request.id,
+          "--trust", config.trust, "--root", config.root,
+        ], execFileImpl, MAX_META), request.id, config.root, status);
+      }
       const output = await invoke(config.helper, [
-        "read-runtime-file", "--component", request.id, "--state", "current",
+        "read-runtime-file", "--component", request.id, "--state", request.state,
         "--version", request.version, "--source-commit", request.sourceCommit,
         "--path", request.file, "--trust", config.trust, "--root", config.root,
       ], execFileImpl, MAX_MODULE);
       return respond(res, 200, output, request.mime);
-    })().catch(() => respond(res, 409));
+    });
   };
 }

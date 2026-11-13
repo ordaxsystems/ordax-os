@@ -56,6 +56,7 @@ import { createWebIdentitySession } from "../../adapters/web/identity.mjs";
 import { createWebSpacesCatalog } from "../../adapters/web/spaces.mjs";
 import { createWebSyncTransport } from "../../adapters/web/sync-transport.mjs";
 import { validateAccountRuntime } from "../../services/account/runtime.mjs";
+import { createAccountConnectivityRecovery } from "../../services/account/connectivity-recovery.mjs";
 import { createAppActivationChannel } from "../../services/apps/activation.mjs";
 import { createAppLifecycleRequestService } from "../../services/apps/store-lifecycle-request-service.mjs";
 import { listFirstRunDefaultAppIds, planFirstRunAppSelectionFromStore } from "../../services/apps/first-run-selection.mjs";
@@ -69,6 +70,10 @@ import {
   createNativeVerifiedInstalledAppCatalog,
   mountNativeVerifiedInstalledApps,
 } from "./verified-installed-apps.mjs";
+import {
+  createNativeVerifiedInstalledAppRefresh,
+  verifiedCurrentInstallationFingerprint,
+} from "./verified-installed-app-refresh.mjs";
 import { listBundledFirstPartyIntelligenceManifests } from "../../apps/intelligence-catalog.mjs";
 import { createComponentManager } from "../../services/components/manager.mjs";
 import { createRecentFilesRuntime } from "../../services/files/recent-files.mjs";
@@ -88,19 +93,19 @@ import { createLocalAiRuntime } from "../../services/local-ai/runtime.mjs";
 import { createLocalAiProbeSupervisor } from "../../services/local-ai/probe-supervisor.mjs";
 import { LOCAL_AI_NATIVE_ENDPOINT } from "../../contracts/local-ai.mjs";
 import { createIntelligenceRuntime } from "../../services/intelligence/runtime.mjs";
-import { createApplicationIntelligenceAwareness } from "../../services/intelligence/application-awareness.mjs";
 import { createApplicationContextIntelligence } from "../../services/intelligence/application-context.mjs";
-import { createApplicationActionCapabilityRegistry } from "../../services/intelligence/application-action-capabilities.mjs";
-import { createApplicationSemanticRouter } from "../../services/intelligence/application-semantic-router.mjs";
+import {
+  createLiveVerifiedApplicationSemantics,
+  createVerifiedSemanticsRefresh,
+} from "../../services/intelligence/live-verified-app-semantics.mjs";
+import { createCapabilityDiscovery } from "../../services/system-foundation/capability-discovery.mjs";
+
 import {
   EXTERNAL_FIRST_PARTY_COMPONENT_IDS,
   EXTERNAL_FIRST_PARTY_OWNER,
   hasNativeExternalFirstPartyModuleRead,
 } from "../../services/apps/external-first-party-policy.mjs";
-import {
-  loadVerifiedFirstPartyApplicationSemantics,
-  overlayVerifiedFirstPartyApplications,
-} from "../../services/intelligence/verified-app-semantics.mjs";
+import { loadVerifiedFirstPartyApplicationSemantics } from "../../services/intelligence/verified-app-semantics.mjs";
 import { createSelectedSpaceProfileContentIntelligence } from "../../services/intelligence/profile-content.mjs";
 import { createMemoryRuntime } from "../../services/memory/runtime.mjs";
 import { createMemoryMutationPort } from "../../services/memory/mutation-port.mjs";
@@ -151,6 +156,8 @@ import { mountLocalSessionLock } from "../../surface/ui/local-session-lock.mjs";
 import { mountSettingsOverviewControls } from "../../surface/ui/settings-overview-controls.mjs";
 import { mountStoreWindows } from "../../surface/ui/store-experience.mjs";
 import { mountSystemOverviewControls } from "../../surface/ui/system-overview-controls.mjs";
+import { createNativeDesktopProductRuntimeStatus } from "../../adapters/native/desktop-product-runtime-status.mjs";
+import { mountNativeDesktopSurfaceStateReport } from "../../adapters/native/desktop-surface-state-report.mjs";
 import { mountSystemTrayQuickPanels } from "../../surface/ui/system-tray-quick-panels.mjs";
 import { mountUpdateControls } from "../../surface/ui/update-controls.mjs";
 
@@ -180,6 +187,10 @@ let workspaceComponentBootstrap = null;
 const bootText = (messageId) => translateSurfaceMessage(bootLocale, messageId);
 
 async function start() {
+  let externalAppRefresh = null;
+  let deferredExternalAppRefresh = false;
+  let initialStoreCurrentPass = true;
+  let lastInstalledCurrentFingerprint = null;
   const root = document.querySelector("#ordax-root");
   if (!root) {
     throw new Error("OrdaX composition root is missing #ordax-root");
@@ -206,7 +217,12 @@ async function start() {
   const verifiedAppSemanticsPromise = optionalNativeProbe(
     "OrdaX verified App Intelligence semantics unavailable",
     () => loadVerifiedFirstPartyApplicationSemantics({
-      appIds: EXTERNAL_FIRST_PARTY_COMPONENT_IDS,
+      // The Native component-module broker can verify/read only the
+      // policy-authorized subset. Asking it for other component ids returns
+      // 404 and would suppress every boot-time verified App semantic.
+      appIds: EXTERNAL_FIRST_PARTY_COMPONENT_IDS.filter(
+        hasNativeExternalFirstPartyModuleRead,
+      ),
       source: verifiedComponentPackageSource,
       fetchImpl: verifiedComponentFetch,
     }),
@@ -221,11 +237,19 @@ async function start() {
       },
     }),
   );
-  const preferenceStorePromise = createNativePreferenceStore(window);
-  const firstRunStateStorePromise = createNativeFirstRunStateStore(window);
+  // One bounded bootstrap deadline for installed Windows Native reads.
+  // All persistent writes remain unbounded until the host acknowledges them.
+  const desktopBootstrapSignal = windowsDesktopHost ? AbortSignal.timeout(15000) : null;
+  const preferenceStorePromise = createNativePreferenceStore(window, {
+    signal: desktopBootstrapSignal,
+  });
+  const firstRunStateStorePromise = createNativeFirstRunStateStore(window, {
+    requireDurableRead: windowsDesktopHost,
+    signal: desktopBootstrapSignal,
+  });
   const localSessionPromise = optionalNativeProbe(
     "OrdaX native local session unavailable",
-    () => createNativeLocalSession(window),
+    () => createNativeLocalSession(window, { signal: desktopBootstrapSignal }),
   );
   const bundledProfilePacksPromise = optionalNativeProbe(
     "OrdaX bundled Profile manifests unavailable",
@@ -253,11 +277,18 @@ async function start() {
     "OrdaX Profile component inventory unavailable; using empty session inventory",
     () => createNativeProfileComponentInventory(window),
   );
-  // Device identity is only needed by First Run, mounted after real Surface
-  // health. Start its verified read now but do not gate shell readiness on it.
+  // First Run's read-only Device Profile and cursor must not hang the Windows
+  // welcome screen if their optional Native routes stop answering. Use one
+  // shared deadline, not two serial waits; do not bound writes/rename because
+  // they must receive an actual durable acknowledgement from their owner.
+  const firstRunOptionalReadSignal = windowsDesktopHost ? AbortSignal.timeout(5000) : null;
   const deviceProfilePromise = optionalNativeProbe(
     "OrdaX native device profile unavailable",
-    () => createNativeDeviceProfile(window),
+    () => createNativeDeviceProfile(window, { signal: firstRunOptionalReadSignal }),
+  );
+  const firstRunCursorPromise = optionalNativeProbe(
+    "OrdaX native First Run cursor unavailable",
+    () => createNativeFirstRunCursor(window, { signal: firstRunOptionalReadSignal }),
   );
   const optionalPortsPromise = Promise.all([
     optionalNativeProbe(
@@ -308,7 +339,8 @@ async function start() {
       "OrdaX native network status unavailable",
       () => createNativeNetworkStatus(window),
     ),
-    optionalNativeProbe(
+    // Windows owns Wi-Fi connection management; Native retains read-only network status.
+    windowsDesktopHost ? Promise.resolve(null) : optionalNativeProbe(
       "OrdaX native network management unavailable",
       () => createNativeNetworkManagement(window),
     ),
@@ -351,12 +383,31 @@ async function start() {
     ),
   ]);
 
-  const [preferenceStore, firstRunStateStore, localSession, bundledProfilePacks] = await Promise.all([
+  const bootState = Promise.all([
     preferenceStorePromise,
     firstRunStateStorePromise,
     localSessionPromise,
     bundledProfilePacksPromise,
   ]);
+  // An unresponsive mandatory Native service must not leave an installed
+  // Windows Desktop indefinitely behind a boot curtain or claim healthy.
+  // The deadline rejects before Surface mount; no guest/empty PIN fallback.
+  const [preferenceStore, firstRunStateStore, localSession, bundledProfilePacks] =
+    desktopBootstrapSignal === null ? await bootState : await new Promise((resolve, reject) => {
+      const timeout = () => reject(new Error("Windows Native bootstrap timed out; Surface remains locked"));
+      if (desktopBootstrapSignal.aborted) return timeout();
+      desktopBootstrapSignal.addEventListener("abort", timeout, { once: true });
+      bootState.then(
+        value => { desktopBootstrapSignal.removeEventListener("abort", timeout); resolve(value); },
+        error => { desktopBootstrapSignal.removeEventListener("abort", timeout); reject(error); },
+      );
+    });
+  // A desktop without a verified local session must not expose the Surface
+  // as unlocked. Its durable PIN may be corrupt or the protected host down.
+  // USB/emulator capabilities remain optional by their existing contracts.
+  if (windowsDesktopHost && localSession === null) {
+    throw new Error("Windows Native local session unavailable; Surface remains locked");
+  }
   const regionalRecovery = seedMissingRegionalPreferencesFromFirstRun(
     preferenceStore.load(),
     firstRunStateStore.load(),
@@ -434,7 +485,9 @@ async function start() {
   updateIntelligenceHealth(intelligence.getSnapshot());
   const localAiProbeSupervisor = createLocalAiProbeSupervisor({ localPort: localAi });
 
+  const identitySession = createWebIdentitySession(window);
   const localWorkspaceStore = createNativeWorkspaceStore(window);
+  localWorkspaceStore.selectOwner(identitySession.getSnapshot());
   const recentFiles = fileSpace === null ? null : createRecentFilesRuntime({
     store: createNativeRecentFilesStore(window),
   });
@@ -454,7 +507,6 @@ async function start() {
   });
   const workspaceMetadata = createWorkspaceMetadataBridge(localWorkspaceStore);
   const workspaceStore = workspaceMetadata.store;
-  const identitySession = createWebIdentitySession(window);
   const syncStateRegistry = syncStateStore === null
     ? null
     : createSyncStateNamespaceRegistry(syncStateStore, { legacyNamespace: "appearance" });
@@ -543,43 +595,35 @@ async function start() {
     store: createNativeSpaceSelectionStore(window),
   });
   const verifiedAppSemantics = await verifiedAppSemanticsPromise ?? [];
-  const firstPartyApplications = overlayVerifiedFirstPartyApplications(
-    listFirstPartyApps(),
-    verifiedAppSemantics,
-  );
-  const semanticManifestsByAppId = new Map(
-    listBundledFirstPartyIntelligenceManifests().map(
-      (manifest) => [manifest.appId, manifest],
-    ),
-  );
-  for (const entry of verifiedAppSemantics) {
-    semanticManifestsByAppId.set(entry.intelligenceManifest.appId, entry.intelligenceManifest);
-  }
-  const firstPartyIntelligenceManifests = Object.freeze(
-    [...semanticManifestsByAppId.values()],
-  );
-  const appAwareness = createApplicationIntelligenceAwareness({
-    firstPartyApplications,
-    firstPartyIntelligenceManifests,
+  // One verified generation supplies the SAME stable Awareness, Actions and
+  // semantic router ports. Store events can replace it atomically after
+  // re-verifying signed CURRENT packages; a boot-time frozen list cannot.
+  let storeCatalogComposition = null;
+  const liveAppSemantics = createLiveVerifiedApplicationSemantics({
+    initialVerifiedSemantics: verifiedAppSemantics,
+    baseApplications: listFirstPartyApps(),
+    bundledManifests: listBundledFirstPartyIntelligenceManifests(),
+    getCurrentObservations: () =>
+      storeCatalogComposition?.getCurrentObservations() ?? [],
   });
-  const verifiedActionCapabilities = verifiedAppSemantics.flatMap(
-    (entry) => entry.actionManifest?.capabilities ?? [],
-  );
-  const appActionCapabilities = verifiedActionCapabilities.length === 0
-    ? null
-    : createApplicationActionCapabilityRegistry({
-        awareness: appAwareness,
-        capabilities: verifiedActionCapabilities,
-      });
-  const appSemanticRouter = createApplicationSemanticRouter({
-    awareness: appAwareness,
-    manifests: firstPartyIntelligenceManifests,
-  });
+  const appAwareness = liveAppSemantics.awarenessPort;
+  const appActionCapabilities = liveAppSemantics.actionRegistryPort;
+  const appSemanticRouter = liveAppSemantics.semanticRouterPort;
+  // Declared before Intelligence composition, mounted later from the real
+  // Surface Host. Aura and Personal read the SAME live discovery instance.
+  let nativeCapabilityDiscovery = null;
   const appAwareIntelligence = createApplicationContextIntelligence({
     intelligencePort: intelligence,
     awarenessPort: appAwareness,
     actionCapabilityRegistryPort: appActionCapabilities,
     semanticRouterPort: appSemanticRouter,
+    getCapabilityDiscovery: () => nativeCapabilityDiscovery,
+    // An AI manifest can change without changing the public action catalog.
+    // Fence in-flight inference against the SAME verified semantic owner.
+    getApplicationSemanticsGeneration: () => liveAppSemantics.getGeneration(),
+    // Capture one CURRENT view for the whole synchronous Aura context.
+    // Pending inference and consent checks still re-attest the live Store.
+    withCurrentAppSnapshot: callback => liveAppSemantics.withCurrentSnapshot(callback),
   });
   const consumerIntelligence = (
     profileContentContextCapability?.available === true && profileActivationState !== null
@@ -616,16 +660,9 @@ async function start() {
     spaceSelectionPort: spaceSelection,
     spacesPort: spaces,
   });
-  // The shared Native UI may run in an unprivileged development browser.
-  // Only a real host bridge may expose Intelligence to privileged consumers.
-  if (hasNativeHostBridge(window)) {
-    installNativeIntelligenceHostBridge({
-      windowRef: window,
-      intelligencePort: selectedSpaceIntelligence,
-      identitySessionPort: identitySession,
-      spaceSelectionPort: spaceSelection,
-    });
-  }
+  // The privileged Intelligence bridge is installed only after the same
+  // Fabric source used by Aura and Personal has mounted. Announcing ready
+  // here would permit a host request before live Native capabilities exist.
   const personalOrdaxFileActions = fileSpace === null
     ? null
     : await optionalNativeProbe(
@@ -638,6 +675,10 @@ async function start() {
   const personalOrdaxActionCatalog = createPersonalActionCatalog({
     registrations: personalOrdaxFileActions?.actionRegistrations ?? [],
   });
+  // Created after the real Native Surface Host has mounted. Personal OrdaX
+  // obtains only a resolver to this same read-only source, never another
+  // registry, executor, grant store or independently inferred capability.
+  let unsubscribeStoreCapabilityDiscovery = null;
   const personalOrdax = await optionalNativeProbe(
     "OrdaX Personal runtime unavailable",
     () => createNativePersonalOrdaxComposition({
@@ -650,6 +691,7 @@ async function start() {
       adapterResolver: personalOrdaxFileActions?.adapterResolver ?? (() => null),
       actionCatalog: personalOrdaxActionCatalog,
       applicationActionCapabilityRegistry: appActionCapabilities,
+      getCapabilityDiscovery: () => nativeCapabilityDiscovery,
       applicationSemanticRouter: appSemanticRouter,
       resolveVerifiedApplicationSemantics: async (appId) => {
         const entries = await loadVerifiedFirstPartyApplicationSemantics({
@@ -808,6 +850,71 @@ async function start() {
     workspaceStore,
     appActivation,
   );
+  // Select the verified workspace partition before downstream Account Sync subscribers.
+  const unsubscribeWorkspaceIdentity = identitySession.subscribe((snapshot) => {
+    if (localWorkspaceStore.selectOwner(snapshot)) workspaceStore.load();
+  });
+  let unsubscribeCapabilityDiscovery = null;
+  const reportCapabilityFabricFailure = (stage, error) => {
+    // Failed source reads cannot emit a valid catalog revision. Invalidate
+    // already-approved grants through the existing Personal authority
+    // reconciler rather than waiting for a user to attempt execution.
+    try {
+      personalOrdax?.reconcileApprovedAuthority();
+    } catch (revocationError) {
+      reportClientDiagnostic("capability-fabric-revocation", revocationError);
+    }
+    reportClientDiagnostic(stage, error);
+  };
+  try {
+    nativeCapabilityDiscovery = createCapabilityDiscovery({
+      getSurfaceHost: () => host,
+      // This is the SAME live-verified registry passed to Personal and Aura.
+      // Do not check Native current metadata twice for each catalog read.
+      getApplicationActions: () => appActionCapabilities,
+      // Project the already-registered Native file action; the real catalog,
+      // approval flow and typed executor remain owned by Personal OrdaX.
+      getNativeActions: () => personalOrdaxActionCatalog,
+    });
+    // Validate the same bounded projection exposed to the read-only Personal
+    // OS consumer. Declared actions remain non-executable without the Gateway.
+    const snapshot = personalOrdax?.discoverCapabilities()
+      ?? nativeCapabilityDiscovery.snapshot();
+    console.info("OrdaX Capability Fabric mounted", {
+      observedHost: snapshot.entries.filter(item => item.kind === "system-state").length,
+      declaredActions: snapshot.entries.filter(item => item.kind === "application-action").length,
+      toolExecution: snapshot.toolExecution,
+    });
+    unsubscribeCapabilityDiscovery = nativeCapabilityDiscovery.subscribe(
+      (current) => {
+        // Native Host notifications drive only changed catalog revisions.
+        // No second polling loop, app inventory or grant authority is added.
+        if (current.toolExecution !== false) {
+          throw new Error("Native Capability Fabric cannot grant execution");
+        }
+        // This is the SAME Personal grant reconciler already used before
+        // foreground dispatch. Store/Host notifications proactively revoke
+        // stale Native grants through its canonical Work lifecycle.
+        personalOrdax?.reconcileApprovedAuthority();
+      },
+      (error) => reportCapabilityFabricFailure("capability-fabric-discovery", error),
+    );
+  } catch (error) {
+    nativeCapabilityDiscovery = null;
+    reportCapabilityFabricFailure("capability-fabric-mount", error);
+  }
+  // The Native host readiness event is an Intelligence transport signal,
+  // never MCP attestation. Do not send it until the Fabric mounting decision
+  // is complete. When discovery is unavailable, Aura can still answer without
+  // falsely advertising Native capabilities or executable tools.
+  const nativeIntelligenceHostBridge = hasNativeHostBridge(window)
+    ? installNativeIntelligenceHostBridge({
+        windowRef: window,
+        intelligencePort: selectedSpaceIntelligence,
+        identitySessionPort: identitySession,
+        spaceSelectionPort: spaceSelection,
+      })
+    : null;
   const sidebarAccount = mountNativeSidebarAccount(root, identitySession, host, surface);
   bootLocale = surface.localization.getLocale();
   const notificationCenter = mountNotificationCenterControls(root, notifications, appActivation, surface);
@@ -839,10 +946,22 @@ async function start() {
       reportClientDiagnostic("battery-quick-panel", error);
     }
   }
+  // The Surface owns the Network Tray; the OS observes its existing Native
+  // status reads, not a Surface callback or another network polling loop.
+  // Local loopback may stay online while physical USB Wi-Fi is disconnected.
+  let onAccountNetworkObservation = () => {};
+  const observedNetworkStatus = networkStatus ? Object.freeze({
+    ...networkStatus,
+    async read() {
+      const snapshot = await networkStatus.read();
+      onAccountNetworkObservation(snapshot);
+      return snapshot;
+    },
+  }) : null;
   let networkTrayControls = null;
-  if (networkStatus) {
+  if (observedNetworkStatus) {
     try {
-      networkTrayControls = mountNetworkTrayControls(root, networkStatus, surface);
+      networkTrayControls = mountNetworkTrayControls(root, observedNetworkStatus, surface);
     } catch (error) {
       reportClientDiagnostic("network-tray-status", error);
     }
@@ -873,14 +992,51 @@ async function start() {
       return `sync:${kind}:${uuid ? uuid.replaceAll("-", "") : `${Date.now().toString(36)}:${accountSyncOrdinal}`}`;
     },
   });
+  // The Native Home and Space switcher share the one authenticated catalog.
+  // Boot and reconnect must refresh it even when Account > Spaces was never
+  // opened. Only the current signed-in identity can authorize this read.
+  const refreshCurrentSpaceCatalog = ({ force = false } = {}) => {
+    if (identitySession.getSnapshot().state !== "signed-in"
+      || (!force && spaces.getSnapshot().state === "loading")) return;
+    void spaces.refresh().catch((error) => {
+      console.warn("OrdaX current Spaces catalog refresh remains unavailable", error);
+    });
+  };
+  const unsubscribeSpacesIdentity = identitySession.subscribe((snapshot) => {
+    if (snapshot.state === "signed-in") refreshCurrentSpaceCatalog();
+  });
   const resumeAccountConnectivity = async () => {
+    const priorIdentity = identitySession.getSnapshot();
     await identitySession.refresh();
+    const currentIdentity = identitySession.getSnapshot();
+    // An identity transition already triggered the subscriber. A same-user
+    // reconnect must refresh an otherwise stale/error/unavailable catalog.
+    if (currentIdentity.state === "signed-in"
+      && priorIdentity.state === "signed-in"
+      && priorIdentity.subjectId === currentIdentity.subjectId) {
+      // A reconnect supersedes any stale pre-offline read for this account.
+      refreshCurrentSpaceCatalog({ force: true });
+    }
     await identityActions.refresh();
     await accountLifecycle.refresh();
     await accountSync.refresh();
   };
+  const accountConnectivityRecovery = createAccountConnectivityRecovery({
+    // A signed gateway file missing on this exact USB release cannot be
+    // repaired by repeated HTTPS retries. Retry ONLY transport failures.
+    readIdentityState: () => identitySession.getUnavailableReason() === "gateway-unreachable"
+      ? identitySession.getSnapshot().state : "not-retryable",
+    refresh: resumeAccountConnectivity,
+  });
+  onAccountNetworkObservation = (snapshot) => {
+    void accountConnectivityRecovery.observe(snapshot).catch((error) => {
+      reportClientDiagnostic("account-network-recovery", error);
+    });
+  };
   const onOnline = () => {
-    void resumeAccountConnectivity();
+    void resumeAccountConnectivity().then(undefined, (error) => {
+      console.warn("OrdaX Account reconnection remains pending", error);
+    });
     void recoverProtectedAccountMemory({ refreshAuthorization: true }).catch((error) => {
       console.warn("OrdaX Account Memory online recovery remains pending", error);
     });
@@ -1015,9 +1171,11 @@ async function start() {
   }
   // Store is optional: its asynchronous verified projection must not prevent
   // the visible shell from requesting legitimate Surface health.
-  let storeCatalogComposition = null;
   let storeCatalog = createUnavailableAppStoreCatalogPort();
   let storeOverviewControls = null;
+  const desktopProductRuntimeStatus = windowsDesktopHost
+    ? createNativeDesktopProductRuntimeStatus(window)
+    : null;
   const systemOverviewControls = mountSystemOverviewControls(
     root,
     host,
@@ -1030,16 +1188,39 @@ async function start() {
     componentManager,
     selectedSpaceIntelligence,
     recoveryStatus,
+    desktopProductRuntimeStatus,
   );
   const updateControls = mountUpdateControls(root, updateWatcher, appActivation, surface);
   const powerControls = mountPowerControls(root, powerActions, surface, updateWatcher);
+
+  // A configured PIN must cover the Surface before the boot screen is hidden
+  // or a healthy shell is reported. Otherwise the already-rendered workspace
+  // can be visible briefly while First Run and optional apps finish loading.
+  let localSessionLock = null;
+  if (localSession) {
+    try {
+      localSessionLock = mountLocalSessionLock(root, localSession, surface);
+    } catch (error) {
+      reportClientDiagnostic("local-session-lock", error);
+      // Windows owns a mandatory verified local session: if its lock screen
+      // cannot mount, do not expose the workspace as an unlocked Surface.
+      if (windowsDesktopHost) throw error;
+    }
+  }
 
   // Reaching this point proves that the shared Surface composition mounted.
   // Optional app runtimes load only after this acknowledgement so an app-level
   // import or mount failure cannot turn into a failed OrdaX cold boot.
   // The already-mounted shell is visible before asking the official
   // Supervisor to acknowledge its identity. No synthetic heartbeat is sent.
-  bootScreen.ready();
+  // An incomplete First Run owns the foreground until its modal is ready.
+  // If a PIN is already configured, the lock is above this still-active boot
+  // screen and must be unlocked before any onboarding modal is created.
+  const firstRunPending = !firstRunStateStore.load().completed;
+  if (!firstRunPending) bootScreen.ready();
+  const desktopSurfaceReporter = windowsDesktopHost
+    ? mountNativeDesktopSurfaceStateReport(window, surface, appActivation)
+    : null;
   componentManager.setCurrentHealth("surface-shell", "healthy");
   void updateWatcher.markHealthy();
   const surfaceHeartbeat = createNativeSurfaceHeartbeat(window);
@@ -1073,6 +1254,85 @@ async function start() {
   // Optional catalog failure stays isolated from the signed boot gate.
   storeCatalogComposition = await storeCatalogCompositionPromise;
   storeCatalog = storeCatalogComposition?.port ?? createUnavailableAppStoreCatalogPort();
+  // Store CURRENT is still the only authority for installed component slots.
+  // Re-verify an updated signed package and atomically replace the ONE
+  // Awareness/Action/Router generation. Current-slot withdrawal happens
+  // immediately, even while package verification is in flight.
+  // One fail-closed notification path for normal signed publication and
+  // malformed/withdrawn CURRENT. A descriptive projection failure must
+  // never prevent Personal from reconciling its existing approvals.
+  const reconcileCurrentStoreActionAuthority = () => {
+    try {
+      nativeCapabilityDiscovery?.refresh();
+    } catch (error) {
+      reportCapabilityFabricFailure("capability-fabric-current-slot", error);
+    }
+    try {
+      personalOrdax?.reconcileApprovedAuthority();
+    } catch (error) {
+      reportCapabilityFabricFailure("capability-fabric-authority-reconcile", error);
+    }
+  };
+  let verifiedSemanticsRefresh = null;
+  try {
+    verifiedSemanticsRefresh = createVerifiedSemanticsRefresh({
+      liveSemantics: liveAppSemantics,
+      getCurrentObservations: () =>
+        storeCatalogComposition?.getCurrentObservations() ?? [],
+      source: verifiedComponentPackageSource,
+      fetchImpl: verifiedComponentFetch,
+      initialVerifiedSemantics: verifiedAppSemantics,
+      onPublished() {
+        reconcileCurrentStoreActionAuthority();
+      },
+      onError(error) {
+        reportCapabilityFabricFailure("capability-fabric-verified-semantics", error);
+      },
+    });
+    const onStoreCurrentChanged = () => {
+      // Withdraw and reconcile synchronously before any new signed load.
+      reconcileCurrentStoreActionAuthority();
+      verifiedSemanticsRefresh?.refresh();
+      // A Store snapshot is only a notification; compare its verified CURRENT
+      // observations before remounting. A short, expected read-in-progress
+      // state must not restart an already verified running application.
+      const storeSnapshot = storeCatalog.getSnapshot();
+      if (storeSnapshot.state !== "ready") {
+        // Native catalog verification and projection verification are two
+        // successive bounded reads. Both emit a transient unavailable state;
+        // neither one may cause a needless teardown on every window focus.
+        if ([
+          "verified-store-projection-refreshing",
+          "native-store-catalog-refreshing",
+          "verified-store-projection-loading",
+          "native-store-catalog-loading",
+        ].includes(storeSnapshot.reason)) return;
+        // A terminal signed-catalog failure has no trustworthy CURRENT
+        // observations. Invalidate the deduplication key and make the Native
+        // owner withdraw/reverify installed mounts, never keep stale launch
+        // rights based on the previously successful catalog.
+        lastInstalledCurrentFingerprint = null;
+        if (externalAppRefresh) void externalAppRefresh.refresh();
+        else if (!initialStoreCurrentPass) deferredExternalAppRefresh = true;
+        return;
+      }
+      const fingerprint = verifiedCurrentInstallationFingerprint(
+        storeCatalogComposition?.getCurrentObservations() ?? [],
+      );
+      if (fingerprint === lastInstalledCurrentFingerprint) return;
+      lastInstalledCurrentFingerprint = fingerprint;
+      // Store changes trigger a fresh verified CURRENT read, not a catalog guess.
+      if (externalAppRefresh) void externalAppRefresh.refresh();
+      else if (!initialStoreCurrentPass) deferredExternalAppRefresh = true;
+    };
+    if (typeof storeCatalog.subscribe === "function") {
+      unsubscribeStoreCapabilityDiscovery = storeCatalog.subscribe(onStoreCurrentChanged);
+    }
+    onStoreCurrentChanged();
+    initialStoreCurrentPass = false;
+  } catch (error) {
+    reportCapabilityFabricFailure("capability-fabric-current-slot", error);
+  }
   let storeLifecycleRequests = null;
   if (storeCatalogComposition?.verifiedCatalogPort) {
     try {
@@ -1082,7 +1342,15 @@ async function start() {
         // Read the exact ephemeral Native observations belonging to the
         // currently published Store projection, never a second inventory.
         getCurrentObservations: () => storeCatalogComposition.getCurrentObservations(),
-        lifecycleDelegate: createNativeAppLifecycleDelegate(window),
+        lifecycleDelegate: createNativeAppLifecycleDelegate(window, {
+          // The Go receipt may reflect a removal immediately or a staged
+          // install/update still pending Supervisor health. Re-read the SAME
+          // signed Store/current-slot source; never assume CURRENT from
+          // acceptance or create a second installed-app inventory.
+          onAccepted() {
+            return storeCatalogComposition.refresh();
+          },
+        }),
       });
     } catch (error) {
       reportClientDiagnostic("store-lifecycle-composition", error);
@@ -1111,41 +1379,77 @@ async function start() {
     setAppTarget: surface.setAppTarget,
   });
   const nativeCurrentSlotSource = createNativeComponentSlotSource(window);
+  // The same Native verifier and isolated importer serve cold boot and
+  // verified CURRENT changes. No second inventory or unsigned module path.
+  const signedExternalAppCompatibility = windowsDesktopHost
+    ? createNativeSignedCurrentCompatibilityResolver({
+        source: verifiedComponentPackageSource,
+        fetchImpl: verifiedComponentFetch,
+      })
+    : null;
+  const nativeExternalAppImporter = createNativeIsolatedComponentModuleImporter({
+    windowRef: window,
+    allowedComponentIds: EXTERNAL_FIRST_PARTY_COMPONENT_IDS.filter(
+      (appId) => hasNativeExternalFirstPartyModuleRead(appId),
+    ),
+    currentSlotSource: nativeCurrentSlotSource,
+    fetchImpl: verifiedComponentFetch,
+  });
+  const mountVerifiedExternalApps = (installed) => mountNativeVerifiedInstalledApps({
+    installed,
+    source: nativeCurrentSlotSource,
+    fetchImpl: verifiedComponentFetch,
+    signedCurrentCompatibility: signedExternalAppCompatibility,
+    importModule: nativeExternalAppImporter,
+    context: { root, surfaceLifecycle: externalAppSurfaceLifecycle },
+    onError(error, appId) {
+      reportClientDiagnostic('installed-app-runtime:' + appId, error);
+    },
+  });
   const externalAppMounts = await optionalNativeProbe(
     "OrdaX installed component runtime mounting unavailable",
-    () => mountNativeVerifiedInstalledApps({
-      installed: installedAppCatalog?.installed ?? [],
-      source: nativeCurrentSlotSource,
-      fetchImpl: verifiedComponentFetch,
-      // Windows may omit durable App Data only when its Native broker has
-      // verified the exact signed release/2 compatibility descriptor.
-      signedCurrentCompatibility: windowsDesktopHost
-        ? createNativeSignedCurrentCompatibilityResolver({
-            source: verifiedComponentPackageSource,
-            fetchImpl: verifiedComponentFetch,
-          })
-        : null,
-      importModule: createNativeIsolatedComponentModuleImporter({
-        windowRef: window,
-        allowedComponentIds: EXTERNAL_FIRST_PARTY_COMPONENT_IDS.filter(
-          (appId) => hasNativeExternalFirstPartyModuleRead(appId),
-        ),
-        currentSlotSource: nativeCurrentSlotSource,
-        fetchImpl: verifiedComponentFetch,
-      }),
-      context: {
-        root, surfaceLifecycle: externalAppSurfaceLifecycle,
-      },
-      onError(error, appId) {
-        reportClientDiagnostic(`installed-app-runtime:${appId}`, error);
-      },
-    }),
+    () => mountVerifiedExternalApps(installedAppCatalog?.installed ?? []),
   );
   const mountedExternalIds = new Set(externalAppMounts?.mountedIds ?? []);
   const activeExternalCatalog = createNativeVerifiedInstalledAppCatalog(
     installedAppEntries.filter((entry) => mountedExternalIds.has(entry.component.id)),
   );
   surface.replaceAppCatalog(activeExternalCatalog.catalog);
+  externalAppRefresh = createNativeVerifiedInstalledAppRefresh({
+    initialMounts: externalAppMounts,
+    discover: () => discoverVerifiedExternalApplications({
+      source: verifiedComponentPackageSource,
+      fetchImpl: verifiedComponentFetch,
+      onError(error, appId) {
+        // Discovery intentionally isolates per-app read failures. Those
+        // failures must not be mistaken for an empty, fully reconciled
+        // installed set: retry on the next signed Store observation.
+        lastInstalledCurrentFingerprint = null;
+        reportClientDiagnostic('installed-app-discovery:' + appId, error);
+      },
+    }),
+    createCatalog: createNativeVerifiedInstalledAppCatalog,
+    mount: mountVerifiedExternalApps,
+    publish(nextCatalog) { surface.replaceAppCatalog(nextCatalog); },
+    onError(error) {
+      // A transient Native read/import failure must not poison the fingerprint
+      // indefinitely. The next verified Store observation may retry safely.
+      lastInstalledCurrentFingerprint = null;
+      reportClientDiagnostic("installed-app-refresh", error);
+    },
+  });
+  // Cold discovery and Store CURRENT reads are independent and may race while
+  // the Surface starts. Reconcile once if the latest verified Native state
+  // changed between the initial discovery and the first completed mounts.
+  const coldInstalledFingerprint = verifiedCurrentInstallationFingerprint(
+    installedAppEntries.map(entry => entry.metadata),
+  );
+  if (deferredExternalAppRefresh
+    || (storeCatalog.getSnapshot().state === "ready"
+      && lastInstalledCurrentFingerprint !== null
+      && lastInstalledCurrentFingerprint !== coldInstalledFingerprint)) {
+    void externalAppRefresh.refresh();
+  }
 
   // First Run reads the already-verified Store projection and its matching
   // ephemeral Native current observations. It has NO installation authority.
@@ -1166,8 +1470,11 @@ async function start() {
   // The slow/missing optional Device Profile can no longer delay the real
   // shell health acknowledgement. First Run still receives the verified port.
   const deviceProfile = await deviceProfilePromise;
+  const resumeFirstRunCursor = await firstRunCursorPromise;
   let firstRun = null;
-  try {
+  let unsubscribeFirstRunUnlock = null;
+  const mountFirstRunNow = () => {
+    if (firstRun) return;
     firstRun = mountFirstRunExperience(root, {
       stateStore: firstRunStateStore,
       firstRunAppSelection,
@@ -1179,25 +1486,40 @@ async function start() {
       localSession,
       deviceProfile,
       keyboardLayout,
-      resumeCursor: await optionalNativeProbe(
-        "OrdaX native First Run cursor unavailable",
-        () => createNativeFirstRunCursor(window),
-      ),
+      productMode: windowsDesktopHost ? "desktop" : "usb",
+      resumeCursor: resumeFirstRunCursor,
       hostedSignupBridge: {
         isAvailable: hasNativeHostBridge,
         postMessage: postNativeHostMessage,
       },
     });
-  } catch (error) {
-    reportClientDiagnostic("first-run", error);
-  }
-  let localSessionLock = null;
-  if (localSession) {
-    try {
-      localSessionLock = mountLocalSessionLock(root, localSession, surface);
-    } catch (error) {
-      reportClientDiagnostic("local-session-lock", error);
+    if (firstRunPending && windowsDesktopHost && firstRun?.shown !== true) {
+      throw new Error("Windows incomplete First Run did not mount its verified modal");
     }
+    if (firstRunPending) bootScreen.ready();
+  };
+  const onFirstRunFailure = error => {
+    reportClientDiagnostic("first-run", error);
+    // A failed Windows first-run mount must leave the boot screen visible,
+    // never expose the already rendered desktop below an absent dialog.
+    if (firstRunPending && windowsDesktopHost) bootScreen.fail(bootText("surface.boot.failed"));
+    else if (firstRunPending) bootScreen.ready();
+  };
+  try {
+    if (!firstRunPending || localSession?.getSnapshot().state !== "locked") {
+      mountFirstRunNow();
+    } else {
+      // Locked users resume the same incomplete first-use receipt only after
+      // authenticating. Never stack the higher-z First Run over the PIN dialog.
+      unsubscribeFirstRunUnlock = localSession.subscribe(snapshot => {
+        if (snapshot.state !== "unlocked" || firstRun) return;
+        unsubscribeFirstRunUnlock?.();
+        unsubscribeFirstRunUnlock = null;
+        try { mountFirstRunNow(); } catch (error) { onFirstRunFailure(error); }
+      });
+    }
+  } catch (error) {
+    onFirstRunFailure(error);
   }
   window.addEventListener(
     "pagehide",
@@ -1205,10 +1527,18 @@ async function start() {
       window.removeEventListener("error", onWindowError);
       window.removeEventListener("unhandledrejection", onUnhandledRejection);
       window.removeEventListener("online", onOnline);
+      unsubscribeFirstRunUnlock?.();
+      unsubscribeWorkspaceIdentity();
       unsubscribeHostIdentity();
+      nativeIntelligenceHostBridge?.dispose();
+      unsubscribeCapabilityDiscovery?.();
+      unsubscribeStoreCapabilityDiscovery?.();
+      verifiedSemanticsRefresh?.dispose();
+      nativeCapabilityDiscovery = null;
       localSessionLock?.destroy();
       firstRun?.destroy();
       surfaceHeartbeat.dispose();
+      desktopSurfaceReporter?.dispose();
       homePending.dispose();
       homeContinuation.dispose();
       homeStatus.dispose();
@@ -1219,6 +1549,7 @@ async function start() {
       storeOverviewControls?.destroy();
       storeCatalogComposition?.destroy();
       settingsOverviewControls.destroy();
+      accountConnectivityRecovery.dispose();
       networkTrayControls?.destroy();
       networkQuickPanel?.destroy();
       quickPanelControls?.destroy();
@@ -1226,7 +1557,7 @@ async function start() {
       batteryTrayControls?.destroy();
       batteryQuickPanel?.destroy();
       workspaceComponentBootstrap?.destroy();
-      externalAppMounts?.destroy();
+      void externalAppRefresh?.destroy();
       projectReferences?.destroy();
       projectCloudLinks?.destroy();
       accountOverviewControls.destroy();
@@ -1240,6 +1571,7 @@ async function start() {
       profileActivationState?.dispose();
       profileComponentInventory.dispose();
       personalOrdax?.dispose();
+      unsubscribeSpacesIdentity();
       spaceSelection.dispose();
       spaceExperience.dispose();
       spaces.dispose();
@@ -1253,6 +1585,7 @@ async function start() {
       unsubscribeLocalAiHealth();
       localAiProbeSupervisor.dispose();
       intelligence.dispose();
+      liveAppSemantics.dispose();
       localAi.dispose();
       localSession?.dispose();
       componentManager.destroy();

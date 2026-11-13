@@ -25,6 +25,25 @@ test -f "$ROOT/bootstrap/stable-base/ordax-stable-init"
 cp "$ROOT/bootstrap/stable-base/ordax-stable-init" "$TARGET_DIR/sbin/ordax-stable-init"
 chmod 0755 "$TARGET_DIR/sbin/ordax-stable-init"
 test -x "$TARGET_DIR/sbin/modprobe"
+
+# Kernel-module ownership is distribution-neutral. The Independent Base only
+# consumes the already-verified canonical kernel archive; selection policy and
+# dependency closure remain owned by bootstrap/kernel/module_archive.py.
+: "${ORDAX_HOST_PYTHON:?ORDAX_HOST_PYTHON is required}"
+: "${ORDAX_KERNEL_MODULES_ARCHIVE:?ORDAX_KERNEL_MODULES_ARCHIVE is required}"
+: "${ORDAX_KERNEL_MODULES_RECEIPT:?ORDAX_KERNEL_MODULES_RECEIPT is required}"
+test -x "$ORDAX_HOST_PYTHON"
+test -f "$ORDAX_KERNEL_MODULES_ARCHIVE"
+test ! -L "$ORDAX_KERNEL_MODULES_ARCHIVE"
+test ! -e "$ORDAX_KERNEL_MODULES_RECEIPT"
+"$ORDAX_HOST_PYTHON" "$ROOT/bootstrap/kernel/module_archive.py" install-wifi \
+    --archive "$ORDAX_KERNEL_MODULES_ARCHIVE" \
+    --target "$TARGET_DIR" \
+    --receipt "$ORDAX_KERNEL_MODULES_RECEIPT"
+test -s "$ORDAX_KERNEL_MODULES_RECEIPT"
+cp "$ORDAX_KERNEL_MODULES_RECEIPT" "$TARGET_DIR/etc/ordax/kernel-module-selection.json"
+chmod 0644 "$TARGET_DIR/etc/ordax/kernel-module-selection.json"
+
 # This parity slice has exactly one iproute2 runtime consumer: /sbin/ip.
 # The version-scoped Buildroot patch must prevent the rest of the suite from
 # entering the target at all; do not hide unused payload by deleting it here.

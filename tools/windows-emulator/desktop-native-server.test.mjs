@@ -2,12 +2,11 @@ import test from "node:test";
 import assert from "node:assert/strict";
 import { createServer } from "node:http";
 import { createHmac } from "node:crypto";
-import { createRequire } from "node:module";
-const { isReady } = createRequire(import.meta.url)("../windows-desktop/host.cjs");
 import { mkdtempSync, mkdirSync, writeFileSync, rmSync, readFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join, resolve } from "node:path";
 import { createDesktopNativeServer, createDesktopStaticMiddleware } from "./desktop-native-server.mjs";
+import { createSystemTermsAcceptance } from "../../system/contracts/system-terms.mjs";
 
 const tokens={
   ORDAX_DESKTOP_FILE_TOKEN:"a".repeat(64),
@@ -18,6 +17,7 @@ const tokens={
   ORDAX_DESKTOP_STATE_TOKEN:"f".repeat(64),
   ORDAX_DESKTOP_NETWORK_TOKEN:"1".repeat(64),
   ORDAX_DESKTOP_OBSERVATION_TOKEN:"2".repeat(64),
+  ORDAX_DESKTOP_SURFACE_REPORT_TOKEN:"5".repeat(64),
   ORDAX_DESKTOP_DISPLAY_TOKEN:"3".repeat(64),
   ORDAX_DESKTOP_LOCAL_AI_TOKEN:"4".repeat(64),
   ORDAX_DESKTOP_RENDERED_SOURCE_SHA:"a".repeat(40),
@@ -60,9 +60,6 @@ test("standalone installed Native host serves verified bundle and existing privi
   assert.equal(handshake.headers.get("x-ordax-desktop-ready-proof"),
     createHmac("sha256",Buffer.from(tokens.ORDAX_DESKTOP_NATIVE_SESSION_TOKEN,"hex"))
       .update("ordax.desktop.native-ready/1:"+nonce).digest("hex"));
-  assert.equal(await isReady(host.address().port,tokens.ORDAX_DESKTOP_NATIVE_SESSION_TOKEN),true);
-  assert.equal(await isReady(host.address().port,"9".repeat(64)),false);
-  assert.equal(await isReady(host.address().port,"malformed"),false);
   assert.equal((await fetch(base+"/__ordax/desktop-host-ready")).status,404);
   assert.equal((await fetch(base+"/__ordax/desktop-host-ready?bypass=1",{
     headers:{"x-ordax-desktop-ready-challenge":nonce},
@@ -92,7 +89,78 @@ test("standalone installed Native host serves verified bundle and existing privi
   const first=await fetch(base+"/__ordax/native/first-run",{
     headers:{"x-ordax-desktop-state-token":tokens.ORDAX_DESKTOP_STATE_TOKEN}});
   assert.equal(first.status,200);
-  assert.equal(typeof(await first.json()).completed,"boolean");
+
+  // A Windows first-use receipt must survive a fresh Native HTTP host and
+  // remain immutable; a UI reload alone would not prove durable persistence.
+  const firstReceipt=await first.json();
+  assert.equal(firstReceipt.completed,false);
+  const completedReceipt={...firstReceipt,completed:true,accountMode:"local-only",
+    systemTerms:createSystemTermsAcceptance(true)};
+  const stateHeaders={
+    "x-ordax-desktop-state-token":tokens.ORDAX_DESKTOP_STATE_TOKEN,
+  };
+  const writeFirstRun=(url,snapshot)=>fetch(url+"/__ordax/native/first-run",{
+    method:"POST",
+    headers:{...stateHeaders,"Content-Type":"application/json",Origin:url},
+    body:JSON.stringify(snapshot),
+  });
+  for(const invalidTerms of [
+    {...completedReceipt.systemTerms,accepted:false},
+    {...completedReceipt.systemTerms,documentId:"account-terms"},
+    {...completedReceipt.systemTerms,status:"published"},
+  ]){
+    assert.equal((await writeFirstRun(base,{...completedReceipt,systemTerms:invalidTerms})).status,400,
+      "untrusted system-terms acknowledgement must not complete First Run");
+  }
+  assert.equal((await writeFirstRun(base,completedReceipt)).status,200);
+  assert.equal((await writeFirstRun(base,completedReceipt)).status,200,
+    "same completed receipt must be idempotent");
+  assert.equal((await writeFirstRun(base,{...completedReceipt,locale:"en-US"})).status,409,
+    "completed receipt cannot be replaced");
+  const firstRunReopened=createDesktopNativeServer({
+    root,stateDirectory:join(dir,"state"),
+    accountGatewayOrigin:"https://example.invalid/api",
+  });
+  await new Promise(resolve=>firstRunReopened.listen(0,"127.0.0.1",resolve));
+  t.after(()=>new Promise(resolve=>firstRunReopened.close(resolve)));
+  const reopenedBase="http://127.0.0.1:"+firstRunReopened.address().port;
+  const reopened=await fetch(reopenedBase+"/__ordax/native/first-run",{
+    headers:stateHeaders,
+  });
+  assert.equal(reopened.status,200);
+  assert.deepEqual(await reopened.json(),completedReceipt,
+    "independent installed Native host must load the exact completed receipt");
+  assert.equal((await writeFirstRun(reopenedBase,{...completedReceipt,timeZone:"America/Manaus"})).status,409,
+    "a fresh Native host must also reject mutation after completion");
+  // The installed Windows host must expose exactly the same authenticated,
+  // durable Native sync ports as Linux, not its 503 emulator fallback.
+  const checkpointPath="/__ordax/native/sync-checkpoint";
+  const statePath="/__ordax/native/sync-state";
+  if(process.platform==="win32"){
+    assert.equal((await fetch(base+checkpointPath)).status,401);
+    const cp=await fetch(base+checkpointPath,{
+      headers:{"x-ordax-desktop-state-token":tokens.ORDAX_DESKTOP_STATE_TOKEN},
+    });
+    assert.equal(cp.status,200);
+    assert.deepEqual(await cp.json(),{checkpoint:null});
+    const post=await fetch(base+checkpointPath,{
+      method:"POST",
+      headers:{"x-ordax-desktop-state-token":tokens.ORDAX_DESKTOP_STATE_TOKEN,
+        "Content-Type":"application/json",Origin:base},
+      body:JSON.stringify({checkpoint:{subjectId:"native-test",cursor:3,revisions:{}}}),
+    });
+    assert.equal(post.status,200);
+    const loaded=await fetch(base+checkpointPath,{
+      headers:{"x-ordax-desktop-state-token":tokens.ORDAX_DESKTOP_STATE_TOKEN},
+    });
+    assert.equal((await loaded.json()).checkpoint.cursor,3);
+    assert.deepEqual(await (await fetch(base+statePath,{
+      headers:{"x-ordax-desktop-state-token":tokens.ORDAX_DESKTOP_STATE_TOKEN},
+    })).json(),{payload:null});
+  }else{
+    assert.equal((await fetch(base+checkpointPath)).status,503);
+    assert.equal((await fetch(base+statePath)).status,503);
+  }
   // A missing Linux service is not fabricated by the standalone host.
   assert.equal((await fetch(base+"/__ordax/native/keyboard-layout")).status,503);
   // Aura exists only behind the trusted Desktop Host and exact OS-pinned payload.
@@ -146,11 +214,4 @@ test("source-only system middleware denies path escapes and unsupported files", 
   assert.equal((await fetch(base+"/system/contracts/.env")).status,404);
   assert.equal((await fetch(base+"/system/contracts/%5c..%5cproof.json")).status,404);
   assert.equal((await fetch(base+"/__ordax/native/update")).status,418);
-});
-
-test("installed shell selects standalone Native only for previously verified build",()=>{
-  const shell=readFileSync(new URL("../windows-desktop/host.cjs",import.meta.url),"utf8");
-  assert.match(shell,/const staticHost=Boolean\(builtAssetsRoot && existsSync\(installedNative\)\)/);
-  assert.match(shell,/const entry=staticHost\?installedNative:/);
-  assert.match(shell,/http-ready after/);
 });

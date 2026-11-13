@@ -1,7 +1,7 @@
 // Development host for Native contracts. Account authority stays in the HTTPS gateway.
-import { mkdir, readFile, writeFile, rename } from "node:fs/promises";
+import { mkdir, lstat, open, readFile, rename, unlink } from "node:fs/promises";
 import { join } from "node:path";
-import { timingSafeEqual } from "node:crypto";
+import { randomUUID, timingSafeEqual, randomBytes } from "node:crypto";
 import { readDesktopNetworkStatus } from "../../system/adapters/desktop/network-status.mjs";
 import { readDesktopSystemMetrics } from "../../system/adapters/desktop/system-metrics.mjs";
 import { readDesktopPowerStatus } from "../../system/adapters/desktop/power-status.mjs";
@@ -13,12 +13,14 @@ import { createDesktopAccountCookieVault } from "../../system/adapters/desktop/a
 import { createDesktopLocalSessionMiddleware } from "../../system/adapters/desktop/local-session-host.mjs";
 import { createDesktopClientDiagnosticsMiddleware } from "../../system/adapters/desktop/client-diagnostics-host.mjs";
 import { createDesktopDeviceProfileMiddleware } from "../../system/adapters/desktop/device-profile-host.mjs";
+import { createDesktopAccountSyncStateMiddleware } from "../../system/adapters/desktop/account-sync-state-host.mjs";
 import { createDesktopWlanMiddleware } from "../../system/adapters/desktop/wifi-radio-host.mjs";
 import { createDesktopLocalAiMiddleware } from "../../system/adapters/desktop/local-ai-host.mjs";
 import { createDesktopVerifiedComponentSlotMiddleware } from "../../system/adapters/desktop/verified-component-slot-host.mjs";
-import { createDesktopVerifiedStoreCatalogMiddleware } from "../../system/adapters/desktop/verified-store-catalog-host.mjs";
+import { createDesktopVerifiedStoreCatalogMiddleware, resolveDesktopStoreHttpsOrigins } from "../../system/adapters/desktop/verified-store-catalog-host.mjs";
 import { createDesktopStoreLifecycleMiddleware } from "../../system/adapters/desktop/store-lifecycle-host.mjs";
 import { createDesktopProductRuntimeSupervisor, createDesktopSignedRuntimeHandoff } from "../../system/adapters/desktop/product-runtime-supervisor.mjs";
+import { createDesktopSurfaceRuntimeBridge, DESKTOP_SURFACE_BRIDGE_PATH } from "../../system/adapters/desktop/surface-runtime-bridge.mjs";
 import { createDesktopDisplayCurrentModeMiddleware } from "../../system/adapters/desktop/display-current-mode-host.mjs";
 import observationPolicy from "../../system/adapters/desktop/observation-grant.cjs";
 const { OBSERVATION_ROUTES, createDesktopObservationGrantMiddleware }=observationPolicy;
@@ -39,25 +41,68 @@ export function createEmulatorNativeHost({
     origin: accountGatewayOrigin, fetchImpl, cookieVault,
   });
   const file = join(stateDirectory, "native-state.json");
+  // Three bounded Native state ports share this one record. Never follow a
+  // linked or oversized receipt into another path owned by the Windows user.
+  const MAX_STATE_FILE_BYTES = 256 * 1024;
+  const regularOrMissing = async () => {
+    try {
+      const entry = await lstat(file);
+      if (!entry.isFile() || entry.isSymbolicLink() ||
+          entry.size < 1 || entry.size > MAX_STATE_FILE_BYTES)
+        throw new Error("Untrusted Desktop Native state file");
+      return true;
+    } catch (error) {
+      if (error?.code === "ENOENT") return false;
+      throw error;
+    }
+  };
   const initialCursor = () => ({ schema: FIRST_RUN_CURSOR_SCHEMA, step: "welcome" });
   const defaults = () => ({ firstRun: createInitialFirstRunState(), preferences: validatePreferenceRecord({}), cursor: initialCursor() });
   const load = async () => {
     try {
+      if (!await regularOrMissing()) return defaults();
       const saved = JSON.parse(await readFile(file, "utf8"));
       return { firstRun: validateFirstRunState(saved.firstRun), preferences: validatePreferenceRecord(saved.preferences), cursor: validateFirstRunCursor(saved.cursor) };
     } catch (error) {
-      if (error.code === "ENOENT") return defaults();
       throw new Error("Saved development state is unreadable", { cause: error });
+    }
+  };
+  const persist = async state => {
+    await mkdir(stateDirectory, { recursive: true });
+    await regularOrMissing();
+    // A predictable ".tmp" name can be pre-created or linked by another
+    // process. Exclusive creation, file sync and rename avoid acknowledging
+    // incomplete First Run state and leave the prior receipt intact on error.
+    const temporary = join(stateDirectory, ".native-state.json." + randomUUID());
+    let handle = null;
+    try {
+      handle = await open(temporary, "wx", 0o600);
+      await handle.writeFile(JSON.stringify(state), "utf8");
+      await handle.sync();
+      await handle.close();
+      handle = null;
+      await regularOrMissing();
+      await rename(temporary, file);
+    } finally {
+      if (handle) await handle.close();
+      await unlink(temporary).catch(error => {
+        if (error?.code !== "ENOENT") throw error;
+      });
     }
   };
   let queue = Promise.resolve();
   const change = operation => {
     const result = queue.then(async () => {
       const state = await load();
+      // A POST can start unlocked, then finish receiving its body after PIN
+      // lock. Authorization must be checked again at the mutation boundary.
+      if (authorizedStateToken && sessionLocked && await sessionLocked()) {
+        const denied = new Error("Desktop Native state write denied after session lock");
+        denied.status = 423;
+        throw denied;
+      }
       operation(state);
-      await mkdir(stateDirectory, { recursive: true });
-      await writeFile(file + ".tmp", JSON.stringify(state), "utf8");
-      await rename(file + ".tmp", file);
+      await persist(state);
       return state;
     });
     queue = result.catch(() => {});
@@ -130,6 +175,13 @@ export function createEmulatorNativeHost({
       }
       const validated = route[1](JSON.parse(Buffer.concat(chunks).toString("utf8")));
       const state = await change(state => {
+        // Previously completed development receipts without a Terms field
+        // remain readable/idempotent. Every NEW completion must carry the
+        // versioned OS acknowledgement already required by First Run UI.
+        if (route[0] === "firstRun" && !state.firstRun.completed
+            && validated.completed && validated.systemTerms === undefined) {
+          throw new TypeError("New First Run completion requires OS terms acknowledgement");
+        }
         if (route[0] === "firstRun" && state.firstRun.completed
             && JSON.stringify(state.firstRun) !== JSON.stringify(validated)) {
           const conflict = new Error("Completed development receipt cannot be replaced");
@@ -140,9 +192,30 @@ export function createEmulatorNativeHost({
       });
       return reply(200, state[route[0]]);
     } catch (error) {
-      return reply(error.status === 409 ? 409 : error instanceof TypeError || error instanceof SyntaxError ? 400 : 503, { error: "Development state could not be read or saved" });
+      return reply(error.status === 423 ? 423 : error.status === 409 ? 409 :
+        error instanceof TypeError || error instanceof SyntaxError ? 400 : 503,
+        { error: "Development state could not be read or saved" });
     }
   };
+}
+
+// Local HMR and immutable installed bundles share the same Electron-granted
+// session owner, but only an immutable source may write source-attributed
+// diagnostics. A malformed SHA must never become an HMR exemption.
+export function selectDesktopDiagnosticSessionMode({
+  desktopHost=false, platform=process.platform, userData="",
+  renderedSha="", localDevelopment=false, assetsRoot="",
+}={}) {
+  if(!desktopHost || platform!=="win32" ||
+     typeof userData!=="string" || !userData ||
+     typeof renderedSha!=="string")return null;
+  if(/^[0-9a-f]{40}$/.test(renderedSha))return Object.freeze({
+    sourceSha:renderedSha,allowUnversionedDevelopmentSession:false,
+  });
+  if(renderedSha==="" && localDevelopment===true && !assetsRoot)return Object.freeze({
+    sourceSha:null,allowUnversionedDevelopmentSession:true,
+  });
+  return null;
 }
 
 export function nativeEmulatorPlugin(stateDirectory, { desktopHost = false, accountGatewayOrigin = "" } = {}) {
@@ -154,15 +227,22 @@ export function nativeEmulatorPlugin(stateDirectory, { desktopHost = false, acco
         ? createDesktopLocalSessionMiddleware(userData, {
             token:process.env.ORDAX_DESKTOP_LOCAL_SESSION_TOKEN,
           }) : null;
-      const diagnostics=desktopHost && process.platform==="win32" && userData &&
-        /^[0-9a-f]{40}$/.test(process.env.ORDAX_DESKTOP_RENDERED_SOURCE_SHA??"")
-          ? createDesktopClientDiagnosticsMiddleware(userData,{
-              sessionToken:process.env.ORDAX_DESKTOP_NATIVE_SESSION_TOKEN,
-              diagnosticToken:process.env.ORDAX_DESKTOP_DIAGNOSTIC_TOKEN,
-              sourceSha:process.env.ORDAX_DESKTOP_RENDERED_SOURCE_SHA,
-              networkToken:process.env.ORDAX_DESKTOP_NETWORK_TOKEN,
-              displayToken:process.env.ORDAX_DESKTOP_DISPLAY_TOKEN,
-            }):null;
+      // The same Electron-granted session works with an immutable release
+      // or direct HMR. Only an immutable source may persist diagnostics.
+      const diagnosticMode=selectDesktopDiagnosticSessionMode({
+        desktopHost,platform:process.platform,userData,
+        renderedSha:process.env.ORDAX_DESKTOP_RENDERED_SOURCE_SHA??"",
+        localDevelopment:process.env.ORDAX_DESKTOP_LOCAL_DEV==="1",
+        assetsRoot:process.env.ORDAX_DESKTOP_ASSETS_ROOT??"",
+      });
+      const diagnostics=diagnosticMode
+        ? createDesktopClientDiagnosticsMiddleware(userData,{
+            sessionToken:process.env.ORDAX_DESKTOP_NATIVE_SESSION_TOKEN,
+            diagnosticToken:process.env.ORDAX_DESKTOP_DIAGNOSTIC_TOKEN,
+            networkToken:process.env.ORDAX_DESKTOP_NETWORK_TOKEN,
+            displayToken:process.env.ORDAX_DESKTOP_DISPLAY_TOKEN,
+            ...diagnosticMode,
+          }):null;
       if (desktopHost && process.env.ORDAX_DESKTOP_ASSETS_ROOT) {
         // Same compiled Native composition, served before Vite source transforms.
         server.middlewares.use(createDesktopBuiltAssetsMiddleware(process.env.ORDAX_DESKTOP_ASSETS_ROOT));
@@ -198,12 +278,27 @@ export function nativeEmulatorPlugin(stateDirectory, { desktopHost = false, acco
           sessionLocked:localSession?.readLocked??null,
         }).middleware);
       }
+      // The installed Windows host is the Native owner for the SAME
+      // checkpoint/sync-state ports as Linux. Reuse Electron's existing
+      // state grant, never a renderer-supplied token or a second sync owner.
+      if (desktopHost && process.platform === "win32" && userData) {
+        server.middlewares.use(createDesktopAccountSyncStateMiddleware(userData,{
+          token:process.env.ORDAX_DESKTOP_STATE_TOKEN,
+          sessionLocked:localSession?.readLocked??null,
+        }).middleware);
+      }
       // Every Native development and installed host exposes the same read-only
       // Store contract. Without installed Electron trust or a signed publication
       // the canonical response is unavailable, never a 503 or fake catalog.
       // No preview can activate Windows signature verification by setting env.
       const installedStoreTrust = desktopHost && process.platform === "win32"
         && Boolean(userData) && Boolean(process.env.ORDAX_DESKTOP_COMPONENT_VERIFIER_ROOT);
+      const storeHttpsOrigins = installedStoreTrust
+        ? resolveDesktopStoreHttpsOrigins(
+            process.env.ORDAX_DESKTOP_STORE_CATALOG_BASE_ORIGIN ?? "",
+            process.env.ORDAX_DESKTOP_STORE_ARTIFACT_BASE_ORIGIN ?? "",
+          )
+        : resolveDesktopStoreHttpsOrigins();
       const signedStoreCatalog = createDesktopVerifiedStoreCatalogMiddleware({
         systemRoot: process.cwd(),
         verifierRoot: installedStoreTrust ? process.env.ORDAX_DESKTOP_COMPONENT_VERIFIER_ROOT : "",
@@ -211,8 +306,7 @@ export function nativeEmulatorPlugin(stateDirectory, { desktopHost = false, acco
         platform: installedStoreTrust ? "win32" : "unavailable",
         // Operator-selected HTTPS byte origin only for the installed Native host.
         // Preview, renderer and HTTP requests never supply a catalog source.
-        catalogBaseOrigin: installedStoreTrust
-          ? process.env.ORDAX_DESKTOP_STORE_CATALOG_BASE_ORIGIN ?? "" : "",
+        catalogBaseOrigin: storeHttpsOrigins.catalogBaseOrigin,
       });
       server.middlewares.use(signedStoreCatalog);
       if (installedStoreTrust) {
@@ -225,8 +319,7 @@ export function nativeEmulatorPlugin(stateDirectory, { desktopHost = false, acco
           catalogReader: signedStoreCatalog.readVerifiedLocalCatalog,
           // Only the installed Native process may select the signed
           // content-addressed artifact origin; no Store UI URLs are accepted.
-          artifactBaseOrigin:
-            process.env.ORDAX_DESKTOP_STORE_ARTIFACT_BASE_ORIGIN ?? "",
+          artifactBaseOrigin: storeHttpsOrigins.artifactBaseOrigin,
         }));
       }
       if (desktopHost && process.platform === "win32" && userData &&
@@ -251,6 +344,14 @@ export function nativeEmulatorPlugin(stateDirectory, { desktopHost = false, acco
         ));
       }
       if (desktopHost) {
+        const bridgeRuntimeToken = randomBytes(32).toString("hex");
+        const surfaceBridge = createDesktopSurfaceRuntimeBridge({
+          reportToken: process.env.ORDAX_DESKTOP_SURFACE_REPORT_TOKEN,
+          runtimeToken: bridgeRuntimeToken,
+          onFirstReport: () => console.info("runtime: Native Surface state reporter authenticated"),
+          onFirstCommandPoll: () => console.info("runtime: Native Surface command polling authenticated"),
+        });
+        server.middlewares.use(surfaceBridge.middleware);
         // No localhost process may inspect network, power, recovery or
         // storage/update observations without the owning Electron grant.
         server.middlewares.use(createDesktopObservationGrantMiddleware({
@@ -262,6 +363,12 @@ export function nativeEmulatorPlugin(stateDirectory, { desktopHost = false, acco
           // Current unsigned component policy intentionally leaves it blocked.
           const productRuntime = createDesktopProductRuntimeSupervisor({
             systemRoot:process.cwd(),userData,
+            nativeBridge:()=>{
+              const port=Number(process.env.ORDAX_EMULATOR_PORT);
+              if(!Number.isInteger(port)||port<1||port>65535)return null;
+              return {url:"http://127.0.0.1:"+port+DESKTOP_SURFACE_BRIDGE_PATH,
+                token:bridgeRuntimeToken};
+            },
             verifiedHandoff:process.env.ORDAX_DESKTOP_COMPONENT_VERIFIER_ROOT
               ? createDesktopSignedRuntimeHandoff({
                   verifierRoot:process.env.ORDAX_DESKTOP_COMPONENT_VERIFIER_ROOT,
@@ -282,13 +389,22 @@ export function nativeEmulatorPlugin(stateDirectory, { desktopHost = false, acco
           productRuntimeTimer.unref?.();
           // Stop the owned child on the normal Native Host shutdown signals,
           // not only in the final process exit callback (too late to reap).
+          let productRuntimeStopped=false;
           const stopProductRuntime=()=>{
+            if(productRuntimeStopped)return;
+            productRuntimeStopped=true;
             clearInterval(productRuntimeTimer);
             productRuntime.stop();
+            process.off("SIGINT",stopProductRuntime);
+            process.off("SIGTERM",stopProductRuntime);
+            process.off("exit",stopProductRuntime);
           };
           process.once("SIGINT",stopProductRuntime);
           process.once("SIGTERM",stopProductRuntime);
           process.once("exit",stopProductRuntime);
+          // A Vite config reload closes this HTTP server without exiting
+          // the Node host. Its old Runtime must end before a new owner starts.
+          server.httpServer?.once?.("close",stopProductRuntime);
           server.middlewares.use((request,response,next) => {
             if (request.url?.split("?")[0]!=="/__ordax/native/product-runtime-status")
               return next();

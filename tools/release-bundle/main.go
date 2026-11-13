@@ -165,6 +165,33 @@ func collectEntries(root string) ([]sourceEntry, int64, error) {
 	return entries, total, nil
 }
 
+// verifySourceFileIdentity binds the bytes being archived to the same regular
+// source file that the canonical tree inventory originally examined. An
+// os.Open call alone follows a symlink introduced after WalkDir, and checking
+// only the new file's mode and size cannot detect a same-size replacement.
+// Verify both the lexical path and the opened descriptor before AND after
+// copying; source changes fail closed rather than producing a misleading tar.
+func verifySourceFileIdentity(entry sourceEntry, opened *os.File) error {
+	onPath, err := os.Lstat(entry.path)
+	if err != nil {
+		return fmt.Errorf("source changed during bundle build: %s: %w", entry.name, err)
+	}
+	onDescriptor, err := opened.Stat()
+	if err != nil {
+		return fmt.Errorf("source changed during bundle build: %s: %w", entry.name, err)
+	}
+	for _, current := range []fs.FileInfo{onPath, onDescriptor} {
+		if !current.Mode().IsRegular() ||
+			!os.SameFile(entry.info, current) ||
+			current.Mode().Perm() != entry.info.Mode().Perm() ||
+			current.Size() != entry.info.Size() ||
+			!current.ModTime().Equal(entry.info.ModTime()) {
+			return fmt.Errorf("source changed during bundle build: %s", entry.name)
+		}
+	}
+	return nil
+}
+
 func writeBundle(root, output string) (string, int64, error) {
 	rootAbs, err := ensureRealDirectory(root)
 	if err != nil {
@@ -225,14 +252,18 @@ func writeBundle(root, output string) (string, int64, error) {
 				_ = file.Close()
 				return "", 0, err
 			}
-			info, statErr := input.Stat()
-			if statErr != nil || !info.Mode().IsRegular() || info.Mode()&os.ModeSymlink != 0 || info.Mode().Perm() != entry.info.Mode().Perm() || info.Size() != entry.info.Size() {
+			if err := verifySourceFileIdentity(entry, input); err != nil {
 				_ = input.Close()
 				_ = writer.Close()
 				_ = file.Close()
-				return "", 0, fmt.Errorf("source changed during bundle build: %s", entry.name)
+				return "", 0, err
 			}
 			n, copyErr := io.CopyN(writer, input, entry.info.Size())
+			if copyErr == nil {
+				// The inode, path and metadata must still identify the
+				// collected input after the data has been streamed.
+				copyErr = verifySourceFileIdentity(entry, input)
+			}
 			closeErr := input.Close()
 			if copyErr != nil || n != entry.info.Size() {
 				_ = writer.Close()

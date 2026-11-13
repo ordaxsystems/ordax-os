@@ -12,7 +12,10 @@
     "composition_owns_shared_visual_assets": false,
     "new_module_requires_named_owner": true,
     "adapter_modes_may_import_each_other": false,
-    "composition_mounts_apps_through_public_entrypoints": true
+    "composition_mounts_apps_through_public_entrypoints": true,
+    "system_apps_owns_removable_product_source": false,
+    "system_surface_owns_visual_source": false,
+    "external_product_source_is_composed_by_verified_contract": true
   },
   "layers": [
     {
@@ -45,7 +48,7 @@
     {
       "id": "apps",
       "root": "system/apps",
-      "responsibility": "shared first-party application behavior",
+      "responsibility": "OS-owned application catalogs, verified installed-state projection and structural integration contracts; no removable product source",
       "allowed_dependencies": [
         "contracts",
         "services"
@@ -59,7 +62,7 @@
     {
       "id": "surface",
       "root": "system/surface",
-      "responsibility": "OS-owned Surface host and native runtime shell boundary; visual presentation is externally owned and composed from the pinned Surface source contract",
+      "responsibility": "OS-owned Surface host/native runtime boundary; visual source is externally owned by ordax-surface and composed from the pinned source contract",
       "allowed_dependencies": [
         "contracts",
         "services",

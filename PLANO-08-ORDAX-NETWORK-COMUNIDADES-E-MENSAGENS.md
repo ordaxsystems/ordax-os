@@ -1,6 +1,6 @@
 # PLANO-08 — OrdaX Network, Comunidades e Mensagens
 
-Status: CANÔNICO PARA ESCOPO MVP
+Status documental: **REFERENCE / DEFERRED FOR EXECUTION**. A antiga autodeclaração “CANÔNICO PARA ESCOPO MVP” foi superseded pela hierarquia de `docs/README.md`, `MVP.md`, contratos e owners atuais. Este plano preserva a direção de Network/Comunidades/Mensagens, mas **não adiciona funcionalidades ao MVP por si só**.
 
 A OrdaX Network é uma capacidade horizontal da plataforma. Ela não pertence ao Profile Pizzaria, não cria uma segunda identidade e não transforma Profile Packs em redes sociais isoladas.
 
@@ -38,9 +38,9 @@ pizzaria-br@1
 
 A remoção de um Profile não apaga mensagens, grupos, contatos ou identidade Network. Sair de comunidade é uma ação separada.
 
-## 3. Fatia obrigatória do MVP
+## 3. Fatia proposta por este plano — não usar como escopo MVP atual
 
-O MVP público inclui:
+Na proposta original, o MVP público incluiria os itens abaixo. O escopo vigente deve ser lido de `MVP.md` e dos contratos/owners; se houver divergência, **não executar esta lista como obrigação**:
 
 1. **Diretório profissional por Space**
    - nome público do Space;

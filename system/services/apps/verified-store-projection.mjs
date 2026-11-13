@@ -24,6 +24,7 @@ import {
   hasNativeExternalFirstPartyModuleRead,
   hasNativeExternalFirstPartyProbation,
 } from "./external-first-party-policy.mjs";
+import { createStoreObserverDelivery } from "./store-observer-delivery.mjs";
 
 const REQUEST_OPTIONS = Object.freeze({
   method: "GET",
@@ -80,8 +81,37 @@ function blockedEntry({
   };
 }
 
-function projectEntry({ appId, candidate, current, policy }) {
+function projectEntry({ appId, candidate, current, policy, pending = null, probationHostReady = true }) {
   const title = candidate?.title ?? appId;
+
+  if (pending !== null) {
+    const installedVersion = current.source === "slot" ? current.version : null;
+    if (candidate === null && installedVersion === null) return null;
+    if (pending.revision !== current.revision
+      || candidate === null
+      || pending.version !== candidate.version
+      || pending.sourceCommit !== candidate.sourceCommit
+      || current.source === "bundled"
+      || installedVersion !== null
+        && !componentVersionIsNewer(pending.version, installedVersion)) {
+      return blockedEntry({
+        appId, title, installedVersion, candidate,
+        reason: "pending-slot-identity-drift",
+      });
+    }
+    if (pending.pendingHealth === "failed") {
+      return blockedEntry({
+        appId, title, installedVersion, candidate,
+        reason: "pending-slot-health-failed",
+      });
+    }
+    return {
+      appId, title, state: "staged",
+      installedVersion, availableVersion: candidate.version,
+      installable: false, updatable: false, removable: false,
+      blockedReason: null, ...candidateFlags(candidate),
+    };
+  }
 
   if (current.source === "bundled") {
     return blockedEntry({
@@ -115,6 +145,12 @@ function projectEntry({ appId, candidate, current, policy }) {
       return blockedEntry({
         appId, title, candidate,
         reason: "runtime-probation-unavailable",
+      });
+    }
+    if (!probationHostReady) {
+      return blockedEntry({
+        appId, title, candidate,
+        reason: "runtime-probation-host-unavailable",
       });
     }
     return {
@@ -180,6 +216,13 @@ function projectEntry({ appId, candidate, current, policy }) {
         removable: policy.removable,
       });
     }
+    if (!probationHostReady) {
+      return blockedEntry({
+        appId, title, installedVersion, candidate,
+        reason: "runtime-probation-host-unavailable",
+        removable: policy.removable,
+      });
+    }
     return {
       appId,
       title,
@@ -240,7 +283,7 @@ async function mapInSourceOrder(values, readOne, signal) {
 }
 
 async function readCurrentWithinDeadline({
-  fetchImpl, metadataUrl, appId, signal, timeoutMs,
+  fetchImpl, metadataUrl, appId, signal, timeoutMs, allowAbsentPending = false,
 }) {
   if (signal.aborted) throw new Error("Store refresh superseded");
   const controller = new AbortController();
@@ -258,13 +301,16 @@ async function readCurrentWithinDeadline({
   signal.addEventListener("abort", cancel, { once: true });
   const timeout = setTimeout(cancel, timeoutMs);
   try {
-    const pending = (async () => readJson(
-      await fetchImpl(metadataUrl, {
+    const pending = (async () => {
+      const response = await fetchImpl(metadataUrl, {
         ...REQUEST_OPTIONS,
         signal: controller.signal,
-      }),
-      "Current activation metadata for " + appId,
-    ))();
+      });
+      if (allowAbsentPending && response?.ok && response.status === 204)
+        return null;
+      return readJson(response,
+        (allowAbsentPending ? "Pending" : "Current") + " activation metadata for " + appId);
+    })();
     return await Promise.race([pending, cancelledPromise]);
   } finally {
     clearTimeout(timeout);
@@ -277,9 +323,15 @@ export function createVerifiedAppStoreProjection({
   componentSource,
   fetchImpl = globalThis.fetch,
   metadataTimeoutMs = DEFAULT_METADATA_TIMEOUT_MS,
+  observePending = false,
+  probationHostReady = true,
 } = {}) {
   const catalog = assertVerifiedAppStoreCatalogPort(verifiedCatalogPort);
   const source = assertVerifiedComponentPackageSource(componentSource);
+  if (typeof observePending !== "boolean")
+    throw new TypeError("Native pending Store observation must be boolean");
+  if (typeof probationHostReady !== "boolean")
+    throw new TypeError("Native Store probation host readiness must be boolean");
   if (typeof fetchImpl !== "function") {
     throw new TypeError("Verified Store projection requires fetchImpl()");
   }
@@ -292,13 +344,15 @@ export function createVerifiedAppStoreProjection({
   let generation = 0;
   let snapshot = unavailable("verified-store-projection-loading");
   let currentObservations = Object.freeze([]);
-
+  const notifyListeners = createStoreObserverDelivery(
+    listeners, "OrdaX verified Store projection subscriber failed",
+  );
   const emit = (next, observations = []) => {
     snapshot = validateAppStoreCatalogSnapshot(next);
     // Transient read-through of the SAME native verified current-slot reads.
     // Cleared on unavailable/refresh to prevent stale First Run decisions.
     currentObservations = Object.freeze([...observations]);
-    for (const listener of [...listeners]) listener(snapshot);
+    notifyListeners(snapshot);
   };
 
   let activeRefresh = null;
@@ -354,7 +408,30 @@ export function createVerifiedAppStoreProjection({
         });
       }
       if (signal.aborted) return null;
-      return projectEntry({ appId, candidate, current, policy });
+      let pending = null;
+      if (observePending && (candidate !== null || current.source === "slot")) {
+        try {
+          const raw = await readCurrentWithinDeadline({
+            fetchImpl, metadataUrl: source.metadataUrl(appId, "pending"),
+            appId, signal, timeoutMs: metadataTimeoutMs,
+            allowAbsentPending: true,
+          });
+          if (raw !== null) {
+            pending = validateComponentRuntimeMetadata(raw, {
+              componentId: appId, state: "pending",
+            });
+          }
+        } catch {
+          if (signal.aborted) return null;
+          return blockedEntry({
+            appId, title: candidate?.title ?? appId,
+            installedVersion: current.source === "slot" ? current.version : null,
+            candidate, reason: "pending-activation-state-unavailable",
+          });
+        }
+      }
+      if (signal.aborted) return null;
+      return projectEntry({ appId, candidate, current, policy, pending, probationHostReady });
     }, signal);
 
     if (signal.aborted) {
@@ -448,7 +525,7 @@ export function createVerifiedAppStoreProjection({
       // owner exits. Clearing listeners alone kept the last installable
       // snapshot visible to other consumers after teardown.
       snapshot = unavailable("verified-store-projection-disposed");
-      for (const listener of [...listeners]) listener(snapshot);
+      notifyListeners(snapshot);
       listeners.clear();
     },
   });

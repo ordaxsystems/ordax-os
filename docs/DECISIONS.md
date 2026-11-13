@@ -181,10 +181,12 @@ See `docs/BUILD-AUTONOMY.md` and `docs/contracts/build-autonomy.json`.
 
 ## ADR-017 - Mutable release selector, immutable signed release identity
 
+**Repository namespace update:** the architectural decision remains active, but the repository transfer superseded the original selector owner. The operational selector is defined by `docs/contracts/release-channel.json`; redirects from historical repository slugs are compatibility only and must not be treated as authority.
+
 Decision: the bootstrap release channel uses the stable GitHub Releases selector:
 
 ```text
-https://github.com/washingtonmsdj/prototipo-ordax-os/releases/latest/download/release-envelope.json
+https://github.com/ordaxsystems/ordax-os/releases/latest/download/release-envelope.json
 ```
 
 This URL is a **delivery selector only**. It is allowed to move when a newer release is published. It is not trusted as an authenticity source.
@@ -483,3 +485,44 @@ The authoritative dependency relationship is
 exclusive client owners as lightweight; unknown and mixed deltas fail
 closed. Neither the client classifications nor the absence of a Creator
 build proves a released Desktop, Web login, Space creation UI, or Profile Pack.
+
+## ADR-030 - First usable integrated Windows delivery before independent USB completion (2026-11-06)
+
+> **Operational sequencing superseded on 2026-11-13.** The Windows acceptance criteria below remain valid for declaring the Desktop channel usable, but Windows is no longer a global prerequisite or priority queue for OS/USB, Surface, Apps, Creator, Site or Intelligence. ADR-031 and the current `MVP.md` define parallel owner execution and synchronization only at real adoption points.
+
+**Decision:** Prioritize one verified **operational first-user release** of OrdaX Desktop Windows, rather than counting isolated repository PRs as product completion or waiting for the separate USB/Buildroot/Creator path. “MVP operacional” means a complete, honest vertical journey for the declared channel, **not** a fork, a second product, a simulated feature or removal of started capabilities from the integrated launch baseline (ADR-026 and `MVP.md`).
+
+**First-channel acceptance:** One canonical installer and actually running Surface; real Account and authorized Space; Store reading the official verified catalog; at least one actual first-party app installed, launched with its own authority, updated and removable; compatible host/app update with appropriate health/recovery; exact source/provenance and physical Windows proof. Source, CI, preview and declared version are not equivalent to installed execution. A controlled early-user cohort may receive only the capabilities actually proven and advertised. Unproven features remain fail-closed and visible as unavailable when relevant.
+
+**Execution/ownership:** `ordax-desktop` owns its Desktop packaging/delivery responsibility; `ordax-os` owns host composition, lifecycle and update boundaries; `ordax-surface` owns shared UI; `ordax-apps` owns removable apps; `ordax-platform` owns identity/grants; `ordax-site` owns public distribution. Use immutable compatible revision pins and verified receipts across owners, **not duplicate modules** or forced identical repository HEADs. Reuse existing PRs, tests and CI by impact; changes confined to Windows/Web must not trigger USB/kernel builds without a causal requirement (ADR-029).
+
+**Scope retained:** USB, Native disk, Runtime/MCP and already started product capabilities remain in their current owners and baseline. They are not prerequisites for an independent Windows release unless they are part of that release's declared user journey or a real safety dependency. Security, isolation, signing, authorization, honest status, update and rollback/recovery gates cannot be deferred merely to claim launch. Record proven state in `docs/CURRENT-STATE.md`; use `MVP.md` as the single scope/acceptance SSOT, not another roadmap or per-repository MVP.
+
+## ADR-031 - Repository separation is ownership; product integration is composition (2026-11-13)
+
+**Decision:** OrdaX repositories remain separated by responsibility, but they form one product through versioned contracts, immutable artifacts and direct-dependency composition. Repository separation must reduce coordination, not create a distributed monolith that requires synchronized PRs across every owner.
+
+For Native delivery, `ordax-os` is the composition owner: it owns host/services/lifecycle/contracts and selects exact compatible external revisions through the existing locks and component/release mechanisms. This does **not** make the OS the source owner of Surface, Apps, Intelligence, Runtime or other external components.
+
+The dependency graph is intentionally one-directional:
+
+```text
+Surface / Apps / Intelligence / capability owners
+                    |
+                    v
+             OrdaX OS composition
+                    |
+             verified candidate
+              /             \
+       Desktop host       Creator media
+```
+
+The public Site consumes authorized published catalog/assets and remains outside Native composition.
+
+**Direct-dependency rule:** a consumer pins only the direct dependency it actually composes. A transitive component must not be pinned again by every downstream consumer. Therefore Desktop consumes the OrdaX/OS composition candidate rather than independently integrating Surface; Creator consumes verified media rather than rebuilding OS components; Surface consumes capability ports rather than implementations; Apps publish packages/catalog entries rather than source copies.
+
+**Operational consequence:** independent owners advance in parallel and synchronize only when a new contract/artifact/revision is adopted. Compatible producer changes do not force immediate consumer PRs. Incompatible changes require a versioned contract transition and explicit adoption. No forced identical repository HEADs, source mirroring, manual Web-to-device ports or cascade PRs for bookkeeping.
+
+**Completion consequence:** implementation, integration, deliverability and product acceptance are distinct states. Merge/CI is not proof of installed Desktop, booted USB or installed app. Conversely, a local source change is not required to perform unrelated physical/release gates.
+
+Existing machine-readable contracts remain authoritative: `docs/contracts/repository-ownership.json`, source locks such as `docs/contracts/surface-source.json`, component/package/channel contracts, build-autonomy contract and signed release manifests. This ADR defines their cross-repository composition rule and creates no second manifest.

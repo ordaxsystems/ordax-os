@@ -1,6 +1,6 @@
 # OrdaX — parte 3: fechamento funcional pré-USB da visão Nova OrdaX
 
-**Status:** plano canônico de auditoria pré-USB; fechamento de source concluído e preservado como baseline para retestes físicos.  
+**Status documental:** **REFERENCE / NOT APPLICABLE como plano executável**. Auditoria pré-USB de 28/09/2026 com fechamento de source preservado como baseline histórico para comparação e retestes; gates físicos atuais pertencem aos owners/contratos vigentes, não a este plano.  
 **Data:** 28/09/2026.  
 **Protótipo auditado originalmente:** `main@8405feedb05421ea321cc277c0b7b912b6da7117`.  
 **Referência Nova OrdaX:** `washingtonmsdj/novo-ordax-os@49fe41fa67d9032f2e349e86592304e64d6c2d88`.
@@ -12,8 +12,8 @@
 - `PLANO-02-EVOLUCAO-E-REAPROVEITAMENTO-DO-LEGADO.md`;
 - contratos e estado canônicos em `docs/`.
 
-Este documento existe para evitar que uma capacidade estrutural da Nova OrdaX seja
-descoberta somente depois da primeira mídia Stable/MVP. A existência de uma
+Este documento foi criado para evitar que uma capacidade estrutural da Nova OrdaX fosse
+descoberta somente depois da primeira mídia Stable/MVP. Hoje ele permanece como **baseline de referência**, não como fila pré-USB ativa. A existência de uma
 especificação no legado não a torna requisito do MVP; da mesma forma, a existência
 de um backend no protótipo não prova que a experiência de sistema correspondente
 está integrada.
@@ -121,7 +121,7 @@ CANONICAL_STABLE_TARGET_HARDWARE_PROOF=PENDING_PHYSICAL
 
 **O primeiro proof físico Stable/MVP já ocorreu; não repetir a escrita com a autorização antiga.**
 
-O conjunto **A — obrigatório pré-USB** abaixo foi criado para impedir que lacunas
+O conjunto **A — obrigatório pré-USB naquele ciclo** abaixo foi criado para impedir que lacunas
 estruturais chegassem à primeira mídia física. Essa missão cumpriu sua função: o primeiro
 writer governado executou o plano de 39 operações/17 artefatos, verificou 17/17 por
 readback e chegou a boot UEFI real. Os achados físicos motivaram o hardening integrado
@@ -145,7 +145,7 @@ Portanto **“boot/release avançado” continua não equivalendo a “produto f
 
 ## 2. Três classes de fechamento
 
-### A — obrigatório antes de uma missão física Stable/MVP
+### A — gates obrigatórios daquela missão física Stable/MVP — baseline histórico
 
 Precisa estar implementado e provado em source/CI antes de uma escrita física autorizada.
 
@@ -410,7 +410,7 @@ O gate é de produto/source. Ele **não** substitui:
 
 ---
 
-## 6. Ordem de implementação antes do USB
+## 6. Ordem histórica de implementação antes do primeiro USB
 
 ### P0 — arquitetura esquecida — concluído em source
 
@@ -433,7 +433,7 @@ O gate é de produto/source. Ele **não** substitui:
 11. Preflight canônico v4 do operador. — **PASS_SOURCE_READ_ONLY**: valida artefatos públicos, source-lock, trust, tooling, commit, URLs HTTPS estáveis e metadados do caminho da chave privada sem ler o PEM, assinar, publicar, materializar ou tocar mídia física.
 12. Gate proof-before-consent. — **PASS_CANONICAL_PRERELEASE_BOUND**: `canonical-v4-release-proof.json` real foi validado contra trust/commit/manifest/envelope/3 artefatos e vinculado por SHA-256 antes de `pre_authorization_ready`.
 13. Primeiro proof físico governado. — **PASS_PRE_HARDENING**: writer 39-op/17-artifact, 17/17 readback e boot UEFI real; evidência preservada sem promover o candidato pós-#588.
-14. Próximo passo condicionado ao hardware: novo consentimento explícito para o contexto pós-hardening atual e execução dos gates físicos antes do reteste Stable/MVP.
+14. **Checkpoint daquele ciclo:** o próximo passo estava condicionado a novo consentimento explícito e aos gates físicos do candidato pós-hardening. **Não reutilizar esta linha como autorização ou fila atual; consultar os gates/owners vigentes.**
 
 ---
 

@@ -130,12 +130,15 @@ A linguagem visual pública deriva dos tokens canônicos da Surface através do 
 Para identidade pública:
 
 ```text
-system/surface/ui/tokens.css
-  -> pipeline de brand
+ordax-surface/system/surface/ui/tokens.css
+  -> surface-source.json (adoção exata pelo OS)
+  -> staging verificado do pipeline de brand
   -> ordax-design-tokens.css
   -> account.css
   -> login / cadastro / recuperação
 ```
+
+O path `system/surface/ui/tokens.css` pode existir **temporariamente no staging descartável do OS** durante o pipeline, mas não é fonte versionada do `ordax-os`. O Site consome a saída derivada; não mantém pin direto da Surface nem outra paleta.
 
 `account.css` pode definir aliases semânticos locais, mas não pode se tornar uma segunda autoridade de cor, raio, tipografia ou estado.
 

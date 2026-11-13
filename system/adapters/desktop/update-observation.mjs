@@ -50,7 +50,9 @@ export function projectDesktopUpdateState(journal, {
   }
   const active = journal?.activeSha || "";
   const pending = journal?.pendingSha || "";
-  const sourceSha = renderedSourceSha || active || bundledSourceSha;
+  // A journal only records a previous Git transaction; it is not a proof of
+  // which source is currently rendered. The Electron host provides that proof.
+  const sourceSha = renderedSourceSha || bundledSourceSha;
   if (typeof sourceSha !== "string" || sourceSha.length === 0) throw new TypeError("A source identifier is required");
   const pinned = Boolean(journal?.pinnedSha);
   const rejected = Boolean(journal?.rejectedSha);
@@ -60,8 +62,10 @@ export function projectDesktopUpdateState(journal, {
   // version. Do not describe the old journal SHA as currently running.
   const activeMismatch = Boolean(active && renderedSourceSha && renderedSourceSha !== active
     && renderedSourceSha !== pending);
-  const running = Boolean((active || renderedSourceSha) && !activeMismatch);
-  const error = activeMismatch
+  const running = Boolean(renderedSourceSha && !activeMismatch);
+  const error = !renderedSourceSha
+    ? "A revisao executada nao foi comprovada pelo host; o journal nao confirma execucao."
+    : activeMismatch
     ? "A revisao ativa do journal difere do codigo executado; usando a ultima Surface valida."
     : incompatible
       ? "A revisao "+incompatible.slice(0,12)+" da main nao atende ao contrato Desktop/Surface; ultima versao valida preservada."
@@ -71,12 +75,11 @@ export function projectDesktopUpdateState(journal, {
     runtimeSurfaceSha: sourceSha,
     targetSha: pending || incompatible,
     deliveryNumber: 0, // Git SHA is not an OrdaX delivery number.
-    status: activeMismatch ? "unavailable"
-      : pinned ? "pinned" : pending ? "updating" : rejected ? "rejected"
-      : running ? "running" : "unavailable",
-    phase: activeMismatch ? "error"
+    status: !running ? "unavailable"
+      : pinned ? "pinned" : pending ? "updating" : rejected ? "rejected" : "running",
+    phase: activeMismatch ? "error" : !running ? "blocked"
       : pending ? (failedAttempt ? "health-wait" : "activating")
-      : pinned || rejected || incompatible || !running ? "blocked" : "idle",
+      : pinned || rejected || incompatible ? "blocked" : "idle",
     applyMode: "surface-restart", // The safe automatic Electron relaunch performs a one-shot Native health trial.
     updateTransport: journal ? "git-main" : "unavailable",
     checkedAt,

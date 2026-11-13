@@ -1,17 +1,19 @@
-# OrdaX — Design System e publicação dos e-mails (SSOT)
+# OrdaX — Design System e publicação dos e-mails (SSOT de marca derivada)
 
-**Status (09/10/2026):** ponte de distribuição implementada; publicação
+**Ownership vigente — 13/11/2026:** a fonte visual da marca pertence a `ordaxsystems/ordax-surface`. O `ordax-os` **não** mantém cópia editável de `system/surface/ui`; ele seleciona a revisão exata pelo contrato [`docs/contracts/surface-source.json`](contracts/surface-source.json) e a materializa somente em staging descartável de build/CI. Os caminhos `system/surface/ui/*` vistos por `tools/brand/build.py` são essa árvore materializada e verificada, não uma segunda source authority. Templates de e-mail e a política de publicação permanecem owners do OS.
+
+**Checkpoint histórico (09/10/2026):** ponte de distribuição implementada; publicação
 de templates de produção somente mediante autorização e segredo configurado.
 A composição Meia-noite/Gelo, o símbolo vetorial simplificado e seus temas
 foram reconciliados e integrados na `main` pela PR #1546, preservando
 a implementação original da PR #1532, encerrada como substituída.
 
-## Dono único
+## Owners únicos por responsabilidade
 
-- Paleta semântica/tema: `system/surface/ui/tokens.css`. Não copiar cores
+- Paleta semântica/tema: `ordaxsystems/ordax-surface/system/surface/ui/tokens.css`. Não copiar cores
   para CSS do site, aplicativos ou HTML de e-mails.
-- Composição e símbolo: `system/surface/ui/identity.css` e
-  `system/surface/ui/brand/ordax-symbol.png`. A imagem transparente aprovada
+- Composição e símbolo: `ordaxsystems/ordax-surface/system/surface/ui/identity.css` e
+  `ordaxsystems/ordax-surface/system/surface/ui/brand/ordax-symbol.png`. A imagem transparente aprovada
   pelo usuário em 09/10/2026 é a única fonte do símbolo. O compilador público
   deriva `/assets/ordax-symbol.png` por cópia verificada; o site não mantém
   outra imagem no source. OS, inicialização, Minha conta e acesso Web
@@ -20,26 +22,23 @@ a implementação original da PR #1532, encerrada como substituída.
 - Estrutura e conteúdo de e-mails: `infra/supabase/identity/email-templates/src`.
   Os arquivos adjacentes `confirmation.html` e `recovery.html` são
   **resultados compilados e versionados**, não fontes a editar manualmente.
-- O build do site injeta automaticamente `/assets/ordax-design-tokens.css`
-  derivado da Surface em todas as páginas sem reescrever o source do layout
-  Web em andamento. Componentes passam a usar as variáveis CSS
-  `--ordax-*` conforme são migrados; o layout atual é preservado.
+- O pipeline de brand do OS recebe a **Surface pinada e materializada para staging** e deriva `/assets/ordax-design-tokens.css` para consumidores públicos. O Site não recebe um segundo pin da Surface e não passa a possuir a paleta. Componentes usam as variáveis CSS `--ordax-*`; o layout do consumidor não vira source authority visual.
 
-## Comandos
+## Build e validação
+
+`tools/brand/build.py` pressupõe que a revisão pinada de `ordax-surface` já foi materializada no checkout descartável. A CI faz isso com `.github/actions/prepare-verified-surface` antes de executar `check`; portanto **não** interpretar uma falha por ausência de `system/surface/ui` num checkout OS puro como autorização para recopiar esses arquivos para o repositório.
 
 ```bash
+# após materialização verificada da Surface pinada:
 python3 tools/brand/build.py render-emails
 python3 tools/brand/build.py check
-# No checkout independente ordax-site (somente Dev):
+
+# no checkout independente ordax-site (somente Dev):
 python3 scripts/build.py check
-# OS consome o bundle pelo pin docs/contracts/public-site-source.json; não há builder do Site no OS.
+# OS consome o bundle do Site pelo pin docs/contracts/public-site-source.json; não há builder do Site no OS.
 ```
 
-O gate `check` exige que o HTML versionado corresponda aos tokens oficiais.
-Se a Surface alterar a paleta, execute `render-emails` e envie **as saídas
-geradas no mesmo PR**. A validação falhará caso alguma origem e saída divirjam.
-A ponte Web é regenerada automaticamente em cada build, sem novas alterações
-manuais após a aprovação visual.
+Quando a Surface alterar a paleta, primeiro integrar a mudança no **owner Surface**. Depois, em uma adoção deliberada no OS, atualizar `surface-source.json`, materializar essa revisão e regenerar/validar as saídas de e-mail no **PR do OS**. Não tentar colocar mudanças de dois repos “no mesmo PR” e não criar segundo pin no Site. O gate `check` exige que o HTML versionado corresponda aos tokens da Surface adotada.
 
 ## Publicação no Supabase Auth
 
@@ -95,7 +94,7 @@ As páginas públicas de **Conta OrdaX** (login, cadastro, conta,
 recuperação e documentação legal) agora consomem variáveis canônicas
 `--ordax-*` em seus tokens semânticos de fundo, superfície, texto,
 bordas, foco, CTA e status. O compilador exporta os estados/raios
-necessários diretamente de `system/surface/ui/tokens.css`; não cria
+necessários da árvore materializada de `ordax-surface/system/surface/ui/tokens.css`; não cria
 nova paleta nem sobrescreve temas ou CSS de aplicativos.
 
 A marca do cabeçalho, incluindo o atual HTML `.brand-mark` e as suas
@@ -152,7 +151,7 @@ ainda elegíveis a migrações posteriores, sem bloquear o MVP.
 
 A aprovação explícita do usuário substitui o vetor simplificado no OS, na
 inicialização e em todos os cabeçalhos do site público, incluindo Minha
-conta/Web. `system/surface/ui/brand/symbol.css` concentra a apresentação e as
+conta/Web. A fonte `ordaxsystems/ordax-surface/system/surface/ui/brand/symbol.css` concentra a apresentação e as
 silhuetas acessíveis; o compilador distribui essas regras junto da exportação
 de tokens. Os desenhos antigos em CSS foram removidos. Os registros anteriores sobre
 preservação da marca pública descrevem aquela etapa. O arquivo tem SHA-256

@@ -29,9 +29,11 @@ PRESENTATION_LIGHT_PREFIXES = (
     "system/surface/ui/",
     "system/surface/workspace/",
 )
-# The isolated /store-preview/ Vite entry contains only local demonstration
-# presentation. It never produces a Native boot, kernel or Portable rootfs.
-WEB_STORE_PREVIEW_LIGHT_PREFIX = "system/composition/web/store-preview/"
+# The browser-only Web composition is built and validated by the Surface Web
+# gates; it cannot change Native boot, kernel or Portable rootfs producer bytes.
+# Recheck Native startup reachability on each classification and fail closed if
+# a future Native entry imports a module from this Web-only owner.
+WEB_COMPOSITION_LIGHT_PREFIX = "system/composition/web/"
 HIGH_LEVEL_LIGHT_PREFIXES = (
     "system/apps/",
     "system/adapters/",
@@ -102,7 +104,6 @@ APP_DELIVERY_LIGHT_EXACT = {
 # Windows Desktop has its own installed-Electron, Native and offline inference gates.
 # These source owners do not enter Linux Portable boot artifacts.
 WINDOWS_DESKTOP_LIGHT_PREFIXES = (
-    "tools/windows-desktop/",
     "tools/windows-emulator/",
 )
 WINDOWS_DESKTOP_LIGHT_EXACT = {
@@ -134,6 +135,15 @@ ACCOUNT_GATEWAY_DEPLOY_LIGHT_EXACT = {
 }
 NATIVE_ACCOUNT_TRANSPORT_LIGHT_EXACT = {
     "system/surface/runtime/native_account_gateway.py",
+}
+# Only the generated, declarative Store scope table. It is checked byte-for-
+# byte against docs/contracts/runtime-component-package.json by app-policy
+# generator and focused Native lifecycle/probation contracts. It does not
+# produce Linux kernel, initramfs, APK EROFS or portable boot source bytes.
+# Keep every other Native runtime path, probe implementation and orchestrator
+# under their existing heavy QEMU gate.
+NATIVE_COMPONENT_POLICY_LIGHT_EXACT = {
+    "system/surface/runtime/native_store_metadata_policy.py",
 }
 IMPACT_POLICY_LIGHT_EXACT = {
     ".github/workflows/portable-qemu-impact-contract.yml",
@@ -479,6 +489,8 @@ def classify_paths(
             continue
         if path in NATIVE_ACCOUNT_TRANSPORT_LIGHT_EXACT:
             continue
+        if path in NATIVE_COMPONENT_POLICY_LIGHT_EXACT:
+            continue
         if path.startswith(ALWAYS_HEAVY_PREFIXES):
             reasons.append(f"heavy-prefix:{path}")
             continue
@@ -504,10 +516,12 @@ def classify_paths(
             or path in ACCOUNT_SPACE_SEMANTICS_LIGHT_EXACT
         ):
             continue
-        # The isolated Web Store presentation is proved by the Web candidate.
-        # If any of its files becomes Native-startup reachable in a later revision,
-        # fall through to the heavy native-runtime gate instead of skipping QEMU.
-        if path.startswith(WEB_STORE_PREVIEW_LIGHT_PREFIX) and path not in reachable:
+        # Web composition is owned by the browser product and its focused
+        # Surface Web / Chromium gates. Native-reachable Web sources fail closed
+        # instead of silently bypassing Portable boot proof.
+        if path.startswith(WEB_COMPOSITION_LIGHT_PREFIX):
+            if path in reachable:
+                reasons.append(f"native-runtime-reachable:{path}")
             continue
         # Markdown and Surface presentation sources cannot alter boot artifacts.
         # Classify them before the non-system fail-closed rule so docs/*.md do not

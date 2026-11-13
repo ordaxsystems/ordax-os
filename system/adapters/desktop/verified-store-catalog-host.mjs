@@ -71,6 +71,7 @@ async function watermark(path) {
 // reclamation by the HTTP reader or request-supplied paths.
 
 const FETCH_TIMEOUT_MS = 8000;
+const MAX_PUBLIC_CATALOG_READS = 8;
 
 // Same HTTPS base-origin policy as the canonical Native Store transports.
 // An origin selects untrusted bytes only: never a catalog, signer or artifact.
@@ -94,15 +95,49 @@ export function desktopStoreCatalogEnvelopeUrl(baseOrigin) {
   return new URL("catalog-envelope.json", url).href;
 }
 
-async function fetchRemoteEnvelope(url, fetchImpl) {
-  const controller = new AbortController();
-  const deadline = setTimeout(() => controller.abort(), FETCH_TIMEOUT_MS);
+// Operator prepares one immutable HTTPS prefix for the signed catalog and its
+// content-addressed artifacts. Existing Native environment variables remain
+// the sole configuration; neither the renderer nor a request may override them.
+// Half-configured or divergent origins must never expose a verified candidate
+// whose artifacts would be fetched from another authority.
+export function resolveDesktopStoreHttpsOrigins(catalogOrigin = "", artifactOrigin = "") {
+  if (catalogOrigin === "" && artifactOrigin === "") {
+    return Object.freeze({ catalogBaseOrigin: "", artifactBaseOrigin: "" });
+  }
   try {
+    const catalogUrl = desktopStoreCatalogEnvelopeUrl(catalogOrigin);
+    const artifactUrl = desktopStoreCatalogEnvelopeUrl(artifactOrigin);
+    if (!catalogUrl || !artifactUrl || catalogUrl !== artifactUrl) {
+      throw Error("Store HTTPS origins are incomplete or divergent");
+    }
+    return Object.freeze({
+      catalogBaseOrigin: catalogOrigin,
+      artifactBaseOrigin: artifactOrigin,
+    });
+  } catch {
+    // null is rejected by both existing transport validators. Do not fall
+    // back to an unsigned catalog, a second origin or local candidate bytes.
+    return Object.freeze({ catalogBaseOrigin: null, artifactBaseOrigin: null });
+  }
+}
+
+async function fetchRemoteEnvelope(url, fetchImpl, timeoutMs) {
+  const controller = new AbortController();
+  let rejectDeadline;
+  const expired = new Promise((_, reject) => { rejectDeadline = reject; });
+  // AbortSignal alone is not a deadline: an injected HTTPS transport or
+  // streaming body can ignore abort and otherwise monopolize the Store queue.
+  const deadline = setTimeout(() => {
+    controller.abort();
+    rejectDeadline(Error("Store HTTPS catalog read exceeded deadline"));
+  }, timeoutMs);
+  const reading = (async () => {
     const response = await fetchImpl(url, {
       method: "GET", redirect: "error", credentials: "omit", cache: "no-store",
       headers: { Accept: "application/json", "Accept-Encoding": "identity" },
       signal: controller.signal,
     });
+    if (controller.signal.aborted) throw Error("Store HTTPS catalog read cancelled");
     if (response?.status !== 200 || response.redirected || response.url !== url
       || !response.headers || !response.body) throw Error("Store HTTPS response is not canonical");
     const encoding = response.headers.get("content-encoding");
@@ -115,14 +150,19 @@ async function fetchRemoteEnvelope(url, fetchImpl) {
     let total = 0;
     const chunks = [];
     for await (const chunk of response.body) {
+      if (controller.signal.aborted) throw Error("Store HTTPS catalog read cancelled");
       if (!(chunk instanceof Uint8Array)) throw Error("Store HTTPS chunk is invalid");
       total += chunk.byteLength;
       if (total > MAX_ENVELOPE) throw Error("Store HTTPS catalog exceeds bound");
       chunks.push(Buffer.from(chunk));
     }
+    if (controller.signal.aborted) throw Error("Store HTTPS catalog read cancelled");
     if (total === 0 || declared !== null && total !== Number(declared))
       throw Error("Store HTTPS response was incomplete");
     return Buffer.concat(chunks, total);
+  })();
+  try {
+    return await Promise.race([reading, expired]);
   } finally {
     clearTimeout(deadline);
     controller.abort();
@@ -239,7 +279,11 @@ function verify(helper, envelope, trust, output, execFileImpl) {
 export function createDesktopVerifiedStoreCatalogMiddleware({
   systemRoot, verifierRoot, userData, platform = process.platform, execFileImpl = execFile,
   catalogBaseOrigin = "", fetchImpl = globalThis.fetch,
+  fetchTimeoutMs = FETCH_TIMEOUT_MS,
 } = {}) {
+  if (!Number.isInteger(fetchTimeoutMs) || fetchTimeoutMs < 1
+    || fetchTimeoutMs > FETCH_TIMEOUT_MS)
+    throw TypeError("Desktop Store HTTPS deadline must be bounded");
   if (typeof systemRoot !== "string" || typeof verifierRoot !== "string"
     || typeof userData !== "string" || typeof execFileImpl !== "function"
     || typeof fetchImpl !== "function")
@@ -251,7 +295,13 @@ export function createDesktopVerifiedStoreCatalogMiddleware({
   let remoteUrl;
   try { remoteUrl = desktopStoreCatalogEnvelopeUrl(catalogBaseOrigin); }
   catch { remoteUrl = false; }
-  let queue = Promise.resolve();
+  // One serial verifier/watermark owner per installed host. A public catalog
+  // flood cannot monopolize that owner or delay a locally verified lifecycle
+  // decision behind an unlimited number of remote HTTPS reads.
+  const publicReads = [];
+  const localReads = [];
+  let publicOutstanding = 0;
+  let reading = false;
 
   async function readSigned(allowRemote = true) {
     const pinned = platform === "win32"
@@ -296,7 +346,7 @@ export function createDesktopVerifiedStoreCatalogMiddleware({
     if (allowRemote && remoteUrl !== null) {
       const candidate = join(directory, ".catalog-remote-" + randomUUID() + ".tmp");
       try {
-        const payload = await fetchRemoteEnvelope(remoteUrl, fetchImpl);
+        const payload = await fetchRemoteEnvelope(remoteUrl, fetchImpl, fetchTimeoutMs);
         await writeDurably(candidate, payload);
         return await verifyAndAccept(candidate, candidate);
       } catch {
@@ -310,10 +360,32 @@ export function createDesktopVerifiedStoreCatalogMiddleware({
     try { return await verifyAndAccept(envelope); }
     catch { return unavailable("catalog-verification-failed"); }
   }
+  function runNextRead() {
+    if (reading) return;
+    const next = localReads.shift() ?? publicReads.shift();
+    if (!next) return;
+    reading = true;
+    // Only the fixed Go verifier reads signed catalog bytes. Priority changes
+    // execution order, never source identity, trust, or acceptance watermark.
+    void readSigned(next.allowRemote)
+      .then(next.resolve, next.reject)
+      .finally(() => {
+        if (next.allowRemote) publicOutstanding--;
+        reading = false;
+        runNextRead();
+      });
+  }
+
   function queuedRead(allowRemote) {
-    const task = queue.then(() => readSigned(allowRemote), () => readSigned(allowRemote));
-    queue = task.then(() => {}, () => {});
-    return task;
+    if (allowRemote && publicOutstanding >= MAX_PUBLIC_CATALOG_READS) {
+      // A valid, fail-closed Store snapshot, never a stale ready/catalog grant.
+      return Promise.resolve(unavailable("catalog-reader-busy"));
+    }
+    return new Promise((resolve, reject) => {
+      if (allowRemote) publicOutstanding++;
+      (allowRemote ? publicReads : localReads).push({ allowRemote, resolve, reject });
+      runNextRead();
+    });
   }
   function desktopVerifiedStoreCatalog(req, res, next) {
     if (req.url?.split("?")[0] !== ENDPOINT) return next();
@@ -329,8 +401,20 @@ export function createDesktopVerifiedStoreCatalogMiddleware({
     if (req.method !== "GET") return reply(405, { error: "Store catalog is read-only" });
     if (!LOOPBACK.has(req.socket?.remoteAddress))
       return reply(403, { error: "Native Store requires loopback" });
-    if (req.headers.origin && req.headers.origin !== "http://" + req.headers.host)
+    // A local TCP peer is not sufficient: DNS rebinding or cross-site resource
+    // embedding must not trigger remote HTTPS reads and signed Go verification.
+    // Native module fetches can omit Origin, but their browser Fetch Metadata
+    // is still checked when present. This matches the Windows CURRENT reader.
+    const port = req.socket?.localPort;
+    const host = req.headers.host;
+    if (!Number.isInteger(port) || port < 1 || port > 65535
+      || host !== "127.0.0.1:" + port && host !== "[::1]:" + port
+      || req.headers.origin !== undefined
+        && req.headers.origin !== "http://" + host
+      || req.headers["sec-fetch-site"] !== undefined
+        && !["same-origin", "none"].includes(req.headers["sec-fetch-site"])) {
       return reply(403, { error: "Native Store rejects foreign origin" });
+    }
     void queuedRead(true).then(
       result => reply(200, result),
       () => reply(200, unavailable("catalog-verification-failed")),

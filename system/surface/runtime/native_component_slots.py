@@ -72,6 +72,8 @@ class ComponentSlotResolution:
     source_commit: str | None
     entrypoint: str | None
     slot: str | None
+    release_mode: str | None = None
+    health_mode: str | None = None
     pending_health: str | None = None
 
 
@@ -287,10 +289,14 @@ def _parse_resolution_output(payload: bytes, component_id: str, state: str) -> C
     commit_key = "CURRENT_SOURCE_COMMIT" if state == "current" else "PENDING_SOURCE_COMMIT"
     version = values.get(version_key, "")
     source_commit = values.get(commit_key, "")
+    release_mode = values.get("RELEASE_MODE", "")
+    health_mode = values.get("HEALTH_MODE", "")
     entrypoint = values.get("ENTRYPOINT", "")
     slot = values.get("SLOT", "")
     if not _SEMVER_RE.fullmatch(version) or not _SHA40_RE.fullmatch(source_commit):
         raise ComponentSlotVerificationError("runtime component slot identity is invalid")
+    if release_mode != "component-slot" or health_mode not in {"runtime", "none"}:
+        raise ComponentSlotVerificationError("runtime component signed lifecycle metadata is invalid")
     if (
         not entrypoint
         or not slot
@@ -311,6 +317,8 @@ def _parse_resolution_output(payload: bytes, component_id: str, state: str) -> C
         "SOURCE",
         version_key,
         commit_key,
+        "RELEASE_MODE",
+        "HEALTH_MODE",
         "SLOT",
         "ENTRYPOINT",
         "RUNTIME_SERVED_FROM_SLOT",
@@ -329,6 +337,8 @@ def _parse_resolution_output(payload: bytes, component_id: str, state: str) -> C
         source_commit=source_commit,
         entrypoint=entrypoint,
         slot=slot,
+        release_mode=release_mode,
+        health_mode=health_mode,
         pending_health=pending_health,
     )
 

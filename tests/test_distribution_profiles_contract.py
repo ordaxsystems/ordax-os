@@ -20,12 +20,21 @@ PUBLIC_SITE = json.loads(
 
 
 class DistributionProfilesContractTests(unittest.TestCase):
-    def test_single_product_source_authority(self):
+    def test_os_composition_source_authority_is_not_a_monorepo_claim(self):
         source = CONTRACT["source_authority"]
         self.assertEqual(source["repository"], "ordaxsystems/ordax-os")
         self.assertEqual(source["branch"], "main")
         self.assertTrue(source["single_product_codebase"])
         self.assertFalse(source["permanent_profile_forks_allowed"])
+        self.assertEqual(
+            source["scope"],
+            "ordax-os-owned-composition-and-distribution-profile-source",
+        )
+        self.assertEqual(
+            source["repository_ownership_contract"],
+            "docs/contracts/repository-ownership.json",
+        )
+        self.assertFalse(source["external_component_heads_must_match_os_main"])
 
     def test_owner_profile_is_internal_git_first(self):
         owner = CONTRACT["profiles"]["owner-development"]
@@ -46,11 +55,11 @@ class DistributionProfilesContractTests(unittest.TestCase):
                          owner["runtime_update_owner"])
         windows = adapters["windows-desktop"]
         self.assertEqual(windows["git_main_materializer"],
-                         "tools/windows-desktop/dev-update.cjs")
+                         "ordaxsystems/ordax-desktop/dev-update.cjs")
         self.assertEqual(windows["health_promotion_owner"],
-                         "tools/windows-desktop/dev-update.cjs")
+                         "ordaxsystems/ordax-desktop/dev-update.cjs")
         self.assertEqual(windows["application_relaunch_owner"],
-                         "tools/windows-desktop/main.cjs")
+                         "ordaxsystems/ordax-desktop/main.cjs")
         self.assertTrue(windows["automatic_idle_activation"])
         self.assertTrue(windows["operates_only_while_electron_is_running"])
         self.assertFalse(windows["electron_shell_self_update_implemented"])
@@ -278,6 +287,16 @@ class DistributionProfilesContractTests(unittest.TestCase):
         self.assertFalse(gate["implemented"])
         self.assertIn("kernel/initramfs/rootfs", gate["description"])
         self.assertTrue(CONTRACT["invariants"]["same_main_source_authority"])
+        self.assertEqual(
+            CONTRACT["invariants"]["same_main_source_authority_scope"],
+            "ordax-os-owned-profile-and-composition-source-only",
+        )
+        self.assertTrue(
+            CONTRACT["invariants"]["external_component_owners_keep_independent_source_authority"]
+        )
+        self.assertTrue(
+            CONTRACT["invariants"]["downstream_profiles_must_not_duplicate_transitive_component_pins"]
+        )
         self.assertTrue(CONTRACT["invariants"]["stable_must_not_require_git_client"])
         self.assertTrue(CONTRACT["invariants"]["stable_must_not_require_source_checkout"])
 

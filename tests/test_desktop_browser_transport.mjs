@@ -50,6 +50,8 @@ test("Native composition only probes USB keyboard and recovery when Windows tran
   assert.ok(source.includes('windowsDesktopHost ? Promise.resolve(null) : optionalNativeProbe(\\n      "OrdaX native recovery status unavailable"'.replace('\\n','\n')));
   assert.ok(source.includes('() => createNativeNetworkStatus(window)'),
     "Windows network observation must remain enabled");
+  assert.ok(source.includes('windowsDesktopHost ? Promise.resolve(null) : optionalNativeProbe(\\n      "OrdaX native network management unavailable"'.replace('\\n','\n')),
+    "Windows must not request Linux network management through a 503 route");
   assert.ok(source.includes('() => createNativePowerStatus(window)'),
     "Windows power observation must remain enabled");
 });

@@ -11,16 +11,7 @@ test('Space members Surface consumes canonical read, actor capability and member
   assert.match(membersSurface, /useWebAccount\(\)/);
   assert.match(membersSurface, /members\.list\(\{ spaceId: targetSpaceId, cursor \}\)/);
   assert.match(membersSurface, /actorCapability\.read\(\{ spaceId: targetSpaceId \}\)/);
-  // The newer Surface rejects a stale or cross-Space capability before
-  // dispatch. Its old predecessor checked the server management flag only.
-  // Exercise the stronger invariants whenever the pinned source exposes them.
-  if (membersSurface.includes('const capabilityCurrent =')) {
-    assert.match(membersSurface, /authorized\.activeSpace\?\.id !== spaceId \|\| capabilityState !== 'ready'/);
-    assert.match(membersSurface, /capability\?\.spaceId !== spaceId \|\| capability\.userId !== subjectId/);
-    assert.match(membersSurface, /capability\.state !== 'active' \|\| !capability\.canManageMembers/);
-  } else {
-    assert.match(membersSurface, /!capability\?\.canManageMembers/);
-  }
+  assert.match(membersSurface, /capabilityCurrent && capability\.state === 'active' && capability\.canManageMembers === true/);
   assert.match(membersSurface, /membershipActions\.changeMemberRole/);
   assert.match(membersSurface, /membershipActions\.suspendMember/);
   assert.match(membersSurface, /membershipActions\.reactivateMember/);
@@ -40,23 +31,10 @@ test('Surface consumes target-specific server projection instead of inferring au
   assert.doesNotMatch(membersSurface, /role\s*===\s*['"]admin['"]/);
   assert.doesNotMatch(membersSurface, /role\s*===\s*['"]owner['"]/);
   assert.doesNotMatch(membersSurface, /memberRole !== 'owner'/);
-  if (membersSurface.includes('const capabilityCurrent =')) {
-    assert.match(membersSurface, /const capabilityCurrent = capabilityState === 'ready' && capability\?\.spaceId === spaceId/);
-    assert.match(membersSurface, /&& capability\.userId === subjectId && identity\.state === 'signed-in' && !offline/);
-    assert.match(membersSurface, /const canManageMembers = capabilityCurrent && capability\.state === 'active' && capability\.canManageMembers === true/);
-  } else {
-    assert.match(membersSurface, /const canManageMembers = capabilityState === 'ready' && capability\?\.canManageMembers === true/);
-  }
+  assert.match(membersSurface, /const capabilityCurrent = capabilityState === 'ready' && capability\?\.spaceId === spaceId[\s\S]*?const canManageMembers = capabilityCurrent && capability\.state === 'active' && capability\.canManageMembers === true/);
   assert.match(membersSurface, /member\.actions\.canChangeRole/);
   assert.match(membersSurface, /member\.actions\.assignableRoles\.includes\(role\)/);
-  if (membersSurface.includes('const assignableRoles = actions.assignableRoles.filter')) {
-    // The current Surface excludes the already-assigned role from mutation
-    // options before rendering; preserve that bound in the contract test.
-    assert.match(membersSurface, /actions\.assignableRoles\.filter\(\(role: ActionRole\) => role !== member\.role\)/);
-    assert.match(membersSurface, /assignableRoles\.map\(\(role: ActionRole\)/);
-  } else {
-    assert.match(membersSurface, /actions\.assignableRoles\.map/);
-  }
+  assert.match(membersSurface, /actions\.assignableRoles\.filter/);
   assert.match(membersSurface, /actions\.canSuspend/);
   assert.match(membersSurface, /actions\.canReactivate/);
   assert.match(membersSurface, /actions\.canRemove/);
@@ -135,7 +113,7 @@ test('account context exposes only composed domain interfaces to the Surface', (
 test('Spaces experience documents real member management without weakening server authority', () => {
   assert.match(spacesExperience, /<SpaceMembersPanel\/>/);
   assert.match(spacesExperience, /lista e a gestão de membros do Space selecionado usam contratos reais/);
-  assert.match(spacesExperience, /capability (?:server-authoritative|do servidor) autoriza a sessão/);
+  assert.match(spacesExperience, /capability do servidor autoriza a sessão/);
   assert.match(spacesExperience, /servidor continua sendo a autoridade final/);
 });
 

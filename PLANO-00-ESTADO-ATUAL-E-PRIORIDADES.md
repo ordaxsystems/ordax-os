@@ -1,6 +1,6 @@
 # OrdaX — estado atual e prioridades de execução
 
-**Status:** ARCHIVED — snapshot histórico de 02/10/2026, **não** prioridade operacional corrente. Não seguir o antigo P0 Creator/USB: em 31/10/2026, o Windows Desktop e as funcionalidades básicas têm precedência; consultar `docs/CURRENT-STATE.md`, `docs/DEVELOPMENT-WORKFLOW.md` e `MVP.md`. **Revisão original:** 02/10/2026. **Base:** `main`, sempre revalidada contra contratos e source estruturado; este documento não fixa um SHA como autoridade.
+**Status:** ARCHIVED — snapshot histórico de 02/10/2026, **não** prioridade operacional corrente. Não seguir P0/P1, ordem de canais ou “próxima prioridade” deste arquivo; consultar `docs/CURRENT-STATE.md`, `docs/DEVELOPMENT-WORKFLOW.md`, `MVP.md` e owners/PRs atuais. **Revisão original:** 02/10/2026. **Base:** `main`, sempre revalidada contra contratos e source estruturado; este documento não fixa um SHA como autoridade.
 
 Este arquivo existe para impedir que inventários históricos dos planos longos sejam usados como se fossem o estado atual do repositório. Ele **não substitui a especificação de produto** de `PLANO-FUNCIONAL-SURFACE-E-APPS.md` nem a análise de legado de `PLANO-02-EVOLUCAO-E-REAPROVEITAMENTO-DO-LEGADO.md`. Quando houver divergência sobre **o que já existe, o que já foi provado ou qual é a próxima prioridade**, prevalecem, nesta ordem:
 
@@ -109,6 +109,8 @@ Depois dos P0, priorizar somente lacunas suportadas por necessidade concreta: co
 A fundação de identidade/entitlements, Spaces/Profile Packs, memória provider-neutral, distribuição de apps e Product MCP pode avançar em source sem deslocar os gates físicos do MVP. A **OrdaX Network limitada do MVP** é a única colaboração online promovida para este recorte e deve seguir `PLANO-08-ORDAX-NETWORK-COMUNIDADES-E-MENSAGENS.md`; cloud sync geral, colaboração além desse recorte, billing, Store pública e ferramentas mutáveis continuam sem precedência sobre release/USB/rollback.
 
 ### Recorte do legado `novo-ordax-os` para o MVP USB-only
+
+**ATENÇÃO (13/11/2026): toda a matriz C01–C27 abaixo é inventário histórico do recorte USB-only e não define o MVP multi-canal vigente.** Para Desktop, USB/Native, Creator, Surface, Apps, Site e Intelligence, use `MVP.md` + `docs/CURRENT-STATE.md` + contratos/owners atuais. Em particular, a antiga linha C11 (“Desktop instalado NÃO”) não deve ser usada para serializar ou adiar a jornada Desktop; ela registra somente a decisão daquele snapshot arquivado.
 
 Os planos longos registram capacidades herdadas como referência de produto, mas a decisão posterior do MVP mudou a prioridade. Para o MVP público atual, interpretar a matriz C01–C27 assim:
 

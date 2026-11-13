@@ -22,7 +22,7 @@ ARTIFACT_PROVENANCE_REQUIRED=YES
 ARTIFACT_SHA256_REQUIRED=YES
 ```
 
-`main` owns the source and build recipes. CI is an execution environment, not a second source authority.
+Each repository owner owns its own source and recipes. In this contract, `ordax-os/main` is the authority for **OS-owned source, Native composition and OS build recipes**; external components retain their canonical owners and enter a candidate through exact verified direct-dependency contracts/locks. CI is an execution environment, not a second source authority.
 
 ## Build chain
 
@@ -102,7 +102,7 @@ creator
 manifests
 ```
 
-The shared product source may feed several delivery modes, but those delivery artifacts remain independently selectable. The public product portal is also a separate artifact: a change under `sites/public/` must not rebuild the kernel, bootstrap, shared system bundle or product clients. A shared Surface change may legitimately rebuild all applicable product modes; it must not rebuild the kernel. A mobile-adapter-only change must not rebuild unrelated Web/Desktop/native targets. A kernel change may rebuild the dependent bootstrap, but not client modes.
+The composed product graph may feed several delivery modes, but those delivery artifacts remain independently selectable. “One product” does not require one Git repository or identical HEADs; each candidate records compatible component provenance. The public product portal is also a separate artifact: a change under `sites/public/` must not rebuild the kernel, bootstrap, shared system bundle or product clients. A shared Surface change may legitimately rebuild all applicable product modes; it must not rebuild the kernel. A mobile-adapter-only change must not rebuild unrelated Web/Desktop/native targets. A kernel change may rebuild the dependent bootstrap, but not client modes.
 
 `docs/contracts/build-autonomy.json` version 2 records the dependency relationships and the following scaling rules:
 
@@ -127,6 +127,59 @@ an exact reviewable governance template and the unchanged physical-producer
 body. This prevents CI governance merges from invoking the known-broken
 legacy Alpine/APK Surface builder merely because the Creator YAML changed,
 without weakening physical release requirements.
+
+### Owner/Development Git Pull is not a Creator build dependency
+
+`bootstrap/dev-base/ordax-pull` updates an **already installed** Owner/Dev
+Linux checkout. The standalone Creator only consumes the Pull when **producing
+new physical USB media**, including seeding the initial Git checkout with
+`--seed-from-local`. The installed updater never invokes the Creator.
+
+For an exact Pull-script-only pull request (optionally accompanied by its own
+tests, documentation and approved non-producer contracts), the existing
+`Owner Development Preflight` is the required code/recovery validation.
+`tools/ci/creator_owner_impact.py` suppresses only the redundant **Creator
+USB build-and-publish job on that PR**. Mixed changes affecting boot, Base,
+Supervisor, native helpers, physical media or unknown owners still fail
+closed to full USB proof. The same Pull source change on a `main` push
+**continues to produce/validate a new USB image** under the existing
+distribution policy, and manual Creator dispatch also forces full proof.
+This is review-time CI isolation, not an unreviewed change to USB publication.
+
+The policy is recorded in
+`docs/contracts/build-autonomy.json#owner_dev_pull_ci`, with ownership and
+runtime boundaries remaining in
+`docs/contracts/distribution-profiles.json#profiles.owner-development`.
+
+### Publication freshness of the rolling Creator USB release
+
+The Owner/Dev Creator channel publishes mutable assets at
+`creator-owner-prototype`, while each built ZIP is bound to its immutable OS
+source SHA. Serialized GitHub Actions builds are **not** sufficient proof that
+an older completed job may clobber that rolling channel: the official `main`
+may advance during compilation or offline QEMU proof.
+
+`tools/ci/creator_owner_publish_freshness.py` is the sole freshness decision
+owner. It validates the official repository origin and exact checked-out SHA,
+reads the latest `main` Git SHA, fetches that immutable revision and proves
+ancestry. Using the existing Creator producer-impact classifier, it allows
+the candidate only when the latest main has the **same revision** or has
+advanced exclusively through **non-producer** changes. A newer kernel, boot,
+Base, Native/USB source or unknown change makes the older candidate obsolete.
+
+The check is performed twice: before admitting an expensive queued
+`main` build, and again immediately before the release asset upload.
+Superseded jobs skip work/publication; inaccessible Git refs, unverified
+ancestry, unexpected source identity or network errors fail closed.
+Prebuilt candidate review, manual Creator invocation, cryptographic trust,
+QEMU/boot proof and cleanup are unaffected. Running builds are not
+cancelled, and no additional scheduler or publication authority is created.
+
+SSOT: `docs/contracts/build-autonomy.json#owner_dev_pull_ci.creator_main_freshness`.
+This prevents *known-stale* releases but does not claim GitHub's mutable
+multi-asset upload is an atomic cross-asset transaction. The published
+`creator-owner-update.json` receipt and ZIP/hash verification remain
+mandatory.
 
 The Portable/QEMU causal impact policy treats changes to the standalone Creator
 workflow routing and its contract tests as CI governance, not as changes to the
@@ -207,11 +260,23 @@ PHYSICAL_DEVICE_ACTION_STILL_REQUIRES_AUTHORIZED_LOCAL_EXECUTION=YES
 
 If CI is unavailable, source must remain reproducible from the versioned build recipe in another compatible container executor. CI availability must not redefine source truth.
 
+## Direct dependency and transitive composition
+
+Repository separation is an ownership boundary, not permission for every consumer to rebuild or pin every upstream repository.
+
+- A producer builds and validates its own artifact/source.
+- A composition owner selects the exact compatible revision or verified artifact of its **direct** dependency.
+- A downstream delivery owner consumes the composed candidate and its provenance instead of reopening all transitive source dependencies.
+- An unchanged upstream artifact must be reused by identity/hash. Rebuilding it only because another repository changed is not valid work.
+- A Surface-only change does not compile kernel/USB. An OS adoption of a new Surface revision runs the applicable composition gates. Desktop packaging runs when a new Desktop candidate is actually requested. Creator consumes the resulting verified media and does not become an OS builder.
+
+For Native product delivery, `ordax-os` is the composition owner. Its existing source locks, component catalog/channel contracts and release manifest remain the machine-readable authorities; this section does not introduce a second BOM.
+
 ## Desktop/Web independent of Creator and USB (2026-10-31)
 
 This is an artifact and release gate boundary, **not a fork of the product**:
 
-- **Desktop Windows:** `tools/windows-desktop/`, `tools/windows-emulator/` and `system/adapters/desktop/` are owned by the installed Windows Desktop/NSIS gates. The Desktop consumes shared versioned OS contracts and the separately pinned Surface; it never consumes or builds a Creator USB image, Buildroot, kernel or initramfs to deliver Windows-only code.
+- **Desktop Windows:** Electron and its NSIS build policy are owned by `ordaxsystems/ordax-desktop`; OS-side Native adapters `tools/windows-emulator/` and `system/adapters/desktop/` remain owned by `ordax-os` and are validated through the single reusable Windows NSIS producer. The Desktop consumes one exact, provenance-bearing OrdaX/OS composition candidate. The Surface revision used by that candidate is selected transitively by the OS composition lock; Desktop must not maintain a competing Surface pin. It never consumes or builds a Creator USB image, Buildroot, kernel or initramfs to deliver Windows-only code.
 - **OrdaX Web:** `system/composition/web/` is owned by Surface Web/Chromium client gates. It does not consume Creator, Native Linux releases, or USB installation. Shared Account/Platform semantics remain authoritative; no shadow backend is allowed.
 - **Shared Native / USB:** `system/composition/native/`, `system/adapters/native/`, `system/adapters/web/` (also imported by Native), shared nontrivial contracts, system runtime/hosts and boot/USB producer sources remain fail-closed. A change to `system/composition/native/main.mjs` is **not Windows-only** merely because a runtime branch checks `windowsDesktopHost`; it still reaches the USB entrypoint and requires a valid Native/Creator proof or a real architectural refactor.
 - **CI ownership:** `tools/ci/creator_owner_impact.py` recognizes only the exact client-exclusive roots and reviewed pure client contracts/tests. Web/Windows still run their respective builds and tests. Unknown or mixed deltas trigger the USB producer; the classifier cannot replace product tests, disable required checks or claim runtime availability.

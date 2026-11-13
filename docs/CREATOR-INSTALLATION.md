@@ -6,42 +6,32 @@ The first physical OrdaX USB must not depend on Codex, WSL, QEMU, a Linux workst
 
 ## Product path
 
-The permanent end-user path is:
+The permanent source owner of the Creator application/Core is **`ordaxsystems/ordax-creator`**. The OS remains owner of Base/kernel/boot/media contracts, official artifact production, signing/promotion policy and OS-side disposable proof producers.
 
 ```text
-OrdaX Desktop
-  -> Creator capability
-     -> Creator Core
-        -> thin Windows raw-device helper
-           -> verified OrdaX USB
+ordax-os verified media/artifact candidate
+  -> ordax-creator
+     -> verify exact artifact/provenance
+     -> discover + revalidate removable target
+     -> explicit per-target authorization
+     -> narrow privileged writer
+     -> flush + independent readback
+     -> verified OrdaX USB
 ```
 
-The first prototype may ship a small `ordax-creator.exe` before the complete OrdaX Desktop UI exists. That executable is not a second product: it is an early shell around the exact same Creator Core that the Desktop application will embed later.
+OrdaX Desktop may launch/present Creator, but it does not embed a second Core or inherit raw-disk authority. A standalone Creator Windows app and a Desktop entry point are two presentation paths to the **same independent Creator owner**, not duplicate implementations.
 
-## Why the Creator comes before the full Desktop
+## Historical extraction sequence
 
-Waiting for the complete Desktop application would unnecessarily block physical boot validation. Building an unrelated temporary flasher would create duplication and security debt.
+Early plans described a temporary `ordax-creator.exe` and later embedding its Core inside Desktop. That sequence is historical. Source extraction/cutover created `ordaxsystems/ordax-creator`; do not move the Core back into `ordax-os` or `ordax-desktop`.
 
-Therefore the sequence is:
-
-```text
-1. Creator Core
-2. minimal Windows creator shell
-3. resolve and verify all bootstrap artifacts
-4. assemble one deterministic Creator payload
-5. verify every payload byte against the canonical manifest
-6. implement narrow Windows removable-device adapter
-7. disposable-media proof
-8. explicit destructive authorization
-9. first physical USB
-10. later embed the same Creator Core in OrdaX Desktop
-```
-
-No step requires Codex.
+The invariant that remains valid is: Creator consumes prebuilt, verified OS artifacts and never requires the user to compile kernel/Base/Surface/Runtime. Physical writes still require explicit target authorization and readback.
 
 ## Creator Core responsibilities
 
-`tools/creator/core/` owns host-neutral policy:
+The independent Core in `ordaxsystems/ordax-creator` owns host-neutral media-consumer policy. Paths under `ordax-os/tools/creator/` are OS-owned artifact/proof/signing/authorization producers and must not become a second Creator Core.
+
+Creator Core responsibilities include:
 
 - validate the canonical two-partition contract;
 - reject `ORDAX-HOME` or any third required partition;

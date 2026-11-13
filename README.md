@@ -8,6 +8,12 @@ Repositório oficial e canônico do sistema operacional OrdaX em `ordaxsystems/o
 >
 > `washingtonmsdj/novo-ordax-os` permanece referência histórica, não uma segunda fonte de verdade ou destino de publicação.
 
+## Integração dos repositórios
+
+O OrdaX é um produto modular, não um conjunto de forks. Cada repositório possui uma responsabilidade; a composição Native é feita no `ordax-os` por contratos, locks e artefatos verificados. Consumidores não repetem pins transitivos: o Desktop consome uma composição OrdaX/OS, o Creator consome mídia verificada, a Surface consome ports e Apps publica componentes/catálogo.
+
+A regra operacional completa está em [docs/DEVELOPMENT-WORKFLOW.md](docs/DEVELOPMENT-WORKFLOW.md#integração-multi-repositório--composição-do-produto-2026-11-13) e a decisão em ADR-031 de [docs/DECISIONS.md](docs/DECISIONS.md). Owners independentes avançam em paralelo e só sincronizam quando uma nova revisão/artefato realmente precisa ser adotada.
+
 ## MVP e canais de produto
 
 O alvo de lançamento, a divisão **Owner/Development vs Stable/MVP**, o modelo de atualização sem Git para usuário final e os gates mínimos de produto estão documentados em [MVP.md](MVP.md). Leia esse arquivo antes de trabalhar em pendrive público, Creator, releases, site, conta ou lançamento.
@@ -18,6 +24,8 @@ A candidata Stable atualmente habilitada continua USB-only para uso físico; o c
 
 Para continuar a integração **OrdaX Intelligence + ChatGPT opcional + plugin MCP + ações nativas** leia [INTELLIGENCE-HANDOFF.md](INTELLIGENCE-HANDOFF.md) antes de alterar Studio, Surface, router, provider connectors ou Runtime. É guia de coordenação; a autoridade permanece nos contratos de `docs/INTELLIGENCE.md` e `docs/contracts/repository-ownership.json`. O chat dentro do Web e o conector usado no ChatGPT externo são fluxos distintos; source experimental não confirma disponibilidade real.
 
+**Capability Fabric v1 já integrado:** para descobrir exatamente o que a Aura/Personal já consomem, como a Store `CURRENT` invalida ações e por que isso não autoriza ferramentas MCP, consultar [docs/CAPABILITY-FABRIC.md](docs/CAPABILITY-FABRIC.md) antes de iniciar qualquer nova implementação. O estado atual e as pendências de UX/Runtime/Platform são separados no mesmo guia.
+
 ## Planejamento e referências históricas
 
 O roteador de planejamento fica em [`00-PLANOS-PRIORITARIOS/`](00-PLANOS-PRIORITARIOS/README.md). Antes de interpretar ou retomar qualquer `PLANO-*`, consulte também:
@@ -25,7 +33,7 @@ O roteador de planejamento fica em [`00-PLANOS-PRIORITARIOS/`](00-PLANOS-PRIORIT
 1. [`00-PLANOS-PRIORITARIOS/ROADMAP.md`](00-PLANOS-PRIORITARIOS/ROADMAP.md);
 2. [`00-PLANOS-PRIORITARIOS/REGISTRY.md`](00-PLANOS-PRIORITARIOS/REGISTRY.md).
 
-**Prioridade vigente (31/10/2026): OrdaX Desktop Windows funcional primeiro**, incluindo Conta/Spaces, Loja/Apps, Aura, arquivos e Platform, com validações focadas. Web evolui por seu próprio canal. USB, Creator, Buildroot e homologação física vêm depois e **não bloqueiam** o Desktop/Web. `MVP.md` já esclarece que "MVP" é nomenclatura histórica. Planos futuros podem ser preservados, mas `READY` não significa `EXECUTION-ELIGIBLE`.
+Prioridades operacionais não são fixadas neste README. Consulte `MVP.md`, `docs/CURRENT-STATE.md`, PRs/branches atuais e os owners canônicos antes de retomar trabalho. Texto datado em planos, handoffs ou evidências é contexto histórico; não cria fila global nem bloqueia owners independentes. `READY` documental não significa `EXECUTION-ELIGIBLE`.
 
 Os planos antigos da raiz permanecem temporariamente nos caminhos atuais porque ainda possuem referências vivas. Eles são subordinados a `docs/README.md`, `docs/CURRENT-STATE.md`, `MVP.md`, contratos, ADRs e owners canônicos.
 
@@ -64,7 +72,7 @@ A divisão canônica entre **sistema, apps, runtime e infraestrutura remota** es
 
 ## Principios
 
-- `main` e a source authority.
+- `ordax-os/main` e a source authority **do código/contratos/composição pertencentes ao OS**; Surface, Apps, Desktop, Creator, Intelligence, Runtime, Platform e Site mantêm suas próprias autoridades de source conforme `docs/contracts/repository-ownership.json`.
 - Pendrive/notebook sao alvos materializados.
 - Codex e parceiro opcional, nunca requisito de source/build/release/instalacao.
 - Builds nascem de receitas versionadas + CI + provenance/hash.
@@ -102,65 +110,48 @@ A divisão canônica entre **sistema, apps, runtime e infraestrutura remota** es
 18. `docs/DECISIONS.md`
 19. `00-PLANOS-PRIORITARIOS/README.md` quando a intenção for planejar/retomar trabalho futuro
 
-## Estrutura principal
+## Estrutura principal e owners externos
 
 ```text
-00-PLANOS-PRIORITARIOS/
-  README.md
-  ROADMAP.md
-  REGISTRY.md
-  inbox/
-  plans/
-  reports/
-  templates/
-  archive/
-boot/
-  esp/
-bootstrap/
-  kernel/
-  initramfs/
-  network/
-  release-acquisition/
-  recovery/
-system/
-  surface/
-  apps/
-  services/
-  adapters/
-    web/
-    mobile/
-    desktop/
-    native/
-platform/
-  releases/
-  state/
-  home/
-sites/
-  public/
-tools/
-  creator/
-    core/
-    cmd/ordax-creator/
-    platform/
-  dev/
-  verify/
-tests/
-docs/
+ordaxsystems/ordax-os
+  boot/ + bootstrap/       # boot, kernel/base, acquisition, recovery
+  system/
+    contracts/             # contratos públicos/sistêmicos
+    surface/               # host/runtime Native; visual source é externo
+    apps/                  # catálogos/projeções/integração, não app source
+    services/              # serviços/lifecycle do OS
+    adapters/              # capability boundaries
+    composition/           # composição verificada
+  tools/                   # producers/verifiers do OS
+  docs/contracts/          # ownership, locks, distribuição e trust
+  tests/
+
+owners externos consumidos por contrato/artefato:
+  ordax-surface            # UI visual
+  ordax-apps               # apps removíveis + Forge/Studio
+  ordax-intelligence       # source portátil de Intelligence
+  ordax-desktop            # host/packaging Windows
+  ordax-creator            # Creator Core/UI/media consumer
+  ordax-runtime            # Runtime/Device Host local
+  ordax-platform           # Control Plane/Product MCP/grants remotos
+  ordax-site               # apresentação/distribuição pública
 ```
 
+Esta árvore é de **ownership/composição**, não uma exigência de checkout monorepo. Paths externos podem aparecer materializados no staging/release sem mudar de owner.
 ## Build autonomo
 
 ```text
-alteracao em main
- -> receita versionada
- -> CI em ambiente fixado
- -> build apenas do afetado
- -> testes
+alteração no owner correto
+ -> integrar/testar proporcionalmente naquele repo
+ -> produzir source/artefato verificável
+ -> consumidor direto adota revisão apenas quando necessário
+ -> composição CI resolve pins/locks exatos
+ -> build apenas do impacto causal
  -> provenance + SHA-256
- -> artefato/release
+ -> artefato/candidato/release
 ```
 
-O objetivo e que ChatGPT, outra IA ou qualquer desenvolvedor mantenha o projeto pelo repositorio e pipeline canonico sem depender de Codex especificamente.
+O objetivo é que ChatGPT, outra IA ou qualquer desenvolvedor mantenha cada componente pelo seu owner/pipeline canônico sem depender de Codex e sem reconstruir dependências transitivas por rotina.
 
 ## Pendrive inicial
 
@@ -180,36 +171,40 @@ USB minimo
  -> OrdaX completa
 ```
 
-## Instalacao sem Codex
+## Instalação sem Codex
 
-O caminho permanente e o Creator como capacidade do OrdaX Desktop:
+O Creator é um **produto/owner independente**, não um Core a ser absorvido pelo Desktop:
 
 ```text
-OrdaX Desktop
- -> Creator Core
- -> adapter/helper Windows estreito
+ordax-os
+ -> produz/autoriza candidato de mídia verificável
+ -> ordax-creator
+    -> verifica artefato/proveniência
+    -> confirma target removível
+    -> grava + readback
  -> USB OrdaX verificado
 ```
 
-Para nao bloquear os primeiros testes fisicos esperando o Desktop completo, o CI pode publicar antes um pequeno `ordax-creator.exe`. Ele usa exatamente o mesmo Creator Core e depois desaparece como shell separado quando a interface Desktop assumir a funcao.
-
-O Creator nao compila kernel no Windows. Ele consome artefatos ja gerados e verificados pelo CI.
+`ordax-desktop` pode apresentar ou lançar essa experiência, mas não mantém um segundo Creator Core nem autoridade genérica de raw disk. O Creator não compila kernel no Windows; consome artefatos já gerados e verificados pelos producers do OS.
 
 Estado atual deve ser lido de `docs/CURRENT-STATE.md`, `docs/PROMOTION-GATES.md` e contratos correspondentes; este README não replica flags de autorização física para evitar drift.
-
 ## Desenvolvimento
 
 ```text
-editar
- -> preview Web/HMR
- -> testar
- -> commit/push main
- -> CI gera/verifica o afetado
- -> Web/Mobile/Desktop recebem o commit aplicavel
- -> OrdaX USB/Native recebe release/delta verificado
+editar no owner correto
+ -> validar proporcionalmente
+ -> integrar na main daquele owner
+ -> produzir revisão/artefato
+ -> continuar sem tocar consumidores compatíveis
+
+quando um produto/canal precisar da mudança:
+ -> consumidor direto adota revisão exata
+ -> composição verifica contratos/proveniência
+ -> somente os gates causais são executados
+ -> destino recebe candidato verificado
 ```
 
-Uma mudança de Surface não deve reconstruir kernel. Uma mudança de kernel não deve reconstruir Surface sem dependência real.
+Uma mudança de Surface não deve reconstruir kernel nem abrir PR Desktop/Creator por bookkeeping. Uma mudança de kernel não deve reconstruir Surface sem dependência real. Um app/Forge compatível pode avançar no `ordax-apps` sem alterar o OS até existir adoção real.
 
 ## Promocao
 

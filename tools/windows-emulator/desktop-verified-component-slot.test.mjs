@@ -1,14 +1,44 @@
 import test from "node:test";
 import assert from "node:assert/strict";
-import { createServer } from "node:http";
+import { createServer, request as httpRequest } from "node:http";
 import { createHash } from "node:crypto";
 import { mkdtempSync, mkdirSync, writeFileSync, readFileSync, rmSync, existsSync, unlinkSync, symlinkSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { createDesktopVerifiedComponentSlotMiddleware } from "../../system/adapters/desktop/verified-component-slot-host.mjs";
-import { createDesktopVerifiedStoreCatalogMiddleware, desktopStoreCatalogEnvelopeUrl } from "../../system/adapters/desktop/verified-store-catalog-host.mjs";
+import { createDesktopVerifiedStoreCatalogMiddleware, desktopStoreCatalogEnvelopeUrl, resolveDesktopStoreHttpsOrigins } from "../../system/adapters/desktop/verified-store-catalog-host.mjs";
 import { createDesktopStoreLifecycleMiddleware } from "../../system/adapters/desktop/store-lifecycle-host.mjs";
+import { acquireDesktopStoreArtifacts } from "../../system/adapters/desktop/store-artifact-transport.mjs";
 import { nativeEmulatorPlugin } from "./native-host.mjs";
+
+test("Native Store HTTPS preflight requires one canonical paired origin", () => {
+  assert.deepEqual(resolveDesktopStoreHttpsOrigins(), {
+    catalogBaseOrigin: "", artifactBaseOrigin: "",
+  });
+  const origin = "https://releases.example.test/ordax/store/v1/";
+  assert.deepEqual(resolveDesktopStoreHttpsOrigins(origin, origin), {
+    catalogBaseOrigin: origin, artifactBaseOrigin: origin,
+  });
+  assert.deepEqual(
+    resolveDesktopStoreHttpsOrigins(origin.slice(0, -1), origin), {
+      catalogBaseOrigin: origin.slice(0, -1), artifactBaseOrigin: origin,
+    },
+  );
+  for (const pair of [
+    [origin, ""], ["", origin],
+    [origin, "https://elsewhere.example.test/ordax/store/v1/"],
+    [origin, "https://releases.example.test/ordax/store/v2/"],
+    ["http://releases.example.test/ordax/store/v1/", origin],
+    [origin, origin + "?unsigned=1"],
+    [origin, "https://user:password@releases.example.test/ordax/store/v1/"],
+    ["https://releases.example.test/ordax/%2e%2e/v1/", origin],
+    [origin, null],
+  ]) {
+    assert.deepEqual(resolveDesktopStoreHttpsOrigins(...pair), {
+      catalogBaseOrigin: null, artifactBaseOrigin: null,
+    }, "invalid or split transport must fail closed");
+  }
+});
 
 const SHA = "a".repeat(40);
 const SOURCE = "578d38256fc906e7208764ef0b2616c8d64b784f";
@@ -118,6 +148,7 @@ test("Windows current-slot metadata and exact module bytes delegate to Go withou
         + "SOURCE=SLOT\n"
         + "CURRENT_VERSION=0.1.2\n"
         + "CURRENT_SOURCE_COMMIT=" + SOURCE + "\n"
+        + "RELEASE_MODE=component-slot\nHEALTH_MODE=runtime\n"
         + "SLOT=" + join(f.componentRoot, "assistant", "slot") + "\n"
         + "ENTRYPOINT=system/apps/assistant/src/runtime.mjs\n"
         + "RUNTIME_SERVED_FROM_SLOT=NO\n",
@@ -149,6 +180,229 @@ test("Windows current-slot metadata and exact module bytes delegate to Go withou
   assert.deepEqual(calls.map(({ args }) => args[0]), ["resolve-current", "read-runtime-file"]);
 });
 
+test("Windows current-slot Go verifier bounds concurrent reads and queued imports", async t => {
+  const f = setup(t);
+  let active = 0, peak = 0, started = 0;
+  const callbacks = [];
+  const base = await serve(t, f, (_binary, args, _options, cb) => {
+    assert.equal(args[0], "resolve-current");
+    active++;
+    peak = Math.max(peak, active);
+    started++;
+    callbacks.push(() => {
+      active--;
+      cb(null, Buffer.from(
+        "RUNTIME_COMPONENT_CURRENT_RESOLVED=YES\n"
+        + "COMPONENT_ID=assistant\n"
+        + "REVISION=1\nSOURCE=ABSENT\n"
+        + "RUNTIME_SERVED_FROM_SLOT=NO\n",
+      ));
+    });
+  });
+  const endpoint = base + "/__ordax/native/component-runtime?component=assistant&state=current";
+  const reads = Array.from({length: 110}, () =>
+    fetch(endpoint, {signal: AbortSignal.timeout(10_000)})
+      .then(response => response.status));
+  const deadline = Date.now() + 2_000;
+  while (started < 6 && Date.now() < deadline) {
+    await new Promise(resolve => setTimeout(resolve, 10));
+  }
+  assert.equal(started, 6, "Go concurrency must reach its bounded active limit");
+  assert.equal(peak, 6);
+  const rejected = await Promise.race([
+    Promise.any(reads.map(async read => {
+      const status = await read;
+      if (status !== 503) throw Error("not a backpressure response");
+      return status;
+    })),
+    new Promise((_, reject) => setTimeout(() =>
+      reject(Error("Unbounded Go read queue did not fail closed")), 2_000)),
+  ]);
+  assert.equal(rejected, 503);
+  assert.equal(started, 6, "Overflow cannot spawn another verifier process");
+  // Unblock the fixed six subprocess slots as the bounded queue drains.
+  const release = setInterval(() => {
+    for (const callback of callbacks.splice(0)) callback();
+  }, 5);
+  let statuses;
+  try { statuses = await Promise.all(reads); }
+  finally {
+    clearInterval(release);
+    for (const callback of callbacks.splice(0)) callback();
+  }
+  assert.ok(statuses.some(status => status === 503));
+  assert.ok(statuses.some(status => status === 200));
+  assert.ok(statuses.every(status => status === 200 || status === 503));
+  assert.ok(peak <= 6, "Never run more than six signed Go readers");
+  assert.equal(active, 0);
+
+  // A completed flood must not permanently starve normal signed metadata.
+  const recovery = fetch(endpoint, {signal: AbortSignal.timeout(2_000)});
+  const recoveryDeadline = Date.now() + 1_000;
+  while (callbacks.length === 0 && Date.now() < recoveryDeadline) {
+    await new Promise(resolve => setTimeout(resolve, 10));
+  }
+  assert.equal(callbacks.length, 1);
+  callbacks.shift()();
+  assert.equal((await recovery).status, 200);
+});
+
+test("Windows rejects stale or forged signed current-slot lifecycle metadata", async t => {
+  const f = setup(t);
+  let releaseMode = "component-slot";
+  let healthMode = "runtime";
+  const base = await serve(t, f, (_binary, args, _options, cb) => {
+    assert.equal(args[0], "resolve-current");
+    cb(null, Buffer.from(
+      "RUNTIME_COMPONENT_CURRENT_RESOLVED=YES\n"
+      + "COMPONENT_ID=assistant\n"
+      + "REVISION=4\n"
+      + "SOURCE=SLOT\n"
+      + "CURRENT_VERSION=0.1.2\n"
+      + "CURRENT_SOURCE_COMMIT=" + SOURCE + "\n"
+      + "RELEASE_MODE=" + releaseMode + "\n"
+      + (healthMode === null ? "" : "HEALTH_MODE=" + healthMode + "\n")
+      + "SLOT=" + join(f.componentRoot, "assistant", "slot") + "\n"
+      + "ENTRYPOINT=system/apps/assistant/src/runtime.mjs\n"
+      + "RUNTIME_SERVED_FROM_SLOT=NO\n",
+    ));
+  });
+  const path = base + "/__ordax/native/component-runtime?component=assistant&state=current";
+  for (const [release, health, expected] of [
+    ["component-slot", "runtime", 200],
+    ["component-slot", "none", 200],
+    ["git-app", "runtime", 409],
+    ["component-slot", "unknown", 409],
+    ["component-slot", null, 409],
+  ]) {
+    releaseMode = release;
+    healthMode = health;
+    const response = await fetch(path);
+    assert.equal(response.status, expected, release + "/" + health);
+    if (expected === 200) {
+      const payload = await response.json();
+      assert.equal(payload.source, "slot");
+      assert.equal(payload.entrypoint, "system/apps/assistant/src/runtime.mjs");
+      assert.equal(Object.hasOwn(payload, "releaseMode"), false,
+        "Native metadata transport must not silently expand its public contract");
+    }
+  }
+});
+
+test("Windows Store sees signed pending Go health without exposing pending modules or activation", async t => {
+  const f = setup(t);
+  let pending = null, health = "unknown", revision = 2, forged = false;
+  const commands = [];
+  const base = await serve(t, f, (_helper, args, _options, cb) => {
+    commands.push(args[0]);
+    if (args[0] === "status") {
+      return cb(null, Buffer.from(JSON.stringify({
+        $schema: "prototype-ordax.runtime-component-activation-state/1",
+        component_id: "assistant", revision, pending,
+        pending_health: health,
+      })));
+    }
+    if (args[0] === "resolve-pending") {
+      assert.ok(pending, "Go resolves only a real pending candidate");
+      assert.equal(args[args.indexOf("--trust") + 1], f.installedAnchorPath);
+      return cb(null, Buffer.from([
+        "RUNTIME_COMPONENT_PENDING_RESOLVED=YES",
+        "COMPONENT_ID=assistant",
+        "REVISION=" + (forged ? revision + 1 : revision),
+        "SOURCE=SLOT",
+        "PENDING_VERSION=" + pending.version,
+        "PENDING_SOURCE_COMMIT=" + pending.source_commit,
+        "PENDING_HEALTH=" + health,
+        "RELEASE_MODE=component-slot", "HEALTH_MODE=runtime",
+        "SLOT=" + join(f.componentRoot, "assistant", "verified-pending"),
+        "ENTRYPOINT=system/apps/assistant/src/runtime.mjs",
+        "RUNTIME_SERVED_FROM_SLOT=NO",
+      ].join("\n") + "\n"));
+    }
+    throw Error("Windows pending inspection cannot stage, promote or record health");
+  });
+  const url = base + "/__ordax/native/component-runtime?component=assistant&state=pending";
+  let response = await fetch(url);
+  assert.equal(response.status, 204, "Absent pending Go state is not an installed slot");
+  assert.deepEqual(commands, ["status"]);
+
+  pending = {version: "0.2.0", source_commit: SOURCE};
+  response = await fetch(url);
+  assert.equal(response.status, 200);
+  assert.deepEqual(await response.json(), {
+    componentId: "assistant", state: "pending", source: "slot",
+    revision: 2, version: "0.2.0", sourceCommit: SOURCE,
+    entrypoint: "system/apps/assistant/src/runtime.mjs",
+    pendingHealth: "unknown",
+  });
+  assert.deepEqual(commands, ["status", "status", "resolve-pending"]);
+
+  health = "healthy"; revision = 3;
+  response = await fetch(url);
+  assert.equal(response.status, 200);
+  assert.equal((await response.json()).pendingHealth, "healthy");
+
+  forged = true;
+  assert.equal((await fetch(url)).status, 409,
+    "A mismatched Go pending generation cannot be presented as staged");
+  assert.equal((await fetch(base
+    + "/__ordax/native/component-module/assistant/pending/0.2.0/" + SOURCE
+    + "/system/apps/assistant/src/runtime.mjs")).status, 404,
+    "Pending runtime bytes remain inaccessible through the CURRENT reader");
+  assert.ok(commands.every(cmd => ["status", "resolve-pending"].includes(cmd)));
+});
+
+test("Windows probation-only pending module requires exact signed unknown-health generation", async t => {
+  const f = setup(t);
+  const calls = [];
+  let health = "unknown", version = "0.4.3";
+  const base = await serve(t, f, (_binary, args, _opts, cb) => {
+    calls.push(args[0]);
+    if (args[0] === "status") return cb(null, Buffer.from(JSON.stringify({
+      $schema: "prototype-ordax.runtime-component-activation-state/1",
+      component_id: "notes", revision: 6,
+      pending: {version, source_commit: SOURCE}, pending_health: health,
+    })));
+    if (args[0] === "resolve-pending") {
+      return cb(null, Buffer.from([
+        "RUNTIME_COMPONENT_PENDING_RESOLVED=YES",
+        "COMPONENT_ID=notes", "REVISION=6", "SOURCE=SLOT",
+        "PENDING_VERSION=0.4.3", "PENDING_SOURCE_COMMIT=" + SOURCE,
+        "PENDING_HEALTH=" + health,
+        "RELEASE_MODE=component-slot", "HEALTH_MODE=runtime",
+        "SLOT=" + join(f.componentRoot, "notes", "verified-pending"),
+        "ENTRYPOINT=system/apps/notes/runtime.mjs",
+        "RUNTIME_SERVED_FROM_SLOT=NO", "",
+      ].join("\n")));
+    }
+    if (args[0] === "read-runtime-file") {
+      assert.deepEqual(args, [
+        "read-runtime-file", "--component", "notes", "--state", "pending",
+        "--version", "0.4.3", "--source-commit", SOURCE,
+        "--path", "system/apps/notes/runtime.mjs",
+        "--trust", f.installedAnchorPath, "--root", f.componentRoot,
+      ]);
+      return cb(null, Buffer.from("export const pending = true;\n"));
+    }
+    throw Error("Unexpected Go command: " + args[0]);
+  });
+  const url = base + "/__ordax/native/component-module/notes/pending/0.4.3/"
+    + SOURCE + "/system/apps/notes/runtime.mjs";
+  const valid = await fetch(url);
+  assert.equal(valid.status, 200);
+  assert.equal(await valid.text(), "export const pending = true;\n");
+  assert.deepEqual(calls, ["status", "resolve-pending", "read-runtime-file"]);
+  assert.equal((await fetch(url.replace("/notes/", "/assistant/"))).status, 404);
+  assert.deepEqual(calls, ["status", "resolve-pending", "read-runtime-file"],
+    "a non-probation module must not invoke Go");
+  health = "healthy";
+  assert.equal((await fetch(url)).status, 409, "health cannot be silently promoted");
+  health = "unknown"; version = "0.4.2";
+  assert.equal((await fetch(url)).status, 409, "stale version cannot be served");
+  assert.deepEqual(calls.slice(3), ["status", "status"],
+    "rejected pending module must not request verifier bytes");
+});
+
 test("Windows Native slot reader rejects traversal, pending, stale identity and forged CLI responses", async t => {
   const f = setup(t);
   let invocations = 0;
@@ -159,7 +413,6 @@ test("Windows Native slot reader rejects traversal, pending, stale identity and 
   });
   const invalid = [
     "/__ordax/native/component-runtime?component=clock&state=current",
-    "/__ordax/native/component-runtime?component=assistant&state=pending",
     "/__ordax/native/component-runtime?component=assistant&component=studio&state=current",
     "/__ordax/native/component-module/assistant/pending/0.1.2/" + SOURCE
       + "/system/apps/assistant/src/runtime.mjs",
@@ -173,11 +426,70 @@ test("Windows Native slot reader rejects traversal, pending, stale identity and 
     assert.notEqual(response.status, 200, path);
   }
   assert.equal(invocations, 0);
+  assert.equal((await fetch(base + "/__ordax/native/component-runtime?component=assistant&state=pending")).status, 409);
+  assert.equal(invocations, 1, "pending metadata reaches the Go status proof");
   assert.equal((await fetch(base + "/__ordax/native/component-runtime?component=assistant&state=current")).status, 409);
-  assert.equal(invocations, 1);
+  assert.equal(invocations, 2);
   const nonGet = await fetch(base + "/__ordax/native/component-runtime?component=assistant&state=current", { method: "POST" });
   assert.equal(nonGet.status, 405);
-  assert.equal(invocations, 1);
+  assert.equal(invocations, 2);
+});
+
+test("Windows signed CURRENT reader rejects foreign Host, Origin and cross-site browser requests", async t => {
+  const f = setup(t);
+  let verifierCalls = 0;
+  const base = await serve(t, f, (_binary, _args, _options, cb) => {
+    verifierCalls++;
+    cb(null, Buffer.from("invalid verifier output"));
+  });
+  const address = new URL(base);
+  const goodHost = address.host;
+  const paths = [
+    "/__ordax/native/component-runtime?component=assistant&state=current",
+    "/__ordax/native/component-compatibility?component=assistant&state=current&revision=7",
+    "/__ordax/native/component-module/assistant/current/0.1.2/" + SOURCE
+      + "/system/apps/assistant/src/runtime.mjs",
+  ];
+  const requestStatus = (path, headers) => new Promise((resolve, reject) => {
+    const request = httpRequest({
+      host: address.hostname, port: Number(address.port), path,
+      method: "GET", headers,
+    }, response => {
+      response.resume();
+      response.once("end", () => resolve(response.statusCode));
+    });
+    request.once("error", reject);
+    request.end();
+  });
+  for (const path of paths) {
+    for (const headers of [
+      { Host: "evil.example:" + address.port },
+      { Host: "localhost:" + address.port },
+      { Host: "127.0.0.1:1" },
+      { Host: goodHost, Origin: "https://evil.example" },
+      { Host: goodHost, Origin: "null" },
+      { Host: goodHost, Origin: "http://127.0.0.1:1" },
+      { Host: goodHost, "Sec-Fetch-Site": "cross-site" },
+      { Host: goodHost, "Sec-Fetch-Site": "same-site" },
+    ]) {
+      assert.equal(await requestStatus(path, headers), 403,
+        "Foreign browser origin must not launch the installed Go verifier");
+    }
+  }
+  assert.equal(verifierCalls, 0);
+  for (const path of paths) {
+    // Native same-origin fetches may omit Origin. Module imports normally
+    // include Sec-Fetch-Site but rely on their own Go CURRENT proof.
+    const expected = path.startsWith("/__ordax/native/component-module/") ? 200 : 409;
+    assert.equal(await requestStatus(path, {
+      Host: goodHost, "Sec-Fetch-Site": "same-origin",
+    }), expected);
+    assert.equal(await requestStatus(path, {
+      Host: goodHost, Origin: base, "Sec-Fetch-Site": "same-origin",
+    }), expected);
+  }
+  assert.equal(verifierCalls, paths.length * 2,
+    "Allowed reads still enter the original signed Go verifier");
 });
 
 test("Windows signed slot bridge rejects symlinked verifier even when test trust is pinned", async t => {
@@ -345,6 +657,38 @@ function signedCatalogFixture(sequence = 4, digest = "f".repeat(64)) {
   };
 }
 
+test("paired Store origin misconfiguration remains unavailable through the real Native route", async t => {
+  const f = setup(t);
+  f.policy.current_gates.component_publish_allowed = true;
+  writeFileSync(f.policyPath, JSON.stringify(f.policy));
+  let networkCalls = 0;
+  let verifierCalls = 0;
+  const split = resolveDesktopStoreHttpsOrigins(
+    "https://official.example.test/ordax/store/",
+    "https://different.example.test/ordax/store/",
+  );
+  const base = await serveVerifiedStore(t, f, () => {
+    verifierCalls++;
+    throw Error("no unsigned or misdirected Store verification");
+  }, {
+    catalogBaseOrigin: split.catalogBaseOrigin,
+    fetchImpl: async () => {
+      networkCalls++;
+      throw Error("no network request without consistent origins");
+    },
+  });
+  const response = await fetch(base + "/__ordax/native/store-catalog");
+  assert.equal(response.status, 200);
+  const body = await response.json();
+  assert.equal(body.schema, "ordax.verified-app-store-catalog/1");
+  assert.equal(body.state, "unavailable");
+  assert.equal(body.reason, "catalog-transport-invalid-origin");
+  assert.equal(body.authority, "none");
+  assert.deepEqual(body.entries, []);
+  assert.equal(networkCalls, 0);
+  assert.equal(verifierCalls, 0);
+});
+
 test("Desktop Store route is truthful and cannot run an unsigned or unpublished verifier", async t => {
   const f = setup(t);
   let invocations = 0;
@@ -365,6 +709,63 @@ test("Desktop Store route is truthful and cannot run an unsigned or unpublished 
     ["POST", "", 405], ["GET", "?anything=1", 400],
   ]) assert.equal((await fetch(url + suffix, { method })).status, expected);
   assert.equal(invocations, 0);
+});
+
+test("Windows signed Store catalog refuses DNS rebinding and cross-site embedding before Go or HTTPS", async t => {
+  const f = setup(t);
+  f.policy.current_gates.component_publish_allowed = true;
+  writeFileSync(f.policyPath, JSON.stringify(f.policy));
+  const store = join(f.userData, "Store");
+  mkdirSync(store);
+  writeFileSync(join(store, "catalog-envelope.json"), "SIGNED_TEST_FIXTURE");
+  let verifierCalls = 0, networkCalls = 0;
+  const base = await serveVerifiedStore(t, f, (_binary, args, _options, cb) => {
+    verifierCalls++;
+    writeFileSync(args[args.indexOf("--out") + 1],
+      JSON.stringify(signedCatalogFixture()));
+    cb(null, Buffer.alloc(0));
+  }, {
+    fetchImpl: async () => {
+      networkCalls++;
+      throw Error("Unconfigured Store catalog should not fetch");
+    },
+  });
+  const target = new URL(base);
+  const path = "/__ordax/native/store-catalog";
+  const requestStatus = headers => new Promise((resolve, reject) => {
+    const req = httpRequest({
+      hostname: target.hostname, port: Number(target.port),
+      method: "GET", path, headers,
+    }, res => {
+      res.resume();
+      res.once("end", () => resolve(res.statusCode));
+    });
+    req.once("error", reject);
+    req.end();
+  });
+  const host = target.host;
+  for (const headers of [
+    { Host: "foreign.example:" + target.port },
+    { Host: "localhost:" + target.port },
+    { Host: "127.0.0.1:1" },
+    { Host: host, Origin: "https://foreign.example" },
+    { Host: host, Origin: "null" },
+    { Host: host, Origin: "http://127.0.0.1:1" },
+    { Host: host, "Sec-Fetch-Site": "cross-site" },
+    { Host: host, "Sec-Fetch-Site": "same-site" },
+  ]) {
+    assert.equal(await requestStatus(headers), 403,
+      "Foreign Store reads must be rejected before network or verifier access");
+  }
+  assert.equal(verifierCalls, 0);
+  assert.equal(networkCalls, 0);
+  assert.equal(await requestStatus({ Host: host, "Sec-Fetch-Site": "same-origin" }), 200);
+  assert.equal(await requestStatus({
+    Host: host, Origin: base, "Sec-Fetch-Site": "same-origin",
+  }), 200);
+  assert.equal(verifierCalls, 2,
+    "Native same-origin requests continue through the signed Go verifier");
+  assert.equal(networkCalls, 0);
 });
 
 test("Desktop Store reuses pinned Go verifier and rejects signed catalog replay/equivocation", async t => {
@@ -578,6 +979,153 @@ test("Windows HTTPS Store fetch uses installed Go verifier and retains its signe
   assert.equal(calls.length, 2, "Trust revocation must block remote requests before network access");
 });
 
+test("Windows Store HTTPS deadline releases its reader queue even when fetch ignores abort", async t => {
+  const f = setup(t);
+  f.policy.current_gates.component_publish_allowed = true;
+  writeFileSync(f.policyPath, JSON.stringify(f.policy));
+  const good = Buffer.from("SIGNED_CATALOG_RECOVERY");
+  let reads = 0, releaseUnresponsive, verifierCalls = 0;
+  const base = await serveVerifiedStore(t, f, (_binary, args, _options, cb) => {
+    verifierCalls++;
+    assert.deepEqual(readFileSync(args[args.indexOf("--envelope") + 1]), good);
+    writeFileSync(args[args.indexOf("--out") + 1],
+      JSON.stringify(signedCatalogFixture(12, "7".repeat(64))));
+    cb(null, Buffer.alloc(0));
+  }, {
+    catalogBaseOrigin: "https://catalog.test/",
+    fetchTimeoutMs: 100,
+    fetchImpl: async url => {
+      reads++;
+      if (reads === 2) {
+        // Deliberately ignore AbortSignal; this connection never settles
+        // until the test releases it AFTER later signed reads have completed.
+        return new Promise(resolve => {
+          releaseUnresponsive = () => resolve(
+            remoteCatalogResponse(url, Buffer.from("UNSIGNED_LATE_RESPONSE")));
+        });
+      }
+      return remoteCatalogResponse(url, good);
+    },
+  });
+  const endpoint = base + "/__ordax/native/store-catalog";
+  assert.equal((await (await fetch(endpoint)).json()).state, "ready");
+  const path = join(f.userData, "Store", "catalog-envelope.json");
+
+  const afterTimeout = await (await fetch(endpoint, {
+    signal: AbortSignal.timeout(1_500),
+  })).json();
+  assert.equal(afterTimeout.state, "ready",
+    "A hung remote fetch must fall back to the reverified signed LKG");
+  assert.deepEqual(readFileSync(path), good);
+  assert.equal(verifierCalls, 2);
+
+  const afterRecovery = await (await fetch(endpoint, {
+    signal: AbortSignal.timeout(1_500),
+  })).json();
+  assert.equal(afterRecovery.state, "ready");
+  assert.equal(reads, 3, "The next read must not wait for the first hung transport");
+  assert.equal(verifierCalls, 3);
+  try {
+    releaseUnresponsive?.();
+    await new Promise(resolve => setImmediate(resolve));
+    assert.deepEqual(readFileSync(path), good,
+      "A late unsigned HTTP response must never overwrite the accepted catalog");
+  } finally {
+    releaseUnresponsive?.();
+  }
+  assert.throws(() => createDesktopVerifiedStoreCatalogMiddleware({
+    systemRoot: f.osRoot, verifierRoot: f.verifierRoot, userData: f.userData,
+    fetchTimeoutMs: 8001,
+  }), /deadline must be bounded/);
+});
+
+test("Windows Store bounds public catalog reads and prioritizes signed local lifecycle evidence", async t => {
+  const f = setup(t);
+  f.policy.current_gates.component_publish_allowed = true;
+  writeFileSync(f.policyPath, JSON.stringify(f.policy));
+  const payload = Buffer.from("SIGNED_PRIORITY_TEST");
+  const url = "https://catalog.test/catalog-envelope.json";
+  const events = [];
+  let fetches = 0, releaseBlocked, signalBlocked;
+  const blocked = new Promise(resolve => { signalBlocked = resolve; });
+  const middleware = createDesktopVerifiedStoreCatalogMiddleware({
+    systemRoot: f.osRoot, verifierRoot: f.verifierRoot,
+    userData: f.userData, platform: "win32",
+    catalogBaseOrigin: "https://catalog.test/",
+    execFileImpl: (_binary, args, _options, cb) => {
+      const source = args[args.indexOf("--envelope") + 1];
+      events.push(source.endsWith("catalog-envelope.json") ? "local-verify" : "remote-verify");
+      writeFileSync(args[args.indexOf("--out") + 1],
+        JSON.stringify(signedCatalogFixture(14, "e".repeat(64))));
+      cb(null, Buffer.alloc(0));
+    },
+    fetchImpl: async target => {
+      assert.equal(target, url);
+      fetches++;
+      if (fetches === 2) {
+        signalBlocked();
+        // The first queued public read holds the single verifier owner.
+        return new Promise(resolve => {
+          releaseBlocked = () => resolve(remoteCatalogResponse(url, payload));
+        });
+      }
+      return remoteCatalogResponse(url, payload);
+    },
+  });
+  const server = createServer((req, res) => middleware(req, res, () => {
+    res.writeHead(418); res.end();
+  }));
+  await new Promise(resolve => server.listen(0, "127.0.0.1", resolve));
+  t.after(async () => {
+    releaseBlocked?.();
+    server.closeAllConnections();
+    await new Promise(resolve => server.close(resolve));
+  });
+  const endpoint = "http://127.0.0.1:" + server.address().port
+    + "/__ordax/native/store-catalog";
+  assert.equal((await (await fetch(endpoint)).json()).state, "ready");
+  assert.equal(fetches, 1);
+
+  const active = fetch(endpoint, {signal: AbortSignal.timeout(6_000)})
+    .then(response => response.json());
+  await blocked;
+  const flood = Array.from({length: 24}, () =>
+    fetch(endpoint, {signal: AbortSignal.timeout(6_000)})
+      .then(response => response.json()));
+  let earlyBackpressure = 0;
+  const observedFlood = flood.map(promise => promise.then(snapshot => {
+    if (snapshot.reason === "catalog-reader-busy") earlyBackpressure++;
+    return snapshot;
+  }));
+  const local = middleware.readVerifiedLocalCatalog();
+  const deadline = Date.now() + 1_500;
+  while (earlyBackpressure < 8 && Date.now() < deadline) {
+    await new Promise(resolve => setTimeout(resolve, 20));
+  }
+  assert.ok(earlyBackpressure >= 8,
+    "Flood beyond the bound must get an immediate unavailable snapshot");
+  assert.equal(fetches, 2,
+    "No excess remote HTTPS call may begin while the verifier owner is blocked");
+
+  const beforeRelease = events.length;
+  releaseBlocked();
+  const localResult = await local;
+  assert.equal(localResult.state, "ready");
+  assert.equal(localResult.sequence, 14);
+  const all = await Promise.all([active, ...observedFlood]);
+  assert.ok(all.filter(s => s.reason === "catalog-reader-busy").length >= 8);
+  assert.ok(all.every(s => s.state === "ready" || s.reason === "catalog-reader-busy"));
+  const after = events.slice(beforeRelease);
+  assert.equal(after[0], "remote-verify");
+  assert.equal(after[1], "local-verify",
+    "A signed local read must preempt queued public network refreshes");
+  assert.deepEqual(JSON.parse(readFileSync(join(f.userData, "Store",
+    "catalog-watermark.json"), "utf8")), {
+    schema: "ordax.store-catalog-watermark/1",
+    sequence: 14, catalogSha256: "e".repeat(64),
+  });
+});
+
 test("Windows signed Store remote acquisition refuses failed signatures without replacing accepted catalog", async t => {
   const f = setup(t);
   f.policy.current_gates.component_publish_allowed = true;
@@ -767,6 +1315,174 @@ function signedWindowsStageFixture() {
   snapshot.entries[0].artifacts = identities;
   return {contents, identities, snapshot};
 }
+
+test("Windows Store artifact acquisition aborts a non-cooperative HTTPS peer without caching its late bytes", async t => {
+  const f = setup(t);
+  const store = join(f.userData, "Store");
+  mkdirSync(store);
+  const fixture = signedWindowsStageFixture();
+  const candidate = { artifacts: fixture.identities };
+  const bytesByHash = new Map(Object.keys(fixture.identities).map(role =>
+    [fixture.identities[role].sha256, fixture.contents[role]]));
+  const origin = "https://catalog.test/release/";
+  let releaseSlow;
+  const read = (url) => {
+    const id = new URL(url).pathname.split("/").at(-1);
+    const bytes = bytesByHash.get(id);
+    assert.ok(bytes);
+    return remoteCatalogResponse(url, bytes, { "content-length": String(bytes.length) });
+  };
+  const unfinished = acquireDesktopStoreArtifacts({
+    userData: f.userData,
+    baseOrigin: origin,
+    candidate,
+    fetchTimeoutMs: 100,
+    fetchImpl: async url => new Promise(resolve => {
+      releaseSlow = () => resolve(read(url)); // Intentionally ignores AbortSignal.
+    }),
+  });
+  await assert.rejects(unfinished, /exceeded deadline/);
+  const artifact = fixture.identities.package;
+  const cachePath = join(store, "artifacts", "v1", "sha256",
+    artifact.sha256.slice(0, 2), artifact.sha256);
+  assert.equal(existsSync(cachePath), false, "Timed-out HTTP bytes cannot enter the signed cache");
+
+  const recovered = await acquireDesktopStoreArtifacts({
+    userData: f.userData, baseOrigin: origin, candidate,
+    fetchImpl: async url => read(url),
+  });
+  for (const [role, path] of Object.entries(recovered)) {
+    assert.deepEqual(readFileSync(path), fixture.contents[role]);
+  }
+  releaseSlow?.();
+  await new Promise(resolve => setImmediate(resolve));
+  assert.deepEqual(readFileSync(cachePath), fixture.contents.package,
+    "Late HTTP completion must not replace the recovered signed artifact");
+  await assert.rejects(acquireDesktopStoreArtifacts({
+    userData: f.userData, baseOrigin: origin, candidate,
+    fetchTimeoutMs: 20001, fetchImpl: async url => read(url),
+  }), /deadline must be bounded/);
+});
+
+test("Windows Store overlaps two signed artifact downloads without duplicate CAS writers", async t => {
+  const f = setup(t);
+  mkdirSync(join(f.userData, "Store"));
+  const fixture = signedWindowsStageFixture();
+  const bytesByHash = new Map(Object.keys(fixture.identities).map(role =>
+    [fixture.identities[role].sha256, fixture.contents[role]]));
+  let network = 0, active = 0, peak = 0;
+  const fetchImpl = async url => {
+    network++;
+    active++;
+    peak = Math.max(peak, active);
+    await new Promise(resolve => setTimeout(resolve, 35));
+    active--;
+    const digest = new URL(url).pathname.split("/").at(-1);
+    const bytes = bytesByHash.get(digest);
+    assert.ok(bytes, "Only signed digest paths may be fetched");
+    return remoteCatalogResponse(url, bytes, {"content-length": String(bytes.length)});
+  };
+  const params = {
+    userData: f.userData, baseOrigin: "https://catalog.test/artifacts/",
+    candidate: {artifacts: fixture.identities}, fetchImpl,
+  };
+  const paths = await acquireDesktopStoreArtifacts(params);
+  assert.equal(peak, 2, "At most two HTTPS artifact reads run concurrently");
+  assert.equal(active, 0);
+  assert.equal(network, 4);
+  assert.deepEqual(Object.keys(paths),
+    ["package", "release", "compatibility", "componentEnvelope"]);
+  for (const [role, path] of Object.entries(paths)) {
+    assert.deepEqual(readFileSync(path), fixture.contents[role]);
+  }
+  await acquireDesktopStoreArtifacts(params);
+  assert.equal(network, 4, "A verified CAS cache hit never downloads twice");
+
+  // Equal digests in two roles must share the same atomic writer and bytes.
+  const shared = signedWindowsStageFixture();
+  shared.identities.compatibility = {
+    ...shared.identities.release,
+    name: "notes.compatibility.json",
+  };
+  const other = setup(t);
+  mkdirSync(join(other.userData, "Store"));
+  const sharedParams = {
+    ...params, userData: other.userData,
+    candidate: {artifacts: shared.identities},
+  };
+  const result = await acquireDesktopStoreArtifacts(sharedParams);
+  assert.equal(result.compatibility, result.release);
+  assert.deepEqual(readFileSync(result.compatibility), shared.contents.release);
+  assert.equal(network, 7,
+    "Shared signed digest needs only one fetch and one atomic CAS writer");
+});
+
+test("Windows Store rejects conflicting signed sizes for one SHA-256 before cache or network", async t => {
+  const f = setup(t);
+  mkdirSync(join(f.userData, "Store"));
+  const fixture = signedWindowsStageFixture();
+  const shared = { ...fixture.identities.release };
+  const conflicting = {
+    ...fixture.identities,
+    compatibility: { ...shared, name: "notes.compatibility.json", size: shared.size + 1 },
+  };
+  let downloads = 0;
+  const params = {
+    userData: f.userData, baseOrigin: "https://catalog.test/artifacts/",
+    candidate: {artifacts: conflicting},
+    fetchImpl: async () => { downloads++; throw Error("Unsigned network access"); },
+  };
+  await assert.rejects(acquireDesktopStoreArtifacts(params),
+    /digest has conflicting sizes/);
+  assert.equal(downloads, 0, "Inconsistent signed identities must fail before HTTPS");
+  assert.equal(existsSync(join(f.userData, "Store", "artifacts")), false,
+    "A contradictory catalog must not create a CAS cache directory");
+  // Even with a valid same-digest cache file, contradiction must not bypass
+  // verification by reusing the first role's per-digest download Promise.
+  const healthy = { ...conflicting, compatibility: { ...shared,
+    name: "notes.compatibility.json" } };
+  const bytes = new Map(Object.entries(fixture.identities).map(([role, id]) =>
+    [id.sha256, fixture.contents[role]]));
+  await acquireDesktopStoreArtifacts({
+    ...params, candidate: {artifacts: healthy},
+    fetchImpl: async url => {
+      const digest = new URL(url).pathname.split("/").at(-1);
+      const value = bytes.get(digest);
+      assert.ok(value);
+      return remoteCatalogResponse(url, value,
+        {"content-length": String(value.length)});
+    },
+  });
+  await assert.rejects(acquireDesktopStoreArtifacts(params),
+    /digest has conflicting sizes/);
+  assert.equal(downloads, 0, "A cache hit cannot make conflicting size valid");
+});
+
+test("Windows Store joins outstanding signed downloads before a failed acquisition returns", async t => {
+  const f = setup(t);
+  mkdirSync(join(f.userData, "Store"));
+  const fixture = signedWindowsStageFixture();
+  let active = 0, started = 0;
+  await assert.rejects(acquireDesktopStoreArtifacts({
+    userData: f.userData,
+    baseOrigin: "https://catalog.test/artifacts/",
+    candidate: {artifacts: fixture.identities},
+    fetchImpl: async url => {
+      started++; active++;
+      const first = started === 1;
+      await new Promise(resolve => setTimeout(resolve, first ? 10 : 50));
+      active--;
+      if (first) throw Error("Signed artifact transport failed");
+      const digest = new URL(url).pathname.split("/").at(-1);
+      const bytes = Object.values(fixture.contents).find(value =>
+        createHash("sha256").update(value).digest("hex") === digest);
+      assert.ok(bytes);
+      return remoteCatalogResponse(url, bytes, {"content-length": String(bytes.length)});
+    },
+  }), /Signed artifact transport failed/);
+  assert.equal(started, 2, "First error stops scheduling more network reads");
+  assert.equal(active, 0, "Other worker has settled before the lock is released");
+});
 
 test("Windows Store stages signed install/update only as durable Go pending-health", async t => {
   for (const operation of ["install", "update"]) {
@@ -1030,6 +1746,180 @@ test("Windows Store removes only after Go commits exact signed uninstall and rea
     ["verify-store-catalog", "uninstall-state", "status"]);
   assert.equal((await (await fetch(base + "/__ordax/native/store-catalog")).json()).state,
     "ready", "Catalog remains available after its lock is released");
+});
+
+test("Windows Store incomplete body cannot block an independent completed lifecycle request", async t => {
+  // The untrusted client holds one keep-alive request open after the headers.
+  // No installed trust exists, so a complete request must reject with 503
+  // promptly; the test does not install, mutate slots or call a Go writer.
+  const middleware = createDesktopStoreLifecycleMiddleware({
+    systemRoot: join(tmpdir(), "ordax-absent-os-store-test"),
+    verifierRoot: join(tmpdir(), "ordax-absent-verifier-store-test"),
+    userData: join(tmpdir(), "ordax-absent-profile-store-test"),
+    catalogReader: async () => { throw new Error("must not be read without trust"); },
+    platform: "win32",
+    execFileImpl: () => { throw new Error("must not call Go without trust"); },
+    fetchImpl: async () => { throw new Error("must not download without trust"); },
+  });
+  let signalSlow;
+  const sawSlow = new Promise(resolve => { signalSlow = resolve; });
+  const server = createServer((req, res) => {
+    if (req.headers["x-ordax-test-slow"] === "yes") signalSlow();
+    middleware(req, res, () => { res.writeHead(418); res.end(); });
+  });
+  await new Promise(resolve => server.listen(0, "127.0.0.1", resolve));
+  t.after(() => {
+    // Close the malicious half-written request even if the assertion fails.
+    server.closeAllConnections();
+    return new Promise(resolve => server.close(resolve));
+  });
+  const base = "http://127.0.0.1:" + server.address().port;
+  const stalled = httpRequest(base + "/__ordax/native/store-lifecycle", {
+    method: "POST", agent: false,
+    headers: { Origin: base, "Content-Type": "application/json",
+      "Content-Length": "300", "X-OrdaX-Test-Slow": "yes" },
+  });
+  stalled.on("error", () => {}); // Disconnected intentionally in cleanup.
+  stalled.on("response", response => response.resume());
+  t.after(() => stalled.destroy());
+  stalled.write('{"schema":"ordax.app-lifecycle-plan/2",');
+  await sawSlow;
+  // A complete plan must reach the serialized executor even while the first
+  // peer has not ended its body. An obsolete design would stall until timeout.
+  const fast = await fetch(base + "/__ordax/native/store-lifecycle", {
+    method: "POST",
+    headers: { Origin: base, "Content-Type": "application/json" },
+    body: JSON.stringify(windowsRemovePlan()),
+    signal: AbortSignal.timeout(3_000),
+  });
+  assert.equal(fast.status, 503, "untrusted incomplete body must not block valid request parsing");
+  stalled.destroy();
+  const tooLarge = await fetch(base + "/__ordax/native/store-lifecycle", {
+    method: "POST",
+    headers: { Origin: base, "Content-Type": "application/json" },
+    body: "x".repeat(33 * 1024),
+    signal: AbortSignal.timeout(3_000),
+  });
+  assert.equal(tooLarge.status, 400, "oversized plans remain rejected before any Go handoff");
+});
+
+test("Windows Store bounds validated lifecycle queue while Go is stalled", async t => {
+  const f = setup(t);
+  f.policy.current_gates.component_publish_allowed = true;
+  writeFileSync(f.policyPath, JSON.stringify(f.policy));
+  const store = join(f.userData, "Store");
+  mkdirSync(store);
+  writeFileSync(join(store, "catalog-envelope.json"), "SIGNED_TEST_ENVELOPE");
+
+  let releaseGo;
+  let signalGoStarted;
+  const goStarted = new Promise(resolve => { signalGoStarted = resolve; });
+  let privilegedCalls = 0;
+  const base = await serveGoStoreLifecycle(t, f, (_binary, args, _opts, cb) => {
+    if (args[0] === "verify-store-catalog") {
+      writeFileSync(args[args.indexOf("--out") + 1],
+        JSON.stringify(signedCatalogFixture()));
+      return cb(null, Buffer.alloc(0));
+    }
+    if (args[0] === "uninstall-state") {
+      privilegedCalls += 1;
+      if (privilegedCalls === 1) {
+        releaseGo = () => cb(Error("Test Go writer deliberately cancelled"));
+        signalGoStarted();
+        return;
+      }
+      return cb(Error("Go writer must not mutate a stale state"));
+    }
+    return cb(Error("Unexpected Go command"));
+  });
+  const plan = windowsRemovePlan();
+  const blocked = postStoreLifecycle(base, plan);
+  await goStarted;
+  const queued = Array.from({ length: 24 }, () => postStoreLifecycle(base, plan));
+  let deadline;
+  try {
+    // The first Go writer is still blocked; the 16-operation bound includes
+    // that writer and must reject overflow without waiting for its callback.
+    const overflow = Promise.any(queued.map(async promise => {
+      const response = await promise;
+      if (response.status !== 503) throw Error("Not an overflow response");
+      return response;
+    }));
+    const result = await Promise.race([
+      overflow,
+      new Promise((_, reject) => {
+        deadline = setTimeout(() => reject(Error(
+          "Store lifecycle overflow was blocked behind the Go writer",
+        )), 3_000);
+      }),
+    ]);
+    assert.equal(result.status, 503);
+    assert.equal(privilegedCalls, 1, "overflow must never reach privileged Go");
+  } finally {
+    clearTimeout(deadline);
+    releaseGo?.();
+    await Promise.allSettled([blocked, ...queued]);
+  }
+});
+
+test("Windows Store lifecycle refuses DNS rebinding and cross-site POST before signed Go access", async t => {
+  const f = setup(t);
+  f.policy.current_gates.component_publish_allowed = true;
+  writeFileSync(f.policyPath, JSON.stringify(f.policy));
+  const store = join(f.userData, "Store");
+  mkdirSync(store);
+  writeFileSync(join(store, "catalog-envelope.json"), "SIGNED_TEST_ENVELOPE");
+  let verifyCalls = 0, mutations = 0;
+  const base = await serveGoStoreLifecycle(t, f, (_binary, args, _options, cb) => {
+    if (args[0] === "verify-store-catalog") {
+      verifyCalls++;
+      writeFileSync(args[args.indexOf("--out") + 1], JSON.stringify(signedCatalogFixture()));
+      return cb(null, Buffer.alloc(0));
+    }
+    mutations++;
+    return cb(Error("Privileged Go must remain fail-closed in this fixture"));
+  });
+  const endpoint = new URL(base);
+  const host = endpoint.host;
+  const plan = JSON.stringify(windowsRemovePlan());
+
+  const postWithHeaders = headers => new Promise((resolve, reject) => {
+    // Explicit Host is required to exercise rebinding; fetch forbids setting
+    // that header in normal browser mode.
+    const req = httpRequest({
+      hostname: endpoint.hostname, port: Number(endpoint.port),
+      path: "/__ordax/native/store-lifecycle", method: "POST",
+      headers: {"Content-Type": "application/json", "Content-Length": Buffer.byteLength(plan), ...headers},
+    }, res => {
+      res.resume();
+      res.once("end", () => resolve(res.statusCode));
+    });
+    req.once("error", reject);
+    req.end(plan);
+  });
+
+  for (const headers of [
+    {Host: "attacker.example:" + endpoint.port, Origin: "http://attacker.example:" + endpoint.port},
+    {Host: "localhost:" + endpoint.port, Origin: "http://localhost:" + endpoint.port},
+    {Host: "127.0.0.1:1", Origin: "http://127.0.0.1:1"},
+    {Host: host, Origin: "https://attacker.example"},
+    {Host: host, Origin: "null"},
+    {Host: host, Origin: base, "Sec-Fetch-Site": "cross-site"},
+    {Host: host, Origin: base, "Sec-Fetch-Site": "same-site"},
+    {Host: host, Origin: base, "Sec-Fetch-Site": "none", "Content-Type": "text/plain"},
+  ]) {
+    const status = await postWithHeaders(headers);
+    assert.ok(status === 403 || status === 415,
+      "Unexpected foreign or noncanonical Native POST response: " + status);
+  }
+  assert.equal(verifyCalls, 0, "Foreign origin must not read signed catalog");
+  assert.equal(mutations, 0, "Foreign origin must not reach the Go state writer");
+
+  assert.equal(await postWithHeaders({
+    Host: host, Origin: base, "Sec-Fetch-Site": "same-origin",
+  }), 503, "Legitimate Native POST still reaches the existing fail-closed Go lifecycle");
+  assert.equal(verifyCalls, 1);
+  assert.equal(mutations, 1);
 });
 
 test("Windows Store never grants installs, unsigned plans or foreign-origin uninstall", async t => {

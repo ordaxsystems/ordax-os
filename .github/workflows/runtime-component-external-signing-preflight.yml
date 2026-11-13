@@ -6,7 +6,7 @@ on:
     paths:
       - 'tools/runtime-component-channel/check_external_signing_preflight.py'
       - 'tools/runtime-component-channel/check_production_readiness.py'
-      - 'tools/runtime-component-channel/verify_unsigned_candidate.py'
+      - 'sdk/app-sdk-v1/verify_unsigned_candidate.py'
       - 'docs/contracts/runtime-component-package.json'
       - 'docs/contracts/runtime-component-trust-policy.json'
       - 'tests/test_runtime_component_unsigned_candidate.py'
@@ -16,7 +16,7 @@ on:
     paths:
       - 'tools/runtime-component-channel/check_external_signing_preflight.py'
       - 'tools/runtime-component-channel/check_production_readiness.py'
-      - 'tools/runtime-component-channel/verify_unsigned_candidate.py'
+      - 'sdk/app-sdk-v1/verify_unsigned_candidate.py'
       - 'docs/contracts/runtime-component-package.json'
       - 'docs/contracts/runtime-component-trust-policy.json'
       - 'tests/test_runtime_component_unsigned_candidate.py'

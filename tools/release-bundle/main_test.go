@@ -129,6 +129,104 @@ func TestLooseModeIsRejectedOnUnix(t *testing.T) {
 	}
 }
 
+func collectedVersion(t *testing.T, root string) sourceEntry {
+	t.Helper()
+	entries, _, err := collectEntries(root)
+	if err != nil {
+		t.Fatal(err)
+	}
+	for _, entry := range entries {
+		if entry.name == "system/version" {
+			return entry
+		}
+	}
+	t.Fatal("collected system/version is missing")
+	return sourceEntry{}
+}
+
+func TestSourceIdentityAcceptsUnchangedRegularInput(t *testing.T) {
+	root := makeSourceTree(t)
+	entry := collectedVersion(t, root)
+	opened, err := os.Open(entry.path)
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer opened.Close()
+	if err := verifySourceFileIdentity(entry, opened); err != nil {
+		t.Fatalf("valid collected source was rejected: %v", err)
+	}
+}
+
+func TestSourceIdentityRejectsSameSizeReplacementAfterCollection(t *testing.T) {
+	root := makeSourceTree(t)
+	entry := collectedVersion(t, root)
+	old, err := os.ReadFile(entry.path)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if err := os.Remove(entry.path); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.WriteFile(entry.path, old, 0o644); err != nil {
+		t.Fatal(err)
+	}
+	opened, err := os.Open(entry.path)
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer opened.Close()
+	if err := verifySourceFileIdentity(entry, opened); err == nil {
+		t.Fatal("same-size, same-mode replacement was accepted after inventory")
+	}
+}
+
+func TestSourceIdentityRejectsSameBytesSymlinkAfterCollection(t *testing.T) {
+	root := makeSourceTree(t)
+	entry := collectedVersion(t, root)
+	old, err := os.ReadFile(entry.path)
+	if err != nil {
+		t.Fatal(err)
+	}
+	foreign := filepath.Join(t.TempDir(), "foreign-version")
+	if err := os.WriteFile(foreign, old, 0o644); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.Remove(entry.path); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.Symlink(foreign, entry.path); err != nil {
+		if runtime.GOOS == "windows" {
+			t.Skipf("symlink unavailable: %v", err)
+		}
+		t.Fatal(err)
+	}
+	opened, err := os.Open(entry.path)
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer opened.Close()
+	if err := verifySourceFileIdentity(entry, opened); err == nil {
+		t.Fatal("symlink to identical bytes was accepted after inventory")
+	}
+}
+
+func TestSourceIdentityRejectsInPlaceChangeToModificationTime(t *testing.T) {
+	root := makeSourceTree(t)
+	entry := collectedVersion(t, root)
+	changedTime := entry.info.ModTime().Add(10 * time.Second)
+	if err := os.Chtimes(entry.path, changedTime, changedTime); err != nil {
+		t.Fatal(err)
+	}
+	opened, err := os.Open(entry.path)
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer opened.Close()
+	if err := verifySourceFileIdentity(entry, opened); err == nil {
+		t.Fatal("in-place file modification after inventory was accepted")
+	}
+}
+
 func TestOverwriteIsRejected(t *testing.T) {
 	root := makeSourceTree(t)
 	out := filepath.Join(t.TempDir(), "system.tar")

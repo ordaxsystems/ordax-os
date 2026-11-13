@@ -78,7 +78,21 @@ class NativeCapabilityAdapterTests(unittest.TestCase):
 
     def test_native_optional_capability_probes_run_in_parallel(self):
         text = NATIVE_COMPOSITION.read_text(encoding="utf-8")
-        self.assertIn("const preferenceStorePromise = createNativePreferenceStore(window);", text)
+        # Preference bootstrap remains concurrent with optional probes, but
+        # installed Windows now shares a bounded GET signal across critical ports.
+        preference_read = """const preferenceStorePromise = createNativePreferenceStore(window, {
+    signal: desktopBootstrapSignal,
+  });"""
+        self.assertIn(preference_read, text)
+        self.assertIn("const bootState = Promise.all([", text)
+        self.assertLess(
+            text.index(preference_read),
+            text.index("const optionalPortsPromise = Promise.all(["),
+        )
+        self.assertLess(
+            text.index("const optionalPortsPromise = Promise.all(["),
+            text.index("const bootState = Promise.all(["),
+        )
         self.assertIn("const optionalPortsPromise = Promise.all([", text)
         self.assertIn("] = await optionalPortsPromise;", text)
         for factory in (
@@ -130,10 +144,20 @@ class NativeCapabilityAdapterTests(unittest.TestCase):
             "const optionalPortsPromise = Promise.all([", 1
         )[1].split("  ]);", 1)[0]
         self.assertNotIn("createNativeDeviceProfile", boot_probes)
-        self.assertEqual(source.count("createNativeDeviceProfile(window)"), 1)
+        self.assertEqual(
+            source.count("createNativeDeviceProfile(window, { signal: firstRunOptionalReadSignal })"), 1,
+        )
+        self.assertEqual(
+            source.count("createNativeFirstRunCursor(window, { signal: firstRunOptionalReadSignal })"), 1,
+        )
+        self.assertIn("AbortSignal.timeout(5000)", source)
         self.assertIn(
             "const deviceProfilePromise = optionalNativeProbe(",
             source,
+        )
+        self.assertLess(
+            source.index("const firstRunCursorPromise = optionalNativeProbe("),
+            source.index("const optionalPortsPromise = Promise.all(["),
         )
         self.assertLess(
             source.index("const deviceProfilePromise = optionalNativeProbe("),
@@ -176,15 +200,27 @@ class NativeCapabilityAdapterTests(unittest.TestCase):
         surface_mount = text.index("const surface = mountSurface(")
         pre_surface = text[:surface_mount]
         self.assertNotIn("await accountLifecycle.refresh();", pre_surface)
-        self.assertIn(
-            "const resumeAccountConnectivity = async () => {\n"
-            "    await identitySession.refresh();\n"
-            "    await identityActions.refresh();\n"
-            "    await accountLifecycle.refresh();\n"
-            "    await accountSync.refresh();\n"
-            "  };",
-            text,
+        refresh_start = text.index("const resumeAccountConnectivity = async () => {")
+        refresh_end = text.index("const onOnline = () => {", refresh_start)
+        refresh = text[refresh_start:refresh_end]
+        required_steps = (
+            "await identitySession.refresh();",
+            'currentIdentity.state === "signed-in"',
+            'priorIdentity.state === "signed-in"',
+            "priorIdentity.subjectId === currentIdentity.subjectId",
+            "refreshCurrentSpaceCatalog({ force: true });",
+            "await identityActions.refresh();",
+            "await accountLifecycle.refresh();",
+            "await accountSync.refresh();",
         )
+        for step in required_steps:
+            self.assertIn(step, refresh)
+        # Boot health is independent of the authorized catalog read and
+        # reconnect never promotes an unauthenticated identity.
+        for previous, current in zip(required_steps, required_steps[1:]):
+            self.assertLess(refresh.index(previous), refresh.index(current))
+        self.assertIn("unsubscribeSpacesIdentity();", text)
+        self.assertNotIn("await spaces.refresh();", pre_surface)
         health = text.index("void updateWatcher.markHealthy();")
         deferred_refresh = text.index(
             "void resumeAccountConnectivity().catch((error) => {",

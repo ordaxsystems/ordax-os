@@ -2,7 +2,7 @@
 
 Status: CANÔNICO PARA ESCOPO DE LANÇAMENTO
 
-> Compatibilidade documental: o arquivo continua se chamando `MVP.md` porque esse caminho é referenciado por agentes, contratos, documentação e histórico. **“MVP” não é mais a estratégia ativa de produto.** Quando documentos antigos, nomes de profiles, contratos ou identificadores técnicos usarem `MVP`/`stable-mvp`, leia-os como nomenclatura histórica ou identificador de compatibilidade até uma migração específica, e não como autorização para reduzir o produto a um conjunto mínimo.
+> Compatibilidade documental: o arquivo continua se chamando `MVP.md` porque esse caminho é referenciado por agentes, contratos, documentação e histórico. **“MVP” como redução artificial do produto não é a estratégia ativa.** O fechamento operacional é feito por jornadas completas e independentes por owner/canal, com sincronização somente onde houver dependência real. Quando documentos antigos, nomes de profiles, contratos ou identificadores técnicos usarem `MVP`/`stable-mvp`, leia-os como nomenclatura histórica ou identificador de compatibilidade até uma migração específica, e não como autorização para reduzir o produto ou impor uma fila global.
 
 Este arquivo define **o que pertence ao ciclo de lançamento do OrdaX**. Leia-o antes de trabalhar em lançamento, USB, Creator, Native, Surface, apps, Conta, Spaces, Intelligence, Studio, Runtime, Web, Mobile, Platform, distribuição ou monetização.
 
@@ -10,7 +10,7 @@ Este arquivo define **o que pertence ao ciclo de lançamento do OrdaX**. Leia-o 
 
 ## 1. Princípio central
 
-O OrdaX não está mais sendo desenvolvido segundo a lógica de “produto mínimo”.
+O OrdaX não usa “produto mínimo” como justificativa para cortar, simular ou abandonar capacidades iniciadas. A entrega operacional é fechada por **jornadas completas de cada owner/canal**, que podem avançar em paralelo quando independentes; nenhuma modalidade vira fila global para as demais.
 
 A regra de lançamento é:
 
@@ -28,6 +28,16 @@ O equilíbrio obrigatório é:
 - não manter mocks permanentes no lugar de capacidades que o produto realmente precisa;
 - não atrasar um canal funcional por outra capacidade independente que ainda esteja em homologação;
 - preservar segurança, integridade, privacidade, recovery e autoridade dos owners como gates reais.
+
+## Modelo de fechamento operacional — jornadas paralelas por owner (2026-11-13)
+
+**Decisão de execução:** OS/USB, Desktop, Surface, Apps, Creator, Site e Intelligence podem avançar simultaneamente quando não existe dependência causal. A sincronização ocorre no ponto real de composição, publicação, instalação ou adoção de contrato/artefato. Nenhum canal precisa esperar outro apenas por ordem histórica de roadmap.
+
+Cada canal mantém seu próprio critério de produto real. Para o **Desktop Windows**, continuam válidos os critérios antes definidos: instalador canônico realmente executado; Surface/OS/proveniência confirmados; Conta/Space quando o fluxo exigir; Loja com catálogo verificado; pelo menos um app real instalado/aberto/atualizado/removido quando essa jornada for declarada; atualização/recovery comprovados; prova física proporcional. Para **USB/Native**, conclusão exige seus próprios artefatos, boot/health/recovery e autorização física quando aplicável. Source/CI isolados não substituem nenhuma dessas provas.
+
+**Integração entre repos:** `ordax-desktop` consome a composição OrdaX/OS; `ordax-surface`, `ordax-apps` e `ordax-intelligence` produzem componentes; `ordax-creator` consome mídia verificada; `ordax-site` publica apresentação/distribuição pública. Dependências transitivas não são pinadas novamente pelos consumidores. Ver ADR-031 e `docs/DEVELOPMENT-WORKFLOW.md`.
+
+Priorizar integração vertical funcional em cada jornada em vez de polimento, auditorias, documentação ou infraestrutura repetitivos. Executar primeiro no owner correto, validar proporcionalmente e integrar com gates aplicáveis. Nenhum atalho revoga assinatura, autenticação, autorização, integridade, update/recovery ou critérios do canal. `docs/CURRENT-STATE.md` registra o que foi efetivamente provado.
 
 ## 2. Regra de inclusão no Baseline de Lançamento
 

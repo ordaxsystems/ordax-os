@@ -1,3 +1,310 @@
+# Execução operacional paralela por owner — 13/11/2026
+
+**Status: política de execução e checkpoint de fonte; NÃO é autorização de lançamento nem prova física.** Não existe mais fila global “Desktop primeiro / USB depois”. OS/USB, Desktop, Surface, Apps, Creator, Site e Intelligence avançam em paralelo quando independentes e sincronizam somente em dependências reais de composição/artefato/contrato. Cada canal só é chamado de concluído quando sua jornada real no destino aplicável estiver comprovada. Política: [`MVP.md`](../MVP.md), ADR-031 e [`docs/DEVELOPMENT-WORKFLOW.md`](DEVELOPMENT-WORKFLOW.md). **A tabela abaixo é um resumo não exaustivo; pins e revisões exatas pertencem aos contratos/locks vigentes, não a este texto.**
+
+| Frente | Evidência de integração em fonte | Disponibilidade real ainda não provada |
+| --- | --- | --- |
+| OS / composição | A composição seleciona a Surface pelo contrato canônico [`docs/contracts/surface-source.json`](contracts/surface-source.json). **A revisão exata deve sempre ser lida desse lock**, não copiada para esta tabela. | A revisão selecionada pelo lock **não** está automaticamente comprovada no Desktop instalado; `source_commit`/proveniência e atualização física precisam ser verificados no candidato real. O owner Surface pode avançar além do pin adotado sem ativação automática no host. |
+| Surface | Home sem demos, projeção de estados reais da Loja, seleção de Spaces e gestão de membros com verificação de permissões estão integradas no owner. | Renderização com dados reais depende dos ports e da sessão do host; código e checks não provam abertura, instalação ou atualização física de aplicativo. |
+| Apps / Aura | O owner `ordax-apps` contém a integração de Aura/recuperação de inferência já incorporada ao seu histórico; a **revisão exata realmente composta/instalada** deve vir do catálogo/lock/proveniência do candidato, não de um SHA copiado neste resumo. | Instalação/ativação física da revisão atual ainda precisa ser provada no candidato correspondente. Forge permanece com outro executor, separado. |
+| Loja Web | `system/composition/web/main.tsx` ainda usa `createUnavailableAppStoreCatalogPort('web-store-transport-unavailable')`. | Não existe transporte Web autorizado conectado nesta composição; UI e contrato isolados não constituem uma Loja utilizável. |
+| Seleção de Space Web | `system/adapters/web/space-selection.mjs` compõe `createWebSpaceSelectionStore()` somente em memória. | Seleção não persiste após recarga; persistência futura deve manter escopo por identidade e revalidar catálogo/permissões, sem criar segunda autoridade de Conta. |
+| Desktop Windows | Há prova física anterior da instalação/boot em `DESKTOP-4UFL03B` para uma revisão mais antiga, registrada abaixo. `ordax-desktop` e `ordax-os` têm fontes independentes. | Não há prova de que o novo conjunto OS/Surface/Apps esteja instalado, de que a Loja instale/execute um app real ou de que atualizações do host e app fechem o ciclo ponta a ponta. |
+
+**Execução causal, não lista de microtarefas:** em cada owner, avançar a próxima lacuna real até produto observável; só aguardar outro repo quando o próximo passo consumir de fato seu contrato/artefato. Uma falha independente não bloqueia implementação sem dependência causal; nenhuma falha é mascarada por estado de UI. A entrega é medida por experiência funcional no destino, não por quantidade de PRs integradas.
+
+## Compatibilidade de base ainda presente no código (verificação de 13/11/2026)
+
+A migração para a base independente **não deve ser confundida com remoção já concluída de todos os consumidores Alpine**. Na fonte verificada nesta data, `bootstrap/dev-base/build.py` ainda importa `bootstrap/base/alpine_core.py`; `bootstrap/stable-base/build.py` ainda valida o lock Alpine/APK; e `system/surface/bin/ordax-surface` ainda contém um caminho de provisionamento do runtime gráfico via APK/Alpine 3.22. O perfil Buildroot em `bootstrap/independent-base/` é uma implementação separada; seu estado operacional/promovível deve ser determinado pelos candidatos, provas e contratos atuais, não inferido de uma decisão de produto ou de um README datado.
+
+**Regra para novas alterações:** não introduzir novas dependências Alpine em candidatos independentes; não declarar remoção global nem apagar caminhos de compatibilidade sem mapear chamadas, modo de produto, artefatos de release e substituto validado. Esta observação é um diagnóstico de *fonte*, não prova de execução no USB/host instalado e não cria fila global que bloqueie os outros owners.
+
+## Como ler os checkpoints abaixo
+
+**Somente a seção inicial de 13/11/2026 acima representa o checkpoint operacional consolidado deste arquivo.** Todo bloco datado abaixo preserva evidência do estado observado naquele momento e pode conter PRs, SHAs, devices, prioridades, “next action”, “CURRENT” ou “pendente” que já foram superados. Esses termos **não** criam fila atual. Para estado volátil, consultar o código/contrato vigente e o owner correspondente; para PRs e CI, consultar o GitHub atual; para Runtime/Platform/MCP, consultar os respectivos owners. Em divergência, o bloco mais novo e as fontes canônicas vencem o snapshot antigo.
+
+---
+
+**CHECKPOINT HISTÓRICO — Desktop Product MCP / 04-11-2026**
+
+A ponte Native Product Windows [OS #2400](https://github.com/ordaxsystems/ordax-os/pull/2400)
+foi **INTEGRADA** à `ordax-os/main` no merge squash
+[`5eb9e2f8d6c95c457c307e872e6f953bd48e2a36`](https://github.com/ordaxsystems/ordax-os/commit/5eb9e2f8d6c95c457c307e872e6f953bd48e2a36).
+O último commit da branch foi `9a7930f09b3048c328d0dd7ad9d678433bbfa0bd`.
+[Windows CI #41930150826](https://github.com/ordaxsystems/ordax-os/actions/runs/41930150826)
+foi **SUCCESS**, incluindo NSIS instalado isoladamente e módulos Product exigidos.
+A prova Owner USB [#41930150978](https://github.com/ordaxsystems/ordax-os/actions/runs/41930150978)
+foi **SUCCESS** com `CREATOR_OWNER_USB_REQUIRED=NO reason=nonproducer-contract-only`:
+o classificador valida exatamente 10 adições Windows-guardadas na composição
+Native, 28 adições de tradução e blobs Product com hashes fixados;
+alterações diferentes voltam a exigir o gate USB. Teste físico isolado
+do classificador no Windows: **13/13 PASS**. Não há autorização geral
+para dispensar Creator/Buildroot, apenas a não incidência causal
+demonstrada para esse diff. A PR #2243 mantém missão Buildroot separada.
+
+**Instalação física do Desktop concluída e inicialização comprovada — 04/11/2026:**
+no `DESKTOP-4UFL03B`, o artefato canônico do
+[Windows CI main #41932869697](https://github.com/ordaxsystems/ordax-os/actions/runs/41932869697)
+foi transferido pelo navegador autenticado (sem extrair tokens).
+ZIP: 680.449.830 bytes, SHA-256
+`d5b82019352ce91b37c6d8aa3e355374486a648e59fdc61d2eaef2ca37d66da3`.
+O instalador DEV alpha.20 interno tem SHA-256
+`3582a775a833897ca7c0bd9edd27e3c1842fe0fc72f9170388e65afacee8fcbe`.
+A atualização usou **somente o caminho canônico existente**
+`%LOCALAPPDATA%\\Programs\\OrdaX OS Desktop Dev`; o perfil Electron
+já existente foi preservado. O wrapper PowerShell atingiu limite de
+300 segundos durante a etapa de desinstalação da versão antiga e,
+portanto, **não há prova de código de saída zero do NSIS**. Contudo,
+após a saída do instalador, o journal continha
+`install-files-complete`; todos os quatro módulos Product/Native
+existiam e seus hashes de blob Git eram exatamente os de
+`ordax-os/main@5eb9e2f8`. O
+`desktop-assets/source-provenance.json` instalado publicou
+`os_sha=5eb9e2f8d6c95c457c307e872e6f953bd48e2a36`.
+
+**Boot físico do Desktop comprovado:** após reiniciar somente o
+Desktop, cinco subprocessos da **única instalação** estavam ativos.
+O log real (`2026-11-05T00:02:36Z–00:02:52Z`) confirmou Native host
+loopback pronto, `Native Surface state reporter authenticated`,
+`Native Surface command polling authenticated`,
+`Native shell mounted and ready` e `Native Surface ready`.
+Um aviso não fatal de rede Native `503` ainda aparece nesse boot;
+não declarar a rede/Platform totalmente saudável por isso.
+
+**Binário Product DEV instalado e provado offline — 04/11/2026:**
+sem novo build, o executável canônico do checkout local
+`ordax-runtime/dist/desktop-component/ordax-product-agent.exe`
+foi validado com tamanho **18.682.343 bytes**, SHA-256
+`988f2ee5a57404f03db8536d515551d3ed2976783a1575e92223b8f611fe327e`,
+`source_commit=5173f2b01cb7abb1e5d98fdd00750c17fb6f85e4` e
+ZIP SHA-256
+`f61657b140853a3b3a1cb05a3591508db203e1a041eb85b627e2b81c7c76afe3`,
+todos idênticos à evidência OS
+`docs/evidence/desktop-runtime-windows-candidate-2026-10-31.json`.
+Somente o binário verificado foi copiado atomicamente para
+`%APPDATA%\\OrdaX OS Desktop Dev\\native-state\\product-runtime-dev\\ordax-product-agent.exe`.
+O `--self-test` físico desse arquivo passou com **exit 0**,
+`ok=true`, perfil `ordax-desktop`, quatro ações limitadas,
+`network_used=false`, `device_credential_used=false` e
+`remote_action_proven=false`.
+Uma prova isolada do Supervisor OS instalada (`developmentCandidate=true`,
+`spawnImpl` proibido) devolveu `blocked/device_not_enrolled`,
+`mcpReady=false`, `centralSessionAttested=false`, sem tentativa
+de iniciar um processo: **fail-closed aprovado**.
+
+**Product Device remoto ainda NÃO pronto:** `OrdaX Desktop
+(DESKTOP-4UFL03B)` segue offline/discovery-only; o perfil Product
+não tem `agent-settings.json` nem token próprios. O executável
+DEV está pronto no slot correto, **não está autorizado a executar ações
+remotas**. O MCP auxiliar mantém identidade e grants separados; não
+copiar tokens, criar outro Device ou inferir `capability_digest`
+a partir do teste offline.
+
+**Checkpoint de vinculação Product em 04/11/2026 — Runtime #327 era o bloqueio observado naquele momento:**
+verificação física no `DESKTOP-4UFL03B` + SQL **somente leitura** na
+Platform confirmou dois Device records ativos, cada um com credencial não
+revogada. Com hashes de prova temporários (sem exibir MachineGuid, token ou
+binding), `machine_id()` corresponde **somente ao auxiliar existente** e
+`desktop_machine_binding()` corresponde **exatamente ao Product existente**.
+O SQL `ordax_enroll_product_device_v1` já reutiliza `device_id` pelo
+binding único; **não criar terceiro Device e não alterar o banco**.
+
+O `ordax-runtime/main` atual ainda não passa `desktop_machine_binding()`
+ao `configure_device` do Owner CLI: queda silenciosa para `machine_id()`
+pode rotacionar o token do **auxiliar**. A correção mínima, sem novo
+mecanismo, está na [Runtime issue #327](https://github.com/ordaxsystems/ordax-runtime/issues/327#issuecomment-6647580361)
+e pertence ao executor Runtime, não a este OS. **Não iniciar matrícula
+Owner OAuth Product nem copiar credenciais antes do fix e da aprovação
+Owner explícita**. O binário DEV já instalado e com `--self-test` físico
+aprovado dispensa novo build: depois do fix, re-matricular o **mesmo**
+Product Device e provar heartbeat, `capability_digest`, grant e recibo
+remoto, mantendo `mcpReady=false` até atestação central.
+
+A oscilação de presença do auxiliar estava separadamente registrada em
+[Runtime #324](https://github.com/ordaxsystems/ordax-runtime/issues/324).
+A [Runtime #327](https://github.com/ordaxsystems/ordax-runtime/issues/327)
+foi posteriormente **fechada em 05/11/2026**; não tratá-la como bloqueio
+corrente nem repetir sua correção a partir deste snapshot. Nenhuma nova
+ponte, workflow, branch, instalador paralelo, autoridade ou banco é
+autorizada por este checkpoint; #2243 permanece uma frente independente
+cujo estado deve ser verificado ao vivo.
+
+---
+
+## Arquivo histórico de checkpoints anteriores
+
+**Tudo abaixo desta linha é evidência datada, não estado operacional atual.**
+Afirmações como “#2400 OPEN”, “#2405 OPEN”, “Desktop primeiro”, “next owner
+action”, “prioridade ativa”, versões instaladas, devices online/offline e
+SHAs valem somente para a data do respectivo bloco. Não executar, bloquear,
+mergear, instalar ou criar trabalho com base nelas sem revalidar o owner,
+contrato e estado vivo correspondentes.
+
+**Native Product Windows packaging/Device checkpoint — 2026-11-04:**
+OS [#2400](https://github.com/ordaxsystems/ordax-os/pull/2400), HEAD
+`6785563d0267062dcb3b7b9badad37568347c02d`, now requires
+`product-runtime-supervisor.mjs`, `surface-runtime-bridge.mjs`,
+`desktop-product-runtime-status.mjs`, and
+`desktop-surface-state-report.mjs` in the **actually installed NSIS**.
+The exact-head [Windows Desktop Dev run #41908633198](https://github.com/ordaxsystems/ordax-os/actions/runs/41908633198)
+completed **SUCCESS** including the isolated NSIS install/upgrade smoke.
+Foundation, Web, Source-Consumer and other impact checks passed or were
+legitimately skipped. The **only failed check** remains Creator
+`build-and-publish`, run #41908633215, at
+`Build and verify one canonical offline Surface runtime` (legacy
+Alpine/APK lock `libexpat`). Migration owner #2243 remains draft and
+merge-conflicted; do not retry heavy jobs, change the lone APK pin or
+waive the mandatory Creator gate to merge #2400.
+
+Fresh read-only Windows inspection of `DESKTOP-4UFL03B` still shows
+the *operationally installed* Desktop has the prior Supervisor but not
+the other three modules. Its `native-state/product-runtime`,
+`agent-settings.json`, token file, and verified unsigned DEV
+`product-runtime-dev/ordax-product-agent.exe` are absent. Direct
+OrdaX MCP `ordax_targets` confirms independent `DESKTOP-4UFL03B`
+online with its own full-computer-control grant; `OrdaX Desktop
+(DESKTOP-4UFL03B)` remains **offline/discovery-only**, last heartbeat
+2026-11-04T07:59:32Z. The tested **CI** NSIS is not the older
+**installed** NSIS; neither implies a Product Device heartbeat,
+`capability_digest`, grant, `mcpReady` or shared Aura execution.
+
+Next owner action: finish the existing #2243 Buildroot/Creator cutover
+and gates; reconcile #2400 once with contemporaneous main, pass required
+checks, merge and deploy only its source-bound canonical NSIS.
+Then verify separate Product identity, verified Runtime payload, explicit
+DEV opt-in or signed trust gate, remote attestation and an innocuous
+Product-targeted action with receipt/revocation before Store `CURRENT`
+or Aura execution claims. Preserve existing auxiliary MCP, other
+engineers' uncommitted Windows checkout, credentials and grants.
+Evidence: [PR #2400 comment](https://github.com/ordaxsystems/ordax-os/pull/2400#issuecomment-6641566876).
+
+**Physical Product Desktop readiness / Creator impact — 2026-11-04:**
+On `DESKTOP-4UFL03B`, a read-only examination of the installed
+`OrdaX OS Desktop Dev/resources/runtime-template` found
+`product-runtime-supervisor.mjs`, but **not** the three native
+Surface/Product modules added by unmerged OS #2400; the active
+user-data tree also lacks `native-state/product-runtime` and its
+agent settings. Product target remains offline/discovery-only
+while independent Windows MCP target is online with its own grant.
+Never share/copy credentials, modules or grants across identities.
+Owner USB Creator job is legitimately required for the
+`system/composition/native/main.mjs` change in #2400;
+`creator_owner_impact.py` intentionally treats that shared
+composition as boot-impacting. The main's legacy Alpine Surface
+runtime lock requests `libexpat=2.9.0-r0` versus available
+`2.10.0-r0` (full 324-pin lock); the Alpine-free Buildroot
+owner is still working through #2243. Do not change one pin
+without full lock revalidation, bypass Creator proof, or alter
+#2243 in parallel. After owner closure, reconcile existing
+#2400 and its CI; only after a real packaged Product Device
+works should Aura/Runtime's authenticated `CURRENT` bridge be
+called ready. Details and source checklist:
+`INTELLIGENCE-HANDOFF.md` and
+[PR #2400 proof](https://github.com/ordaxsystems/ordax-os/pull/2400#issuecomment-6639859338).
+
+**Native Product / Web gating checkpoint — 2026-11-04:**
+[OS #2413](https://github.com/ordaxsystems/ordax-os/pull/2413)
+**merged** as `ba701464a354f7736b5743a6ec8b446e39ab7bb8`,
+replacing retired vendored Central hashes with verification of
+the pinned external Surface tree, and testing the current Web
+UI without a fabricated Aura composer. Both `web-client` and
+`foundation` passed. [OS #2400](https://github.com/ordaxsystems/ordax-os/pull/2400)
+remains **OPEN**, reconciled as `29330e6b901c311680cc468c93e8e6556cfb03ec`;
+105/105 focal Node tests passed on isolated Windows checkout.
+Historical check `build-and-publish` fails on the unrelated legacy
+Surface/Linux APK lock `libexpat=2.9.0-r0` vs `2.10.0-r0`.
+Do not merge without required checks or rebuild USB as MCP workaround.
+Authenticated targets still distinguish working external Windows MCP
+from the offline OrdaX Desktop Product Device. This does NOT provide
+live Store `CURRENT` to Runtime or grant Aura tool execution.
+See `INTELLIGENCE-HANDOFF.md` for exact next action and owners.
+
+**Cross-repository Fabric/Aura/MCP handoff propagation — closed (2026-11-04):**
+The five relevant repositories now have native documented entrypoints
+in their respective `main` branches. Apps [#455](https://github.com/ordaxsystems/ordax-apps/pull/455)
+merged as `b9e729a1f734af78da8496aa0737b069f05357ea`;
+Runtime [#317](https://github.com/ordaxsystems/ordax-runtime/pull/317)
+merged as `85c848130a32c722ee6c3a6f6fec596e7646952c`,
+after reconciling the upstream readiness fix #319 and passing the
+required checks. Platform handoff `8a8eea2971492147b28f8c94c247e4d05fb5f282`;
+Surface #82 merged; OS `AGENTS.md` and `INTELLIGENCE-HANDOFF.md`
+route future agents to the same canonical implementation matrix.
+**This is only documentation propagation. Do not re-run the closed
+Platform #291 Windows MCP DEV setup; do not build another bridge, tool
+catalog or OAuth/Store owner.** OS #2400 (Native Product) and #2405
+(Owner Account, release-gated) were still open at this checkpoint.
+Real Aura ↔ Product installed-app discovery and shared-action E2E remain
+unimplemented; next action is the existing OS #2400 owner's verified
+integration, then authenticated `CURRENT` projection. Recheck source
+and PR state before any write.
+
+**Continuation checkpoint — 2026-11-04 (cross-repo source + Platform issue verified):**
+Platform [#291](https://github.com/ordaxsystems/ordax-platform/issues/291)
+is **CLOSED** with physical Windows MCP actions and receipts, two current
+DEV devices retained and five obsolete DEV devices/credentials revoked,
+backed by Platform #336. Do **NOT** repeat the old Windows MCP onboarding,
+device cleanup or grant setup as an active task. This does NOT certify
+Aura ↔ Product semantic action execution or the OrdaX Desktop Native
+bridge. OS #2400 remains OPEN/merge-conflicted; OS #2405 remains OPEN and
+release gated, not a dependency for DEV. The remaining cross-repo task
+is an authenticated read-only `CURRENT` app view for Runtime via the
+existing OS Native ownership boundary, then a real typed shared-domain
+action proof. Canonical resume in `INTELLIGENCE-HANDOFF.md` and
+`docs/CAPABILITY-FABRIC.md`; use current source for truth.
+
+**Capability Fabric / Aura / Product MCP — CURRENT-STATE (source-verified 2026-11-04):**
+- `ordax-os` Fabric v1 **merged** via PR #2406
+  (`b44659ec8caad2fff8820bcee83201174dc71702`);
+  `ordax.capability-discovery/1`, Aura/Personal Native composition,
+  Store `CURRENT` generation and revocation checks exist. The projection
+  remains `authority=none`, `execution=unavailable` and
+  `toolExecution=false`: semantic awareness is not MCP authority.
+- Prior Windows `DESKTOP-4UFL03B` packaged-source proof at
+  `9f3a7f0abc45774f146971d6b246e6839f10c53b` verified
+  Desktop Native/Surface startup and anonymous session HTTP 401.
+  It **did not** prove UI approval, a signed first-party app installed,
+  Device Product grant, remote execution or end-to-end revocation.
+- `ordax-apps` docs: PR #452 **merged**
+  (`108a6fe37186d72026b047d5f89821360ceba213`) for minimum
+  app manifests, compatibility and the distinction between semantic
+  actions, UI controls and Product MCP tool execution.
+- `ordax-runtime` `product_gateway.py` currently has **93**
+  source-declared Product Action IDs; `capability_snapshot.py`
+  reports **only** locally supported Product Actions up to
+  `MAX_DEVICE_CAPABILITIES=64`. This bound is a **conditional
+  risk**, not evidence that any deployed Device advertises 93 tools.
+  ActionRegistry host filters may reduce support. Verify installed
+  Device snapshot before changing the contract or limits.
+- Runtime `application_intelligence_actions.py` reads
+  `ordax_studio/app_intelligence_registry.json` at initialization.
+  This file is **not versioned in current Runtime source tree**;
+  it may be packaged in an artifact, which requires installed
+  proof. Without it, the catalog reports `available=false`.
+  When supplied, it describes packaged semantics, **not** the live
+  `CURRENT` installed-app truth owned by OS
+  `live-verified-app-semantics.mjs`. No live authenticated
+  OS→Runtime app inventory reconciliation E2E has been proved.
+- OS #2400 **open**: Native Product Desktop bridge, not yet
+  remotely homologated. OS #2405 **open**: Owner Account gateway,
+  intentionally **not** a DEV MCP prerequisite because of
+  Supabase/Vercel release dependencies. DEV Device cleanup/authorization was completed in closed Platform issue #291;
+  only current regressions justify new Device work. Do not merge #2405, activate
+  Cloudflare/Account or fabricate grants to unlock DEV.
+- **Remaining acceptance:** same Device/app/slot/revision observed
+  live by Aura and authenticated Product; one real typed action and
+  receipt per client through the **same domain executor**, independent
+  authorizations, then revoked grant/provider/Device E2E. No second
+  registry, MCP server per app or model-issued grant. Historical
+  `tests/test_capability_fabric_mcp_authority_boundary.mjs` cited
+  by the plan is **not committed** to OS main. Tests of source,
+  Windows Node/HTTP File Space (8/8) and prior CI do not close
+  remote/UI gates.
+- **Read next:** `docs/CAPABILITY-FABRIC.md` (single SSOT owner
+  matrix, exact code paths, implementation order, negative gates);
+  `INTELLIGENCE-HANDOFF.md` (resume), and GitHub PRs/Device state
+  freshly verified. This is a documentation checkpoint, not a
+  runtime, permission or release change.
+
 Priority / delivery autonomy (2026-10-31):
 The active Windows Desktop release track has priority over Linux USB/Creator
 and Buildroot. Complete real installed Desktop and its essential Account,
@@ -28,31 +335,77 @@ real receipts; `profilePack:null` is pending, not provisioned.
 The OS contract/data owners remain separate; no second Profile database,
 session, runtime or app installer.
 
-OrdaX Desktop Windows MCP — **DEV FIRST** (31/10/2026):
-O Desktop NSIS foi atualizado no Windows físico e seu Runtime
-Product Device separado está **online**, sem reutilizar a instância do
-agente auxiliar. O OAuth Owner autorizou o cliente ChatGPT exato com
-`computer-observe` temporário e a sessão efetivamente despachou
-`computer.access_status` ao Runtime Desktop anterior; ele respondeu
-`action not allowed`. A correção causal no
-[ordax-runtime#282](https://github.com/ordaxsystems/ordax-runtime/pull/282)
-já está integrada (commit `726f41f77897aed7bdadbf4a7865a9aeca032f9c`):
-limite Desktop de somente `agent.status` e
-`computer.access_status`, sem ações Windows de escrita/terminal/GUI.
-O novo candidato `ordax-runtime@50a8626d9212e3741b38b87fbe658e24c8bee024`
-tem SHA-256 `33e6c14b2f6e03e275697806f686195ca3de1a13296adc107bd003f5d71ceae2`
-e passou self-test físico isolado no `DESKTOP-PNUHUA0` (sem Python,
-rede ou credenciais). O **único** manifesto atualizado é
-`docs/evidence/desktop-runtime-windows-candidate-2026-10-31.json`.
-**Pendente**: aplicar exatamente o novo candidato ao slot **DEV** do
-Supervisor e comprovar `computer.access_status` remoto com recibo
-`status=succeeded`/`ok=true`; `queued` não conta. O agente Windows
-auxiliar permanece sem matrícula própria: sua configuração atual
-reutiliza o ID do Desktop e não deve ser iniciada. A política de
-produção Ed25519/source lock permanece fail-closed.
-Prioridade/processo em `docs/DEVELOPMENT-WORKFLOW.md` e issue #1985.
-Não iniciar USB/Creator/Buildroot/QEMU, novos CLIs/workflows ou builds.
+OrdaX Desktop Windows MCP - **Dev Native integrado localmente (02/11/2026)**:
+O GPT deve tratar o Product Device OrdaX Desktop como um sistema
+independente do computador Windows: a autoridade vem da Platform,
+o dispatcher unico permanece no ordax-runtime e a Surface recebe
+acoes por contratos Native do OS, nao mouse/terminal/screenshot Windows.
+O Desktop em DESKTOP-4UFL03B mantem duas identidades online separadas:
+DESKTOP-4UFL03B (Windows MCP) e OrdaX Desktop (DESKTOP-4UFL03B).
 
+O canal per-launch autenticado permite ordax.surface.status e
+ordax.surface.open. A segunda acao aceita apenas os apps Native
+account, settings, system e store; a Surface usa o appActivation
+canonico, reaplica o catalogo/permissoes existente e devolve receipt
+apenas se o app realmente estiver visivel. Uma acao sem confirmacao
+falha, sem retornar sucesso ficticio. O Native Host exige uma revisao
+de relatorio posterior a cada comando, nao somente timestamp; a
+regressao de dois eventos no mesmo milissegundo foi reproduzida e
+corrigida. Gates OS de ponte, Supervisor e Native Host: 53/53.
+Em 02/11, foi corrigido o caso de HTTP 503 ao publicar a nova
+Surface: o reporter mantem o requestId em andamento, repete somente
+a observacao (a cada poll de 450ms) e envia receipt "applied"
+apenas apos HTTP 200 do Host, sem executar appActivation novamente.
+Teste de regressao reproduziu a falha antes da correcao e passou
+depois. Gates locais: 58/58 OS Native e 130/130 Surface.
+No canal MCP, appActivation aguarda a janela realmente montada antes
+de emitir sucesso; uma janela ja visivel nao e reaberta. Falhas de
+publicacao HTTP 503 reenviam somente o relatorio, sem repetir a
+ativacao. Prova integrada com HTTP loopback real: comando, renderer,
+confirmacao e leitura posterior de status passaram. Um app que nao
+abre termina com HTTP 504 e nao produz receipt falso.
+MCP Product DEV e Windows MCP permaneceram separados na prova fisica.
+A selecao Owner por conversa segue obrigatoria quando nao existe
+binding vigente; nenhuma escolha silenciosa de Device foi criada.
+O OS corrigiu a observacao para
+usar o appId da janela, nao o ID efemero da instancia.
+Autorizacoes independentes para Runtime e Surface; no browser
+externo e no processo Windows MCP nao existe token do Runtime.
+
+Candidato congelado oficial do Runtime: commit
+5173f2b01cb7abb1e5d98fdd00750c17fb6f85e4,
+SHA-256 988f2ee5a57404f03db8536d515551d3ed2976783a1575e92223b8f611fe327e,
+18.682.343 bytes, Python 3.12.16 e lockfile verificado por hashes.
+Self-test offline prova somente agent.status, computer.access_status,
+ordax.surface.open e ordax.surface.status; nunca concede Windows
+computer control. Slot DEV unico atualizado atomicamente e hash validado.
+O Desktop fisico carregou Surface ready e o Native Host confirmou
+tanto state reporter quanto command polling autenticados; uma janela
+e um par PyInstaller/Runtime, Windows MCP separado intacto.
+Testes locais: OS 51/51, Surface 130/130 e Runtime Desktop
+29 testes aprovados (um ignorado). Integracao UI e host simulada
+prova receipts, bloqueios e falhas seguras; o comando novo
+ainda **nao teve execucao remota GPT atestada**.
+
+**Cadeia canonica do MCP Native (02/11/2026):**
+- ordax-platform/main integrou PR #333 em bcb9c8e7 com
+  ordax_surface_status/open, grants independentes da autoridade Windows,
+  e cinco gates de candidato aprovados. Worker publico nao foi implantado.
+- ordax-runtime/main integrou PR #306 em f89ab01c com acoes Product,
+  identidade propria, despacho unico e verificacao de escopo do pacote.
+  Dez gates obrigatorios passaram; assinatura/release nao foram acionados.
+- Esta revisao do ordax-os contem apenas a ponte e o Supervisor DEV do
+  MCP Native, observacao e confirmacao da Surface. O pin oficial da
+  Surface e o fluxo Windows First Run nao foram alterados neste PR.
+- O Runtime DEV instalado no Windows foi fisicamente validado com
+  SHA e ciclo de vida unico; provas HTTP locais cobrem ativacao
+  confirmada, render atrasado, timeout e isolamento do Windows.
+- Ainda falta disponibilizar as novas tools no MCP publico (cliente
+  continua com 51), Owner grant/conversa, receipt remoto executado e
+  promocao de distribuicao aprovada. Nao afirmar mcpReady a partir
+  de processo online, CI ou simulacao de renderizacao.
+  Referencia de evidencia DEV: docs/evidence/desktop-runtime-windows-candidate-2026-10-31.json.
+  Nao houve rollout de producao, assinatura, USB, QEMU ou Creator.
 Windows Store verified catalog (2026-10-31): the Native catalog revocation
 and single metadata-read implementation from #1981 are integrated. OS #2356
 and #2357 integrated the **same** signed-catalog read middleware for installed
@@ -352,6 +705,8 @@ remain independent. See docs/contracts/product-device-presence.json and
 docs/INTELLIGENCE.md.
 
 # Current State
+
+> **ARQUIVO HISTÓRICO LEGADO.** Este heading é preservado para compatibilidade de links antigos. O estado operacional vigente está exclusivamente no início deste arquivo; todas as seções abaixo são snapshots anteriores e devem ser revalidadas antes de qualquer ação.
 
 ## First-party app source ownership — 2026-10-22
 
@@ -1567,7 +1922,10 @@ DEFAULT_BRANCH=main
 PROMOTED_TO_OFFICIAL=YES
 LEGACY_REPOSITORY=washingtonmsdj/novo-ordax-os
 LEGACY_REPOSITORY_IS_REFERENCE_ONLY=YES
-GIT_MAIN_IS_SOURCE_AUTHORITY=YES
+ORDAX_OS_MAIN_IS_OS_AND_COMPOSITION_SOURCE_AUTHORITY=YES
+COMPONENT_SOURCE_AUTHORITY_IS_OWNER_SPECIFIC=YES
+DIRECT_DEPENDENCY_COMPOSITION=YES
+IDENTICAL_REPOSITORY_HEADS_REQUIRED=NO
 USB_IS_SOURCE_AUTHORITY=NO
 ```
 
@@ -1578,6 +1936,9 @@ ONE_PRODUCT=YES
 MODES=WEB,MOBILE,DESKTOP,USB,NATIVE_DISK
 ONE_ACCOUNT_MODEL=YES
 ONE_SURFACE_SOURCE=YES
+SURFACE_SOURCE_OWNER=ordaxsystems/ordax-surface
+REMOVABLE_APP_SOURCE_OWNER=ordaxsystems/ordax-apps
+DESKTOP_HOST_OWNER=ordaxsystems/ordax-desktop
 CAPABILITY_DIFFERENCES_VIA_ADAPTERS=YES
 SYSTEM_ENTRYPOINT_IMPLEMENTED=YES
 SURFACE_BOOTSTRAP_RUNTIME=YES
@@ -1674,9 +2035,9 @@ The canonical prototype trust ceremony and public handoff are complete. The elig
 
 The first formal human product version is **OrdaX Prototype v0.1.0**. Product version, Entrega, Git SHA and app SemVer are separate identities; first-party apps on the 0.x line are Beta, and a component version does not imply an independent update channel. Source ownership is now: Internet, Assistente, Projetos, Atividade, Rede and Notas in `ordax-apps`; Arquivos had its bundled product source removed on 2026-10-23; the OS retains File Space services and verified-slot host contracts, with external installation still gated by signed packages and health/rollback proof; Studio has portable product source in ordax-apps, while the OS-local git-app integration was removed on 2026-10-23; future activation requires a compatible signed external package. Loja, Ajustes, Conta and Sistema remain structural OS surfaces. Product v1.0 remains reserved for the stable product.
 
-`system/` is the shared product source. The native development path is physically proven through `system/entrypoint (guardian) -> system/supervisor -> system/surface/entrypoint -> system/surface/bin/ordax-surface`; repository CI also proves that the actual `system/` tree can be bundled deterministically as `system.tar`.
+`system/` is the OS-owned **composed runtime tree**, not the universal Git source of the product. The native development path is physically proven through `system/entrypoint (guardian) -> system/supervisor -> system/surface/entrypoint -> system/surface/bin/ordax-surface`; repository CI proves that the composed tree, including verified external inputs, can be bundled deterministically as `system.tar`.
 
-The shared graphical source remains under `system/surface/ui/` with platform-neutral contracts, workspace/window lifecycle and capability-driven app availability. Projetos remains a first-party product with canonical portable source in `ordax-apps` and no bundled app source in the OS; verified package installation remains gated. It consumes the existing neutral local project catalog and optional `ordax.project-cloud-links-reader/1` read-only overlay over `ordax.project-cloud-links/1` data; it does not create a second project store, require an account, upload local files by default or change local project identity. Web currently degrades honestly when no local/cloud project catalog is supplied. Notes remains a known first-party product with stable app id `notes`, classified as `on-demand` and `store-only`. After the completed source transfer, its app payload is intentionally absent from `system/`: there is no local Notes runtime, fixed launcher path, app-owned localization payload or legacy `/__ordax/native/notes` persistence endpoint. Its canonical app source is already in `ordax-apps`; a future verified package will consume public platform contracts such as `ordax.app-data/1`, `ordax.intelligence/1` and `ordax.file-space/11`. The Store is discovery/request UI only; its authority-free lifecycle request contract now models install, update and remove while refusing artifact/version selection, trust changes, permission grants, verification bypass and implicit user-data deletion. Verified acquisition, install/update staging, health, promotion, rollback, uninstall execution and inventory remain platform lifecycle authority, and the Native executor stays unmounted while canonical component trust/publication/activation gates remain closed. Internet is the first-party browser app with stable id `internet` and canonical source in `ordax-apps`; version `0.3.0 Beta` does not claim production Store installation or an independent updater. Its shared Surface owns the approved concept structure (navigation toolbar, workspace/tab rail, central web viewport and project-context panel), while Native/USB provide `browser.web-content` through a separate unprivileged WebKit context and one external WebView per tab. The native slice supports up to 16 tabs, back/forward/reload, tab search, keyboard accelerators, persisted public tab URLs/order/active tab, project-context selection, explicit saved web references with bounded per-reference notes, automatic reference cleanup after project removal, public-network filtering and an exact loopback Host/browser-provenance boundary. Saved project references are owned by a neutral project-domain runtime and persist in the Native privileged profile with honest session fallback; the external page never receives project storage capability. Web intentionally exposes an unavailable browser-session port rather than pretending arbitrary sites can be safely embedded. Notes web references activate this same `internet` app. Internet also owns bounded device-local favorites through a neutral `ordax.browser-favorites/1` port; the Native privileged profile persists them while external website WebViews receive no access to that store. Native hardware proof for the new WebKit host remains pending, so the browser slice is implemented in source but not yet marked physically proven. Ajustes now owns persisted Surface-level contrast, motion and text-scale preferences; text scale changes the shared typographic base without claiming host-level accessibility control. Platform-specific behavior belongs in adapters/compositions, not in forks of the shared Surface. The normal Home now keeps technical delivery/recovery markers out of the area label; real delivery identity and update details live in Sistema. The visible settings identity is standardized as **Ajustes** while preserving the stable internal app id `settings`.
+The canonical graphical source is owned by `ordaxsystems/ordax-surface` and is materialized at `system/surface/ui/` and `system/surface/workspace/` only in verified staging/release trees. Platform-neutral contracts, workspace/window lifecycle and capability-driven app availability remain composed through the OS boundary. Projetos remains a first-party product with canonical portable source in `ordax-apps` and no bundled app source in the OS; verified package installation remains gated. It consumes the existing neutral local project catalog and optional `ordax.project-cloud-links-reader/1` read-only overlay over `ordax.project-cloud-links/1` data; it does not create a second project store, require an account, upload local files by default or change local project identity. Web currently degrades honestly when no local/cloud project catalog is supplied. Notes remains a known first-party product with stable app id `notes`, classified as `on-demand` and `store-only`. After the completed source transfer, its app payload is intentionally absent from `system/`: there is no local Notes runtime, fixed launcher path, app-owned localization payload or legacy `/__ordax/native/notes` persistence endpoint. Its canonical app source is already in `ordax-apps`; a future verified package will consume public platform contracts such as `ordax.app-data/1`, `ordax.intelligence/1` and `ordax.file-space/11`. The Store is discovery/request UI only; its authority-free lifecycle request contract now models install, update and remove while refusing artifact/version selection, trust changes, permission grants, verification bypass and implicit user-data deletion. Verified acquisition, install/update staging, health, promotion, rollback, uninstall execution and inventory remain platform lifecycle authority, and the Native executor stays unmounted while canonical component trust/publication/activation gates remain closed. Internet is the first-party browser app with stable id `internet` and canonical source in `ordax-apps`; version `0.3.0 Beta` does not claim production Store installation or an independent updater. Its shared Surface owns the approved concept structure (navigation toolbar, workspace/tab rail, central web viewport and project-context panel), while Native/USB provide `browser.web-content` through a separate unprivileged WebKit context and one external WebView per tab. The native slice supports up to 16 tabs, back/forward/reload, tab search, keyboard accelerators, persisted public tab URLs/order/active tab, project-context selection, explicit saved web references with bounded per-reference notes, automatic reference cleanup after project removal, public-network filtering and an exact loopback Host/browser-provenance boundary. Saved project references are owned by a neutral project-domain runtime and persist in the Native privileged profile with honest session fallback; the external page never receives project storage capability. Web intentionally exposes an unavailable browser-session port rather than pretending arbitrary sites can be safely embedded. Notes web references activate this same `internet` app. Internet also owns bounded device-local favorites through a neutral `ordax.browser-favorites/1` port; the Native privileged profile persists them while external website WebViews receive no access to that store. Native hardware proof for the new WebKit host remains pending, so the browser slice is implemented in source but not yet marked physically proven. Ajustes now owns persisted Surface-level contrast, motion and text-scale preferences; text scale changes the shared typographic base without claiming host-level accessibility control. Platform-specific behavior belongs in adapters/compositions, not in forks of the shared Surface. The normal Home now keeps technical delivery/recovery markers out of the area label; real delivery identity and update details live in Sistema. The visible settings identity is standardized as **Ajustes** while preserving the stable internal app id `settings`.
 
 ### Nova OrdaX pre-USB functional closure
 

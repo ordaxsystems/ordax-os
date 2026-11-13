@@ -10,7 +10,7 @@ import { IntelligenceClientProvider } from '../../surface/workspace/components/i
 import { Central } from '../../surface/workspace/components/central/central';
 import { WebAccountProvider, useWebAccount } from '../../surface/workspace/components/central/account-context';
 import { createWebAccountSession } from './account-session.mjs';
-import { decideWebEntry, isLocalWebLayoutPreview, WEB_LOGIN_PATH } from './auth-entry-gate.mjs';
+import { createWebEntryLifecycle, isLocalWebLayoutPreview, WEB_LOGIN_PATH } from './auth-entry-gate.mjs';
 import { createWebPreferenceStore } from '../../adapters/web/preferences.mjs';
 import { createPreferenceRuntime } from '../../services/preferences/runtime.mjs';
 import { WebPreferencesProvider } from '../../surface/workspace/components/central/preferences-context';
@@ -48,6 +48,7 @@ if (!rootCandidate) throw new Error('OrdaX composition root is missing #ordax-ro
 const compositionRoot: Element = rootCandidate;
 let reactRoot: Root | undefined;
 let releaseIdentityGate = () => {};
+let releaseEntryLifecycle = () => {};
 const route = createRootRoute();
 const storeCatalog = createUnavailableAppStoreCatalogPort('web-store-transport-unavailable');
 // Web consumes the canonical Intelligence port. Until a supported transport is composed,
@@ -59,6 +60,7 @@ const localLayoutPreview = isLocalWebLayoutPreview(window);
 const disposeServices = () => {
   releaseIdentityGate();
   releaseIdentityGate = () => {};
+  releaseEntryLifecycle();
   accountSession.dispose();
   preferences.dispose();
 };
@@ -97,34 +99,53 @@ const webBasepath = import.meta.env.BASE_URL === './'
 const router = createRouter({basepath: webBasepath,
   trailingSlash: 'always', routeTree: route.addChildren([web])});
 
-function leaveWorkspaceForSession(snapshot: IdentitySnapshot) {
-  const decision = decideWebEntry(snapshot, { allowLocalLayoutPreview: localLayoutPreview });
-  if (decision === 'workspace') return false;
-  reactRoot?.unmount();
-  reactRoot = undefined;
-  if (decision === 'login') {
+// Keep one identity subscription across initial verification and transient
+// failures. A later authenticated refresh can restore the workspace without
+// reloading the page or trusting stale session/device state.
+const entry = createWebEntryLifecycle({
+  allowLocalLayoutPreview: localLayoutPreview,
+  onWorkspace() {
+    if (reactRoot) return;
+    compositionRoot.replaceChildren();
+    boot.setStage(text('surface.boot.loadingApps'));
+    reactRoot = createRoot(compositionRoot);
+    reactRoot.render(<WorkspaceBoundary><RouterProvider router={router}/></WorkspaceBoundary>);
+  },
+  onLogin() {
+    reactRoot?.unmount();
+    reactRoot = undefined;
     window.location.replace(WEB_LOGIN_PATH);
-  } else {
-    boot.fail(text('surface.boot.failed'));
-  }
-  return true;
-}
+  },
+  onUnavailable() {
+    reactRoot?.unmount();
+    reactRoot = undefined;
+    if (!boot.isFinished()) {
+      boot.fail(text('surface.boot.failed'));
+      return;
+    }
+    // The boot screen is terminal after ready(). Never leave a blank page if
+    // an authenticated session becomes unavailable after the first render.
+    const notice = document.createElement('p');
+    notice.className = 'ordax-web-recovery';
+    notice.setAttribute('role', 'alert');
+    notice.textContent = text('surface.boot.failed');
+    compositionRoot.replaceChildren(notice);
+  },
+});
+releaseEntryLifecycle = () => entry.dispose();
 
 async function startAuthenticatedWorkspace() {
   boot.setStage(text('surface.boot.loadingApps'));
   document.documentElement.lang = 'pt-BR';
 
-  // The browser product is private-by-session: no Surface component is mounted
-  // until the canonical same-origin session endpoint has positively identified
-  // the user. Anonymous or unavailable identity never becomes a workspace.
-  await accountSession.refresh();
-  if (leaveWorkspaceForSession(accountSession.identity.getSnapshot() as IdentitySnapshot)) return;
-
+  // Subscribed before the first request, but no Surface mounts until the
+  // initial same-origin session read completes. The existing account session
+  // owns later focus/online refresh; this compositor never retries commands.
   releaseIdentityGate = accountSession.identity.subscribe((snapshot: IdentitySnapshot) => {
-    leaveWorkspaceForSession(snapshot);
+    entry.update(snapshot);
   });
-  reactRoot = createRoot(compositionRoot);
-  reactRoot.render(<WorkspaceBoundary><RouterProvider router={router}/></WorkspaceBoundary>);
+  await accountSession.refresh();
+  entry.start(accountSession.identity.getSnapshot() as IdentitySnapshot);
 }
 
 void startAuthenticatedWorkspace().catch(error => {

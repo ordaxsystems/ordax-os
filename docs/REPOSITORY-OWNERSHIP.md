@@ -6,6 +6,8 @@ Status de migração: `cutover-complete-legacy-retired` conforme `docs/contracts
 
 Este documento define a divisão oficial de responsabilidade entre os repositórios first-party do ecossistema OrdaX. Ele existe para evitar ownership duplicado, migrações oportunistas e dependências acidentais entre app, sistema, runtime e infraestrutura remota.
 
+> **Nota sobre nomes do contrato:** em `docs/contracts/repository-ownership.json`, a chave interna `repositories.platform` representa a camada de plataforma/sistema do **`ordaxsystems/ordax-os`**; a chave `repositories.control_plane` representa o repositório **`ordaxsystems/ordax-platform`**. Esses IDs são nomes de papéis do schema, não nomes de repositório. Não inferir ownership pelo rótulo da chave; usar sempre o campo `repo`.
+
 ## Regra central
 
 Cada responsabilidade canônica pertence a **um único repositório**.
@@ -105,7 +107,25 @@ Não é owner de:
 
 É owner de `system/surface/ui/` e `system/surface/workspace/` (caminhos de montagem do artefato), design tokens, identidade visual e comportamento de interação. Não é owner de serviços nativos, Supervisor, boot, permissões, grants, assinatura, runtime de host ou atualizações do dispositivo. O OS consome um único commit pinado em `docs/contracts/surface-source.json`, preservando os ports e contratos públicos existentes.
 
-### 6. ordaxsystems/ordax-site
+### 6. ordaxsystems/ordax-desktop
+
+**Papel:** host, shell Electron, ciclo de janela e empacotamento/entrega Windows do OrdaX Desktop.
+
+É owner de:
+- shell Electron e integração de host Windows;
+- empacotamento NSIS e proveniência do candidato Desktop;
+- ciclo de vida da janela/processo host e atualização da própria shell;
+- consumo de uma composição OrdaX/OS exata e verificável.
+
+Não é owner de:
+- source visual da Surface, que pertence a `ordax-surface` e é selecionado pela composição do OS;
+- serviços Native, contratos sistêmicos, kernel/boot ou lifecycle de componentes, que permanecem no OS;
+- Runtime/Computer Control local, que pertence a `ordax-runtime`;
+- Creator Core/política de mídia;
+- Product MCP/grants remotos.
+
+Desktop fixa sua **dependência direta de composição OS**; não mantém pins independentes de Surface, Apps ou Intelligence quando esses componentes já são transitivos ao candidato OrdaX.
+### 7. ordaxsystems/ordax-site
 
 **Papel:** fonte e build independentes da apresentação pública (landing, catálogo visual de downloads, páginas legais, login/recuperação e Conta somente na camada visual).
 
@@ -113,7 +133,9 @@ O único código de apresentação, CSS, assets, rotas, i18n e testes do Site pe
 
 Identity, sessão, autorização, billing, publicação assinada de releases, domínios e o proxy do gateway **não** pertencem ao Site. Esses serviços mantêm a autoridade no OS/Platform e apenas fornecem APIs/autorização de mesma origem ao frontend. O ambiente `ordax-site-dev` é separado da operação de produção.
 
-### 7. ordaxsystems/ordax-creator
+**Exceção transitória de staging:** o host Dev do Site pode materializar a closure imutável do gateway de Conta diretamente do source owner apenas pelo lock Site `contracts/canonical-gateway-source.json`. Isso é um bridge de hospedagem, não transferência de ownership nem modelo de produção. O lock deve permanecer `production_authorized=false`, identificar owner/consumer e conter condição de remoção; a exceção termina quando o owner fornecer gateway same-origin implantado/versionado ou artefato publicado que dispense importar source do OS.
+
+### 8. ordaxsystems/ordax-creator
 
 **Papel:** aplicativo independente do Creator, Core de verificação de mídia e interface/adapters Windows.
 
@@ -123,9 +145,9 @@ Identity, sessão, autorização, billing, publicação assinada de releases, do
 
 O corte de fonte do Creator já foi concluído (C6), mas esta declaração de owner **não** promove payload, dispositivo físico, release assinada ou qualquer alteração à PR USB Dev #2243.
 
-### 8. ordaxsystems/ordax-intelligence — fonte portátil candidata, não autoridade ativa
+### 9. ordaxsystems/ordax-intelligence — fonte portátil candidata, não autoridade ativa
 
-O oitavo repositório possui a **fonte portátil candidata** do motor de
+O nono repositório possui a **fonte portátil candidata** do motor de
 Intelligence, router, streaming, compatibilidade e builder técnico. Seu único
 pin de integração, incluindo o grafo portátil completo verificado, é
 `docs/contracts/intelligence-source.json`. Enquanto o lock declarar
@@ -134,10 +156,10 @@ pin de integração, incluindo o grafo portátil completo verificado, é
 ativo no OS nem autoriza remoção de consumidores antigos, assinatura ou boot.
 
 Por isso `docs/contracts/repository-ownership.json#repositories` ainda
-enumera **sete autoridades operacionais**: o OS retém Intelligence de
+enumera **oito autoridades operacionais**: o OS retém Intelligence de
 sistema, Memory, permissões, Supervisor, composição Native e política de
-modelos. O conjunto de **oito repositórios em auditoria** é obtido desses
-sete owners mais o `source_repository` do lock, **sem manter segunda lista
+modelos. O conjunto de **nove repositórios em auditoria** é obtido desses
+oito owners mais o `source_repository` do lock, **sem manter segunda lista
 de versões ou duplicar ownership**. O teste de contrato impede promover
 a candidata como owner operacional antes do cutover atestado.
 
@@ -185,6 +207,17 @@ O Creator **não** aciona rebuild da Base por mudar sua interface. A autorizaç�
 para gravar mídia depende de assinatura, gates físicos e confirmação explícita,
 não da existência de um instalador do Creator ou de testes isolados.
 
+### Desktop Windows como consumidor da composição
+
+```text
+ordaxsystems/ordax-surface / ordax-apps / outros producers
+  -> ordaxsystems/ordax-os (composição e dependência direta)
+  -> candidato OrdaX/OS verificável
+  -> ordaxsystems/ordax-desktop (host Electron + NSIS)
+  -> instalação Windows + recibo/proveniência
+```
+
+O Desktop não reabre a árvore de dependências transitivas nem copia a Surface. Mudanças no host/packaging ficam em `ordax-desktop`; adoção de nova composição ocorre quando um candidato Windows realmente precisa dela.
 ### ChatGPT controlando um computador Windows
 
 ```text
@@ -289,21 +322,24 @@ A exclusão só é permitida depois que:
 - migration residue nunca pode virar segunda fonte de verdade.
 
 
-## Estado operacional da migração
+## Estado operacional dos owners
 
-Atualizado em 2026-10-08 após validação da migração concluída e dos quatro owners no GitHub.
+Atualizado em **2026-11-13**. Esta tabela resume roles; a autoridade executável continua em `docs/contracts/repository-ownership.json` e nos locks específicos de componentes.
 
 | Camada | Repositório canônico | Estado |
 | --- | --- | --- |
-| OrdaX OS / plataforma | `ordaxsystems/ordax-os` | canônico |
-| Creator (Core/UI/consumidor Windows) | `ordaxsystems/ordax-creator` | fonte independente C6; publicação física depende de gates OS |
-| Apps first-party / ORDAX Studio | `ordaxsystems/ordax-apps` | canônico; Studio portátil em `apps/studio` |
-| Runtime / Device Host Windows | `ordaxsystems/ordax-runtime` | canônico; namespace transferido e histórico preservado |
-| Product MCP / Control Plane / connectors | `ordaxsystems/ordax-platform` | canônico; transferido e renomeado, histórico preservado |
-| Incubação antiga | `washingtonmsdj/mcp-blender` | legado aposentado; conteúdo funcional removido conforme contrato de migração; exclusão do repositório é decisão independente |
+| OrdaX OS / composição Native | `ordaxsystems/ordax-os` | canônico |
+| Desktop Windows host/packaging | `ordaxsystems/ordax-desktop` | canônico; consome composição OrdaX/OS |
+| Surface visual compartilhada | `ordaxsystems/ordax-surface` | canônico; revisão adotada pelo lock do OS |
+| Apps first-party / Forge / Studio | `ordaxsystems/ordax-apps` | canônico |
+| Runtime / Device Host Windows | `ordaxsystems/ordax-runtime` | canônico |
+| Product MCP / Control Plane / connectors | `ordaxsystems/ordax-platform` | canônico |
+| Creator Core/UI/consumer Windows | `ordaxsystems/ordax-creator` | canônico; mídia/release continuam produzidas pelo OS |
+| Site público | `ordaxsystems/ordax-site` | canônico para apresentação/build público |
+| Intelligence portátil | `ordaxsystems/ordax-intelligence` | source candidate; autoridade ativa depende do lock/cutover do OS |
+| Incubação antiga | `washingtonmsdj/mcp-blender` | legado aposentado; não recebe novas features |
 
-### Rastreamento cruzado
-
+### Rastreamento histórico da migração inicial
 - `ordaxsystems/ordax-apps#31` — retirar dependência operacional de `mcp-blender`;
 - `ordaxsystems/ordax-runtime#1` — migrar Runtime/Device Host;
 - `ordaxsystems/ordax-platform#2` — migrar Product MCP/Control Plane e connector;

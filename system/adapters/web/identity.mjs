@@ -20,7 +20,43 @@ function publicDisplayName(value, accountDisplayName = null) {
   if (profileName) return profileName;
   if (typeof value !== "string" || !value) return null;
   const at = value.indexOf("@");
-  return at > 0 ? value.slice(0, at) : value;
+  return safeDisplayName(at > 0 ? value.slice(0, at) : value);
+}
+
+// Shared with the credential adapter: one provider-availability rule for
+// session presentation and post-login activation confirmation.
+export function configuredWebSessionProvider(value) {
+  return typeof value === "string"
+    && value.length > 0
+    && value.trim() === value
+    && value !== "unconfigured"
+    && value !== "gated";
+}
+
+// One canonical interpretation of the public gateway response. Both the
+// long-lived session port and post-credential activation must agree on exactly
+// the same identity, provider and safe presentation fields.
+export function interpretWebIdentityGatewaySession(value) {
+  if (!value || value.$schema !== SESSION_SCHEMA
+    || !configuredWebSessionProvider(value.provider)) {
+    return validateIdentitySessionSnapshot({ state: "unavailable" });
+  }
+  if (value.authenticated === true && value.status === "authenticated") {
+    const displayName = publicDisplayName(value.email, value.displayName);
+    if (typeof value.subject !== "string" || !value.subject || !displayName) {
+      return validateIdentitySessionSnapshot({ state: "unavailable" });
+    }
+    return validateIdentitySessionSnapshot({
+      state: "signed-in",
+      subjectId: value.subject,
+      displayName,
+      email: value.email,
+    });
+  }
+  if (value.authenticated === false && value.status === "anonymous") {
+    return validateIdentitySessionSnapshot({ state: "signed-out" });
+  }
+  return validateIdentitySessionSnapshot({ state: "unavailable" });
 }
 
 export function createWebIdentitySession(windowRef = globalThis.window) {
@@ -33,6 +69,8 @@ export function createWebIdentitySession(windowRef = globalThis.window) {
   const listeners = new Set();
   let disposed = false;
   let refreshSequence = 0;
+  // Diagnostics never grant session authority or change the public schema.
+  let unavailableReason = "pending";
 
   const emit = () => {
     if (disposed) return;
@@ -57,36 +95,30 @@ export function createWebIdentitySession(windowRef = globalThis.window) {
     // Ignore late responses from earlier requests. One session port owns the
     // ordering for every consumer (OOBE, Surface and account actions).
     const sequence = ++refreshSequence;
-    const apply = (next) => (
-      disposed || sequence !== refreshSequence ? snapshot : setSnapshot(next)
-    );
+    const apply = (next, reason = null) => {
+      if (disposed || sequence !== refreshSequence) return snapshot;
+      unavailableReason = next.state === "unavailable" ? reason : null;
+      return setSnapshot(next);
+    };
     try {
       const response = await reader.read(SESSION_ENDPOINT);
-      if (!response.ok) {
-        return apply({ state: "unavailable" });
+      // The one canonical interpretation still controls signed-in/out. A
+      // diagnostic never infers authentication from an incomplete response.
+      if (!response.ok || response.status !== 200) {
+        const reason = response.status === 423 ? "locked"
+          : [401, 403, 404].includes(response.status) ? "unsupported-host"
+            : response.ok ? "invalid-response" : "gateway-unreachable";
+        return apply({ state: "unavailable" }, reason);
       }
       const value = response.value;
-      if (!value || value.$schema !== SESSION_SCHEMA) {
-        return apply({ state: "unavailable" });
-      }
-      if (value.provider === "unconfigured") {
-        return apply({ state: "unavailable" });
-      }
-      if (value.authenticated === true && value.status === "authenticated") {
-        const displayName = publicDisplayName(value.email, value.displayName);
-        if (typeof value.subject !== "string" || !value.subject || !displayName) {
-          return apply({ state: "unavailable" });
-        }
-        return apply({
-          state: "signed-in",
-          subjectId: value.subject,
-          displayName,
-          email: value.email,
-        });
-      }
-      return apply({ state: "signed-out" });
+      const interpreted = interpretWebIdentityGatewaySession(value);
+      if (interpreted.state !== "unavailable") return apply(interpreted);
+      const reason = value && value.$schema === SESSION_SCHEMA
+        && !configuredWebSessionProvider(value.provider)
+        ? "unconfigured" : "invalid-response";
+      return apply(interpreted, reason);
     } catch {
-      return apply({ state: "unavailable" });
+      return apply({ state: "unavailable" }, "gateway-unreachable");
     }
   };
 
@@ -94,6 +126,9 @@ export function createWebIdentitySession(windowRef = globalThis.window) {
     schema: IDENTITY_SESSION_SCHEMA,
     getSnapshot() {
       return snapshot;
+    },
+    getUnavailableReason() {
+      return snapshot.state === "unavailable" ? unavailableReason : null;
     },
     subscribe(listener) {
       if (typeof listener !== "function") {

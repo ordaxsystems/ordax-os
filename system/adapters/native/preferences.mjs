@@ -6,7 +6,7 @@ import {
 
 const PREFERENCES_ENDPOINT = "/__ordax/native/preferences";
 
-export async function createNativePreferenceStore(windowRef = globalThis.window) {
+export async function createNativePreferenceStore(windowRef = globalThis.window, { signal = null } = {}) {
   if (!windowRef || typeof windowRef.fetch !== "function") {
     throw new TypeError("Native preference store requires window.fetch");
   }
@@ -17,6 +17,7 @@ export async function createNativePreferenceStore(windowRef = globalThis.window)
       method: "GET",
       cache: "no-store",
       credentials: "same-origin",
+      ...(signal ? { signal } : {}),
     });
     if (response.ok) {
       memory = validatePreferenceRecord(await response.json());
