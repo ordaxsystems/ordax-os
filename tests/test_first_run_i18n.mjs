@@ -15,6 +15,9 @@ test("first-run catalog exposes the four translated launch locales", () => {
 test("each translated locale changes representative setup, Wi-Fi, account and completion strings", () => {
   const samples = [
     "Primeiro uso",
+    "Nome do dispositivo (opcional)",
+    "Continuar offline",
+    "Confira suas escolhas para começar a usar o OrdaX Desktop.",
     "Idioma e região",
     "Leve o OrdaX no pendrive, organize seus projetos em Spaces e use a Aura com o contexto permitido.",
     "Mesma conta, dois modos",

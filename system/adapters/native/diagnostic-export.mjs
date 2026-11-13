@@ -31,11 +31,24 @@ export function createNativeDiagnosticExport(
   }
   const encoder = new TextEncoderCtor();
 
+  const ensureExportDirectory = async () => {
+    const root = await files.list("/");
+    const existing = root.entries.find((candidate) => candidate?.name === "Downloads");
+    if (existing) {
+      if (existing.kind !== "directory") {
+        throw new TypeError("Native diagnostic export requires Downloads to be a directory");
+      }
+      return;
+    }
+    await files.createDirectory("/", "Downloads");
+  };
+
   const port = {
     schema: DIAGNOSTIC_EXPORT_SCHEMA,
     async save(value) {
       const document = validateDiagnosticExportDocument(value);
       const bytes = encoder.encode(document.text);
+      await ensureExportDirectory();
       const listing = await files.importFile(
         NATIVE_DIAGNOSTIC_EXPORT_DIRECTORY,
         document.fileName,

@@ -6,6 +6,7 @@ import { join } from "node:path";
 import { mkdtemp, rm, readdir, readFile, writeFile, symlink } from "node:fs/promises";
 import { createDesktopFileSpaceMiddleware } from "../system/adapters/desktop/file-space-host.mjs";
 import { createNativeFileSpace } from "../system/adapters/native/file-space.mjs";
+import { createNativeDiagnosticExport } from "../system/adapters/native/diagnostic-export.mjs";
 async function harness(t) {
   const isolated=await mkdtemp(join(tmpdir(),"ordax-win-files-"));
   const userFolder=join(isolated,"Files");
@@ -141,4 +142,25 @@ test("Private Windows file-space rejects raw loopback GET and bogus credentials"
   });
   assert.equal(invalid.status,401);
   assert.equal((await h.request("/__ordax/native/files?path=%2F")).status,200);
+});
+
+test("Windows diagnostic export creates trusted Downloads and persists exact JSON without clobber",async t=>{
+  const h=await harness(t);
+  const files=await createNativeFileSpace({fetch:(path,options)=>h.request(path,options)});
+  const port=createNativeDiagnosticExport(files);
+  assert.deepEqual((await files.list("/")).entries,[]);
+  const document={
+    fileName:"ordax-revisao-diagnostico-e2e.json",
+    mediaType:"application/json",
+    text:'{"schema":"ordax.diagnostic-review/1"}\n',
+  };
+  assert.deepEqual(await port.save(document),{status:"saved"});
+  assert.equal(await readFile(join(h.userFolder,"Downloads",document.fileName),"utf8"),document.text);
+  assert.equal((await files.list("/")).entries[0].name,"Downloads");
+  await assert.rejects(()=>port.save(document));
+  const second={...document,fileName:"ordax-revisao-diagnostico-second.json"};
+  assert.deepEqual(await port.save(second),{status:"saved"});
+  assert.deepEqual((await readdir(join(h.userFolder,"Downloads"))).sort(),[
+    document.fileName,second.fileName,
+  ].sort());
 });

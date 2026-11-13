@@ -1,5 +1,8 @@
 const TABLES = Object.freeze({
   "en-US": Object.freeze({
+    "Nome do dispositivo (opcional)": "Device name (optional)",
+    "OrdaX Desktop": "OrdaX Desktop",
+    "OrdaX instalado": "Installed OrdaX",
     "Opcional: configure a proteção agora ou depois em Ajustes.": "Optional: set up protection now or later in Settings.",
     "Como deseja começar?": "How would you like to begin?",
     "Use o Desktop sem conta ou entre na sua Conta OrdaX.": "Use Desktop without an account or sign in to your OrdaX Account.",
@@ -240,6 +243,9 @@ const TABLES = Object.freeze({
     "Não foi possível confirmar a gravação do primeiro uso no pendrive. O assistente continua aberto para não perder a configuração.": "First-use state could not be confirmed on the USB drive. The assistant remains open so the configuration is not lost."
   }),
   "es-ES": Object.freeze({
+    "Nome do dispositivo (opcional)": "Nombre del dispositivo (opcional)",
+    "OrdaX Desktop": "OrdaX Desktop",
+    "OrdaX instalado": "OrdaX instalado",
     "Opcional: configure a proteção agora ou depois em Ajustes.": "Opcional: configura la protección ahora o más tarde en Ajustes.",
     "Como deseja começar?": "¿Cómo quieres empezar?",
     "Use o Desktop sem conta ou entre na sua Conta OrdaX.": "Usa Desktop sin una cuenta o inicia sesión con tu Cuenta OrdaX.",
@@ -479,6 +485,9 @@ const TABLES = Object.freeze({
     "Não foi possível confirmar a gravação do primeiro uso no pendrive. O assistente continua aberto para não perder a configuração.": "No se pudo confirmar el guardado del primer uso en la memoria USB. El asistente permanece abierto para no perder la configuración."
   }),
   "de-DE": Object.freeze({
+    "Nome do dispositivo (opcional)": "Gerätename (optional)",
+    "OrdaX Desktop": "OrdaX Desktop",
+    "OrdaX instalado": "Installiertes OrdaX",
     "Opcional: configure a proteção agora ou depois em Ajustes.": "Optional: Richte den Schutz jetzt oder später in den Einstellungen ein.",
     "Como deseja começar?": "Wie möchtest du beginnen?",
     "Use o Desktop sem conta ou entre na sua Conta OrdaX.": "Nutze Desktop ohne Konto oder melde dich bei deinem OrdaX-Konto an.",
@@ -718,6 +727,9 @@ const TABLES = Object.freeze({
     "Não foi possível confirmar a gravação do primeiro uso no pendrive. O assistente continua aberto para não perder a configuração.": "Der Einrichtungsstatus konnte nicht auf dem USB-Stick bestätigt werden. Der Assistent bleibt geöffnet, damit die Konfiguration nicht verloren geht."
   }),
   "fr-FR": Object.freeze({
+    "Nome do dispositivo (opcional)": "Nom de l’appareil (facultatif)",
+    "OrdaX Desktop": "OrdaX Desktop",
+    "OrdaX instalado": "OrdaX installé",
     "Opcional: configure a proteção agora ou depois em Ajustes.": "Facultatif : configurez la protection maintenant ou plus tard dans les paramètres.",
     "Como deseja começar?": "Comment souhaitez-vous commencer ?",
     "Use o Desktop sem conta ou entre na sua Conta OrdaX.": "Utilisez Desktop sans compte ou connectez-vous à votre compte OrdaX.",
