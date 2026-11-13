@@ -198,16 +198,23 @@ class MvpSurfaceSmokeTests(unittest.TestCase):
                 boot = proc / "sys/kernel/random"
                 boot.mkdir(parents=True)
                 (boot / "boot_id").write_text("boot-123\n", encoding="ascii")
-                report = proof.collect(
-                    "unit",
-                    host="127.0.0.1",
-                    port=server.server_port,
-                    timeout=1.0,
-                    source_root=source,
-                    run_root=run,
-                    proc_root=proc,
-                    expected_theme="dark",
-                )
+                context = {
+                    "ORDAX_PROOF_PROFILE": "owner-development",
+                    "ORDAX_PROOF_RUNTIME_MODE": "verified-erofs-overlay",
+                    "ORDAX_PROOF_EVIDENCE_SCOPE": "development",
+                    "ORDAX_PROOF_RUNTIME_SHA256": "c" * 64,
+                }
+                with mock.patch.dict("os.environ", context, clear=False):
+                    report = proof.collect(
+                        "unit",
+                        host="127.0.0.1",
+                        port=server.server_port,
+                        timeout=1.0,
+                        source_root=source,
+                        run_root=run,
+                        proc_root=proc,
+                        expected_theme="dark",
+                    )
         finally:
             server.shutdown()
             server.server_close()
