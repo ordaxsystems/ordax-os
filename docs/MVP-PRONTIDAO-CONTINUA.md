@@ -78,7 +78,7 @@ do Creator público e o boot físico permanecem gates distintos.
 
 ## O que falta hoje para um lançamento público
 
-A auditoria de source/CI e o boot em QEMU não substituem a prova física da Stable/MVP atual. A release canônica v4 existente é histórica/pré-hardening e não deve ser reaproveitada para uma nova autorização. Faltam prova nova exata da versão candidata, gate de pré-autorização, autorização do proprietário no contexto específico, testes físicos com leitura de artefatos, sessão gráfica, first run, apps essenciais, cold-health e rollback. Ver `docs/MVP-PRE-PHYSICAL-HANDOFF.md` para a ordem e os requisitos atualizados.
+A auditoria de source/CI e o boot em QEMU não substituem a prova física da Stable/MVP atual. A release canônica v4 histórica/pré-hardening não autoriza nova escrita por si só. A ordem e os requisitos vigentes são calculados por `tools/creator/stable_mvp_usb_readiness.py` a partir de `docs/PROMOTION-GATES.md`, `docs/contracts/physical-write-authorization.json` e dos contratos/evidências atuais; não existe handoff Markdown separado como autoridade.
 
 **Gates independentes do modo Native:** além das provas USB acima, a disponibilidade pública em SSD/NVMe/HD exige demonstrar instalação segura do disco inteiro selecionado, boot sem USB, proteção dos dados, health e rollback/recovery em hardware homologado; jamais promover `native_install_capability_enabled` ou escrita destrutiva por mera alteração documental.
 
