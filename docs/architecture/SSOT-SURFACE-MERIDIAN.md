@@ -1,14 +1,16 @@
-# SSOT transversal — Surface, Meridian, First Run, Web e Site
+# SSOT transversal — Surface, Meridian, First Run, Web e Site — referência histórica
 
-## Objetivo
+> **STATUS: HISTÓRICO / SUPERSEDED COMO MAPA DE OWNERSHIP.** Este documento registra a consolidação anterior à extração completa da Surface visual. Não usar a frase abaixo de “`main` é a única source authority” como regra multi-repo atual, nem tratar caminhos visuais do OS como source owner. A arquitetura vigente é ADR-031 + [`docs/REPOSITORY-OWNERSHIP.md`](../REPOSITORY-OWNERSHIP.md) + [`docs/DEVELOPMENT-WORKFLOW.md`](../DEVELOPMENT-WORKFLOW.md): `ordax-surface` possui a fonte visual, `ordax-os` possui host/serviços/contratos/composição e seleciona uma revisão exata via [`docs/contracts/surface-source.json`](../contracts/surface-source.json). O conteúdo abaixo permanece útil para princípios anti-duplicidade e proveniência, mas **não é mais o mapa operacional de owners**.
+
+## Objetivo histórico
 
 Consolidar a arquitetura do OrdaX OS para que cada conceito tenha um único owner canônico, consumido pelas superfícies Native, Web e Site sem cópia de regras, identidade, fluxo, texto de domínio ou contratos.
 
 SSOT aqui não significa apenas design. Significa uma única fonte de verdade para identidade, contratos, estado, capabilities, navegação, first-run, preferências, i18n, tokens visuais, componentes, rotas e evidências.
 
-## Regra de autoridade
+## Regra de autoridade daquele ciclo
 
-- `main` é a única source authority do produto.
+- Na arquitetura mono-repo daquele ciclo, a `main` do OS era tratada como source authority única; **isso foi superseded pela composição multi-repo de ADR-031**.
 - branches Meridian/first-run existentes são fontes de implementação e evidência, nunca autoridades paralelas.
 - conteúdo útil dessas branches deve ser absorvido por owners canônicos atuais antes de sua remoção.
 - Native, Web e Site podem ter adaptações de composição, mas não redefinem domínio.
@@ -107,7 +109,7 @@ Materiais identificados:
 - `feat/meridian-system-screens`;
 - `feat/first-run-meridian-launch`.
 
-Essas branches estão divergentes da `main`. A migração deve ser seletiva: comparar, extrair conceitos/implementações válidos, adaptar aos owners atuais, testar e integrar por PR. Não fazer merge bruto nem cherry-pick de grandes blocos sem reconciliação arquitetural.
+Naquele ciclo, essas branches estavam divergentes da `main`. Este trecho é histórico: não reabrir ou migrar branches antigas apenas por esta lista. Qualquer funcionalidade ainda necessária deve ser localizada no owner atual e comparada com a `main` vigente antes de criar trabalho.
 
 ## Ordem de limpeza
 
