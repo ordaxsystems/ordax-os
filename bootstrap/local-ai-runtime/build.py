@@ -93,6 +93,24 @@ def load_source_lock(path=SOURCE_LOCK):
         raise RuntimeBuildError("llama.cpp source commit is not exact 40-hex")
     if engine.get("license") != "MIT" or engine.get("build_targets") != ["llama-server"]:
         raise RuntimeBuildError("unexpected llama.cpp build identity")
+    # Compiler/linker/libc versions are release inputs for the pinned Linux
+    # engine bytes. Reject silent hosted-runner upgrades before compilation.
+    build_toolchain = engine.get("linux_build_toolchain")
+    required_toolchain_keys = {
+        "runner_os", "gcc", "libc6", "libc6_dev", "binutils", "cmake"
+    }
+    if (
+        not isinstance(build_toolchain, dict)
+        or set(build_toolchain) != required_toolchain_keys
+        or build_toolchain.get("runner_os") != "ubuntu-24.04"
+        or any(
+            not isinstance(build_toolchain.get(key), str)
+            or not re.fullmatch(r"[0-9][0-9A-Za-z.:~+_-]{0,63}", build_toolchain[key])
+            for key in required_toolchain_keys - {"runner_os"}
+        )
+    ):
+        raise RuntimeBuildError("Linux inference build toolchain pin is invalid")
+
     engine_artifact = engine.get("artifact")
     if not isinstance(engine_artifact, dict) or set(engine_artifact) != {
         "platform",
