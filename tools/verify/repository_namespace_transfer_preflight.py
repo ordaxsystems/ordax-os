@@ -39,7 +39,6 @@ IMMUTABLE_HISTORICAL_PATHS = frozenset({
     "docs/contracts/physical-write-authorization.json",
     "system/profile-content-sources/developer-core/v0.1.0/manifest.json",
     "bootstrap/surface-runtime/APK-LOCK-DRIFT-2026-10-08.md",
-    "bootstrap/windows-compat-runtime/APK-LOCK-REFRESH-2026-10-08.md",
 })
 
 

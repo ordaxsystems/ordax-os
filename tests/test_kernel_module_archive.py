@@ -191,20 +191,21 @@ class KernelModuleArchiveTests(unittest.TestCase):
             self.assertEqual(result["firmware_files"], 0)
             self.assertFalse(result["physical_support_claimed"])
 
-    def test_independent_rootfs_parity_rejects_firmware_in_module_only_slice(self):
+    def test_independent_rootfs_parity_observes_firmware_without_claiming_authority(self):
         with tempfile.TemporaryDirectory() as td:
             root = Path(td)
             archive_path, target, receipt_path = self.install_fixture(root)
-            firmware = target / "lib/firmware/not-yet-justified.bin"
+            firmware = target / "lib/firmware/profile-owned.bin"
             firmware.parent.mkdir(parents=True)
-            firmware.write_bytes(b"not authorized\n")
+            firmware.write_bytes(b"profile-owned firmware\n")
             rootfs_tar = self.make_rootfs_tar(target, root / "rootfs.tar")
-            with self.assertRaisesRegex(PARITY.ModuleParityError, "firmware entered"):
-                PARITY.verify(
-                    kernel_modules=archive_path,
-                    selection_receipt=receipt_path,
-                    rootfs_tar=rootfs_tar,
-                )
+            result = PARITY.verify(
+                kernel_modules=archive_path,
+                selection_receipt=receipt_path,
+                rootfs_tar=rootfs_tar,
+            )
+            self.assertEqual(result["firmware_files"], 1)
+            self.assertFalse(result["physical_support_claimed"])
 
     def test_missing_required_module_fails_closed(self):
         with tempfile.TemporaryDirectory() as td:

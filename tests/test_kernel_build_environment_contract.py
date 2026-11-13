@@ -119,6 +119,61 @@ class KernelBuildEnvironmentContractTests(unittest.TestCase):
         self.assertNotIn('-e GITHUB_SHA="$GITHUB_SHA"', workflow)
         self.assertNotIn('"git"', self.load()["apt"]["packages"])
 
+    def test_pinned_snapshot_network_retry_is_bounded_and_fail_closed(self):
+        workflow = (ROOT / ".github/workflows/kernel-pinned-environment.yml").read_text(encoding="utf-8")
+        self.assertIn('snapshot_uri="https://snapshot.ubuntu.com/ubuntu/$SNAPSHOT_ID"', workflow)
+        self.assertIn('apt_snapshot_update() {', workflow)
+        self.assertIn('for attempt in 1 2 3; do', workflow)
+        self.assertIn('update --error-on=any', workflow)
+        self.assertEqual(workflow.count("              apt_snapshot_update\n"), 2)
+        self.assertIn('echo "Pinned Ubuntu snapshot unavailable after 3 attempts: $SNAPSHOT_ID"', workflow)
+        self.assertIn('return 1', workflow)
+        self.assertIn('test -s /etc/ssl/certs/ca-certificates.crt', workflow)
+        self.assertIn('Signed-By: /usr/share/keyrings/ubuntu-archive-keyring.gpg', workflow)
+        self.assertNotIn("archive.ubuntu.com/ubuntu", workflow)
+
+    def test_pinned_snapshot_ca_bootstrap_never_disables_tls(self):
+        # Every consumer of the immutable Ubuntu snapshot must authenticate
+        # TLS even on the first apt-get request of the digest-pinned image.
+        # The trusted runner's CA file is mounted read-only, used only until
+        # the signed ca-certificates package is installed, then withdrawn.
+        workflows = (
+            "kernel-pinned-environment.yml",
+            "native-esp-candidate.yml",
+            "native-initramfs-environment.yml",
+            "native-initramfs-candidate.yml",
+        )
+        for name in workflows:
+            with self.subTest(workflow=name):
+                workflow = (ROOT / ".github/workflows" / name).read_text(encoding="utf-8")
+                mount = "--mount type=bind,src=/etc/ssl/certs/ca-certificates.crt,dst=/run/ordax-host-ca.pem,readonly"
+                ca = 'Acquire::https::snapshot.ubuntu.com::CaInfo \\"/run/ordax-host-ca.pem\\";'
+                self.assertEqual(workflow.count(mount), 1)
+                self.assertIn("test -s /etc/ssl/certs/ca-certificates.crt", workflow)
+                self.assertEqual(workflow.count("test -s /run/ordax-host-ca.pem"), 1)
+                self.assertIn(ca, workflow)
+                self.assertNotIn("Verify-Peer", workflow)
+                self.assertNotIn("Verify-Host", workflow)
+                self.assertIn("Signed-By: /usr/share/keyrings/ubuntu-archive-keyring.gpg", workflow)
+                self.assertEqual(workflow.count("rm -f /etc/apt/apt.conf.d/49ordax-ca-bootstrap"), 1)
+                self.assertLess(
+                    workflow.index("test -s /run/ordax-host-ca.pem"),
+                    workflow.index("rm -f /etc/apt/apt.conf.d/49ordax-ca-bootstrap"),
+                )
+
+    def test_pinned_apt_retry_uses_single_shell_continuation(self):
+        workflow = (
+            ROOT / ".github/workflows/kernel-pinned-environment.yml"
+        ).read_text(encoding="utf-8")
+        apt_line = next(line for line in workflow.splitlines()
+                        if "if apt-get -o Acquire::Retries=2" in line)
+        # A doubled backslash passes a literal backslash to apt-get and
+        # executes 'update' as a separate command, masking the real cause
+        # as a pinned-snapshot outage.
+        self.assertEqual(apt_line.split("Timeout=30 ", 1)[1], chr(92))
+        self.assertIn("update --error-on=any; then", workflow)
+        self.assertIn("apt_snapshot_update", workflow)
+
     def test_package_list_is_sorted_and_unique(self):
         packages = self.load()["apt"]["packages"]
         self.assertEqual(packages, sorted(set(packages)))
