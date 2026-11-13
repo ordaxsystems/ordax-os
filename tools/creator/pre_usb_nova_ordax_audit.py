@@ -233,6 +233,7 @@ def evaluate(repo_root: Path) -> dict[str, Any]:
     network = _dict(first_run.get("network"))
     privacy = _dict(first_run.get("privacy"))
     device_name = _dict(first_run.get("device_name"))
+    presentation = _dict(first_run.get("presentation"))
     first_run_mvp = _dict(first_run.get("mvp"))
     record(
         "OOBE_PERSISTENCE",
@@ -240,7 +241,7 @@ def evaluate(repo_root: Path) -> dict[str, Any]:
             first_run.get("$schema") == "prototype-ordax.first-run/1",
             first_run.get("status") == "native-foundation-implemented",
             first_run.get("scope") == "mvp-usb-first-use",
-            first_run.get("flow") == ["welcome", "network", "account", "security", "name", "ready"],
+            first_run.get("flow") == ["welcome", "network", "account", "security", "ready"],
             persistence.get("persistent_usb_state") is True,
             persistence.get("completion_must_be_durable_before_dismiss") is True,
             persistence.get("state_is_separate_from_identity_session") is True,
@@ -266,6 +267,7 @@ def evaluate(repo_root: Path) -> dict[str, Any]:
             device_name.get("rename_must_be_confirmed_before_advancing") is True,
             device_name.get("must_not_enter_first_run_state") is True,
             device_name.get("owner_unavailable_must_not_block_boot") is True,
+            presentation.get("device_name_optional_in_final_review") is True,
             first_run_mvp.get("runs_from_usb") is True,
             first_run_mvp.get("permanent_internal_disk_install_exposed") is False,
             _contains_all(native, ("createNativeFirstRunStateStore", "createNativeDeviceProfile", "mountFirstRunExperience", "deviceProfile,")),

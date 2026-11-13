@@ -7,7 +7,7 @@ import {
 
 const LOCAL_SESSION_ENDPOINT = "/__ordax/native/local-session";
 
-async function request(windowRef, method, action = null, secret = null) {
+async function request(windowRef, method, action = null, secret = null, signal = null) {
   const body = action === null
     ? undefined
     : JSON.stringify(secret === null ? { action } : { action, secret });
@@ -17,6 +17,7 @@ async function request(windowRef, method, action = null, secret = null) {
     credentials: "same-origin",
     headers: body === undefined ? undefined : { "Content-Type": "application/json" },
     body,
+    ...(signal ? { signal } : {}),
   });
   if (!response.ok) {
     const error = new Error(`Native local session request failed: ${response.status}`);
@@ -26,12 +27,12 @@ async function request(windowRef, method, action = null, secret = null) {
   return validateLocalSessionSnapshot(await response.json());
 }
 
-export async function createNativeLocalSession(windowRef = globalThis.window) {
+export async function createNativeLocalSession(windowRef = globalThis.window, { signal = null } = {}) {
   if (!windowRef || typeof windowRef.fetch !== "function") {
     throw new TypeError("Native local session requires window.fetch");
   }
 
-  let snapshot = await request(windowRef, "GET");
+  let snapshot = await request(windowRef, "GET", null, null, signal);
   const listeners = new Set();
   let destroyed = false;
 
