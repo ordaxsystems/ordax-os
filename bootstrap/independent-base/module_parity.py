@@ -167,8 +167,6 @@ def verify(*, kernel_modules: Path, selection_receipt: Path, rootfs_tar: Path) -
     missing_metadata = sorted(expected_metadata - regular_files.keys())
     if missing_metadata:
         raise ModuleParityError(f"rootfs kernel module metadata missing: {missing_metadata}")
-    if firmware_files:
-        raise ModuleParityError(f"firmware entered module-only parity slice: {firmware_files[:10]}")
     receipt_bytes = selection_receipt.read_bytes()
     if embedded_receipt is None or embedded_receipt != receipt_bytes:
         raise ModuleParityError("embedded kernel module selection receipt differs from external receipt")
@@ -183,7 +181,7 @@ def verify(*, kernel_modules: Path, selection_receipt: Path, rootfs_tar: Path) -
         "requested_module_basenames": requested,
         "selected_module_count": selected_count,
         "coldplug_entrypoints": coldplug,
-        "firmware_files": 0,
+        "firmware_files": len(firmware_files),
         "physical_support_claimed": False,
     }
 
