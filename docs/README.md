@@ -91,7 +91,7 @@ It separates:
 | Root historical/active plans | `../00-PLANOS-PRIORITARIOS/REGISTRY.md` | Classified centrally as reference/ready/guide/etc. | Plans do not authorize work; current Window/owner and relevant evidence decide |
 | OS foundation audit and consolidation handoff | `../00-PLANOS-PRIORITARIOS/plans/FOUNDATION-001-OS-ARCHITECTURE-CONSOLIDATION.md` | **REFERENCE**; historical consolidation handoff, not canonical implementation status | Execution-eligible only when a current owner defect/gate requires that specific slice; no independent queue or physical authorization |
 | OrdaX Web Research | `../00-PLANOS-PRIORITARIOS/plans/WEB-001-WEB-RESEARCH.md` | Source contracts and inert router implemented; no provider enabled | **DEFERRED FOR EXECUTION** until MVP closure and revalidation |
-| Meridian visual integration | `docs/architecture/MERIDIAN-PROVENANCE.md` | Audited C; PR-01 only | No production/default/release authority |
+| Meridian visual integration | [`architecture/MERIDIAN-PROVENANCE.md`](architecture/MERIDIAN-PROVENANCE.md) | Audited C; PR-01 only | No production/default/release authority |
 
 The planning router exists to organize reports/plans and cross-chat handoffs. It **does not become a second canonical documentation authority**; this file, contracts, current state and canonical topic owners continue to define authority.
 
