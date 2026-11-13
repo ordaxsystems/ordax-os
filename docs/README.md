@@ -91,11 +91,10 @@ It separates:
 | Root historical/active plans | `../00-PLANOS-PRIORITARIOS/REGISTRY.md` | Classified centrally as reference/ready/guide/etc. | Plans do not authorize work; current Window/owner and relevant evidence decide |
 | OS foundation audit and consolidation handoff | `../00-PLANOS-PRIORITARIOS/plans/FOUNDATION-001-OS-ARCHITECTURE-CONSOLIDATION.md` | **REFERENCE**; historical consolidation handoff, not canonical implementation status | Execution-eligible only when a current owner defect/gate requires that specific slice; no independent queue or physical authorization |
 | OrdaX Web Research | `../00-PLANOS-PRIORITARIOS/plans/WEB-001-WEB-RESEARCH.md` | Source contracts and inert router implemented; no provider enabled | **DEFERRED FOR EXECUTION** until MVP closure and revalidation |
-| Meridian visual integration | [`architecture/MERIDIAN-PROVENANCE.md`](architecture/MERIDIAN-PROVENANCE.md) | Audited C; PR-01 only | No production/default/release authority |
 
 The planning router exists to organize reports/plans and cross-chat handoffs. It **does not become a second canonical documentation authority**; this file, contracts, current state and canonical topic owners continue to define authority.
 
-The Meridian route points to immutable approved evidence on the experimental branch instead of copying the experimental runtime into `main`.
+Historical Meridian proposal/audit provenance was removed from the active tree; when needed, use the [immutable Git snapshot](https://github.com/ordaxsystems/ordax-os/blob/2ea0d3b3bdc88be99a8026f14a51a58aa78cc5bc/docs/architecture/MERIDIAN-PROVENANCE.md). Current visual ownership remains with `ordax-surface` and the OS source lock/contracts.
 
 ## Document lifecycle
 
