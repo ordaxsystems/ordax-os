@@ -110,29 +110,25 @@ For the MVP, Web, Mobile and synchronization are not active product promises; th
 
 See `docs/ACCOUNT-SYNC-AND-PLANS.md`.
 
-## Single-source Surface
+## Single-source components, multi-repository ownership
 
-The same source files implement the visual shell, apps, settings, design tokens and shared interaction behavior for every supported mode where that UI is applicable.
-
-```text
-system/surface/      # one visual source
-system/apps/         # one app source
-system/services/     # shared service/domain logic
-system/adapters/     # environment capabilities only
-```
-
-Target adapters:
+“Single-source” means **one canonical owner for each component**, not one Git tree for the whole product.
 
 ```text
-system/adapters/web/
-system/adapters/mobile/
-system/adapters/desktop/
-system/adapters/native/
+ordax-surface        # canonical visual Surface source
+ordax-apps           # canonical removable first-party app source
+ordax-os/system/
+  surface/           # OS host/runtime boundary; external visual bytes are staged here
+  apps/              # catalogs, installed-state projection and structural integration
+  services/          # shared OS/domain services and lifecycle
+  adapters/          # environment capabilities only
+  composition/       # verified direct-dependency assembly
+ordax-desktop        # Windows host/packaging consuming OrdaX/OS composition
 ```
 
-`mobile` owns Android/iOS capability differences; `native` is shared by USB and internal OrdaX installations wherever the capability is genuinely the same.
+Target adapters inside the OS remain `web`, `mobile`, `desktop` and `native`; they implement capabilities, not alternate source ownership. `mobile` owns Android/iOS capability differences; `native` is shared by USB and internal OrdaX installations wherever the capability is genuinely the same.
 
-Forbidden architecture includes separate application trees such as `apps-android/`, `apps-ios/`, `apps-desktop/` or independent Surface forks. Thin native bridges are allowed only for genuine platform APIs.
+A compatible visual/app change can integrate in its owner without immediately changing every consumer. A new product candidate explicitly adopts exact compatible revisions through contracts/locks/artifacts. Forbidden architecture includes copied app trees, duplicate Surface source, downstream transitive pins and mode-specific UI forks. Thin bridges are allowed only for genuine platform APIs and must not become a second product source.
 
 ## Capability adapters
 
