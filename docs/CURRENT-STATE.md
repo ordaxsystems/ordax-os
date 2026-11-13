@@ -13,9 +13,13 @@
 
 **Execução causal, não lista de microtarefas:** em cada owner, avançar a próxima lacuna real até produto observável; só aguardar outro repo quando o próximo passo consumir de fato seu contrato/artefato. Uma falha independente não bloqueia implementação sem dependência causal; nenhuma falha é mascarada por estado de UI. A entrega é medida por experiência funcional no destino, não por quantidade de PRs integradas.
 
+## Como ler os checkpoints abaixo
+
+**Somente a seção inicial de 13/11/2026 acima representa o checkpoint operacional consolidado deste arquivo.** Todo bloco datado abaixo preserva evidência do estado observado naquele momento e pode conter PRs, SHAs, devices, prioridades, “next action”, “CURRENT” ou “pendente” que já foram superados. Esses termos **não** criam fila atual. Para estado volátil, consultar o código/contrato vigente e o owner correspondente; para PRs e CI, consultar o GitHub atual; para Runtime/Platform/MCP, consultar os respectivos owners. Em divergência, o bloco mais novo e as fontes canônicas vencem o snapshot antigo.
+
 ---
 
-**ESTADO CANÔNICO ATUAL — Desktop Product MCP / 04-11-2026**
+**CHECKPOINT HISTÓRICO — Desktop Product MCP / 04-11-2026**
 
 A ponte Native Product Windows [OS #2400](https://github.com/ordaxsystems/ordax-os/pull/2400)
 foi **INTEGRADA** à `ordax-os/main` no merge squash
@@ -90,7 +94,7 @@ remotas**. O MCP auxiliar mantém identidade e grants separados; não
 copiar tokens, criar outro Device ou inferir `capability_digest`
 a partir do teste offline.
 
-**Vinculação Product comprovada; próximo bloqueio somente Runtime #327:**
+**Checkpoint de vinculação Product em 04/11/2026 — Runtime #327 era o bloqueio observado naquele momento:**
 verificação física no `DESKTOP-4UFL03B` + SQL **somente leitura** na
 Platform confirmou dois Device records ativos, cada um com credencial não
 revogada. Com hashes de prova temporários (sem exibir MachineGuid, token ou
@@ -110,13 +114,25 @@ aprovado dispensa novo build: depois do fix, re-matricular o **mesmo**
 Product Device e provar heartbeat, `capability_digest`, grant e recibo
 remoto, mantendo `mcpReady=false` até atestação central.
 
-A oscilação de presença do auxiliar está separadamente em
+A oscilação de presença do auxiliar estava separadamente registrada em
 [Runtime #324](https://github.com/ordaxsystems/ordax-runtime/issues/324).
-Nenhuma nova ponte, workflow, branch, instalador paralelo, autoridade
-ou banco é necessária; histórico Creator USB abaixo está superado
-para #2400 e #2243 continua independente.
+A [Runtime #327](https://github.com/ordaxsystems/ordax-runtime/issues/327)
+foi posteriormente **fechada em 05/11/2026**; não tratá-la como bloqueio
+corrente nem repetir sua correção a partir deste snapshot. Nenhuma nova
+ponte, workflow, branch, instalador paralelo, autoridade ou banco é
+autorizada por este checkpoint; #2243 permanece uma frente independente
+cujo estado deve ser verificado ao vivo.
 
 ---
+
+## Arquivo histórico de checkpoints anteriores
+
+**Tudo abaixo desta linha é evidência datada, não estado operacional atual.**
+Afirmações como “#2400 OPEN”, “#2405 OPEN”, “Desktop primeiro”, “next owner
+action”, “prioridade ativa”, versões instaladas, devices online/offline e
+SHAs valem somente para a data do respectivo bloco. Não executar, bloquear,
+mergear, instalar ou criar trabalho com base nelas sem revalidar o owner,
+contrato e estado vivo correspondentes.
 
 **Native Product Windows packaging/Device checkpoint — 2026-11-04:**
 OS [#2400](https://github.com/ordaxsystems/ordax-os/pull/2400), HEAD
@@ -683,6 +699,8 @@ remain independent. See docs/contracts/product-device-presence.json and
 docs/INTELLIGENCE.md.
 
 # Current State
+
+> **ARQUIVO HISTÓRICO LEGADO.** Este heading é preservado para compatibilidade de links antigos. O estado operacional vigente está exclusivamente no início deste arquivo; todas as seções abaixo são snapshots anteriores e devem ser revalidadas antes de qualquer ação.
 
 ## First-party app source ownership — 2026-10-22
 
