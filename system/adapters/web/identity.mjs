@@ -69,6 +69,8 @@ export function createWebIdentitySession(windowRef = globalThis.window) {
   const listeners = new Set();
   let disposed = false;
   let refreshSequence = 0;
+  // Diagnostics never grant session authority or change the public schema.
+  let unavailableReason = "pending";
 
   const emit = () => {
     if (disposed) return;
@@ -93,19 +95,30 @@ export function createWebIdentitySession(windowRef = globalThis.window) {
     // Ignore late responses from earlier requests. One session port owns the
     // ordering for every consumer (OOBE, Surface and account actions).
     const sequence = ++refreshSequence;
-    const apply = (next) => (
-      disposed || sequence !== refreshSequence ? snapshot : setSnapshot(next)
-    );
+    const apply = (next, reason = null) => {
+      if (disposed || sequence !== refreshSequence) return snapshot;
+      unavailableReason = next.state === "unavailable" ? reason : null;
+      return setSnapshot(next);
+    };
     try {
       const response = await reader.read(SESSION_ENDPOINT);
-      // Identity is only authoritative for a complete gateway session
-      // response. Other 2xx statuses (e.g. 206 partial) cannot grant access.
+      // The one canonical interpretation still controls signed-in/out. A
+      // diagnostic never infers authentication from an incomplete response.
       if (!response.ok || response.status !== 200) {
-        return apply({ state: "unavailable" });
+        const reason = response.status === 423 ? "locked"
+          : [401, 403, 404].includes(response.status) ? "unsupported-host"
+            : response.ok ? "invalid-response" : "gateway-unreachable";
+        return apply({ state: "unavailable" }, reason);
       }
-      return apply(interpretWebIdentityGatewaySession(response.value));
+      const value = response.value;
+      const interpreted = interpretWebIdentityGatewaySession(value);
+      if (interpreted.state !== "unavailable") return apply(interpreted);
+      const reason = value && value.$schema === SESSION_SCHEMA
+        && !configuredWebSessionProvider(value.provider)
+        ? "unconfigured" : "invalid-response";
+      return apply(interpreted, reason);
     } catch {
-      return apply({ state: "unavailable" });
+      return apply({ state: "unavailable" }, "gateway-unreachable");
     }
   };
 
@@ -113,6 +126,9 @@ export function createWebIdentitySession(windowRef = globalThis.window) {
     schema: IDENTITY_SESSION_SCHEMA,
     getSnapshot() {
       return snapshot;
+    },
+    getUnavailableReason() {
+      return snapshot.state === "unavailable" ? unavailableReason : null;
     },
     subscribe(listener) {
       if (typeof listener !== "function") {

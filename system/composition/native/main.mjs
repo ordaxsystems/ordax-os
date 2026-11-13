@@ -56,6 +56,7 @@ import { createWebIdentitySession } from "../../adapters/web/identity.mjs";
 import { createWebSpacesCatalog } from "../../adapters/web/spaces.mjs";
 import { createWebSyncTransport } from "../../adapters/web/sync-transport.mjs";
 import { validateAccountRuntime } from "../../services/account/runtime.mjs";
+import { createAccountConnectivityRecovery } from "../../services/account/connectivity-recovery.mjs";
 import { createAppActivationChannel } from "../../services/apps/activation.mjs";
 import { createAppLifecycleRequestService } from "../../services/apps/store-lifecycle-request-service.mjs";
 import { listFirstRunDefaultAppIds, planFirstRunAppSelectionFromStore } from "../../services/apps/first-run-selection.mjs";
@@ -903,10 +904,22 @@ async function start() {
       reportClientDiagnostic("battery-quick-panel", error);
     }
   }
+  // The Surface owns the Network Tray; the OS observes its existing Native
+  // status reads, not a Surface callback or another network polling loop.
+  // Local loopback may stay online while physical USB Wi-Fi is disconnected.
+  let onAccountNetworkObservation = () => {};
+  const observedNetworkStatus = networkStatus ? Object.freeze({
+    ...networkStatus,
+    async read() {
+      const snapshot = await networkStatus.read();
+      onAccountNetworkObservation(snapshot);
+      return snapshot;
+    },
+  }) : null;
   let networkTrayControls = null;
-  if (networkStatus) {
+  if (observedNetworkStatus) {
     try {
-      networkTrayControls = mountNetworkTrayControls(root, networkStatus, surface);
+      networkTrayControls = mountNetworkTrayControls(root, observedNetworkStatus, surface);
     } catch (error) {
       reportClientDiagnostic("network-tray-status", error);
     }
@@ -965,6 +978,18 @@ async function start() {
     await identityActions.refresh();
     await accountLifecycle.refresh();
     await accountSync.refresh();
+  };
+  const accountConnectivityRecovery = createAccountConnectivityRecovery({
+    // A signed gateway file missing on this exact USB release cannot be
+    // repaired by repeated HTTPS retries. Retry ONLY transport failures.
+    readIdentityState: () => identitySession.getUnavailableReason() === "gateway-unreachable"
+      ? identitySession.getSnapshot().state : "not-retryable",
+    refresh: resumeAccountConnectivity,
+  });
+  onAccountNetworkObservation = (snapshot) => {
+    void accountConnectivityRecovery.observe(snapshot).catch((error) => {
+      reportClientDiagnostic("account-network-recovery", error);
+    });
   };
   const onOnline = () => {
     void resumeAccountConnectivity().then(undefined, (error) => {
@@ -1376,6 +1401,7 @@ async function start() {
       storeOverviewControls?.destroy();
       storeCatalogComposition?.destroy();
       settingsOverviewControls.destroy();
+      accountConnectivityRecovery.dispose();
       networkTrayControls?.destroy();
       networkQuickPanel?.destroy();
       quickPanelControls?.destroy();
