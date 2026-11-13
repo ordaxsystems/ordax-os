@@ -3,23 +3,8 @@ name: OrdaX Product Version Governance
 on:
   pull_request:
     branches: [main]
-    paths:
-      - 'system/contracts/product-version.mjs'
-      - 'system/contracts/product-version-governance.mjs'
-      - 'tools/verify/product_version_changes.mjs'
-      - 'tests/test_product_version_governance.mjs'
-      - 'tests/test_product_version_changes.mjs'
-      - 'docs/VERSION-GOVERNANCE.md'
-      - '.github/workflows/product-version-governance.yml'
   push:
     branches: [main]
-    paths:
-      - 'system/contracts/product-version.mjs'
-      - 'system/contracts/product-version-governance.mjs'
-      - 'tools/verify/product_version_changes.mjs'
-      - 'tests/test_product_version_governance.mjs'
-      - 'tests/test_product_version_changes.mjs'
-      - '.github/workflows/product-version-governance.yml'
   workflow_dispatch:
 
 permissions:
@@ -52,6 +37,8 @@ jobs:
             node tools/verify/product_version_changes.mjs
           fi
 
-# This gate validates an explicitly versioned product composition. It never
-# requires unrelated source PRs to compete for a global SemVer, and it never
-# grants publication, signing, Stable promotion, USB writes or installation.
+# This gate validates an explicitly versioned product composition. It runs on
+# every main-targeting PR so it can be required by branch protection while
+# allowing docs-only and unrelated source changes to pass without a version
+# bump. It never grants publication, signing, Stable promotion, USB writes or
+# installation.
