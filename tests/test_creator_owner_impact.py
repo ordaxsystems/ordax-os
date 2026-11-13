@@ -372,8 +372,11 @@ class CreatorOwnerImpactTests(unittest.TestCase):
     def test_intelligence_foundation_workflow_is_ci_only_but_native_source_is_not(self):
         workflow = WORKFLOW.read_text(encoding="utf-8")
         intelligence = (ROOT / impact.INTELLIGENCE_WORKFLOW).read_text(encoding="utf-8")
-        self.commit(workflow=workflow, lock=VISUAL, intelligence_workflow=intelligence)
-        base = self.commit()
+        base = self.commit(
+            workflow=workflow,
+            lock=VISUAL,
+            intelligence_workflow=intelligence,
+        )
         changed_workflow = self.commit(
             intelligence_workflow=intelligence + "\n# CI-only metadata change\n"
         )
