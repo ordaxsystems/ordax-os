@@ -1,8 +1,8 @@
 # Base independente OrdaX — Buildroot e fronteira de adoção
 
-> **Estado operacional da PR #2243 em 13/11/2026:** este diretório é o candidato Buildroot/musl para Base Owner/Development e Stable-MVP na branch `integration/dev-usb-buildroot-surface-20261024`. O código elimina Alpine/APK nesses perfis da candidata, mas isso **não declara promoção Stable, mídia física, assinatura pública ou conclusão do USB** antes dos gates correspondentes. `main` continua sendo a autoridade integrada até o merge; não manter branch paralela nem restaurar produtores Alpine como paliativo.
+> **Estado de fonte em 13/11/2026, após o merge:** a [PR #2243](https://github.com/ordaxsystems/ordax-os/pull/2243) foi integrada à `main` em 13/11/2026 às 20:27:49 UTC (merge `d885f365ab9d9d630d1a200b391197e04848b655`). Os produtores Alpine de Dev/Stable foram retirados e Buildroot/musl é o caminho implementado nesses perfis. **Isso não comprova promoção Stable, assinatura pública, gravação USB, boot físico nem conclusão do canal**; usar contratos, recibos e gates atuais para essas decisões. Não reabrir a branch anterior nem restaurar produtores Alpine como paliativo.
 
-A migração reutiliza este único owner e segue `MIGRATION-REMOVE-ALPINE.md`. O kernel continua sendo produzido apenas por `bootstrap/kernel/`; módulos são selecionados por `bootstrap/kernel/module_archive.py`, firmware permanece sob `bootstrap/base/firmware_policy.py`, e a Surface candidata usa o produtor Buildroot/musl de `bootstrap/surface-runtime`.
+A migração de código já foi integrada neste owner. O [diário de execução de outubro/novembro](https://github.com/ordaxsystems/ordax-os/blob/446e03c686aca91edeaf75fa4a45271ce945dd05/bootstrap/independent-base/MIGRATION-REMOVE-ALPINE.md) é somente histórico, preservado em commit fixo; não é roteiro atual. O kernel continua sendo produzido apenas por `bootstrap/kernel/`; módulos são selecionados por `bootstrap/kernel/module_archive.py`, firmware permanece sob `bootstrap/base/firmware_policy.py`, e a Surface candidata usa o produtor Buildroot/musl de `bootstrap/surface-runtime`.
 
 
 ## Escolha técnica
@@ -17,7 +17,7 @@ A Independent Base possui três perfis derivados do mesmo defconfig e do mesmo b
 
 - `minimal`: prova portátil mínima, sem Git, Wi-Fi de notebook ou firmware Owner;
 - `owner-development`: extensão explícita do mesmo owner para a paridade do Dev USB, com CA trust, Git, `iw`, `wpa_supplicant`, `wpa_passphrase`, provider `linux-firmware`, módulos selecionados do kernel canônico e helpers existentes do Dev USB.
-- `stable-mvp`: candidato Buildroot sem Git ou helpers Dev, com o mesmo SSOT de firmware, CA e Wi-Fi, módulos canônicos e receipts vinculados; sem substituição automática do Stable Alpine ou permissão de instalação.
+- `stable-mvp`: perfil Buildroot sem Git ou helpers Dev, com o mesmo SSOT de firmware, CA e Wi-Fi, módulos canônicos e receipts vinculados; integração de source não autoriza promoção Stable ou instalação física.
 
 Nenhum perfil cria outra distro. `configs/wifi-hardware.fragment` é a única declaração das capacidades Wi-Fi/firmware compartilháveis; `configs/owner-development.fragment` acrescenta somente Git e applets Dev; `build.py` valida todos os símbolos declarados contra o Kconfig real do Buildroot. As famílias de firmware não são duplicadas em Python.
 
@@ -35,7 +35,7 @@ No perfil Owner, os receipts externos de módulos e firmware são copiados byte 
 
 ## Limites importantes
 
-- O builder Alpine Development sem consumidores de produção foi retirado na PR #2243 após a Base Buildroot Owner passar no QEMU. A Base Stable antiga ainda requer migração e validação própria antes da remoção.
+- Os builders Alpine Development e Stable anteriores foram retirados da `main` pela PR #2243. A homologação dos artefatos e o uso físico continuam sujeitos às provas e autorizações dos canais.
 - A branch `integration/dev-usb-buildroot-surface-20261024` pode alterar consumidores e contratos somente para provar a substituição; nenhum desses bytes é automaticamente Stable ou gravável em mídia física.
 - O perfil `minimal` permanece sem Git, Wi-Fi de notebook e firmware Owner. O perfil `owner-development` já passou pela compilação e pelo QEMU da Base; o USB completo e a prova física ainda são gates separados e obrigatórios.
 - A inicialização `ordax-independent-probe-init` é exclusivamente um programa de **teste QEMU**, não substitui `bootstrap/initramfs/portable_init.sh`, os verificadores de release, seleção de slots ou serviços atuais.
@@ -121,7 +121,7 @@ python3 bootstrap/independent-base/qemu_proof.py \
 | `bootstrap/native-initramfs/build.py` | builder Ubuntu pinado | outro perfil/build | fora do corte Alpine da base portátil |
 | `bootstrap/surface-runtime` | produtor Buildroot/musl candidato | runtime gráfico separado da Base | preservar sem APK/Alpine e promover somente após EROFS/boot/health aplicáveis |
 
-A ordem de trabalho e os critérios de corte estão em `MIGRATION-REMOVE-ALPINE.md`. Não criar wrapper permanente para manter duas bases ativas.
+A sequência de implementação anterior está preservada no [diário histórico da migração](https://github.com/ordaxsystems/ordax-os/blob/446e03c686aca91edeaf75fa4a45271ce945dd05/bootstrap/independent-base/MIGRATION-REMOVE-ALPINE.md). Trabalho novo parte de `main`, source/contratos atuais e gates causais, sem wrapper permanente para duas bases.
 
 ## Critério de conclusão
 
