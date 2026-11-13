@@ -49,9 +49,9 @@ Android- and iOS-specific behavior must remain behind the mobile capability adap
 
 A normally installed desktop application for Windows first, with other host platforms allowed later. It is the intermediate tier between browser/mobile access and the bootable operating system.
 
-It provides capabilities a browser cannot safely or reliably provide, including controlled local filesystem access, native notifications, background tasks where allowed, local application integration, signed automatic updates and the privileged Creator capability for preparing OrdaX USB media.
+It provides capabilities a browser cannot safely or reliably provide, including controlled local filesystem access, native notifications, background tasks where allowed, local application integration and signed application updates. It may **launch or present** the independent OrdaX Creator experience, but it does not own Creator Core, raw-media policy or physical-write authority.
 
-OrdaX Desktop is not the OrdaX operating system and must never own raw host hardware by default. Privileged operations require a narrow, explicit capability boundary and separate user authorization.
+OrdaX Desktop is not the OrdaX operating system and must never own raw host hardware by default. Removable-media preparation belongs to `ordaxsystems/ordax-creator` and remains behind its narrow, explicitly authorized target/write/readback boundary.
 
 ### 4. OrdaX OS — USB
 
@@ -167,7 +167,7 @@ Biometric authentication may gate local access to a session or secret, but it do
 
 ## Desktop security boundary
 
-The Desktop application separates its unprivileged UI/runtime from privileged host operations. The privileged helper exposes explicit operations rather than arbitrary command execution. Raw disk access is reserved for removable-media creation/recovery and fails closed on ambiguous device identity.
+The Desktop application separates its unprivileged UI/runtime from host integrations and consumes only bounded capabilities. **Raw removable-media access is not a general Desktop capability**: Creator owns target discovery/revalidation, explicit consent, write and readback. Desktop may invoke that product boundary without absorbing its privileged helper or policy.
 
 ## Update model
 
@@ -181,7 +181,7 @@ USB       -> verified OrdaX release activation
 Native    -> verified OrdaX release activation
 ```
 
-Client application updates and OrdaX OS releases are distinct delivery channels even when both originate from the same repository commit.
+Client application updates and OrdaX OS releases are distinct delivery channels. Their candidates may reference compatible revisions from different canonical repositories; identical Git commits/HEADs are neither required nor meaningful across owners.
 
 ## Synchronization model
 
