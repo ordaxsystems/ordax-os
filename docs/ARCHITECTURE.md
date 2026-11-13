@@ -254,19 +254,19 @@ The first full canonical release is acquired after boot. Once verified and activ
 
 Release protocol evolution is versioned. Current `release-manifest/1` intentionally contains one `system.tar`; future formats such as deltas or additional artifacts must enter through a new version/contract path rather than silently changing v1 semantics.
 
-### 4. Universal Surface
+### 4. Universal Surface and component ownership
 
-There is exactly one user-facing Surface source tree.
+There is exactly one canonical **visual Surface owner**: `ordaxsystems/ordax-surface`. Removable first-party application source is owned separately by `ordaxsystems/ordax-apps`; OS structural UI/services remain in `ordax-os`.
 
-The same source owns desktop/window shell, explorer, settings, first-party apps, visual tokens and shared interaction behavior. It is packaged/rendered through the applicable adapter on:
+A product candidate composes exact compatible revisions and materializes the visual tree at release-layout paths under `system/surface/{ui,workspace}`. Those staged paths are consumed by the applicable Web, Desktop, USB and Native compositions; they do not create a second source owner.
 
-1. hosted/local Web;
-2. Android/iOS mobile clients;
-3. Desktop host clients;
-4. OrdaX USB runtime;
-5. OrdaX native-disk runtime.
+1. hosted/local Web consumes the verified composed Surface;
+2. mobile clients consume compatible public contracts and the shared visual owner where applicable;
+3. Desktop host consumes the OrdaX/OS composition rather than a separate Surface pin;
+4. OrdaX USB consumes the verified Native composition;
+5. OrdaX native-disk runtime consumes the same Native product contracts when enabled.
 
-Creating copied CSS, copied screens or separate mode-specific UI implementations is forbidden. Shared Surface may branch on capability availability, not on platform identity where a capability abstraction can express the difference.
+Copied CSS, copied screens, copied app source and separate mode-specific Surface forks are forbidden. Capability differences belong behind contracts/adapters; repository separation changes ownership and release cadence, not product identity.
 
 ### 5. Persistent state
 
@@ -324,9 +324,9 @@ UEFI
 Client modes begin from the same source graph without the native boot boundary:
 
 ```text
-Git
-  -> shared system source
-  -> capability adapter
+verified component owners
+  -> ordax-os composition / public contracts
+  -> capability adapter or host
   -> Web / Mobile / Desktop
 ```
 
@@ -335,9 +335,9 @@ Git
 Owner/development USB:
 
 ```text
-edit shared source
- -> test
- -> commit/push main
+edit the owning repository
+ -> test/integrate there
+ -> adopt the exact revision in the direct consumer when needed
  -> boot or run ordax-pull
  -> fast-forward sparse checkout
  -> ordax-run
@@ -348,9 +348,9 @@ No reflash is required for ordinary runtime changes. `ordax-rollback` pins the p
 Canonical release:
 
 ```text
-edit shared source
- -> test
- -> commit/push main
+edit the owning repository
+ -> test/integrate there
+ -> compose/adopt exact compatible revisions
  -> CI builds/verifies affected targets
  -> publish signed release
  -> device acquires matching verified release
@@ -404,8 +404,7 @@ of each responsibility must be identified before an optimization:
   order, exact identity/path checks, immutable normalized results and fail-closed
   policy even when responses complete out of order. No additional worker,
   scheduler, catalog authority or background polling is created.
-- **Surface rendering:** `system/surface/ui/` owns the shared view and lifecycle;
-  platform adapters expose only capabilities. An unopened/minimized window must
+- **Surface rendering:** the visual modules materialized at `system/surface/ui/` come from the exact pinned `ordax-surface` revision and own their presentation lifecycle; `ordax-os` owns only the host/composition boundary and platform adapters expose capabilities. An unopened/minimized window must
   not keep performing its own optional network discovery.
 - **Always-visible indicators:** a single mounted tray owner may observe a
   capability at a bounded interval; a Settings panel should refresh on entry
