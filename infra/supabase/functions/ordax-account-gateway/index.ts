@@ -7,7 +7,7 @@ import {
 } from "../_shared/auth_rate_limit.mjs";
 import { readBoundedBody } from "../_shared/bounded_body.mjs";
 import { ACCOUNT_MCP_USAGE_PATH, readAccountMcpUsage } from "../_shared/account_mcp_usage.mjs";
-import { ACCOUNT_MCP_DEVICES_PATH, ACCOUNT_MCP_AUTHORITY_PATH, ACCOUNT_MCP_REVOKE_PATH, ACCOUNT_MCP_CENTRAL_TARGETS_PATH, ACCOUNT_MCP_CENTRAL_SELECTIONS_PATH, ACCOUNT_MCP_PROJECT_ONBOARDING_PATH, ACCOUNT_MCP_PROJECTS_PATH, isOwnerUuid, readAccountOwnerDevices, readAccountOwnerAuthority, revokeAccountOwnerGrant, parseAccountOwnerRevoke, readAccountOwnerCentralTargets, readAccountOwnerCentralSelections, selectAccountOwnerCentralDevice, parseAccountOwnerCentralSelection, readAccountOwnerProjectOnboarding, createAccountOwnerProject, parseAccountOwnerProjectCreate } from "../_shared/account_mcp_owner.mjs";
+import { ACCOUNT_MCP_DEVICES_PATH, ACCOUNT_MCP_AUTHORITY_PATH, ACCOUNT_MCP_REVOKE_PATH, ACCOUNT_MCP_CENTRAL_TARGETS_PATH, ACCOUNT_MCP_CENTRAL_SELECTIONS_PATH, ACCOUNT_MCP_PROJECT_ONBOARDING_PATH, ACCOUNT_MCP_PROJECTS_PATH, ACCOUNT_MCP_GITHUB_CHALLENGES_PATH, ACCOUNT_MCP_GITHUB_CALLBACK_PATH, ACCOUNT_MCP_GITHUB_CANDIDATES_PATH, ACCOUNT_MCP_GITHUB_SELECTIONS_PATH, isOwnerUuid, readAccountOwnerDevices, readAccountOwnerAuthority, revokeAccountOwnerGrant, parseAccountOwnerRevoke, readAccountOwnerCentralTargets, readAccountOwnerCentralSelections, selectAccountOwnerCentralDevice, parseAccountOwnerCentralSelection, readAccountOwnerProjectOnboarding, createAccountOwnerProject, parseAccountOwnerProjectCreate, startAccountOwnerGithubAuthorization, parseAccountOwnerGithubAuthorizationStart, completeAccountOwnerGithubAuthorization, parseAccountOwnerGithubCallback, readAccountOwnerGithubCandidates, selectAccountOwnerGithubRepository, parseAccountOwnerGithubSelection } from "../_shared/account_mcp_owner.mjs";
 import { verifyTrustedPublicRequestContext } from "../ordax-public-account-gateway/public_request_context.mjs";
 import { accountPrivilegedRpc } from "../_shared/account_privileged_rpc.mjs";
 import { authorizeAccountTransport, accountGatewayRoutePath, isPublicAccountPreActivationRoute } from "../_shared/account_transport_admission.mjs";
@@ -117,6 +117,12 @@ function redirectResponse(location: string, cookies: string[] = []) {
   });
   for (const cookie of cookies) headers.append("set-cookie", cookie);
   return new Response(null, { status: 303, headers });
+}
+
+function githubCallbackRedirect(location: string, cookies: string[] = []) {
+  const response = redirectResponse(location, cookies);
+  response.headers.set("referrer-policy", "no-referrer");
+  return response;
 }
 
 function wantsJson(req: Request) {
@@ -1213,7 +1219,7 @@ Deno.serve(async (req: Request) => {
   }
 
   if (path === "/health" && req.method === "GET") {
-    return json(200, { status: "ok", service: "ordax-account-gateway", version: 18 });
+    return json(200, { status: "ok", service: "ordax-account-gateway", version: 19 });
   }
 
   if (path === NETWORK_SEND_PATH && req.method === "POST") {
@@ -1315,9 +1321,16 @@ Deno.serve(async (req: Request) => {
       || (path === ACCOUNT_MCP_CENTRAL_TARGETS_PATH && req.method === "GET")
       || (path === ACCOUNT_MCP_CENTRAL_SELECTIONS_PATH && ["GET","POST"].includes(req.method))
       || (path === ACCOUNT_MCP_PROJECT_ONBOARDING_PATH && req.method === "GET")
-      || (path === ACCOUNT_MCP_PROJECTS_PATH && req.method === "POST")) {
+      || (path === ACCOUNT_MCP_PROJECTS_PATH && req.method === "POST")
+      || (path === ACCOUNT_MCP_GITHUB_CHALLENGES_PATH && req.method === "POST")
+      || (path === ACCOUNT_MCP_GITHUB_CALLBACK_PATH && req.method === "GET")
+      || (path === ACCOUNT_MCP_GITHUB_CANDIDATES_PATH && req.method === "GET")
+      || (path === ACCOUNT_MCP_GITHUB_SELECTIONS_PATH && req.method === "POST")) {
     const session = await authenticated(req);
     if (!session.user || !session.access) {
+      if (path === ACCOUNT_MCP_GITHUB_CALLBACK_PATH) {
+        return githubCallbackRedirect("/login/?erro=sessao-mcp-github", session.cookies);
+      }
       return json(401, {
         $schema: ERROR_SCHEMA, error: "authentication-required",
         message: "Entre na Conta OrdaX para administrar o MCP.",
@@ -1400,6 +1413,114 @@ Deno.serve(async (req: Request) => {
           "A criação não foi confirmada. Consulte os projetos antes de tentar novamente.");
       }
     }
+    if (path === ACCOUNT_MCP_GITHUB_CHALLENGES_PATH
+        || path === ACCOUNT_MCP_GITHUB_CALLBACK_PATH
+        || path === ACCOUNT_MCP_GITHUB_CANDIDATES_PATH
+        || path === ACCOUNT_MCP_GITHUB_SELECTIONS_PATH) {
+      // GitHub provider authorization is independently releasable. Project
+      // creation cannot silently enable provider identity, repository selection,
+      // device binding or grants.
+      if (Deno.env.get("ORDAX_MCP_OWNER_GITHUB_AUTHORIZATION_ENABLED") !== "1") {
+        if (path === ACCOUNT_MCP_GITHUB_CALLBACK_PATH) {
+          return githubCallbackRedirect(
+            "/conta/?mcp_github=indisponivel#dispositivos", session.cookies,
+          );
+        }
+        return error(503, "mcp-owner-github-authorization-unavailable",
+          "A conexão GitHub do MCP ainda não está disponível.");
+      }
+
+      if (path === ACCOUNT_MCP_GITHUB_CALLBACK_PATH) {
+        // The fixed GitHub OAuth redirect is a top-level GET. SameSite=Lax
+        // carries only the existing Account session; code/state are forwarded
+        // by the Vercel proxy under an exact two-parameter allowlist.
+        if (!publicSiteRequest(req) || !verifyTrustedPublicRequestContext(req).ok) {
+          return githubCallbackRedirect("/conta/?mcp_github=erro#dispositivos", session.cookies);
+        }
+        const codes=url.searchParams.getAll("code");
+        const states=url.searchParams.getAll("state");
+        const callback={code:codes[0],state:states[0]};
+        if (url.searchParams.size !== 2 || codes.length !== 1 || states.length !== 1
+            || !parseAccountOwnerGithubCallback(callback)) {
+          return githubCallbackRedirect("/conta/?mcp_github=erro#dispositivos", session.cookies);
+        }
+        try {
+          const result=await completeAccountOwnerGithubAuthorization(session.access,callback);
+          return githubCallbackRedirect(
+            "/conta/?mcp_github_challenge="+result.challenge_id+"#dispositivos",
+            session.cookies,
+          );
+        } catch {
+          // OAuth code/state are one-shot. Never replay completion after an
+          // uncertain provider or Platform response.
+          return githubCallbackRedirect("/conta/?mcp_github=erro#dispositivos", session.cookies);
+        }
+      }
+
+      if (path === ACCOUNT_MCP_GITHUB_CANDIDATES_PATH) {
+        const challengeIds=url.searchParams.getAll("challenge_id");
+        if (url.searchParams.size !== 1 || challengeIds.length !== 1
+            || !isOwnerUuid(challengeIds[0])) {
+          return error(400, "mcp-owner-github-challenge-invalid", "Autorização GitHub inválida.");
+        }
+        try {
+          return json(200, await readAccountOwnerGithubCandidates(
+            session.access,challengeIds[0],
+          ), session.cookies);
+        } catch {
+          return error(503, "mcp-owner-github-candidates-unavailable",
+            "Não foi possível consultar os repositórios GitHub verificados.");
+        }
+      }
+
+      if (!publicSiteRequest(req) || !verifyTrustedPublicRequestContext(req).ok) {
+        return error(403, "mcp-owner-csrf-denied", "Origem da autorização GitHub não autorizada.");
+      }
+      if (url.search !== ""
+          || (req.headers.get("content-type") ?? "").split(";")[0].trim().toLowerCase()
+            !== "application/json") {
+        return error(400, "mcp-owner-github-request-invalid", "Solicitação GitHub inválida.");
+      }
+      let providerRequest;
+      try {
+        const raw=await boundedBody(req);
+        if (raw.length > 2048) throw new Error("mcp-owner-github-request-too-large");
+        providerRequest=JSON.parse(raw);
+      } catch {
+        return error(400, "mcp-owner-github-request-invalid", "Solicitação GitHub inválida.");
+      }
+
+      if (path === ACCOUNT_MCP_GITHUB_CHALLENGES_PATH) {
+        if (!parseAccountOwnerGithubAuthorizationStart(providerRequest)) {
+          return error(400, "mcp-owner-github-start-invalid",
+            "Confirme o projeto antes de conectar o GitHub.");
+        }
+        try {
+          return json(201, await startAccountOwnerGithubAuthorization(
+            session.access,providerRequest,
+          ), session.cookies);
+        } catch {
+          return error(503, "mcp-owner-github-start-unconfirmed",
+            "A autorização GitHub não foi iniciada.");
+        }
+      }
+
+      if (!parseAccountOwnerGithubSelection(providerRequest)) {
+        return error(400, "mcp-owner-github-selection-invalid",
+          "Selecione exatamente um repositório GitHub verificado.");
+      }
+      try {
+        return json(200, await selectAccountOwnerGithubRepository(
+          session.access,providerRequest,
+        ), session.cookies);
+      } catch {
+        // The repository mutation is one-shot; a later explicit read reconciles
+        // canonical Project state instead of replaying an uncertain POST.
+        return error(503, "mcp-owner-github-selection-unconfirmed",
+          "A seleção do repositório não foi confirmada. Consulte o projeto novamente.");
+      }
+    }
+
     if (path === ACCOUNT_MCP_CENTRAL_TARGETS_PATH || path === ACCOUNT_MCP_CENTRAL_SELECTIONS_PATH) {
       // Separate release switch: Owner inventory/revocation cannot silently
       // activate a central session or attach ChatGPT to a different device.
