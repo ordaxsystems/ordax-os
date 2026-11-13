@@ -196,7 +196,7 @@ signing or production activation is implied.
 The canonical workspace Store now projects the public OS catalog port and
 source-locked local AI candidate. It defaults to official mode, with an
 explicit demonstration inside the same renderer. No Web transport or lifecycle
-authority has been introduced. See [Store boundary and acceptance](STORE-WEB-CATALOG-PRESENTATION.md).
+authority has been introduced. See [Store service boundary](../system/services/apps/README.md).
 
 
 ## Responsive compact-window panes — 2026-10-11
