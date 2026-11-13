@@ -1,6 +1,8 @@
-# Migração OrdaX Surface — rastreamento da separação
+# OrdaX Surface — evidência do cutover de repositório
 
-**Estado no `ordax-os/main`:** cutover de fonte visual integrado pela [PR #2198](https://github.com/ordaxsystems/ordax-os/pull/2198), merge commit `54ef2086338ed53f5dfccaebf77905a24a044b3d`. O contrato é `canonical`; os arquivos visuais antigos não são rastreados no Git do OS. Não houve promoção física ou Stable.
+**Status:** EVIDENCE / CUTOVER CONCLUÍDO; não é owner de estado atual nem roteiro de migração.
+
+**Estado observado no `ordax-os/main` durante o cutover:** cutover de fonte visual integrado pela [PR #2198](https://github.com/ordaxsystems/ordax-os/pull/2198), merge commit `54ef2086338ed53f5dfccaebf77905a24a044b3d`. O contrato é `canonical`; os arquivos visuais antigos não são rastreados no Git do OS. Não houve promoção física ou Stable.
 **SSOT da revisão externa:** [`docs/contracts/surface-source.json`](contracts/surface-source.json). Não repetir a revisão da Surface neste documento ou criar uma segunda resolução de versão.
 
 ## Decisão de ownership
