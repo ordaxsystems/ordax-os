@@ -38,6 +38,54 @@ Status: CANONICAL FOR PROTOTYPE
 **Critério de sucesso:** o pedido produz um comportamento/artefato observável e validado no owner correto, não uma coleção de planos, evidências e workflows sem entrega.
 
 
+## Integração multi-repositório — composição do produto (2026-11-13)
+
+A separação de repositórios **separa ownership e ciclos de desenvolvimento; não separa o produto OrdaX em forks**. A integração normal deve ocorrer por contratos versionados, artefatos imutáveis e dependências diretas. Copiar source entre owners, coordenar HEADs idênticos ou fazer cada consumidor pinçar todos os repositórios transitivos recria um monólito distribuído e é proibido.
+
+### Regra de dependência direta
+
+- `ordax-surface` publica a fonte visual compartilhada. O `ordax-os` seleciona a revisão visual exata por seu lock canônico; Desktop, Creator e apps **não** mantêm outro pin da Surface.
+- `ordax-apps` publica componentes/pacotes e catálogo pelos contratos existentes. A Surface apresenta estado e ações através dos ports do produto; não importa source de apps nem se torna autoridade de instalação.
+- `ordax-intelligence` publica source/artefatos reutilizáveis. A composição Native seleciona a revisão aplicável por contrato; clientes não copiam o motor.
+- `ordax-os` é o **compositor do produto Native**: host, serviços, lifecycle, contratos e a seleção das revisões externas que entram em um candidato OrdaX. Isso não transfere ownership do source externo para o OS.
+- `ordax-desktop` consome **uma composição/candidato OrdaX verificável** para o host Windows. Não integra Surface, Apps ou Intelligence separadamente quando esses componentes já são transitivamente selecionados pela composição do OS.
+- `ordax-creator` consome artefatos de mídia OrdaX já produzidos e verificados. Não recompila kernel, Surface, Runtime, Apps ou Base para o usuário final.
+- `ordax-site` consome somente catálogos/artefatos públicos autorizados e assets publicados pelos owners. O site não participa da composição Native.
+- Runtime/Control Plane permanecem owners independentes de suas capacidades e são consumidos por contratos públicos; composição nunca autoriza duplicar dispatcher, grants, OAuth ou controle local em outro repositório.
+
+**Regra transitiva:** um consumidor fixa apenas sua dependência direta canônica. Se A compõe B e B compõe C, A não cria um segundo pin de C sem uma dependência direta real e documentada.
+
+### Paralelismo por owner
+
+Trabalhos independentes avançam simultaneamente. Um owner só espera outro no ponto em que realmente precisa consumir um novo contrato/artefato/revisão. Não transformar a existência de repositórios separados em uma fila global.
+
+Exemplos:
+- uma correção visual na Surface pode ser implementada e validada sem Desktop, Creator, kernel ou USB;
+- a adoção dessa Surface pelo produto Native altera o lock/composição do OS e executa somente os gates de integração aplicáveis;
+- o Desktop só precisa de nova execução quando houver intenção de produzir/validar um novo pacote Desktop com aquela composição;
+- o Creator só entra quando houver novo artefato de mídia a consumir;
+- uma mudança isolada em Forge/app não exige alteração de Surface/OS se os contratos existentes já bastarem.
+
+### Estados de conclusão
+
+Não usar `merged` como sinônimo de produto entregue:
+
+1. **Implementado** — source do owner alterado e validação proporcional aprovada.
+2. **Integrado** — alteração incorporada à `main` canônica do owner.
+3. **Entregável** — existe artefato/candidato/canal verificável quando essa responsabilidade exige distribuição.
+4. **Produto concluído** — a jornada correspondente funciona no destino aplicável (por exemplo Desktop instalado, USB inicializado ou app realmente instalado/aberto).
+
+O estado exigido depende do pedido. Uma correção interna pode terminar em Integrado; uma entrega de Desktop, USB ou instalação de app não pode ser chamada de concluída só porque o source foi mesclado.
+
+### Anti-cascata
+
+- Não abrir PR em vários repos apenas para “sincronizar” SHAs sem consumo real.
+- Não manter SHA histórico em README como instrução operacional; consultar o lock, workflow, manifesto ou proveniência vigente.
+- Não reconstruir upstream no consumidor. Reutilizar artefatos imutáveis e cache válidos.
+- Não executar QEMU/kernel/USB para alteração client-only sem causalidade.
+- Se a interface pública continua compatível, o producer pode avançar sem bloquear consumidores; a adoção ocorre quando o consumidor realmente precisar da nova revisão.
+- Mudança incompatível exige evolução versionada do contrato e adoção explícita, não edição coordenada informal em múltiplos repos.
+
 ## P0 — Native MCP no Windows/Desktop DEV (31/10/2026)
 
 **Atualização de handoff (04/11/2026):** o código do Capability Fabric v1
