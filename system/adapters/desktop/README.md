@@ -1,10 +1,10 @@
 # OrdaX Desktop Adapter
 
-Status: CANONICAL BOUNDARY — IMPLEMENTATION PENDING
+Status: CANONICAL OS-SIDE CAPABILITY BOUNDARY
 
-`system/adapters/desktop/` is the only user-product boundary allowed to translate shared OrdaX capabilities into APIs provided by a host desktop operating system.
+`system/adapters/desktop/` contains the **OS-owned side of desktop capability contracts**. The Windows application host, Electron lifecycle, NSIS packaging and Desktop delivery belong to `ordaxsystems/ordax-desktop`; this directory must not become a second Desktop implementation.
 
-The first supported host is Windows. Other desktop hosts may be added later without forking `system/surface/` or `system/apps/`.
+The shared Surface remains owned by `ordaxsystems/ordax-surface` and is selected by the OS composition. Platform-specific capability differences stay behind public ports/adapters rather than copied UI or app source.
 
 ## Authority model
 
@@ -42,27 +42,11 @@ Every capability must declare whether it is:
 - privileged-helper gated;
 - unavailable on the current host.
 
-## Creator capability
+## Creator boundary
 
-USB creation belongs to OrdaX Desktop but is not ordinary application authority.
+Creator is an independent product/source owner in `ordaxsystems/ordax-creator`. Desktop may expose or launch the Creator experience, but this adapter does not own Creator Core, media policy or physical-write authorization.
 
-The flow is:
-
-```text
-Surface
-  -> request create-media
-  -> desktop adapter validates intent
-  -> identify removable target fail-closed
-  -> request explicit user authorization
-  -> privileged helper receives a narrow typed operation
-  -> write only the selected removable target
-  -> read back and verify
-  -> return structured receipt
-```
-
-The helper must reject ambiguous disk identity, internal-system disks, unsigned/unverified OrdaX artifacts, and operations outside its allowlist.
-
-The Surface never receives raw privileged handles.
+The direct dependency is a verified OrdaX media/candidate contract. Creator validates the authorized artifact, requests explicit target consent and performs its own bounded write/readback path. Do not rebuild Creator or duplicate its device policy inside this adapter.
 
 ## Update separation
 
@@ -93,6 +77,6 @@ Those remain in the shared `system/surface/`, `system/apps/` and `system/service
 
 ## Implementation baseline
 
-A thin webview/native shell architecture is preferred because it can consume the same shared Surface directly while keeping privileged code behind a native boundary. Tauri is the current leading implementation candidate for the Windows-first shell, but framework choice is not an architectural invariant and must remain replaceable.
+The current Windows host is implemented and delivered from `ordaxsystems/ordax-desktop`. This OS adapter remains framework-neutral and supplies only the capability/host boundary needed by the composed product. Do not reintroduce the former `tools/windows-desktop` product implementation, choose a second shell framework here, or make the OS repository a competing Windows packager.
 
 No private signing key, device private key, access token or release-authority secret belongs in this directory or in a shipped client bundle.
