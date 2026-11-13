@@ -176,6 +176,27 @@ jobs:
           Write-Output ("NATIVE_BUNDLE_SMOKE=PASS assets=" + $scripts.Count)
       - name: Materialize minimal canonical Native runtime dependencies
         run: node out/ordax-desktop-source/runtime-toolchain.cjs
+      - name: Restore exact private MinGit source archive cache
+        id: mingit-cache
+        uses: actions/cache/restore@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
+        with:
+          path: out/windows-desktop-toolchain/source
+          key: ordax-windows-mingit-source-v2-${{ runner.os }}-${{ hashFiles('out/ordax-desktop-source/git-toolchain-lock.json') }}
+      - name: Materialize pinned private MinGit for Windows Dev updates
+        shell: pwsh
+        run: pwsh -NoProfile -File out/ordax-desktop-source/package-git-toolchain.ps1
+      - name: Verify source-pinned private MinGit on cache hit and miss
+        shell: pwsh
+        run: |
+          $ErrorActionPreference = 'Stop'
+          node -e "const m=require('./out/ordax-desktop-source/checkout.cjs'); const p=m.bundledGit({platform:'win32',toolchainRoot:require('node:path').resolve('out/windows-desktop-toolchain')}); if(!p)process.exit(1); console.log('WINDOWS_PRIVATE_MINGIT_VERIFIED='+p)"
+          if ($LASTEXITCODE -ne 0) { throw 'Private MinGit failed canonical receipt or PE digests' }
+      - name: Save source-pinned private MinGit archive cache
+        if: steps.mingit-cache.outputs.cache-hit != 'true'
+        uses: actions/cache/save@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
+        with:
+          path: out/windows-desktop-toolchain/source
+          key: ordax-windows-mingit-source-v2-${{ runner.os }}-${{ hashFiles('out/ordax-desktop-source/git-toolchain-lock.json') }}
       - name: Restore content-pinned Windows Aura engine and model cache
         id: aura-cache
         uses: actions/cache/restore@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
@@ -187,9 +208,51 @@ jobs:
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
         with:
           repository: ordaxsystems/ordax-intelligence
-          ref: e739adffc566ae8855a9a521754e32e3ab96c1e1
+          # Reconciled Intelligence main with real GGUF inference proof and
+          # a byte-identical 16-file engine (run 43309006398).
+          ref: 70fc05715e1eb99a43d513caec9f4ac13fbcb1f3
           path: out/_upstream/ordax-intelligence
           persist-credentials: false
+      - name: Select exact Microsoft-signed app-local VC143 dependency set
+        if: steps.aura-cache.outputs.cache-hit != 'true'
+        shell: pwsh
+        run: |
+          $ErrorActionPreference = 'Stop'
+          $vc = (Get-Content system/services/local-ai/source-lock.json -Raw | ConvertFrom-Json).engine.windows_artifact.msvc_runtime
+          if ($vc.distribution -cne 'microsoft-vc143-app-local' -or
+              $vc.publisher -cne 'Microsoft Corporation' -or @($vc.files).Count -ne 3) {
+            throw 'No canonical Microsoft-signed app-local prerequisite lock'
+          }
+          $vswhere = Join-Path ([Environment]::GetFolderPath('ProgramFilesX86')) 'Microsoft Visual Studio/Installer/vswhere.exe'
+          if (-not (Test-Path $vswhere -PathType Leaf)) { throw 'Microsoft VS Redist discovery unavailable' }
+          $install = @(& $vswhere -latest -products '*' -property installationPath) | Select-Object -First 1
+          if (-not $install) { throw 'Microsoft Visual Studio Build Tools not installed' }
+          $root = Join-Path $install 'VC/Redist/MSVC'
+          $found = @()
+          foreach ($version in @(Get-ChildItem -LiteralPath $root -Directory -ErrorAction Stop)) {
+            $dir = Join-Path $version.FullName 'x64/Microsoft.VC143.CRT'
+            if (-not (Test-Path $dir -PathType Container)) { continue }
+            $accepted = $true
+            foreach ($entry in $vc.files) {
+              $file = Join-Path $dir $entry.name
+              if (-not (Test-Path $file -PathType Leaf)) { $accepted = $false; break }
+              $item = Get-Item -LiteralPath $file
+              $signature = Get-AuthenticodeSignature -LiteralPath $file
+              if ($item.Length -ne $entry.size_bytes -or
+                  (Get-FileHash -LiteralPath $file -Algorithm SHA256).Hash.ToLowerInvariant() -cne $entry.sha256 -or
+                  $item.VersionInfo.FileVersion -cne $vc.version -or
+                  $signature.Status -ne 'Valid' -or
+                  $signature.SignerCertificate.Subject -notmatch 'O=Microsoft Corporation') {
+                $accepted = $false
+                break
+              }
+            }
+            if ($accepted) { $found += $dir }
+          }
+          if (-not $found.Count) { throw 'Canonical Microsoft VC143 signer/version/digests absent on Windows runner' }
+          $source = $found | Sort-Object | Select-Object -First 1
+          "ORDAX_VC143_REDIST_SOURCE=$source" >> $env:GITHUB_ENV
+          Write-Output 'WINDOWS_VC143_MICROSOFT_SIGNATURES_AND_HASHES=PASS files=3'
       - name: Build and stage exact verified offline Aura payload (cache miss only)
         if: steps.aura-cache.outputs.cache-hit != 'true'
         shell: pwsh
@@ -201,13 +264,21 @@ jobs:
           if ($LASTEXITCODE -ne 0) { throw 'Canonical Windows Intelligence engine build failed' }
           $lock = Get-Content system/services/local-ai/source-lock.json -Raw | ConvertFrom-Json
           $model = Join-Path $cache $lock.model.filename
-          & node out/ordax-desktop-source/materialize-local-ai.cjs $candidate $model out/windows-local-ai-runtime
+          & node out/ordax-desktop-source/materialize-local-ai.cjs $candidate $model out/windows-local-ai-runtime $env:ORDAX_VC143_REDIST_SOURCE
           if ($LASTEXITCODE -ne 0) { throw 'Pinned Aura runtime assembly failed' }
       - name: Verify complete offline Aura bytes even after cache restoration
         shell: pwsh
         run: |
           node --input-type=module -e "import('./system/adapters/desktop/local-ai-package.mjs').then(m=>m.verifyWindowsLocalAiPackage('out/windows-local-ai-runtime')).then(x=>console.log('WINDOWS_AURA_PAYLOAD_VERIFIED='+x.modelId)).catch(e=>{console.error(e);process.exitCode=1})"
           if ($LASTEXITCODE -ne 0) { throw 'Windows Aura package digest mismatch' }
+      - name: Reject unprovided MSVC dependencies in Windows Aura package
+        shell: pwsh
+        run: |
+          $ErrorActionPreference = 'Stop'
+          & node out/ordax-desktop-source/pe-dependency-audit.cjs out/windows-local-ai-runtime/engine system/services/local-ai/source-lock.json
+          if ($LASTEXITCODE -ne 0) {
+            throw 'Aura cannot be considered ready for clean Windows until its pinned engine is self-contained or the approved prerequisite is shipped'
+          }
       - name: Save verified content-pinned Windows Aura cache
         if: steps.aura-cache.outputs.cache-hit != 'true'
         uses: actions/cache/save@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
