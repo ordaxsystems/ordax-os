@@ -242,6 +242,29 @@ class PortableQemuImpactTests(unittest.TestCase):
                 heavy = impact.classify_paths(light + [critical], root=ROOT)
                 self.assertTrue(heavy.required, heavy.reasons)
 
+    def test_read_only_physical_proof_resolver_does_not_require_portable_qemu(self):
+        paths = [
+            "system/surface/bin/ordax-proof-runtime.sh",
+            "system/diagnostics/mvp_surface_smoke.py",
+            "system/diagnostics/internet_native_physical_proof.py",
+            "tools/ci/portable_qemu_impact.py",
+            "tests/test_portable_qemu_impact.py",
+        ]
+        result = impact.classify_paths(paths, root=ROOT)
+        self.assertFalse(result.required, result.reasons)
+        self.assertEqual(result.reasons, ("no-heavy-portable-impact",))
+
+        # The exception is intentionally exact. Surface startup and any other
+        # unclassified shell owner under system/surface/bin remain boot-coupled.
+        for critical in (
+            "system/surface/bin/ordax-surface",
+            "system/surface/bin/unknown-runtime-helper",
+            "system/surface/entrypoint",
+        ):
+            with self.subTest(critical=critical):
+                heavy = impact.classify_paths(paths + [critical], root=ROOT)
+                self.assertTrue(heavy.required, heavy.reasons)
+
     def test_boot_coupled_local_ai_runtime_requires_qemu(self):
         result = impact.classify_paths(["system/services/local-ai/runtime.mjs"], root=ROOT)
         self.assertTrue(result.required)

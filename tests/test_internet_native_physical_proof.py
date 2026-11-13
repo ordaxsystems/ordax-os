@@ -121,9 +121,9 @@ class InternetNativePhysicalProofTests(unittest.TestCase):
             "boot_id": "boot-a",
             "evidence_context": {
                 "distribution_profile": "owner-development",
-                "runtime_mode": "dynamic-native-runtime",
+                "runtime_mode": "verified-erofs-overlay",
                 "evidence_scope": "development",
-                "runtime_sha256": None,
+                "runtime_sha256": "c" * 64,
             },
             "browser_host_processes": [{"pid": 100, "start_ticks": 500}],
             "session": {"semantic_sha256": "a" * 64, "url_count": 3, "active_index": 1},
@@ -135,9 +135,9 @@ class InternetNativePhysicalProofTests(unittest.TestCase):
             "boot_id": "boot-a",
             "evidence_context": {
                 "distribution_profile": "owner-development",
-                "runtime_mode": "dynamic-native-runtime",
+                "runtime_mode": "verified-erofs-overlay",
                 "evidence_scope": "development",
-                "runtime_sha256": None,
+                "runtime_sha256": "c" * 64,
             },
             "browser_host_processes": [{"pid": 101, "start_ticks": 900}],
             "session": {"semantic_sha256": "a" * 64, "url_count": 3, "active_index": 1},
@@ -153,9 +153,9 @@ class InternetNativePhysicalProofTests(unittest.TestCase):
                 "boot_id": "same",
                 "evidence_context": {
                 "distribution_profile": "owner-development",
-                "runtime_mode": "dynamic-native-runtime",
+                "runtime_mode": "verified-erofs-overlay",
                 "evidence_scope": "development",
-                "runtime_sha256": None,
+                "runtime_sha256": "c" * 64,
             },
             "browser_host_processes": [{"pid": 10, "start_ticks": 20}],
                 "session": {"semantic_sha256": "b" * 64, "url_count": 1, "active_index": 0},
@@ -169,11 +169,18 @@ class InternetNativePhysicalProofTests(unittest.TestCase):
         )
         self.assertGreater(report["summary"]["fail"], 0)
 
-    def test_evidence_context_requires_verified_digest_only_for_stable(self):
-        self.assertEqual(
-            proof.evidence_context_from_environment()["evidence_scope"],
-            "development",
-        )
+    def test_evidence_context_requires_verified_digest_for_all_active_runtimes(self):
+        owner = {
+            "ORDAX_PROOF_PROFILE": "owner-development",
+            "ORDAX_PROOF_RUNTIME_MODE": "verified-erofs-overlay",
+            "ORDAX_PROOF_EVIDENCE_SCOPE": "development",
+            "ORDAX_PROOF_RUNTIME_SHA256": "c" * 64,
+        }
+        with mock.patch.dict("os.environ", owner, clear=False):
+            context = proof.evidence_context_from_environment()
+            self.assertEqual(context["evidence_scope"], "development")
+            self.assertEqual(context["runtime_sha256"], "c" * 64)
+
         with mock.patch.dict(
             "os.environ",
             {
@@ -197,7 +204,7 @@ class InternetNativePhysicalProofTests(unittest.TestCase):
             },
             clear=False,
         ):
-            with self.assertRaisesRegex(ValueError, "must not claim"):
+            with self.assertRaisesRegex(ValueError, "evidence context"):
                 proof.evidence_context_from_environment()
 
     def test_owner_verified_erofs_digest_never_promotes_development_evidence(self):
@@ -234,9 +241,9 @@ class InternetNativePhysicalProofTests(unittest.TestCase):
             "boot_id": "same",
             "evidence_context": {
                 "distribution_profile": "owner-development",
-                "runtime_mode": "dynamic-native-runtime",
+                "runtime_mode": "verified-erofs-overlay",
                 "evidence_scope": "development",
-                "runtime_sha256": None,
+                "runtime_sha256": "c" * 64,
             },
             "browser_host_processes": [{"pid": 10, "start_ticks": 20}],
             "session": {"semantic_sha256": "b" * 64, "url_count": 1, "active_index": 0},
@@ -262,8 +269,9 @@ class InternetNativePhysicalProofTests(unittest.TestCase):
         self.assertIn('busybox chroot "$RUNTIME_ROOT"', text)
         self.assertIn("/run/ordax-surface/runtime-proof-context", resolver)
         self.assertIn("/run/ordax/runtime/native-surface/rootfs", resolver)
-        self.assertIn("alpine-v3.22-cage-webkitgtk-v1", resolver)
+        self.assertNotIn("alpine-v3.22-cage-webkitgtk-v1", resolver)
         self.assertIn("verified-erofs-overlay", resolver)
+        self.assertNotIn("dynamic-native-runtime", resolver)
         self.assertIn("canonical-stable-mvp", resolver)
         self.assertNotIn('if [ -x "$stable_root/usr/bin/python3" ]', resolver)
         self.assertNotIn("apk add", text + resolver)

@@ -21,7 +21,6 @@ EVIDENCE = Path("/var/lib/ordax/internet-proof")
 MAX_SESSION = 128 * 1024
 MAX_TABS = 16
 EVIDENCE_CONTEXTS = {
-    ("owner-development", "dynamic-native-runtime"): "development",
     ("owner-development", "verified-erofs-overlay"): "development",
     ("stable-mvp", "verified-erofs-overlay"): "canonical-stable-mvp",
 }
@@ -29,7 +28,7 @@ EVIDENCE_CONTEXTS = {
 
 def evidence_context_from_environment() -> dict:
     distribution_profile = os.environ.get("ORDAX_PROOF_PROFILE", "owner-development")
-    runtime_mode = os.environ.get("ORDAX_PROOF_RUNTIME_MODE", "dynamic-native-runtime")
+    runtime_mode = os.environ.get("ORDAX_PROOF_RUNTIME_MODE", "verified-erofs-overlay")
     evidence_scope = os.environ.get(
         "ORDAX_PROOF_EVIDENCE_SCOPE",
         EVIDENCE_CONTEXTS.get((distribution_profile, runtime_mode), ""),
@@ -38,17 +37,12 @@ def evidence_context_from_environment() -> dict:
     expected_scope = EVIDENCE_CONTEXTS.get((distribution_profile, runtime_mode))
     if expected_scope is None or evidence_scope != expected_scope:
         raise ValueError("physical proof evidence context is invalid")
-    if runtime_mode == "verified-erofs-overlay":
-        if not (
-            len(runtime_sha256) == 64
-            and all(char in "0123456789abcdef" for char in runtime_sha256)
-        ):
-            raise ValueError("Stable/MVP proof runtime digest is invalid")
-        normalized_digest = runtime_sha256
-    else:
-        if runtime_sha256:
-            raise ValueError("development proof runtime must not claim a verified digest")
-        normalized_digest = None
+    if not (
+        len(runtime_sha256) == 64
+        and all(char in "0123456789abcdef" for char in runtime_sha256)
+    ):
+        raise ValueError("verified proof runtime digest is invalid")
+    normalized_digest = runtime_sha256
     return {
         "distribution_profile": distribution_profile,
         "runtime_mode": runtime_mode,
@@ -255,14 +249,11 @@ def _evidence_context(report: dict) -> tuple[str, str, str, str | None] | None:
     expected_scope = EVIDENCE_CONTEXTS.get((distribution_profile, runtime_mode))
     if expected_scope is None or evidence_scope != expected_scope:
         return None
-    if runtime_mode == "verified-erofs-overlay":
-        if not (
-            isinstance(runtime_sha256, str)
-            and len(runtime_sha256) == 64
-            and all(char in "0123456789abcdef" for char in runtime_sha256)
-        ):
-            return None
-    elif runtime_sha256 is not None:
+    if not (
+        isinstance(runtime_sha256, str)
+        and len(runtime_sha256) == 64
+        and all(char in "0123456789abcdef" for char in runtime_sha256)
+    ):
         return None
     return distribution_profile, runtime_mode, evidence_scope, runtime_sha256
 

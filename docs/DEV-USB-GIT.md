@@ -306,11 +306,7 @@ automaticamente apenas porque o repositório recebeu a correção.
 
 ## Dimensionamento do Creator Development — 11/10/2026
 
-O teste físico identificou `/dev/sdb2` com **1,9 GiB usados de 1,9 GiB
-(100%)**. `/`, `/state`, `/run` e `/tmp` compartilham essa partição
-ext4. Ao instalar a Surface (Cage/WebKit), o APK mostrou
-`No space left on device`, e a instalação parou antes de finalizar.
-Isso não é um problema resolvido aumentando o timeout ou o heartbeat.
+O teste físico histórico de 11/10 identificou `/dev/sdb2` com **1,9 GiB usados de 1,9 GiB (100%)**. Naquele caminho Alpine/APK já aposentado, a tentativa de materializar a Surface terminou em `No space left on device`. A conclusão de capacidade permanece válida — falta de espaço não se resolve aumentando timeout/heartbeat —, mas **APK não faz parte do fluxo atual**.
 
 O Creator Owner/Development reserva **no mínimo 5 GiB para a partição ext4**
 em um dispositivo capaz de suportá-los, usando o máximo disponível até
@@ -650,30 +646,13 @@ A candidate that cannot select its exact rootfs or cannot satisfy health never b
 
 Early boot branding follows the same rule. Anything displayed only after the development base hands control to `system/` may update with the normal Git loop. A logo/splash shown before Git exists is part of the base/initramfs path and therefore changes on the next base boot. The current prototype still uses text-mode early boot; a branded graphical splash renderer has not yet been implemented.
 
-## First-boot graphical runtime provisioning (2026-10-11)
+## Verified graphical runtime handoff
 
-The Owner/Development notebook may need to install the replaceable native
-Cage/WebKit graphical runtime after its first Git checkout. Alpine APK can
-report hundreds of packages; `Installing (218/247)` is **progress**, not a
-Surface health acknowledgement or proof of a finished installation.
+Owner/Development and Stable/MVP now start the graphical stack only from the boot owner's exact, offline **verified EROFS + ephemeral OverlayFS** handoff at `/run/ordax/runtime/native-surface/rootfs`. The Surface launcher does not install Cage/WebKit packages on first boot and does not own an Alpine/APK acquisition timeout.
 
-The native launcher writes a current-boot, exact-source-SHA provisioning marker
-only while its development graphical runtime is being provisioned. The system
-supervisor distinguishes this bounded acquisition phase (default maximum 660s)
-from the normal 30s graphical health deadline; once provisioning completes,
-actual Cage/WebKit/Surface heartbeat verification must still pass independently.
-The package acquisition itself is bounded (default 600s). Stable/MVP never
-uses this development APK acquisition path and keeps its separately governed
-health budget. The Guardian verifies a process-owned supervisor liveness marker
-independently of `state.json` updates, so an active first-run install cannot be
-misinterpreted as an idle/crashed supervisor.
+The boot owner supplies `ORDAX_SURFACE_RUNTIME_MODE=verified-erofs-overlay`, the exact runtime root and SHA-256. The Surface publishes those values in its private runtime-proof context; physical proof harnesses reject missing/mismatched digests and never infer a runtime from historical filesystem layout. Owner/Development proof remains development-scoped even though its runtime bytes are verified; Stable promotion still requires the independent canonical physical gates.
 
-These are source/CI changes, **not yet a new physical boot proof**. A developer
-USB that has a working checkout can receive the fix via `ordax-pull` and try
-`ordax-run` without reflashing the USB. If it still enters recovery, inspect
-`/run/ordax-surface/host.log`, `/run/ordax-update/guardian.log` and the
-runtime's `http.log` for the actual failed phase; do not remove the physical
-USB safety gates or treat the historical partial APK output as proof of success.
+A developer USB may still update Git-owned system code through `ordax-pull` when that owner path is applicable, but a missing/corrupt graphical runtime is a release/component failure, not permission to download packages at boot. Inspect `/run/ordax-surface/host.log` and the canonical boot/runtime receipts; do not restore the retired APK path as recovery.
 
 ## Network behavior
 
