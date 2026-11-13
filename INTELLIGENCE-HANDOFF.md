@@ -298,7 +298,7 @@ A experiência adaptativa/Jarvis de #1572 continua relevante como UX/resultado, 
 1. `AGENTS.md`, `docs/README.md`, `docs/contracts/repository-ownership.json` e `docs/CURRENT-STATE.md` — autoridade e estado atual.
 2. `docs/INTELLIGENCE.md`, `docs/contracts/intelligence.json`, `system/services/intelligence/` — Intelligence, model router e limites de inferência.
 3. `docs/APPLICATION-INTELLIGENCE.md`, `docs/APP-INTELLIGENCE-MANIFEST.md`, `docs/APPLICATION-ACTIONS.md` — catálogo semântico, intents, provedores de ações.
-4. `PERSONAL-ORDAX.md` e `docs/PERSONAL-ORDAX.md` — Work, Activity, Result, approvals, grants e receipts.
+4. `docs/PERSONAL-ORDAX.md` — owner canônico de Work, Activity, Result, approvals, grants e receipts.
 5. O [snapshot do plano de 13/10](https://github.com/ordaxsystems/ordax-os/blob/752711fe18c85a5aa997c89035f488d8f52a4853/docs/plans/INTELLIGENCE-INTEGRATION-CLOSURE-2026-10-13.md) e a issue #1757 são **referências históricas**; revalidar source, owners e PRs atuais antes de qualquer execução.
 6. [Apps: Studio + ChatGPT em três superfícies](https://github.com/ordaxsystems/ordax-apps/blob/main/docs/STUDIO-CHATGPT-THREE-SURFACES.md), [Studio Web](https://github.com/ordaxsystems/ordax-apps/blob/main/docs/STUDIO-WEB-INTEGRATION.md).
 7. [Platform: providers](https://github.com/ordaxsystems/ordax-platform/blob/main/docs/ORDAX_PROVIDER_CONNECTORS.md), [Product MCP](https://github.com/ordaxsystems/ordax-platform/blob/main/docs/PRODUCT_MCP_CONNECT.md), [Runtime: bridge experimental](https://github.com/ordaxsystems/ordax-runtime/pull/63).
