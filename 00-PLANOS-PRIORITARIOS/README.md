@@ -6,19 +6,17 @@ Esta pasta é o ponto único para organizar **planos, pesquisas, relatórios, pr
 
 Ela existe porque o repositório já possui vários planos históricos na raiz e várias frentes podem estar sendo analisadas por chats/agentes diferentes. O objetivo é impedir perda de contexto, duplicação de implementação e prioridades contraditórias.
 
-## Regra operacional atual — Desktop Windows primeiro (2026-10-31)
+## Regra operacional atual — paralelismo por owner (13/11/2026)
 
-O produto não está mais em estratégia de "MVP mínimo" (`MVP.md`). A janela corrente prioriza **Windows Desktop funcional**, integração real de Conta/Spaces, Store/Apps, Aura, arquivos, Platform e estabilidade. Web usa seu próprio canal. **USB/Creator/Buildroot/Native físico não são pré-requisitos** dessa janela e não devem ser compilados por mudanças de clientes ou documentação. Este hub continua servindo como **registro, triagem, preservação e reconciliação documental**, nunca autoridade paralela.
+Este hub **não define uma fila global**. A composição e a execução seguem ADR-031: owners independentes avançam em paralelo e sincronizam somente quando há adoção real de contrato, artefato ou revisão. O Desktop Windows continua sendo o primeiro canal escolhido para fechamento operacional ponta a ponta no `MVP.md`, mas isso não adia automaticamente USB/Creator/Buildroot, Surface, Apps, Intelligence, Site ou outras frentes independentes.
 
 - planos desta pasta ou planos históricos da raiz **não abrem trabalho de implementação por si só**;
-- nenhuma frente futura deve ser iniciada apenas porque está `READY`, P1, P2 ou documentada em detalhes;
-- execução depende da prioridade contemporânea e de owners canônicos, contratos, `docs/CURRENT-STATE.md`, `docs/DEVELOPMENT-WORKFLOW.md` e `docs/PROMOTION-GATES.md` — não de status de plano legado;
-- pesquisa, documentação, auditoria de links e correção de classificação documental podem continuar sem promover execução de produto;
-- antes de promover a etapa USB/Native físico, `ROADMAP.md` deve ser revalidado contra a `main`, os owners, o runtime Desktop já estabilizado e os gates físicos reais.
+- nenhuma frente deve ser iniciada apenas porque está `READY`, P1, P2 ou detalhada, nem bloqueada apenas por outra frente independente ainda não concluída;
+- execução depende de owners canônicos, contratos, `docs/CURRENT-STATE.md`, `docs/DEVELOPMENT-WORKFLOW.md`, `MVP.md` e gates aplicáveis;
+- alterações client-only não disparam kernel/USB/Creator sem causalidade; alterações USB/Creator também não esperam Desktop quando independentes;
+- pesquisa e documentação podem preservar contexto, mas não criam prioridade operacional nem autoridade paralela.
 
-Isso separa **preservar uma boa ideia** de **autorizar sua implementação agora**.
-
-`NATIVE-001` permanece no baseline de lançamento, mas **não reordena a janela Windows-first nem antecipa builds USB/Creator**. Só volta à execução quando houver autorização contemporânea do owner, sem relaxar consentimento/escrita física nem restaurar Alpine/legado.
+Isso separa **preservar uma boa ideia** de **autorizar sua implementação agora**, sem transformar múltiplos repositórios em uma fila serial.
 
 ## Autoridade
 
