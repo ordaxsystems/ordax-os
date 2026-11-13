@@ -320,21 +320,24 @@ A exclusão só é permitida depois que:
 - migration residue nunca pode virar segunda fonte de verdade.
 
 
-## Estado operacional da migração
+## Estado operacional dos owners
 
-Atualizado em 2026-10-08 após validação da migração concluída e dos quatro owners no GitHub.
+Atualizado em **2026-11-13**. Esta tabela resume roles; a autoridade executável continua em `docs/contracts/repository-ownership.json` e nos locks específicos de componentes.
 
 | Camada | Repositório canônico | Estado |
 | --- | --- | --- |
-| OrdaX OS / plataforma | `ordaxsystems/ordax-os` | canônico |
-| Creator (Core/UI/consumidor Windows) | `ordaxsystems/ordax-creator` | fonte independente C6; publicação física depende de gates OS |
-| Apps first-party / ORDAX Studio | `ordaxsystems/ordax-apps` | canônico; Studio portátil em `apps/studio` |
-| Runtime / Device Host Windows | `ordaxsystems/ordax-runtime` | canônico; namespace transferido e histórico preservado |
-| Product MCP / Control Plane / connectors | `ordaxsystems/ordax-platform` | canônico; transferido e renomeado, histórico preservado |
-| Incubação antiga | `washingtonmsdj/mcp-blender` | legado aposentado; conteúdo funcional removido conforme contrato de migração; exclusão do repositório é decisão independente |
+| OrdaX OS / composição Native | `ordaxsystems/ordax-os` | canônico |
+| Desktop Windows host/packaging | `ordaxsystems/ordax-desktop` | canônico; consome composição OrdaX/OS |
+| Surface visual compartilhada | `ordaxsystems/ordax-surface` | canônico; revisão adotada pelo lock do OS |
+| Apps first-party / Forge / Studio | `ordaxsystems/ordax-apps` | canônico |
+| Runtime / Device Host Windows | `ordaxsystems/ordax-runtime` | canônico |
+| Product MCP / Control Plane / connectors | `ordaxsystems/ordax-platform` | canônico |
+| Creator Core/UI/consumer Windows | `ordaxsystems/ordax-creator` | canônico; mídia/release continuam produzidas pelo OS |
+| Site público | `ordaxsystems/ordax-site` | canônico para apresentação/build público |
+| Intelligence portátil | `ordaxsystems/ordax-intelligence` | source candidate; autoridade ativa depende do lock/cutover do OS |
+| Incubação antiga | `washingtonmsdj/mcp-blender` | legado aposentado; não recebe novas features |
 
-### Rastreamento cruzado
-
+### Rastreamento histórico da migração inicial
 - `ordaxsystems/ordax-apps#31` — retirar dependência operacional de `mcp-blender`;
 - `ordaxsystems/ordax-runtime#1` — migrar Runtime/Device Host;
 - `ordaxsystems/ordax-platform#2` — migrar Product MCP/Control Plane e connector;
