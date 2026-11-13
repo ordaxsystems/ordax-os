@@ -1,15 +1,15 @@
 # Registry de planos, pesquisas e handoffs
 
-Atualizado: **2026-10-31**
+Atualizado: **2026-11-13**
 
 Este catálogo evita que múltiplos chats criem documentos concorrentes para a mesma frente e separa **valor documental** de **autorização para executar**.
 
-A janela corrente prioriza **Desktop Windows funcional antes de USB/Creator**. Planos futuros permanecem registrados, mas não iniciam implementação por conta própria. `EXECUTION-ELIGIBLE` exige owner contemporâneo, contratos, `docs/CURRENT-STATE.md` e gates reais; não decorre de "MVP", `P0` ou do histórico.
+O registry não define uma fila global. Owners independentes avançam em paralelo; `EXECUTION-ELIGIBLE` exige owner/gate contemporâneo, contratos, `docs/CURRENT-STATE.md` e estado real de PR/source. Não decorre de "MVP", `P0`, ordem histórica de canais ou de outro plano.
 
 | ID | Tipo | Documento / rota | Prioridade | Status documental | Execução agora | Observação |
 |---|---|---|---|---|---|---|
 | EXEC-000 | snapshot antigo | `PLANO-00-ESTADO-ATUAL-E-PRIORIDADES.md` | histórico 02/10 | ARCHIVED | NOT APPLICABLE | Não seguir prioridades USB-first; estado e janela atual em `docs/CURRENT-STATE.md` e `docs/DEVELOPMENT-WORKFLOW.md` |
-| FOUNDATION-001 | auditoria e consolidação da fundação | `plans/FOUNDATION-001-OS-ARCHITECTURE-CONSOLIDATION.md` | somente recortes exigidos por owners canônicos | REFERENCE | EXECUTION-ELIGIBLE apenas para defeitos atuais no Desktop/Web e provas correspondentes; boot/USB adiado | Handoff histórico; não é outro SSOT de arquitetura, não duplica NATIVE-001 nem agenda Creator |
+| FOUNDATION-001 | auditoria e consolidação da fundação | `plans/FOUNDATION-001-OS-ARCHITECTURE-CONSOLIDATION.md` | somente recortes exigidos por owners canônicos | REFERENCE | EXECUTION-ELIGIBLE apenas quando um defeito/gate atual do owner exigir o recorte | Handoff histórico; não é outro SSOT de arquitetura, não duplica NATIVE-001 nem agenda canais |
 | COMMERCE-001 | plano comercial | `plans/COMMERCE-001-SUBSCRIPTIONS-AND-BENEFITS.md` | solicitação explícita | READY | EXECUTION-ELIGIBLE no escopo autorizado em 2026-10-22 | Catálogo e apresentação nos owners existentes; billing/cotas pagas e serviços futuros continuam gated |
 | SURFACE-001 | plano funcional | `PLANO-FUNCIONAL-SURFACE-E-APPS.md` | conforme overlay | REFERENCE | DEFERRED FOR EXECUTION salvo requisito canônico do MVP | Especificação funcional detalhada; não é `CURRENT-STATE` nem changelog canônico |
 | LEGACY-001 | análise/migração histórica | `PLANO-02-EVOLUCAO-E-REAPROVEITAMENTO-DO-LEGADO.md` | histórico | REFERENCE | NOT APPLICABLE | Comparação datada do legado; reuso real é governado por `docs/SOURCE-MIGRATION.md` |
@@ -19,8 +19,10 @@ A janela corrente prioriza **Desktop Windows funcional antes de USB/Creator**. P
 | PERSONAL-001 | plano de execução | `PLANO-07-PERSONAL-ORDAX-E-TRABALHO-INTELIGENTE.md` | conforme canônicos | READY | DEFERRED FOR EXECUTION | Owner canônico: `docs/PERSONAL-ORDAX.md`; preservar fases futuras sem executá-las agora |
 | NETWORK-001 | plano de produto | `PLANO-08-ORDAX-NETWORK-COMUNIDADES-E-MENSAGENS.md` | conforme `MVP.md`/contracts | REFERENCE | DEFERRED FOR EXECUTION como plano; requisitos reais do MVP seguem owners canônicos | Cabeçalho histórico de “canônico” não altera a hierarquia de `docs/README.md` |
 | INTEL-001 | handoff | `INTELLIGENCE-HANDOFF.md` | transversal | GUIDE | NOT APPLICABLE | Guia de retomada; não substitui contracts/owner de Intelligence |
+| ARCH-LEGACY-001 | proposta arquitetural histórica | `REESTRUTURACAO.md` | histórico | REFERENCE | NOT APPLICABLE | Estudo Kernel/Base/identidade de 20/10; decisões atuais vêm de ADRs, contracts, CURRENT-STATE e owners |
+| USB-DEV-HIST-001 | handoff/evidência física datada | `USB-DEV-PULL-VALIDATION.md` | histórico 20–21/10 | REFERENCE | NOT APPLICABLE como roteiro atual | Preserva diagnóstico e provas do USB daquela revisão; estado/gates atuais vêm de PR #2243, CURRENT-STATE e contratos físicos |
 | COMP-001 | análise comparativa | `reports/COMP-001-SPACED-LINUX-ORDAX-COMPARISON.md` | referência | REFERENCE | NOT APPLICABLE | Auditoria que separa lacunas reais de capacidades já existentes; evita importar stack/owners paralelos por comparação superficial |
-| NATIVE-001 | homologação Native/USB | `plans/NATIVE-001-USB-TO-NATIVE-MVP-CLOSURE.md` | release físico posterior | READY | **DEFERRED FOR EXECUTION** até Windows funcional e autorização atual do owner; APPLY físico gated | USB → Native whole-disk preservado no baseline, sem compilar ou reabrir Creator como requisito Desktop |
+| NATIVE-001 | homologação Native/USB | `plans/NATIVE-001-USB-TO-NATIVE-MVP-CLOSURE.md` | conforme owner/gate atual | READY | **EXECUTION-ELIGIBLE somente nos recortes já ativos/exigidos pelo owner**; APPLY físico continua gated | USB/Native pode avançar em paralelo; não vira requisito para Desktop nem recebe autorização física por este registry |
 | HARDWARE-001 | plano de produto/plataforma | `plans/HARDWARE-001-HARDWARE-DRIVERS-AND-PACKS.md` | **P1** | READY | **DEFERRED FOR EXECUTION**, salvo subconjunto exigido por NATIVE-001/MVP | Evolui hardware packs assinados, exact modalias/ABI e rollback até Hardware & Drivers; não adota APT/DKMS como arquitetura |
 | DESKTOP-001 | plano de experiência | `plans/DESKTOP-001-DAILY-USE-EXPERIENCE.md` | **P1** | READY | **DEFERRED FOR EXECUTION**, salvo promoção canônica | Lacunas cotidianas: Displays, Help, SMB/MTP/PTP no Files, UX de Updates; reutiliza owners existentes e mantém Theme Packs como P2 |
 | MODE-001 | plano de produto/arquitetura | `plans/MODE-001-WEB-CLOUD-DEVICE-RUNTIME.md` | **P1** | READY | **DEFERRED FOR EXECUTION** | Fecha wiring real do OrdaX Web e boundaries Web/Cloud/Device sem fork; candidato fundacional a revalidar cedo no pós-MVP |

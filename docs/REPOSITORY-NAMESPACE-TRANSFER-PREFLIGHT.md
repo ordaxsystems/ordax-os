@@ -1,5 +1,7 @@
 # Transferência do repositório OrdaX OS para ordaxsystems
 
+> **STATUS: HISTÓRICO / TRANSFERÊNCIA CONCLUÍDA.** O namespace operacional atual é `ordaxsystems` e o repositório canônico é `ordaxsystems/ordax-os`, conforme `docs/contracts/repository-migration-status.json` e `repository-ownership.json`. As referências abaixo a `washingtonmsdj/prototipo-ordax-os` e `ordaxsystems/prototipo-ordax-os` preservam o procedimento/proveniência do cutover; não são owner atual nem instrução para repetir a transferência.
+
 ## Estado e autoridade
 
 Tracking: [#1354](https://github.com/washingtonmsdj/prototipo-ordax-os/issues/1354).

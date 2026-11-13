@@ -4,12 +4,12 @@ Status: CANONICAL FOR PROTOTYPE
 
 ## Goal
 
-Prove a minimal, reproducible, Git-first OrdaX that boots independently, reaches the network, acquires the rest of the system from Git or as a verified release according to the active profile, and exposes one product across Web, Mobile, Desktop, USB and native disk from one shared source graph.
+Prove a minimal, reproducible OrdaX that boots independently, reaches the selected acquisition channel, and composes one product across Web, Mobile, Desktop, USB and native disk from a **verified multi-repository source graph** with one owner per responsibility.
 
 ## Core invariant
 
 ```text
-GIT_SOURCE_AUTHORITY=YES
+GIT_SOURCE_AUTHORITY_PER_OWNER=YES
 BASE_UPDATE_CONTROL_FROM_GIT=YES
 DEV_BASE_HELPERS_FROM_GIT=YES
 RUNNING_KERNEL_SELF_REPLACEMENT=NO
@@ -21,6 +21,8 @@ SEPARATE_HOME_PARTITION=NO
 ONE_PRODUCT_FIVE_MODES=YES
 SINGLE_SURFACE_SOURCE=YES
 SINGLE_APPLICATION_SOURCE=YES
+DIRECT_DEPENDENCY_PINS=YES
+CROSS_REPO_SOURCE_COPY=NO
 PLATFORM_POLICY_FORKS=FORBIDDEN
 CAPABILITY_ADAPTERS=REQUIRED
 WSL_REQUIRED=NO
@@ -29,6 +31,8 @@ SSH_REQUIRED=NO
 REMOTE_CONTROL_REQUIRED=NO
 CUSTOM_CRYPTO_ALLOWED=NO
 ```
+
+`SINGLE_SURFACE_SOURCE=YES` and `SINGLE_APPLICATION_SOURCE=YES` mean **one canonical owner/source per component**, not that those bytes must be tracked in `ordax-os` or share the same Git HEAD.
 
 `BOOTSTRAP_SEED_PARTITIONS=2` and `PREPARED_USB_PARTITIONS=3` describe different artifacts and are not contradictory:
 
@@ -54,7 +58,9 @@ UEFI
  -> drivers/firmware
  -> network
  -> Git
- -> partial+sparse checkout of main into /workspace/ordax
+ -> partial+sparse checkout of ordax-os/main into /workspace/ordax
+ -> verify direct component locks and materialize exact external revisions
+    (for example the pinned ordax-surface visual tree) into disposable staging
  -> /workspace/ordax/system/entrypoint
  -> OrdaX
 ```
@@ -70,6 +76,7 @@ Rules:
 - unexpected origin/branch state fails closed;
 - rollback pins the previous commit across reboot until an explicit `ordax-pull` releases the pin;
 - ordinary `system/` changes do not require USB reflash or kernel rebuild;
+- external component changes do not enter a running product merely because their owner `main` advanced; `ordax-os` must adopt the exact compatible revision through its direct-dependency contract/lock before composition;
 - the fixed development helpers and recovery entrypoint are refreshed from their Git-owned sources after the runtime bridge is available;
 - kernel/initramfs changes use exact-commit Base candidates and activate only on a later boot;
 - development-rootfs/package changes use the same exact-commit candidate identity and materialize a versioned rootfs; the selector is slot-coupled and ready for the matching one-shot A/B boot, while wiring the development candidate into ESP staging/arming remains an explicit physical gate;
@@ -98,31 +105,31 @@ Canonical trust remains fail-closed. Ephemeral CI/development keys never satisfy
 ## Source/product shape
 
 ```text
-prototipo-ordax-os/
+ordax-surface ── visual source ───────┐
+ordax-apps ───── removable apps ──────┤
+ordax-intelligence ─ portable source ─┤
+                                      v
+ordax-os/
   boot/                 # boot media definition
-  bootstrap/            # only what is needed to reach Git/release acquisition
-  system/               # shared product delivered/packaged across modes
-    surface/            # one visual source
-    apps/               # one first-party app source
-    services/           # shared account/sync/domain behavior
-    adapters/
-      web/
-      mobile/           # Android/iOS differences stay behind this boundary
-      desktop/          # desktop-host capabilities; Windows first
-      native/           # USB/native-disk capabilities where genuinely shared
-  platform/             # persistent layout contracts/templates
-  tools/
-    creator/
-    dev/
-    verify/
-  docs/
-    contracts/
-      foundation.json
-      product-capabilities.json
-  tests/
+  bootstrap/            # boot/base/recovery producers
+  system/
+    contracts/          # public/system contracts
+    surface/            # OS host/runtime boundary; visual bytes are staged here
+    apps/               # catalogs/projections/integration, not app product source
+    services/           # OS/domain services and lifecycle
+    adapters/           # capability implementations
+    composition/        # verified wiring/assembly
+  tools/                # OS producers/verifiers
+  docs/contracts/       # locks, ownership and release contracts
+                                      |
+                                      v
+                          verified OrdaX candidate
+                           /                    \
+                    ordax-desktop          ordax-creator
+                    Windows host/NSIS      media consumer
 ```
 
-There must not be separate Web, Mobile, Desktop or native forks of Surface/application logic. Platform differences are capabilities, not alternate products.
+There must not be separate Web, Mobile, Desktop or native forks of Surface/application logic. **Single source means one canonical owner for each component, not one Git repository.** Downstream consumers pin only direct dependencies and record the transitive provenance supplied by the composed candidate.
 
 ## Product modes
 
@@ -134,7 +141,7 @@ OrdaX Web
   -> OrdaX Native (SSD/HD)
 ```
 
-They share account model, Surface source, app source and compatible service contracts. USB and native-disk share the native adapter when their capability is genuinely identical.
+They share compatible account/service contracts and consume the same canonical Surface/app owners through composition. USB and native-disk share the native adapter when their capability is genuinely identical; Desktop consumes the composed OrdaX/OS candidate rather than pinning Surface/apps independently.
 
 `docs/contracts/product-capabilities.json` is the machine-readable boundary for how modes gain capabilities without forking the product.
 
@@ -247,19 +254,19 @@ The first full canonical release is acquired after boot. Once verified and activ
 
 Release protocol evolution is versioned. Current `release-manifest/1` intentionally contains one `system.tar`; future formats such as deltas or additional artifacts must enter through a new version/contract path rather than silently changing v1 semantics.
 
-### 4. Universal Surface
+### 4. Universal Surface and component ownership
 
-There is exactly one user-facing Surface source tree.
+There is exactly one canonical **visual Surface owner**: `ordaxsystems/ordax-surface`. Removable first-party application source is owned separately by `ordaxsystems/ordax-apps`; OS structural UI/services remain in `ordax-os`.
 
-The same source owns desktop/window shell, explorer, settings, first-party apps, visual tokens and shared interaction behavior. It is packaged/rendered through the applicable adapter on:
+A product candidate composes exact compatible revisions and materializes the visual tree at release-layout paths under `system/surface/{ui,workspace}`. Those staged paths are consumed by the applicable Web, Desktop, USB and Native compositions; they do not create a second source owner.
 
-1. hosted/local Web;
-2. Android/iOS mobile clients;
-3. Desktop host clients;
-4. OrdaX USB runtime;
-5. OrdaX native-disk runtime.
+1. hosted/local Web consumes the verified composed Surface;
+2. mobile clients consume compatible public contracts and the shared visual owner where applicable;
+3. Desktop host consumes the OrdaX/OS composition rather than a separate Surface pin;
+4. OrdaX USB consumes the verified Native composition;
+5. OrdaX native-disk runtime consumes the same Native product contracts when enabled.
 
-Creating copied CSS, copied screens or separate mode-specific UI implementations is forbidden. Shared Surface may branch on capability availability, not on platform identity where a capability abstraction can express the difference.
+Copied CSS, copied screens, copied app source and separate mode-specific Surface forks are forbidden. Capability differences belong behind contracts/adapters; repository separation changes ownership and release cadence, not product identity.
 
 ### 5. Persistent state
 
@@ -317,9 +324,9 @@ UEFI
 Client modes begin from the same source graph without the native boot boundary:
 
 ```text
-Git
-  -> shared system source
-  -> capability adapter
+verified component owners
+  -> ordax-os composition / public contracts
+  -> capability adapter or host
   -> Web / Mobile / Desktop
 ```
 
@@ -328,9 +335,9 @@ Git
 Owner/development USB:
 
 ```text
-edit shared source
- -> test
- -> commit/push main
+edit the owning repository
+ -> test/integrate there
+ -> adopt the exact revision in the direct consumer when needed
  -> boot or run ordax-pull
  -> fast-forward sparse checkout
  -> ordax-run
@@ -341,9 +348,9 @@ No reflash is required for ordinary runtime changes. `ordax-rollback` pins the p
 Canonical release:
 
 ```text
-edit shared source
- -> test
- -> commit/push main
+edit the owning repository
+ -> test/integrate there
+ -> compose/adopt exact compatible revisions
  -> CI builds/verifies affected targets
  -> publish signed release
  -> device acquires matching verified release
@@ -397,8 +404,7 @@ of each responsibility must be identified before an optimization:
   order, exact identity/path checks, immutable normalized results and fail-closed
   policy even when responses complete out of order. No additional worker,
   scheduler, catalog authority or background polling is created.
-- **Surface rendering:** `system/surface/ui/` owns the shared view and lifecycle;
-  platform adapters expose only capabilities. An unopened/minimized window must
+- **Surface rendering:** the visual modules materialized at `system/surface/ui/` come from the exact pinned `ordax-surface` revision and own their presentation lifecycle; `ordax-os` owns only the host/composition boundary and platform adapters expose capabilities. An unopened/minimized window must
   not keep performing its own optional network discovery.
 - **Always-visible indicators:** a single mounted tray owner may observe a
   capability at a bounded interval; a Settings panel should refresh on entry

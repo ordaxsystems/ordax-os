@@ -20,7 +20,7 @@ The bootstrap activates that immutable release through `/ordax/current` only aft
 
 The bundler receives a source root containing `system/` and emits a new `system.tar`. For the Native product release, that source root is prepared by `tools/native-release-assembly/build.py`: it starts from the canonical shared `system/` source and injects only explicitly contracted, prebuilt Native release tools plus their provenance. The bundler itself remains platform-neutral and does not compile or invent Native content.
 
-### External Surface assembly (migration candidate)
+### External Surface assembly (canonical source cutover)
 
 The UI presentation code is now owned by `ordaxsystems/ordax-surface` as a
 pinned Git revision in [`docs/contracts/surface-source.json`](contracts/surface-source.json).
@@ -33,14 +33,7 @@ visual source. The assembled output includes
 source fingerprint. It is the *same system/ input* for the existing deterministic
 release-bundle and portable EROFS builders, not another bundler or update channel.
 
-This release-build integration is a **candidate**, not Native activation authority.
-The separate `tools/native-release-assembly/build.py` still injects the OS-owned
-Native helpers into the final signed system payload; it must consume the composed
-system tree before the cutover is complete. The Owner/Development Supervisor and
-signed Stable activation still require QEMU, cold-health and known-good rollback
-validation before the OS-tracked UI directories can be deleted. Source assembly
-is build-host work; no network checkout of Surface is allowed during ordinary
-Stable device boot.
+The **source ownership cutover is complete**, but source assembly is not Native activation authority. `tools/native-release-assembly/build.py` injects OS-owned Native helpers into the final composed/signed system payload after the exact external visual revision has been verified. Owner/Development and Stable activation retain their own QEMU/health/rollback/physical gates. `ordax-os` no longer tracks a competing visual source under `system/surface/{ui,workspace}`; those paths exist only in disposable staging/release trees. No network checkout of Surface is allowed during ordinary Stable device boot.
 
 Required:
 
@@ -116,7 +109,7 @@ This tooling does not publish a GitHub Release and does not sign a release envel
 The current portable MVP pipeline is:
 
 ```text
-canonical shared source + pinned native/runtime inputs
+verified OS composition + pinned external/native/runtime inputs
  -> deterministic system.erofs
  -> deterministic native-surface-runtime.erofs
  -> deterministic local-ai-runtime.erofs
@@ -147,4 +140,4 @@ PRODUCTION_RELEASE_PUBLISHED=NO
 PHYSICAL_USB_WRITE_EXECUTED=NO
 ```
 
-`system/` remains the single source for the shared OrdaX product, but its native runtime entrypoint is not yet production-complete. The presence of bundle tooling must not be interpreted as a completed OrdaX release.
+`system/` is the **composed OS release tree** assembled from OS-owned bytes plus exact verified external component revisions; it is not the universal Git source of the product. The presence of bundle tooling must not be interpreted as a completed OrdaX release.

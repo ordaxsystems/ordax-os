@@ -4,10 +4,11 @@ Este arquivo e a entrada obrigatoria para qualquer IA, agente, Codex ou pessoa q
 
 ## Regra canônica de integração entre repositórios — 13/11/2026
 
-Separação de repositórios significa **ownership separado, produto único**. O repositório canônico é `ordaxsystems/ordax-os`; o mapa de owners permanece em `docs/contracts/repository-ownership.json`, o estado de migração/namespace em `docs/contracts/repository-migration-status.json`, e qualquer promoção Stable/MVP continua sujeita a `docs/PROMOTION-GATES.md`. Antes de criar coordenação cross-repo, leia a seção [Integração multi-repositório — composição do produto](docs/DEVELOPMENT-WORKFLOW.md#integração-multi-repositório--composição-do-produto-2026-11-13) e ADR-031.
+Separação de repositórios significa **ownership separado, produto único**. `ordaxsystems/ordax-os` é canônico para **OS, composição Native e contratos sistêmicos**, não para o source pertencente aos outros owners. O mapa completo de owners permanece em `docs/contracts/repository-ownership.json`, o estado da migração histórica de namespace em `docs/contracts/repository-migration-status.json`, e qualquer promoção Stable/MVP continua sujeita a `docs/PROMOTION-GATES.md`. Antes de criar coordenação cross-repo, leia a seção [Integração multi-repositório — composição do produto](docs/DEVELOPMENT-WORKFLOW.md#integração-multi-repositório--composição-do-produto-2026-11-13) e ADR-031.
 
 Regras obrigatórias:
 - `ordaxsystems/ordax-os` é o compositor Native e seleciona dependências externas por locks/artefatos/contratos existentes; não copia source dos owners.
+- `ordaxsystems/ordax-desktop` é o owner do host/shell/NSIS Windows e consome a composição OrdaX/OS; não é uma subárvore do OS nem um compositor paralelo.
 - Consumidor fixa apenas dependência direta. Desktop consome a composição OrdaX/OS; não mantém pin separado da Surface. Creator consome mídia verificada; não recompila upstream.
 - Surface/Apps/Intelligence publicam seus próprios source/artefatos e não precisam de PR em consumidores enquanto não houver adoção real.
 - Owners independentes avançam em paralelo. Sincronizar somente no ponto de adoção de contrato/artefato/revisão.

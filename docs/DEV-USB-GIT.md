@@ -10,7 +10,7 @@ via `--seed-from-local`. **Depois da instalação, o Pull não depende do
 Creator, de QEMU ou de recompilar kernel/Buildroot**. O Supervisor coordena
 a atualização Git no Linux, com preflight, saúde e rollback; no Windows, a
 materialização do canal Dev pertence a
-`tools/windows-desktop/dev-update.cjs`, não ao script Linux.
+`ordaxsystems/ordax-desktop/dev-update.cjs`, não ao script Linux nem a uma cópia de Desktop dentro do OS.
 
 Mudanças restritas ao script `bootstrap/dev-base/ordax-pull` em uma PR são
 validadas pelo workflow já existente **Owner Development Preflight**,
@@ -109,7 +109,9 @@ exige observação separada; CI não equivale a atualização aplicada.
 
 This is an owner/development profile. It does not replace the canonical product path based on signed immutable releases under `/ordax/releases/<commit>`.
 
-## Windows Creator: developer installation and channel isolation (2026-10-10)
+## Windows Creator channel — historical packaging notes, independent source owner
+
+The application/Core source owner is now `ordaxsystems/ordax-creator`. The OS-owned channel/workflow described below may assemble an authorized development-media candidate from an **exact pinned Creator revision**, but it is not a second Creator source and must not be used to restore Creator code under `ordax-os` or Desktop.
 
 The Owner/Development Creator is packaged separately from the public Stable/MVP
 Creator. Its GitHub prerelease is
@@ -150,8 +152,7 @@ workflow. Neither a GitHub merge nor an artifact build grants permission to
 select or overwrite a connected device. The notebook's internal disk must
 remain untouched. A newly generated Owner/Development USB already contains the exact
 clean sparse runtime checkout recorded by the bundle `source_commit`; first boot does not
-need a Git pull when that commit is still current. Ordinary later system/Surface changes
-track `main` through the same Git owner.
+need a Git pull when that commit is still current. Ordinary later OS changes track `ordax-os/main` through the same Git updater; a new external Surface revision enters the product only after the OS composition explicitly adopts its exact verified lock.
 
 No candidato de separação da Surface (#2198), a UI não é mais um arquivo
 tracked desse checkout. O Creator pré-semeia no build host, antes de criar

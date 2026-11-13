@@ -69,6 +69,16 @@ class ModuleBoundariesContractTests(unittest.TestCase):
                 for marker in FORBIDDEN_IMPLEMENTATION_MARKERS:
                     self.assertNotIn(marker, text, f"{path} bypasses contract boundary via {marker}")
 
+    def test_external_surface_and_app_source_are_not_reowned_by_system_tree(self):
+        contract = self.load()
+        self.assertFalse(contract["principles"]["system_apps_owns_removable_product_source"])
+        self.assertFalse(contract["principles"]["system_surface_owns_visual_source"])
+        self.assertTrue(contract["principles"]["external_product_source_is_composed_by_verified_contract"])
+        layers = {layer["id"]: layer for layer in contract["layers"]}
+        self.assertIn("catalog", layers["apps"]["responsibility"].lower())
+        self.assertIn("no removable product source", layers["apps"]["responsibility"])
+        self.assertIn("externally owned", layers["surface"]["responsibility"])
+
     def test_outer_adapters_cannot_own_shared_ui_or_app_policy(self):
         contract = self.load()
         adapters = next(layer for layer in contract["layers"] if layer["id"] == "adapters")

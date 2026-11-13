@@ -35,9 +35,8 @@ Personal OrdaX / Projects / Spaces
 
 Ownership boundaries:
 
-- `prototipo-ordax-os` owns platform-neutral coordination contracts and shared policy/runtime;
-- `ordax-control-plane` may later own remote transport, queueing, audit and provider-facing lease
-  operations, but not a second task database;
+- `ordax-os` owns the platform-neutral coordination contracts and OS-side shared policy;
+- `ordax-platform` owns remote control-plane transport, queueing, audit and provider-facing grants/lease operations, but not a second Work Coordination authority;
 - `ordax-runtime` owns local/device execution and receipts, not coordination policy;
 - `ordax-apps` / Studio owns presentation and software-development UX only;
 - ChatGPT, Grok, local Intelligence and future providers are clients of the same contracts.

@@ -3,7 +3,10 @@
   "status": "canonical-prototype-contract",
   "source_authority": {
     "repository": "ordaxsystems/ordax-os",
-    "branch": "main"
+    "branch": "main",
+    "scope": "ordax-os-owned-source-build-recipes-and-native-composition",
+    "repository_ownership_contract": "docs/contracts/repository-ownership.json",
+    "external_component_selection": "verified-direct-dependency-contracts-and-locks"
   },
   "required_independence": {
     "codex_required": false,
@@ -88,7 +91,10 @@
     "missing_required_dependency_build_is_architectural_regression": true,
     "new_product_mode_requires_explicit_artifact_class_or_documented_shared_target": true,
     "new_artifact_class_requires_provenance_owner": true,
-    "build_cache_may_accelerate_but_may_not_replace_verification": true
+    "build_cache_may_accelerate_but_may_not_replace_verification": true,
+    "single_product_requires_single_git_repository": false,
+    "downstream_consumers_pin_transitive_repositories": false,
+    "external_component_source_copy_allowed": false
   },
   "physical_boundary": {
     "creator_consumes_prebuilt_verified_artifacts": true,

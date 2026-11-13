@@ -12,7 +12,7 @@ class RepositoryOwnershipContractTests(unittest.TestCase):
 
     def test_canonical_repositories_include_separate_surface_visual_owner(self):
         repos = self.contract["repositories"]
-        self.assertEqual(set(repos), {"platform", "surface", "apps", "runtime", "control_plane", "public_site", "creator"})
+        self.assertEqual(set(repos), {"platform", "surface", "apps", "runtime", "control_plane", "public_site", "creator", "desktop"})
         self.assertEqual(repos["public_site"]["repo"], "ordaxsystems/ordax-site")
         self.assertIn("public-site-static-build-and-i18n", repos["public_site"]["owns"])
         self.assertIn("identity-backend", repos["public_site"]["must_not_own"])
@@ -24,9 +24,12 @@ class RepositoryOwnershipContractTests(unittest.TestCase):
         self.assertEqual(repos["apps"]["repo"], "ordaxsystems/ordax-apps")
         self.assertEqual(repos["runtime"]["repo"], "ordaxsystems/ordax-runtime")
         self.assertEqual(repos["control_plane"]["repo"], "ordaxsystems/ordax-platform")
+        self.assertEqual(repos["desktop"]["repo"], "ordaxsystems/ordax-desktop")
+        self.assertIn("desktop-windows-shell", repos["desktop"]["owns"])
+        self.assertIn("desktop-windows-shell", repos["platform"]["must_not_own"])
 
-    def test_eighth_intelligence_source_is_pinned_without_premature_owner_cutover(self):
-        # Seven active runtime authorities plus one separately owned, pinned
+    def test_ninth_intelligence_source_is_pinned_without_premature_owner_cutover(self):
+        # Eight active runtime/product authorities plus one separately owned, pinned
         # source candidate. Do not silently promote source into runtime authority.
         source = json.loads(
             (ROOT / "docs/contracts/intelligence-source.json").read_text(encoding="utf-8")
@@ -36,7 +39,7 @@ class RepositoryOwnershipContractTests(unittest.TestCase):
         self.assertEqual(len(active), len(repos), "duplicate active repository")
         self.assertEqual(source["source_repository"], "ordaxsystems/ordax-intelligence")
         self.assertNotIn(source["source_repository"], active)
-        self.assertEqual(len(active | {source["source_repository"]}), 8)
+        self.assertEqual(len(active | {source["source_repository"]}), 9)
         self.assertEqual(source["status"], "integration-candidate")
         self.assertIs(source["cutover_complete"], False)
         self.assertIs(source["activation_authorized"], False)
@@ -114,7 +117,7 @@ class RepositoryOwnershipContractTests(unittest.TestCase):
         active = document.split("## Fluxos oficiais", 1)[1].split(
             "## Regra para o legado mcp-blender", 1
         )[0]
-        for role in ("platform", "apps", "runtime", "control_plane", "surface", "public_site", "creator"):
+        for role in ("platform", "apps", "runtime", "control_plane", "surface", "public_site", "creator", "desktop"):
             self.assertIn(self.contract["repositories"][role]["repo"], active)
         # Use the historical repository identity from the canonical migration
         # record rather than hard-coding an obsolete operational name inside

@@ -6,19 +6,18 @@ Esta pasta é o ponto único para organizar **planos, pesquisas, relatórios, pr
 
 Ela existe porque o repositório já possui vários planos históricos na raiz e várias frentes podem estar sendo analisadas por chats/agentes diferentes. O objetivo é impedir perda de contexto, duplicação de implementação e prioridades contraditórias.
 
-## Regra operacional atual — Desktop Windows primeiro (2026-10-31)
+## Regra operacional atual — paralelismo por owner
 
-O produto não está mais em estratégia de "MVP mínimo" (`MVP.md`). A janela corrente prioriza **Windows Desktop funcional**, integração real de Conta/Spaces, Store/Apps, Aura, arquivos, Platform e estabilidade. Web usa seu próprio canal. **USB/Creator/Buildroot/Native físico não são pré-requisitos** dessa janela e não devem ser compilados por mudanças de clientes ou documentação. Este hub continua servindo como **registro, triagem, preservação e reconciliação documental**, nunca autoridade paralela.
+Este hub **não define uma fila global de produto**. A regra vigente é a mesma de ADR-031: owners independentes avançam em paralelo e sincronizam somente quando existe adoção real de contrato, artefato ou revisão. Desktop, USB/Creator, Surface, Apps, Site e Intelligence não bloqueiam uns aos outros por padrão.
 
 - planos desta pasta ou planos históricos da raiz **não abrem trabalho de implementação por si só**;
 - nenhuma frente futura deve ser iniciada apenas porque está `READY`, P1, P2 ou documentada em detalhes;
-- execução depende da prioridade contemporânea e de owners canônicos, contratos, `docs/CURRENT-STATE.md`, `docs/DEVELOPMENT-WORKFLOW.md` e `docs/PROMOTION-GATES.md` — não de status de plano legado;
-- pesquisa, documentação, auditoria de links e correção de classificação documental podem continuar sem promover execução de produto;
-- antes de promover a etapa USB/Native físico, `ROADMAP.md` deve ser revalidado contra a `main`, os owners, o runtime Desktop já estabilizado e os gates físicos reais.
+- execução depende do estado contemporâneo em source, PRs/branches, `docs/CURRENT-STATE.md`, `MVP.md`, contratos e owner canônico;
+- uma frente já ativa por owner/gate real continua elegível mesmo que outro produto/canal esteja validando algo em paralelo;
+- alterações client-only não disparam USB/kernel/Creator sem causalidade; alterações de USB/Native também não congelam Desktop/Web;
+- pesquisa, documentação, auditoria de links e correção de classificação documental podem continuar sem promover capacidade de produto.
 
-Isso separa **preservar uma boa ideia** de **autorizar sua implementação agora**.
-
-`NATIVE-001` permanece no baseline de lançamento, mas **não reordena a janela Windows-first nem antecipa builds USB/Creator**. Só volta à execução quando houver autorização contemporânea do owner, sem relaxar consentimento/escrita física nem restaurar Alpine/legado.
+Isso separa **preservar uma boa ideia** de **autorizar sua implementação agora** e evita transformar repositórios separados em uma fila global.
 
 ## Autoridade
 
@@ -48,7 +47,7 @@ Antes de iniciar uma nova frente de implementação:
 6. verificar se a frente está **EXECUTION-ELIGIBLE** no roadmap atual;
 7. somente então criar/continuar implementação.
 
-Enquanto vigorar a prioridade Windows Desktop, planos não explicitamente autorizados pelos owners continuam **DEFERRED FOR EXECUTION** mesmo que estejam `READY` documentalmente.
+Planos não explicitamente exigidos por um owner/gate atual continuam **DEFERRED FOR EXECUTION** mesmo que estejam `READY` documentalmente.
 
 Se a frente já existir, atualizar o mesmo item. **Não criar `v2`, `final`, `novo`, `alternativo` ou outro plano paralelo para a mesma responsabilidade.**
 
@@ -96,7 +95,7 @@ O status documental é separado da janela de execução:
 - `DEFERRED FOR EXECUTION`: preservar e manter atualizado, mas não iniciar implementação agora.
 - `NOT APPLICABLE`: relatório, referência ou histórico que não representa trabalho executável.
 
-Na janela corrente de Windows Desktop, a regra padrão para planos futuros é `DEFERRED FOR EXECUTION` até autorização do owner.
+A regra padrão para planos futuros é `DEFERRED FOR EXECUTION` até que um owner/gate contemporâneo os torne necessários.
 
 ## Planos centrais atuais deste hub
 
