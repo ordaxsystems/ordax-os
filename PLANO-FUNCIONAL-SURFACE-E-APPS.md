@@ -1,4 +1,6 @@
-# OrdaX — plano funcional da Surface e dos aplicativos principais
+# OrdaX — plano funcional da Surface e dos aplicativos principais — referência histórica
+
+> **STATUS DOCUMENTAL: REFERENCE / DEFERRED FOR EXECUTION.** Este plano preserva decisões e evidências funcionais anteriores à separação completa dos repos. Ele **não é CURRENT-STATE, owner map nem fila atual**. Caminhos como `system/surface/ui/*`, `desktop-shell.mjs` e outros owners citados abaixo podem descrever a árvore composta/materializada ou o source antigo do OS; a fonte visual atual pertence a `ordaxsystems/ordax-surface`, apps removíveis a `ordaxsystems/ordax-apps`, e o OS seleciona/compõe revisões por contratos. Para trabalho novo, use `AGENTS.md`, `docs/CURRENT-STATE.md`, ADR-031, `docs/REPOSITORY-OWNERSHIP.md` e os owners atuais. Esta classificação corresponde a `00-PLANOS-PRIORITARIOS/REGISTRY.md`.
 
 > **Notificações Web/USB — 13/10/2026:** incremento de UX solicitado.
 > Renderer/CSS únicos para filtros, leitura explícita, dispensa e Não perturbe.
