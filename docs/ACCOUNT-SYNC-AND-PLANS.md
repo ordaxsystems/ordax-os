@@ -269,50 +269,113 @@ existing Dev channel before the client behavior changes on the device.
 
 On Native/USB, provider bearer tokens never enter Surface JavaScript. The **Native Host process** is the sole owner of access/refresh cookies **in memory** and exposes only sanitized `/auth/*` and `/sync/*` responses to the loopback Surface. Login is accepted only after a fresh authenticated `/auth/session` proof from the configured HTTPS gateway. A Native Host restart during the same Linux boot can recover the current session from the kernel user keyring when supported; unsupported kernels fail closed to signed-out, not plaintext disk storage. A full notebook reboot clears the kernel session and requires authentication again. The retired `0600` on-disk `account/session.json` is cleanup-only and must never be loaded. Long-lived credentials on removable media remain prohibited until the versioned encrypted-vault, local-unlock and anti-rollback proof gate is approved in `docs/contracts/native-account-session.json`. This session is outside the sync data model, and local-only OS use must continue when no cloud session exists.
 
-## Account MCP Owner gateway — controlled release (2026-11-04)
+## Account MCP Owner gateway — controlled release (updated 2026-11-13)
 
-O candidato de integração [ordax-os #2405](https://github.com/ordaxsystems/ordax-os/pull/2405)
-transporta **apenas** a autoridade Owner MCP existente da Platform para a Conta
-Supabase autenticada e para o proxy público OIDC/same-origin. O navegador nunca
-recebe o bearer MCP; o gateway não mantém ACL, grants ou tokens paralelos.
-A interface consumidora é [ordax-site #38](https://github.com/ordaxsystems/ordax-site/pull/38)
-(draft). `/account/mcp/devices`, `/account/mcp/authority` e
-`/account/mcp/revoke` permanecem fechadas em produção enquanto
-`ORDAX_MCP_OWNER_ACCOUNT_ENABLED` não estiver explicitamente definida como
-`1`. `PUBLIC_SITE_ACCOUNT_ENABLED=false` e os gates públicos anteriores
-continuam independentes.
+A cadeia Owner MCP de Conta/Projeto/GitHub já tem três boundaries canônicas
+integradas, cada uma com autoridade separada:
 
-**Gates de entrega — código não é deploy:** os dois workflows existentes
-`.github/workflows/ordax-account-gateway-destination.yml` e
-`.github/workflows/ordax-public-account-gateway-destination.yml` têm, no
-candidato #2405, somente `workflow_dispatch` (não `push`); exigem `main`
-revista, `approved_sha` exatamente igual ao `github.sha` e confirmação
-específica de produção. Os testes `tests/test_account_mcp_owner_bridge.mjs`
-e `tests/test_account_gateway_destination_deploy.py` bloqueiam regressões
-dessa política. Esse despacho manual **não** autoriza, por si só, habilitar
-o console ou os grants: requer aprovação de release e os respectivos E2E.
+- [ordax-platform #364](https://github.com/ordaxsystems/ordax-platform/pull/364)
+  → `ca00fd18bbe52b5e9abf81c06e38ac7343cadea3`: estado de onboarding e criação
+  de Project sobre Space/Device já existentes;
+- [ordax-platform #365](https://github.com/ordaxsystems/ordax-platform/pull/365)
+  → `d150a2a046cc376872a4a5116afc1d325e93dfaf`: autorização GitHub
+  server-authoritative e seleção de repositório verificado;
+- [ordax-os #2558](https://github.com/ordaxsystems/ordax-os/pull/2558)
+  → `bf8da2ab12fbd8cf33ea83aa8a5cfbb3bbcc8dc3`: transporte Account/Vercel
+  dessas autoridades sem expor bearer MCP ou token GitHub ao navegador.
 
-**Atenção ao Vercel:** `vercel.json` habilita Git deployment na `main` e
-`tools/vercel/should_skip_build.sh` observa `lib/account-proxy-core.mjs` e
-as funções/proxies do gateway. Assim, **mesmo com Supabase manual**, um merge
-pode provocar build/deploy Vercel. Não afirmar merge sem efeito em produção;
-validar o escopo do projeto e obter aprovação de publicação antes de integrar
-este candidato. Não alterar silenciosamente o filtro de build nem desativar
-um projeto público operacional.
+Os consumidores visuais estão em:
 
-**Semântica de binding MCP:** o `expires_at` exposto nas rotas
-`central-selections` pertence exclusivamente ao challenge Owner ainda
-pendente. Depois da confirmação válida pelo Runtime, o binding
-`conversa Product MCP -> device_id` é persistente na Platform. Heartbeat,
-inatividade, offline ou restart não renovam, expiram nem trocam esse target.
-Somente revogação explícita de binding/device, OAuth ou grant altera a
-autoridade correspondente; disponibilidade continua sendo um eixo separado.
+- [ordax-site #38](https://github.com/ordaxsystems/ordax-site/pull/38)
+  → `7a777b1fa48bf5c186797b6a9d92384c42101d89`: criação/estado de Project;
+- [ordax-site #44](https://github.com/ordaxsystems/ordax-site/pull/44)
+  → `6b3656b06070f97391bad7c9fc368313d3a7ee8b`: início OAuth GitHub,
+  listagem de candidatos verificados e seleção por `repository_id`.
 
-A ordem de liberação é: CI íntegro no SHA final → prova de autenticação Owner,
-seleção client/device consentida e E2E/receipts sem bypass → plano revisado
-para Vercel e Supabase → integração/publicação expressamente aprovada →
-smoke de rotas públicas com gates fechados → ativação separada do console
-Owner e validação da revogação isolada. A promoção do Worker MCP Cloudflare
-é outro release gate da Platform, não consequência da integração do OS.
-Até essa prova, não revogar consentimentos reais, transferir grants, nem
-relatar `central_session_owner_selection_required` como sucesso remoto.
+### Rotas Account canônicas
+
+A Conta projeta a autoridade existente; ela não mantém ACL, grants, catálogo
+de devices, GitHub installation ou estado de projeto paralelos.
+
+- `GET /account/mcp/devices`;
+- `GET /account/mcp/authority?device_id=UUID`;
+- `POST /account/mcp/revoke`;
+- `GET /account/mcp/central-targets?client_id=UUID`;
+- `GET /account/mcp/central-selections?client_id=UUID`;
+- `POST /account/mcp/central-selections`;
+- `GET /account/mcp/project-onboarding?device_id=UUID`;
+- `POST /account/mcp/project-onboarding/projects`;
+- `POST /account/mcp/github/authorization-challenges`;
+- `GET /account/mcp/github/callback?code=...&state=...`;
+- `GET /account/mcp/github/repository-candidates?challenge_id=UUID`;
+- `POST /account/mcp/github/repository-selections`.
+
+As rotas Owner gerais permanecem fechadas enquanto
+`ORDAX_MCP_OWNER_ACCOUNT_ENABLED` não estiver explicitamente em `1`.
+Seleção central exige também `ORDAX_MCP_OWNER_CENTRAL_SELECTION_ENABLED=1`;
+Project onboarding exige `ORDAX_MCP_OWNER_PROJECT_ONBOARDING_ENABLED=1`; e
+GitHub exige separadamente
+`ORDAX_MCP_OWNER_GITHUB_AUTHORIZATION_ENABLED=1`.
+`PUBLIC_SITE_ACCOUNT_ENABLED` continua um gate independente.
+
+### GitHub é autoridade server-side, não input do browser
+
+O browser só pode iniciar autorização para um `project_id`, receber um
+`challenge_id`, visualizar candidatos já verificados e selecionar um
+`repository_id`. Ele não fornece `installation_id`, repository full name,
+GitHub account id, metadata, device binding ou grant.
+
+A Platform usa OAuth GitHub App com `state` armazenado apenas como SHA-256 e
+PKCE S256 server-side. O user access token existe somente em memória durante a
+verificação de `/user`, `/user/installations` e
+`/user/installations/{installation_id}/repositories`; token/refresh token,
+client secret e code verifier não são persistidos. O callback público é fixo
+em `/account/mcp/github/callback`, é consumido pelo gateway e redireciona
+imediatamente sem `code/state`, com `Referrer-Policy: no-referrer`.
+
+A migration GitHub da Platform
+`20261113223950_owner_github_installation_authority_v1.sql` foi aplicada no
+ledger Supabase como versão `20261113225750`, nome
+`owner_github_installation_authority_v1`, com relação source/ledger
+`exact`. O blob aplicado é imutável; ajustes posteriores exigem migration
+nova.
+
+### Release atual: código canônico não significa feature ativada
+
+O merge OS #2558 produziu deployment Vercel `ordax-os-public` READY no SHA
+`bf8da2ab...`. Isso publica o proxy, **não** ativa GitHub Owner: o gateway
+Supabase, o GitHub App real, seus secrets e as flags continuam gates
+separados.
+
+Os merges Site #38 e #44 **não foram publicados no Vercel**. Ambos tiveram
+status Vercel failure por `build-rate-limit` no plano atual; portanto a UI
+publicada anterior continua sendo a autoridade visual até um deployment
+canônico que contenha `6b3656b0...` ficar READY. Não criar projeto/deploy
+paralelo para contornar cota.
+
+### Próximo gate real
+
+Depois da seleção GitHub, o Project avança somente para
+`needs_device_binding`. Hoje a leitura deriva esse estado de
+`ordax_space_devices(access_mode='execute')` +
+`ordax_device_project_bindings(state='active')`, mas não existe RPC pública
+canônica que faça a confirmação Owner das duas relações de forma atômica.
+Esse é o próximo backend a implementar. Grants continuam posteriores e
+separados; repository selection nunca auto-vincula dispositivo e nunca
+auto-concede `terminal.exec`, process, filesystem ou qualquer outro grant.
+
+**Gates de entrega — código não é deploy:** os workflows de destino Supabase
+continuam manuais e exigem SHA/confirmacão de produção; merge não habilita
+flags. A promoção do Worker MCP Cloudflare também continua um release gate
+separado da Platform.
+
+**Semântica do binding central:** o `expires_at` de
+`central-selections` pertence somente ao challenge Owner pendente. Depois
+da confirmação válida pelo Runtime, `conversa Product MCP -> device_id` é
+persistente até revogação explícita; offline, heartbeat atrasado ou restart
+não trocam automaticamente o target.
+
+A progressão canônica de #220 é:
+`needs_space` → `needs_project` → `needs_github_installation` →
+`needs_repository_selection` → `needs_device_binding` →
+`ready_without_grants` → grants explícitos → E2E/receipts assinados.
