@@ -2,7 +2,7 @@
 
 Status: CANÔNICO PARA ESCOPO DE LANÇAMENTO
 
-> Compatibilidade documental: o arquivo continua se chamando `MVP.md` porque esse caminho é referenciado por agentes, contratos, documentação e histórico. **“MVP” como redução artificial do produto não é a estratégia ativa.** A janela de **MVP operacional integrado** abaixo define a primeira entrega utilizável no Desktop Windows sem retirar do Baseline capacidades já iniciadas. Quando documentos antigos, nomes de profiles, contratos ou identificadores técnicos usarem `MVP`/`stable-mvp`, leia-os como nomenclatura histórica ou identificador de compatibilidade até uma migração específica, e não como autorização para reduzir o produto a um conjunto mínimo.
+> Compatibilidade documental: o arquivo continua se chamando `MVP.md` porque esse caminho é referenciado por agentes, contratos, documentação e histórico. **“MVP” como redução artificial do produto não é a estratégia ativa.** O fechamento operacional é feito por jornadas completas e independentes por owner/canal, com sincronização somente onde houver dependência real. Quando documentos antigos, nomes de profiles, contratos ou identificadores técnicos usarem `MVP`/`stable-mvp`, leia-os como nomenclatura histórica ou identificador de compatibilidade até uma migração específica, e não como autorização para reduzir o produto ou impor uma fila global.
 
 Este arquivo define **o que pertence ao ciclo de lançamento do OrdaX**. Leia-o antes de trabalhar em lançamento, USB, Creator, Native, Surface, apps, Conta, Spaces, Intelligence, Studio, Runtime, Web, Mobile, Platform, distribuição ou monetização.
 
