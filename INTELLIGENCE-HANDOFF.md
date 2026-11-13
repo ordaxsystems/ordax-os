@@ -277,7 +277,7 @@ A execução corrente está em:
 
 - **#1757 — Intelligence integration closure**: tracking de Web transport, provider adapters, voz/arquivos e prova de release;
 - **PR #1756 — canonical Web Intelligence boundary**: primeira fatia, ainda sem provider remoto. A composição Web atual (`Central`/Aura) recebe um client de `ordax.intelligence/1`; a ausência de transporte é representada por adapter Web fail-closed. O contrato público permanece inalterado.
-- `docs/plans/INTELLIGENCE-INTEGRATION-CLOSURE-2026-10-13.md`: plano executável, invariantes e sequência de promoção.
+- `docs/plans/INTELLIGENCE-INTEGRATION-CLOSURE-2026-10-13.md`: registro histórico da sequência de integração e invariantes propostas em 13/10; não é plano executável vigente.
 
 **Não interpretar #1756 como IA Web já conectada a um backend.** A fatia cria a boundary correta para que um transporte suportado possa ser composto depois. ChatGPT/OpenAI/xAI, voz, arquivos, egress, credenciais remotas e prova física continuam gates separados.
 
