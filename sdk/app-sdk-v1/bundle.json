@@ -183,21 +183,21 @@
       "major": 1,
       "name": "device-action-receipt",
       "schema": "ordax.device-action-receipt/1",
-      "source_git_blob": "9b04afd2f5c3b5fd56ffedacf655696d1e7996c6",
+      "source_git_blob": "795014475bfcd4d35f481620cdbf4a3e40b8809c",
       "source_path": "system/contracts/device-action-envelope.mjs"
     },
     {
       "major": 1,
       "name": "device-action-request",
       "schema": "ordax.device-action-request/1",
-      "source_git_blob": "9b04afd2f5c3b5fd56ffedacf655696d1e7996c6",
+      "source_git_blob": "795014475bfcd4d35f481620cdbf4a3e40b8809c",
       "source_path": "system/contracts/device-action-envelope.mjs"
     },
     {
       "major": 2,
       "name": "device-action-request-v2",
       "schema": "ordax.device-action-request/2",
-      "source_git_blob": "36bca48f441adbe0164aaa17418085797a34d4f4",
+      "source_git_blob": "be757c0c940f8dc66ed161c308fd7a6af056605f",
       "source_path": "system/contracts/device-action-envelope-v2.mjs"
     },
     {
