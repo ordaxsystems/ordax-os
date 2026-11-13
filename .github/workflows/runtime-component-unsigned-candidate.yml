@@ -4,7 +4,7 @@ on:
   push:
     branches: [main]
     paths:
-      - 'tools/runtime-component-channel/verify_unsigned_candidate.py'
+      - 'sdk/app-sdk-v1/verify_unsigned_candidate.py'
       - 'tools/runtime-component-channel/check_external_signing_preflight.py'
       - 'tests/test_runtime_component_unsigned_candidate.py'
       - 'docs/contracts/external-unsigned-candidate-interop.json'
@@ -12,7 +12,7 @@ on:
       - '.github/workflows/runtime-component-unsigned-candidate.yml'
   pull_request:
     paths:
-      - 'tools/runtime-component-channel/verify_unsigned_candidate.py'
+      - 'sdk/app-sdk-v1/verify_unsigned_candidate.py'
       - 'tools/runtime-component-channel/check_external_signing_preflight.py'
       - 'tests/test_runtime_component_unsigned_candidate.py'
       - 'docs/contracts/external-unsigned-candidate-interop.json'
@@ -143,7 +143,7 @@ jobs:
       - name: Verify real bytes against canonical OS package source policy
         run: |
           set -euo pipefail
-          python3 tools/runtime-component-channel/verify_unsigned_candidate.py \
+          python3 sdk/app-sdk-v1/verify_unsigned_candidate.py \
             --candidate-dir "$RUNNER_TEMP/ordax-unsigned-candidate" \
             --package-policy docs/contracts/runtime-component-package.json
 
