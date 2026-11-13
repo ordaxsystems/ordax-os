@@ -9,12 +9,20 @@
       "llama-server"
     ],
     "runtime_api": "OpenAI-compatible-loopback",
+    "linux_build_toolchain": {
+      "runner_os": "ubuntu-24.04",
+      "gcc": "13.3.0",
+      "libc6": "2.39-0ubuntu8.12",
+      "libc6_dev": "2.39-0ubuntu8.12",
+      "binutils": "2.42-4ubuntu2.10",
+      "cmake": "3.31.6"
+    },
     "artifact": {
       "platform": "linux-x86_64",
       "binary_format": "ELF",
       "linkage": "static",
-      "sha256": "4a974691b9905b88cb46d97c85c2b035b33592a16cd0239ae4c6687f68799afe",
-      "size_bytes": 17039584
+      "sha256": "c170393570f105856508d5d2f5423e853194dbcd8a55e61136f084e9a0619471",
+      "size_bytes": 17039536
     },
     "windows_artifact": {
       "platform": "windows-x86_64",

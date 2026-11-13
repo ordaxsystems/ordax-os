@@ -35,8 +35,16 @@ class LocalAiContractTests(unittest.TestCase):
         self.assertEqual(lock["engine"]["artifact"]["platform"], "linux-x86_64")
         self.assertEqual(lock["engine"]["artifact"]["binary_format"], "ELF")
         self.assertEqual(lock["engine"]["artifact"]["linkage"], "static")
-        self.assertEqual(lock["engine"]["artifact"]["sha256"], "4a974691b9905b88cb46d97c85c2b035b33592a16cd0239ae4c6687f68799afe")
-        self.assertEqual(lock["engine"]["artifact"]["size_bytes"], 17039584)
+        self.assertEqual(lock["engine"]["artifact"]["sha256"], "c170393570f105856508d5d2f5423e853194dbcd8a55e61136f084e9a0619471")
+        self.assertEqual(lock["engine"]["artifact"]["size_bytes"], 17039536)
+        self.assertEqual(lock["engine"]["linux_build_toolchain"], {
+            "runner_os": "ubuntu-24.04",
+            "gcc": "13.3.0",
+            "libc6": "2.39-0ubuntu8.12",
+            "libc6_dev": "2.39-0ubuntu8.12",
+            "binutils": "2.42-4ubuntu2.10",
+            "cmake": "3.31.6",
+        })
         self.assertEqual(lock["model"]["filename"], "Qwen3.5-0.8B-Q4_0.gguf")
         self.assertEqual(lock["model"]["sha256"], "57d1997790d1744fba5b40a7317df71ea5e2acee28c47e78f0cce39c0703f8cf")
         self.assertEqual(lock["model"]["size_bytes"], 563036064)

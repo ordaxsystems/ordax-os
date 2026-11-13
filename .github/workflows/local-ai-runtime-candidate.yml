@@ -70,6 +70,33 @@ jobs:
           sudo apt-get install -y --no-install-recommends \
             binutils cmake curl erofs-utils g++ git iproute2 libc6-dev ninja-build openssl util-linux
 
+      - name: Verify exact Linux inference build toolchain before compilation
+        run: |
+          set -euo pipefail
+          python - <<'PY'
+          import json, pathlib, subprocess
+          lock = json.loads(pathlib.Path("system/services/local-ai/source-lock.json").read_text())
+          pinned = lock["engine"]["linux_build_toolchain"]
+          release = pathlib.Path("/etc/os-release").read_text()
+          if "ID=ubuntu" not in release or 'VERSION_ID="24.04"' not in release:
+              raise SystemExit("LINUX_INFERENCE_TOOLCHAIN=FAIL unexpected build OS")
+          def query_package(name):
+              return subprocess.check_output(
+                  ["dpkg-query", "-W", "-f=${Version}", name], text=True
+              ).strip()
+          actual = {
+              "runner_os": "ubuntu-24.04",
+              "gcc": subprocess.check_output(["g++", "-dumpfullversion"], text=True).strip(),
+              "libc6": query_package("libc6"),
+              "libc6_dev": query_package("libc6-dev"),
+              "binutils": query_package("binutils"),
+              "cmake": subprocess.check_output(["cmake", "--version"], text=True).splitlines()[0].split()[-1],
+          }
+          if actual != pinned:
+              raise SystemExit(f"LINUX_INFERENCE_TOOLCHAIN=FAIL actual={actual} expected={pinned}")
+          print("LINUX_INFERENCE_TOOLCHAIN=PASS exact_pkg_versions=6")
+          PY
+
       - name: Resolve exact external Intelligence inference builder
         uses: ./.github/actions/resolve-intelligence-builder
         with:
