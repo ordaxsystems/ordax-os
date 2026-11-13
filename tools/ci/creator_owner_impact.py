@@ -15,10 +15,6 @@ ROOT = Path(__file__).resolve().parents[2]
 WORKFLOW = ".github/workflows/creator-owner-dev-git.yml"
 SURFACE_LOCK = "docs/contracts/surface-source.json"
 INTELLIGENCE_WORKFLOW = ".github/workflows/intelligence-foundation.yml"
-LEGACY_PROFILE_DOC = "PLANO-06-PERFIS-PROFISSIONAIS-E-DISTRIBUICAO-SOB-DEMANDA.md"
-CURRENT_PROFILE_KNOWLEDGE_DOC = "docs/PROFILE-INTELLIGENCE-ARCHITECTURE.md"
-LEGACY_PROFILE_TRIGGER = f"      - '{LEGACY_PROFILE_DOC}'"
-CURRENT_PROFILE_TRIGGER = f"      - '{CURRENT_PROFILE_KNOWLEDGE_DOC}'"
 DESKTOP_TRIGGER_WORKFLOW = ".github/workflows/external-source-lock-integration.yml"
 DESKTOP_DISTRIBUTION_CONTRACT = "docs/contracts/distribution-profiles.json"
 RETIRED_DESKTOP_ROOT = "tools/windows-desktop/"
@@ -35,6 +31,7 @@ LIGHT_EXACT = frozenset({
     "docs/DECISIONS.md",
     "docs/CURRENT-STATE.md",
     "docs/DEVELOPMENT-WORKFLOW.md",
+    ".github/workflows/intelligence-foundation.yml",
     "tests/test_desktop_product_runtime_status_port.mjs",
     "tests/test_desktop_surface_runtime_bridge.mjs",
     "tests/test_desktop_surface_state_report.mjs",
@@ -48,8 +45,6 @@ LIGHT_EXACT = frozenset({
     # Removed Profile plan is only eligible through a verified deletion.
     "00-PLANOS-PRIORITARIOS/REGISTRY.md",
     "00-PLANOS-PRIORITARIOS/README.md",
-    "PLANO-00-ESTADO-ATUAL-E-PRIORIDADES.md",
-    "PLANO-04-FUNDACAO-ECOSSISTEMA-PRE-MVP.md",
     "00-PLANOS-PRIORITARIOS/ROADMAP.md",
     "00-PLANOS-PRIORITARIOS/plans/MODE-001-WEB-CLOUD-DEVICE-RUNTIME.md",
     "00-PLANOS-PRIORITARIOS/plans/FOOD-001-ORDAX-FOOD-PIZZA-PILOT.md",
@@ -224,6 +219,24 @@ EXPECTED_IMPACT_JOB = """
 """.replace("__DOLLAR__", "$")
 
 
+# The current Buildroot Owner branch retains its lightweight contract job.
+# Adding main's exact impact classifier must not delete that job or trigger
+# expensive Creator builds for draft PRs.
+BUILD_GUARD_OLD = (
+    "\n  build-and-publish:\n"
+    "    needs: owner-dev-contract\n"
+    "    # Draft PRs use fast contracts; full USB/QEMU only for a release candidate.\n"
+    "    # workflow_dispatch and main push remain explicit/full delivery entrypoints.\n"
+    "    if: github.event_name != 'pull_request' || !github.event.pull_request.draft\n"
+)
+BUILD_GUARD_NEW = (
+    "\n  build-and-publish:\n"
+    "    needs: [owner-dev-contract, impact]\n"
+    "    # Draft PRs use fast contracts; full USB/QEMU only for a release candidate.\n"
+    "    # workflow_dispatch and main push remain explicit/full delivery entrypoints.\n"
+    "    if: needs.impact.outputs.required == 'true' && (github.event_name != 'pull_request' || !github.event.pull_request.draft)\n"
+)
+
 def _git_show(sha, path, root):
     raw = subprocess.run(["git", "-C", str(root), "show", f"{sha}:{path}"],
                          check=True, capture_output=True, timeout=20).stdout
@@ -261,17 +274,15 @@ def workflow_trigger_only(base, head, *, root=ROOT):
             return False
         if old_body != body:
             start = body.find("\n  impact:\n")
-            end = body.find("\n  build-and-publish:\n", start)
+            end = body.find("\n  owner-dev-contract:\n", start)
             if start < 0 or end < 0 or "\n  impact:\n" in old_body:
                 return False
             if body[start:end] != EXPECTED_IMPACT_JOB.rstrip("\n"):
                 return False
             reduced = body[:start] + body[end:]
-            guard = ("\n  build-and-publish:\n    needs: impact\n"
-                     "    if: needs.impact.outputs.required == 'true'\n")
-            if reduced.count(guard) != 1:
+            if reduced.count(BUILD_GUARD_NEW) != 1:
                 return False
-            if reduced.replace(guard, "\n  build-and-publish:\n") != old_body:
+            if reduced.replace(BUILD_GUARD_NEW, BUILD_GUARD_OLD) != old_body:
                 return False
         if any(p not in push for p in REQUIRED_PUSH) or any(p not in pr for p in REQUIRED_PR):
             return False
@@ -315,7 +326,7 @@ def verified_creator_freshness_wiring_only(base, head, *, root=ROOT):
             ),
             (
                 """          esac
-  build-and-publish:""",
+  owner-dev-contract:""",
                 r"""          esac
       # On a queued main push, avoid an expensive build that is already
       # obsolete. PR proofs and explicit manual dispatch remain unaffected.
@@ -328,7 +339,7 @@ def verified_creator_freshness_wiring_only(base, head, *, root=ROOT):
           set -euo pipefail
           python3 tools/ci/creator_owner_publish_freshness.py \
             --source "$ORDAX_SOURCE_SHA" --github-output "$GITHUB_OUTPUT"
-  build-and-publish:""",
+  owner-dev-contract:""",
             ),
             (
                 """          repo='ordaxsystems/ordax-os'
@@ -364,37 +375,6 @@ def verified_creator_freshness_wiring_only(base, head, *, root=ROOT):
             before = before.replace(old, new)
         return before == after
     except (OSError, ValueError, UnicodeError, subprocess.SubprocessError):
-        return False
-
-
-def verified_legacy_profile_trigger_migration(base, head, *, root=ROOT):
-    """Only an exact two-entry Intelligence CI documentation path migration is light."""
-    try:
-        before = _git_show(base, INTELLIGENCE_WORKFLOW, root)
-        after = _git_show(head, INTELLIGENCE_WORKFLOW, root)
-        return (before.count(LEGACY_PROFILE_TRIGGER) == 2
-                and CURRENT_PROFILE_TRIGGER not in before
-                and after == before.replace(LEGACY_PROFILE_TRIGGER,
-                                             CURRENT_PROFILE_TRIGGER))
-    except (OSError, ValueError, UnicodeError, subprocess.SubprocessError):
-        return False
-
-
-def verified_legacy_profile_deletion(base, head, *, root=ROOT):
-    """An archived root plan may be deleted, never edited/reintroduced as authority."""
-    try:
-        before = _git_show(base, LEGACY_PROFILE_DOC, root)
-        if not before.startswith("# OrdaX") or "ARCHIVED / SUPERSEDED" not in before:
-            return False
-        # cat-file -e returns 128 for both absent paths and corrupt refs.
-        # ls-tree must succeed against the verified commit and yield no path.
-        probe = subprocess.run(
-            ["git", "-C", str(root), "ls-tree", "-r", "--name-only",
-             head, "--", LEGACY_PROFILE_DOC],
-            check=True, capture_output=True, text=True, timeout=20,
-        )
-        return not probe.stdout.strip()
-    except (OSError, UnicodeError, ValueError, subprocess.SubprocessError):
         return False
 
 
@@ -550,9 +530,6 @@ def classify(base, head, *, root=ROOT, event="push"):
             elif path == SURFACE_LOCK:
                 if not verified_surface_visual_source_lock_delta(base, head, root=root):
                     return True, "surface-lock-not-proven-visual-only"
-            elif path == INTELLIGENCE_WORKFLOW:
-                if not verified_legacy_profile_trigger_migration(base, head, root=root):
-                    return True, "intelligence-workflow-not-exact-profile-doc-migration"
             elif path == DESKTOP_TRIGGER_WORKFLOW:
                 if not verified_desktop_trigger_detachment(base, head, root=root):
                     return True, "desktop-trigger-detachment-unverified"
@@ -562,9 +539,6 @@ def classify(base, head, *, root=ROOT, event="push"):
             elif path.startswith(RETIRED_DESKTOP_ROOT):
                 if not verified_retired_desktop_shell_deletion(base, head, path, root=root):
                     return True, "retired-desktop-source-not-deletion:" + path
-            elif path == LEGACY_PROFILE_DOC:
-                if not verified_legacy_profile_deletion(base, head, root=root):
-                    return True, "legacy-profile-doc-not-verified-deletion"
             elif path in WINDOWS_PRODUCT_SHARED_ADDITIONS:
                 # Existing Windows additions and this exact guarded semantic
                 # port migration have independent content proofs.

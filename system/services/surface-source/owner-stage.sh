@@ -44,7 +44,7 @@ visual_sha=$(field source_commit) || exit 2
 [ "$repository" = ordaxsystems/ordax-surface ] || exit 2
 case "$visual_sha" in ''|*[!0-9a-f]*) exit 2 ;; esac
 [ "${#visual_sha}" -eq 40 ] || exit 2
-case "$status" in integration-candidate|canonical) ;; *) exit 2 ;; esac
+[ "$status" = canonical ] || exit 2
 
 if [ "$command" = status ]; then
     printf '%s\n' "$status"
@@ -67,20 +67,34 @@ source_integrity() {
             [ -d "$part" ] && [ ! -L "$part" ] || exit 1
             [ -z "$(/bin/busybox find "$part" ! -type d ! -type f -print)" ] || exit 1
         done
-        expected_paths=.surface-expected-paths.$
-        found_paths=.surface-actual-paths.$
-        trap 'rm -f "$expected_paths" "$found_paths"' EXIT
-        /bin/busybox awk '{ print substr($0, 67) }' "$expected" |
-            LC_ALL=C /bin/busybox sort > "$expected_paths" || exit 1
+        # Compare the complete manifest and real file inventory in memory.
+        # A verified release slot may be mounted read-only at cold boot:
+        # never create comparison scratch files inside that slot.
         /bin/busybox find system/surface/ui system/surface/workspace -type f -print |
-            LC_ALL=C /bin/busybox sort > "$found_paths" || exit 1
-        /bin/busybox cmp -s "$expected_paths" "$found_paths" || exit 1
+            /bin/busybox awk -v manifest="$expected" '
+                BEGIN {
+                    while ((getline line < manifest) > 0) {
+                        path = substr(line, 67)
+                        if (length(line) < 67 || (path in expected_files))
+                            invalid = 1
+                        expected_files[path] = 1
+                        remaining++
+                    }
+                    close(manifest)
+                    if (remaining == 0) invalid = 1
+                }
+                {
+                    if (!($0 in expected_files) || seen[$0]++)
+                        invalid = 1
+                    remaining--
+                }
+                END { if (invalid || remaining != 0) exit 1 }
+            ' || exit 1
         /bin/busybox sha256sum -c "$expected" >/dev/null 2>&1
     )
 }
 
 if [ "$command" = ready ]; then
-    [ "$status" = canonical ] || exit 1
     [ -f "$stage_dir/.ready" ] && [ ! -L "$stage_dir/.ready" ] || exit 1
     [ -f "$stage_dir/.surface-source-sha" ] && [ ! -L "$stage_dir/.surface-source-sha" ] || exit 1
     [ -f "$stage_dir/.sha" ] && [ ! -L "$stage_dir/.sha" ] || exit 1
@@ -88,7 +102,12 @@ if [ "$command" = ready ]; then
     IFS= read -r actual_visual_sha < "$stage_dir/.surface-source-sha" || exit 1
     [ "$actual_os_sha" = "$os_sha" ] || exit 1
     [ "$actual_visual_sha" = "$visual_sha" ] || exit 1
-    [ -x "$stage_dir/system/surface/entrypoint" ] || exit 1
+    # Neither the Surface directory nor the native entrypoint may redirect
+    # execution outside the immutable candidate slot through a symlink.
+    [ -d "$stage_dir/system/surface" ] && [ ! -L "$stage_dir/system/surface" ] || exit 1
+    [ -f "$stage_dir/system/surface/entrypoint" ] &&
+        [ ! -L "$stage_dir/system/surface/entrypoint" ] &&
+        [ -x "$stage_dir/system/surface/entrypoint" ] || exit 1
     [ -f "$stage_dir/system/surface/ui/surface.mjs" ] || exit 1
     [ -d "$stage_dir/system/surface/workspace" ] || exit 1
     [ ! -L "$stage_dir/system/surface/ui" ] || exit 1
@@ -98,7 +117,6 @@ if [ "$command" = ready ]; then
 fi
 
 [ "$command" = stage ] || usage
-[ "$status" = canonical ] || exit 0
 
 surface_root=$stage_dir/system/surface
 [ -d "$surface_root" ] && [ ! -L "$surface_root" ] || exit 2

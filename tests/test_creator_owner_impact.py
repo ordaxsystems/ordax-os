@@ -53,7 +53,7 @@ class CreatorOwnerImpactTests(unittest.TestCase):
 
     def test_real_current_workflow_keeps_full_usb_on_push_or_unknown_changes(self):
         text = WORKFLOW.read_text(encoding="utf-8")
-        self.assertIn("needs: impact", text)
+        self.assertIn("needs: [owner-dev-contract, impact]", text)
         self.assertIn("if: needs.impact.outputs.required == 'true'", text)
         self.assertIn("CREATOR_OWNER_USB_REQUIRED=", (ROOT / "tools/ci/creator_owner_impact.py").read_text())
         self.assertIn("github.event_name", text)
@@ -67,8 +67,7 @@ class CreatorOwnerImpactTests(unittest.TestCase):
         # and reinstate only the three preexisting presentation triggers.
         before_source = base_source.replace(impact.EXPECTED_IMPACT_JOB, "\n")
         before_source = before_source.replace(
-            "\n  build-and-publish:\n    needs: impact\n    if: needs.impact.outputs.required == 'true'\n",
-            "\n  build-and-publish:\n",
+            impact.BUILD_GUARD_NEW, impact.BUILD_GUARD_OLD,
         )
         old_pr = before_source.index("  pull_request:\n")
         pre, post = before_source[:old_pr], before_source[old_pr:]
@@ -284,7 +283,7 @@ class CreatorOwnerImpactTests(unittest.TestCase):
         )
         self.assertNotEqual(old, current)
         early = old.index("      # On a queued main push, avoid an expensive build")
-        early_end = old.index("  build-and-publish:", early)
+        early_end = old.index("  owner-dev-contract:", early)
         old = old[:early] + old[early_end:]
         late = old.index("          # Recheck immediately before mutating the rolling channel")
         late_end = old.index("          if ! gh release view creator-owner-prototype", late)
@@ -317,7 +316,7 @@ class CreatorOwnerImpactTests(unittest.TestCase):
     def test_new_workflow_producer_step_forces_usb(self):
         workflow = WORKFLOW.read_text(encoding="utf-8")
         base = self.commit(workflow, VISUAL)
-        changed = workflow.replace("timeout-minutes: 120", "timeout-minutes: 125")
+        changed = workflow.replace("timeout-minutes: 360", "timeout-minutes: 365")
         self.assertNotEqual(workflow, changed)
         current = self.commit(changed)
         self.assertTrue(impact.classify(base, current, root=self.root)[0])
@@ -348,8 +347,6 @@ class CreatorOwnerImpactTests(unittest.TestCase):
             "README.md",
             "00-PLANOS-PRIORITARIOS/REGISTRY.md",
             "00-PLANOS-PRIORITARIOS/README.md",
-            "PLANO-00-ESTADO-ATUAL-E-PRIORIDADES.md",
-            "PLANO-04-FUNDACAO-ECOSSISTEMA-PRE-MVP.md",
             "00-PLANOS-PRIORITARIOS/ROADMAP.md",
             "00-PLANOS-PRIORITARIOS/plans/MODE-001-WEB-CLOUD-DEVICE-RUNTIME.md",
             "00-PLANOS-PRIORITARIOS/plans/FOOD-001-ORDAX-FOOD-PIZZA-PILOT.md",
@@ -372,30 +369,20 @@ class CreatorOwnerImpactTests(unittest.TestCase):
                 next_rev = self.commit(path=shared)
                 self.assertTrue(impact.classify(base, next_rev, root=self.root)[0])
 
-    def test_archived_profile_plan_deletion_and_exact_intelligence_trigger(self):
+    def test_intelligence_foundation_workflow_is_ci_only_but_native_source_is_not(self):
         workflow = WORKFLOW.read_text(encoding="utf-8")
-        source = (ROOT / impact.INTELLIGENCE_WORKFLOW).read_text(encoding="utf-8")
-        self.assertEqual(source.count(impact.CURRENT_PROFILE_TRIGGER), 2)
-        self.assertNotIn(impact.LEGACY_PROFILE_TRIGGER, source)
-        old = source.replace(impact.CURRENT_PROFILE_TRIGGER, impact.LEGACY_PROFILE_TRIGGER)
-        self.commit(workflow=workflow, lock=VISUAL, intelligence_workflow=old,
-                    path=impact.LEGACY_PROFILE_DOC)
-        (self.root / impact.LEGACY_PROFILE_DOC).write_text(
-            "# OrdaX\\n\\nARCHIVED / SUPERSEDED\\n", encoding="utf-8")
+        intelligence = (ROOT / impact.INTELLIGENCE_WORKFLOW).read_text(encoding="utf-8")
+        self.commit(workflow=workflow, lock=VISUAL, intelligence_workflow=intelligence)
         base = self.commit()
-        head = self.commit(intelligence_workflow=source,
-                           delete_path=impact.LEGACY_PROFILE_DOC)
-        self.assertEqual(impact.classify(base, head, root=self.root),
-                         (False, "nonproducer-contract-only"))
-        self.assertTrue(impact.verified_legacy_profile_trigger_migration(base, head, root=self.root))
-        self.assertTrue(impact.verified_legacy_profile_deletion(base, head, root=self.root))
-        tampered = self.commit(intelligence_workflow=source.replace(
-            "name: Intelligence Foundation", "name: Malicious Change"))
-        self.assertTrue(impact.classify(base, tampered, root=self.root)[0])
-        restored = self.commit(intelligence_workflow=source, path=impact.LEGACY_PROFILE_DOC)
-        self.assertTrue(impact.classify(base, restored, root=self.root)[0])
-        extended = self.commit(intelligence_workflow=source + "\\n# unrelated")
-        self.assertTrue(impact.classify(restored, extended, root=self.root)[0])
+        changed_workflow = self.commit(
+            intelligence_workflow=intelligence + "\n# CI-only metadata change\n"
+        )
+        self.assertEqual(
+            impact.classify(base, changed_workflow, root=self.root),
+            (False, "nonproducer-contract-only"),
+        )
+        native = self.commit(path="system/services/intelligence/native-service.mjs")
+        self.assertTrue(impact.classify(changed_workflow, native, root=self.root)[0])
 
     def test_verified_detached_windows_source_cutover_skips_usb_without_bypassing_boot(self):
         """Exact owner migration, not an arbitrary workflow/Native code exemption."""

@@ -11,6 +11,7 @@ import unittest
 
 ROOT=Path(__file__).resolve().parents[1]
 HOST=ROOT/"system/surface/runtime/ordax_browser_host.py"
+DOWNLOADS=ROOT/"system/surface/runtime/native_internet_downloads.py"
 POLICY=ROOT/"system/surface/runtime/browser_download_policy.py"
 spec=importlib.util.spec_from_file_location("download_policy_under_test",POLICY)
 policy=importlib.util.module_from_spec(spec)
@@ -48,8 +49,8 @@ class FakeDownload:
         return callback(self,*arguments,identifier)
 
 def fake_host(downloads_root, *, space_check=None):
-    source=ast.parse(HOST.read_text(encoding="utf-8"))
-    host=next(n for n in source.body if isinstance(n,ast.ClassDef) and n.name=="OrdaXBrowserHost")
+    source=ast.parse(DOWNLOADS.read_text(encoding="utf-8"))
+    host=next(n for n in source.body if isinstance(n,ast.ClassDef) and n.name=="InternetDownloadHost")
     method_names={
         "emit_download_state","remove_download_timeout","cancel_download_item",
         "timeout_download","on_download_started","on_download_decide_destination",
@@ -76,10 +77,10 @@ def fake_host(downloads_root, *, space_check=None):
         "download_destination":policy.download_destination,
         "safe_download_name":policy.safe_download_name,
         "verified_download":policy.verified_download,
-        "allowed_external_uri":lambda url:url.startswith("https://example.org/"),
     }
-    exec(compile(module,str(HOST),"exec"),namespace)
+    exec(compile(module,str(DOWNLOADS),"exec"),namespace)
     obj=namespace["TestHost"]()
+    obj.allowed_untrusted_uri=lambda url:url.startswith("https://example.org/")
     obj.downloads={}
     obj.download_user_root=downloads_root
     obj.active_tab_id="tab-1"

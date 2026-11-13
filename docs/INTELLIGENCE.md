@@ -53,7 +53,7 @@ separados da prova de código/CI. Stable permanece desativado.
 
 ## Decisão transversal — OrdaX Web, OS, Studio e ChatGPT (2026-10-10)
 
-**OrdaX Intelligence é um serviço sistêmico, não uma funcionalidade isolada do Studio.** Os clientes Web/OS/Studio/aplicativos devem reutilizar `ordax.intelligence/1`, model router e os atuais contratos de contexto e ações sem reconstruir identidade, histórico autoritativo, memória, grants ou catálogo. [Handoff de continuidade da raiz](../INTELLIGENCE-HANDOFF.md).
+**OrdaX Intelligence é um serviço sistêmico, não uma funcionalidade isolada do Studio.** Os clientes Web/OS/Studio/aplicativos devem reutilizar `ordax.intelligence/1`, model router e os atuais contratos de contexto e ações sem reconstruir identidade, histórico autoritativo, memória, grants ou catálogo. Para checkpoints antigos, consulte o [snapshot histórico](https://github.com/ordaxsystems/ordax-os/blob/d4027cd6d4c2458b735946767043d6ba49526dad/INTELLIGENCE-HANDOFF.md); este documento e os contracts atuais são a rota vigente.
 
 A conexão opcional com ChatGPT tem dois fluxos *distintos*:
 

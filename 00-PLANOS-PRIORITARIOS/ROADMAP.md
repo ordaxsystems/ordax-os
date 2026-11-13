@@ -31,9 +31,9 @@ Os requisitos abaixo permanecem preservados no baseline e continuam exigindo sua
 
 ### FOUNDATION-001 — integridade/SSOT quando exigida pelo owner atual
 
-Roteiro de auditoria, SSOT, limpeza de legado comprovado, boot/Supervisor, atualização transacional, Creator/USB e provas está em `plans/FOUNDATION-001-OS-ARCHITECTURE-CONSOLIDATION.md`. É **handoff interagentes**, não um novo instalador, atualizador, gate de release ou source de estado; complementa `EXEC-000` e **não duplica** `NATIVE-001`. Execute apenas defeitos e fechamento já exigidos pelos owners MVP, com testes e evidências por fase; nenhuma autorização de escrita física é concedida.
+Roteiro de auditoria, SSOT, limpeza de legado comprovado, boot/Supervisor, atualização transacional, Creator/USB e provas está em `plans/FOUNDATION-001-OS-ARCHITECTURE-CONSOLIDATION.md`. É **handoff interagentes**, não um novo instalador, atualizador, gate de release ou source de estado; preserva somente o contexto ainda útil do antigo `EXEC-000` e **não duplica** `NATIVE-001`. Execute apenas defeitos e fechamento já exigidos pelos owners MVP, com testes e evidências por fase; nenhuma autorização de escrita física é concedida.
 
-Fonte de execução: `docs/CURRENT-STATE.md` + `docs/PROMOTION-GATES.md` + `MVP.md` + `docs/NATIVE-INSTALLATION.md` + contratos correntes. `PLANO-00-ESTADO-ATUAL-E-PRIORIDADES.md` é snapshot histórico arquivado, não overlay de prioridades atual.
+Fonte de execução: `docs/CURRENT-STATE.md` + `docs/PROMOTION-GATES.md` + `MVP.md` + `docs/NATIVE-INSTALLATION.md` + contratos correntes. O antigo [snapshot de execução de 02/10](https://github.com/ordaxsystems/ordax-os/blob/ba81a08db707d032464ae18e521073ef7e416f4f/PLANO-00-ESTADO-ATUAL-E-PRIORIDADES.md) foi retirado da árvore ativa; não é overlay de prioridades atual.
 
 ### NATIVE-001 — implementação preservada para etapa física posterior
 

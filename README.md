@@ -22,7 +22,7 @@ A candidata Stable atualmente habilitada continua USB-only para uso físico; o c
 
 ## Continuidade do Intelligence entre OS, Web e aplicativos
 
-Para continuar a integração **OrdaX Intelligence + ChatGPT opcional + plugin MCP + ações nativas** leia [INTELLIGENCE-HANDOFF.md](INTELLIGENCE-HANDOFF.md) antes de alterar Studio, Surface, router, provider connectors ou Runtime. É guia de coordenação; a autoridade permanece nos contratos de `docs/INTELLIGENCE.md` e `docs/contracts/repository-ownership.json`. O chat dentro do Web e o conector usado no ChatGPT externo são fluxos distintos; source experimental não confirma disponibilidade real.
+Para trabalho em **OrdaX Intelligence**, comece por `docs/INTELLIGENCE.md`, `docs/CURRENT-STATE.md`, contracts e `docs/contracts/repository-ownership.json`. Para provenance dos checkpoints antigos de ChatGPT/plugin MCP, use o [snapshot histórico](https://github.com/ordaxsystems/ordax-os/blob/d4027cd6d4c2458b735946767043d6ba49526dad/INTELLIGENCE-HANDOFF.md); ele não é roteiro operacional. O chat dentro do Web e o conector usado no ChatGPT externo continuam fluxos distintos; source experimental não confirma disponibilidade real.
 
 **Capability Fabric v1 já integrado:** para descobrir exatamente o que a Aura/Personal já consomem, como a Store `CURRENT` invalida ações e por que isso não autoriza ferramentas MCP, consultar [docs/CAPABILITY-FABRIC.md](docs/CAPABILITY-FABRIC.md) antes de iniciar qualquer nova implementação. O estado atual e as pendências de UX/Runtime/Platform são separados no mesmo guia.
 
@@ -37,9 +37,9 @@ Prioridades operacionais não são fixadas neste README. Consulte `MVP.md`, `doc
 
 Os planos antigos da raiz permanecem temporariamente nos caminhos atuais porque ainda possuem referências vivas. Eles são subordinados a `docs/README.md`, `docs/CURRENT-STATE.md`, `MVP.md`, contratos, ADRs e owners canônicos.
 
-- [PLANO-FUNCIONAL-SURFACE-E-APPS.md](PLANO-FUNCIONAL-SURFACE-E-APPS.md) é referência funcional acumulada da Surface/apps; não é `CURRENT-STATE` nem changelog canônico.
-- [PLANO-02-EVOLUCAO-E-REAPROVEITAMENTO-DO-LEGADO.md](PLANO-02-EVOLUCAO-E-REAPROVEITAMENTO-DO-LEGADO.md) é análise histórica do legado e não é backlog atual.
-- [PLANO-03-FECHAMENTO-PRE-USB-NOVA-ORDAX.md](PLANO-03-FECHAMENTO-PRE-USB-NOVA-ORDAX.md) é baseline de auditoria cujo fechamento de source já foi concluído; gates vivos estão nos owners canônicos.
+- A antiga referência funcional acumulada de Surface/apps foi retirada da árvore ativa e permanece no [snapshot Git histórico](https://github.com/ordaxsystems/ordax-os/blob/3f304b05af33e40658025ff289523560b298153c/PLANO-FUNCIONAL-SURFACE-E-APPS.md); owners atuais estão em `ordax-surface`, `ordax-apps`, contratos e `docs/CURRENT-STATE.md`.
+- [`docs/SOURCE-MIGRATION.md`](docs/SOURCE-MIGRATION.md) é o ledger canônico de decisões de migração/reimplementação; a análise comparativa antiga foi retirada da árvore ativa e permanece no histórico Git.
+- O antigo baseline pré-USB foi retirado da árvore ativa e permanece no [snapshot Git](https://github.com/ordaxsystems/ordax-os/blob/0f8749e8ccfa004628fec2dd59c5218aba331de2/PLANO-03-FECHAMENTO-PRE-USB-NOVA-ORDAX.md); gates vivos estão em `docs/PROMOTION-GATES.md`, contratos e owners canônicos.
 - [docs/SPACES-AND-PROFILES.md](docs/SPACES-AND-PROFILES.md) é a autoridade única de experiência de Spaces e composição profissional; [docs/PROFILE-INTELLIGENCE-ARCHITECTURE.md](docs/PROFILE-INTELLIGENCE-ARCHITECTURE.md) governa conhecimento e Intelligence dos Profiles. O plano duplicado foi retirado do source após migrar seus consumidores.
 - [PLANO-07-PERSONAL-ORDAX-E-TRABALHO-INTELIGENTE.md](PLANO-07-PERSONAL-ORDAX-E-TRABALHO-INTELIGENTE.md) preserva fases futuras; o owner canônico é [`docs/PERSONAL-ORDAX.md`](docs/PERSONAL-ORDAX.md).
 - [PLANO-08-ORDAX-NETWORK-COMUNIDADES-E-MENSAGENS.md](PLANO-08-ORDAX-NETWORK-COMUNIDADES-E-MENSAGENS.md) é referência de produto; qualquer texto histórico de “canônico” não altera a hierarquia documental.

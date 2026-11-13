@@ -1,0 +1,230 @@
+name: Remove Alpine Fast Gate
+
+on:
+  push:
+    branches:
+      - 'integration/dev-usb-buildroot-surface-20261024'
+    paths:
+      - 'bootstrap/base/firmware_policy.py'
+      - 'bootstrap/base/stable_runtime_layout.py'
+      - 'bootstrap/kernel/module_archive.py'
+      - 'bootstrap/independent-base/**'
+      - 'bootstrap/network/**'
+      - 'bootstrap/dev-base/**'
+      - 'bootstrap/stable-base/**'
+      - 'bootstrap/surface-runtime/**'
+      - 'bootstrap/windows-compat-runtime/**'
+      - 'system/services/base-update/dev_channel.py'
+      - 'tools/dev-base-channel/**'
+      - 'tools/creator/proof/disposable_media.py'
+      - 'tools/verify/github_actions_supply_chain.py'
+      - 'docs/BUILD-AUTONOMY.md'
+      - 'docs/DEVELOPMENT-WORKFLOW.md'
+      - 'docs/contracts/ci-supply-chain.json'
+      - 'docs/contracts/hardware-support-matrix.json'
+      - 'docs/contracts/portable-boot-handoff.json'
+      - 'docs/contracts/kernel-build-environment.json'
+      - 'tools/ci/portable_component_cache.py'
+      - 'tests/test_alpine_removal_boundary.py'
+      - 'tests/test_owner_rootfs_capabilities.py'
+      - 'tests/test_stable_hardware_baseline_contract.py'
+      - 'tests/test_first_physical_usb_payload_ssot.py'
+      - 'tests/test_stable_runtime_layout.py'
+      - 'tests/test_creator_kernel_reuse_workflows.py'
+      - 'tests/test_dev_base_channel.py'
+      - 'tests/test_dev_base_symlink_policy.py'
+      - 'tests/test_github_actions_supply_chain.py'
+      - 'tests/test_independent_dev_channel_compatibility.py'
+      - 'tests/test_independent_base_experiment.py'
+      - 'tests/test_independent_rootfs_export.py'
+      - 'tests/test_independent_network_parity.py'
+      - 'tests/test_independent_owner_profile.py'
+      - 'tests/test_independent_native_component.py'
+      - 'tests/test_independent_portable_boot_integration.py'
+      - 'tests/test_portable_v2_qemu_boot_proof_contract.py'
+      - 'tests/test_portable_qemu_kernel_source_ssot.py'
+      - 'tests/test_portable_qemu_impact.py'
+      - 'tests/test_independent_portable_boot_integration.py'
+      - 'tools/ci/portable_qemu_impact.py'
+      - 'tests/test_portable_component_reuse_workflow.py'
+      - 'tests/test_independent_surface_runtime.py'
+      - 'tests/test_independent_surface_component_cache.py'
+      - 'tools/ci/independent_surface_r2.sh'
+      - '.github/workflows/independent-surface-runtime.yml'
+      - '.github/workflows/portable-v2-qemu-boot-proof.yml'
+      - 'tests/test_kernel_module_archive.py'
+      - 'tests/test_firmware_policy_neutral.py'
+      - 'tests/test_independent_heavy_workflow.py'
+      - 'tests/test_portable_component_cache.py'
+      - 'tests/test_physical_media_contract.py'
+      - '.github/workflows/creator-owner-build-diagnose.yml'
+      - '.github/workflows/creator-owner-dev-git.yml'
+      - '.github/workflows/dev-base-channel.yml'
+      - '.github/workflows/independent-base-experiment.yml'
+      - '.github/workflows/remove-alpine-fast.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: remove-alpine-fast-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  contracts:
+    name: Contracts and Buildroot profile resolution
+    runs-on: ubuntu-24.04
+    timeout-minutes: 15
+    steps:
+      - name: Checkout exact source
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
+        with:
+          fetch-depth: 1
+          persist-credentials: false
+      - name: Python
+        uses: actions/setup-python@ece7cb06caefa5fff74198d8649806c4678c61a1 # v6
+        with:
+          python-version: '3.12'
+      # The official Portable impact tests resolve imports from the canonical,
+      # separately owned Surface. Materialize its pinned source in this
+      # disposable checkout just like the real QEMU workflow; do not bypass
+      # unresolved imports or duplicate Surface files in ordax-os.
+      # Exercise the actual expression in a GitHub-hosted runner, not just
+      # source-text assertions. The producer's separate self-hosted branch
+      # still requires its own authenticated runner.environment check.
+      # Read ONLY the presence of required repository variables, never
+      # their values, secrets or the runner's registration token. This is a
+      # diagnostic of producer configuration, not evidence a runner is online.
+      - name: Diagnose durable Surface producer configuration without building
+        env:
+          ORDAX_SURFACE_LABEL_DEFINED: ${{ vars.ORDAX_SURFACE_RUNNER_LABEL != '' }}
+          ORDAX_SURFACE_WORK_ROOT_DEFINED: ${{ vars.ORDAX_SURFACE_PERSISTENT_WORK_ROOT != '' }}
+          ORDAX_SURFACE_BUILD_ROOT_DEFINED: ${{ vars.ORDAX_SURFACE_BUILD_WORK_ROOT != '' }}
+          ORDAX_SURFACE_ENVIRONMENT_DEFINED: ${{ vars.ORDAX_SURFACE_PRODUCER_ENVIRONMENT != '' }}
+        run: |
+          set -euo pipefail
+          complete=true
+          for config in ORDAX_SURFACE_LABEL_DEFINED ORDAX_SURFACE_WORK_ROOT_DEFINED ORDAX_SURFACE_BUILD_ROOT_DEFINED ORDAX_SURFACE_ENVIRONMENT_DEFINED; do
+            case "${!config}" in
+              true) echo "$config=CONFIGURED" ;;
+              false)
+                echo "$config=MISSING"
+                complete=false
+                ;;
+              *) echo "Invalid boolean from GitHub vars context: $config" >&2; exit 1 ;;
+            esac
+          done
+          if [ "$complete" = true ]; then
+            echo 'ORDAX_SURFACE_PRODUCER_VARS=CONFIGURED_NOT_ATTESTED'
+          else
+            echo 'ORDAX_SURFACE_PRODUCER_VARS=INCOMPLETE'
+          fi
+      - name: Prove authenticated runner context reaches Shell
+        env:
+          ORDAX_VERIFIED_RUNNER_ENVIRONMENT: ${{ runner.environment }}
+        run: |
+          set -euo pipefail
+          test "${ORDAX_VERIFIED_RUNNER_ENVIRONMENT:-}" = github-hosted
+          test "$RUNNER_OS" = Linux
+          echo 'ORDAX_SURFACE_RUNNER_CONTEXT=VERIFIED_GITHUB_HOSTED'
+      - name: Prepare verified Surface for Portable impact contracts
+        uses: ./.github/actions/prepare-verified-surface
+      - name: Validate Independent Base contracts and migration boundary
+        run: |
+          set -euo pipefail
+          python3 bootstrap/independent-base/build.py check --profile minimal
+          python3 bootstrap/independent-base/build.py check --profile owner-development
+          python3 bootstrap/independent-base/build.py check --profile stable-mvp
+          python3 bootstrap/independent-base/build.py check-component
+          python3 tools/verify/github_actions_supply_chain.py
+          python3 -m unittest \
+            tests.test_alpine_removal_boundary \
+            tests.test_owner_rootfs_capabilities \
+            tests.test_stable_hardware_baseline_contract \
+            tests.test_first_physical_usb_payload_ssot \
+            tests.test_stable_runtime_layout \
+            tests.test_creator_kernel_reuse_workflows \
+            tests.test_dev_base_channel \
+            tests.test_dev_base_symlink_policy \
+            tests.test_github_actions_supply_chain \
+            tests.test_independent_dev_channel_compatibility \
+            tests.test_independent_base_experiment \
+            tests.test_independent_rootfs_export \
+            tests.test_independent_network_parity \
+            tests.test_independent_owner_profile \
+            tests.test_independent_native_component \
+            tests.test_independent_portable_boot_integration \
+            tests.test_independent_surface_runtime \
+            tests.test_independent_surface_component_cache \
+            tests.test_portable_v2_qemu_boot_proof_contract \
+            tests.test_portable_qemu_kernel_source_ssot \
+            tests.test_initramfs_upstream_authentication \
+            tests.test_kernel_ci_env \
+            tests.test_portable_v4_ai_handoff_contract \
+            tests.test_portable_v3_cold_health_qemu_proof \
+            tests.test_portable_component_reuse_workflow \
+            tests.test_portable_qemu_impact \
+            tests.test_bootstrap_current_verification \
+            tests.test_portable_verified_boot_selection \
+            tests.test_portable_media_discovery \
+            tests.test_portable_activation_state_helper \
+            tests.test_portable_exact_runtime_handoff \
+            tests.test_kernel_module_archive \
+            tests.test_independent_kernel_module_workflow \
+            tests.test_firmware_policy_neutral \
+            tests.test_independent_heavy_workflow \
+            tests.test_portable_component_cache \
+            tests.test_physical_media_contract -v
+      - name: Resolve Buildroot profiles without compiling rootfs or kernel
+        run: |
+          set -euo pipefail
+          cache="$RUNNER_TEMP/ordax-independent-resolution-cache"
+          python3 bootstrap/independent-base/build.py resolve --profile minimal --cache "$cache"
+          python3 bootstrap/independent-base/build.py resolve --profile owner-development --cache "$cache"
+          python3 bootstrap/independent-base/build.py resolve --profile stable-mvp --cache "$cache"
+          python3 bootstrap/independent-base/build.py resolve-component --cache "$cache"
+      - name: Validate scripts without compiling Buildroot
+        run: |
+          set -euo pipefail
+          python3 -m py_compile \
+            bootstrap/base/firmware_policy.py \
+            bootstrap/base/stable_runtime_layout.py \
+            bootstrap/kernel/module_archive.py \
+            bootstrap/independent-base/module_parity.py \
+            bootstrap/independent-base/build.py \
+            bootstrap/independent-base/qemu_proof.py \
+            bootstrap/independent-base/portable_boot_proof.py \
+            system/services/base-update/dev_channel.py \
+            tools/dev-base-channel/build.py \
+            tools/dev-base-channel/independent_rootfs.py \
+            tools/dev-base-channel/prove_independent_rootfs.py \
+            tools/creator/proof/disposable_media.py \
+            tools/verify/github_actions_supply_chain.py \
+            tests/test_alpine_removal_boundary.py \
+            tests/test_owner_rootfs_capabilities.py \
+            tests/test_stable_hardware_baseline_contract.py \
+            tests/test_first_physical_usb_payload_ssot.py \
+            tests/test_stable_runtime_layout.py \
+            tests/test_creator_kernel_reuse_workflows.py \
+            tests/test_dev_base_channel.py \
+            tests/test_dev_base_symlink_policy.py \
+            tests/test_github_actions_supply_chain.py \
+            tests/test_independent_dev_channel_compatibility.py \
+            tests/test_independent_rootfs_export.py \
+            tests/test_independent_owner_profile.py \
+            tests/test_independent_native_component.py \
+            tests/test_independent_portable_boot_integration.py \
+            tests/test_independent_surface_runtime.py \
+            tests/test_independent_surface_component_cache.py \
+            tests/test_portable_v2_qemu_boot_proof_contract.py \
+            tests/test_portable_qemu_kernel_source_ssot.py \
+            tests/test_kernel_module_archive.py \
+            tests/test_independent_kernel_module_workflow.py \
+            tests/test_firmware_policy_neutral.py \
+            tests/test_independent_heavy_workflow.py \
+            tests/test_portable_component_cache.py \
+            tests/test_physical_media_contract.py
+          sh -n bootstrap/independent-base/post-build.sh
+          sh -n bootstrap/independent-base/post-image.sh
+          sh -n bootstrap/independent-base/overlay/sbin/ordax-independent-probe-init

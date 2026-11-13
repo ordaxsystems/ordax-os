@@ -23,7 +23,7 @@ Historical wording inside a root `PLANO-*` such as `CANONICAL`, `P0`, `mandatory
 
 ## Retomada transversal: estado atual primeiro
 
-Para mudanças cross-repo, **comece por `AGENTS.md`, o owner e o contrato aplicável**. Consulte este índice e o topo de `docs/CURRENT-STATE.md` quando houver dúvida sobre autoridade, composição ou estado; leia o documento de domínio e PRs/artefatos pertinentes à alteração. **Não existe sequência obrigatória de leitura integral para toda tarefa.** [INTELLIGENCE-HANDOFF.md](../INTELLIGENCE-HANDOFF.md) preserva checkpoints de 04/11 e anteriores como **REFERENCE/HISTORICAL**; não é mais entrada operacional nem fila de tarefas. Use-o somente quando a proveniência histórica for necessária. Para Capability Fabric, `docs/CAPABILITY-FABRIC.md` permanece canônico para arquitetura e fronteiras, mas qualquer tabela de status ou sequência datada deve ser revalidada contra `CURRENT-STATE` e os owners atuais antes de agir.
+Para mudanças cross-repo, **comece por `AGENTS.md`, o owner e o contrato aplicável**. Consulte este índice e o topo de `docs/CURRENT-STATE.md` quando houver dúvida sobre autoridade, composição ou estado; leia o documento de domínio e PRs/artefatos pertinentes à alteração. **Não existe sequência obrigatória de leitura integral para toda tarefa.** O antigo handoff transversal de Intelligence foi retirado da árvore ativa; para proveniência dos checkpoints de 04/11 e anteriores use o [snapshot Git](https://github.com/ordaxsystems/ordax-os/blob/d4027cd6d4c2458b735946767043d6ba49526dad/INTELLIGENCE-HANDOFF.md). Ele não é entrada operacional nem fila de tarefas. Para Capability Fabric, `docs/CAPABILITY-FABRIC.md` permanece canônico para arquitetura e fronteiras, mas qualquer tabela de status ou sequência datada deve ser revalidada contra `CURRENT-STATE` e os owners atuais antes de agir.
 
 ## Active canonical map
 
@@ -38,7 +38,7 @@ Para mudanças cross-repo, **comece por `AGENTS.md`, o owner e o contrato aplic�
 | External Intelligence source / integration-candidate | `docs/INTELLIGENCE-REPOSITORY-MIGRATION.md` + `docs/contracts/intelligence-source.json` |
 | Personal OrdaX orchestration | `docs/PERSONAL-ORDAX.md` |
 | Web Research source boundary (providers disabled) | `docs/WEB-RESEARCH.md`, `system/contracts/web-research.mjs` |
-| Capability Fabric — arquitetura e fronteiras canônicas; checkpoints operacionais datados são referência | `docs/CAPABILITY-FABRIC.md` (arquitetura/limites); `docs/plans/CAPABILITY-FABRIC-V1.md` (histórico) |
+| Capability Fabric — arquitetura e fronteiras canônicas; checkpoints operacionais datados são referência | `docs/CAPABILITY-FABRIC.md` (arquitetura/limites); diário v1 histórico preservado na PR #2406 |
 | Spaces + professional composition (single user journey) | `docs/SPACES-AND-PROFILES.md` + `docs/contracts/spaces-and-profile-packs.json` |
 | Account sync / entitlements across product modes | `docs/ACCOUNT-SYNC-AND-PLANS.md` |
 | Profile knowledge and Intelligence | `docs/PROFILE-INTELLIGENCE-ARCHITECTURE.md` + canonical Profile manifests |
@@ -91,11 +91,10 @@ It separates:
 | Root historical/active plans | `../00-PLANOS-PRIORITARIOS/REGISTRY.md` | Classified centrally as reference/ready/guide/etc. | Plans do not authorize work; current Window/owner and relevant evidence decide |
 | OS foundation audit and consolidation handoff | `../00-PLANOS-PRIORITARIOS/plans/FOUNDATION-001-OS-ARCHITECTURE-CONSOLIDATION.md` | **REFERENCE**; historical consolidation handoff, not canonical implementation status | Execution-eligible only when a current owner defect/gate requires that specific slice; no independent queue or physical authorization |
 | OrdaX Web Research | `../00-PLANOS-PRIORITARIOS/plans/WEB-001-WEB-RESEARCH.md` | Source contracts and inert router implemented; no provider enabled | **DEFERRED FOR EXECUTION** until MVP closure and revalidation |
-| Meridian visual integration | `docs/architecture/MERIDIAN-PROVENANCE.md` | Audited C; PR-01 only | No production/default/release authority |
 
 The planning router exists to organize reports/plans and cross-chat handoffs. It **does not become a second canonical documentation authority**; this file, contracts, current state and canonical topic owners continue to define authority.
 
-The Meridian route points to immutable approved evidence on the experimental branch instead of copying the experimental runtime into `main`.
+Historical Meridian proposal/audit provenance was removed from the active tree; when needed, use the [immutable Git snapshot](https://github.com/ordaxsystems/ordax-os/blob/2ea0d3b3bdc88be99a8026f14a51a58aa78cc5bc/docs/architecture/MERIDIAN-PROVENANCE.md). Current visual ownership remains with `ordax-surface` and the OS source lock/contracts.
 
 ## Document lifecycle
 
@@ -122,17 +121,14 @@ Do **not** create `foo-v2.md`, `foo-final.md`, `foo-new.md` or parallel plans fo
 
 ## Plans versus state
 
-All root planning files are subordinate to the authority order above, including:
+Historical root-plan snapshots that were removed from the active tree are cataloged **only** in `../00-PLANOS-PRIORITARIOS/REGISTRY.md`, with immutable Git references where provenance is useful. This canonical index does not repeat that archive.
 
-- `PLANO-00-ESTADO-ATUAL-E-PRIORIDADES.md` — **archived 02/10 snapshot**; never use its USB-first priorities as current instructions;
-- `PLANO-FUNCIONAL-SURFACE-E-APPS.md` — functional reference, not canonical current state or changelog;
-- `PLANO-02-EVOLUCAO-E-REAPROVEITAMENTO-DO-LEGADO.md` — dated legacy analysis/reference;
-- `PLANO-03-FECHAMENTO-PRE-USB-NOVA-ORDAX.md` — completed source-closure baseline/reference; live physical gates come from current canonical owners;
-- `PLANO-04-FUNDACAO-ECOSSISTEMA-PRE-MVP.md` — ecosystem foundation reference with implemented and future material mixed;
-- `PLANO-07-PERSONAL-ORDAX-E-TRABALHO-INTELIGENTE.md` — execution plan/reference; `docs/PERSONAL-ORDAX.md` is the canonical foundation owner;
-- `PLANO-08-ORDAX-NETWORK-COMUNIDADES-E-MENSAGENS.md` — Network reference; any historical self-declaration of MVP canonicity is subordinate to `MVP.md`, contracts and canonical owners.
+The remaining root planning/reference files are subordinate to the authority order above:
 
-The planning hub at `../00-PLANOS-PRIORITARIOS/` catalogs these files and is the preferred destination for new reports/plans. Existing root files must not be moved until references are audited and successors are explicit.
+- `PLANO-07-PERSONAL-ORDAX-E-TRABALHO-INTELIGENTE.md` — future execution plan/reference; `docs/PERSONAL-ORDAX.md` is the canonical owner;
+- `PLANO-08-ORDAX-NETWORK-COMUNIDADES-E-MENSAGENS.md` — Network reference; current scope follows `MVP.md`, contracts and canonical owners.
+
+New plans/reports belong in `../00-PLANOS-PRIORITARIOS/` only when a separate planning artifact is genuinely needed.
 
 Do not use a plan as an append-only implementation log. New factual state should converge to `docs/CURRENT-STATE.md`, machine-readable contracts, evidence, or the canonical topic owner. A plan should primarily retain intent, dependencies, gates and future work.
 

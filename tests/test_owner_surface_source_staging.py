@@ -102,6 +102,57 @@ class OwnerSurfaceSourceTests(unittest.TestCase):
         self.make_file(self.slot / ".surface-source-sha", "0" * 40 + "\n")
         self.assertNotEqual(self.call("ready").returncode, 0)
 
+    def test_ready_does_not_write_into_immutable_release_slot(self):
+        # Ready is a read-only verifier, not a second stage writer. This is
+        # necessary when the Supervisor boots from an immutable release mount.
+        self.call("stage", check=True)
+        self.make_file(self.slot / ".sha", self.os_sha + "\n")
+        self.make_file(self.slot / ".ready", "ready\n")
+        before = {p.relative_to(self.slot).as_posix(): p.read_bytes()
+                  for p in self.slot.rglob("*") if p.is_file()}
+        self.slot.chmod(0o555)
+        try:
+            self.call("ready", check=True)
+            self.call("ready", check=True)
+        finally:
+            self.slot.chmod(0o755)
+        after = {p.relative_to(self.slot).as_posix(): p.read_bytes()
+                 for p in self.slot.rglob("*") if p.is_file()}
+        self.assertEqual(before, after)
+        integrity = HELPER.read_text(encoding="utf-8").split(
+            "source_integrity() {", 1)[1].split("\n}\n", 1)[0]
+        self.assertNotIn(".surface-expected-paths.", integrity)
+        self.assertNotIn(".surface-actual-paths.", integrity)
+        self.assertNotIn("trap ", integrity)
+
+    def test_ready_rejects_linked_surface_root_and_native_entrypoint(self):
+        self.call("stage", check=True)
+        self.make_file(self.slot / ".sha", self.os_sha + "\n")
+        self.make_file(self.slot / ".ready", "ready\n")
+        self.call("ready", check=True)
+
+        # A linked parent preserves the manifest's relative filenames and
+        # contents but redirects the runtime to a mutable external directory.
+        surface = self.slot_system / "surface"
+        outside_surface = self.root / "mutable-external-surface"
+        surface.rename(outside_surface)
+        surface.symlink_to(outside_surface, target_is_directory=True)
+        self.assertNotEqual(self.call("ready").returncode, 0)
+        surface.unlink()
+        outside_surface.rename(surface)
+        self.call("ready", check=True)
+
+        # The native launcher is outside the visual hash manifest. An
+        # executable symlink must not pass readiness simply because -x does.
+        entrypoint = surface / "entrypoint"
+        outside_entrypoint = self.root / "mutable-native-entrypoint"
+        entrypoint.rename(outside_entrypoint)
+        entrypoint.symlink_to(outside_entrypoint)
+        self.assertNotEqual(self.call("ready").returncode, 0)
+        entrypoint.unlink()
+        outside_entrypoint.rename(entrypoint)
+        self.call("ready", check=True)
+
     def test_changed_or_injected_visual_file_blocks_reuse(self):
         self.call("stage", check=True)
         self.make_file(self.slot / ".sha", self.os_sha + "\n")
@@ -126,10 +177,13 @@ class OwnerSurfaceSourceTests(unittest.TestCase):
         self.assertEqual((self.os_root / "system/surface/ui/surface.mjs").read_text(), "OLD_VISUAL\n")
         self.assertFalse((self.slot / ".surface-source-sha").exists())
 
-    def test_integration_candidate_does_not_fetch_or_modify_source(self):
+    def test_retired_integration_candidate_is_rejected_without_mutation(self):
+        # A historical pre-cutover lock may not silently succeed or stage
+        # unverified visual bytes under the current canonical Supervisor.
         self.set_lock("integration-candidate")
-        self.assertEqual(self.call("status", check=True).stdout.strip(), "integration-candidate")
-        self.call("stage", check=True)
+        for action in ("status", "stage", "ready"):
+            with self.subTest(action=action):
+                self.assertNotEqual(self.call(action).returncode, 0)
         self.assertEqual((self.slot_system / "surface/ui/surface.mjs").read_text(), "OLD_VISUAL\n")
         self.assertFalse((self.slot / ".surface-source-sha").exists())
 
@@ -149,7 +203,8 @@ class OwnerSurfaceSourceTests(unittest.TestCase):
         self.assertFalse((self.slot / ".surface-source-sha").exists())
 
 
-    def supervisor_start(self, profile: str, provision_missing: bool = False):
+    def supervisor_start(self, profile: str, provision_missing: bool = False,
+                         helper_override: Path | None = None):
         supervisor = (ROOT / "system/supervisor").read_text(encoding="utf-8")
         section = "start_surface() {" + supervisor.split("start_surface() {", 1)[1].split("\n}\n", 1)[0] + "\n}\n"
         receipt = self.root / "started-from.txt"
@@ -195,10 +250,76 @@ stage_candidate_release() {
         proc = subprocess.run([
             "/bin/sh", "-c", shell, "sh", str(self.os_root),
             str(self.root / "releases"), str(self.os_root / "system"),
-            str(HELPER), str(work), profile, self.os_sha, str(receipt),
+            str(helper_override if helper_override is not None else HELPER),
+            str(work), profile, self.os_sha, str(receipt),
             self.source_sha,
         ], env=self.env, text=True, capture_output=True)
         return proc, receipt
+
+    def test_existing_release_reuse_is_canonical_and_uses_supervisor_git(self):
+        # Exercise the actual Supervisor candidate-reuse decision with a
+        # lightweight Git adapter, without constructing a bootable USB image.
+        supervisor = (ROOT / "system/supervisor").read_text(encoding="utf-8")
+        candidate = "stage_candidate_release() {" + supervisor.split(
+            "stage_candidate_release() {", 1)[1].split("\n}\n", 1)[0] + "\n}\n"
+        helper = self.root / "reuse-status-helper.sh"
+        helper.write_text(
+            '#!/bin/sh\n'
+            '[ "${ORDAX_GIT_BIN:-}" = /usr/bin/git ] || exit 11\n'
+            'case "$1" in\n'
+            '  status) printf "%s\\n" "$FIXTURE_STATUS";;\n'
+            '  ready) exit "$FIXTURE_READY_CODE";;\n'
+            '  *) exit 12;;\n'
+            'esac\n',
+            encoding="utf-8",
+        )
+        script = (
+            "set -eu\n"
+            "WORKTREE=$1\nRELEASES_DIR=$2\nUPDATE_RUN_DIR=$3\n"
+            "OWNER_SURFACE_STAGE_HELPER=$4\n"
+            "OWNER_INTELLIGENCE_STAGE_HELPER=$5\n"
+            "GIT_BIN=/usr/bin/git\n"
+            "UPDATE_LOG=$6\nSTAGED_RELEASE_FILE=$7\nLAST_STAGE_DURATION_FILE=$8\n"
+            "CANDIDATE_SHA=$9\nSTAGE_TIMEOUT=1\n"
+            "epoch_now() { printf '1\\n'; }\n"
+            "write_state_value() { printf '%s\\n' \"$2\" > \"$1\"; }\n"
+            "record_elapsed_seconds() { :; }\n"
+            "run_bounded_git() { return 1; }\n"
+            "log() { :; }\n"
+            + candidate + 'stage_candidate_release "$CANDIDATE_SHA" surface-restart\n'
+        )
+        for status, ready_code, should_reuse in (
+            ("canonical", 0, True),
+            ("integration-candidate", 0, False),
+            ("canonical", 1, False),
+        ):
+            with self.subTest(status=status, ready_code=ready_code):
+                root = self.root / f"candidate-{status}-{ready_code}"
+                releases = root / "releases"
+                stage = releases / self.os_sha
+                (stage / "system").mkdir(parents=True)
+                self.make_file(stage / ".ready", "ready\n")
+                update = root / "update"
+                update.mkdir()
+                log_file = root / "update.log"
+                marker = root / "staged.txt"
+                elapsed = root / "elapsed.txt"
+                env = dict(self.env, FIXTURE_STATUS=status,
+                           FIXTURE_READY_CODE=str(ready_code))
+                proc = subprocess.run(
+                    ["/bin/sh", "-c", script, "sh", str(self.os_root),
+                     str(releases), str(update), str(helper),
+                     str(root / "no-intelligence-helper"), str(log_file),
+                     str(marker), str(elapsed), self.os_sha],
+                    env=env, capture_output=True, text=True,
+                )
+                if should_reuse:
+                    self.assertEqual(proc.returncode, 0, proc.stderr)
+                    self.assertEqual(marker.read_text().strip(), self.os_sha)
+                    self.assertTrue((stage / ".ready").exists())
+                else:
+                    self.assertNotEqual(proc.returncode, 0)
+                    self.assertFalse(marker.exists())
 
     def test_clean_owner_install_can_stage_on_first_cold_boot(self):
         # No legacy source or slot is available; the original Supervisor
@@ -229,8 +350,9 @@ stage_candidate_release() {
         self.assertNotEqual(proc.returncode, 0)
         self.assertFalse(marker.exists(), "no fallback to tracked OS visuals")
 
-    def test_git_rollback_restores_exact_previous_legacy_source(self):
-        # Simulate two immutable OS revisions and a durable prepared slot.
+    def test_current_supervisor_rejects_rollback_to_noncanonical_source(self):
+        # Old committed source remains intact for an actual OS-version rollback,
+        # but the current Supervisor never launches unverified visual bytes.
         self.set_lock("integration-candidate")
         old_sha = self.os_sha
         for path in ("ui", "workspace"):
@@ -256,16 +378,22 @@ stage_candidate_release() {
         git(self.os_root, "checkout", "-q", "--detach", old_sha)
         self.os_sha = old_sha
         proc, marker = self.supervisor_start("owner-development")
-        self.assertEqual(proc.returncode, 0, proc.stderr)
-        self.assertEqual(marker.read_text().strip(), str(self.os_root / "system"))
+        self.assertNotEqual(proc.returncode, 0)
+        self.assertFalse(marker.exists(), "no mutable visual fallback after rollback")
         self.assertEqual((self.os_root / "system/surface/ui/surface.mjs").read_text(), "OLD_VISUAL\n")
         self.assertEqual((releases / new_sha / ".surface-source-sha").read_text().strip(), self.source_sha)
 
-    def test_legacy_owner_boot_remains_unmodified_before_cutover(self):
+    def test_noncanonical_owner_source_must_not_boot_from_git_tree(self):
         self.set_lock("integration-candidate")
         proc, marker = self.supervisor_start("owner-development")
-        self.assertEqual(proc.returncode, 0, proc.stderr)
-        self.assertEqual(marker.read_text().strip(), str(self.os_root / "system"))
+        self.assertNotEqual(proc.returncode, 0)
+        self.assertFalse(marker.exists())
+
+    def test_missing_stage_helper_must_not_boot_from_git_tree(self):
+        missing = self.root / "no-such-surface-stage-helper.sh"
+        proc, marker = self.supervisor_start("owner-development", helper_override=missing)
+        self.assertNotEqual(proc.returncode, 0, "missing staging owner must fail closed")
+        self.assertFalse(marker.exists(), "mutable OS visuals must never start")
 
 
 if __name__ == "__main__":

@@ -22,10 +22,35 @@
       "architecture": "x64",
       "source_commit": "7ab4ee7baad2d920464cbacfad4f4b07cf111fd2",
       "builder_repository": "ordaxsystems/ordax-intelligence",
-      "builder_commit": "e739adffc566ae8855a9a521754e32e3ab96c1e1",
-      "proof_run_id": 40840299807,
-      "proof_bundle_sha256": "6b671f684af1d9e821eda49f5f4324fbe97968cbb1ac6fcfdcb8d99ee3401bdb",
+      "builder_commit": "70fc05715e1eb99a43d513caec9f4ac13fbcb1f3",
+      "proof_builder_commit": "20ffa79651401b2e03732f3878025bbd30b4b52e",
+      "proof_os_source_commit": "b75fcc28043be3a0097569d67dd45df428469e66",
+      "proof_os_source_lock_sha256": "626ad5b91c070556aa7b81518e948b76c79afbae92018cb0367ab7e712d44961",
+      "proof_run_id": 43309006398,
+      "proof_bundle_sha256": "21680ead38fbbd34848826badb1ec30ee489b5a8c25fca29deb9d1da74e2cc29",
       "model_sha256": "57d1997790d1744fba5b40a7317df71ea5e2acee28c47e78f0cce39c0703f8cf",
+      "msvc_runtime": {
+        "distribution": "microsoft-vc143-app-local",
+        "publisher": "Microsoft Corporation",
+        "version": "14.44.35211.0",
+        "files": [
+          {
+            "name": "msvcp140.dll",
+            "size_bytes": 557728,
+            "sha256": "0f885b509a685d2bbfa652fed26b5fb31d88fbdab0a978c641d1c7b8aa460aa9"
+          },
+          {
+            "name": "vcruntime140.dll",
+            "size_bytes": 124544,
+            "sha256": "d5e4d9a3e835fa679450145d6a7d94e36573a509317111904d9b3712c30d9066"
+          },
+          {
+            "name": "vcruntime140_1.dll",
+            "size_bytes": 49792,
+            "sha256": "1f2d41c4aa5db0bc33ebf7b66d72943a817d7ce6cbe880502a9403823633093f"
+          }
+        ]
+      },
       "files": [
         {
           "name": "ggml-base.dll",

@@ -13,11 +13,11 @@
 
 **Execução causal, não lista de microtarefas:** em cada owner, avançar a próxima lacuna real até produto observável; só aguardar outro repo quando o próximo passo consumir de fato seu contrato/artefato. Uma falha independente não bloqueia implementação sem dependência causal; nenhuma falha é mascarada por estado de UI. A entrega é medida por experiência funcional no destino, não por quantidade de PRs integradas.
 
-## Compatibilidade de base ainda presente no código (verificação de 13/11/2026)
+## Cutover Buildroot integrado à fonte — atualização de 13/11/2026, após PR #2243
 
-A migração para a base independente **não deve ser confundida com remoção já concluída de todos os consumidores Alpine**. Na fonte verificada nesta data, `bootstrap/dev-base/build.py` ainda importa `bootstrap/base/alpine_core.py`; `bootstrap/stable-base/build.py` ainda valida o lock Alpine/APK; e `system/surface/bin/ordax-surface` ainda contém um caminho de provisionamento do runtime gráfico via APK/Alpine 3.22. O perfil Buildroot em `bootstrap/independent-base/` é uma implementação separada; seu estado operacional/promovível deve ser determinado pelos candidatos, provas e contratos atuais, não inferido de uma decisão de produto ou de um README datado.
+A [PR #2243](https://github.com/ordaxsystems/ordax-os/pull/2243) foi **integrada à `main` em 13/11/2026 às 20:27:49 UTC**, merge `d885f365ab9d9d630d1a200b391197e04848b655`. A checagem da `main` após esse merge confirmou que `bootstrap/dev-base/build.py` e `bootstrap/stable-base/build.py` **não existem mais**, e que `system/surface/bin/ordax-surface` não contém mais o provisionamento gráfico dinâmico via APK: usa caminho de runtime offline EROFS/overlay. **O diagnóstico anterior deste documento, feito antes do merge na mesma data, foi superado; não reintroduzir esses builders Alpine por instrução de snapshots antigos.**
 
-**Regra para novas alterações:** não introduzir novas dependências Alpine em candidatos independentes; não declarar remoção global nem apagar caminhos de compatibilidade sem mapear chamadas, modo de produto, artefatos de release e substituto validado. Esta observação é um diagnóstico de *fonte*, não prova de execução no USB/host instalado e não cria fila global que bloqueie os outros owners.
+**Limite da prova:** integração Git não comprova, por si só, imagem Linux/EROFS exata, publicação, gravação de USB, boot físico ou promoção Stable. O corpo histórico abaixo preserva checkpoints anteriores ao merge, inclusive declarações `#2243 draft`, conflitos, locks APK e produtores ausentes: **não são o estado atual**. Para cada gate consultar artefato/CI/recibo da revisão final e autorização física vigente; não assumir sucesso nem refazer builds sem causalidade. Este checkpoint não bloqueia a execução paralela de outros owners.
 
 ## Como ler os checkpoints abaixo
 
@@ -199,7 +199,7 @@ without full lock revalidation, bypass Creator proof, or alter
 #2400 and its CI; only after a real packaged Product Device
 works should Aura/Runtime's authenticated `CURRENT` bridge be
 called ready. Details and source checklist:
-`INTELLIGENCE-HANDOFF.md` and
+[snapshot histórico de Intelligence](https://github.com/ordaxsystems/ordax-os/blob/d4027cd6d4c2458b735946767043d6ba49526dad/INTELLIGENCE-HANDOFF.md) and
 [PR #2400 proof](https://github.com/ordaxsystems/ordax-os/pull/2400#issuecomment-6639859338).
 
 **Native Product / Web gating checkpoint — 2026-11-04:**
@@ -217,7 +217,7 @@ Do not merge without required checks or rebuild USB as MCP workaround.
 Authenticated targets still distinguish working external Windows MCP
 from the offline OrdaX Desktop Product Device. This does NOT provide
 live Store `CURRENT` to Runtime or grant Aura tool execution.
-See `INTELLIGENCE-HANDOFF.md` for exact next action and owners.
+See [snapshot histórico de Intelligence](https://github.com/ordaxsystems/ordax-os/blob/d4027cd6d4c2458b735946767043d6ba49526dad/INTELLIGENCE-HANDOFF.md) for exact next action and owners.
 
 **Cross-repository Fabric/Aura/MCP handoff propagation — closed (2026-11-04):**
 The five relevant repositories now have native documented entrypoints
@@ -227,7 +227,7 @@ Runtime [#317](https://github.com/ordaxsystems/ordax-runtime/pull/317)
 merged as `85c848130a32c722ee6c3a6f6fec596e7646952c`,
 after reconciling the upstream readiness fix #319 and passing the
 required checks. Platform handoff `8a8eea2971492147b28f8c94c247e4d05fb5f282`;
-Surface #82 merged; OS `AGENTS.md` and `INTELLIGENCE-HANDOFF.md`
+Surface #82 merged; OS `AGENTS.md` and [snapshot histórico de Intelligence](https://github.com/ordaxsystems/ordax-os/blob/d4027cd6d4c2458b735946767043d6ba49526dad/INTELLIGENCE-HANDOFF.md)
 route future agents to the same canonical implementation matrix.
 **This is only documentation propagation. Do not re-run the closed
 Platform #291 Windows MCP DEV setup; do not build another bridge, tool
@@ -249,7 +249,7 @@ bridge. OS #2400 remains OPEN/merge-conflicted; OS #2405 remains OPEN and
 release gated, not a dependency for DEV. The remaining cross-repo task
 is an authenticated read-only `CURRENT` app view for Runtime via the
 existing OS Native ownership boundary, then a real typed shared-domain
-action proof. Canonical resume in `INTELLIGENCE-HANDOFF.md` and
+action proof. Canonical resume in [snapshot histórico de Intelligence](https://github.com/ordaxsystems/ordax-os/blob/d4027cd6d4c2458b735946767043d6ba49526dad/INTELLIGENCE-HANDOFF.md) and
 `docs/CAPABILITY-FABRIC.md`; use current source for truth.
 
 **Capability Fabric / Aura / Product MCP — CURRENT-STATE (source-verified 2026-11-04):**
@@ -301,7 +301,7 @@ action proof. Canonical resume in `INTELLIGENCE-HANDOFF.md` and
   remote/UI gates.
 - **Read next:** `docs/CAPABILITY-FABRIC.md` (single SSOT owner
   matrix, exact code paths, implementation order, negative gates);
-  `INTELLIGENCE-HANDOFF.md` (resume), and GitHub PRs/Device state
+  [snapshot histórico de Intelligence](https://github.com/ordaxsystems/ordax-os/blob/d4027cd6d4c2458b735946767043d6ba49526dad/INTELLIGENCE-HANDOFF.md) (resume), and GitHub PRs/Device state
   freshly verified. This is a documentation checkpoint, not a
   runtime, permission or release change.
 
@@ -1706,7 +1706,7 @@ action and is disposed when leaving it. The local AI candidate comes from the
 OS source-lock/generated catalog. Snapshot revocation or invalidation clears
 old entries. Web transport and real lifecycle remain unavailable; no package
 installation, authenticated catalog or model compatibility is claimed.
-Owner, public dependencies, risk and acceptance: docs/STORE-WEB-CATALOG-PRESENTATION.md.
+Owner, public dependencies, risk and acceptance: system/services/apps/README.md.
 
 
 ## Canonical Web presentation cutover — 2026-10-10
@@ -2041,10 +2041,11 @@ The canonical graphical source is owned by `ordaxsystems/ordax-surface` and is m
 
 ### Nova OrdaX pre-USB functional closure
 
-The legacy/product-vision audit has been revalidated before the first Stable/MVP
-physical USB. `PLANO-03-FECHAMENTO-PRE-USB-NOVA-ORDAX.md` is now the active
-pre-USB closure plan. Physical media work is intentionally held while the remaining
-class-A product gaps are closed. Ordax Intelligence consumers, Native local
+The legacy/product-vision audit was revalidated before the first Stable/MVP
+physical USB. Its historical plan has been retired from the active tree; the executable
+source audit is `tools/creator/pre_usb_nova_ordax_audit.py` and gate authority is
+`docs/PROMOTION-GATES.md` plus machine-readable contracts. Physical media work remains
+subject to the current explicit authorization and live-proof requirements. Ordax Intelligence consumers, Native local
 session/lock, safe Files removal and PT-BR/en-US launch-language coverage are now
 source-complete. The historical v4 candidate carrying the proven local-AI runtime was
 signed, materialized, exactly verified and bound by a non-activating proof at source

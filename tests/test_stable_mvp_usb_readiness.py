@@ -177,11 +177,12 @@ class StableMvpUsbReadinessTests(unittest.TestCase):
             status["proof_boundaries"]["stable_publication"],
             "requires-separate-post-physical-promotion",
         )
+        self.assertEqual(status["$schema"], readiness.STATUS_SCHEMA)
         self.assertEqual(
-            status["handoff_document"],
-            "docs/MVP-PRE-PHYSICAL-HANDOFF.md",
+            status["gate_authority_document"],
+            "docs/PROMOTION-GATES.md",
         )
-        self.assertTrue((ROOT / status["handoff_document"]).is_file())
+        self.assertTrue((ROOT / status["gate_authority_document"]).is_file())
 
         if proof_pending:
             self.assertEqual(status["stage"], "canonical-v4-release-proof-pending")

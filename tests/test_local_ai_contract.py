@@ -45,6 +45,26 @@ class LocalAiContractTests(unittest.TestCase):
             "binutils": "2.42-4ubuntu2.10",
             "cmake": "3.31.6",
         })
+        windows = lock["engine"]["windows_artifact"]
+        self.assertEqual(windows["builder_commit"], "70fc05715e1eb99a43d513caec9f4ac13fbcb1f3")
+        self.assertEqual(windows["proof_run_id"], 43309006398)
+        self.assertEqual(
+            windows["proof_bundle_sha256"],
+            "21680ead38fbbd34848826badb1ec30ee489b5a8c25fca29deb9d1da74e2cc29",
+        )
+        self.assertEqual(windows["msvc_runtime"], {
+            "distribution": "microsoft-vc143-app-local",
+            "publisher": "Microsoft Corporation",
+            "version": "14.44.35211.0",
+            "files": [
+                {"name": "msvcp140.dll", "size_bytes": 557728,
+                 "sha256": "0f885b509a685d2bbfa652fed26b5fb31d88fbdab0a978c641d1c7b8aa460aa9"},
+                {"name": "vcruntime140.dll", "size_bytes": 124544,
+                 "sha256": "d5e4d9a3e835fa679450145d6a7d94e36573a509317111904d9b3712c30d9066"},
+                {"name": "vcruntime140_1.dll", "size_bytes": 49792,
+                 "sha256": "1f2d41c4aa5db0bc33ebf7b66d72943a817d7ce6cbe880502a9403823633093f"},
+            ],
+        })
         self.assertEqual(lock["model"]["filename"], "Qwen3.5-0.8B-Q4_0.gguf")
         self.assertEqual(lock["model"]["sha256"], "57d1997790d1744fba5b40a7317df71ea5e2acee28c47e78f0cce39c0703f8cf")
         self.assertEqual(lock["model"]["size_bytes"], 563036064)

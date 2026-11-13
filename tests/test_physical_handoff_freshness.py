@@ -1,20 +1,46 @@
 #!/usr/bin/env python3
-"""Keep the operator handoff aligned with the physical authorization state machine."""
+"""Keep physical authorization and readiness ordering aligned with canonical owners."""
 
+import importlib.util
 import json
+import re
 from pathlib import Path
 import unittest
 
 ROOT = Path(__file__).resolve().parents[1]
 AUTH_PATH = ROOT / "docs" / "contracts" / "physical-write-authorization.json"
-HANDOFF_PATH = ROOT / "docs" / "MVP-PRE-PHYSICAL-HANDOFF.md"
+CURRENT_STATE_PATH = ROOT / "docs" / "CURRENT-STATE.md"
+READINESS_PATH = ROOT / "tools" / "creator" / "stable_mvp_usb_readiness.py"
 
 
-class PhysicalHandoffFreshnessTests(unittest.TestCase):
+def load_readiness():
+    spec = importlib.util.spec_from_file_location(
+        "ordax_stable_mvp_physical_freshness",
+        READINESS_PATH,
+    )
+    module = importlib.util.module_from_spec(spec)
+    assert spec.loader is not None
+    spec.loader.exec_module(module)
+    return module
+
+
+def assignments(text: str) -> dict[str, str]:
+    result: dict[str, str] = {}
+    for line in text.splitlines():
+        match = re.fullmatch(r"([A-Z0-9_]+)=([^\s]+)", line.strip())
+        if match:
+            result[match.group(1)] = match.group(2)
+    return result
+
+
+readiness = load_readiness()
+
+
+class PhysicalAuthorizationFreshnessTests(unittest.TestCase):
     @classmethod
     def setUpClass(cls):
         cls.authorization = json.loads(AUTH_PATH.read_text(encoding="utf-8"))
-        cls.handoff = HANDOFF_PATH.read_text(encoding="utf-8")
+        cls.state = assignments(CURRENT_STATE_PATH.read_text(encoding="utf-8"))
 
     def test_current_proof_and_owner_consent_have_independent_gates(self):
         auth = self.authorization
@@ -30,60 +56,43 @@ class PhysicalHandoffFreshnessTests(unittest.TestCase):
             self.assertIsNone(auth["authorization_context_sha256"])
         self.assertTrue(auth["requirements"]["canonical_v4_release_proof_bound"])
 
-        handoff = self.handoff
-        self.assertIn(
-            "CURRENT_MAIN_CANONICAL_V4_RELEASE_PROOF=PASS_SIGNED_HTTPS_MATERIALIZED",
-            handoff,
+        self.assertEqual(
+            self.state["CANONICAL_V4_RELEASE_PROOF_CURRENT_MAIN"],
+            "PASS_POST_HARDENING_SIGNED_HTTPS_MATERIALIZED_AND_BOUND",
         )
-        self.assertIn("CURRENT_MAIN_CANONICAL_V4_RELEASE_PROOF_BOUND=YES_VERIFIED", handoff)
-        self.assertIn(
-            "PHYSICAL_WRITE_AUTHORIZATION=BLOCKED_EXPLICIT_OWNER_AUTHORIZATION_PENDING",
-            handoff,
+        self.assertEqual(
+            self.state["FIRST_STABLE_MVP_USB_WRITE"],
+            "HOLD_EXPLICIT_PHYSICAL_AUTHORIZATION_PENDING",
         )
-        self.assertIn("EXPLICIT_OWNER_AUTHORIZATION=NO", handoff)
-        self.assertIn("PHYSICAL_WRITE_ALLOWED=NO", handoff)
+        self.assertEqual(self.state["PHYSICAL_OWNER_AUTHORIZATION_RECORDED"], "NO")
+        self.assertEqual(
+            self.state["PHYSICAL_WRITE_AUTHORITY"],
+            "BLOCKED_EXPLICIT_OWNER_AUTHORIZATION_PENDING",
+        )
 
-    def test_historical_physical_proof_is_preserved_but_not_reused(self):
-        handoff = self.handoff
-        self.assertIn(
-            "PRIOR_STABLE_MVP_USB_WRITE=PASS_AUTHORIZED_CONTROLLED_PROOF",
-            handoff,
-        )
-        self.assertIn("PRIOR_STABLE_MVP_ARTIFACT_READBACK=PASS_17_OF_17", handoff)
-        self.assertIn(
-            "PRIOR_STABLE_MVP_UEFI_BOOT=PASS_PHYSICAL_PRE_HARDENING",
-            handoff,
-        )
-        self.assertIn("source `b924ff8d74d1761232381ae3f9604bba17497cfd`", handoff)
-        self.assertIn("current release proof from `03f88eeaf382a59aaefbcf4943d0639d2730741b`", handoff)
+    def test_historical_and_current_release_proofs_are_distinct(self):
+        history = self.state["CANONICAL_V4_RELEASE_PROOF_HISTORY"]
+        current = self.state["CANONICAL_V4_RELEASE_PROOF_CURRENT_MAIN"]
+        self.assertIn("PRE_HARDENING", history)
+        self.assertIn("POST_HARDENING", current)
+        self.assertNotEqual(history, current)
 
-    def test_handoff_does_not_claim_current_authorization_or_current_write(self):
-        handoff = self.handoff
-        forbidden = (
-            "PHYSICAL_WRITE_AUTHORIZATION=PASS_EXPLICIT_OWNER_CONSENT_BOUND_CONTEXT",
-            "At the current `authorized-candidate-ready-for-separate-physical-flow` stage",
-            "Authorization is now recorded.",
-            "owner authorization is complete",
+    def test_readiness_uses_canonical_gate_authority(self):
+        self.assertEqual(
+            readiness.GATE_AUTHORITY_DOCUMENT,
+            "docs/PROMOTION-GATES.md",
         )
-        for marker in forbidden:
-            self.assertNotIn(marker, handoff)
+        self.assertTrue((ROOT / readiness.GATE_AUTHORITY_DOCUMENT).is_file())
 
-        self.assertIn("POST_HARDENING_PHYSICAL_WRITE_PERFORMED=NO", handoff)
-        self.assertIn("stage=explicit-owner-authorization-pending", handoff)
-        self.assertIn("canonical_v4_release_proof_current=true", handoff)
-        self.assertIn("owner_authorization_recorded=false", handoff)
-
-    def test_remaining_order_keeps_non_destructive_proof_before_consent(self):
-        handoff = self.handoff
-        proof = handoff.index("1. **CONCLUÍDO:** build/sign/publish a new canonical v4 prerelease")
-        bind = handoff.index("3. **CONCLUÍDO:** bind that new proof")
-        consent = handoff.index("5. record a new explicit owner authorization")
-        target = handoff.index("6. separately select the physical USB")
-        write = handoff.index("8. execute a new physical write only when explicitly authorized")
-        self.assertLess(proof, bind)
-        self.assertLess(bind, consent)
+    def test_remaining_order_keeps_consent_before_target_and_write(self):
+        gates = readiness.remaining_gates("explicit-owner-authorization-pending")
+        consent = gates.index("explicit-owner-authorization")
+        target = gates.index("physical-target-selection-and-live-revalidation")
+        confirmation = gates.index("target-specific-destructive-confirmation-and-windows-uac")
+        write = gates.index("physical-write-and-exact-17-artifact-readback")
         self.assertLess(consent, target)
-        self.assertLess(target, write)
+        self.assertLess(target, confirmation)
+        self.assertLess(confirmation, write)
 
 
 if __name__ == "__main__":

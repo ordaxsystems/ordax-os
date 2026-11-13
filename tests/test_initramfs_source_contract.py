@@ -422,6 +422,22 @@ class InitramfsSourceContractTests(unittest.TestCase):
         self.assertNotIn("https://", PORTABLE_MOUNT_HELPER)
         self.assertNotIn("ordax-portable-mount", INIT)
 
+    def test_portable_surface_regular_file_gate_resolves_only_in_image_links(self):
+        # Buildroot places eudev rules in /lib with a confined /usr/lib
+        # compatibility link. Mount-time file checks must accept that ABI
+        # without allowing magic-link or path-escape traversal.
+        gate = PORTABLE_MOUNT_HELPER.split(
+            "static int safe_regular_below(", 1
+        )[1].split("static int mount_capsule(", 1)[0]
+        self.assertIn("RESOLVE_IN_ROOT | RESOLVE_NO_MAGICLINKS", gate)
+        self.assertIn("syscall(SYS_openat2, directory_fd, relative", gate)
+        self.assertIn("O_PATH | O_DIRECTORY | O_NOFOLLOW", gate)
+        self.assertIn("fstat(fd, &st)", gate)
+        self.assertIn("S_ISREG(st.st_mode)", gate)
+        self.assertIn("st.st_nlink == 1", gate)
+        self.assertIn("st.st_size > 0", gate)
+        self.assertNotIn("lstat(path, &st)", gate)
+
     def test_portable_v2_candidate_pid1_has_valid_posix_shell_syntax(self):
         result = subprocess.run(
             ["sh", "-n", str(ROOT / "bootstrap/initramfs/portable_init.sh")],

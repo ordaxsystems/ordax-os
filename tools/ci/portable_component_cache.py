@@ -37,8 +37,9 @@ class CacheError(RuntimeError):
 PROVENANCE_FILES = {
     "kernel": "kernel-provenance.json",
     "independent-base": "provenance.json",
+    "independent-base-owner": "provenance.json",
+    "independent-base-stable": "provenance.json",
     "local-ai": "local-ai-runtime-provenance.json",
-    "surface": "surface-runtime-provenance.json",
 }
 
 
@@ -62,6 +63,7 @@ COMPONENTS = {
             "bootstrap/independent-base/overlay",
             "bootstrap/independent-base/patches",
             "bootstrap/independent-base/post-build.sh",
+            "bootstrap/independent-base/post-image.sh",
             "bootstrap/kernel/source.json",
             "bootstrap/stable-base/source.json",
             "bootstrap/network/source.json",
@@ -85,20 +87,39 @@ COMPONENTS = {
             "docs/contracts/local-ai.json",
         ),
     },
-    "surface": {
-        "inputs": (
-            "bootstrap/surface-runtime/build.py",
-            "bootstrap/surface-runtime/source.json",
-            "bootstrap/surface-runtime/package_config.py",
-            "system/surface/runtime/packages.txt",
-            "system/surface/runtime/media_runtime_probe.py",
-            "system/surface/runtime/audio-session.sh",
-            "bootstrap/base/alpine_core.py",
-        ),
-    },
     "release-agent": {
         "inputs": ("bootstrap/release-acquisition",),
     },
+}
+
+# Use the canonical Independent Base producer. Owner extends its input graph
+# with the actual installed Dev helpers, firmware and kernel module installer.
+# No second build path, and no reuse of the minimal-profile fingerprint.
+HARDWARE_BASE_INPUTS = (
+    "bootstrap/base/firmware_policy.py",
+    "bootstrap/kernel/module_archive.py",
+    "bootstrap/independent-base/module_parity.py",
+    "docs/contracts/hardware-support-matrix.json",
+)
+# The Stable/MVP and Owner/Development candidates consume the SAME verified
+# kernel modules and firmware policy, but only Owner installs Dev helpers.
+COMPONENTS["independent-base-stable"] = {
+    "inputs": COMPONENTS["independent-base"]["inputs"] + HARDWARE_BASE_INPUTS + (
+        "bootstrap/base/stable_runtime_layout.py",
+    ),
+}
+COMPONENTS["independent-base-owner"] = {
+    "inputs": COMPONENTS["independent-base"]["inputs"] + HARDWARE_BASE_INPUTS + (
+        "bootstrap/dev-base/ordax-dev-init",
+        "bootstrap/dev-base/ordax-network",
+        "bootstrap/dev-base/ordax-pull",
+        "bootstrap/dev-base/ordax-rollback",
+        "bootstrap/dev-base/ordax-run",
+        "bootstrap/dev-base/ordax-diagnose",
+        "bootstrap/dev-base/ordax_usb_mountattr.c",
+        "bootstrap/dev-base/ordax_checkout_exchange.c",
+        "bootstrap/recovery/entrypoint",
+    ),
 }
 
 
@@ -208,6 +229,12 @@ def component_fingerprint(component: str, root: Path = ROOT) -> str:
     digest.update(
         (FINGERPRINT_VERSION + "\0" + component + "\0" + environment + "\0").encode("utf-8")
     )
+    if component in ("independent-base-owner", "independent-base-stable"):
+        # The installed module bytes depend on the separately verified kernel.
+        # Pin that entire compiler/config graph rather than its version alone.
+        digest.update(b"kernel-component\0")
+        digest.update(component_fingerprint("kernel", root).encode("ascii"))
+        digest.update(b"\0")
     for path in _iter_input_files(root, component):
         relative = path.relative_to(root).as_posix()
         payload_sha = sha256_file(path)
@@ -247,6 +274,32 @@ def _exact_commit(value: str, label: str) -> str:
     return value
 
 
+def _verify_hardware_base_payload(out_dir: Path, provenance: dict, component: str) -> None:
+    """Reject profile confusion and unverified bytes for both hardware profiles."""
+    expected_profile = {
+        "independent-base-owner": "owner-development",
+        "independent-base-stable": "stable-mvp",
+    }[component]
+    if (provenance.get("$schema") != "prototype-ordax.independent-base-provenance/1"
+            or provenance.get("profile") != expected_profile
+            or provenance.get("status") != "candidate-build-only"
+            or provenance.get("owner_development_capabilities_verified")
+               is not (expected_profile == "owner-development")
+            or provenance.get("physical_artifact_authorized") is not False
+            or provenance.get("signed_release_equivalence_proven") is not False):
+        raise CacheError("cached hardware base profile or promotion policy mismatch")
+    declared = provenance.get("artifacts")
+    if not isinstance(declared, dict):
+        raise CacheError("cached hardware base provenance artifacts missing")
+    for name in ("rootfs.tar", "rootfs.cpio.gz", "independent-base.erofs"):
+        expected = declared.get(name)
+        path = out_dir / name
+        if (not isinstance(expected, str) or SHA256_RE.fullmatch(expected) is None
+                or path.is_symlink() or not path.is_file()
+                or sha256_file(path) != expected):
+            raise CacheError(f"cached hardware base provenance artifact mismatch: {name}")
+
+
 def _component_provenance_commit(component: str, out_dir: Path) -> str | None:
     name = PROVENANCE_FILES.get(component)
     if name is None:
@@ -258,6 +311,8 @@ def _component_provenance_commit(component: str, out_dir: Path) -> str | None:
         provenance = json.loads(path.read_text(encoding="utf-8"))
     except (OSError, json.JSONDecodeError) as exc:
         raise CacheError(f"cannot read component provenance {name}: {exc}") from exc
+    if component in ("independent-base-owner", "independent-base-stable"):
+        _verify_hardware_base_payload(out_dir, provenance, component)
     return _exact_commit(str(provenance.get("source_commit", "")), "component provenance source commit")
 
 
@@ -370,8 +425,9 @@ def write_fingerprints(github_output: Path, root: Path = ROOT) -> dict[str, str]
     aliases = {
         "kernel": "kernel",
         "independent_base": "independent-base",
+        "independent_base_owner": "independent-base-owner",
+        "independent_base_stable": "independent-base-stable",
         "local_ai": "local-ai",
-        "surface": "surface",
         "release_agent": "release-agent",
     }
     lines = [f"{key}={values[component]}" for key, component in aliases.items()]

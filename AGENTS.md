@@ -25,7 +25,7 @@ O produto continua em desenvolvimento e homologação: a promoção/renomeação
 Antes de **continuar** uma missão envolvendo Fabric, Aura, aplicativos
 ou Product MCP, comece pelo topo de [`docs/CURRENT-STATE.md`](docs/CURRENT-STATE.md),
 pelo owner/código/contratos atuais e pelo estado vivo das PRs/artefatos
-pertinentes. [`INTELLIGENCE-HANDOFF.md`](INTELLIGENCE-HANDOFF.md) é
+pertinentes. [snapshot histórico de Intelligence](https://github.com/ordaxsystems/ordax-os/blob/d4027cd6d4c2458b735946767043d6ba49526dad/INTELLIGENCE-HANDOFF.md) é
 **REFERENCE/HISTORICAL** e só deve ser consultado quando for necessária
 proveniência de checkpoints anteriores.
 Execute a menor entrega realmente pendente no **owner correto**, sem
@@ -46,9 +46,9 @@ trabalho já encerrado.
 
 
 
-Antes de alterar Intelligence, chat, plugins, MCP, Studio ou a UI global do OrdaX Web, comece por [docs/README.md](docs/README.md), pelo topo de [docs/CURRENT-STATE.md](docs/CURRENT-STATE.md) e pelo owner canônico da capacidade. [INTELLIGENCE-HANDOFF.md](INTELLIGENCE-HANDOFF.md) é **referência histórica datada**, útil para contexto/evidência, mas não é fila operacional nem status vigente. Para Capability Fabric, use [docs/CAPABILITY-FABRIC.md](docs/CAPABILITY-FABRIC.md) como arquitetura/limites; tabelas e sequências operacionais datadas dentro dele também precisam ser revalidadas contra o estado atual. Diferencie explicitamente **chat OrdaX → provedor** de **ChatGPT externo → plugin MCP → OrdaX** e não ative bridges experimentais nem crie outra autoridade em Apps/Lovable.
+Antes de alterar Intelligence, chat, plugins, MCP, Studio ou a UI global do OrdaX Web, comece por [docs/README.md](docs/README.md), pelo topo de [docs/CURRENT-STATE.md](docs/CURRENT-STATE.md) e pelo owner canônico da capacidade. [snapshot histórico de Intelligence](https://github.com/ordaxsystems/ordax-os/blob/d4027cd6d4c2458b735946767043d6ba49526dad/INTELLIGENCE-HANDOFF.md) é **referência histórica datada**, útil para contexto/evidência, mas não é fila operacional nem status vigente. Para Capability Fabric, use [docs/CAPABILITY-FABRIC.md](docs/CAPABILITY-FABRIC.md) como arquitetura/limites; tabelas e sequências operacionais datadas dentro dele também precisam ser revalidadas contra o estado atual. Diferencie explicitamente **chat OrdaX → provedor** de **ChatGPT externo → plugin MCP → OrdaX** e não ative bridges experimentais nem crie outra autoridade em Apps/Lovable.
 
-**Capability Fabric — leitura obrigatória somente quando a tarefa o envolver:** [docs/CAPABILITY-FABRIC.md](docs/CAPABILITY-FABRIC.md) reúne o estado do v1 **integrado pela PR #2406**, o contrato `ordax.capability-discovery/1`, fontes Native/Store/Aura/Personal, evidências e gates futuros de UI/MCP. A descoberta tem `authority=none` e `toolExecution=false` e NÃO substitui Product tools, grants ou atestação da Platform. O plano `docs/plans/CAPABILITY-FABRIC-V1.md` é histórico; não reexecutar suas etapas nem criar catálogo, Runtime ou executor paralelos.
+**Capability Fabric — leitura obrigatória somente quando a tarefa o envolver:** [docs/CAPABILITY-FABRIC.md](docs/CAPABILITY-FABRIC.md) reúne o estado do v1 **integrado pela PR #2406**, o contrato `ordax.capability-discovery/1`, fontes Native/Store/Aura/Personal, evidências e gates futuros de UI/MCP. A descoberta tem `authority=none` e `toolExecution=false` e NÃO substitui Product tools, grants ou atestação da Platform. O diário v1 foi retirado da árvore ativa (preservado no histórico Git da PR #2406); não reexecutar etapas antigas nem criar catálogo, Runtime ou executor paralelos.
 
 `washingtonmsdj/novo-ordax-os` e os slugs anteriores do repositório canônico são somente referências históricas e de proveniência, nunca uma segunda autoridade de desenvolvimento.
 
@@ -113,13 +113,13 @@ Se `MVP.md`, um contrato, `docs/CURRENT-STATE.md`, `docs/PROMOTION-GATES.md` ou 
 
 ### Plano funcional da Surface e dos aplicativos
 
-Antes de revisar historicamente a area de trabalho, a barra lateral ou os apps Arquivos, Ajustes, Conta e Sistema, pode ser util ler [PLANO-FUNCIONAL-SURFACE-E-APPS.md](PLANO-FUNCIONAL-SURFACE-E-APPS.md), na raiz do repositorio, depois da leitura canonica acima.
+Para provenance histórica de área de trabalho/sidebar/apps, o antigo plano funcional permanece no [snapshot Git](https://github.com/ordaxsystems/ordax-os/blob/3f304b05af33e40658025ff289523560b298153c/PLANO-FUNCIONAL-SURFACE-E-APPS.md). Trabalho novo parte dos owners atuais e não exige reler esse snapshot.
 
 Esse arquivo e **REFERENCE**: detalha telas, subsecoes, responsabilidades, lacunas, prioridades e criterios de aceite acumulados, mas nao e `CURRENT-STATE`, changelog canonico nem autorizacao para abrir trabalho. Compare qualquer inventario datado com a `main` atual; nao reconstrua recursos ja existentes nem trate sugestoes como capacidades prontas.
 
-A continuacao [PLANO-02-EVOLUCAO-E-REAPROVEITAMENTO-DO-LEGADO.md](PLANO-02-EVOLUCAO-E-REAPROVEITAMENTO-DO-LEGADO.md) e uma referencia historica para entender a comparacao com `novo-ordax-os`. Ela distingue codigo de visao futura e preserva decisoes de reaproveitamento, mas nao e backlog atual. Qualquer portabilidade continua exigindo owner corrente e registro em `docs/SOURCE-MIGRATION.md`.
+A comparacao historica com `novo-ordax-os` foi retirada da arvore ativa e permanece no [snapshot Git](https://github.com/ordaxsystems/ordax-os/blob/c0b3b8555be487f4a105797ebe71fbec9149e97d/PLANO-02-EVOLUCAO-E-REAPROVEITAMENTO-DO-LEGADO.md). Qualquer portabilidade ou reaproveitamento atual exige owner corrente e registro em `docs/SOURCE-MIGRATION.md`; nao reabrir a analise antiga como backlog.
 
-[PLANO-03-FECHAMENTO-PRE-USB-NOVA-ORDAX.md](PLANO-03-FECHAMENTO-PRE-USB-NOVA-ORDAX.md) e um **baseline de auditoria pre-USB cujo fechamento de source ja foi concluido**. Pode ser consultado para contexto e rastreabilidade, mas nao e mais gate authority. Gates vivos de Stable/MVP, prova fisica, boot, recovery, cold-health e Surface devem ser lidos exclusivamente nos owners canonicos atuais, em especial `MVP.md`, `docs/CURRENT-STATE.md`, `docs/PROMOTION-GATES.md` e contratos correspondentes. Nunca reabrir uma lacuna apenas porque ela aparece como pendente nesse plano historico.
+O antigo baseline pre-USB foi retirado da arvore ativa e permanece no [snapshot Git](https://github.com/ordaxsystems/ordax-os/blob/0f8749e8ccfa004628fec2dd59c5218aba331de2/PLANO-03-FECHAMENTO-PRE-USB-NOVA-ORDAX.md) apenas para provenance. Gates vivos de Stable/MVP, prova fisica, boot, recovery, cold-health e Surface pertencem exclusivamente aos owners canonicos atuais, em especial `MVP.md`, `docs/CURRENT-STATE.md`, `docs/PROMOTION-GATES.md` e contratos correspondentes. Nunca reabrir uma lacuna a partir do snapshot historico.
 
 ### Web, Mobile, realtime e controle de dispositivos
 

@@ -50,7 +50,7 @@ e não concede autoridade de assinatura, publicação ou gravação física.
 ## Emitir um novo pedido com verificações do GitHub
 
 Após congelar um SHA na main canônica, executar manualmente os workflows
-`portable-release-image.yml`, `surface-runtime-lock-discovery.yml` e
+`portable-release-image.yml`, `independent-surface-runtime.yml` e
 `local-ai-runtime-candidate.yml` na **mesma revisão exata**.
 Cada um gera um artifact de operador por `workflow_dispatch` com retenção configurada atualmente em **14 dias**. A expiração efetiva é conferida pelos metadados do GitHub na preparação do novo pedido; não inferir disponibilidade apenas do prazo configurado.
 Recolher os três IDs das execuções reais e executar:
@@ -90,7 +90,7 @@ Procedimento não destrutivo:
 1. Escolher um commit da `main` posterior ao cutover e com as provas essenciais
    aprovadas; criar a branch `release-candidate/<SHA40>` apontando **exatamente**
    para esse commit. Não reescrever nem mover essa branch após iniciar provas.
-2. Acionar `portable-release-image.yml`, `surface-runtime-lock-discovery.yml`
+2. Acionar `portable-release-image.yml`, `independent-surface-runtime.yml`
    e `local-ai-runtime-candidate.yml` manualmente, **todos pela mesma branch**.
    Outras melhorias podem continuar entrando na `main` sem alterar esses bytes.
 3. Usar `build_canonical_v4_request.py --source-commit <SHA40>` e os três

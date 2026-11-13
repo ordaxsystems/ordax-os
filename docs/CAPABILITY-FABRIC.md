@@ -2,7 +2,7 @@
 
 **Estado verificado em 2026-11-04:** **Capability Fabric v1 implementado e integrado ao `ordax-os/main`** pela [PR #2406](https://github.com/ordaxsystems/ordax-os/pull/2406), merge `b44659ec8caad2fff8820bcee83201174dc71702`. A documentação de fechamento entrou na `main` por `354d6d1462a14d0f6e708f9262353762588b1f01`. **Não equivale** a liberação de ferramentas MCP, execução remota, produção, nem E2E de interface humana.
 
-**Natureza deste arquivo:** guia canônico de arquitetura e fronteiras do Fabric. Não é outro contrato, catálogo, permission store ou registro de execução. **As tabelas de status, PRs e sequências marcadas em 04/11/2026 são checkpoints históricos, não fila operacional vigente.** Em conflito, prevalecem o código/contratos e `docs/CURRENT-STATE.md`, segundo `docs/README.md`. A OS #2400 foi integrada em 04/11/2026; qualquer trecho datado abaixo que a descreva como branch-only/aberta deve ser interpretado como fotografia anterior ao merge. O diário detalhado de desenvolvimento está em `docs/plans/CAPABILITY-FABRIC-V1.md` e é **histórico**, não fila de tarefas.
+**Natureza deste arquivo:** guia canônico de arquitetura e fronteiras do Fabric. Não é outro contrato, catálogo, permission store ou registro de execução. **As tabelas de status, PRs e sequências marcadas em 04/11/2026 são checkpoints históricos, não fila operacional vigente.** Em conflito, prevalecem o código/contratos e `docs/CURRENT-STATE.md`, segundo `docs/README.md`. A OS #2400 foi integrada em 04/11/2026; qualquer trecho datado abaixo que a descreva como branch-only/aberta deve ser interpretado como fotografia anterior ao merge. O diário de implementação v1 foi retirado da árvore ativa e permanece recuperável pelo [histórico da PR #2406](https://github.com/ordaxsystems/ordax-os/pull/2406). Não é fila de tarefas.
 
 ## Resposta em 30 segundos: o que é e para que serve
 
@@ -458,7 +458,7 @@ Os passos de Product MCP e UX são **frentes próprias**, não extensões autom�
 
 ## Próxima IA: roteiro de retomada em 5 minutos
 
-1. Ler `docs/README.md` → topo de `docs/CURRENT-STATE.md` → **este arquivo**. Consultar `docs/plans/CAPABILITY-FABRIC-V1.md` somente para histórico ou testes causais específicos.
+1. Ler `docs/README.md` → topo de `docs/CURRENT-STATE.md` → **este arquivo**. Consultar o histórico da PR #2406 somente quando uma evidência datada ou teste causal específico exigir.
 2. Verificar `ordax-os/main`, o estado atual dos owners `ordax-runtime`, `ordax-platform`, `ordax-surface` e somente as PRs ainda relevantes. A #2406 e a #2400 são integrações históricas já concluídas; não tratá-las como fila. **Não tratar versões antigas do checkout Windows com mudanças não commitadas como fonte remota canônica; não executar reset/pull destrutivo ali.**
 3. Começar pelo bloqueio vertical existente no owner correto; **não** criar segundo Fabric, inventário, Store, gateway, daemon, plataforma OAuth, grant ledger, instalação Desktop, PR ou workflow só porque os passos de UI/MCP continuam pendentes.
 4. Preservar `authority=none` e `toolExecution=false`, fail-closed e revalidação de `CURRENT`, provedor/artefato/owner/Space/Work/revisão antes de aprovação, despacho, streaming e recibo.

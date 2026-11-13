@@ -60,7 +60,7 @@ KIND_SPECS = {
         "files": ("system.erofs",),
     },
     "surface": {
-        "workflow_path": ".github/workflows/surface-runtime-lock-discovery.yml",
+        "workflow_path": ".github/workflows/independent-surface-runtime.yml",
         "artifact_prefix": "canonical-v4-operator-surface-",
         "files": ("native-surface-runtime.erofs",),
     },
@@ -70,6 +70,11 @@ KIND_SPECS = {
         "files": ("local-ai-runtime.erofs", "source-lock.json"),
     },
 }
+
+# Frozen pre-cutover operator receipt belongs to the exact historical commit.
+# Do not rewrite evidence, and never allow this retired workflow for new sources.
+ARCHIVED_SURFACE_OPERATOR_SOURCE = "03f88eeaf382a59aaefbcf4943d0639d2730741b"
+ARCHIVED_SURFACE_OPERATOR_PATH = ".github/workflows/surface-runtime-lock-discovery.yml"
 
 MANIFEST_ARTIFACTS = (
     ("system.erofs", "system-image", "system"),
@@ -184,7 +189,12 @@ def validate_request_document(request: dict) -> dict:
             raise ValidationError(f"operator artifact entry is invalid: {kind}")
         _positive_int(entry.get("run_id"), f"{kind}.run_id")
         _positive_int(entry.get("artifact_id"), f"{kind}.artifact_id")
-        if entry.get("workflow_path") != spec["workflow_path"]:
+        archived_surface_receipt = (
+            kind == "surface"
+            and source_commit == ARCHIVED_SURFACE_OPERATOR_SOURCE
+            and entry.get("workflow_path") == ARCHIVED_SURFACE_OPERATOR_PATH
+        )
+        if entry.get("workflow_path") != spec["workflow_path"] and not archived_surface_receipt:
             raise ValidationError(f"operator workflow path is invalid: {kind}")
         expected_name = spec["artifact_prefix"] + source_commit
         if entry.get("artifact_name") != expected_name:

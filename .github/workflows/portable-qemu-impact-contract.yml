@@ -5,13 +5,21 @@ on:
     paths:
       - "tools/ci/portable_qemu_impact.py"
       - "tests/test_portable_qemu_impact.py"
+      - "tests/test_portable_v2_qemu_boot_proof_contract.py"
+      - "tests/test_portable_component_reuse_workflow.py"
+      - "tests/test_independent_surface_qemu_binding.py"
       - ".github/workflows/portable-qemu-impact-contract.yml"
+      - ".github/workflows/portable-v2-qemu-boot-proof.yml"
   push:
     branches: [main]
     paths:
       - "tools/ci/portable_qemu_impact.py"
       - "tests/test_portable_qemu_impact.py"
+      - "tests/test_portable_v2_qemu_boot_proof_contract.py"
+      - "tests/test_portable_component_reuse_workflow.py"
+      - "tests/test_independent_surface_qemu_binding.py"
       - ".github/workflows/portable-qemu-impact-contract.yml"
+      - ".github/workflows/portable-v2-qemu-boot-proof.yml"
   workflow_dispatch:
 
 permissions:
@@ -30,13 +38,24 @@ jobs:
         with:
           persist-credentials: false
 
-      # The classifier walks actual Native imports, whose visual source is
-      # canonically staged from ordax-surface; running without it is invalid.
-      - name: Prepare verified Surface for native import graph
+      # Mirror the canonical Portable QEMU impact job: validate the dependency
+      # graph against the exact externally pinned Surface, never a vendored OS UI.
+      - name: Prepare pinned Surface for accurate dependency-graph contract
         uses: ./.github/actions/prepare-verified-surface
 
-      - name: Verify causal impact policy
-        run: python3 -m unittest tests.test_portable_qemu_impact -v
+      - name: Verify causal impact policy and QEMU workflow contract
+        run: |
+          python3 -m unittest \
+            tests.test_portable_qemu_impact \
+            tests.test_portable_v2_qemu_boot_proof_contract \
+            tests.test_portable_component_reuse_workflow \
+            tests.test_independent_surface_qemu_binding -v
 
-      - name: Verify classifier CLI compiles
-        run: python3 -m py_compile tools/ci/portable_qemu_impact.py tests/test_portable_qemu_impact.py
+      - name: Verify focused contract sources compile
+        run: |
+          python3 -m py_compile \
+            tools/ci/portable_qemu_impact.py \
+            tests/test_portable_qemu_impact.py \
+            tests/test_portable_v2_qemu_boot_proof_contract.py \
+            tests/test_portable_component_reuse_workflow.py \
+            tests/test_independent_surface_qemu_binding.py
