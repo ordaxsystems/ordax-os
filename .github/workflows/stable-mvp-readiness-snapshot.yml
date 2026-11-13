@@ -117,7 +117,7 @@ jobs:
           Path("out/mvp-readiness/status.json").write_text(
               json.dumps(state, indent=2, sort_keys=True) + "\n", encoding="utf-8"
           )
-          if state.get("$schema") != "prototype-ordax.stable-mvp-usb-readiness/1":
+          if state.get("$schema") != "prototype-ordax.stable-mvp-usb-readiness/2":
               raise SystemExit("Unexpected readiness evaluator schema")
           if state.get("status") not in {"blocked", "ready"}:
               raise SystemExit("Unrecognized readiness status")
