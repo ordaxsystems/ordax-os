@@ -3,7 +3,7 @@ name: Native Personal OrdaX State Foundation
 on:
   pull_request:
     paths:
-      - 'PERSONAL-ORDAX.md'
+      - 'docs/PERSONAL-ORDAX.md'
       - 'docs/contracts/personal-ordax-native-state.json'
       - 'system/surface/runtime/native_partitioned_json_state.py'
       - 'system/surface/runtime/native_personal_ordax_state.py'
@@ -21,7 +21,7 @@ on:
   push:
     branches: [main]
     paths:
-      - 'PERSONAL-ORDAX.md'
+      - 'docs/PERSONAL-ORDAX.md'
       - 'docs/contracts/personal-ordax-native-state.json'
       - 'system/surface/runtime/native_partitioned_json_state.py'
       - 'system/surface/runtime/native_personal_ordax_state.py'
