@@ -19,6 +19,8 @@ shared system source + pinned Native/Surface/AI inputs
  -> separate physical-write authorization gate
 ```
 
+The v4 signed-handoff publication staging boundary is documented in [`docs/CANONICAL-V4-PUBLICATION-STAGING.md`](CANONICAL-V4-PUBLICATION-STAGING.md). It is a derived, read-only admission plan and does not publish, activate or authorize physical media by itself.
+
 The v1 `system.tar` pipeline remains supported as a legacy compatibility path and
 is not silently reinterpreted as v4.
 
