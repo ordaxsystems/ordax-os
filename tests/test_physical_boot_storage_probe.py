@@ -98,7 +98,8 @@ class PhysicalBootStorageProbeTests(unittest.TestCase):
     def test_physical_entrypoint_hides_fixture_path_and_allows_only_bounded_record_count(self):
         source = ENTRYPOINT.read_text(encoding="utf-8")
         self.assertIn("validate_arguments()", source)
-        self.assertIn("--max-records|--max-records=*", source)
+        self.assertIn("--max-records)", source)
+        self.assertIn("--max-records=*)", source)
         self.assertNotIn("--kmsg-path", source)
         self.assertIn('$RUNTIME_ROOT/dev/kmsg', source)
         self.assertIn(
