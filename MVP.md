@@ -10,7 +10,7 @@ Este arquivo define **o que pertence ao ciclo de lançamento do OrdaX**. Leia-o 
 
 ## 1. Princípio central
 
-O OrdaX não usa “produto mínimo” como justificativa para cortar, simular ou abandonar capacidades iniciadas. A primeira disponibilidade operacional, porém, deve priorizar uma jornada completa, segura e utilizável no Desktop Windows, antes de expandir modalidades independentes.
+O OrdaX não usa “produto mínimo” como justificativa para cortar, simular ou abandonar capacidades iniciadas. O Desktop Windows é o primeiro canal explicitamente escolhido para fechar uma jornada completa de usuário, **sem transformar essa escolha em fila global**: modalidades e owners independentes podem continuar evoluindo e integrando em paralelo quando não dependem causalmente do canal Desktop.
 
 A regra de lançamento é:
 
@@ -29,9 +29,9 @@ O equilíbrio obrigatório é:
 - não atrasar um canal funcional por outra capacidade independente que ainda esteja em homologação;
 - preservar segurança, integridade, privacidade, recovery e autoridade dos owners como gates reais.
 
-## Janela prioritária — primeiro MVP operacional integrado (2026-11-06)
+## Primeiro canal de fechamento ponta a ponta — Desktop Windows (revisado em 13/11/2026)
 
-**Decisão de execução, sem criar outro produto ou escopo paralelo:** o primeiro canal a fechar de ponta a ponta é o **OrdaX Desktop Windows**, com Web como composição complementar quando seus próprios gates passarem. Não aguardar USB/Creator/Buildroot, Native em disco ou MCP avançado para comprovar uma jornada Windows independente; não os remover do Baseline de Lançamento. Uma função em desenvolvimento que não estiver na primeira entrega deve permanecer indisponível de modo honesto, nunca simulada nem anunciada como utilizável.
+**Decisão de produto, não ordem serial do ecossistema:** o primeiro canal cuja jornada completa será usada como prova operacional integrada é o **OrdaX Desktop Windows**, com Web como composição complementar quando seus próprios gates passarem. Isso não congela USB/Creator/Buildroot, Native, Surface, Apps, Intelligence ou Site: cada owner independente avança em paralelo e sincroniza somente no ponto de adoção de um contrato, artefato ou candidato. Não aguardar uma frente independente para provar outra, nem remover capacidades do Baseline de Lançamento. Uma função ainda não entregue deve permanecer indisponível de modo honesto, nunca simulada nem anunciada como utilizável.
 
 **Jornada mínima verificável para o primeiro grupo de usuários autorizado:**
 
