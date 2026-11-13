@@ -9,7 +9,7 @@
 
 - `MVP.md`;
 - `PLANO-FUNCIONAL-SURFACE-E-APPS.md`;
-- `PLANO-02-EVOLUCAO-E-REAPROVEITAMENTO-DO-LEGADO.md`;
+- `docs/SOURCE-MIGRATION.md` para provenance canônica de migração/reimplementação;
 - contratos e estado canônicos em `docs/`.
 
 Este documento foi criado para evitar que uma capacidade estrutural da Nova OrdaX fosse

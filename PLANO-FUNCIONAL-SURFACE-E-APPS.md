@@ -134,7 +134,7 @@
 
 **Como interpretar:** “deve” expressa o comportamento proposto para a funcionalidade quando implementada. Não significa que o recurso já existe. As marcas de estado e prioridade diferenciam implementação observada, lacuna e evolução futura. Revalidar a `main` antes de executar, pois o repositório está evoluindo rapidamente.
 
-**Continuação:** [Parte 2 — evolução do protótipo e aproveitamento seletivo do legado](PLANO-02-EVOLUCAO-E-REAPROVEITAMENTO-DO-LEGADO.md) compara este projeto com `novo-ordax-os`, separa funcionalidades concretas de ideias futuras e detalha o que ainda falta adicionar. Leia as duas partes antes de ampliar o produto; a parte 2 também registra avanços do protótipo posteriores ao inventário acima.
+**Proveniência histórica:** a antiga comparação com `novo-ordax-os` foi retirada da árvore ativa e permanece no [snapshot Git](https://github.com/ordaxsystems/ordax-os/blob/c0b3b8555be487f4a105797ebe71fbec9149e97d/PLANO-02-EVOLUCAO-E-REAPROVEITAMENTO-DO-LEGADO.md). Para migração/reimplementação atual use `docs/SOURCE-MIGRATION.md`, source e owners vigentes; não é necessário reler a comparação antiga antes de ampliar o produto.
 
 ## Sumário
 
