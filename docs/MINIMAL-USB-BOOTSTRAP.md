@@ -8,10 +8,10 @@ The bootstrap seed contains only the minimum trusted substrate required to boot 
 
 There are two supported acquisition profiles:
 
-- owner/development Git-first: network -> Git -> partial+sparse checkout of `main` -> `system/entrypoint`;
+- owner/development Git-first: network -> Git -> partial+sparse checkout of `ordax-os/main` -> verify/materialize exact external component locks -> `system/entrypoint`;
 - canonical signed release: network -> signed release acquisition -> verification -> immutable activation.
 
-The profiles share the same source authority (`main`) and the same principle: ordinary `system/` changes must not require reflashing the USB.
+The profiles share the same **OS composition authority** (`ordax-os/main`) and the same principle: ordinary OS/runtime changes must not require reflashing the USB. External Surface/Intelligence/app source retains its own canonical owner and enters a candidate only through exact verified locks/artifacts.
 
 ## Physical layout model
 
@@ -144,8 +144,9 @@ UEFI
  -> selected drivers/firmware
  -> network
  -> Git
- -> partial+sparse clone of main when checkout is absent
+ -> partial+sparse clone of ordax-os/main when checkout is absent
  -> otherwise git pull --ff-only
+ -> verify/materialize direct external component revisions required by the composition
  -> /workspace/ordax/system/entrypoint
  -> pulled system may materialize a replaceable runtime under /state
  -> OrdaX
