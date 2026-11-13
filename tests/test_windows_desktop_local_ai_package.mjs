@@ -9,6 +9,7 @@ import { verifyWindowsLocalAiPackage } from "../system/adapters/desktop/local-ai
 const NAMES = ["ggml-base.dll", "ggml-cpu-x64.dll", "ggml-cpu-sandybridge.dll",
   "ggml-cpu-haswell.dll", "ggml.dll", "llama-common.dll",
   "llama-server-impl.dll", "llama-server.exe", "llama.dll", "mtmd.dll"];
+const VC_NAMES = ["msvcp140.dll", "vcruntime140.dll", "vcruntime140_1.dll"];
 const sha = bytes => createHash("sha256").update(bytes).digest("hex");
 
 async function fixture(t) {
@@ -22,6 +23,12 @@ async function fixture(t) {
     await writeFile(join(root, "engine", name), bytes);
     engineFiles.push({ name, sha256: sha(bytes), size_bytes: bytes.length });
   }
+  const vcFiles = [];
+  for (const name of VC_NAMES) {
+    const bytes = Buffer.from("exact-vc143-fixture:" + name);
+    await writeFile(join(root, "engine", name), bytes);
+    vcFiles.push({ name, sha256: sha(bytes), size_bytes: bytes.length });
+  }
   const modelBytes = Buffer.from("fake-model-only-for-verifier-test");
   const modelFile = "verified-fixture.gguf";
   await writeFile(join(root, "models", modelFile), modelBytes);
@@ -31,6 +38,11 @@ async function fixture(t) {
       platform: "windows-x86_64", binary_format: "PE", architecture: "x64",
       source_commit: "a".repeat(40), model_sha256: sha(modelBytes),
       files: engineFiles,
+      msvc_runtime: {
+        distribution: "microsoft-vc143-app-local",
+        publisher: "Microsoft Corporation",
+        files: vcFiles,
+      },
     }},
     model: { id: "test-only-model", format: "GGUF",
       filename: modelFile, sha256: sha(modelBytes), size_bytes: modelBytes.length },
@@ -56,6 +68,16 @@ test("Windows package rejects absent files, corrupt model, incorrect engine and 
   data.lock.model.size_bytes = 33;
   data.lock.engine.windows_artifact.source_commit = "b".repeat(40);
   await assert.rejects(verifyWindowsLocalAiPackage(data.root, data), /pin unavailable/);
+});
+
+test("Windows package requires exact OS-pinned VC143 runtime bytes", async t => {
+  const data = await fixture(t);
+  await writeFile(join(data.root, "engine", "vcruntime140.dll"), "tampered-runtime");
+  await assert.rejects(verifyWindowsLocalAiPackage(data.root, data), /corrupt|digest mismatch/);
+
+  const missing = await fixture(t);
+  missing.lock.engine.windows_artifact.msvc_runtime.files.pop();
+  await assert.rejects(verifyWindowsLocalAiPackage(missing.root, missing), /runtime pin unavailable/);
 });
 
 test("Windows package rejects unpinned executable and model files before starting engine", async t => {
