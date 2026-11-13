@@ -63,6 +63,8 @@ marco estrutural / integração final
 
 O workflow pesado aceita seleção manual `minimal|owner-development`. Em PR vindo de `integration/dev-usb-buildroot-surface-20261024`, a prova usa `owner-development`; PRs comuns preservam `minimal`. O kernel é construído somente em cache miss, verificado antes de o rootfs Owner consumir seu archive de módulos e nunca recompilado pelo post-build.
 
+Na branch de integração, um push só inicia a prova `stable-mvp` quando a mensagem de commit contém `[stable-mvp-proof]`. Use esse marcador apenas quando o fingerprint Stable mudou e ainda não existe componente verificado para a revisão; não o use para documentação, código client-only ou rerun cosmético.
+
 O gate rápido não substitui o pesado. Ele existe para evitar recompilar a plataforma inteira após mudanças que ainda podem ser rejeitadas por testes baratos. Mudanças normais em `system/`, Surface, apps, contas, Spaces e Web continuam independentes quando seus owners não alteram a base.
 
 ## Uso de recursos no builder
