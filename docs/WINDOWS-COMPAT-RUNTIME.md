@@ -19,7 +19,7 @@ The source contract fixes:
 - x86-64 + x86 Windows architecture intent through the new WoW64 architecture;
 - `--enable-archs=x86_64,i386` as build intent only.
 
-`build_intent` is not a build result. Until the recipe is reproduced successfully on the OrdaX Alpine/musl build environment and the resulting runtime artifact is content-addressed, the candidate cannot enter the runtime inventory as `available=true` / `executionEnabled=true`.
+`build_intent` is not a build result. Until the recipe is reproduced successfully in a controlled Linux x86-64/musl build environment compatible with the canonical Buildroot/musl substrate, with all build inputs explicitly pinned, and the resulting runtime artifact is content-addressed, the candidate cannot enter the runtime inventory as `available=true` / `executionEnabled=true`.
 
 ## Source proof
 
@@ -60,7 +60,7 @@ This choice is still a **candidate**, not a permanent Foundation dependency. Win
 
 The next stage must prove all of the following before this source candidate can become a runtime artifact:
 
-1. build in a controlled Alpine 3.22.x x86-64 environment compatible with the OrdaX runtime substrate;
+1. build in a controlled Linux x86-64/musl environment compatible with the canonical Buildroot/musl runtime substrate, without Alpine/APK as a build or runtime dependency;
 2. exact build dependency lock, including the PE cross-compiler path required for `i386` + `x86_64`;
 3. no network access after the build-input acquisition stage;
 4. reproducible or otherwise explicitly pinned output identity;
