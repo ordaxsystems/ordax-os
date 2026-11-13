@@ -121,17 +121,14 @@ Do **not** create `foo-v2.md`, `foo-final.md`, `foo-new.md` or parallel plans fo
 
 ## Plans versus state
 
-All root planning files are subordinate to the authority order above, including:
+Historical root-plan snapshots that were removed from the active tree are cataloged **only** in `../00-PLANOS-PRIORITARIOS/REGISTRY.md`, with immutable Git references where provenance is useful. This canonical index does not repeat that archive.
 
-- [snapshot de execução de 02/10](https://github.com/ordaxsystems/ordax-os/blob/ba81a08db707d032464ae18e521073ef7e416f4f/PLANO-00-ESTADO-ATUAL-E-PRIORIDADES.md) — **arquivado no histórico Git e removido da árvore ativa**; nunca usar suas prioridades USB-first como instruções atuais;
-- [snapshot funcional Surface/apps](https://github.com/ordaxsystems/ordax-os/blob/3f304b05af33e40658025ff289523560b298153c/PLANO-FUNCIONAL-SURFACE-E-APPS.md) — historical reference removed from the active tree; current ownership is in repository contracts, `ordax-surface`, `ordax-apps` and canonical topic docs;
-- [análise comparativa de legado de 18/09](https://github.com/ordaxsystems/ordax-os/blob/c0b3b8555be487f4a105797ebe71fbec9149e97d/PLANO-02-EVOLUCAO-E-REAPROVEITAMENTO-DO-LEGADO.md) — snapshot histórico removido da árvore ativa; migração vigente é registrada em `docs/SOURCE-MIGRATION.md`;
-- [baseline pré-USB histórico](https://github.com/ordaxsystems/ordax-os/blob/0f8749e8ccfa004628fec2dd59c5218aba331de2/PLANO-03-FECHAMENTO-PRE-USB-NOVA-ORDAX.md) — source-closure snapshot removed from the active tree; live physical gates come from `docs/PROMOTION-GATES.md`, contracts and current owners;
-- [snapshot da fundação pré-MVP](https://github.com/ordaxsystems/ordax-os/blob/7ceb1de7ba6cc5c2daa14757a161afc3ae007a33/PLANO-04-FUNDACAO-ECOSSISTEMA-PRE-MVP.md) — referência histórica removida da árvore ativa; decisões atuais vivem nos owners/contratos canônicos;
-- `PLANO-07-PERSONAL-ORDAX-E-TRABALHO-INTELIGENTE.md` — execution plan/reference; `docs/PERSONAL-ORDAX.md` is the canonical foundation owner;
-- `PLANO-08-ORDAX-NETWORK-COMUNIDADES-E-MENSAGENS.md` — Network reference; any historical self-declaration of MVP canonicity is subordinate to `MVP.md`, contracts and canonical owners.
+The remaining root planning/reference files are subordinate to the authority order above:
 
-The planning hub at `../00-PLANOS-PRIORITARIOS/` catalogs these files and is the preferred destination for new reports/plans. Existing root files must not be moved until references are audited and successors are explicit.
+- `PLANO-07-PERSONAL-ORDAX-E-TRABALHO-INTELIGENTE.md` — future execution plan/reference; `docs/PERSONAL-ORDAX.md` is the canonical owner;
+- `PLANO-08-ORDAX-NETWORK-COMUNIDADES-E-MENSAGENS.md` — Network reference; current scope follows `MVP.md`, contracts and canonical owners.
+
+New plans/reports belong in `../00-PLANOS-PRIORITARIOS/` only when a separate planning artifact is genuinely needed.
 
 Do not use a plan as an append-only implementation log. New factual state should converge to `docs/CURRENT-STATE.md`, machine-readable contracts, evidence, or the canonical topic owner. A plan should primarily retain intent, dependencies, gates and future work.
 
