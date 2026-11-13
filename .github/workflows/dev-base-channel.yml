@@ -8,6 +8,7 @@ on:
       - '!bootstrap/kernel/candidates/**'
       - '!bootstrap/kernel/candidate_pipeline.py'
       - '!bootstrap/kernel/update_engine.py'
+      - '!bootstrap/kernel/module_archive.py'
       - 'bootstrap/initramfs/**'
       - 'bootstrap/dev-base/**'
       - 'bootstrap/recovery/**'
@@ -24,6 +25,7 @@ on:
       - '!bootstrap/kernel/candidates/**'
       - '!bootstrap/kernel/candidate_pipeline.py'
       - '!bootstrap/kernel/update_engine.py'
+      - '!bootstrap/kernel/module_archive.py'
       - 'bootstrap/initramfs/**'
       - 'bootstrap/dev-base/**'
       - 'bootstrap/recovery/**'
@@ -134,7 +136,7 @@ jobs:
           else
             while IFS= read -r path; do
               case "$path" in
-                bootstrap/kernel/candidates/*|bootstrap/kernel/candidate_pipeline.py|bootstrap/kernel/update_engine.py)
+                bootstrap/kernel/candidates/*|bootstrap/kernel/candidate_pipeline.py|bootstrap/kernel/update_engine.py|bootstrap/kernel/module_archive.py)
                   ;;
                 bootstrap/dev-base/ordax-dev-init|bootstrap/dev-base/ordax-diagnose|bootstrap/dev-base/ordax-network|bootstrap/dev-base/ordax-pull|bootstrap/dev-base/ordax-rollback|bootstrap/dev-base/ordax-run|bootstrap/recovery/entrypoint)
                   ;;
