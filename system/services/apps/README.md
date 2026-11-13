@@ -159,6 +159,13 @@ The structural Store UI is presentation/request only. It fails closed when no ve
 
 `store-lifecycle-request-service.mjs` is the guarded backend facade for that request boundary. It revalidates the current verified catalog projection at request time, serializes lifecycle mutations per app, preserves bounded request-id idempotency, rejects stale/unavailable operations before privileged delegation and validates the returned receipt against the exact request identity. Its public port remains `authority:none`; the injected lifecycle delegate is platform-private and must carry `platform-component-lifecycle` authority.
 
+
+### Batch update requests
+
+`store-update-request-batch.mjs` is an authority-free request coordinator, not an updater. It selects only currently installed entries with a newer verified candidate, re-reads the catalog before each request and sends sequential `operation=update`, `authority=none` lifecycle proposals with unique request IDs. Accepted requests mean only **requests processed/accepted**; installation, health, promotion and rollback remain authoritative only in the canonical component lifecycle and a subsequent verified Native snapshot.
+
+Cancellation/navigation/teardown stop pending batch work without inventing rollback of already accepted lifecycle requests. The feature must not be presented as completed installation, and its presence in source does not enable Store updates in a public MVP where the Store/lifecycle gate remains disabled.
+
 The Store must never become a second updater. A first-party `component-slot` app reuses the canonical component pipeline:
 
 `catalog -> artifact identity -> trust/provenance -> compatibility -> stage -> health/probation -> promote -> inventory/receipt`

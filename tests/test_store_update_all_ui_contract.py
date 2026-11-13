@@ -9,7 +9,6 @@ import unittest
 ROOT = Path(__file__).resolve().parents[1]
 UI = ROOT / "system/surface/ui/store-overview-controls.mjs"
 MESSAGES = ROOT / "system/services/i18n/catalog/store.mjs"
-DOC = ROOT / "docs/STORE-APP-UPDATE-BATCH.md"
 SERVICE = ROOT / "system/services/apps/store-update-request-batch.mjs"
 
 
@@ -50,7 +49,7 @@ class StoreUpdateAllUIContractTests(unittest.TestCase):
         self.assertIn('authority: "none"', service)
         self.assertIn("A request accepted by the lifecycle is not a completed update", service)
 
-    def test_locales_and_documentation_never_claim_installed_updates(self):
+    def test_locales_and_service_never_claim_installed_updates(self):
         messages = MESSAGES.read_text(encoding="utf-8")
         self.assertEqual(messages.count('"store.updateAll.action":'), 2)
         for key in (
@@ -60,9 +59,9 @@ class StoreUpdateAllUIContractTests(unittest.TestCase):
             "status.catalog-unavailable", "status.failed",
         ):
             self.assertEqual(messages.count(f'"store.updateAll.{key}":'), 2, key)
-        doc = DOC.read_text(encoding="utf-8")
-        self.assertIn("não está ativada no MVP publicamente distribuído", doc)
-        self.assertIn("não executa instalações", doc)
+        service = SERVICE.read_text(encoding="utf-8")
+        self.assertIn("A request accepted by the lifecycle is not a completed update", service)
+        self.assertNotIn("updates-completed", service)
 
 
 if __name__ == "__main__":
