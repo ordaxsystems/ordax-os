@@ -442,7 +442,9 @@ async function start() {
   updateIntelligenceHealth(intelligence.getSnapshot());
   const localAiProbeSupervisor = createLocalAiProbeSupervisor({ localPort: localAi });
 
+  const identitySession = createWebIdentitySession(window);
   const localWorkspaceStore = createNativeWorkspaceStore(window);
+  localWorkspaceStore.selectOwner(identitySession.getSnapshot());
   const recentFiles = fileSpace === null ? null : createRecentFilesRuntime({
     store: createNativeRecentFilesStore(window),
   });
@@ -462,7 +464,6 @@ async function start() {
   });
   const workspaceMetadata = createWorkspaceMetadataBridge(localWorkspaceStore);
   const workspaceStore = workspaceMetadata.store;
-  const identitySession = createWebIdentitySession(window);
   const syncStateRegistry = syncStateStore === null
     ? null
     : createSyncStateNamespaceRegistry(syncStateStore, { legacyNamespace: "appearance" });
@@ -806,6 +807,10 @@ async function start() {
     workspaceStore,
     appActivation,
   );
+  // Select the verified workspace partition before downstream Account Sync subscribers.
+  const unsubscribeWorkspaceIdentity = identitySession.subscribe((snapshot) => {
+    if (localWorkspaceStore.selectOwner(snapshot)) workspaceStore.load();
+  });
   let unsubscribeCapabilityDiscovery = null;
   const reportCapabilityFabricFailure = (stage, error) => {
     // Failed source reads cannot emit a valid catalog revision. Invalidate
@@ -1350,6 +1355,7 @@ async function start() {
       window.removeEventListener("error", onWindowError);
       window.removeEventListener("unhandledrejection", onUnhandledRejection);
       window.removeEventListener("online", onOnline);
+      unsubscribeWorkspaceIdentity();
       unsubscribeHostIdentity();
       nativeIntelligenceHostBridge?.dispose();
       unsubscribeCapabilityDiscovery?.();
