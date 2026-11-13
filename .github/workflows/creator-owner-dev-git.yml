@@ -481,8 +481,16 @@ jobs:
           export ORDAX_SOURCE_COMMIT="$ORDAX_OWNER_SOURCE_COMMIT"
           export ORDAX_HOST_PYTHON="$(command -v python3)"
           export ORDAX_KERNEL_MODULES_ARCHIVE="$PWD/out/kernel/kernel-modules-$ORDAX_KERNEL_VERSION.tar"
-          export ORDAX_KERNEL_MODULES_RECEIPT="$RUNNER_TEMP/owner-independent-base/kernel-module-payload.json"
-          export ORDAX_FIRMWARE_COVERAGE_RECEIPT="$RUNNER_TEMP/owner-independent-base/firmware-coverage.json"
+          owner_base="$RUNNER_TEMP/owner-independent-base"
+          if [ -L "$owner_base" ]; then
+            echo 'Owner Base destination must not be a symlink' >&2
+            exit 1
+          fi
+          install -d -m 0755 "$owner_base"
+          test -d "$owner_base"
+          test ! -L "$owner_base"
+          export ORDAX_KERNEL_MODULES_RECEIPT="$owner_base/kernel-module-payload.json"
+          export ORDAX_FIRMWARE_COVERAGE_RECEIPT="$owner_base/firmware-coverage.json"
           owner_cache_hit='${{ steps.owner-base-cache.outputs.cache-hit }}'
           if [ "$owner_cache_hit" != true ]; then
             owner_cache_hit=false
