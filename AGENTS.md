@@ -4,7 +4,7 @@ Este arquivo e a entrada obrigatoria para qualquer IA, agente, Codex ou pessoa q
 
 ## Regra canônica de integração entre repositórios — 13/11/2026
 
-Separação de repositórios significa **ownership separado, produto único**. O mapa canônico de owners permanece em `docs/contracts/repository-ownership.json`. Antes de criar coordenação cross-repo, leia a seção [Integração multi-repositório — composição do produto](docs/DEVELOPMENT-WORKFLOW.md#integração-multi-repositório--composição-do-produto-2026-11-13) e ADR-031.
+Separação de repositórios significa **ownership separado, produto único**. O mapa canônico de owners permanece em `docs/contracts/repository-ownership.json` e o estado de migração/namespace em `docs/contracts/repository-migration-status.json`. Antes de criar coordenação cross-repo, leia a seção [Integração multi-repositório — composição do produto](docs/DEVELOPMENT-WORKFLOW.md#integração-multi-repositório--composição-do-produto-2026-11-13) e ADR-031.
 
 Regras obrigatórias:
 - `ordax-os` é o compositor Native e seleciona dependências externas por locks/artefatos/contratos existentes; não copia source dos owners.
