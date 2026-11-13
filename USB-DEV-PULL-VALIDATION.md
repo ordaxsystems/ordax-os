@@ -1,5 +1,7 @@
 # USB Dev — prova física da atualização automática (2026-10-20)
 
+> **STATUS: REFERÊNCIA HISTÓRICA / EVIDÊNCIA DE 20–21/10/2026.** Não usar os SHAs, dispositivo, sequência de recuperação ou “próximo gate” abaixo como instrução operacional atual. Para trabalho vigente do USB Dev, consultar `docs/CURRENT-STATE.md`, `MVP.md`, os contratos `docs/contracts/physical-*.json` aplicáveis e o estado atual da PR `#2243`. Este arquivo preserva causa-raiz e provas daquela ocorrência; qualquer nova escrita física exige autorização própria e revalidação do target.
+
 Estado de partida verificado: a `main` estava em `24198ec84e37da6ac612b5c7287e125d26bec73a`, mesmo commit do USB após manutenção no Windows. Este documento acompanha uma alteração real do helper read-only `ordax-diagnose`, não um bump de versão vazio.
 
 ## Ensaio no notebook (sem Creator e sem escrita em discos internos)
