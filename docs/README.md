@@ -67,7 +67,7 @@ It separates:
 - **document status** — whether a plan/research/reference is useful, ready, historical or superseded;
 - **execution eligibility** — whether implementation may actually start in the current product window.
 
-**Current execution window (2026-11-13): parallel product completion by owner.** Independent owners (OS/USB, Desktop, Surface, Apps, Creator, Site and Intelligence) advance concurrently and synchronize only at real contract/artifact adoption points. A client-only change must not wait for USB; a Surface change must not trigger Desktop/Creator work until a new product candidate is intentionally composed; Creator consumes verified media rather than rebuilding upstream. Runtime/Control Plane keep their own authority and gates. The historic `MVP` label is not an execution queue (see `MVP.md`); a plan never overrides current source, contracts, gates or the owner's scope.
+**Default execution model: parallel product completion by owner.** Independent owners advance concurrently and synchronize only at real contract/artifact adoption points. A client-only change must not wait for USB; a Surface change must not trigger Desktop/Creator work until a new product candidate is intentionally composed; Creator consumes verified media rather than rebuilding upstream. Runtime/Control Plane keep their own authority and gates. Current priorities are read from `MVP.md`, `docs/CURRENT-STATE.md`, current PRs/branches and the owner-specific SSOT — never from a dated paragraph in this index.
 
 ## Active plans / proposals / references
 
@@ -124,26 +124,9 @@ Do not use a plan as an append-only implementation log. New factual state should
 
 If a plan becomes stale, update its classification or supersede it; never treat its age or its historical status label as evidence that the implementation still matches it.
 
-## Trust documentation today
+## Trust / signing status
 
-Current non-secret trust state is:
-
-```text
-LOCAL_PREFLIGHT=PASS
-LOCAL_KEY_MATERIAL_GENERATED=YES
-CRYPTOGRAPHIC_RECOVERY_VERIFIED=YES
-LOCAL_ENCRYPTED_BACKUP_COPY_VERIFIED=YES
-EXTERNAL_OFFLINE_BACKUP_CUSTODY_CONFIRMED=NO
-EXTERNAL_OFFLINE_BACKUP_REQUIRED_BEFORE_BROAD_DISTRIBUTION=YES
-PUBLIC_ANCHOR_PINNED=YES
-MINIMAL_BOOTSTRAP_ALL_ARTIFACTS_RESOLVED=YES
-PHYSICAL_AUTHORIZATION_ELIGIBLE=YES
-PHYSICAL_WRITE_ALLOWED=NO
-CURRENT_SIGNING_BACKEND=local-pem (controlled prototype)
-FUTURE_CUSTODY_TARGET=managed non-exportable KMS/HSM
-```
-
-The future managed backend is provider-neutral and intentionally deferred. The same-host encrypted backup copy is sufficient for the first controlled prototype because cryptographic recovery was proven, but it is not treated as independent off-device custody; an external/off-device encrypted copy remains required before broad public distribution.
+Este índice **não replica flags operacionais de trust, assinatura ou autorização física**. Consulte `docs/CURRENT-STATE.md`, `docs/PROMOTION-GATES.md` e os contratos machine-readable de trust/release correspondentes para os valores atuais. Evidências datadas ficam em `docs/evidence/`; não copie seus valores para este roteador como estado vigente.
 
 ### Assinaturas e benefícios
 
