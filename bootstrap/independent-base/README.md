@@ -125,6 +125,6 @@ A sequência de implementação anterior está preservada no [diário histórico
 
 ## Critério de conclusão
 
-Buildroot, proveniência, boot, rede, firmware, Wi-Fi, Git/CA quando exigidos, Surface/runtime, recovery e rollback devem alcançar paridade suficiente com os contratos canônicos. Depois disso, os consumidores Alpine são removidos, a prova pesada final passa, os contratos/promotions são atualizados e a branch temporária é integrada e apagada.
+A remoção dos consumidores Alpine e a integração da branch de migração já foram concluídas na `main`. Os critérios ainda abertos são exclusivamente as provas/receipts aplicáveis de Buildroot, boot, rede, firmware, Wi-Fi, Git/CA quando exigidos, Surface/runtime, recovery, rollback e as promoções explicitamente autorizadas. Não reintroduzir produtor Alpine/APK para fechar um gate físico ou de release.
 
 **Resultado de execução:** não preencher indicadores PASS sem a execução correspondente. Runs CI, provenance e receipts continuam sendo as evidências primárias.
