@@ -2,6 +2,18 @@
 
 Este arquivo e a entrada obrigatoria para qualquer IA, agente, Codex ou pessoa que trabalhe neste repositorio.
 
+## Regra canônica de integração entre repositórios — 13/11/2026
+
+Separação de repositórios significa **ownership separado, produto único**. O repositório canônico é `ordaxsystems/ordax-os`; o mapa de owners permanece em `docs/contracts/repository-ownership.json`, o estado de migração/namespace em `docs/contracts/repository-migration-status.json`, e qualquer promoção Stable/MVP continua sujeita a `docs/PROMOTION-GATES.md`. Antes de criar coordenação cross-repo, leia a seção [Integração multi-repositório — composição do produto](docs/DEVELOPMENT-WORKFLOW.md#integração-multi-repositório--composição-do-produto-2026-11-13) e ADR-031.
+
+Regras obrigatórias:
+- `ordaxsystems/ordax-os` é o compositor Native e seleciona dependências externas por locks/artefatos/contratos existentes; não copia source dos owners.
+- Consumidor fixa apenas dependência direta. Desktop consome a composição OrdaX/OS; não mantém pin separado da Surface. Creator consome mídia verificada; não recompila upstream.
+- Surface/Apps/Intelligence publicam seus próprios source/artefatos e não precisam de PR em consumidores enquanto não houver adoção real.
+- Owners independentes avançam em paralelo. Sincronizar somente no ponto de adoção de contrato/artefato/revisão.
+- Não usar SHA, PR, evidência ou estado datado em README/plano como instrução vigente se o contrato/source atual divergir.
+- `merged`/CI verde não equivale a produto instalado. Distinguir Implementado, Integrado, Entregável e Produto concluído.
+
 ## 1. Identidade do repositorio
 `ordaxsystems/ordax-os` é o **repositório oficial e canônico do OrdaX OS**. A identidade e os responsáveis atuais são definidos por `docs/contracts/repository-ownership.json` e `docs/contracts/repository-migration-status.json`.
 

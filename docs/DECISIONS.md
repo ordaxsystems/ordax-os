@@ -493,3 +493,32 @@ build proves a released Desktop, Web login, Space creation UI, or Profile Pack.
 **Execution/ownership:** `ordax-desktop` owns its Desktop packaging/delivery responsibility; `ordax-os` owns host composition, lifecycle and update boundaries; `ordax-surface` owns shared UI; `ordax-apps` owns removable apps; `ordax-platform` owns identity/grants; `ordax-site` owns public distribution. Use immutable compatible revision pins and verified receipts across owners, **not duplicate modules** or forced identical repository HEADs. Reuse existing PRs, tests and CI by impact; changes confined to Windows/Web must not trigger USB/kernel builds without a causal requirement (ADR-029).
 
 **Scope retained:** USB, Native disk, Runtime/MCP and already started product capabilities remain in their current owners and baseline. They are not prerequisites for an independent Windows release unless they are part of that release's declared user journey or a real safety dependency. Security, isolation, signing, authorization, honest status, update and rollback/recovery gates cannot be deferred merely to claim launch. Record proven state in `docs/CURRENT-STATE.md`; use `MVP.md` as the single scope/acceptance SSOT, not another roadmap or per-repository MVP.
+
+## ADR-031 - Repository separation is ownership; product integration is composition (2026-11-13)
+
+**Decision:** OrdaX repositories remain separated by responsibility, but they form one product through versioned contracts, immutable artifacts and direct-dependency composition. Repository separation must reduce coordination, not create a distributed monolith that requires synchronized PRs across every owner.
+
+For Native delivery, `ordax-os` is the composition owner: it owns host/services/lifecycle/contracts and selects exact compatible external revisions through the existing locks and component/release mechanisms. This does **not** make the OS the source owner of Surface, Apps, Intelligence, Runtime or other external components.
+
+The dependency graph is intentionally one-directional:
+
+```text
+Surface / Apps / Intelligence / capability owners
+                    |
+                    v
+             OrdaX OS composition
+                    |
+             verified candidate
+              /             \
+       Desktop host       Creator media
+```
+
+The public Site consumes authorized published catalog/assets and remains outside Native composition.
+
+**Direct-dependency rule:** a consumer pins only the direct dependency it actually composes. A transitive component must not be pinned again by every downstream consumer. Therefore Desktop consumes the OrdaX/OS composition candidate rather than independently integrating Surface; Creator consumes verified media rather than rebuilding OS components; Surface consumes capability ports rather than implementations; Apps publish packages/catalog entries rather than source copies.
+
+**Operational consequence:** independent owners advance in parallel and synchronize only when a new contract/artifact/revision is adopted. Compatible producer changes do not force immediate consumer PRs. Incompatible changes require a versioned contract transition and explicit adoption. No forced identical repository HEADs, source mirroring, manual Web-to-device ports or cascade PRs for bookkeeping.
+
+**Completion consequence:** implementation, integration, deliverability and product acceptance are distinct states. Merge/CI is not proof of installed Desktop, booted USB or installed app. Conversely, a local source change is not required to perform unrelated physical/release gates.
+
+Existing machine-readable contracts remain authoritative: `docs/contracts/repository-ownership.json`, source locks such as `docs/contracts/surface-source.json`, component/package/channel contracts, build-autonomy contract and signed release manifests. This ADR defines their cross-repository composition rule and creates no second manifest.
