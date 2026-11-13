@@ -429,7 +429,10 @@ class CanonicalDocumentFreshnessTests(unittest.TestCase):
         self.assertIn("MVP_SURFACE_SMOKE_TOUR_ITEMS=12", current_state_text)
         self.assertIn("requires all 12 manual tour items", current_state_text)
         self.assertIn("Account/Memory without requiring an online login", current_state_text)
-        self.assertIn("verified Stable/MVP runtime", promotion_text)
+        self.assertIn("owner-development + verified-erofs-overlay + development", promotion_text)
+        self.assertIn("stable-mvp + verified-erofs-overlay + canonical-stable-mvp", promotion_text)
+        self.assertIn("Both contexts require the exact runtime SHA-256", promotion_text)
+        self.assertIn("Owner/Development evidence remains development-scoped", promotion_text)
         self.assertIn("physical keyboard layout", promotion_text)
         self.assertIn("matches a fresh recomputation", promotion_text)
 
