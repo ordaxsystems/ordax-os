@@ -1219,7 +1219,7 @@ Deno.serve(async (req: Request) => {
   }
 
   if (path === "/health" && req.method === "GET") {
-    return json(200, { status: "ok", service: "ordax-account-gateway", version: 19 });
+    return json(200, { status: "ok", service: "ordax-account-gateway", version: 18 });
   }
 
   if (path === NETWORK_SEND_PATH && req.method === "POST") {
