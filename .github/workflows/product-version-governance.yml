@@ -1,0 +1,57 @@
+name: OrdaX Product Version Governance
+
+on:
+  pull_request:
+    branches: [main]
+    paths:
+      - 'system/contracts/product-version.mjs'
+      - 'system/contracts/product-version-governance.mjs'
+      - 'tools/verify/product_version_changes.mjs'
+      - 'tests/test_product_version_governance.mjs'
+      - 'tests/test_product_version_changes.mjs'
+      - 'docs/VERSION-GOVERNANCE.md'
+      - '.github/workflows/product-version-governance.yml'
+  push:
+    branches: [main]
+    paths:
+      - 'system/contracts/product-version.mjs'
+      - 'system/contracts/product-version-governance.mjs'
+      - 'tools/verify/product_version_changes.mjs'
+      - 'tests/test_product_version_governance.mjs'
+      - 'tests/test_product_version_changes.mjs'
+      - '.github/workflows/product-version-governance.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  os-version:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 8
+    steps:
+      - name: Checkout exact OS source and base history
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
+        with:
+          persist-credentials: false
+          fetch-depth: 0
+      - name: Verify version governance syntax and contracts
+        run: |
+          set -euo pipefail
+          node --check system/contracts/product-version-governance.mjs
+          node --check tools/verify/product_version_changes.mjs
+          node --test tests/test_product_version_governance.mjs tests/test_product_version_changes.mjs
+      - name: Verify only an explicit product-version change must advance
+        env:
+          BASE_SHA: ${{ github.event.pull_request.base.sha || github.event.before }}
+        run: |
+          set -euo pipefail
+          if [[ "${BASE_SHA}" =~ ^[0-9a-f]{40}$ ]] && [[ ! "${BASE_SHA}" =~ ^0{40}$ ]]; then
+            node tools/verify/product_version_changes.mjs "${BASE_SHA}"
+          else
+            node tools/verify/product_version_changes.mjs
+          fi
+
+# This gate validates an explicitly versioned product composition. It never
+# requires unrelated source PRs to compete for a global SemVer, and it never
+# grants publication, signing, Stable promotion, USB writes or installation.
