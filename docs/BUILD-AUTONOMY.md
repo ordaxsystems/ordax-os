@@ -22,7 +22,7 @@ ARTIFACT_PROVENANCE_REQUIRED=YES
 ARTIFACT_SHA256_REQUIRED=YES
 ```
 
-`main` owns the source and build recipes. CI is an execution environment, not a second source authority.
+Each repository owner owns its own source and recipes. In this contract, `ordax-os/main` is the authority for **OS-owned source, Native composition and OS build recipes**; external components retain their canonical owners and enter a candidate through exact verified direct-dependency contracts/locks. CI is an execution environment, not a second source authority.
 
 ## Build chain
 
@@ -102,7 +102,7 @@ creator
 manifests
 ```
 
-The shared product source may feed several delivery modes, but those delivery artifacts remain independently selectable. The public product portal is also a separate artifact: a change under `sites/public/` must not rebuild the kernel, bootstrap, shared system bundle or product clients. A shared Surface change may legitimately rebuild all applicable product modes; it must not rebuild the kernel. A mobile-adapter-only change must not rebuild unrelated Web/Desktop/native targets. A kernel change may rebuild the dependent bootstrap, but not client modes.
+The composed product graph may feed several delivery modes, but those delivery artifacts remain independently selectable. “One product” does not require one Git repository or identical HEADs; each candidate records compatible component provenance. The public product portal is also a separate artifact: a change under `sites/public/` must not rebuild the kernel, bootstrap, shared system bundle or product clients. A shared Surface change may legitimately rebuild all applicable product modes; it must not rebuild the kernel. A mobile-adapter-only change must not rebuild unrelated Web/Desktop/native targets. A kernel change may rebuild the dependent bootstrap, but not client modes.
 
 `docs/contracts/build-autonomy.json` version 2 records the dependency relationships and the following scaling rules:
 
