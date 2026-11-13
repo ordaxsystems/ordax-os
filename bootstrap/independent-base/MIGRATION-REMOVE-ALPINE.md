@@ -1,12 +1,6 @@
 # Migração para base independente — remoção do Alpine
 
-> **Estado atual (2026-11-05):** Os produtores Alpine/APK foram retirados do
-> codigo na branch da PR #2243 e o unico produtor de Base e Buildroot. A prova
-> de codigo-fonte do Wine permanece, sem runtime ativavel. O preflight do Owner
-> mantem seus testes de inventario e comandos Buildroot. As secoes anteriores
-> registram checkpoints historicos, nao etapas ainda obrigatorias. A branch
-> ainda nao foi integrada a main e as provas Linux/boot/USB nao foram aprovadas
-> por este corte.
+> **Status de fonte após o merge de 13/11/2026:** a [PR #2243](https://github.com/ordaxsystems/ordax-os/pull/2243) foi integrada à `main` (`d885f365ab9d9d630d1a200b391197e04848b655`). Os antigos `bootstrap/dev-base/build.py` e `bootstrap/stable-base/build.py` não existem mais na `main`, e `system/surface/bin/ordax-surface` utiliza o handoff offline EROFS/overlay sem provisionamento via APK. **Este arquivo é o diário histórico da migração, não a fila executiva atual.** Referências abaixo à branch ainda não integrada, gates Draft, locks APK ou próximos passos datados devem ser lidas como snapshots anteriores. Para estado de CI, imagens, boot, instalação USB e promoção física, usar evidências da revisão final, contratos e autorização vigentes — o merge não prova esses gates.
 
 
 ## Objetivo
@@ -18,7 +12,7 @@ A implementação reutiliza exclusivamente o owner existente `bootstrap/independ
 ## Autoridade e branch de trabalho
 
 - `main` continua sendo a única source authority do produto.
-- `integration/dev-usb-buildroot-surface-20261024` é a única branch de integração desta migração, na PR #2243; `main` permanece a autoridade do produto. A antiga `platform/remove-alpine` não recebe novos cortes.
+- **Histórico de implementação:** `integration/dev-usb-buildroot-surface-20261024` foi a branch da PR #2243, **já integrada**. Novas alterações seguem `main` e os owners atuais; não reativar branch de migração ou `platform/remove-alpine`.
 - A branch deve receber `main` regularmente e ser removida após a integração final.
 - Nenhum artefato dessa branch é Stable, release física ou autorização de gravação por existir nessa branch.
 
