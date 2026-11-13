@@ -45,17 +45,24 @@ Para trabalho cross-repo, a ordem operacional é **`AGENTS.md` → `docs/README.
 | Product modes | `docs/PRODUCT-MODES.md` |
 | Operational realtime / device actions | `docs/OPERATIONAL-REALTIME.md` |
 | Mobile Companion | `docs/MOBILE-COMPANION.md` |
-| Application compatibility | `docs/APPLICATION-COMPATIBILITY.md` |
+| Application compatibility | `docs/APPLICATION-COMPATIBILITY.md` + `docs/INSTALLED-APPLICATIONS.md` (presentation/trust invariant) |
 | Minimal USB bootstrap | `docs/MINIMAL-USB-BOOTSTRAP.md` |
+| Creator installation / verified-media consumer boundary | `docs/CREATOR-INSTALLATION.md` |
+| Host independence | `docs/HOST-INDEPENDENCE.md` |
 | Physical media | `docs/PHYSICAL-MEDIA.md` |
 | Development workflow | `docs/DEVELOPMENT-WORKFLOW.md` |
+| Remote/control capability boundary | `docs/REMOTE-CONTROL.md` |
+| MCP system capabilities / ownership boundary | `docs/MCP-SYSTEM-CAPABILITIES.md` |
 | Windows Desktop visual test automation (developer-only runbook, not a Runtime/MCP owner) | [`tools/visual-test-bridge/README.md`](../tools/visual-test-bridge/README.md) |
 | Multi-repository product composition | `docs/DEVELOPMENT-WORKFLOW.md#integração-multi-repositório--composição-do-produto-2026-11-13` + ADR-031 in `docs/DECISIONS.md` |
 | Promotion gates | `docs/PROMOTION-GATES.md` |
 | Release signing | `docs/RELEASE-SIGNING.md` |
 | Release trust ceremony | `docs/RELEASE-TRUST-CEREMONY.md` |
 | Release pipeline/channel/manifest | `docs/RELEASE-PIPELINE.md`, `docs/RELEASE-CHANNEL.md`, `docs/RELEASE-MANIFEST.md` |
+| Release bundle / portable image compatibility boundary | `docs/RELEASE-BUNDLE.md` |
 | Public site | `docs/PUBLIC-SITE.md` |
+| Desktop visual identity / Meridian ownership | `docs/DESKTOP-IDENTITY.md` |
+| Internet first-party app boundary | `docs/INTERNET-APP.md` |
 | Storage | `docs/STORAGE-ARCHITECTURE.md` |
 | Update nomenclature | `docs/UPDATE-NOMENCLATURE.md` |
 | Legacy migration ledger | `docs/SOURCE-MIGRATION.md` |
