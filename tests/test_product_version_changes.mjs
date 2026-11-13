@@ -4,89 +4,66 @@ import { execFileSync } from 'node:child_process';
 import { mkdtempSync, mkdirSync, writeFileSync, rmSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
-import { osProductCodeChanged, verifyOsVersionChange, listOsVersionDiffPaths } from '../tools/verify/product_version_changes.mjs';
+import {
+  PRODUCT_VERSION_PATH, productVersionFileChanged,
+  verifyOsVersionChange, listVersionDiffPaths,
+} from '../tools/verify/product_version_changes.mjs';
 
 const oldVersion={semanticVersion:'0.1.0',displayVersion:'v0.1.0',displayName:'OrdaX Prototype v0.1.0',stableRelease:false};
 const nextVersion={semanticVersion:'0.1.1-alpha.1',displayVersion:'v0.1.1-alpha.1',displayName:'OrdaX Prototype v0.1.1-alpha.1',stableRelease:false};
 
-test('runtime changes automatically require OS version increase',()=>{
-  for(const path of [
-    'system/surface/entrypoint.mjs','system/composition/native/main.mjs',
-    'system/composition/web/main.tsx','system/services/app-service.mjs',
-    'system/contracts/component-manifest.mjs','bootstrap/release-agent/activate.sh',
-    'boot/esp/init.sh','kernel/net.c','src/system/surface/view.ts',
-    'system/surface/assets/wallpaper.webp','system/adapters/native/ordax.service',
-    'system/surface/bin/ordax-surface','system/surface/bin/ordax-mvp-smoke',
-    'bootstrap/initramfs/root/init','system/services/runtime/runtime.wasm',
-    'system/surface/workspace/assets/demo-salvador-1.jpg',
-    'system/services/network/provider.yaml',
-  ]) assert.equal(osProductCodeChanged([path]),true,path);
-  assert.throws(()=>verifyOsVersionChange({
-    previous:oldVersion,current:oldVersion,paths:['system/surface/entrypoint.mjs'],
-  }),/require a version advance/i);
-  assert.equal(verifyOsVersionChange({
-    previous:oldVersion,current:nextVersion,paths:['system/surface/entrypoint.mjs'],
-  }).changedRuntime,true);
-});
-
-test('version policy, docs and tests do not force fictional new OS release numbers',()=>{
-  for(const path of [
-    'tests/test_product_family.mjs','docs/CURRENT-STATE.md',
-    'system/contracts/product-version-governance.mjs',
-    'system/contracts/product-version.mjs',
-    'system/surface/tests/test_launcher.mjs',
-    'system/surface/docs/CURRENT-STATE.md',
-    'system/surface/ui/README.md','system/surface/bin/.gitkeep',
-    '.github/workflows/foundation.yml',
-  ]) assert.equal(osProductCodeChanged([path]),false,path);
-  const result=verifyOsVersionChange({
-    previous:oldVersion,current:oldVersion,paths:[
-      'tests/test_product_family.mjs','docs/VERSION-GOVERNANCE.md',
-      'system/contracts/product-version-governance.mjs',
-      'system/contracts/product-version.mjs',
-    ],
+test('ordinary runtime source changes do not compete for a global SemVer',()=>{
+  assert.equal(productVersionFileChanged([
+    'system/surface/bin/ordax-surface',
+    'bootstrap/initramfs/root/init',
+  ]),false);
+  assert.deepEqual(verifyOsVersionChange({
+    previous:oldVersion,current:oldVersion,versionFileChanged:false,
+  }),{
+    versionFileChanged:false,previousVersion:'0.1.0',currentVersion:'0.1.0',
   });
-  assert.equal(result.changedRuntime,false);
 });
 
-test('OS version changes cannot regress even in docs-only PRs',()=>{
+test('an explicit product-version edit must advance SemVer',()=>{
+  assert.equal(productVersionFileChanged([PRODUCT_VERSION_PATH]),true);
   assert.throws(()=>verifyOsVersionChange({
-    previous:nextVersion,current:oldVersion,paths:['docs/README.md'],
-  }),/Version regression/);
-  assert.throws(()=>verifyOsVersionChange({
-    previous:oldVersion,current:{
-      semanticVersion:'0.1.1-alpha.1',displayVersion:'v0.1.0',displayName:'OrdaX Prototype v0.1.0',stableRelease:false,
-    },paths:['system/services/new-feature.mjs'],
-  }),/Displayed version must be derived/);
+    previous:oldVersion,current:oldVersion,versionFileChanged:true,
+  }),/must advance SemVer/i);
+  assert.equal(verifyOsVersionChange({
+    previous:oldVersion,current:nextVersion,versionFileChanged:true,
+  }).currentVersion,'0.1.1-alpha.1');
 });
 
-test('moving a Native executable to docs never bypasses the OS SemVer gate',()=>{
-  const worktree=mkdtempSync(join(tmpdir(),'ordax-version-rename-'));
+test('version regression is forbidden even when reconciling a branch',()=>{
+  assert.throws(()=>verifyOsVersionChange({
+    previous:nextVersion,current:oldVersion,versionFileChanged:false,
+  }),/regression/i);
+});
+
+test('git diff detects the explicit product version file without runtime heuristics',()=>{
+  const worktree=mkdtempSync(join(tmpdir(),'ordax-version-explicit-'));
   const git=(...args)=>execFileSync('git',['-C',worktree,...args],{encoding:'utf8'});
   try {
     git('init','-q');
     git('config','user.email','ci@example.invalid');
     git('config','user.name','Version Fixture');
-    mkdirSync(join(worktree,'system','surface','bin'),{recursive:true});
-    mkdirSync(join(worktree,'docs'),{recursive:true});
-    writeFileSync(join(worktree,'system','surface','bin','ordax-surface'),'#!/bin/sh\nexit 0\n');
-    writeFileSync(join(worktree,'system','surface','bin','ação-native'),'#!/bin/sh\nexit 0\n');
+    mkdirSync(join(worktree,'system','contracts'),{recursive:true});
+    mkdirSync(join(worktree,'system','surface'),{recursive:true});
+    writeFileSync(join(worktree,PRODUCT_VERSION_PATH),"semanticVersion: '0.1.0'\n");
+    writeFileSync(join(worktree,'system','surface','entrypoint'),'v1\n');
     git('add','.');
-    git('commit','-qm','baseline executable');
-    const baseSha=git('rev-parse','HEAD').trim();
-    git('mv','system/surface/bin/ordax-surface','docs/ordax-surface');
-    git('mv','system/surface/bin/ação-native','docs/ação-native');
-    git('commit','-qm','move executable to docs');
-    const detected=listOsVersionDiffPaths(baseSha,{cwd:worktree});
-    assert.deepEqual(detected.slice().sort(),[
-      'docs/ordax-surface','docs/ação-native',
-      'system/surface/bin/ordax-surface','system/surface/bin/ação-native',
-    ].sort());
-    assert.equal(osProductCodeChanged(['system/surface/bin/ação-native']),true);
-    assert.equal(osProductCodeChanged(detected),true);
-    assert.throws(()=>verifyOsVersionChange({
-      previous:oldVersion,current:oldVersion,paths:detected,
-    }),/require a version advance/i);
+    git('commit','-qm','baseline');
+    const base=git('rev-parse','HEAD').trim();
+    writeFileSync(join(worktree,'system','surface','entrypoint'),'v2\n');
+    git('add','.');
+    git('commit','-qm','runtime only');
+    let paths=listVersionDiffPaths(base,{cwd:worktree});
+    assert.equal(productVersionFileChanged(paths),false);
+    writeFileSync(join(worktree,PRODUCT_VERSION_PATH),"semanticVersion: '0.1.1-alpha.1'\n");
+    git('add','.');
+    git('commit','-qm','explicit composition version');
+    paths=listVersionDiffPaths(base,{cwd:worktree});
+    assert.equal(productVersionFileChanged(paths),true);
   } finally {
     rmSync(worktree,{recursive:true,force:true});
   }
