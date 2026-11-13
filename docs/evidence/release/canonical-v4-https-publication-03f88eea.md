@@ -1,4 +1,6 @@
-# Publicação HTTPS canônica da candidata Stable v4
+# Publicação HTTPS canônica da candidata Stable v4 — evidência histórica
+
+**Status:** EVIDENCE / candidata histórica específica; não é o runbook vigente para novas releases.
 
 A candidata congelada `03f88eeaf382a59aaefbcf4943d0639d2730741b` passou pela prova de handoff assinado, mas a liberação pública dos arquivos EROFS ainda é uma ação distinta. O script **`tools/release-operator/publish_verified_v4_release.py`** é o operador específico desse passo. Ele reutiliza a admissão de pré-publicação existente e **não é um gravador de USB**.
 
