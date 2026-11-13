@@ -2,6 +2,8 @@
 
 Status: CANONICAL FOR PROTOTYPE
 
+**Current-main vs target architecture (13/11/2026):** this document describes the bootstrap contract that is still materialized by current `main`. Some Owner/Development and Stable runtime paths in `main` still reference Alpine/APK as legacy implementation detail. The Buildroot/Alpine-free cutover is owned by the existing OS #2243 migration and is not considered integrated until its branch is merged and the canonical contracts/locks change. Do not refresh isolated APK pins, create a parallel migration, or infer the long-term architecture from the legacy package manager. After #2243 closes, reconcile this file against the new contracts instead of preserving both paths.
+
 ## Goal
 
 The bootstrap seed contains only the minimum trusted substrate required to boot and reach the selected acquisition mechanism. It is not a preinstalled copy of the complete OrdaX product.
