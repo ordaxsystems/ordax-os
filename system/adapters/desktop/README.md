@@ -1,98 +1,56 @@
 # OrdaX Desktop Adapter
 
-Status: CANONICAL BOUNDARY — IMPLEMENTATION PENDING
+Status: CANONICAL OS CAPABILITY BOUNDARY
 
-`system/adapters/desktop/` is the only user-product boundary allowed to translate shared OrdaX capabilities into APIs provided by a host desktop operating system.
+`system/adapters/desktop/` pertence ao `ordax-os` e traduz capacidades públicas do sistema para um host desktop. **Não é o aplicativo Windows**: o host/empacotador Electron canônico pertence a `ordaxsystems/ordax-desktop`.
 
-The first supported host is Windows. Other desktop hosts may be added later without forking `system/surface/` or `system/apps/`.
+## Relação entre owners
+
+```text
+ordax-surface (UI compartilhada)
+        |
+        v
+ordax-os (host Native, services, contracts, desktop capability adapter)
+        |
+        v
+ordax-desktop (Electron/NSIS Windows)
+```
+
+O Desktop consome uma composição OrdaX/OS verificável. Não mantém um segundo pin da Surface, não copia Apps/Intelligence e não recria serviços do OS.
 
 ## Authority model
 
-OrdaX Desktop runs as a normal user application by default.
+O aplicativo Windows roda como usuário normal por padrão. Capacidades privilegiadas devem permanecer estreitas, tipadas, consentidas e no owner correto. O adapter não pode expor shell genérico, execução arbitrária, raw-device irrestrito ou credenciais à Surface.
 
-```text
-system/surface
-  -> capability interfaces
-     -> system/adapters/desktop
-        -> unprivileged desktop runtime
-           -> narrow privileged helper only for an approved operation
-```
+Capacidades desktop possíveis incluem arquivos selecionados pelo usuário, notificações, deep links, background work suportado pelo host, integração com aplicativos/arquivos, estado de versão/updater e diagnóstico do host. Cada port deve declarar se é não privilegiado, consent-gated, helper-gated ou indisponível.
 
-The desktop runtime must not expose a generic privileged shell, arbitrary command execution, or unrestricted raw-device API to the Surface.
+## Creator / mídia física
 
-## Initial capabilities
+A criação e verificação de mídia é implementada por `ordaxsystems/ordax-creator`, que consome artefatos/mídia produzidos e autorizados pelo `ordax-os`. O Desktop pode **apresentar ou iniciar** a experiência Creator quando o produto exigir, mas não deve duplicar Core, writer, seleção de disco, readback ou pins transitivos.
 
-The adapter may implement these capability families:
-
-- local file open/save and user-selected directory access;
-- native notifications;
-- app protocol/deep-link handling;
-- safe background work supported by the host;
-- local application/file integration;
-- desktop application version and signed updater state;
-- OrdaX release download and cryptographic verification;
-- removable-device discovery;
-- explicit OrdaX USB creation and post-write verification;
-- bootable-device pairing, diagnostics and recovery assistance.
-
-Every capability must declare whether it is:
-
-- unprivileged;
-- user-consent gated;
-- privileged-helper gated;
-- unavailable on the current host.
-
-## Creator capability
-
-USB creation belongs to OrdaX Desktop but is not ordinary application authority.
-
-The flow is:
-
-```text
-Surface
-  -> request create-media
-  -> desktop adapter validates intent
-  -> identify removable target fail-closed
-  -> request explicit user authorization
-  -> privileged helper receives a narrow typed operation
-  -> write only the selected removable target
-  -> read back and verify
-  -> return structured receipt
-```
-
-The helper must reject ambiguous disk identity, internal-system disks, unsigned/unverified OrdaX artifacts, and operations outside its allowlist.
-
-The Surface never receives raw privileged handles.
+Escrita física continua exigindo seleção explícita do alvo, revalidação de identidade, consentimento e gates dos contratos de mídia. A Surface nunca recebe handles privilegiados.
 
 ## Update separation
 
-Two update channels exist and must never be conflated:
-
 ```text
 OrdaX Desktop application
-  -> signed desktop-app updater
+  -> canal Desktop/NSIS
 
 OrdaX bootable/native system
-  -> verified OrdaX release acquisition/activation
+  -> release/update canônico do OS
+
+OrdaX Creator
+  -> consome mídia verificada e executa preparação autorizada
 ```
 
-Updating the Windows application must not silently write a USB or alter the host boot configuration. Downloading an OrdaX OS release must not silently install it to an internal disk.
+Um canal não deve atualizar silenciosamente o outro.
 
 ## Shared Surface invariant
 
-Desktop-specific code may provide capabilities and host chrome integration, but must not recreate:
+Código desktop específico fornece capabilities e integração de host, mas não recria UI, Settings, Account, Store, apps ou design tokens. A apresentação visual pertence ao `ordax-surface`; serviços, composição e contratos permanecem no OS.
 
-- desktop UI;
-- window manager UI;
-- settings UI;
-- first-party apps;
-- design tokens;
-- account/product behavior.
+## Implementação vigente
 
-Those remain in the shared `system/surface/`, `system/apps/` and `system/services/` trees.
+O host Windows canônico é o Electron/NSIS de `ordaxsystems/ordax-desktop`. Referências históricas a Tauri ou a um shell Windows ainda “pendente” não representam a arquitetura atual. Framework do host não é contrato público; a fronteira está nos ports/capabilities e na composição verificável.
 
-## Implementation baseline
-
-A thin webview/native shell architecture is preferred because it can consume the same shared Surface directly while keeping privileged code behind a native boundary. Tauri is the current leading implementation candidate for the Windows-first shell, but framework choice is not an architectural invariant and must remain replaceable.
-
-No private signing key, device private key, access token or release-authority secret belongs in this directory or in a shipped client bundle.
+Nenhuma chave privada, device private key, token ou segredo de release pertence a este diretório ou a bundle de cliente.
