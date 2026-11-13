@@ -214,6 +214,19 @@ class NativeComponentPendingDecisionOwnerTests(unittest.TestCase):
         )
         return lifecycle_owner.execute(plan)
 
+    def pending_resolution(self, *, health="healthy", **overrides):
+        value = {
+            "source": "slot",
+            "version": "0.4.1",
+            "source_commit": "a" * 40,
+            "revision": 8,
+            "pending_health": health,
+            "release_mode": "component-slot",
+            "health_mode": "runtime",
+        }
+        value.update(overrides)
+        return types.SimpleNamespace(**value)
+
     def test_generated_owner_gates_match_canonical_fail_closed_policy(self):
         policy = json.loads(
             (ROOT / "docs/contracts/runtime-component-package.json").read_text(encoding="utf-8")
@@ -325,12 +338,22 @@ class NativeComponentPendingDecisionOwnerTests(unittest.TestCase):
         )
         applied = types.SimpleNamespace(action="reject", revision=9)
         with mock.patch.object(owner, "NATIVE_PENDING_DECISION_EXECUTION_ENABLED", True), mock.patch.object(
+            owner, "resolve_component_slot", return_value=self.pending_resolution(health="failed")
+        ) as resolve, mock.patch.object(
             owner, "reject_component_pending", return_value=applied
         ) as reject:
             result = self.execute(plan)
         self.assertEqual(result.state, "applied")
         self.assertTrue(result.mutated)
         self.assertEqual(result.revision, 9)
+        resolve.assert_called_once_with(
+            helper_path="/signed/bin/helper",
+            trust_path="/signed/trust.json",
+            component_id="notes",
+            state="pending",
+            slot_root="/var/lib/ordax/components",
+            timeout_seconds=3.0,
+        )
         reject.assert_called_once_with(
             helper_path="/signed/bin/helper",
             component_id="notes",
@@ -351,6 +374,8 @@ class NativeComponentPendingDecisionOwnerTests(unittest.TestCase):
         ), mock.patch.object(
             owner, "NATIVE_PENDING_HEALTH_PROMOTION_AVAILABLE", True
         ), mock.patch.object(
+            owner, "resolve_component_slot", return_value=self.pending_resolution()
+        ), mock.patch.object(
             owner, "promote_component_pending", return_value=applied
         ) as promote:
             result = self.execute(plan)
@@ -367,6 +392,46 @@ class NativeComponentPendingDecisionOwnerTests(unittest.TestCase):
             slot_root="/var/lib/ordax/components",
             timeout_seconds=3.0,
         )
+
+    def test_future_mutation_rejects_signed_pending_identity_or_health_drift(self):
+        cases = [
+            self.pending_resolution(version="0.4.2"),
+            self.pending_resolution(source_commit="b" * 40),
+            self.pending_resolution(revision=9),
+            self.pending_resolution(health="failed"),
+        ]
+        plan = self.plan(action="promote", reason="eligible-for-promotion")
+        with mock.patch.object(owner, "NATIVE_PENDING_DECISION_EXECUTION_ENABLED", True), mock.patch.object(
+            owner, "NATIVE_CANONICAL_COMPONENT_TRUST_ANCHOR_PINNED", True
+        ), mock.patch.object(owner, "NATIVE_SLOT_ACTIVATION_AVAILABLE", True), mock.patch.object(
+            owner, "NATIVE_PENDING_HEALTH_PROMOTION_AVAILABLE", True
+        ), mock.patch.object(owner, "promote_component_pending") as promote:
+            for resolution in cases:
+                with self.subTest(resolution=resolution), mock.patch.object(
+                    owner, "resolve_component_slot", return_value=resolution
+                ):
+                    with self.assertRaises(owner.ComponentPendingDecisionOwnerError):
+                        self.execute(plan)
+        promote.assert_not_called()
+
+    def test_future_promotion_rejects_signed_non_runtime_lifecycle_metadata(self):
+        plan = self.plan(action="promote", reason="eligible-for-promotion")
+        cases = [
+            self.pending_resolution(release_mode="git-app"),
+            self.pending_resolution(health_mode="none"),
+        ]
+        with mock.patch.object(owner, "NATIVE_PENDING_DECISION_EXECUTION_ENABLED", True), mock.patch.object(
+            owner, "NATIVE_CANONICAL_COMPONENT_TRUST_ANCHOR_PINNED", True
+        ), mock.patch.object(owner, "NATIVE_SLOT_ACTIVATION_AVAILABLE", True), mock.patch.object(
+            owner, "NATIVE_PENDING_HEALTH_PROMOTION_AVAILABLE", True
+        ), mock.patch.object(owner, "promote_component_pending") as promote:
+            for resolution in cases:
+                with self.subTest(resolution=resolution), mock.patch.object(
+                    owner, "resolve_component_slot", return_value=resolution
+                ):
+                    with self.assertRaises(owner.ComponentPendingDecisionOwnerError):
+                        self.execute(plan)
+        promote.assert_not_called()
 
     def test_malformed_or_unsupported_owner_plan_never_reaches_adapter(self):
         cases = [
