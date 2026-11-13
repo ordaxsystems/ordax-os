@@ -2,7 +2,7 @@
 
 Status: CANONICAL FOR PROTOTYPE
 
-**Current-main vs target architecture (13/11/2026):** this document describes the bootstrap contract that is still materialized by current `main`. Some Owner/Development and Stable runtime paths in `main` still reference Alpine/APK as legacy implementation detail. The Buildroot/Alpine-free cutover is owned by the existing OS #2243 migration and is not considered integrated until its branch is merged and the canonical contracts/locks change. Do not refresh isolated APK pins, create a parallel migration, or infer the long-term architecture from the legacy package manager. After #2243 closes, reconcile this file against the new contracts instead of preserving both paths.
+**Current-main vs target architecture (13/11/2026):** PR #2243 is integrated. Owner/Development and Stable Base production now use the canonical Buildroot/musl owner; the retired Alpine/APK builders and dynamic package-manager path must not be restored. This document still distinguishes transitional physical layouts from the durable Portable v2 target, and none of those source changes alone authorizes Stable promotion or physical USB writes.
 
 ## Goal
 
@@ -96,13 +96,13 @@ Owner/development Git-first base:
   network tools
   CA certificates
   Git
-  apk client + Alpine trust keys   # signed runtime acquisition only
+  no runtime package manager       # Buildroot/musl payload is immutable
 
 /workspace/ordax/           # created at runtime, persistent, not preseeded
 /state/ordax/               # Git state + replaceable runtimes after switch_root
 ```
 
-The apk client is not permission to turn the base into a normal package-managed desktop. Pulled `system/` code may use it to materialize versioned, replaceable runtime roots under `/state`; Cage/Cog/Mesa and other high-level product/runtime packages remain outside the fixed seed.
+The Owner/Development base is not package-managed at runtime. Replaceable Surface/Intelligence/app payloads enter through their verified source locks, signed/component channels or the existing Supervisor transaction; the Base itself does not acquire Alpine/APK packages after boot.
 
 Canonical signed-release base:
 
