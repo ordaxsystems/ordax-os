@@ -242,7 +242,7 @@ Ficam proibidos como solução rápida:
 - cloud computer como requisito do MVP;
 - copiar arquitetura externa inteira para dentro do OrdaX.
 
-## 8. Ordem de execução a partir do estado atual
+## 8. Ordem de execução proposta naquele checkpoint — DEFERRED
 
 ```text
 1. concluir owner Native + migração segura do estado do Personal
@@ -259,7 +259,7 @@ Ficam proibidos como solução rápida:
 12. adicionar browser/computer sandbox e placement híbrido depois
 ```
 
-Cada passo deve ser pequeno, testável e reversível sem quebrar o contrato anterior.
+Esta sequência é **referência de desenho**, não fila vigente. Se uma fatia for promovida por um owner/MVP atual, o passo executado deve ser pequeno, testável e reversível sem quebrar o contrato anterior.
 
 ## 9. Critérios para promoção
 
