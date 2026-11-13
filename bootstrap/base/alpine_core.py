@@ -53,9 +53,6 @@ WIFI_MODULE_BASENAMES = {
     "mt76x2u",
     "ath9k_htc",
 }
-# Compatibility alias for existing owner/development consumers.
-DEV_MODULE_BASENAMES = WIFI_MODULE_BASENAMES
-
 
 class BuildError(RuntimeError):
     pass
@@ -509,7 +506,7 @@ def select_module_members(
 def select_dev_module_members(archive: tarfile.TarFile) -> list[tarfile.TarInfo]:
     return select_module_members(
         archive,
-        DEV_MODULE_BASENAMES,
+        WIFI_MODULE_BASENAMES,
         log_prefix="ORDAX_DEV_BASE",
     )
 
