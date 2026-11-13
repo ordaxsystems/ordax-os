@@ -63,6 +63,7 @@ on:
       - 'tests/test_portable_component_cache.py'
       - 'tests/test_portable_component_reuse_workflow.py'
       - 'tools/ci/portable_component_cache.py'
+      - 'tools/ci/independent_surface_github_artifact.sh'
       - 'tools/ci/portable_qemu_impact.py'
       - 'tests/test_portable_qemu_impact.py'
       - '.github/workflows/portable-v2-qemu-boot-proof.yml'
@@ -128,6 +129,7 @@ on:
       - 'tests/test_portable_component_cache.py'
       - 'tests/test_portable_component_reuse_workflow.py'
       - 'tools/ci/portable_component_cache.py'
+      - 'tools/ci/independent_surface_github_artifact.sh'
       - 'tools/ci/portable_qemu_impact.py'
       - 'tests/test_portable_qemu_impact.py'
       - '.github/workflows/portable-v2-qemu-boot-proof.yml'
@@ -328,11 +330,23 @@ jobs:
           ORDAX_SOURCE_COMMIT: ${{ github.event.pull_request.head.sha || github.sha }}
         run: bash tools/ci/independent_surface_r2.sh restore
 
+      - name: Restore verified canonical Surface from GitHub producer artifact for QEMU
+        if: ${{ (inputs.surface_source || 'stable') == 'stable' && steps.surface-artifact-cache.outputs.cache-hit != 'true' && steps.surface-r2.outputs.hit != 'true' }}
+        id: surface-github-artifact
+        env:
+          GH_TOKEN: ${{ github.token }}
+          ORDAX_SOURCE_COMMIT: ${{ github.event.pull_request.head.sha || github.sha }}
+          ORDAX_PRODUCER_BRANCH: ${{ github.head_ref || github.ref_name }}
+        run: |
+          bash tools/ci/independent_surface_github_artifact.sh \
+            "$RUNNER_TEMP/ordax-independent-surface" "$ORDAX_SOURCE_COMMIT" \
+            "$ORDAX_PRODUCER_BRANCH" "$GITHUB_OUTPUT"
+
       # The canonical EROFS is a mandatory external input to the signed proof.
       # Fail before external Intelligence checkout, Go setup, or broad apt
       # installation when the producer has not published a verified artifact.
       - name: Install minimal Surface EROFS verification tool
-        if: ${{ (inputs.surface_source || 'stable') == 'stable' && (steps.surface-artifact-cache.outputs.cache-hit == 'true' || steps.surface-r2.outputs.hit == 'true') }}
+        if: ${{ (inputs.surface_source || 'stable') == 'stable' && (steps.surface-artifact-cache.outputs.cache-hit == 'true' || steps.surface-r2.outputs.hit == 'true' || steps.surface-github-artifact.outputs.hit == 'true') }}
         run: |
           set -euo pipefail
           sudo apt-get update
@@ -345,7 +359,8 @@ jobs:
         run: |
           set -euo pipefail
           if [ '${{ steps.surface-artifact-cache.outputs.cache-hit }}' != true ] &&
-             [ '${{ steps.surface-r2.outputs.hit }}' != true ]; then
+             [ '${{ steps.surface-r2.outputs.hit }}' != true ] &&
+             [ '${{ steps.surface-github-artifact.outputs.hit }}' != true ]; then
             echo '::error::Verified canonical Surface EROFS unavailable; run the Independent Surface/Creator producer before QEMU. Never compile Surface inside the QEMU consumer.'
             exit 1
           fi

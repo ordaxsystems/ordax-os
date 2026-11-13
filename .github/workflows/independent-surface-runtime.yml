@@ -19,6 +19,7 @@ on:
       - 'tools/ci/independent_surface_impact.py'
       - 'tools/ci/independent_surface_component_cache.py'
       - 'tools/ci/independent_surface_r2.sh'
+      - 'tools/ci/independent_surface_github_artifact.sh'
       - 'tests/test_owner_surface_cache_contract.py'
       - 'tools/ci/independent_surface_cutover_audit.py'
       - '.github/workflows/independent-surface-runtime.yml'
@@ -258,8 +259,20 @@ jobs:
           ORDAX_SURFACE_FINGERPRINT: ${{ steps.surface-artifact-fingerprint.outputs.fingerprint }}
           ORDAX_SOURCE_COMMIT: ${{ github.event.pull_request.head.sha || github.sha }}
         run: bash tools/ci/independent_surface_r2.sh restore
-      - name: Require persistent producer on verified Surface artifact miss
+      - name: Restore verified Independent Surface from canonical GitHub producer artifact
+        id: surface-github-artifact
         if: steps.surface-artifact-cache.outputs.cache-hit != 'true' && steps.surface-r2.outputs.hit != 'true'
+        env:
+          GH_TOKEN: ${{ github.token }}
+          ORDAX_SOURCE_COMMIT: ${{ github.event.pull_request.head.sha || github.sha }}
+          ORDAX_PRODUCER_BRANCH: ${{ github.head_ref || github.ref_name }}
+        run: |
+          bash tools/ci/independent_surface_github_artifact.sh \
+            "$RUNNER_TEMP/ordax-independent-surface" "$ORDAX_SOURCE_COMMIT" \
+            "$ORDAX_PRODUCER_BRANCH" "$GITHUB_OUTPUT"
+
+      - name: Require persistent producer on verified Surface artifact miss
+        if: steps.surface-artifact-cache.outputs.cache-hit != 'true' && steps.surface-r2.outputs.hit != 'true' && steps.surface-github-artifact.outputs.hit != 'true'
         run: |
           set -euo pipefail
           if [ -z "${ORDAX_SURFACE_PERSISTENT_WORK_ROOT:-}" ] || [ -z "${ORDAX_SURFACE_BUILD_WORK_ROOT:-}" ]; then
@@ -273,14 +286,14 @@ jobs:
           sudo apt-get install -y --no-install-recommends erofs-utils util-linux
 
       - name: Install full Surface Buildroot host dependencies on durable artifact miss
-        if: steps.surface-artifact-cache.outputs.cache-hit != 'true' && steps.surface-r2.outputs.hit != 'true'
+        if: steps.surface-artifact-cache.outputs.cache-hit != 'true' && steps.surface-r2.outputs.hit != 'true' && steps.surface-github-artifact.outputs.hit != 'true'
         run: |
           sudo apt-get install -y --no-install-recommends \
             build-essential bc perl bison flex gawk cpio unzip rsync file \
             wget curl patch git xz-utils
 
       - name: Restore exact Surface compiler cache on durable artifact miss
-        if: steps.surface-artifact-cache.outputs.cache-hit != 'true' && steps.surface-r2.outputs.hit != 'true' && env.ORDAX_SURFACE_PERSISTENT_WORK_ROOT == ''
+        if: steps.surface-artifact-cache.outputs.cache-hit != 'true' && steps.surface-r2.outputs.hit != 'true' && steps.surface-github-artifact.outputs.hit != 'true' && env.ORDAX_SURFACE_PERSISTENT_WORK_ROOT == ''
         id: surface-ccache
         uses: actions/cache/restore@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
         with:
@@ -292,7 +305,7 @@ jobs:
             ordax-independent-surface-ccache-v1-${{ runner.os }}-${{ runner.arch }}-
 
       - name: Restore Surface Buildroot source downloads on durable artifact miss
-        if: steps.surface-artifact-cache.outputs.cache-hit != 'true' && steps.surface-r2.outputs.hit != 'true' && env.ORDAX_SURFACE_PERSISTENT_WORK_ROOT == ''
+        if: steps.surface-artifact-cache.outputs.cache-hit != 'true' && steps.surface-r2.outputs.hit != 'true' && steps.surface-github-artifact.outputs.hit != 'true' && env.ORDAX_SURFACE_PERSISTENT_WORK_ROOT == ''
         id: surface-download-cache
         uses: actions/cache/restore@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
         with:
@@ -302,7 +315,7 @@ jobs:
             ordax-independent-surface-dl-v1-${{ runner.os }}-${{ runner.arch }}-
 
       - name: Bind Buildroot toolchain headers to canonical OrdaX kernel SSOT
-        if: steps.surface-artifact-cache.outputs.cache-hit != 'true' && steps.surface-r2.outputs.hit != 'true'
+        if: steps.surface-artifact-cache.outputs.cache-hit != 'true' && steps.surface-r2.outputs.hit != 'true' && steps.surface-github-artifact.outputs.hit != 'true'
         run: |
           python3 bootstrap/surface-runtime/prepare_config.py materialize \
             --out bootstrap/surface-runtime/configs/ordax_surface_defconfig
@@ -313,13 +326,13 @@ jobs:
             bootstrap/surface-runtime/configs/ordax_surface_defconfig
 
       - name: Resolve exact Kconfig before expensive graphical build
-        if: steps.surface-artifact-cache.outputs.cache-hit != 'true' && steps.surface-r2.outputs.hit != 'true'
+        if: steps.surface-artifact-cache.outputs.cache-hit != 'true' && steps.surface-r2.outputs.hit != 'true' && steps.surface-github-artifact.outputs.hit != 'true'
         run: |
           python3 bootstrap/surface-runtime/prepare_config.py preflight \
             --cache "${BR2_DL_DIR:?}"
 
       - name: Build Buildroot/musl Surface runtime on durable artifact miss
-        if: steps.surface-artifact-cache.outputs.cache-hit != 'true' && steps.surface-r2.outputs.hit != 'true'
+        if: steps.surface-artifact-cache.outputs.cache-hit != 'true' && steps.surface-r2.outputs.hit != 'true' && steps.surface-github-artifact.outputs.hit != 'true'
         env:
           ORDAX_SOURCE_COMMIT: ${{ github.event.pull_request.head.sha || github.sha }}
           # BR2_CCACHE_DIR and BR2_DL_DIR are resolved once, identically
@@ -358,13 +371,13 @@ jobs:
             --out "$RUNNER_TEMP/ordax-independent-surface"
 
       - name: Restore immutable Surface source defconfig before cache identity record
-        if: steps.surface-artifact-cache.outputs.cache-hit != 'true' && steps.surface-r2.outputs.hit != 'true'
+        if: steps.surface-artifact-cache.outputs.cache-hit != 'true' && steps.surface-r2.outputs.hit != 'true' && steps.surface-github-artifact.outputs.hit != 'true'
         run: |
           git checkout -- bootstrap/surface-runtime/configs/ordax_surface_defconfig
           git diff --exit-code -- bootstrap/surface-runtime/configs/ordax_surface_defconfig
 
       - name: Record fresh Independent Surface component cache
-        if: steps.surface-artifact-cache.outputs.cache-hit != 'true' && steps.surface-r2.outputs.hit != 'true'
+        if: steps.surface-artifact-cache.outputs.cache-hit != 'true' && steps.surface-r2.outputs.hit != 'true' && steps.surface-github-artifact.outputs.hit != 'true'
         env:
           ORDAX_SOURCE_COMMIT: ${{ github.event.pull_request.head.sha || github.sha }}
         run: |
@@ -377,7 +390,7 @@ jobs:
           ORDAX_SOURCE_COMMIT: ${{ github.event.pull_request.head.sha || github.sha }}
         run: |
           reused=false
-          if [ '${{ steps.surface-artifact-cache.outputs.cache-hit }}' = true ] || [ '${{ steps.surface-r2.outputs.hit }}' = true ]; then
+          if [ '${{ steps.surface-artifact-cache.outputs.cache-hit }}' = true ] || [ '${{ steps.surface-r2.outputs.hit }}' = true ] || [ '${{ steps.surface-github-artifact.outputs.hit }}' = true ]; then
             reused=true
           fi
           python3 tools/ci/independent_surface_component_cache.py verify \
@@ -395,6 +408,9 @@ jobs:
             reused=true
           elif [ '${{ steps.surface-r2.outputs.hit }}' = true ]; then
             source=r2
+            reused=true
+          elif [ '${{ steps.surface-github-artifact.outputs.hit }}' = true ]; then
+            source=github-artifact
             reused=true
           else
             source=fresh-build
