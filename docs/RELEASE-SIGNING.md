@@ -7,6 +7,8 @@ histórica imutável** emitida no proprietário `washingtonmsdj`; não é mais u
 solicitação operacional. Seu Git blob é fixado e validado pelo seletor do
 workflow. Ele jamais deve ser reescrito para simular uma assinatura atual.
 
+O procedimento para montar/validar um novo pedido público está em [`docs/CANONICAL-V4-PUBLIC-SIGNING-REQUEST.md`](CANONICAL-V4-PUBLIC-SIGNING-REQUEST.md). Esse documento é runbook operacional do request; este arquivo continua sendo o owner das regras de assinatura e fronteira de chave.
+
 A única solicitação ativa elegível é
 `docs/contracts/canonical-v4-signing-request-active.json`, criada apenas
 depois de existirem três novos runs manuais e seus artifacts imutáveis para
