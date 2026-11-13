@@ -156,9 +156,9 @@ class MvpSurfaceSmokeTests(unittest.TestCase):
             "boot_id": boot_id,
             "evidence_context": {
                 "distribution_profile": "owner-development",
-                "runtime_mode": "dynamic-native-runtime",
+                "runtime_mode": "verified-erofs-overlay",
                 "evidence_scope": "development",
-                "runtime_sha256": None,
+                "runtime_sha256": "c" * 64,
             },
             "source": {
                 "files": {
@@ -217,7 +217,7 @@ class MvpSurfaceSmokeTests(unittest.TestCase):
         self.assertEqual(report["observed"]["file_space_root"]["entry_count"], 2)
         self.assertEqual(report["observed"]["network_status"]["interface_count"], 2)
         self.assertEqual(report["evidence_context"]["evidence_scope"], "development")
-        self.assertIsNone(report["evidence_context"]["runtime_sha256"])
+        self.assertEqual(report["evidence_context"]["runtime_sha256"], "c" * 64)
         self.assertEqual(
             report["observed"]["preference_theme_witness"],
             {"preference_id": "appearance.theme", "expected_theme": "dark", "matched": True},
@@ -303,15 +303,22 @@ class MvpSurfaceSmokeTests(unittest.TestCase):
             })
 
     def test_evidence_context_requires_exact_profile_mode_scope_and_digest(self):
-        self.assertEqual(
-            proof.evidence_context_from_environment(),
-            {
-                "distribution_profile": "owner-development",
-                "runtime_mode": "dynamic-native-runtime",
-                "evidence_scope": "development",
-                "runtime_sha256": None,
-            },
-        )
+        owner = {
+            "ORDAX_PROOF_PROFILE": "owner-development",
+            "ORDAX_PROOF_RUNTIME_MODE": "verified-erofs-overlay",
+            "ORDAX_PROOF_EVIDENCE_SCOPE": "development",
+            "ORDAX_PROOF_RUNTIME_SHA256": "a" * 64,
+        }
+        with mock.patch.dict("os.environ", owner, clear=False):
+            self.assertEqual(
+                proof.evidence_context_from_environment(),
+                {
+                    "distribution_profile": "owner-development",
+                    "runtime_mode": "verified-erofs-overlay",
+                    "evidence_scope": "development",
+                    "runtime_sha256": "a" * 64,
+                },
+            )
 
         with mock.patch.dict(
             "os.environ",
@@ -331,9 +338,9 @@ class MvpSurfaceSmokeTests(unittest.TestCase):
         with mock.patch.dict(
             "os.environ",
             {
-                "ORDAX_PROOF_PROFILE": "stable-mvp",
+                "ORDAX_PROOF_PROFILE": "owner-development",
                 "ORDAX_PROOF_RUNTIME_MODE": "dynamic-native-runtime",
-                "ORDAX_PROOF_EVIDENCE_SCOPE": "canonical-stable-mvp",
+                "ORDAX_PROOF_EVIDENCE_SCOPE": "development",
                 "ORDAX_PROOF_RUNTIME_SHA256": "c" * 64,
             },
             clear=False,
@@ -593,10 +600,10 @@ class MvpSurfaceSmokeTests(unittest.TestCase):
         self.assertIn('busybox chroot "$RUNTIME_ROOT"', text)
         self.assertIn("/run/ordax-surface/runtime-proof-context", resolver)
         self.assertIn("/run/ordax/runtime/native-surface/rootfs", resolver)
-        self.assertIn("alpine-v3.22-cage-webkitgtk-v1", resolver)
+        self.assertNotIn("alpine-v3.22-cage-webkitgtk-v1", resolver)
         self.assertIn("verified-erofs-overlay", resolver)
         self.assertIn("canonical-stable-mvp", resolver)
-        self.assertIn("dynamic-native-runtime", resolver)
+        self.assertNotIn("dynamic-native-runtime", resolver)
         self.assertIn("development", resolver)
         self.assertNotIn('if [ -x "$stable_root/usr/bin/python3" ]', resolver)
         self.assertNotIn("apk add", text + resolver)
