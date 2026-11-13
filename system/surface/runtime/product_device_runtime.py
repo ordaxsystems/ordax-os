@@ -275,6 +275,39 @@ class ProductDeviceAccountGatewayProxy:
                 enabled, self._device_profile_reader(), subject=self._subject,
             )
 
+    def reconcile_device_profile(self, device_profile: dict) -> None:
+        """Re-enroll the same machine binding after a durable local rename.
+
+        Never infer account authority from the HTTP request. Require the
+        previously observed subject and a fresh signed/validated session.
+        """
+        with self._session_lock:
+            subject = self._subject
+            if not self._authenticated or subject is None:
+                return
+            try:
+                reply = self._gateway.session()
+                payload = verified_account_session_reply(reply, allow_anonymous=True)
+            except (NativeAccountGatewayError, OSError, UnicodeError, ValueError, TypeError, AttributeError):
+                self._clear_session()
+                return
+            if (payload.get("authenticated") is not True
+                    or payload.get("subject") != subject
+                    or not UUID_RE.fullmatch(subject)):
+                self._clear_session()
+                return
+            try:
+                result = self._coordinator.after_authenticated_login(device_profile, subject=subject)
+                if result.status == "enrolled":
+                    self._enrolled_subject = subject
+                    return
+            except (OSError, RuntimeError, UnicodeError, ValueError, TypeError, AttributeError):
+                pass
+            # Retain the existing bounded retry via ordinary session polls;
+            # the local rename is already durable and remains successful.
+            self._enrolled_subject = None
+            self._next_enrollment_attempt = time.monotonic() + 60.0
+
     def close_product_presence(self) -> None:
         with self._session_lock:
             self._coordinator.stop_presence(wait=True)
