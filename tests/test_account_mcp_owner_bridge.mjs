@@ -184,6 +184,12 @@ test("Owner central preflight projects Platform eligibility and tickets without 
     attested:false,dispatch_authorized:false};
   assert.equal((await readAccountOwnerCentralTargets(access,client,
     transport([targets]))).targets[0].device_id,device);
+  const offlineProjection=await readAccountOwnerCentralTargets(access,client,
+    transport([{...targets,targets:[{...targets.targets[0],reported_online:false,
+      runtime_ready:false}]}]));
+  assert.equal(offlineProjection.targets[0].device_id,device);
+  assert.equal(offlineProjection.targets[0].reported_online,false,
+    "offline is availability only; it must not rewrite the Owner target");
   assert.equal((await readAccountOwnerCentralSelections(access,client,
     transport([waiting]))).pending_selections[0].challenge_id,ticket);
   const input={client_id:client,device_id:device,challenge_id:ticket,confirm:"selecionar"};
@@ -206,6 +212,10 @@ test("Owner central preflight projects Platform eligibility and tickets without 
     "https://mcp.ordax.com.br/v3/owner/central-session-selections");
   assert.deepEqual(JSON.parse(calls[2].options.body),{client_id:client,
     challenge_id:ticket,device_id:device});
+  const ownerSource=readFileSync(new URL("../infra/supabase/functions/_shared/account_mcp_owner.mjs",import.meta.url),"utf8");
+  assert.match(ownerSource,/Only a pending Owner challenge is time-bounded/);
+  assert.match(ownerSource,/binding is persistent Platform state/);
+  assert.doesNotMatch(ownerSource,/sliding lease|30-minute|heartbeat.*renew/i);
 });
 
 test("Owner central selection refuses ambiguous, expired, wrong target and unverifiable POST",async()=>{
