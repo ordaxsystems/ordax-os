@@ -11,14 +11,13 @@ This inventory exists to make later license and source-compliance work determini
 `platform/compliance/declared-inputs.json` records source-controlled third-party selections, including:
 
 - the pinned Linux kernel source archive from `bootstrap/kernel/source.json`;
-- the Alpine development and Stable candidate bases plus their explicitly requested packages;
-- the experimental Independent Base source owner at `bootstrap/independent-base/source.json`;
-- the replaceable native Surface runtime package request;
+- the independent Buildroot/musl Base source owner at `bootstrap/independent-base/source.json`;
+- the Buildroot/musl native Surface runtime source contract at `bootstrap/surface-runtime/source.json`;
 - other source candidates that already participate in pre-release compliance preparation.
 
-The Independent Base entry deliberately does not duplicate Buildroot package versions. Its pinned Buildroot archive and `build_profile` remain owned by `bootstrap/independent-base/source.json`, while the selected package graph is owned by `bootstrap/independent-base/configs/ordax_minimal_defconfig`. The focused compliance test proves that the profile selects `iproute2`; the build provenance/receipt resolves the actual package version. Final package/license closure still comes from shipped bytes, not this declared-input inventory.
+The Independent Base entry deliberately does not duplicate Buildroot package versions. Its pinned Buildroot archive and `build_profile` remain owned by `bootstrap/independent-base/source.json`, while the selected package graph is owned by the Buildroot configs. The focused compliance test proves selected capabilities while build provenance/receipts resolve actual package versions. Final package/license closure still comes from shipped bytes, not this declared-input inventory.
 
-The Alpine owner/development base records `zstd` as build-only because it is pruned after image assembly.
+Retired Alpine Development/Stable inputs are intentionally absent from the machine-readable inventory. Reintroducing an Alpine/APK source or package resolver would be a new third-party input and must fail the existing retirement gates rather than being treated as compatibility.
 
 ## What this is not
 
