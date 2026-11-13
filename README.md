@@ -37,7 +37,7 @@ Prioridades operacionais não são fixadas neste README. Consulte `MVP.md`, `doc
 
 Os planos antigos da raiz permanecem temporariamente nos caminhos atuais porque ainda possuem referências vivas. Eles são subordinados a `docs/README.md`, `docs/CURRENT-STATE.md`, `MVP.md`, contratos, ADRs e owners canônicos.
 
-- [PLANO-FUNCIONAL-SURFACE-E-APPS.md](PLANO-FUNCIONAL-SURFACE-E-APPS.md) é referência funcional acumulada da Surface/apps; não é `CURRENT-STATE` nem changelog canônico.
+- A antiga referência funcional acumulada de Surface/apps foi retirada da árvore ativa e permanece no [snapshot Git histórico](https://github.com/ordaxsystems/ordax-os/blob/3f304b05af33e40658025ff289523560b298153c/PLANO-FUNCIONAL-SURFACE-E-APPS.md); owners atuais estão em `ordax-surface`, `ordax-apps`, contratos e `docs/CURRENT-STATE.md`.
 - [`docs/SOURCE-MIGRATION.md`](docs/SOURCE-MIGRATION.md) é o ledger canônico de decisões de migração/reimplementação; a análise comparativa antiga foi retirada da árvore ativa e permanece no histórico Git.
 - [PLANO-03-FECHAMENTO-PRE-USB-NOVA-ORDAX.md](PLANO-03-FECHAMENTO-PRE-USB-NOVA-ORDAX.md) é baseline de auditoria cujo fechamento de source já foi concluído; gates vivos estão nos owners canônicos.
 - [docs/SPACES-AND-PROFILES.md](docs/SPACES-AND-PROFILES.md) é a autoridade única de experiência de Spaces e composição profissional; [docs/PROFILE-INTELLIGENCE-ARCHITECTURE.md](docs/PROFILE-INTELLIGENCE-ARCHITECTURE.md) governa conhecimento e Intelligence dos Profiles. O plano duplicado foi retirado do source após migrar seus consumidores.
