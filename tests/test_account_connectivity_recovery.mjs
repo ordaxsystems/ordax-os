@@ -74,6 +74,26 @@ test("concurrent observations never run two Account refreshes", async () => {
   assert.equal(await inFlight, true);
 });
 
+test("dispose during an in-flight refresh blocks every later recovery attempt", async () => {
+  let release;
+  let calls = 0;
+  const recovery = createAccountConnectivityRecovery({
+    readIdentityState: () => "unavailable",
+    refresh: async () => {
+      calls++;
+      await new Promise(resolve => { release = resolve; });
+    },
+  });
+  const inFlight = recovery.observe(connected);
+  recovery.dispose();
+  assert.equal(await recovery.observe(connected), false);
+  assert.equal(calls, 1);
+  release();
+  assert.equal(await inFlight, true);
+  assert.equal(await recovery.observe(connected), false);
+  assert.equal(calls, 1);
+});
+
 test("rejected gateway attempts remain fail-closed and can recover after interval", async () => {
   let now = 0;
   let fails = true;
