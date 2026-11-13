@@ -19,8 +19,8 @@ ROOT = Path(__file__).resolve().parents[2]
 AUDIT_PATH = Path(__file__).with_name("pre_usb_nova_ordax_audit.py")
 PROMOTION_PATH = Path(__file__).with_name("physical_promotion.py")
 AUTHORIZATION_PATH = Path("docs/contracts/physical-write-authorization.json")
-STATUS_SCHEMA = "prototype-ordax.stable-mvp-usb-readiness/1"
-HANDOFF_DOCUMENT = "docs/MVP-PRE-PHYSICAL-HANDOFF.md"
+STATUS_SCHEMA = "prototype-ordax.stable-mvp-usb-readiness/2"
+GATE_AUTHORITY_DOCUMENT = "docs/PROMOTION-GATES.md"
 PRE_PROOF_AUTHORIZATION_STATUS = "blocked-canonical-v4-release-proof-pending"
 
 POST_AUTHORIZATION_PHYSICAL_GATES = (
@@ -158,7 +158,7 @@ def evaluate(repo_root: Path) -> dict[str, Any]:
         "canonical_v4_release_source_commit": promotion_status.get("canonical_v4_release_source_commit"),
         "blockers": blockers,
         "remaining_gates": remaining_gates(stage),
-        "handoff_document": HANDOFF_DOCUMENT,
+        "gate_authority_document": GATE_AUTHORITY_DOCUMENT,
         "proof_boundaries": {
             "pre_usb_product_source": "pass" if source_ready else "blocked",
             "canonical_v4_release_candidate": release_boundary,
@@ -190,7 +190,7 @@ def main() -> int:
             "stage": "readiness-evaluation-failed",
             "blockers": ["readiness-evaluation-failed"],
             "remaining_gates": ["repair-readiness-evaluation"],
-            "handoff_document": HANDOFF_DOCUMENT,
+            "gate_authority_document": GATE_AUTHORITY_DOCUMENT,
             "error": str(exc),
             "physical_target_selected": False,
             "writer_invoked": False,
