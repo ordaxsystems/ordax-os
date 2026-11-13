@@ -9,6 +9,10 @@ export const ACCOUNT_MCP_CENTRAL_TARGETS_PATH = "/account/mcp/central-targets";
 export const ACCOUNT_MCP_CENTRAL_SELECTIONS_PATH = "/account/mcp/central-selections";
 export const ACCOUNT_MCP_PROJECT_ONBOARDING_PATH = "/account/mcp/project-onboarding";
 export const ACCOUNT_MCP_PROJECTS_PATH = "/account/mcp/project-onboarding/projects";
+export const ACCOUNT_MCP_GITHUB_CHALLENGES_PATH = "/account/mcp/github/authorization-challenges";
+export const ACCOUNT_MCP_GITHUB_CALLBACK_PATH = "/account/mcp/github/callback";
+export const ACCOUNT_MCP_GITHUB_CANDIDATES_PATH = "/account/mcp/github/repository-candidates";
+export const ACCOUNT_MCP_GITHUB_SELECTIONS_PATH = "/account/mcp/github/repository-selections";
 export const OWNER_MCP_DEVICES_URL = "https://mcp.ordax.com.br/v3/owner/devices";
 const OWNER_MCP_AUTHORITY_URL = "https://mcp.ordax.com.br/v3/owner/remote-authority";
 const OWNER_MCP_GRANTS_URL = "https://mcp.ordax.com.br/v3/owner/remote-grant-groups";
@@ -16,6 +20,10 @@ const OWNER_CENTRAL_TARGETS_URL = "https://mcp.ordax.com.br/v3/owner/central-ses
 const OWNER_CENTRAL_SELECTIONS_URL = "https://mcp.ordax.com.br/v3/owner/central-session-selections";
 export const OWNER_PROJECT_ONBOARDING_URL = "https://mcp.ordax.com.br/v3/owner/project-onboarding";
 export const OWNER_PROJECTS_URL = OWNER_PROJECT_ONBOARDING_URL + "/projects";
+export const OWNER_GITHUB_CHALLENGES_URL = "https://mcp.ordax.com.br/v3/owner/github/authorization-challenges";
+export const OWNER_GITHUB_COMPLETIONS_URL = "https://mcp.ordax.com.br/v3/owner/github/authorization-completions";
+export const OWNER_GITHUB_CANDIDATES_URL = "https://mcp.ordax.com.br/v3/owner/github/repository-candidates";
+export const OWNER_GITHUB_SELECTIONS_URL = "https://mcp.ordax.com.br/v3/owner/github/repository-selections";
 const MAX_OWNER_BODY = 65536;
 const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/;
 const TOKEN = /^[A-Za-z0-9_.-]{16,16384}$/;
@@ -125,6 +133,45 @@ const PROJECT_NEXT_STATES = new Set([
 ]);
 const ROOT_PROJECT_STATES = new Set(["needs_space","needs_project"]);
 const REPOSITORY = /^[A-Za-z0-9-]+\/[A-Za-z0-9._-]+$/;
+const GITHUB_CALLBACK_URL = "https://ordax.com.br/account/mcp/github/callback";
+const GITHUB_STATE = /^([0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12})\.([A-Za-z0-9_-]{43})$/;
+const GITHUB_CODE = /^[^\s\u0000-\u001f\u007f]{8,1024}$/;
+const GITHUB_PROVIDER_ID = /^[1-9][0-9]{0,18}$/;
+const GITHUB_LOGIN = /^[A-Za-z0-9-]{1,100}$/;
+const GITHUB_CLIENT_ID = /^[A-Za-z0-9_.-]{8,160}$/;
+const GITHUB_INSTALL_URL = /^https:\/\/github\.com\/apps\/[A-Za-z0-9-]+\/installations\/new$/;
+const GITHUB_BIGINT_MAX = 9223372036854775807n;
+
+function isGithubProviderId(value) {
+  if (typeof value !== "string" || !GITHUB_PROVIDER_ID.test(value)) return false;
+  try { return BigInt(value) <= GITHUB_BIGINT_MAX; } catch { return false; }
+}
+
+function githubInstallUrl(value) {
+  return typeof value === "string" && value.length <= 512 && GITHUB_INSTALL_URL.test(value)
+    ? value : null;
+}
+
+function githubAuthorizationUrl(value, challengeId) {
+  if (typeof value !== "string" || value.length > 2048 || !isOwnerUuid(challengeId)) return null;
+  let url;
+  try { url = new URL(value); } catch { return null; }
+  if (url.origin !== "https://github.com" || url.pathname !== "/login/oauth/authorize"
+      || url.username || url.password || url.hash) return null;
+  const expected = ["allow_signup","client_id","code_challenge","code_challenge_method",
+    "prompt","redirect_uri","state"].sort().join(",");
+  if ([...url.searchParams.keys()].sort().join(",") !== expected) return null;
+  const state = url.searchParams.get("state") ?? "";
+  const stateMatch = GITHUB_STATE.exec(state);
+  if (!stateMatch || stateMatch[1] !== challengeId
+      || !GITHUB_CLIENT_ID.test(url.searchParams.get("client_id") ?? "")
+      || !/^[A-Za-z0-9_-]{43}$/.test(url.searchParams.get("code_challenge") ?? "")
+      || url.searchParams.get("code_challenge_method") !== "S256"
+      || url.searchParams.get("redirect_uri") !== GITHUB_CALLBACK_URL
+      || url.searchParams.get("allow_signup") !== "false"
+      || url.searchParams.get("prompt") !== "select_account") return null;
+  return url.toString();
+}
 
 export function validateAccountOwnerProjectOnboarding(value, requestedDeviceId) {
   if (!isRecord(value) || value.ok !== true || value.device_id !== requestedDeviceId
@@ -200,6 +247,118 @@ export async function createAccountOwnerProject(access, raw, fetcher=fetch) {
     throw new Error("mcp-owner-project-create-unconfirmed");
   return {ok:true,schema:"ordax.owner-project-created/1",project_id:value.project_id,
     space_id:value.space_id,state:"active",next_state:"needs_github_installation"};
+}
+
+export function parseAccountOwnerGithubAuthorizationStart(value) {
+  if (!isRecord(value)
+      || Object.keys(value).sort().join(",") !== "confirm,project_id"
+      || !isOwnerUuid(value.project_id) || value.confirm !== "connect_github") return null;
+  return {project_id:value.project_id,confirm:"connect_github"};
+}
+
+export async function startAccountOwnerGithubAuthorization(access, raw, fetcher=fetch) {
+  const input=parseAccountOwnerGithubAuthorizationStart(raw);
+  if (!input) throw new Error("mcp-owner-github-start-invalid");
+  const value=await ownerRequest(access,OWNER_GITHUB_CHALLENGES_URL,"POST",fetcher,input,201);
+  if (!isRecord(value) || value.ok !== true || !isOwnerUuid(value.challenge_id)
+      || value.project_id !== input.project_id || !validDate(value.expires_at))
+    throw new Error("mcp-owner-github-start-unconfirmed");
+  const authorizationUrl=githubAuthorizationUrl(value.authorization_url,value.challenge_id);
+  const installUrl=githubInstallUrl(value.install_url);
+  if (!authorizationUrl || !installUrl)
+    throw new Error("mcp-owner-github-start-unconfirmed");
+  return {ok:true,schema:"ordax.owner-github-authorization-challenge/1",
+    challenge_id:value.challenge_id,project_id:value.project_id,
+    authorization_url:authorizationUrl,install_url:installUrl,expires_at:value.expires_at};
+}
+
+export function parseAccountOwnerGithubCallback(value) {
+  if (!isRecord(value) || Object.keys(value).sort().join(",") !== "code,state"
+      || typeof value.code !== "string" || !GITHUB_CODE.test(value.code)
+      || typeof value.state !== "string" || !GITHUB_STATE.test(value.state)) return null;
+  return {code:value.code,state:value.state};
+}
+
+export async function completeAccountOwnerGithubAuthorization(access, raw, fetcher=fetch) {
+  const input=parseAccountOwnerGithubCallback(raw);
+  if (!input) throw new Error("mcp-owner-github-callback-invalid");
+  const challengeId=GITHUB_STATE.exec(input.state)[1];
+  // OAuth code/state are one-shot. Never retry this POST after an uncertain response.
+  const value=await ownerRequest(access,OWNER_GITHUB_COMPLETIONS_URL,"POST",fetcher,input);
+  if (!isRecord(value) || value.ok !== true || value.challenge_id !== challengeId
+      || !isOwnerUuid(value.project_id) || !Number.isSafeInteger(value.candidate_count)
+      || value.candidate_count < 0 || value.candidate_count > 500
+      || value.next_state !== (value.candidate_count > 0
+        ? "needs_repository_selection" : "needs_github_installation")
+      || !validDate(value.expires_at)) throw new Error("mcp-owner-github-callback-unconfirmed");
+  const installUrl=githubInstallUrl(value.install_url);
+  if (!installUrl) throw new Error("mcp-owner-github-callback-unconfirmed");
+  return {ok:true,schema:"ordax.owner-github-authorization-completed/1",
+    challenge_id:challengeId,project_id:value.project_id,
+    candidate_count:value.candidate_count,next_state:value.next_state,
+    install_url:installUrl,expires_at:value.expires_at};
+}
+
+export async function readAccountOwnerGithubCandidates(access, challengeId, fetcher=fetch) {
+  if (!isOwnerUuid(challengeId)) throw new Error("mcp-owner-github-challenge-invalid");
+  const url=OWNER_GITHUB_CANDIDATES_URL+"?challenge_id="+challengeId;
+  const value=await ownerRequest(access,url,"GET",fetcher);
+  if (!isRecord(value) || value.ok !== true || value.challenge_id !== challengeId
+      || !isOwnerUuid(value.project_id) || !Array.isArray(value.repositories)
+      || value.repositories.length > 500 || !validDate(value.expires_at))
+    throw new Error("mcp-owner-github-candidates-invalid");
+  const ids=new Set(),repositories=[];
+  for(const item of value.repositories) {
+    if (!isRecord(item) || !isGithubProviderId(item.repository_id)
+        || ids.has(item.repository_id)
+        || typeof item.repository_full_name !== "string"
+        || item.repository_full_name.length > 200 || !REPOSITORY.test(item.repository_full_name)
+        || !(item.default_branch === null || (typeof item.default_branch === "string"
+          && item.default_branch.length >= 1 && item.default_branch.length <= 255
+          && !/[\u0000-\u001f\u007f]/.test(item.default_branch)))
+        || typeof item.installation_account_login !== "string"
+        || !GITHUB_LOGIN.test(item.installation_account_login)) {
+      throw new Error("mcp-owner-github-candidates-invalid");
+    }
+    ids.add(item.repository_id);
+    repositories.push({repository_id:item.repository_id,
+      repository_full_name:item.repository_full_name,default_branch:item.default_branch,
+      installation_account_login:item.installation_account_login});
+  }
+  return {ok:true,schema:"ordax.owner-github-repository-candidates/1",
+    challenge_id:challengeId,project_id:value.project_id,repositories,
+    expires_at:value.expires_at};
+}
+
+export function parseAccountOwnerGithubSelection(value) {
+  if (!isRecord(value)
+      || Object.keys(value).sort().join(",") !== "challenge_id,confirm,repository_id"
+      || !isOwnerUuid(value.challenge_id) || !isGithubProviderId(value.repository_id)
+      || value.confirm !== "select_repository") return null;
+  return {challenge_id:value.challenge_id,repository_id:value.repository_id,
+    confirm:"select_repository"};
+}
+
+export async function selectAccountOwnerGithubRepository(access, raw, fetcher=fetch) {
+  const input=parseAccountOwnerGithubSelection(raw);
+  if (!input) throw new Error("mcp-owner-github-selection-invalid");
+  const before=await readAccountOwnerGithubCandidates(access,input.challenge_id,fetcher);
+  const candidate=before.repositories.find(item=>item.repository_id===input.repository_id);
+  if (!candidate) throw new Error("mcp-owner-github-repository-not-verified");
+  // Exactly one mutation POST. Platform rechecks the private verified candidate atomically.
+  const value=await ownerRequest(access,OWNER_GITHUB_SELECTIONS_URL,"POST",fetcher,input);
+  if (!isRecord(value) || value.ok !== true || value.challenge_id !== input.challenge_id
+      || !isOwnerUuid(value.connection_id) || value.project_id !== before.project_id
+      || value.repository_id !== input.repository_id
+      || value.repository_full_name !== candidate.repository_full_name
+      || value.default_branch !== candidate.default_branch
+      || value.state !== "active" || value.next_state !== "needs_device_binding")
+    throw new Error("mcp-owner-github-selection-unconfirmed");
+  return {ok:true,schema:"ordax.owner-github-repository-selected/1",
+    challenge_id:input.challenge_id,connection_id:value.connection_id,
+    project_id:value.project_id,repository_id:value.repository_id,
+    repository_full_name:value.repository_full_name,default_branch:value.default_branch,
+    state:"active",next_state:"needs_device_binding"};
 }
 
 // These are projections of the existing Platform SQL results, not a second
