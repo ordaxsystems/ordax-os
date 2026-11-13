@@ -2,9 +2,9 @@
 
 - **Tipo:** PLAN / MVP FOUNDATION / CROSS-AGENT HANDOFF
 - **Status documental:** REFERENCE — roteiro/handoff de auditoria e consolidação, alinhado ao `REGISTRY.md`; não é fila paralela de implementação.
-- **Elegibilidade de execução:** EXECUTION-ELIGIBLE **somente** para defeitos reais, limpeza e integração exigidos pelos owners atuais do Desktop Windows/Web. USB/Creator/Buildroot/Native físico ficam DEFERRED até nova janela e autorização explícita; o plano não autoriza publicação ou escrita física.
-- **Prioridade:** P0 para integridade/SSOT, remoção de legado comprovado, contratos e Desktop Windows instalado; P1 para eficiência de integração/CI; USB/Native físico conforme janela posterior do `ROADMAP.md`.
-- **Criado:** 2026-10-23; **diretriz vigente revisada:** 2026-11-01.
+- **Elegibilidade de execução:** EXECUTION-ELIGIBLE **somente** para defeitos reais, limpeza e integração exigidos por owners/gates atuais. Nenhum owner é adiado apenas por pertencer a USB, Desktop, Surface, Apps ou Creator; publicação e escrita física continuam sujeitas a autorização própria.
+- **Prioridade:** integridade/SSOT e defeitos que bloqueiam jornadas reais; eficiência de integração/CI depois, sempre por impacto causal.
+- **Criado:** 2026-10-23; **sequenciamento Windows-first de 2026-11-01 superseded em 2026-11-13** pelo paralelismo por owner.
 - **Owner de execução:** `ordaxsystems/ordax-os` (consolidação transversal; NÃO se torna dono dos demais repositórios).
 - **Autoridades reais:** `AGENTS.md`, `docs/README.md`, `docs/CURRENT-STATE.md`, `MVP.md`, `docs/ARCHITECTURE.md`, `docs/PROMOTION-GATES.md`, `docs/DECISIONS.md`, `docs/contracts/repository-ownership.json`, contratos de boot/storage/atualização e respectivos arquivos-fonte.
 - **Planejamento:** `00-PLANOS-PRIORITARIOS/ROADMAP.md` e `REGISTRY.md`; `NATIVE-001` continua proprietário do plano de instalação whole-disk, sem duplicação.
@@ -13,7 +13,7 @@
 > **Handoff independente de conversa:** este é o roteiro persistente de execução; NÃO é novo SSOT de arquitetura, versões, bugs, grants, estado físico ou releases. Nunca presumir que o snapshot abaixo permanece atual. Nenhuma tarefa pode ser marcada concluída por edição, teste isolado ou PR aberta; exigir evidência no owner correto.
 
 
-## Diretriz vigente — 2026-11-01: remoção de pendências, zero legado artificial, Windows-first
+## Diretriz vigente — 2026-11-13: remoção de pendências, zero legado artificial, paralelismo por owner
 
 **Precedência:** `ROADMAP.md`, `REGISTRY.md`, `docs/CURRENT-STATE.md` e os contratos atuais vencem fotografias históricas abaixo. Este programa atualiza o handoff de consolidação, **não** cria outro SSOT, outro backlog ou uma nova autorização de release. A pesquisa pública comparou AOSP, GNOME, Linux/Buildroot, VS Code, Element, Bitwarden, discussões Reddit/Hacker News, Electron e práticas SLSA: a fronteira útil é ownership + contrato + build + release, não quantidade de repositórios.
 
@@ -144,8 +144,8 @@ Se o Desktop for essencialmente um wrapper em lock-step com a Surface, **repo se
 2. **Gate 1 — ownership:** oito repos reconciliados, imports proibidos bloqueados, contratos e documentação canônica alinhados.
 3. **Gate 2 — cutovers:** Intelligence e identidade/Platform sem duas implementações; cada PR termina com exclusão do legado e teste negativo.
 4. **Gate 3 — integração:** composição exata de artefatos/contratos e Desktop Windows instalado E2E, incluindo update/recovery.
-5. **Gate 4 — qualidade:** CI por impacto, supply chain, métricas e revisão de resíduos; reavaliar `ordax-desktop` com evidência.
-6. **Gate 5 — futuro:** só depois da janela Windows-first, retomar USB/Creator/Buildroot/Native com autorização própria.
+5. **Gate 4 — qualidade:** CI por impacto, supply chain, métricas e revisão de resíduos; reavaliar o canal afetado com evidência.
+6. **Gate 5 — físico quando aplicável:** USB/Creator/Buildroot/Native podem avançar em paralelo quando o owner/gate atual exigir; escrita física continua com autorização própria.
 
 **Definição de DONE por pendência:** owner correto; mudança na `main` após merge; implementação substituta exercitada por consumidor real; **implementação obsoleta e seus imports/scripts/tests/docs ativos removidos**; nenhum alias/fallback permanente; testes positivos, negativos e cross-repo verdes; release/rollback/segurança preservados; recibo com SHA/CI/evidência; `docs/CURRENT-STATE.md` e contrato atualizados quando cabível. Caso falte qualquer item, marcar `BLOCKED`/`NOT-PROVEN` com causa objetiva, não `DONE`.
 
