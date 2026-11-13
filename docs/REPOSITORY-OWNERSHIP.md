@@ -6,6 +6,8 @@ Status de migração: `cutover-complete-legacy-retired` conforme `docs/contracts
 
 Este documento define a divisão oficial de responsabilidade entre os repositórios first-party do ecossistema OrdaX. Ele existe para evitar ownership duplicado, migrações oportunistas e dependências acidentais entre app, sistema, runtime e infraestrutura remota.
 
+> **Nota sobre nomes do contrato:** em `docs/contracts/repository-ownership.json`, a chave interna `repositories.platform` representa a camada de plataforma/sistema do **`ordaxsystems/ordax-os`**; a chave `repositories.control_plane` representa o repositório **`ordaxsystems/ordax-platform`**. Esses IDs são nomes de papéis do schema, não nomes de repositório. Não inferir ownership pelo rótulo da chave; usar sempre o campo `repo`.
+
 ## Regra central
 
 Cada responsabilidade canônica pertence a **um único repositório**.
