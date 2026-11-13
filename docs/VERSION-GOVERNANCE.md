@@ -1,54 +1,50 @@
 # Política canônica de versões do ecossistema OrdaX
 
 **Owner de política:** `ordaxsystems/ordax-os/system/contracts/product-version-governance.mjs`.
-**Gramática e comparação SemVer:** o contrato existente `system/contracts/component-manifest.mjs`. Nenhum segundo comparador implementado em Apps/Studio/Runtime.
-**Owner de cada número:** um por produto; versionamento **não é** instalação, ativação, assinatura ou publicação.
 
-## Versões e autoridade
+A versão SemVer identifica uma **composição/candidato de produto deliberadamente versionado**. Ela não é contador de commits, branches ou PRs. Cada revisão de source continua identificada de forma inequívoca por Git SHA + proveniência.
 
-| Tipo | Identidade canônica | Quem atribui a versão | O que a versão NÃO faz |
-| --- | --- | --- | --- |
-| OrdaX OS (USB e Native) | `ordax-os` (um produto, dois modos) | `system/contracts/product-version.mjs#PRODUCT_VERSION.semanticVersion` | Não autoriza boot físico, assinatura, canal Stable ou escrita de mídia |
-| App first-party já distribuível | app id existente | `ordax-apps/apps/<id>/app.json#version` (contrato `ordax.component-manifest/1`) | Não instala, habilita grants, cria slot ou autoriza Store |
-| App de plataforma ainda embutido | component id existente | Manifesto existente no owner OS, validado pelo contrato de componente | Não implica extração/cutover |
-| Novo app ainda experimental | id próprio do protótipo | Versão do produto em seu owner real (ex.: `ordax-apps/prototypes/ordax-orchestrator/product-version.json` enquanto experimental) | Não implica App SDK, assinatura nem entrada na Loja |
-| OrdaX Web, Mobile e Desktop | IDs de modo existentes | Release/deployment verificado de cada owner em `product-family.mjs` | Não herda o número do OS e não inventa APK/release |
-| Platform/MCP/Runtime | Owners remotos e de execução já existentes | Release/contrato já canônico de cada serviço | Não muda URL MCP, grants, banco nem sessões por conta da versão |
+## Regra principal
 
-A forma é **SemVer**: `major.minor.patch`, opcionalmente `-alpha.N`, `-beta.N` ou `-rc.N`; `N` é inteiro não negativo, sem zero à esquerda. `alpha` significa recurso ainda experimental; `beta` exige compatibilidade funcional suficiente para integração; `rc` exige candidato congelado e gates de release. Sem sufixo significa **versão semanticamente não-prerelease**, jamais "está em produção": o estado de publicação é uma autoridade independente e verificável.
+- Alterações normais de source podem ser implementadas e integradas em paralelo sem disputar um número global.
+- `system/contracts/product-version.mjs` muda somente quando existe intenção de avançar a identidade da composição/candidato OrdaX.
+- Quando esse arquivo muda, a nova versão deve ser SemVer válida e estritamente maior; regressão e alteração sem avanço são bloqueadas.
+- `alpha.N`, `beta.N` e `rc.N` classificam maturidade da versão. Nenhum sufixo autoriza publicação, Stable, assinatura, instalação ou gravação de USB.
+- Source SHA, hashes e receipts continuam sendo a identidade técnica exata dos bytes que compõem cada candidato.
 
-**O OS já declara `0.1.0`, `maturity=prototype` e `stableRelease=false`. Este gate não muda esse número retroativamente nem regrava USB.** Sua próxima mudança de produto poderá receber, por exemplo, `0.1.1-alpha.1` (maior que `0.1.0` em SemVer), somente junto com alterações compatíveis e validação. USB e Native continuam na mesma sequência de versão OS, independentemente do canal de distribuição. Componentes do OS preservam suas **versões independentes** e manifestos próprios: não herdam a versão agregada para decidir updates.
+Isso evita um conflito artificial: duas PRs independentes podem avançar simultaneamente sem ambas tentarem reservar `0.1.1-alpha.1`.
 
-## Obrigações executáveis, não lembretes ao assistente
+## Ownership das versões
 
-1. Quando código **de produto** mudar, o gate de PR identifica arquivos de runtime e compara versão anterior x candidata pela implementação canônica. Regressões, número inalterado e versões inválidas falham.
-2. Quando app first-party tiver `app.json`, a CI percorre todos os manifestos, valida com o componente da plataforma fixado por commit e exige **aumento da versão** se houver mudança de código/recursos daquele app. Não criar VERSION ou JSON paralelo para cada app.
-3. Toda evolução deve manter histórico/nota de impacto com migração e rollback quando necessários. A versão pode mudar sem lançamento; publicação exige seus **outros gates** de pacote, trust, assinatura, health e autorização.
-4. Canais `alpha/beta/rc` são padronizados para **todos**, não privilegiam Studio/Orchestrator. Nenhum agent pode ignorar CI ou editar `main` para contornar o gate.
-5. Mudanças somente em documentação, testes e na infraestrutura de verificação não inventam nova versão do produto, pois não modificam bytes runtime.
-6. Apps externos e clientes ainda sem artefato não recebem versão fictícia.
-7. `0.4.12` do Flow/Grátis é a versão de origem congelada do Orchestrator; seu `0.2.0-alpha.N` é outra linha de produto. Source SHA e versão do app ficam juntos em proveniência; não compartilhar perfil/dados no staging.
+| Produto/componente | Owner da versão | Regra |
+| --- | --- | --- |
+| OrdaX OS / composição Native | `system/contracts/product-version.mjs` | Avança no ponto explícito de composição/candidato, não em toda PR |
+| Apps first-party | manifesto do app em `ordax-apps` | A versão acompanha artefato/pacote do app, não coordena o OS |
+| Desktop | candidato/release do owner Desktop | Consome uma composição OrdaX/OS exata; não replica versão da Surface |
+| Creator | versão do aplicativo Creator | Consome mídia OrdaX verificada; não herda versão de cada upstream |
+| Surface | revisão source por SHA/proveniência | A adoção Native é selecionada pelo lock do OS |
+| Intelligence e demais componentes | manifesto/revisão do próprio owner | O OS adota por contrato quando necessário |
 
-### Detecção de mudanças do produto OS
+## Canais
 
-O gate `tools/verify/product_version_changes.mjs` classifica alterações pelos
-**diretórios proprietários da execução**, não pela extensão do arquivo.
-Launchers executáveis sem extensão, assets, configurações e código sob
-`system/` (áreas de runtime), `bootstrap/`, `boot/`, `kernel/` e
-`initramfs/` exigem incremento de `PRODUCT_VERSION.semanticVersion` quando
-seus bytes mudam. A classificação reconhece exclusões explícitas de
-documentação/testes e arquivos auxiliares sem efeito de produto, como
-`.gitkeep` e `README.md`, além dos próprios arquivos de governança.
+A forma aceita é `major.minor.patch`, opcionalmente `-alpha.N`, `-beta.N` ou `-rc.N`. `N` é inteiro não negativo sem zero à esquerda.
 
-Renomeações e movimentações são avaliadas com `git diff --no-renames --name-only -z` (caminhos NUL-delimitados), para que o caminho original removido continue visível ao gate mesmo quando o destino é `docs/`, `README.md` ou outra área não executável. Esta regra também independe da configuração local `diff.renames` e possui regressão com dois commits Git reais.
+O OS atual declara `0.1.0`, `maturity=prototype` e `stableRelease=false`. Essa identidade só deve mudar quando a composição do produto for deliberadamente avançada. Um merge de código, isoladamente, não prova nem exige uma nova versão de produto.
 
-A ausência de sufixo no nome de um arquivo **não** o isenta do versionamento.
-Os testes `tests/test_product_version_changes.mjs` incluem o launcher
-`system/surface/bin/ordax-surface` como regressão obrigatória. Alterações
-apenas nos verificadores e documentação não produzem versões fictícias.
+## Gate executável
 
-A política não substitui `docs/contracts/release-channel.json`, `docs/contracts/distribution-profiles.json`, o estado de `docs/CURRENT-STATE.md`, nem a SSOT de entrega das apps. Se as versões canônicas já existirem, elas **vencem** números inferidos por nome de branch, data ou UI.
+`.github/workflows/product-version-governance.yml` é um gate leve e focado:
 
-## Adoção multi-repositório
+1. valida a gramática e a identidade atuais;
+2. detecta se `system/contracts/product-version.mjs` foi realmente alterado;
+3. se foi alterado, exige avanço SemVer e proíbe regressão;
+4. se não foi alterado, não inventa nova versão por causa de mudanças de runtime;
+5. não publica, assina, promove, instala ou escreve em dispositivo.
 
-Os consumidores devem depender da implementação de SemVer/comparação em `component-manifest.mjs` e do canal em `product-version-governance.mjs`, obtidos por pin imutável do owner OS/SDK, e não manter regex/semântica concorrente. Uma nova política só chega ao Apps após o contrato OS ser aprovado e o pin de consumer atualizado com testes. Permissões de execução e grants nunca são derivados de SemVer.
+A política não substitui contratos de canal/release, provenance, `docs/CURRENT-STATE.md`, package manifests ou gates físicos.
+
+## Integração multi-repositório
+
+A versão segue a mesma regra de dependência direta do ecossistema: cada owner versiona o artefato/produto que realmente produz. Consumidores não precisam sincronizar números ou abrir PR apenas porque um upstream avançou source. A adoção ocorre quando um novo artefato/revisão é realmente consumido.
+
+A regra de composição completa está em `docs/DEVELOPMENT-WORKFLOW.md` e ADR-031 de `docs/DECISIONS.md`. Permissões, grants e autoridade nunca são derivados de SemVer.
