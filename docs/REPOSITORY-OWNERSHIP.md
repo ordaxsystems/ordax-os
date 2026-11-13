@@ -133,6 +133,8 @@ O único código de apresentação, CSS, assets, rotas, i18n e testes do Site pe
 
 Identity, sessão, autorização, billing, publicação assinada de releases, domínios e o proxy do gateway **não** pertencem ao Site. Esses serviços mantêm a autoridade no OS/Platform e apenas fornecem APIs/autorização de mesma origem ao frontend. O ambiente `ordax-site-dev` é separado da operação de produção.
 
+**Exceção transitória de staging:** o host Dev do Site pode materializar a closure imutável do gateway de Conta diretamente do source owner apenas pelo lock Site `contracts/canonical-gateway-source.json`. Isso é um bridge de hospedagem, não transferência de ownership nem modelo de produção. O lock deve permanecer `production_authorized=false`, identificar owner/consumer e conter condição de remoção; a exceção termina quando o owner fornecer gateway same-origin implantado/versionado ou artefato publicado que dispense importar source do OS.
+
 ### 8. ordaxsystems/ordax-creator
 
 **Papel:** aplicativo independente do Creator, Core de verificação de mídia e interface/adapters Windows.

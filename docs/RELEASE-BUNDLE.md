@@ -61,9 +61,9 @@ The release acquisition agent independently enforces the same runtime safety bou
 
 CI builds the tool for Linux and Windows and proves two independent bundle invocations are byte-identical.
 
-## Portable USB v2 EROFS candidate
+## Portable USB v2 EROFS compatibility bridge — retained, not target architecture
 
-The durable USB architecture needs a compressed read-only filesystem image, but the signed release protocol v1 must remain immutable. Therefore the repository now uses a compatibility bridge:
+The durable USB architecture needs a compressed read-only filesystem image, while the signed release protocol v1 remains immutable for compatibility. The following bridge is therefore retained **only for legacy v1/v2 consumers and regression coverage**; it is not the Stable/MVP target architecture:
 
 ```text
 canonical system/
@@ -77,7 +77,9 @@ canonical system/
 
 `tools/portable-release-image/build.py` first revalidates the normalized tar metadata boundary, then creates `system.erofs` with fixed timestamp, fixed filesystem UUID, root ownership and LZ4 compression. CI must build the image twice and require byte-identical output, then run EROFS integrity verification.
 
-This candidate does not publish, sign, activate or authorize physical media. A future portable release protocol must use a new manifest schema and explicit consumer support before the boot path may rely on `system.erofs`.
+This candidate does not publish, sign, activate or authorize physical media. The newer v4 path below is the Stable/MVP release architecture; do not infer a future design requirement from this retained v1 bridge.
+
+**Bridge owner:** `ordaxsystems/ordax-os` release protocol/bundle tooling. **Removal condition:** remove this bridge only after every supported acquisition, rollback and compatibility path has stopped consuming `release-manifest/1` + `system.tar`, and tests/contracts prove no live v1 consumer remains. Until then it may be maintained for backward compatibility, but it must not gain new product responsibilities or become a second release authority.
 
 ## Portable v4 Stable/MVP path
 

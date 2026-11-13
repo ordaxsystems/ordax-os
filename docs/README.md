@@ -21,10 +21,11 @@ A prose document never silently overrides a machine-readable contract. A snapsho
 
 Historical wording inside a root `PLANO-*` such as `CANONICAL`, `P0`, `mandatory`, or equivalent does **not** change this authority order. If that wording conflicts with this router, `MVP.md`, current contracts or a canonical topic owner, the higher-authority source wins and the plan is interpreted as planning/reference material.
 
-## Active canonical map
 ## Retomada transversal: estado atual primeiro
 
 Para trabalho cross-repo, a ordem operacional é **`AGENTS.md` → `docs/README.md` → topo de `docs/CURRENT-STATE.md` → documento canônico do domínio/owner → PRs e artefatos atuais**. [INTELLIGENCE-HANDOFF.md](../INTELLIGENCE-HANDOFF.md) preserva checkpoints de 04/11 e anteriores como **REFERENCE/HISTORICAL**; não é mais entrada operacional nem fila de tarefas. Use-o somente quando a proveniência histórica for necessária. Para Capability Fabric, `docs/CAPABILITY-FABRIC.md` permanece canônico para arquitetura e fronteiras, mas qualquer tabela de status ou sequência datada deve ser revalidada contra `CURRENT-STATE` e os owners atuais antes de agir.
+
+## Active canonical map
 
 | Responsibility | Canonical owner |
 | --- | --- |
@@ -39,23 +40,32 @@ Para trabalho cross-repo, a ordem operacional é **`AGENTS.md` → `docs/README.
 | Web Research source boundary (providers disabled) | `docs/WEB-RESEARCH.md`, `system/contracts/web-research.mjs` |
 | Capability Fabric — arquitetura e fronteiras canônicas; checkpoints operacionais datados são referência | `docs/CAPABILITY-FABRIC.md` (arquitetura/limites); `docs/plans/CAPABILITY-FABRIC-V1.md` (histórico) |
 | Spaces + professional composition (single user journey) | `docs/SPACES-AND-PROFILES.md` + `docs/contracts/spaces-and-profile-packs.json` |
+| Account sync / entitlements across product modes | `docs/ACCOUNT-SYNC-AND-PLANS.md` |
 | Profile knowledge and Intelligence | `docs/PROFILE-INTELLIGENCE-ARCHITECTURE.md` + canonical Profile manifests |
 | Decisions / ADRs | `docs/DECISIONS.md` |
 | Build autonomy | `docs/BUILD-AUTONOMY.md` |
 | Product modes | `docs/PRODUCT-MODES.md` |
 | Operational realtime / device actions | `docs/OPERATIONAL-REALTIME.md` |
 | Mobile Companion | `docs/MOBILE-COMPANION.md` |
-| Application compatibility | `docs/APPLICATION-COMPATIBILITY.md` |
+| Application compatibility | `docs/APPLICATION-COMPATIBILITY.md` + `docs/INSTALLED-APPLICATIONS.md` (presentation/trust invariant) |
 | Minimal USB bootstrap | `docs/MINIMAL-USB-BOOTSTRAP.md` |
+| Owner/Development USB Git update channel | `docs/DEV-USB-GIT.md` |
+| Creator installation / verified-media consumer boundary | `docs/CREATOR-INSTALLATION.md` |
+| Host independence | `docs/HOST-INDEPENDENCE.md` |
 | Physical media | `docs/PHYSICAL-MEDIA.md` |
 | Development workflow | `docs/DEVELOPMENT-WORKFLOW.md` |
+| Remote/control capability boundary | `docs/REMOTE-CONTROL.md` |
+| MCP system capabilities / ownership boundary | `docs/MCP-SYSTEM-CAPABILITIES.md` |
 | Windows Desktop visual test automation (developer-only runbook, not a Runtime/MCP owner) | [`tools/visual-test-bridge/README.md`](../tools/visual-test-bridge/README.md) |
 | Multi-repository product composition | `docs/DEVELOPMENT-WORKFLOW.md#integração-multi-repositório--composição-do-produto-2026-11-13` + ADR-031 in `docs/DECISIONS.md` |
 | Promotion gates | `docs/PROMOTION-GATES.md` |
 | Release signing | `docs/RELEASE-SIGNING.md` |
 | Release trust ceremony | `docs/RELEASE-TRUST-CEREMONY.md` |
 | Release pipeline/channel/manifest | `docs/RELEASE-PIPELINE.md`, `docs/RELEASE-CHANNEL.md`, `docs/RELEASE-MANIFEST.md` |
+| Release bundle / portable image compatibility boundary | `docs/RELEASE-BUNDLE.md` |
 | Public site | `docs/PUBLIC-SITE.md` |
+| Meridian visual identity / Surface source ownership | `docs/DESKTOP-IDENTITY.md` |
+| Internet first-party app boundary | `docs/INTERNET-APP.md` |
 | Storage | `docs/STORAGE-ARCHITECTURE.md` |
 | Update nomenclature | `docs/UPDATE-NOMENCLATURE.md` |
 | Legacy migration ledger | `docs/SOURCE-MIGRATION.md` |
