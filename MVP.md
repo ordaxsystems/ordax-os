@@ -10,7 +10,7 @@ Este arquivo define **o que pertence ao ciclo de lançamento do OrdaX**. Leia-o 
 
 ## 1. Princípio central
 
-O OrdaX não usa “produto mínimo” como justificativa para cortar, simular ou abandonar capacidades iniciadas. A primeira disponibilidade operacional, porém, deve priorizar uma jornada completa, segura e utilizável no Desktop Windows, antes de expandir modalidades independentes.
+O OrdaX não usa “produto mínimo” como justificativa para cortar, simular ou abandonar capacidades iniciadas. A entrega operacional é fechada por **jornadas completas de cada owner/canal**, que podem avançar em paralelo quando independentes; nenhuma modalidade vira fila global para as demais.
 
 A regra de lançamento é:
 
@@ -29,22 +29,15 @@ O equilíbrio obrigatório é:
 - não atrasar um canal funcional por outra capacidade independente que ainda esteja em homologação;
 - preservar segurança, integridade, privacidade, recovery e autoridade dos owners como gates reais.
 
-## Janela prioritária — primeiro MVP operacional integrado (2026-11-06)
+## Modelo de fechamento operacional — jornadas paralelas por owner (2026-11-13)
 
-**Decisão de execução, sem criar outro produto ou escopo paralelo:** o primeiro canal a fechar de ponta a ponta é o **OrdaX Desktop Windows**, com Web como composição complementar quando seus próprios gates passarem. Não aguardar USB/Creator/Buildroot, Native em disco ou MCP avançado para comprovar uma jornada Windows independente; não os remover do Baseline de Lançamento. Uma função em desenvolvimento que não estiver na primeira entrega deve permanecer indisponível de modo honesto, nunca simulada nem anunciada como utilizável.
+**Decisão de execução:** OS/USB, Desktop, Surface, Apps, Creator, Site e Intelligence podem avançar simultaneamente quando não existe dependência causal. A sincronização ocorre no ponto real de composição, publicação, instalação ou adoção de contrato/artefato. Nenhum canal precisa esperar outro apenas por ordem histórica de roadmap.
 
-**Jornada mínima verificável para o primeiro grupo de usuários autorizado:**
+Cada canal mantém seu próprio critério de produto real. Para o **Desktop Windows**, continuam válidos os critérios antes definidos: instalador canônico realmente executado; Surface/OS/proveniência confirmados; Conta/Space quando o fluxo exigir; Loja com catálogo verificado; pelo menos um app real instalado/aberto/atualizado/removido quando essa jornada for declarada; atualização/recovery comprovados; prova física proporcional. Para **USB/Native**, conclusão exige seus próprios artefatos, boot/health/recovery e autorização física quando aplicável. Source/CI isolados não substituem nenhuma dessas provas.
 
-1. Obter o instalador oficial do Desktop, instalar uma única cópia, iniciar a Surface e verificar versões de OS, Surface e host realmente executadas, não apenas commits publicados.
-2. Autenticar uma Conta real, abrir o Space autorizado e recuperar a sessão/contexto com isolamento correto; indisponibilidade ou revogação não podem produzir acesso falso.
-3. Abrir a **Loja real**, ler o catálogo verificado e distinguir aplicativo disponível, instalado, em operação, bloqueado e atualizável. Interface ou catálogo mock não contam.
-4. Instalar ao menos **um aplicativo real** de `ordax-apps` por mecanismo oficial, conferir recibo/versão, abrir e fechar somente com autoridade de execução legítima e exercitar atualização e remoção seguras.
-5. Receber e aplicar atualização do Desktop e do aplicativo, validar a versão efetivamente ativa e demonstrar recovery/rollback exigível em caso de falha, sem duplicar instalação ou perder dados.
-6. Registrar prova **física no Windows**, com source/provenance, estados de erro e limites de autorização; testes de CI ou Chromium, isoladamente, não autorizam anúncio público.
+**Integração entre repos:** `ordax-desktop` consome a composição OrdaX/OS; `ordax-surface`, `ordax-apps` e `ordax-intelligence` produzem componentes; `ordax-creator` consome mídia verificada; `ordax-site` publica apresentação/distribuição pública. Dependências transitivas não são pinadas novamente pelos consumidores. Ver ADR-031 e `docs/DEVELOPMENT-WORKFLOW.md`.
 
-**Sequência de integração existente:** `ordax-desktop` (entrega/host Windows) + `ordax-os` (serviços, ports, lifecycle, atualização) + `ordax-surface` (Conta/Loja/launcher) + `ordax-apps` (pacotes publicados) + `ordax-platform` (sessão/grants) + `ordax-site` (download). Fixar revisões compatíveis e provas de composição; **sincronização não significa exigir SHAs iguais ou copiar código entre repositórios**. Demais owners só entram quando uma dependência causal dessa jornada o exigir.
-
-Priorizar integração vertical funcional em vez de polimento, auditorias, documentação ou infraestrutura repetitivos. Executar primeiro a correção no owner certo, validar proporcionalmente e integrar com gates aplicáveis. Nenhum atalho revoga assinatura, autenticação, autorização, integridade, update/recovery ou critérios do canal. `docs/CURRENT-STATE.md` registra o que de fato foi provado, separadamente desta meta.
+Priorizar integração vertical funcional em cada jornada em vez de polimento, auditorias, documentação ou infraestrutura repetitivos. Executar primeiro no owner correto, validar proporcionalmente e integrar com gates aplicáveis. Nenhum atalho revoga assinatura, autenticação, autorização, integridade, update/recovery ou critérios do canal. `docs/CURRENT-STATE.md` registra o que foi efetivamente provado.
 
 ## 2. Regra de inclusão no Baseline de Lançamento
 
