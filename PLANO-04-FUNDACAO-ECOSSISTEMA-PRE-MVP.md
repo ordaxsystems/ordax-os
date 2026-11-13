@@ -321,9 +321,11 @@ Todas as tabelas expostas usam RLS. Tokens de GitHub/OpenAI/xAI não entram ness
 
 Mutações de recursos sujeitos a quota/entitlement são **server-authoritative**: cliente autenticado não pode criar/alterar diretamente Spaces, memberships, memória cloud, conexões de projeto, packs ou grants pelo Data API. Isso impede bypass futuro de planos. O backend/gateway OrdaX deverá aplicar quota, entitlement, auditoria e aprovação antes da mutação.
 
-## 7. Sequência
+## 7. Sequência proposta naquele plano — histórica
 
-### P0 — antes do MVP público
+> A ordem P0/P1 abaixo registra a estratégia daquele ciclo. Ela não redefine o MVP atual nem autoriza execução enquanto este documento estiver `DEFERRED FOR EXECUTION`.
+
+### P0 — antes do MVP público naquele plano
 
 1. contratos de Spaces/Profile Packs/entitlements — **PASS_SOURCE**;
 2. memória provider-neutral — **PASS_SOURCE RUNTIME + PERSISTENCE BOUNDARIES + BACKEND SCHEMA**; ownership `device|account`, busca/review bounded, persistência Native fail-soft e fallback Web explicitamente efêmero;
@@ -334,7 +336,7 @@ Mutações de recursos sujeitos a quota/entitlement são **server-authoritative*
 7. mutações de produto server-authoritative — **PASS_APPLIED**;
 8. manter o primeiro Stable USB e seus gates físicos independentes — **PRESERVADO**.
 
-### P1 — após a fundação, sem bloquear o primeiro USB físico
+### P1 — sequência proposta após a fundação naquele plano
 
 9. UI mínima de Spaces — **PASS_SOURCE + EDGE DEPLOYED READ-ONLY WEB + NATIVE**; Conta exibe somente Spaces reais da sessão via gateway OrdaX/RLS, limpa o snapshot no logout e não expõe criação/edição, billing ou Space fictício; gateway v13 está ativo no `ordax-control-plane` como Edge Function revisão 19; prova visual em USB físico continua separada;
 10. memória local real com revisão/apagar — **PASS_SOURCE RUNTIME + NATIVE REVIEW UI**; Conta → Memória expõe owners `device|account`, busca, paginação, edição e exclusão com `flush()` durável no USB/Native; o Web não finge persistência durável e a memória continua sem injeção automática na IA;
