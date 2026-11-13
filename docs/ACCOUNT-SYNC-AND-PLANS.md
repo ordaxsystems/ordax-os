@@ -300,6 +300,14 @@ validar o escopo do projeto e obter aprovação de publicação antes de integra
 este candidato. Não alterar silenciosamente o filtro de build nem desativar
 um projeto público operacional.
 
+**Semântica de binding MCP:** o `expires_at` exposto nas rotas
+`central-selections` pertence exclusivamente ao challenge Owner ainda
+pendente. Depois da confirmação válida pelo Runtime, o binding
+`conversa Product MCP -> device_id` é persistente na Platform. Heartbeat,
+inatividade, offline ou restart não renovam, expiram nem trocam esse target.
+Somente revogação explícita de binding/device, OAuth ou grant altera a
+autoridade correspondente; disponibilidade continua sendo um eixo separado.
+
 A ordem de liberação é: CI íntegro no SHA final → prova de autenticação Owner,
 seleção client/device consentida e E2E/receipts sem bypass → plano revisado
 para Vercel e Supabase → integração/publicação expressamente aprovada →
