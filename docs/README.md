@@ -125,7 +125,7 @@ Do **not** create `foo-v2.md`, `foo-final.md`, `foo-new.md` or parallel plans fo
 All root planning files are subordinate to the authority order above, including:
 
 - [snapshot de execução de 02/10](https://github.com/ordaxsystems/ordax-os/blob/ba81a08db707d032464ae18e521073ef7e416f4f/PLANO-00-ESTADO-ATUAL-E-PRIORIDADES.md) — **arquivado no histórico Git e removido da árvore ativa**; nunca usar suas prioridades USB-first como instruções atuais;
-- `PLANO-FUNCIONAL-SURFACE-E-APPS.md` — functional reference, not canonical current state or changelog;
+- [snapshot funcional Surface/apps](https://github.com/ordaxsystems/ordax-os/blob/3f304b05af33e40658025ff289523560b298153c/PLANO-FUNCIONAL-SURFACE-E-APPS.md) — historical reference removed from the active tree; current ownership is in repository contracts, `ordax-surface`, `ordax-apps` and canonical topic docs;
 - [análise comparativa de legado de 18/09](https://github.com/ordaxsystems/ordax-os/blob/c0b3b8555be487f4a105797ebe71fbec9149e97d/PLANO-02-EVOLUCAO-E-REAPROVEITAMENTO-DO-LEGADO.md) — snapshot histórico removido da árvore ativa; migração vigente é registrada em `docs/SOURCE-MIGRATION.md`;
 - `PLANO-03-FECHAMENTO-PRE-USB-NOVA-ORDAX.md` — completed source-closure baseline/reference; live physical gates come from current canonical owners;
 - [snapshot da fundação pré-MVP](https://github.com/ordaxsystems/ordax-os/blob/7ceb1de7ba6cc5c2daa14757a161afc3ae007a33/PLANO-04-FUNDACAO-ECOSSISTEMA-PRE-MVP.md) — referência histórica removida da árvore ativa; decisões atuais vivem nos owners/contratos canônicos;

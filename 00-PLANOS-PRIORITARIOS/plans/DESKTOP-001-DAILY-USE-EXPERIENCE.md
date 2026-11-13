@@ -7,7 +7,7 @@
 - **Criado:** 2026-10-14
 - **Atualizado:** 2026-10-14
 - **Owner canônico:** Surface/System/Files/Preferences/Diagnostics/Update owners existentes; este plano não cria novos owners por padrão
-- **Base factual:** `main` em 2026-10-14; `PLANO-FUNCIONAL-SURFACE-E-APPS.md`, `docs/DESKTOP-IDENTITY.md`, `docs/CURRENT-STATE.md`, Files/Preferences/Diagnostics/Update contracts
+- **Base factual:** `main` atual revalidada; `docs/DESKTOP-IDENTITY.md`, `docs/CURRENT-STATE.md`, repository ownership e Files/Preferences/Diagnostics/Update contracts
 - **Relatórios de apoio:** comparação de experiência cotidiana com Spaced Linux em 2026-10-14
 - **Dependências:** NATIVE-001 para instalação; HARDWARE-001 para driver packs; existing Surface/Files/Diagnostics/Update capabilities
 

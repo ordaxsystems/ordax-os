@@ -108,7 +108,7 @@ New desktop controls must have a real state owner and contract before being pres
 
 ## Acceptance and delivery
 
-Roadmap: shared Surface identity and minimal functional desktop in `PLANO-FUNCIONAL-SURFACE-E-APPS.md`. Historical label only: visual source ownership is now `ordaxsystems/ordax-surface`. Dependencies: existing appearance/runtime/workspace/store contracts, local Inter, SVG and PNG; no new public execution contract. Scope: shared Web/Native composition, loading screen, shell, Settings previews and tokens consumed by first-party views. Risks: contrast over artwork, CSS specificity, narrow layout, image size and offline asset resolution.
+Roadmap: shared Surface identity and minimal functional desktop in [snapshot funcional histórico](https://github.com/ordaxsystems/ordax-os/blob/3f304b05af33e40658025ff289523560b298153c/[snapshot funcional histórico](https://github.com/ordaxsystems/ordax-os/blob/3f304b05af33e40658025ff289523560b298153c/PLANO-FUNCIONAL-SURFACE-E-APPS.md)). Historical label only: visual source ownership is now `ordaxsystems/ordax-surface`. Dependencies: existing appearance/runtime/workspace/store contracts, local Inter, SVG and PNG; no new public execution contract. Scope: shared Web/Native composition, loading screen, shell, Settings previews and tokens consumed by first-party views. Risks: contrast over artwork, CSS specificity, narrow layout, image size and offline asset resolution.
 
 Acceptance requires visual/contrast regressions, existing preference/localization tests, source-graph and deterministic bundle verification, and real Chromium shell/composition smoke. Web inspection covers desktop and narrow breakpoints and both materials. Source publication is a reviewable candidate, not production activation, a signed release or proof of USB/mobile hardware operation. A visual refresh does not require a kernel rebuild or USB rewrite.
 
@@ -140,7 +140,7 @@ the next integration phase; the former WebShell is not mounted or exposed as
 a second page. Broad code removal was rejected by automatic approval review,
 so no shared application/window functionality was deleted.
 
-Historical label only: visual source ownership is now `ordaxsystems/ordax-surface`, under `PLANO-FUNCIONAL-SURFACE-E-APPS.md`.
+Historical label only: visual source ownership is now `ordaxsystems/ordax-surface`, under [snapshot funcional histórico](https://github.com/ordaxsystems/ordax-os/blob/3f304b05af33e40658025ff289523560b298153c/[snapshot funcional histórico](https://github.com/ordaxsystems/ordax-os/blob/3f304b05af33e40658025ff289523560b298153c/PLANO-FUNCIONAL-SURFACE-E-APPS.md)).
 Provenance and reversible integration adjustments:
 `docs/evidence/web-central-reference-2026-10-11.json`.
 Risk: unconnected example data, viewport/focus behavior, dependency versions
@@ -202,7 +202,7 @@ authority has been introduced. See [Store boundary and acceptance](STORE-WEB-CAT
 ## Responsive compact-window panes — 2026-10-11
 
 Historical label only: visual source ownership is now `ordaxsystems/ordax-surface`, within the functional workspace/window increment of
-`PLANO-FUNCIONAL-SURFACE-E-APPS.md`. The canonical Web composition divides the
+[snapshot funcional histórico](https://github.com/ordaxsystems/ordax-os/blob/3f304b05af33e40658025ff289523560b298153c/[snapshot funcional histórico](https://github.com/ordaxsystems/ordax-os/blob/3f304b05af33e40658025ff289523560b298153c/PLANO-FUNCIONAL-SURFACE-E-APPS.md)). The canonical Web composition divides the
 available desktop into a primary pane and a compact pane. Expanded compact
 windows receive half the height after the shared navigation and mobile safe
 area are deducted. Collapsing the carousel leaves only its accessible control
@@ -228,7 +228,7 @@ No App, Runtime, Intelligence, Identity or device-execution authority changes.
 ## Mobile workspace navigation — 2026-10-11
 
 Historical label only: visual source ownership is now `ordaxsystems/ordax-surface`, within the canonical Web workspace increment of
-`PLANO-FUNCIONAL-SURFACE-E-APPS.md`. Mobile navigation uses the same
+[snapshot funcional histórico](https://github.com/ordaxsystems/ordax-os/blob/3f304b05af33e40658025ff289523560b298153c/[snapshot funcional histórico](https://github.com/ordaxsystems/ordax-os/blob/3f304b05af33e40658025ff289523560b298153c/PLANO-FUNCIONAL-SURFACE-E-APPS.md)). Mobile navigation uses the same
 `WorkspaceNavigation`, catalog and reducer as the desktop sidebar. The bottom
 bar follows the reference order: Início, Aura, Apps, Space and Menu. Aura opens
 the existing Intelligence session and Space opens the existing Space picker.
@@ -1310,7 +1310,7 @@ No inference, external command, installation or production activation was valida
 ## USB color profile in Web — 2026-10-12
 
 Historical label only: visual source ownership is now `ordaxsystems/ordax-surface`; scoped visual increment explicitly requested by the
-user under PLANO-FUNCIONAL-SURFACE-E-APPS.md. Web Settings exposes Claro, Escuro
+user under [snapshot funcional histórico](https://github.com/ordaxsystems/ordax-os/blob/3f304b05af33e40658025ff289523560b298153c/PLANO-FUNCIONAL-SURFACE-E-APPS.md). Web Settings exposes Claro, Escuro
 and OrdaX USB in one labeled native select with 44px touch height. The USB profile
 uses the existing Midnight Native semantic palette; aliases in the Web stylesheet
 reference tokens.css directly, without another palette or copied hex colors.
@@ -1334,7 +1334,7 @@ is claimed by these presentation checks.
 
 ## Shared color profiles and Native desktop — 2026-10-12
 
-Historical label only: visual source ownership is now `ordaxsystems/ordax-surface`, under PLANO-FUNCIONAL-SURFACE-E-APPS.md; explicitly
+Historical label only: visual source ownership is now `ordaxsystems/ordax-surface`, under [snapshot funcional histórico](https://github.com/ordaxsystems/ordax-os/blob/3f304b05af33e40658025ff289523560b298153c/PLANO-FUNCIONAL-SURFACE-E-APPS.md); explicitly
 requested USB integration. Shared profiles replace the Web-only color selector
 foundation above. color-palette.mjs owns surface.color-palette, derived scheme
 and three choices. The old module and ID have no runtime wrapper, redirect or

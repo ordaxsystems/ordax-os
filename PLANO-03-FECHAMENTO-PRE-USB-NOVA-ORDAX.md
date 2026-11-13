@@ -8,7 +8,7 @@
 **Continua, sem substituir:**
 
 - `MVP.md`;
-- `PLANO-FUNCIONAL-SURFACE-E-APPS.md`;
+- [snapshot funcional histórico Surface/apps](https://github.com/ordaxsystems/ordax-os/blob/3f304b05af33e40658025ff289523560b298153c/PLANO-FUNCIONAL-SURFACE-E-APPS.md);
 - `docs/SOURCE-MIGRATION.md` para provenance canônica de migração/reimplementação;
 - contratos e estado canônicos em `docs/`.
 
