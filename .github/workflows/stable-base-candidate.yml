@@ -14,7 +14,6 @@ on:
       - '!bootstrap/kernel/candidates/**'
       - '!bootstrap/kernel/candidate_pipeline.py'
       - '!bootstrap/kernel/update_engine.py'
-      - '!bootstrap/kernel/module_archive.py'
       - '!bootstrap/kernel/**/*.md'
       - 'docs/contracts/distribution-profiles.json'
       - 'docs/contracts/portable-bootstrap-v2.json'
@@ -32,7 +31,6 @@ on:
       - '!bootstrap/kernel/candidates/**'
       - '!bootstrap/kernel/candidate_pipeline.py'
       - '!bootstrap/kernel/update_engine.py'
-      - '!bootstrap/kernel/module_archive.py'
       - '!bootstrap/kernel/**/*.md'
       - 'docs/contracts/distribution-profiles.json'
       - 'docs/contracts/portable-bootstrap-v2.json'
@@ -49,7 +47,29 @@ permissions:
   actions: read  # Only to fetch a canonical successful Stable producer artifact.
 
 jobs:
+  stable-contract:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 10
+    steps:
+      - name: Checkout exact source commit
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
+        with:
+          ref: ${{ github.event.pull_request.head.sha || github.sha }}
+          persist-credentials: false
+      - name: Set up Python
+        uses: actions/setup-python@ece7cb06caefa5fff74198d8649806c4678c61a1 # v6
+        with:
+          python-version: '3.12'
+          check-latest: false
+      - name: Validate Stable Buildroot contract without producing artifacts
+        run: |
+          set -euo pipefail
+          python3 bootstrap/independent-base/build.py check --profile stable-mvp
+          python3 -m unittest tests.test_independent_owner_profile tests.test_independent_portable_boot_integration -v
+
   stable-base:
+    needs: stable-contract
+    if: github.event_name == 'workflow_dispatch'
     runs-on: ubuntu-24.04
     timeout-minutes: 20
     steps:
@@ -118,7 +138,7 @@ jobs:
         uses: actions/cache/restore@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
         with:
           path: ${{ runner.temp }}/ordax-independent
-          key: ordax-portable-component-v1-${{ runner.os }}-${{ runner.arch }}-independent-base-stable-${{ steps.component-fingerprints.outputs.independent_base_stable }}
+          key: ordax-portable-component-v2-${{ runner.os }}-${{ runner.arch }}-independent-base-stable-${{ steps.component-fingerprints.outputs.independent_base_stable }}-${{ steps.component-fingerprints.outputs.kernel }}-${{ hashFiles('bootstrap/kernel/module_archive.py', 'bootstrap/independent-base/module_parity.py', 'docs/contracts/hardware-support-matrix.json') }}
 
       - name: Restore verified Stable producer artifact on scoped cache miss
         id: stable-artifact
@@ -207,7 +227,7 @@ jobs:
         uses: actions/cache/save@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
         with:
           path: ${{ runner.temp }}/ordax-independent
-          key: ordax-portable-component-v1-${{ runner.os }}-${{ runner.arch }}-independent-base-stable-${{ steps.component-fingerprints.outputs.independent_base_stable }}
+          key: ordax-portable-component-v2-${{ runner.os }}-${{ runner.arch }}-independent-base-stable-${{ steps.component-fingerprints.outputs.independent_base_stable }}-${{ steps.component-fingerprints.outputs.kernel }}-${{ hashFiles('bootstrap/kernel/module_archive.py', 'bootstrap/independent-base/module_parity.py', 'docs/contracts/hardware-support-matrix.json') }}
 
       - name: Retain verified Stable receipts for review only
         uses: actions/upload-artifact@b7c566a772e6b6bfb58ed0dc250532a479d7789f # v6

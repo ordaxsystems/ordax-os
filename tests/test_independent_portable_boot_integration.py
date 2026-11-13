@@ -116,10 +116,12 @@ class IndependentPortableBootIntegrationTest(unittest.TestCase):
         self.assertIn('--cache "$buildroot_cache" --jobs 4', official)
         self.assertIn("steps.independent-buildroot-download-cache.outputs.cache-hit != 'true'", official)
         source_key = "key: ordax-buildroot-download-v1-${{ runner.os }}-${{ hashFiles('bootstrap/independent-base/source.json', 'bootstrap/independent-base/configs/**', 'bootstrap/independent-base/patches/**') }}"
-        stable_key = "key: ordax-portable-component-v1-${{ runner.os }}-${{ runner.arch }}-independent-base-stable-${{ steps.component-fingerprints.outputs.independent_base_stable }}"
-        for exact_key in (source_key, stable_key):
-            self.assertEqual(sum(line.strip() == exact_key for line in official.splitlines()), 2)
-            self.assertEqual(sum(line.strip() == exact_key for line in producer.splitlines()), 2)
+        stable_key_official = "key: ordax-portable-component-v2-${{ runner.os }}-${{ runner.arch }}-independent-base-stable-${{ steps.component-fingerprints.outputs.independent_base_stable }}-${{ steps.component-fingerprints.outputs.kernel }}-${{ hashFiles('bootstrap/kernel/module_archive.py', 'bootstrap/independent-base/module_parity.py', 'docs/contracts/hardware-support-matrix.json') }}"
+        stable_key_producer = stable_key_official
+        self.assertEqual(sum(line.strip() == source_key for line in official.splitlines()), 2)
+        self.assertEqual(sum(line.strip() == source_key for line in producer.splitlines()), 2)
+        self.assertEqual(sum(line.strip() == stable_key_official for line in official.splitlines()), 2)
+        self.assertEqual(sum(line.strip() == stable_key_producer for line in producer.splitlines()), 2)
         # Cache key AND archive path must match the independent Buildroot producer.
         cache_path = 'path: ${{ runner.temp }}/ordax-independent'
         self.assertEqual(sum(line.strip() == cache_path for line in official.splitlines()), 2)

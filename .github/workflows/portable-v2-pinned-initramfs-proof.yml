@@ -9,7 +9,6 @@ on:
       - '!bootstrap/kernel/candidates/**'
       - '!bootstrap/kernel/candidate_pipeline.py'
       - '!bootstrap/kernel/update_engine.py'
-      - '!bootstrap/kernel/module_archive.py'
       - 'bootstrap/stable-base/**'
       - 'bootstrap/independent-base/**'
       - 'tools/ci/portable_component_cache.py'
@@ -32,7 +31,6 @@ on:
       - '!bootstrap/kernel/candidates/**'
       - '!bootstrap/kernel/candidate_pipeline.py'
       - '!bootstrap/kernel/update_engine.py'
-      - '!bootstrap/kernel/module_archive.py'
       - 'bootstrap/stable-base/**'
       - 'bootstrap/independent-base/**'
       - 'tools/ci/portable_component_cache.py'
@@ -59,7 +57,30 @@ permissions:
   actions: read  # Exact canonical producer artifact fallback; never dispatches or rebuilds.
 
 jobs:
+  pinned-initramfs-contract:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 10
+    steps:
+      - name: Checkout exact source commit
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
+        with:
+          ref: ${{ github.event.pull_request.head.sha || github.sha }}
+          persist-credentials: false
+      - name: Set up Python
+        uses: actions/setup-python@ece7cb06caefa5fff74198d8649806c4678c61a1 # v6
+        with:
+          python-version: '3.12'
+          check-latest: false
+      - name: Validate pinned-initramfs and Stable contracts without producing artifacts
+        run: |
+          set -euo pipefail
+          python -m unittest tests.test_portable_v2_pinned_initramfs_proof_contract tests.test_initramfs_upstream_authentication -v
+          python bootstrap/initramfs/build.py check
+          python bootstrap/independent-base/build.py check --profile stable-mvp
+
   pinned-initramfs:
+    needs: pinned-initramfs-contract
+    if: github.event_name == 'workflow_dispatch'
     runs-on: ubuntu-24.04
     timeout-minutes: 150
     steps:
@@ -125,7 +146,7 @@ jobs:
         uses: actions/cache/restore@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
         with:
           path: ${{ runner.temp }}/ordax-independent
-          key: ordax-portable-component-v1-${{ runner.os }}-${{ runner.arch }}-independent-base-stable-${{ steps.base-fingerprints.outputs.independent_base_stable }}
+          key: ordax-portable-component-v2-${{ runner.os }}-${{ runner.arch }}-independent-base-stable-${{ steps.base-fingerprints.outputs.independent_base_stable }}-${{ steps.base-fingerprints.outputs.kernel }}-${{ hashFiles('bootstrap/kernel/module_archive.py', 'bootstrap/independent-base/module_parity.py', 'docs/contracts/hardware-support-matrix.json') }}
 
       - name: Restore exact Stable producer artifact on scoped cache race
         id: stable-artifact
@@ -229,7 +250,7 @@ jobs:
         uses: actions/cache/save@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
         with:
           path: ${{ runner.temp }}/ordax-independent
-          key: ordax-portable-component-v1-${{ runner.os }}-${{ runner.arch }}-independent-base-stable-${{ steps.base-fingerprints.outputs.independent_base_stable }}
+          key: ordax-portable-component-v2-${{ runner.os }}-${{ runner.arch }}-independent-base-stable-${{ steps.base-fingerprints.outputs.independent_base_stable }}-${{ steps.base-fingerprints.outputs.kernel }}-${{ hashFiles('bootstrap/kernel/module_archive.py', 'bootstrap/independent-base/module_parity.py', 'docs/contracts/hardware-support-matrix.json') }}
 
       # A verified kernel already exists at the canonical fingerprint.
       # The pinned-initramfs proof consumes it; it never compiles the same

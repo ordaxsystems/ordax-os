@@ -594,7 +594,7 @@ jobs:
         with:
           # Identical archive path to the single Independent Base producer.
           path: ${{ runner.temp }}/ordax-independent
-          key: ordax-portable-component-v1-${{ runner.os }}-${{ runner.arch }}-independent-base-stable-${{ steps.component-fingerprints.outputs.independent_base_stable }}
+          key: ordax-portable-component-v2-${{ runner.os }}-${{ runner.arch }}-independent-base-stable-${{ steps.component-fingerprints.outputs.independent_base_stable }}-${{ steps.component-fingerprints.outputs.kernel }}-${{ hashFiles('bootstrap/kernel/module_archive.py', 'bootstrap/independent-base/module_parity.py', 'docs/contracts/hardware-support-matrix.json') }}
       - name: Reuse canonical Buildroot sources and package downloads for Stable
         if: ${{ (inputs.base_source || 'independent') == 'independent' && inputs.independent_base_profile == 'stable-mvp' && steps.independent-stable-cache.outputs.cache-hit != 'true' }}
         id: independent-buildroot-download-cache
@@ -707,7 +707,7 @@ jobs:
         uses: actions/cache/save@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
         with:
           path: ${{ runner.temp }}/ordax-independent
-          key: ordax-portable-component-v1-${{ runner.os }}-${{ runner.arch }}-independent-base-stable-${{ steps.component-fingerprints.outputs.independent_base_stable }}
+          key: ordax-portable-component-v2-${{ runner.os }}-${{ runner.arch }}-independent-base-stable-${{ steps.component-fingerprints.outputs.independent_base_stable }}-${{ steps.component-fingerprints.outputs.kernel }}-${{ hashFiles('bootstrap/kernel/module_archive.py', 'bootstrap/independent-base/module_parity.py', 'docs/contracts/hardware-support-matrix.json') }}
 
       - name: Download same-run independent Surface runtime
         if: ${{ inputs.surface_source == 'independent' }}
