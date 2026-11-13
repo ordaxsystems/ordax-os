@@ -1,8 +1,8 @@
 # OrdaX Intelligence — HANDOFF TRANSVERSAL
 
-> **Guia de retomada, não nova autoridade de código.** Este arquivo existe para que outros chats/agents entendam o trabalho e prossigam sem reiniciar, duplicar sistemas ou interpretar testes simulados como release. Revalidar a `main` e as PRs antes de implementar. Em divergência prevalecem código + contratos públicos, `docs/CURRENT-STATE.md`, `docs/README.md`, `MVP.md` e os documentos canônicos de domínio.
+> **REFERENCE/HISTORICAL — checkpoints principalmente de 04/11/2026, não fila operacional atual.** Este arquivo preserva contexto para que outros chats/agents entendam decisões e provas sem reiniciar ou duplicar sistemas. Afirmações datadas sobre PRs, devices, gates e “próxima missão” devem ser lidas como estado daquele momento. Em particular, a OS #2400 foi integrada em 04/11/2026 e qualquer trecho abaixo que a descreva como aberta/conflitante está superado. Trabalho atual começa em `AGENTS.md` → `docs/README.md` → topo de `docs/CURRENT-STATE.md` → documento canônico/owner → PRs e artefatos vivos. Em divergência prevalecem código + contratos públicos, `docs/CURRENT-STATE.md`, `docs/README.md`, `MVP.md` e os documentos canônicos de domínio.
 
-## Prova física de Produto e bloqueio causal — 2026-11-04
+## Checkpoint histórico de Produto e bloqueio causal — 2026-11-04
 
 **Observação read-only em `DESKTOP-4UFL03B`:** a instalação
 `%LOCALAPPDATA%/Programs/OrdaX OS Desktop Dev` está aberta,
@@ -19,7 +19,7 @@ offline e só possui `mcp-discovery`. Este diagnóstico não é
 uma queda do MCP auxiliar e **não** é resolvido com novas matrículas
 da Platform, copiar módulos soltos ou executar agentes não atestados.
 
-**Gate real:** a PR #2400 continua aberta, HEAD
+**Gate registrado naquele checkpoint:** a PR #2400 continuava aberta, HEAD
 `29330e6b901c311680cc468c93e8e6556cfb03ec`. Seu diff
 edita `system/composition/native/main.mjs`, que também é
 consumido no Owner USB; o classificador
@@ -35,7 +35,7 @@ já foi registrado no comentário #6633701970 dessa PR.
 a branch #2243 em paralelo, abrir outro workflow, refazer USB
 ou promover o artefato antes do gate físico cabível.
 
-**Ordem mínima para o próximo chat:** 1) confirmar o avanço
+**Ordem registrada naquele checkpoint (histórica; não executar como fila atual):** 1) confirmar o avanço
 da #2243 com o owner sem invadir a branch; 2) quando o produtor
 estiver resolvido, atualizar **somente a PR #2400** com a `main`
 contemporânea, preservar 105 testes Node já aprovados e aguardar
@@ -49,9 +49,11 @@ qualquer etapa está concluída só por constar neste handoff.
 
 ## Checkpoint operacional e regra de retomada — 2026-11-04
 
-**Este é o ponto de entrada vigente para futuros chats nesta frente.**
-Reconsultar `main`, PRs e Devices antes de agir; conteúdo datado
-abaixo é histórico quando divergir do código/contrato atual.
+**Este era o ponto de entrada vigente em 04/11/2026; hoje é histórico.**
+Para trabalho atual, seguir `AGENTS.md` → `docs/README.md` →
+`docs/CURRENT-STATE.md` → owner/código/contrato vigente. Reconsultar
+`main`, PRs e Devices antes de agir; conteúdo datado abaixo é
+histórico quando divergir do código/contrato atual.
 **“Continue” significa avançar a pendência comprovada, não executar
 novamente missões antigas nem elaborar outro plano.**
 
@@ -80,10 +82,12 @@ preservando a correção de prontidão MCP
 **Propagação dos handoffs concluída nos cinco repos envolvidos**:
 OS, Apps, Runtime, Platform e Surface. **Não abrir nova PR para
 propagar essas mesmas instruções, nem reiniciar Windows MCP DEV**.
-A próxima missão operacional é outra: concluir a ponte Native Product
-**existente** OS #2400, ainda aberta na última consulta, e depois
-provar observação autenticada Store `CURRENT`/Aura/Runtime;
-Owner/Conta OS #2405 permanece release-gated.
+Naquele checkpoint, a próxima missão registrada era concluir a ponte
+Native Product da OS #2400 e depois provar observação autenticada Store
+`CURRENT`/Aura/Runtime. A OS #2400 foi posteriormente integrada em
+04/11/2026; portanto este trecho **não** autoriza reabrir a ponte nem
+define a pendência atual. Owner/Conta OS #2405 permanece uma frente
+separada cujo estado deve ser verificado ao vivo antes de qualquer ação.
 
 **Owners imutáveis:** `ordax-os`: Store `CURRENT`, verificador Go,
 Native Host, Fabric/Personal/Aura; `ordax-apps`: provider e
@@ -129,11 +133,11 @@ O OS #2400 (ponte Native Product) e OS #2405 (gateway Conta/Owner)
 permaneciam abertos na consulta de 04/11. UI real pertence a
 `ordax-surface`; não criar outro Fabric, daemon ou registry.
 
-**Prioridade de leitura da próxima IA:** `docs/README.md` →
-`docs/CURRENT-STATE.md` → `docs/CAPABILITY-FABRIC.md` →
-código/contratos pertinentes → histórico somente se necessário.
-A seguir permanece um **handoff de 13/10** de outras etapas de Intelligence;
-suas instruções sobre PRs antigas não são tarefas vigentes por si só.
+**Prioridade de leitura atual:** `AGENTS.md` → `docs/README.md` →
+`docs/CURRENT-STATE.md` → documento canônico do domínio →
+código/contratos pertinentes → este handoff somente quando histórico for
+necessário. A seguir permanece um **handoff de 13/10** de outras etapas de
+Intelligence; suas instruções sobre PRs antigas não são tarefas vigentes por si só.
 
 ## Resultado da reconciliação Native/Web — 2026-11-04
 
