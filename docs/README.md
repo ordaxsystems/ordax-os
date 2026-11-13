@@ -21,10 +21,11 @@ A prose document never silently overrides a machine-readable contract. A snapsho
 
 Historical wording inside a root `PLANO-*` such as `CANONICAL`, `P0`, `mandatory`, or equivalent does **not** change this authority order. If that wording conflicts with this router, `MVP.md`, current contracts or a canonical topic owner, the higher-authority source wins and the plan is interpreted as planning/reference material.
 
-## Active canonical map
 ## Retomada transversal: estado atual primeiro
 
 Para trabalho cross-repo, a ordem operacional é **`AGENTS.md` → `docs/README.md` → topo de `docs/CURRENT-STATE.md` → documento canônico do domínio/owner → PRs e artefatos atuais**. [INTELLIGENCE-HANDOFF.md](../INTELLIGENCE-HANDOFF.md) preserva checkpoints de 04/11 e anteriores como **REFERENCE/HISTORICAL**; não é mais entrada operacional nem fila de tarefas. Use-o somente quando a proveniência histórica for necessária. Para Capability Fabric, `docs/CAPABILITY-FABRIC.md` permanece canônico para arquitetura e fronteiras, mas qualquer tabela de status ou sequência datada deve ser revalidada contra `CURRENT-STATE` e os owners atuais antes de agir.
+
+## Active canonical map
 
 | Responsibility | Canonical owner |
 | --- | --- |
