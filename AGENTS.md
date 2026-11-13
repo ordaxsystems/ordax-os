@@ -119,7 +119,7 @@ Esse arquivo e **REFERENCE**: detalha telas, subsecoes, responsabilidades, lacun
 
 A comparacao historica com `novo-ordax-os` foi retirada da arvore ativa e permanece no [snapshot Git](https://github.com/ordaxsystems/ordax-os/blob/c0b3b8555be487f4a105797ebe71fbec9149e97d/PLANO-02-EVOLUCAO-E-REAPROVEITAMENTO-DO-LEGADO.md). Qualquer portabilidade ou reaproveitamento atual exige owner corrente e registro em `docs/SOURCE-MIGRATION.md`; nao reabrir a analise antiga como backlog.
 
-[PLANO-03-FECHAMENTO-PRE-USB-NOVA-ORDAX.md](PLANO-03-FECHAMENTO-PRE-USB-NOVA-ORDAX.md) e um **baseline de auditoria pre-USB cujo fechamento de source ja foi concluido**. Pode ser consultado para contexto e rastreabilidade, mas nao e mais gate authority. Gates vivos de Stable/MVP, prova fisica, boot, recovery, cold-health e Surface devem ser lidos exclusivamente nos owners canonicos atuais, em especial `MVP.md`, `docs/CURRENT-STATE.md`, `docs/PROMOTION-GATES.md` e contratos correspondentes. Nunca reabrir uma lacuna apenas porque ela aparece como pendente nesse plano historico.
+O antigo baseline pre-USB foi retirado da arvore ativa e permanece no [snapshot Git](https://github.com/ordaxsystems/ordax-os/blob/0f8749e8ccfa004628fec2dd59c5218aba331de2/PLANO-03-FECHAMENTO-PRE-USB-NOVA-ORDAX.md) apenas para provenance. Gates vivos de Stable/MVP, prova fisica, boot, recovery, cold-health e Surface pertencem exclusivamente aos owners canonicos atuais, em especial `MVP.md`, `docs/CURRENT-STATE.md`, `docs/PROMOTION-GATES.md` e contratos correspondentes. Nunca reabrir uma lacuna a partir do snapshot historico.
 
 ### Web, Mobile, realtime e controle de dispositivos
 
