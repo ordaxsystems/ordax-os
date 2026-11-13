@@ -113,7 +113,7 @@ Se `MVP.md`, um contrato, `docs/CURRENT-STATE.md`, `docs/PROMOTION-GATES.md` ou 
 
 ### Plano funcional da Surface e dos aplicativos
 
-Antes de revisar historicamente a area de trabalho, a barra lateral ou os apps Arquivos, Ajustes, Conta e Sistema, pode ser util ler [PLANO-FUNCIONAL-SURFACE-E-APPS.md](PLANO-FUNCIONAL-SURFACE-E-APPS.md), na raiz do repositorio, depois da leitura canonica acima.
+Para provenance histórica de área de trabalho/sidebar/apps, o antigo plano funcional permanece no [snapshot Git](https://github.com/ordaxsystems/ordax-os/blob/3f304b05af33e40658025ff289523560b298153c/PLANO-FUNCIONAL-SURFACE-E-APPS.md). Trabalho novo parte dos owners atuais e não exige reler esse snapshot.
 
 Esse arquivo e **REFERENCE**: detalha telas, subsecoes, responsabilidades, lacunas, prioridades e criterios de aceite acumulados, mas nao e `CURRENT-STATE`, changelog canonico nem autorizacao para abrir trabalho. Compare qualquer inventario datado com a `main` atual; nao reconstrua recursos ja existentes nem trate sugestoes como capacidades prontas.
 
