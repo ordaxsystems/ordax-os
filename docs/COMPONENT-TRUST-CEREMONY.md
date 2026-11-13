@@ -53,9 +53,10 @@ CI key can never satisfy the canonical component-trust gate.
 
 ## Windows operator toolkit
 
-After this toolkit source is merged, use only the artifact produced by an
-eligible **push of `main`**. Pull-request and manual-dispatch artifacts remain
-review/test artifacts and are not eligible to create the canonical identity.
+For the pending canonical component-trust ceremony, use only an artifact produced by an
+eligible **push of `main`** whose provenance reports the required ceremony eligibility. Pull-request
+and manual-dispatch artifacts remain review/test artifacts and are not eligible to create the
+canonical identity. Never infer eligibility from the PR or commit that introduced or edited this runbook.
 
 The toolkit contains the signer, provenance, this ceremony document, the exact
 policy JSON and four operator wrappers:
