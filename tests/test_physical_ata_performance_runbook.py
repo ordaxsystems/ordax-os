@@ -4,17 +4,17 @@ import unittest
 
 ROOT = Path(__file__).resolve().parents[1]
 RUNBOOK = ROOT / "docs" / "evidence" / "physical-ata-performance-runbook.md"
-ATA_ENTRYPOINT = ROOT / "system" / "surface" / "bin" / "ordax-ata-evidence"
-KERNEL_LOG_ENTRYPOINT = ROOT / "system" / "surface" / "bin" / "ordax-kernel-log-evidence"
-PERFORMANCE_ENTRYPOINT = ROOT / "system" / "surface" / "bin" / "ordax-performance-evidence"
+ATA_ENTRYPOINT = ROOT / "system" / "surface" / "bin" / "ordax-physical-ata"
+BOOT_STORAGE_ENTRYPOINT = ROOT / "system" / "surface" / "bin" / "ordax-physical-boot-storage"
+PERFORMANCE_ENTRYPOINT = ROOT / "system" / "surface" / "bin" / "ordax-physical-performance"
 
 
 class PhysicalAtaPerformanceRunbookTests(unittest.TestCase):
     def test_runbook_uses_canonical_physical_entrypoints(self):
         runbook = RUNBOOK.read_text(encoding="utf-8")
-        self.assertIn("/system/surface/bin/ordax-ata-evidence", runbook)
-        self.assertIn("/system/surface/bin/ordax-kernel-log-evidence", runbook)
-        self.assertIn("/system/surface/bin/ordax-performance-evidence", runbook)
+        self.assertIn("/system/surface/bin/ordax-physical-ata", runbook)
+        self.assertIn("/system/surface/bin/ordax-physical-boot-storage", runbook)
+        self.assertIn("/system/surface/bin/ordax-physical-performance", runbook)
         self.assertIn("--samples 20 --interval-seconds 0.5", runbook)
         self.assertIn("mvp-surface-smoke-runbook.md", runbook)
         self.assertIn("FAIL=0", runbook)
@@ -24,7 +24,7 @@ class PhysicalAtaPerformanceRunbookTests(unittest.TestCase):
         for statement in (
             "diagnostic evidence only",
             "does not promote a candidate",
-            "ATA/kernel-log/performance evidence is supplemental",
+            "ATA/boot-storage/performance evidence is supplemental",
             "none of these commands records owner consent or permits destructive apply",
         ):
             self.assertIn(statement, runbook)
@@ -35,17 +35,17 @@ class PhysicalAtaPerformanceRunbookTests(unittest.TestCase):
     def test_physical_entrypoints_do_not_accept_fixture_roots_or_proc_kmsg(self):
         runbook = RUNBOOK.read_text(encoding="utf-8")
         ata = ATA_ENTRYPOINT.read_text(encoding="utf-8")
-        kernel_log = KERNEL_LOG_ENTRYPOINT.read_text(encoding="utf-8")
+        boot_storage = BOOT_STORAGE_ENTRYPOINT.read_text(encoding="utf-8")
         performance = PERFORMANCE_ENTRYPOINT.read_text(encoding="utf-8")
 
         self.assertNotIn("--sys-class-root", runbook)
         self.assertNotIn("--proc-root", runbook)
         self.assertNotIn("--sys-class-root", ata)
         self.assertNotIn("--proc-root", performance)
-        self.assertNotIn("/proc/kmsg", kernel_log)
-        self.assertIn("/dev/kmsg", kernel_log)
+        self.assertNotIn("/proc/kmsg", boot_storage)
+        self.assertIn("/dev/kmsg", boot_storage)
         self.assertIn("unsupported physical entrypoint argument", ata)
-        self.assertIn("unsupported physical entrypoint argument", kernel_log)
+        self.assertIn("unsupported physical entrypoint argument", boot_storage)
         self.assertIn("unsupported physical entrypoint argument", performance)
 
 
