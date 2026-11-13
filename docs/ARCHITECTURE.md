@@ -98,7 +98,7 @@ Canonical trust remains fail-closed. Ephemeral CI/development keys never satisfy
 ## Source/product shape
 
 ```text
-prototipo-ordax-os/
+ordax-os/
   boot/                 # boot media definition
   bootstrap/            # only what is needed to reach Git/release acquisition
   system/               # shared product delivered/packaged across modes
