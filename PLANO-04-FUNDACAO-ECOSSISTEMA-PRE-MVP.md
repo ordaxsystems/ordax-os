@@ -1,9 +1,9 @@
 # OrdaX — parte 4: fundação de ecossistema pré-MVP
 
-**Estado:** fundação source/backend implementada; runtime público/comercial ainda desativado.  
-**Objetivo:** preparar o primeiro MVP para evoluir para produto gratuito + serviços pagos sem reescrever identidade, Intelligence, apps ou projetos depois do lançamento.
+**Status documental:** **REFERENCE / DEFERRED FOR EXECUTION**, conforme `00-PLANOS-PRIORITARIOS/REGISTRY.md`. O arquivo mistura fundação já implementada com direção futura; qualquer estado factual precisa ser revalidado contra contratos/source atuais.  
+**Objetivo histórico do plano:** preparar o primeiro MVP para evoluir para produto gratuito + serviços pagos sem reescrever identidade, Intelligence, apps ou projetos depois do lançamento.
 
-Este plano não adiciona cobrança ao MVP e não reabre instalação Native. Ele adiciona fronteiras que são caras de corrigir depois que contas e dados reais existirem.
+Este plano não autoriza cobrança, reabertura de instalação Native ou implementação apenas por estar documentada aqui. Fronteiras já adotadas permanecem nos owners/contratos canônicos; partes futuras só avançam quando promovidas pelo MVP/owner vigente.
 
 ## 1. Decisões
 
