@@ -1,6 +1,7 @@
-# Primeiro uso — prova de navegação em Chromium
+# Primeiro uso — prova de navegação em Chromium (evidência de 2026-10-11)
 
 **Data:** 2026-10-11
+**Status:** EVIDENCE / snapshot datado; não é owner de estado atual nem runbook de promoção.
 **Escopo:** regressão funcional da interface Native OOBE, em ambiente descartável.
 
 ## Fonte de verdade
