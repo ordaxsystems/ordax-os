@@ -106,7 +106,7 @@ Before any key is generated, the initializer fails closed unless:
 4. the SHA-256 of `ordax-release-signing.exe` matches the toolkit provenance;
 5. the SHA-256 of `Initialize-OrdaXReleaseTrust.ps1` matches the toolkit provenance.
 
-Artifacts produced for pull requests or manual workflow-dispatch remain useful for CI and review, but they are **not eligible** to create the canonical release-signing identity. After this PR is merged, the ceremony must use the toolkit emitted by the resulting `push` run on `main`.
+Artifacts produced for pull requests or manual workflow-dispatch remain useful for CI and review, but they are **not eligible** to create the canonical release-signing identity. The ceremony must use a toolkit emitted by a canonical `push` run on `main` whose provenance satisfies the prerequisites above; never infer eligibility from the PR that introduced or edited this runbook.
 
 The proof manifest and `ceremony-result.json` are then bound to that provenance `source_commit`. The operator must not type or substitute a placeholder commit. A provenance or component-hash mismatch aborts the ceremony before private-key creation.
 
