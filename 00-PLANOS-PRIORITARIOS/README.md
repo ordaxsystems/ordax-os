@@ -35,21 +35,13 @@ Quando houver conflito, prevalece a ordem definida em `docs/README.md`, em espec
 
 Um plano nunca transforma intenção em implementação concluída, escopo de MVP ou autoridade. Declarações históricas como `CANÔNICO`, `P0` ou equivalentes dentro de um `PLANO-*` não vencem a hierarquia acima.
 
-## Regra para qualquer novo chat/agente
+## Entrada de novos agentes — sem fila documental
 
-Antes de iniciar uma nova frente de implementação:
+**Implementação com owner e tarefa definidos:** começar em `AGENTS.md`, verificar o owner/contrato e a fonte atual necessários à alteração, executar primeiro e validar proporcionalmente. **Não é obrigatório ler este hub, `ROADMAP.md` ou `REGISTRY.md` antes de cada correção.** Essas referências não são gates de implementação e não podem bloquear jornadas independentes.
 
-1. ler `AGENTS.md` e a ordem canônica obrigatória;
-2. ler este `README.md`;
-3. consultar `ROADMAP.md`;
-4. consultar `REGISTRY.md` para verificar se já existe plano, pesquisa ou frente equivalente;
-5. revalidar a `main` e os owners canônicos do tópico;
-6. verificar se a frente está **EXECUTION-ELIGIBLE** no roadmap atual;
-7. somente então criar/continuar implementação.
+**Planejamento, proposta nova, alteração de prioridade ou escopo incerto:** consultar este índice e o `REGISTRY.md` para reaproveitar materiais existentes; consultar `ROADMAP.md` somente quando for relevante à decisão de escopo. Revalidar owner, contratos e estado atual antes de declarar execução elegível. Um plano `READY` não cria trabalho por si só.
 
-Planos não explicitamente exigidos por um owner/gate atual continuam **DEFERRED FOR EXECUTION** mesmo que estejam `READY` documentalmente.
-
-Se a frente já existir, atualizar o mesmo item. **Não criar `v2`, `final`, `novo`, `alternativo` ou outro plano paralelo para a mesma responsabilidade.**
+Se já houver documento equivalente, atualizar o mesmo item em vez de criar versões `v2`, `final`, `novo` ou `alternativo`. Evidências e handoffs históricos permanecem contexto, não comandos operacionais.
 
 ## Estrutura
 
