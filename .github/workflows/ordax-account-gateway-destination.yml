@@ -1,22 +1,18 @@
 ﻿name: OrdaX Account Gateway Destination
 
 on:
-  push:
-    branches: [main]
-    paths:
-      - '.github/workflows/ordax-account-gateway-destination.yml'
-      - 'infra/supabase/functions/ordax-account-gateway/**'
-      - 'infra/supabase/functions/_shared/auth_rate_limit.mjs'
-      - 'infra/supabase/functions/_shared/bounded_body.mjs'
-      - 'infra/supabase/functions/_shared/account_privileged_rpc.mjs'
-      - 'infra/supabase/functions/_shared/account_transport_admission.mjs'
-      - 'infra/supabase/functions/_shared/account_mcp_usage.mjs'
-      - 'tests/test_account_mcp_usage_bridge.mjs'
-      - 'infra/supabase/functions/_shared/account_service_bridge.mjs'
-      - 'infra/supabase/functions/_shared/account_email_confirmation.mjs'
-      - 'infra/supabase/functions/_shared/space_create_contract.mjs'
-      - 'tools/account/resolve_account_gateway_destination.py'
+  # Production deployment is NEVER triggered by merging code into main.
+  # The Owner must explicitly approve the exact already-reviewed main SHA.
   workflow_dispatch:
+    inputs:
+      approved_sha:
+        description: 'Exact reviewed main commit SHA (40 hex characters)'
+        required: true
+        type: string
+      release_confirmation:
+        description: 'Type DEPLOY_ACCOUNT_GATEWAY_PRODUCTION after Owner E2E and release approval'
+        required: true
+        type: string
 
 permissions:
   contents: read
@@ -27,7 +23,12 @@ concurrency:
 
 jobs:
   deploy-destination:
-    if: github.repository == 'ordaxsystems/ordax-os' && github.ref == 'refs/heads/main'
+    if: >-
+      github.repository == 'ordaxsystems/ordax-os'
+      && github.event_name == 'workflow_dispatch'
+      && github.ref == 'refs/heads/main'
+      && inputs.approved_sha == github.sha
+      && inputs.release_confirmation == 'DEPLOY_ACCOUNT_GATEWAY_PRODUCTION'
     runs-on: ubuntu-24.04
     timeout-minutes: 10
     steps:
@@ -96,6 +97,9 @@ jobs:
           grep -Fq 'Deno.env.get("ORDAX_MCP_USAGE_READ_ENABLED") !== "1"' infra/supabase/functions/ordax-account-gateway/index.ts
           grep -Fq 'const PUBLIC_SITE_ACCOUNT_ENABLED = false;' infra/supabase/functions/ordax-account-gateway/index.ts
           node --test tests/test_account_mcp_usage_bridge.mjs
+          test -f infra/supabase/functions/_shared/account_mcp_owner.mjs
+          grep -Fq 'ORDAX_MCP_OWNER_ACCOUNT_ENABLED' infra/supabase/functions/ordax-account-gateway/index.ts
+          node --test tests/test_account_mcp_owner_bridge.mjs
           test "${ORDAX_ACCOUNT_GATEWAY_DESTINATION}" = "ordax-platform"
 
       - name: Deploy exact account gateway bundle to destination

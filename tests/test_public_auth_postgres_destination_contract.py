@@ -164,7 +164,14 @@ class AccountPostgresCutoverContractTests(unittest.TestCase):
         self.assertIn("verifyNativeSession: async () => {", inner)
         self.assertIn("return Boolean(session.user && session.access)", inner)
         self.assertNotIn("expectedKey = adminConfig().key", inner)
-        self.assertIn("headers: upstreamHeaders(req, bridgeKey)", outer)
+        # The trusted public authority must be minted only after OIDC and
+        # request-context validation; never forward browser-supplied authority.
+        self.assertIn("const requestContext = verifyTrustedPublicRequestContext(req);", outer)
+        self.assertIn("if (!requestContext.ok)", outer)
+        self.assertIn('headers.set("x-ordax-public-origin", trustedOrigin)', outer)
+        self.assertIn('headers.set("x-ordax-public-host", trustedHost)', outer)
+        self.assertIn('headers.set("x-ordax-public-proto", "https")', outer)
+        self.assertIn('headers: upstreamHeaders(req, bridgeKey, requestContext.origin, requestContext.host)', outer)
         self.assertTrue(stage["destination_gateway_platform_auth_reference"].startswith("https://supabase.com/"))
 
     def test_named_service_bridge_is_proven_without_recording_secret_value(self):

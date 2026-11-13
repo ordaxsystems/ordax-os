@@ -33,6 +33,13 @@ const PUBLIC_ACCOUNT_ROUTES = new Map([
   ["/account/export", Object.freeze({ method: "GET", preActivation: false })],
   ["/account/spaces", Object.freeze({ method: "GET", preActivation: true })],
   ["/account/usage/mcp", Object.freeze({ method: "GET", preActivation: false })],
+  ["/account/mcp/devices", Object.freeze({ method: "GET", preActivation: false })],
+  ["/account/mcp/authority", Object.freeze({ method: "GET", preActivation: false })],
+  ["/account/mcp/revoke", Object.freeze({ method: "POST", preActivation: false })],
+  ["/account/mcp/central-targets", Object.freeze({ method: "GET", preActivation: false })],
+  ["/account/mcp/central-selections", Object.freeze({ method: "GET", preActivation: false })],
+  ["/account/mcp/project-onboarding", Object.freeze({ method: "GET", preActivation: false })],
+  ["/account/mcp/project-onboarding/projects", Object.freeze({ method: "POST", preActivation: false })],
   ["/account/space-members", Object.freeze({ method: "GET", preActivation: true })],
   ["/account/space-actor-capability", Object.freeze({ method: "GET", preActivation: true })],
   ["/account/space-membership-actions", Object.freeze({ method: "POST", preActivation: false })],
@@ -47,6 +54,7 @@ export function isPublicBridgeRoute(method, pathname) {
       || pathname.length > 2048 || !pathname.startsWith("/")
       || pathname.includes("\\") || pathname.includes("\0")
       || pathname.includes("?") || pathname.includes("#")) return false;
+  if (pathname === "/account/mcp/central-selections" && method === "POST") return true;
   const exactAccountRoute = PUBLIC_ACCOUNT_ROUTES.get(pathname);
   if (exactAccountRoute) return exactAccountRoute.method === method;
   return PUBLIC_ALLOWED_PREFIXES.some(prefix => pathname.startsWith(prefix));

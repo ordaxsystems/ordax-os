@@ -7,6 +7,8 @@ import {
 } from "../_shared/auth_rate_limit.mjs";
 import { readBoundedBody } from "../_shared/bounded_body.mjs";
 import { ACCOUNT_MCP_USAGE_PATH, readAccountMcpUsage } from "../_shared/account_mcp_usage.mjs";
+import { ACCOUNT_MCP_DEVICES_PATH, ACCOUNT_MCP_AUTHORITY_PATH, ACCOUNT_MCP_REVOKE_PATH, ACCOUNT_MCP_CENTRAL_TARGETS_PATH, ACCOUNT_MCP_CENTRAL_SELECTIONS_PATH, ACCOUNT_MCP_PROJECT_ONBOARDING_PATH, ACCOUNT_MCP_PROJECTS_PATH, isOwnerUuid, readAccountOwnerDevices, readAccountOwnerAuthority, revokeAccountOwnerGrant, parseAccountOwnerRevoke, readAccountOwnerCentralTargets, readAccountOwnerCentralSelections, selectAccountOwnerCentralDevice, parseAccountOwnerCentralSelection, readAccountOwnerProjectOnboarding, createAccountOwnerProject, parseAccountOwnerProjectCreate } from "../_shared/account_mcp_owner.mjs";
+import { verifyTrustedPublicRequestContext } from "../ordax-public-account-gateway/public_request_context.mjs";
 import { accountPrivilegedRpc } from "../_shared/account_privileged_rpc.mjs";
 import { authorizeAccountTransport, accountGatewayRoutePath, isPublicAccountPreActivationRoute } from "../_shared/account_transport_admission.mjs";
 import { parseSpaceCreateRequest, projectSpaceCreateResult, spaceCreateRpcArgs } from "../_shared/space_create_contract.mjs";
@@ -381,6 +383,11 @@ async function revokeCurrentSession(accessToken: string) {
 
 function crossSiteStateChange(req: Request) {
   if (!["POST", "PUT", "PATCH", "DELETE"].includes(req.method)) return false;
+  // The signed public-service bridge carries the canonical Vercel authority
+  // validated at the outer edge. Supabase can rewrite x-forwarded-host.
+  // The bridge secret is verified by authorizeAccountTransport immediately
+  // after this early CSRF check; a forged service marker cannot grant access.
+  if (publicSiteRequest(req)) return !verifyTrustedPublicRequestContext(req).ok;
   const fetchSite = (req.headers.get("sec-fetch-site") ?? "").toLowerCase();
   if (fetchSite === "cross-site") return true;
 
@@ -1297,6 +1304,184 @@ Deno.serve(async (req: Request) => {
       return error(502, "account-export-failed", "Não foi possível gerar a exportação da Conta OrdaX.");
     }
     return json(200, data, session.cookies);
+  }
+
+  // Owner devices/grants use the same Supabase Account session as MCP usage.
+  // Browser never receives the Product bearer. This is a fixed allowlisted
+  // transport to the single MCP Owner authority; no local grant store.
+  if ((path === ACCOUNT_MCP_DEVICES_PATH && req.method === "GET")
+      || (path === ACCOUNT_MCP_AUTHORITY_PATH && req.method === "GET")
+      || (path === ACCOUNT_MCP_REVOKE_PATH && req.method === "POST")
+      || (path === ACCOUNT_MCP_CENTRAL_TARGETS_PATH && req.method === "GET")
+      || (path === ACCOUNT_MCP_CENTRAL_SELECTIONS_PATH && ["GET","POST"].includes(req.method))
+      || (path === ACCOUNT_MCP_PROJECT_ONBOARDING_PATH && req.method === "GET")
+      || (path === ACCOUNT_MCP_PROJECTS_PATH && req.method === "POST")) {
+    const session = await authenticated(req);
+    if (!session.user || !session.access) {
+      return json(401, {
+        $schema: ERROR_SCHEMA, error: "authentication-required",
+        message: "Entre na Conta OrdaX para administrar o MCP.",
+      }, session.cookies);
+    }
+    // Code and SQL can be deployed independently without opening the public
+    // Owner console before its authenticated gateway E2E is approved.
+    if (Deno.env.get("ORDAX_MCP_OWNER_ACCOUNT_ENABLED") !== "1") {
+      return error(503, "mcp-owner-console-unavailable", "A administração MCP ainda não está disponível.");
+    }
+    if (path === ACCOUNT_MCP_DEVICES_PATH) {
+      if (url.search !== "") return error(400, "mcp-owner-devices-query-invalid", "Consulta inválida.");
+      try {
+        return json(200, await readAccountOwnerDevices(session.access), session.cookies);
+      } catch {
+        return error(503, "mcp-owner-devices-unavailable", "Não foi possível consultar dispositivos MCP.");
+      }
+    }
+    if (path === ACCOUNT_MCP_AUTHORITY_PATH) {
+      if (url.searchParams.size !== 1 || !url.searchParams.has("device_id")
+          || !isOwnerUuid(url.searchParams.get("device_id"))) {
+        return error(400, "mcp-owner-device-invalid", "Dispositivo inválido.");
+      }
+      try {
+        return json(200, await readAccountOwnerAuthority(
+          session.access, url.searchParams.get("device_id"),
+        ), session.cookies);
+      } catch {
+        return error(503, "mcp-owner-authority-unavailable", "Não foi possível consultar as autorizações.");
+      }
+    }
+    if (path === ACCOUNT_MCP_PROJECT_ONBOARDING_PATH || path === ACCOUNT_MCP_PROJECTS_PATH) {
+      // Project onboarding is independently releasable from device inventory
+      // and revocation. It never creates a GitHub connection, device binding,
+      // or Product grant on behalf of the browser.
+      if (Deno.env.get("ORDAX_MCP_OWNER_PROJECT_ONBOARDING_ENABLED") !== "1") {
+        return error(503, "mcp-owner-project-onboarding-unavailable",
+          "A autorização de projetos MCP ainda não está disponível.");
+      }
+      if (path === ACCOUNT_MCP_PROJECT_ONBOARDING_PATH) {
+        const deviceIds = url.searchParams.getAll("device_id");
+        if (url.searchParams.size !== 1 || deviceIds.length !== 1
+            || !isOwnerUuid(deviceIds[0])) {
+          return error(400, "mcp-owner-device-invalid", "Dispositivo inválido.");
+        }
+        try {
+          return json(200, await readAccountOwnerProjectOnboarding(session.access, deviceIds[0]),
+            session.cookies);
+        } catch {
+          return error(503, "mcp-owner-project-onboarding-unavailable",
+            "Não foi possível consultar a autorização de projetos.");
+        }
+      }
+      if (!publicSiteRequest(req) || !verifyTrustedPublicRequestContext(req).ok) {
+        return error(403, "mcp-owner-csrf-denied", "Origem de criação de projeto não autorizada.");
+      }
+      if (url.search !== "" ||
+          (req.headers.get("content-type") ?? "").split(";")[0].trim().toLowerCase()
+            !== "application/json") {
+        return error(400, "mcp-owner-project-create-invalid", "Solicitação inválida.");
+      }
+      let projectCreate;
+      try {
+        const raw = await boundedBody(req);
+        if (raw.length > 2048) throw new Error("mcp-owner-project-create-too-large");
+        projectCreate = JSON.parse(raw);
+      } catch {
+        return error(400, "mcp-owner-project-create-invalid", "Solicitação inválida.");
+      }
+      if (!parseAccountOwnerProjectCreate(projectCreate))
+        return error(400, "mcp-owner-project-create-invalid",
+          "Confirme o Space, o nome e o tipo exatos do projeto.");
+      try {
+        return json(201, await createAccountOwnerProject(session.access, projectCreate),
+          session.cookies);
+      } catch {
+        // An uncertain create is never retried. The next explicit Owner read
+        // must reconcile whether a Project was created.
+        return error(503, "mcp-owner-project-create-unconfirmed",
+          "A criação não foi confirmada. Consulte os projetos antes de tentar novamente.");
+      }
+    }
+    if (path === ACCOUNT_MCP_CENTRAL_TARGETS_PATH || path === ACCOUNT_MCP_CENTRAL_SELECTIONS_PATH) {
+      // Separate release switch: Owner inventory/revocation cannot silently
+      // activate a central session or attach ChatGPT to a different device.
+      if (Deno.env.get("ORDAX_MCP_OWNER_CENTRAL_SELECTION_ENABLED") !== "1") {
+        return error(503, "mcp-owner-central-selection-unavailable",
+          "A seleção de sessão MCP ainda não está disponível.");
+      }
+      if (req.method === "GET") {
+        const clientIds = url.searchParams.getAll("client_id");
+        if (url.searchParams.size !== 1 || clientIds.length !== 1
+            || !isOwnerUuid(clientIds[0])) {
+          return error(400, "mcp-owner-client-invalid", "Cliente OAuth inválido.");
+        }
+        try {
+          const result = path === ACCOUNT_MCP_CENTRAL_TARGETS_PATH
+            ? await readAccountOwnerCentralTargets(session.access, clientIds[0])
+            : await readAccountOwnerCentralSelections(session.access, clientIds[0]);
+          return json(200, result, session.cookies);
+        } catch {
+          return error(503, "mcp-owner-central-unavailable",
+            "Não foi possível consultar a seleção de sessão MCP.");
+        }
+      }
+      // A choice is explicit and one-shot. The single canonical SQL selector
+      // rechecks consent, client, device, grant, readiness, ticket and expiry.
+      // The device must independently attest after selection.
+      if (!publicSiteRequest(req) || !verifyTrustedPublicRequestContext(req).ok) {
+        return error(403, "mcp-owner-csrf-denied", "Origem de seleção não autorizada.");
+      }
+      if (url.search !== "" ||
+          (req.headers.get("content-type") ?? "").split(";")[0].trim().toLowerCase()
+            !== "application/json") {
+        return error(400, "mcp-owner-central-selection-invalid", "Solicitação inválida.");
+      }
+      let selection;
+      try {
+        const raw = await boundedBody(req);
+        if (raw.length > 1024) throw new Error("mcp-owner-selection-too-large");
+        selection = JSON.parse(raw);
+      } catch {
+        return error(400, "mcp-owner-central-selection-invalid", "Solicitação inválida.");
+      }
+      if (!parseAccountOwnerCentralSelection(selection))
+        return error(400, "mcp-owner-central-selection-invalid",
+          "Confirme a sessão, o cliente OAuth e o dispositivo exatos.");
+      try {
+        return json(200, await selectAccountOwnerCentralDevice(session.access, selection),
+          session.cookies);
+      } catch {
+        // An uncertain POST is never replayed or reported as an attestation.
+        return error(503, "mcp-owner-central-selection-unconfirmed",
+          "A seleção não foi confirmada. Consulte a sessão novamente.");
+      }
+    }
+    // A revocation is an explicit browser action, never a GET, CORS, image
+    // request or prompt-triggered method. Fail closed without same-origin
+    // browser provenance; the signed public service bridge is not sufficient.
+    // Trust only the OIDC-verified service context carried through the
+    // authenticated bridge; x-forwarded-host is not stable at Supabase ingress.
+    if (!publicSiteRequest(req) || !verifyTrustedPublicRequestContext(req).ok) {
+      return error(403, "mcp-owner-csrf-denied", "Origem da revogação não autorizada.");
+    }
+    if (url.search !== "" || (req.headers.get("content-type") ?? "").split(";")[0].trim().toLowerCase() !== "application/json") {
+      return error(400, "mcp-owner-revoke-invalid", "Solicitação de revogação inválida.");
+    }
+    let revokeRequest;
+    try {
+      const raw = await boundedBody(req);
+      if (raw.length > 1024) throw new Error("mcp-owner-revoke-too-large");
+      revokeRequest = JSON.parse(raw);
+    } catch {
+      return error(400, "mcp-owner-revoke-invalid", "Solicitação de revogação inválida.");
+    }
+    if (!parseAccountOwnerRevoke(revokeRequest))
+      return error(400, "mcp-owner-revoke-invalid", "Confirme o dispositivo e a autorização exatos.");
+    try {
+      return json(200, await revokeAccountOwnerGrant(session.access, revokeRequest), session.cookies);
+    } catch {
+      // An ambiguous DELETE is never repeated automatically or reported as
+      // success. The next explicit Owner read reflects canonical state.
+      return error(503, "mcp-owner-revoke-unconfirmed", "Não foi possível confirmar a revogação.");
+    }
   }
 
   if (path === ACCOUNT_MCP_USAGE_PATH && req.method === "GET") {

@@ -8,6 +8,7 @@ import {
   normalizeGatewayUrl,
   forwardPublicConfirmationQuery,
   forwardPublicRecoveryQuery,
+  forwardOwnerMcpAuthorityQuery,
   normalizeProductPath,
   normalizePublicOrigin,
   normalizeTrustedEdgeAddress,
@@ -207,6 +208,49 @@ test("ordinary auth routes survive Vercel rewrite metadata without OTP parsing",
     }
   } finally {
     globalThis.fetch = originalFetch;
+  }
+});
+
+test("Owner device authority query survives Vercel rewrite with no arbitrary passthrough", async () => {
+  const uuid = "11111111-1111-4111-8111-111111111111";
+  const good = new URLSearchParams({ordax_path:"/account/mcp/authority",device_id:uuid});
+  const canonical = "/account/mcp/authority?device_id=" + uuid;
+  assert.equal(forwardOwnerMcpAuthorityQuery("/account/mcp/authority",good),canonical);
+  assert.equal(forwardOwnerMcpAuthorityQuery(canonical,good),canonical);
+  for (const bad of [
+    new URLSearchParams({ordax_path:"/account/mcp/authority"}),
+    new URLSearchParams({ordax_path:"/account/mcp/authority",device_id:"evil"}),
+    new URLSearchParams("ordax_path=/account/mcp/authority&device_id="+uuid+"&device_id=22222222-2222-4222-8222-222222222222"),
+    new URLSearchParams({ordax_path:"/account/mcp/authority",device_id:uuid,next:"https://evil.test"}),
+    new URLSearchParams({ordax_path:"/account/mcp/authority",owner_id:uuid}),
+  ]) assert.equal(forwardOwnerMcpAuthorityQuery("/account/mcp/authority",bad),null);
+  assert.equal(forwardOwnerMcpAuthorityQuery("/account/mcp/devices",good),null);
+
+  let forwarded = null;
+  const original = globalThis.fetch;
+  globalThis.fetch = async (url) => {
+    forwarded = String(url);
+    return Response.json({ok:true});
+  };
+  try {
+    const req = new Request(PUBLIC_ORIGIN + "/api/account-proxy?" + good.toString(),{
+      headers:{"x-forwarded-for":"203.0.113.15"},
+    });
+    const accepted = await proxyPublicAccountRequest(req,options());
+    assert.equal(accepted.status,200);
+    assert.equal(new URL(forwarded).pathname,
+      "/functions/v1/ordax-public-account-gateway/account/mcp/authority");
+    assert.equal(new URL(forwarded).search,"?device_id="+uuid);
+    const poisoned = new Request(PUBLIC_ORIGIN + "/api/account-proxy?" +
+      new URLSearchParams({ordax_path:"/account/mcp/authority",device_id:uuid,owner_id:uuid}),{
+      headers:{"x-forwarded-for":"203.0.113.15"},
+    });
+    forwarded = null;
+    const blocked = await proxyPublicAccountRequest(poisoned,options());
+    assert.equal(blocked.status,404);
+    assert.equal(forwarded,null);
+  } finally {
+    globalThis.fetch = original;
   }
 });
 
