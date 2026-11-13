@@ -183,7 +183,6 @@ Capability provider-neutral para pesquisa externa compartilhável por Intelligen
 
 ## Relatório de comparação de desktop
 
-`reports/COMP-001-SPACED-LINUX-ORDAX-COMPARISON.md` registra a auditoria que corrigiu uma leitura superficial de lacunas.
 
 Ele existe para impedir que outro chat/agente proponha desnecessariamente:
 
