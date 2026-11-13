@@ -131,12 +131,12 @@ ou completude da matriz cross-repo. Revalidar antes de qualquer integração.
 
 Se o Desktop for essencialmente um wrapper em lock-step com a Surface, **repo separado pode piorar** coordenação; se for host Windows com release/assinatura independentes, pode valer a pena. Não mover host privilegiado para `ordax-surface` sem revisar `repository-ownership.json`, `module-boundaries.json` e segurança. A extração aprovada exige preservar histórico, migrar CI/packaging, testes de IPC, instalação, upgrade, rollback, source locks e exclusão do caminho antigo **no corte final**.
 
-### P2 — Kernel, Base, USB/Creator e Native físico: preservar arquitetura, adiar execução
+### P2 — Kernel, Base, USB/Creator e Native físico: preservar arquitetura e executar por causalidade
 
 - [ ] Manter Kernel Linux, boot, initramfs, Buildroot/Base, Supervisor, recovery e updater estrutural sob owners `ordax-os`, com upstream pinado, patches/configuração versionados, builds por artefato e sem fork/repo novo por estética.
-- [ ] Quando a janela física abrir, reconciliar `ordax-creator` (aplicação/Core) com `ordax-os/tools/creator` (provas/payload/assinatura) e contratos de geometria distintos; eliminar duplicação comprovada sem apagar produtores legítimos.
-- [ ] Não iniciar agora builds caros de kernel/Buildroot, USB/QEMU, publicação de mídia ou testes físicos para satisfazer um plano documental; usar `NATIVE-001`, owners e gates atuais quando autorizado.
-- [ ] Em eventual corte de Base/Alpine, provar ABI, PID1, recovery, health, update e boot real no perfil-alvo antes de apagar a implementação anterior; depois remover todo legado de execução sem compatibilidade eterna.
+- [ ] Reconciliar `ordax-creator` (aplicação/Core) com `ordax-os/tools/creator` (provas/payload/assinatura) somente quando o contrato/artefato direto exigir; eliminar duplicação comprovada sem apagar produtores legítimos.
+- [ ] Não iniciar builds caros de kernel/Buildroot, USB/QEMU, publicação de mídia ou testes físicos **apenas para satisfazer este plano**. Quando um owner/gate ativo realmente exigir essas provas, executá-las sem esperar outro canal independente.
+- [ ] Em eventual corte de Base, provar ABI, PID1, recovery, health, update e boot real no perfil-alvo antes de apagar a implementação anterior; depois remover todo legado de execução sem compatibilidade eterna.
 
 ### Ordem de entrega, critérios de encerramento e handoff
 
