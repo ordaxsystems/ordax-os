@@ -38,7 +38,7 @@ Para mudanças cross-repo, **comece por `AGENTS.md`, o owner e o contrato aplic�
 | External Intelligence source / integration-candidate | `docs/INTELLIGENCE-REPOSITORY-MIGRATION.md` + `docs/contracts/intelligence-source.json` |
 | Personal OrdaX orchestration | `docs/PERSONAL-ORDAX.md` |
 | Web Research source boundary (providers disabled) | `docs/WEB-RESEARCH.md`, `system/contracts/web-research.mjs` |
-| Capability Fabric — arquitetura e fronteiras canônicas; checkpoints operacionais datados são referência | `docs/CAPABILITY-FABRIC.md` (arquitetura/limites); `docs/plans/CAPABILITY-FABRIC-V1.md` (histórico) |
+| Capability Fabric — arquitetura e fronteiras canônicas; checkpoints operacionais datados são referência | `docs/CAPABILITY-FABRIC.md` (arquitetura/limites); diário v1 histórico preservado na PR #2406 |
 | Spaces + professional composition (single user journey) | `docs/SPACES-AND-PROFILES.md` + `docs/contracts/spaces-and-profile-packs.json` |
 | Account sync / entitlements across product modes | `docs/ACCOUNT-SYNC-AND-PLANS.md` |
 | Profile knowledge and Intelligence | `docs/PROFILE-INTELLIGENCE-ARCHITECTURE.md` + canonical Profile manifests |

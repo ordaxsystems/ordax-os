@@ -121,7 +121,7 @@ O Capability Fabric v1 foi integrado à `ordax-os/main` pela
 para **o que já existe, como funciona, o que falta, owners e testes que
 realmente estão no remoto** é [`docs/CAPABILITY-FABRIC.md`](docs/CAPABILITY-FABRIC.md),
 com status datado em `docs/CURRENT-STATE.md`. O extenso
-`docs/plans/CAPABILITY-FABRIC-V1.md` é **histórico**, não uma nova fila.
+O diário `CAPABILITY-FABRIC-V1` foi removido da árvore ativa; sua proveniência permanece na [PR #2406](https://github.com/ordaxsystems/ordax-os/pull/2406). Não representa uma nova fila.
 
 **Não reiniciar a fase A/B/C:** Native Surface Host, Store `CURRENT`,
 Application Actions, Aura e Personal compartilham a projeção de leitura
@@ -299,7 +299,7 @@ A experiência adaptativa/Jarvis de #1572 continua relevante como UX/resultado, 
 2. `docs/INTELLIGENCE.md`, `docs/contracts/intelligence.json`, `system/services/intelligence/` — Intelligence, model router e limites de inferência.
 3. `docs/APPLICATION-INTELLIGENCE.md`, `docs/APP-INTELLIGENCE-MANIFEST.md`, `docs/APPLICATION-ACTIONS.md` — catálogo semântico, intents, provedores de ações.
 4. `PERSONAL-ORDAX.md` e `docs/PERSONAL-ORDAX.md` — Work, Activity, Result, approvals, grants e receipts.
-5. `docs/plans/INTELLIGENCE-INTEGRATION-CLOSURE-2026-10-13.md` e issue #1757 — fechamento da integração corrente.
+5. O plano `docs/plans/INTELLIGENCE-INTEGRATION-CLOSURE-2026-10-13.md` e a issue #1757 são **referências históricas** de fechamento; revalidar owners, source e PRs atuais antes de qualquer execução.
 6. [Apps: Studio + ChatGPT em três superfícies](https://github.com/ordaxsystems/ordax-apps/blob/main/docs/STUDIO-CHATGPT-THREE-SURFACES.md), [Studio Web](https://github.com/ordaxsystems/ordax-apps/blob/main/docs/STUDIO-WEB-INTEGRATION.md).
 7. [Platform: providers](https://github.com/ordaxsystems/ordax-platform/blob/main/docs/ORDAX_PROVIDER_CONNECTORS.md), [Product MCP](https://github.com/ordaxsystems/ordax-platform/blob/main/docs/PRODUCT_MCP_CONNECT.md), [Runtime: bridge experimental](https://github.com/ordaxsystems/ordax-runtime/pull/63).
 
