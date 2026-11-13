@@ -24,6 +24,7 @@ const FORBIDDEN_PAYLOAD_KEYS = new Set([
   "secret",
   "token",
 ]);
+const FORBIDDEN_OBJECT_KEYS = new Set(["__proto__", "prototype", "constructor"]);
 const DOMAIN_RE = /^[a-z][a-z0-9.-]{0,95}$/;
 const TYPE_RE = /^[a-z][a-z0-9._-]{0,95}$/;
 const CONTROL_RE = /[\u0000-\u001f\u007f]/;
@@ -73,8 +74,12 @@ function validateStructuredValue(value, label, depth = 0) {
   const out = {};
   for (const [key, raw] of entries) {
     boundedText(key, `${label} key`, 64);
-    if (FORBIDDEN_PAYLOAD_KEYS.has(key.toLowerCase())) {
+    const normalizedKey = key.toLowerCase();
+    if (FORBIDDEN_PAYLOAD_KEYS.has(normalizedKey)) {
       throw new TypeError(`${label} cannot contain credential-like field ${key}`);
+    }
+    if (FORBIDDEN_OBJECT_KEYS.has(normalizedKey)) {
+      throw new TypeError(`${label} cannot contain prototype-control field ${key}`);
     }
     out[key] = validateStructuredValue(raw, `${label}.${key}`, depth + 1);
   }
