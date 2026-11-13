@@ -5,7 +5,6 @@ on:
     paths:
       - 'docs/contracts/repository-ownership.json'
       - 'docs/contracts/repository-migration-status.json'
-      - 'docs/REPOSITORY-NAMESPACE-TRANSFER-PREFLIGHT.md'
       - 'tools/verify/repository_namespace_transfer_preflight.py'
       - 'tests/test_repository_namespace_transfer_preflight.py'
       - 'tools/verify/repository_namespace_stable_release.py'
@@ -18,7 +17,6 @@ on:
     paths:
       - 'docs/contracts/repository-ownership.json'
       - 'docs/contracts/repository-migration-status.json'
-      - 'docs/REPOSITORY-NAMESPACE-TRANSFER-PREFLIGHT.md'
       - 'tools/verify/repository_namespace_transfer_preflight.py'
       - 'tests/test_repository_namespace_transfer_preflight.py'
       - 'tools/verify/repository_namespace_stable_release.py'
