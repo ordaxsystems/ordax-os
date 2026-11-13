@@ -86,7 +86,7 @@ O estado exigido depende do pedido. Uma correção interna pode terminar em Inte
 - Se a interface pública continua compatível, o producer pode avançar sem bloquear consumidores; a adoção ocorre quando o consumidor realmente precisar da nova revisão.
 - Mudança incompatível exige evolução versionada do contrato e adoção explícita, não edição coordenada informal em múltiplos repos.
 
-## P0 — Native MCP no Windows/Desktop DEV (31/10/2026)
+## Checkpoint histórico — Native MCP no Windows/Desktop DEV (31/10/2026)
 
 **Atualização de handoff (04/11/2026):** o código do Capability Fabric v1
 já foi integrado (OS PR #2406). Consultar
@@ -97,21 +97,24 @@ recibos reais mantêm gates próprios. **Este bloco preserva o histórico
 DEV**, não autoriza substituir versões, instalar agentes ou repetir
 processos enquanto não houver verificação do estado atual e owner.
 
-**Missão canônica:** provar o mesmo `ordax-runtime` no OrdaX OS Desktop
+**Missão registrada naquele checkpoint:** provar o mesmo `ordax-runtime` no OrdaX OS Desktop
 instalado no Windows **e**, depois, no agente auxiliar Windows com outra
-identidade Product Device. Prova DEV antes de assinatura de produção.
+identidade Product Device. Esta formulação é evidência histórica de 31/10,
+não prioridade atual nem autorização para repetir a missão.
 A Platform, OAuth/grants, Worker e Supervisor existentes são as únicas
 autoridades. Não criar Runtime, dispatcher, CLI, banco, sessão, workflow ou
 instalador paralelo.
-## Ponte Native Product — PR #2400 (implementação candidata, não homologada)
+## Ponte Native Product — checkpoint histórico da PR #2400 (integrada em 04/11/2026)
 
 Owners: ordax-os (Native Host, Supervisor e ponte autenticada);
 ordax-runtime (dispatcher e ação Product Device);
 ordax-surface (UI e appActivation existentes);
 ordax-platform (Device, identidade, atestação e grants do cliente ChatGPT).
 O MCP auxiliar Windows mantém identidade independente.
-O histórico de testes locais abaixo é evidência de candidato,
-não substitui merge gates atuais, recibo remoto nem Store CURRENT.
+O histórico de testes locais abaixo é evidência do candidato daquela revisão.
+A PR #2400 já foi integrada; não reabrir ou duplicar a ponte por causa deste
+bloco. Readiness, recibos remotos e Store `CURRENT` devem ser verificados no
+estado atual dos owners e contratos antes de qualquer ação.
 
 
 
