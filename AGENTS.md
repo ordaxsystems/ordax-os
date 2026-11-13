@@ -138,6 +138,8 @@ Antes de alterar landing page, download, login/cadastro ou futura area publica d
 
 O source da apresentacao do portal pertence **exclusivamente** a `ordaxsystems/ordax-site`; a revisao consumida pelo OS e fixada por `docs/contracts/public-site-source.json`. Nao reintroduzir `sites/public/`, `tools/public-site/build.py`, compiladores de UI ou tokens visuais como segunda autoridade. O portal e separado do modo **OrdaX Web**; no OS permanecem somente gateways, Identity, autorizacao e contratos de publicacao. Nao importar Surface para montar o Site, duplicar identidade/conta ou hard-codear release como "latest". Login/cadastro e download ficam fail-closed sem gates de seus owners.
 
+Excecao transitória conhecida: o host Dev do `ordax-site` materializa uma closure imutável do gateway de Conta do owner OS por `contracts/canonical-gateway-source.json`. Isso é staging-only, não transfere ownership, não autoriza produção e deve conter owner/consumer + condição de remoção. Não usar essa exceção para importar outro source do OS no Site.
+
 ## 4. Arquitetura fisica alvo
 
 O seed e o USB final preparado nao sao o mesmo artefato:
