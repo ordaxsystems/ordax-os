@@ -237,7 +237,7 @@ class StableBaseContractTests(unittest.TestCase):
         self.assertIn("def select_module_members(", text)
         self.assertIn("def select_dev_module_members(", text)
         self.assertIn("WIFI_MODULE_BASENAMES", text)
-        self.assertIn("DEV_MODULE_BASENAMES = WIFI_MODULE_BASENAMES", text)
+        self.assertNotIn("DEV_MODULE_BASENAMES", text)
 
 
 if __name__ == "__main__":
