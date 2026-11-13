@@ -1,6 +1,8 @@
 # OrdaX Intelligence integration closure — 2026-10-13
 
-Status: execution plan for the current integration gap. This document does not grant runtime authority and does not replace `docs/INTELLIGENCE.md`, `docs/CURRENT-STATE.md`, `PERSONAL-ORDAX.md`, or canonical contracts.
+Status: HISTORICAL / REFERENCE — integration plan snapshot dated 2026-10-13, not an active execution queue. For current work use `AGENTS.md`, `docs/CURRENT-STATE.md`, `docs/INTELLIGENCE.md`, the relevant current owners/contracts and the live PR/issue state. Historical statements about Phase 2 or next steps below must not be treated as current instructions.
+
+Historical status at the time: execution plan for the then-current integration gap. This document does not grant runtime authority and does not replace `docs/INTELLIGENCE.md`, `docs/CURRENT-STATE.md`, `PERSONAL-ORDAX.md`, or canonical contracts.
 
 Tracking: issue #1757. Phase 1 merged in PR #1756. Phase 2 transport-boundary work continues separately.
 
