@@ -90,6 +90,12 @@ class TPM2StagedKernelTests(unittest.TestCase):
             self.assertIn("CONFIG_TCG_TPM=y", config.read_text())
             BUILDER.verify_resolved_config(config, requested)
 
+    def test_overlay_preflight_does_not_mutate_shipping_fragment(self):
+        shipping = KERNEL / "config/ordax.fragment"
+        before = shipping.read_bytes()
+        BUILDER.check_contract(OVERLAY)
+        self.assertEqual(shipping.read_bytes(), before)
+
     def test_no_second_kernel_source_or_release_authority(self):
         current = (KERNEL / "source.json").read_text()
         builder = (KERNEL / "build.py").read_text()
