@@ -4,7 +4,7 @@ Status: CANONICAL FOR PROTOTYPE
 
 ## Goal
 
-Prove a minimal, reproducible, Git-first OrdaX that boots independently, reaches the network, acquires the rest of the system from Git or as a verified release according to the active profile, and exposes one product across Web, Mobile, Desktop, USB and native disk from one shared source graph.
+Prove a minimal, reproducible OrdaX that boots independently, reaches the selected acquisition channel, and composes one product across Web, Mobile, Desktop, USB and native disk from a **verified multi-repository source graph** with one owner per responsibility.
 
 ## Core invariant
 
@@ -21,6 +21,8 @@ SEPARATE_HOME_PARTITION=NO
 ONE_PRODUCT_FIVE_MODES=YES
 SINGLE_SURFACE_SOURCE=YES
 SINGLE_APPLICATION_SOURCE=YES
+DIRECT_DEPENDENCY_PINS=YES
+CROSS_REPO_SOURCE_COPY=NO
 PLATFORM_POLICY_FORKS=FORBIDDEN
 CAPABILITY_ADAPTERS=REQUIRED
 WSL_REQUIRED=NO
@@ -98,31 +100,31 @@ Canonical trust remains fail-closed. Ephemeral CI/development keys never satisfy
 ## Source/product shape
 
 ```text
+ordax-surface ── visual source ───────┐
+ordax-apps ───── removable apps ──────┤
+ordax-intelligence ─ portable source ─┤
+                                      v
 ordax-os/
   boot/                 # boot media definition
-  bootstrap/            # only what is needed to reach Git/release acquisition
-  system/               # shared product delivered/packaged across modes
-    surface/            # one visual source
-    apps/               # one first-party app source
-    services/           # shared account/sync/domain behavior
-    adapters/
-      web/
-      mobile/           # Android/iOS differences stay behind this boundary
-      desktop/          # desktop-host capabilities; Windows first
-      native/           # USB/native-disk capabilities where genuinely shared
-  platform/             # persistent layout contracts/templates
-  tools/
-    creator/
-    dev/
-    verify/
-  docs/
-    contracts/
-      foundation.json
-      product-capabilities.json
-  tests/
+  bootstrap/            # boot/base/recovery producers
+  system/
+    contracts/          # public/system contracts
+    surface/            # OS host/runtime boundary; visual bytes are staged here
+    apps/               # catalogs/projections/integration, not app product source
+    services/           # OS/domain services and lifecycle
+    adapters/           # capability implementations
+    composition/        # verified wiring/assembly
+  tools/                # OS producers/verifiers
+  docs/contracts/       # locks, ownership and release contracts
+                                      |
+                                      v
+                          verified OrdaX candidate
+                           /                    \
+                    ordax-desktop          ordax-creator
+                    Windows host/NSIS      media consumer
 ```
 
-There must not be separate Web, Mobile, Desktop or native forks of Surface/application logic. Platform differences are capabilities, not alternate products.
+There must not be separate Web, Mobile, Desktop or native forks of Surface/application logic. **Single source means one canonical owner for each component, not one Git repository.** Downstream consumers pin only direct dependencies and record the transitive provenance supplied by the composed candidate.
 
 ## Product modes
 
@@ -134,7 +136,7 @@ OrdaX Web
   -> OrdaX Native (SSD/HD)
 ```
 
-They share account model, Surface source, app source and compatible service contracts. USB and native-disk share the native adapter when their capability is genuinely identical.
+They share compatible account/service contracts and consume the same canonical Surface/app owners through composition. USB and native-disk share the native adapter when their capability is genuinely identical; Desktop consumes the composed OrdaX/OS candidate rather than pinning Surface/apps independently.
 
 `docs/contracts/product-capabilities.json` is the machine-readable boundary for how modes gain capabilities without forking the product.
 
