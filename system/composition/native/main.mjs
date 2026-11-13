@@ -70,6 +70,10 @@ import {
   createNativeVerifiedInstalledAppCatalog,
   mountNativeVerifiedInstalledApps,
 } from "./verified-installed-apps.mjs";
+import {
+  createNativeVerifiedInstalledAppRefresh,
+  verifiedCurrentInstallationFingerprint,
+} from "./verified-installed-app-refresh.mjs";
 import { listBundledFirstPartyIntelligenceManifests } from "../../apps/intelligence-catalog.mjs";
 import { createComponentManager } from "../../services/components/manager.mjs";
 import { createRecentFilesRuntime } from "../../services/files/recent-files.mjs";
@@ -183,6 +187,10 @@ let workspaceComponentBootstrap = null;
 const bootText = (messageId) => translateSurfaceMessage(bootLocale, messageId);
 
 async function start() {
+  let externalAppRefresh = null;
+  let deferredExternalAppRefresh = false;
+  let initialStoreCurrentPass = true;
+  let lastInstalledCurrentFingerprint = null;
   const root = document.querySelector("#ordax-root");
   if (!root) {
     throw new Error("OrdaX composition root is missing #ordax-root");
@@ -1232,11 +1240,43 @@ async function start() {
       // Withdraw and reconcile synchronously before any new signed load.
       reconcileCurrentStoreActionAuthority();
       verifiedSemanticsRefresh?.refresh();
+      // A Store snapshot is only a notification; compare its verified CURRENT
+      // observations before remounting. A short, expected read-in-progress
+      // state must not restart an already verified running application.
+      const storeSnapshot = storeCatalog.getSnapshot();
+      if (storeSnapshot.state !== "ready") {
+        // Native catalog verification and projection verification are two
+        // successive bounded reads. Both emit a transient unavailable state;
+        // neither one may cause a needless teardown on every window focus.
+        if ([
+          "verified-store-projection-refreshing",
+          "native-store-catalog-refreshing",
+          "verified-store-projection-loading",
+          "native-store-catalog-loading",
+        ].includes(storeSnapshot.reason)) return;
+        // A terminal signed-catalog failure has no trustworthy CURRENT
+        // observations. Invalidate the deduplication key and make the Native
+        // owner withdraw/reverify installed mounts, never keep stale launch
+        // rights based on the previously successful catalog.
+        lastInstalledCurrentFingerprint = null;
+        if (externalAppRefresh) void externalAppRefresh.refresh();
+        else if (!initialStoreCurrentPass) deferredExternalAppRefresh = true;
+        return;
+      }
+      const fingerprint = verifiedCurrentInstallationFingerprint(
+        storeCatalogComposition?.getCurrentObservations() ?? [],
+      );
+      if (fingerprint === lastInstalledCurrentFingerprint) return;
+      lastInstalledCurrentFingerprint = fingerprint;
+      // Store changes trigger a fresh verified CURRENT read, not a catalog guess.
+      if (externalAppRefresh) void externalAppRefresh.refresh();
+      else if (!initialStoreCurrentPass) deferredExternalAppRefresh = true;
     };
     if (typeof storeCatalog.subscribe === "function") {
       unsubscribeStoreCapabilityDiscovery = storeCatalog.subscribe(onStoreCurrentChanged);
     }
     onStoreCurrentChanged();
+    initialStoreCurrentPass = false;
   } catch (error) {
     reportCapabilityFabricFailure("capability-fabric-current-slot", error);
   }
@@ -1286,41 +1326,77 @@ async function start() {
     setAppTarget: surface.setAppTarget,
   });
   const nativeCurrentSlotSource = createNativeComponentSlotSource(window);
+  // The same Native verifier and isolated importer serve cold boot and
+  // verified CURRENT changes. No second inventory or unsigned module path.
+  const signedExternalAppCompatibility = windowsDesktopHost
+    ? createNativeSignedCurrentCompatibilityResolver({
+        source: verifiedComponentPackageSource,
+        fetchImpl: verifiedComponentFetch,
+      })
+    : null;
+  const nativeExternalAppImporter = createNativeIsolatedComponentModuleImporter({
+    windowRef: window,
+    allowedComponentIds: EXTERNAL_FIRST_PARTY_COMPONENT_IDS.filter(
+      (appId) => hasNativeExternalFirstPartyModuleRead(appId),
+    ),
+    currentSlotSource: nativeCurrentSlotSource,
+    fetchImpl: verifiedComponentFetch,
+  });
+  const mountVerifiedExternalApps = (installed) => mountNativeVerifiedInstalledApps({
+    installed,
+    source: nativeCurrentSlotSource,
+    fetchImpl: verifiedComponentFetch,
+    signedCurrentCompatibility: signedExternalAppCompatibility,
+    importModule: nativeExternalAppImporter,
+    context: { root, surfaceLifecycle: externalAppSurfaceLifecycle },
+    onError(error, appId) {
+      reportClientDiagnostic('installed-app-runtime:' + appId, error);
+    },
+  });
   const externalAppMounts = await optionalNativeProbe(
     "OrdaX installed component runtime mounting unavailable",
-    () => mountNativeVerifiedInstalledApps({
-      installed: installedAppCatalog?.installed ?? [],
-      source: nativeCurrentSlotSource,
-      fetchImpl: verifiedComponentFetch,
-      // Windows may omit durable App Data only when its Native broker has
-      // verified the exact signed release/2 compatibility descriptor.
-      signedCurrentCompatibility: windowsDesktopHost
-        ? createNativeSignedCurrentCompatibilityResolver({
-            source: verifiedComponentPackageSource,
-            fetchImpl: verifiedComponentFetch,
-          })
-        : null,
-      importModule: createNativeIsolatedComponentModuleImporter({
-        windowRef: window,
-        allowedComponentIds: EXTERNAL_FIRST_PARTY_COMPONENT_IDS.filter(
-          (appId) => hasNativeExternalFirstPartyModuleRead(appId),
-        ),
-        currentSlotSource: nativeCurrentSlotSource,
-        fetchImpl: verifiedComponentFetch,
-      }),
-      context: {
-        root, surfaceLifecycle: externalAppSurfaceLifecycle,
-      },
-      onError(error, appId) {
-        reportClientDiagnostic(`installed-app-runtime:${appId}`, error);
-      },
-    }),
+    () => mountVerifiedExternalApps(installedAppCatalog?.installed ?? []),
   );
   const mountedExternalIds = new Set(externalAppMounts?.mountedIds ?? []);
   const activeExternalCatalog = createNativeVerifiedInstalledAppCatalog(
     installedAppEntries.filter((entry) => mountedExternalIds.has(entry.component.id)),
   );
   surface.replaceAppCatalog(activeExternalCatalog.catalog);
+  externalAppRefresh = createNativeVerifiedInstalledAppRefresh({
+    initialMounts: externalAppMounts,
+    discover: () => discoverVerifiedExternalApplications({
+      source: verifiedComponentPackageSource,
+      fetchImpl: verifiedComponentFetch,
+      onError(error, appId) {
+        // Discovery intentionally isolates per-app read failures. Those
+        // failures must not be mistaken for an empty, fully reconciled
+        // installed set: retry on the next signed Store observation.
+        lastInstalledCurrentFingerprint = null;
+        reportClientDiagnostic('installed-app-discovery:' + appId, error);
+      },
+    }),
+    createCatalog: createNativeVerifiedInstalledAppCatalog,
+    mount: mountVerifiedExternalApps,
+    publish(nextCatalog) { surface.replaceAppCatalog(nextCatalog); },
+    onError(error) {
+      // A transient Native read/import failure must not poison the fingerprint
+      // indefinitely. The next verified Store observation may retry safely.
+      lastInstalledCurrentFingerprint = null;
+      reportClientDiagnostic("installed-app-refresh", error);
+    },
+  });
+  // Cold discovery and Store CURRENT reads are independent and may race while
+  // the Surface starts. Reconcile once if the latest verified Native state
+  // changed between the initial discovery and the first completed mounts.
+  const coldInstalledFingerprint = verifiedCurrentInstallationFingerprint(
+    installedAppEntries.map(entry => entry.metadata),
+  );
+  if (deferredExternalAppRefresh
+    || (storeCatalog.getSnapshot().state === "ready"
+      && lastInstalledCurrentFingerprint !== null
+      && lastInstalledCurrentFingerprint !== coldInstalledFingerprint)) {
+    void externalAppRefresh.refresh();
+  }
 
   // First Run reads the already-verified Store projection and its matching
   // ephemeral Native current observations. It has NO installation authority.
@@ -1409,7 +1485,7 @@ async function start() {
       batteryTrayControls?.destroy();
       batteryQuickPanel?.destroy();
       workspaceComponentBootstrap?.destroy();
-      externalAppMounts?.destroy();
+      void externalAppRefresh?.destroy();
       projectReferences?.destroy();
       projectCloudLinks?.destroy();
       accountOverviewControls.destroy();
