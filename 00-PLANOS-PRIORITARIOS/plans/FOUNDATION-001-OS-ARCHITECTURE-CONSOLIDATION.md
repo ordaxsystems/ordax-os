@@ -29,9 +29,9 @@
 - [ ] **PRs pequenas e coordenadas:** uma fronteira por owner, sem PRs concorrentes nos mesmos arquivos; comparar SHA da `main` antes de editar, preservar histórico com merge commit, medir regressões e atualizar contrato, CI e `docs/CURRENT-STATE.md` na mesma entrega quando o estado factual mudar.
 - [ ] **Segurança e dados continuam fail-closed:** nunca apagar dados de usuário/Owner/Dev ou known-good automaticamente, nem abrir acesso a filesystem/terminal/GUI por conveniência; nada de credenciais em source, ações destrutivas, publicação Stable ou escrita física sem autorização própria. O rollback de uma refatoração deve restaurar commit/artefato íntegro e validado, **não** manter a implementação antiga escondida no binário novo.
 
-### P0-A — inventário real e fronteiras dos oito repositórios (primeiro gate)
+### P0-A — inventário real e fronteiras dos nove repositórios (primeiro gate)
 
-- [ ] Revalidar SHA/branch, PRs abertas, jobs obrigatórios, source locks, manifests e entrypoints em **todos os oito** repositórios: `ordax-os`, `ordax-surface`, `ordax-apps`, `ordax-runtime`, `ordax-platform`, `ordax-intelligence`, `ordax-creator` e `ordax-site`.
+- [ ] Revalidar SHA/branch, PRs abertas, jobs obrigatórios, source locks, manifests e entrypoints em **todos os nove** repositórios: `ordax-os`, `ordax-desktop`, `ordax-surface`, `ordax-apps`, `ordax-runtime`, `ordax-platform`, `ordax-intelligence`, `ordax-creator` e `ordax-site`.
 - [ ] Construir matriz `owner → responsabilidade → consumidores → contrato → artefato → release → testes → status`. Gerar grafo de dependências/imports, detectar ciclos, consumo de `main` flutuante, caminhos relativos entre checkouts, clones/copias versionadas e código morto comprovado. Inventariar também feature flags, endpoints não chamados e workflows abandonados; preferir automação de inventário existente ou relatório simples, sem criar framework de auditoria permanente.
 - [ ] Reconciliar `docs/contracts/repository-ownership.json` com `repository-migration-status.json`, `module-boundaries.json` e docs dos repos. Quando houver `CODEOWNERS`, verificar alinhamento como mecanismo de revisão (não como segunda autoridade). **Fronteira já comprovada:** há sete autoridades operacionais; `ordax-intelligence` é somente a fonte candidata registrada em `docs/contracts/intelligence-source.json`. Sua ausência do mapa de owners ativos é intencional até o gate P0-B; o OS mantém autorização, Memory, Supervisor e composição Native.
 - [ ] Auditar SSOT visual `ordax-surface` versus `ordax-os/system/surface` (host, não UI); `ordax-apps` versus `system/apps` (apps removíveis versus Store/Settings/Account/System estruturais); `ordax-creator` versus `tools/creator` (app/core versus provas, payload e assinatura do OS); `ordax-site` versus gateways OS. Não apagar adapters legítimos por nomes parecidos.
@@ -41,12 +41,12 @@
 
 **Revalidação parcial de P0-A (2026-11-01, sem promoção):** os oito
 repositórios foram consultados por suas branches `main` no GitHub.
-O contrato atual descreve sete autoridades operacionais; o oitavo
+O contrato atual descreve oito autoridades operacionais, incluindo o owner separado `ordax-desktop`; o nono
 (`ordax-intelligence`) é proprietário somente da fonte candidata,
 identificada pelo lock `docs/contracts/intelligence-source.json`.
 A fronteira foi documentada no owner `docs/REPOSITORY-OWNERSHIP.md`
 e recebeu regressão em `tests/test_repository_ownership_contract.py`.
-Oito repos existentes **não significam** oito runtime owners ativos:
+Nove repos existentes **não significam** nove runtime owners ativos:
 não alterar `cutover_complete`, nem remover motor OS antes do gate P0-B.
 Inventário de consumidores, ciclos, flags e artefatos, além das provas
 Windows, continua aberto. Nenhuma etapa P0-A é marcada completa
