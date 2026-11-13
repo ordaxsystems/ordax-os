@@ -1,5 +1,7 @@
 # OrdaX OS no Windows — paridade de produto e SSOT (20/10/2026)
 
+> **STATUS: HISTÓRICO / SUPERSEDED COMO ARQUITETURA DE OWNER.** Este plano documenta a fase em que o host Windows ainda vivia dentro do `ordax-os`. O host/packaging atual pertence a `ordaxsystems/ordax-desktop`, a Surface visual a `ordaxsystems/ordax-surface` e a composição Native ao `ordax-os`. Para trabalho novo, use ADR-031, `docs/DEVELOPMENT-WORKFLOW.md`, `docs/CURRENT-STATE.md` e os contratos atuais. Os caminhos `tools/windows-desktop/`, versões e estados abaixo são evidência da época, não instrução operacional.
+
 **Decisão Owner:** O instalável Windows de desenvolvimento não é uma demo da
 Surface. Ele é um **host do mesmo produto OrdaX**, executado sobre Windows.
 A única diferença autorizada é a implementação de capacidades de plataforma:
