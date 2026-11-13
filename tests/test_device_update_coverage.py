@@ -15,14 +15,28 @@ NETWORK = ROOT / "bootstrap" / "dev-base" / "ordax-network"
 
 
 class DeviceUpdateCoverageTests(unittest.TestCase):
-    def test_git_is_source_authority_without_putting_network_on_boot_critical_path(self):
+    def test_multi_repo_source_authority_without_putting_network_on_boot_critical_path(self):
         contract = json.loads(CONTRACT.read_text(encoding="utf-8"))
         self.assertEqual(
             contract["$schema"],
             "prototype-ordax.device-update-coverage/1",
         )
-        self.assertTrue(
-            contract["source_authority"]["git_is_source_authority_for_all_product_layers"]
+        source = contract["source_authority"]
+        self.assertEqual(source["repository"], "ordaxsystems/ordax-os")
+        self.assertEqual(
+            source["scope"],
+            "ordax-os-owned-update-policy-native-composition-and-adoption",
+        )
+        self.assertFalse(source["git_is_source_authority_for_all_product_layers"])
+        self.assertTrue(source["owner_repositories_are_source_authority_for_owned_layers"])
+        self.assertEqual(
+            source["repository_ownership_contract"],
+            "docs/contracts/repository-ownership.json",
+        )
+        self.assertEqual(source["surface_source_lock"], "docs/contracts/surface-source.json")
+        self.assertEqual(
+            source["first_party_app_delivery_contract"],
+            "docs/contracts/first-party-app-delivery.json",
         )
         self.assertTrue(contract["boot_policy"]["known_good_local_boot_precedes_network"])
         self.assertFalse(contract["boot_policy"]["normal_boot_waits_for_git"])
@@ -33,6 +47,37 @@ class DeviceUpdateCoverageTests(unittest.TestCase):
         )
         self.assertTrue(contract["runtime_checkout"]["sparse_by_design"])
         self.assertTrue(contract["runtime_checkout"]["must_not_expand_to_full_repository_on_boot"])
+
+    def test_apps_and_surface_layer_distinguishes_os_roots_from_external_owners(self):
+        contract = json.loads(CONTRACT.read_text(encoding="utf-8"))
+        layer = next(item for item in contract["layers"] if item["id"] == "apps-and-surface")
+        self.assertEqual(
+            layer["source_root_semantics"]["system/surface"],
+            "os-owned-native-host-and-runtime-not-visual-source",
+        )
+        self.assertEqual(
+            layer["source_root_semantics"]["system/apps"],
+            "os-owned-structural-catalog-and-component-projection-not-first-party-app-source",
+        )
+        self.assertEqual(
+            layer["external_sources"]["surface"]["source_repository"],
+            "ordaxsystems/ordax-surface",
+        )
+        self.assertEqual(
+            layer["external_sources"]["surface"]["source_lock"],
+            "docs/contracts/surface-source.json",
+        )
+        self.assertIn(
+            "system/surface/ui",
+            layer["external_sources"]["surface"]["materialized_paths"],
+        )
+        self.assertEqual(
+            layer["external_sources"]["apps"]["source_repository"],
+            "ordaxsystems/ordax-apps",
+        )
+        self.assertFalse(
+            layer["external_sources"]["apps"]["direct_first_party_app_source_root_in_os"]
+        )
 
     def test_known_good_local_boot_does_not_wait_for_network_driver_loading(self):
         contract = json.loads(CONTRACT.read_text(encoding="utf-8"))
