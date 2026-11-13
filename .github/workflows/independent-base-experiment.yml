@@ -319,7 +319,7 @@ jobs:
         with:
           path: ${{ runner.temp }}/portable-v2-qemu/kernel
           key: ordax-portable-component-v1-${{ runner.os }}-${{ runner.arch }}-kernel-${{ steps.component-fingerprints.outputs.kernel }}
-      - name: Bind verified kernel modules to Independent Base
+      - name: Resolve verified kernel module archive
         run: |
           set -euo pipefail
           kernel_version=$(python3 -c 'import json; from pathlib import Path; print(json.loads(Path("bootstrap/kernel/source.json").read_text(encoding="utf-8"))["version"])')
@@ -343,21 +343,21 @@ jobs:
         uses: actions/cache/restore@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
         with:
           path: ${{ runner.temp }}/ordax-independent
-          key: ordax-portable-component-v1-${{ runner.os }}-${{ runner.arch }}-independent-base-${{ steps.component-fingerprints.outputs.independent_base }}
+          key: ordax-portable-component-v2-${{ runner.os }}-${{ runner.arch }}-independent-base-${{ steps.component-fingerprints.outputs.independent_base }}-${{ steps.component-fingerprints.outputs.kernel }}-${{ hashFiles('bootstrap/kernel/module_archive.py', 'bootstrap/independent-base/module_parity.py', 'docs/contracts/hardware-support-matrix.json') }}
       - name: Restore verified Owner Buildroot component
         if: env.ORDAX_INDEPENDENT_PROFILE == 'owner-development'
         id: independent-owner-cache
         uses: actions/cache/restore@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
         with:
           path: ${{ runner.temp }}/ordax-independent
-          key: ordax-portable-component-v1-${{ runner.os }}-${{ runner.arch }}-independent-base-owner-${{ steps.component-fingerprints.outputs.independent_base_owner }}
+          key: ordax-portable-component-v2-${{ runner.os }}-${{ runner.arch }}-independent-base-owner-${{ steps.component-fingerprints.outputs.independent_base_owner }}-${{ steps.component-fingerprints.outputs.kernel }}-${{ hashFiles('bootstrap/kernel/module_archive.py', 'bootstrap/independent-base/module_parity.py', 'docs/contracts/hardware-support-matrix.json') }}
       - name: Restore verified Stable Buildroot component
         if: env.ORDAX_INDEPENDENT_PROFILE == 'stable-mvp'
         id: independent-stable-cache
         uses: actions/cache/restore@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
         with:
           path: ${{ runner.temp }}/ordax-independent
-          key: ordax-portable-component-v1-${{ runner.os }}-${{ runner.arch }}-independent-base-stable-${{ steps.component-fingerprints.outputs.independent_base_stable }}
+          key: ordax-portable-component-v2-${{ runner.os }}-${{ runner.arch }}-independent-base-stable-${{ steps.component-fingerprints.outputs.independent_base_stable }}-${{ steps.component-fingerprints.outputs.kernel }}-${{ hashFiles('bootstrap/kernel/module_archive.py', 'bootstrap/independent-base/module_parity.py', 'docs/contracts/hardware-support-matrix.json') }}
       - name: Restore Buildroot sources and package downloads
         if: (env.ORDAX_INDEPENDENT_PROFILE == 'minimal' && steps.independent-base-cache.outputs.cache-hit != 'true') || (env.ORDAX_INDEPENDENT_PROFILE == 'owner-development' && steps.independent-owner-cache.outputs.cache-hit != 'true') || (env.ORDAX_INDEPENDENT_PROFILE == 'stable-mvp' && steps.independent-stable-cache.outputs.cache-hit != 'true')
         id: buildroot-download-cache
@@ -365,10 +365,14 @@ jobs:
         with:
           path: ${{ runner.temp }}/ordax-independent-cache
           key: ordax-buildroot-download-v1-${{ runner.os }}-${{ hashFiles('bootstrap/independent-base/source.json', 'bootstrap/independent-base/configs/**', 'bootstrap/independent-base/patches/**') }}
-      - name: Build rootfs from official Buildroot source
+      - name: Build rootfs from official Buildroot source with verified kernel modules
         if: (env.ORDAX_INDEPENDENT_PROFILE == 'minimal' && steps.independent-base-cache.outputs.cache-hit != 'true') || (env.ORDAX_INDEPENDENT_PROFILE == 'owner-development' && steps.independent-owner-cache.outputs.cache-hit != 'true') || (env.ORDAX_INDEPENDENT_PROFILE == 'stable-mvp' && steps.independent-stable-cache.outputs.cache-hit != 'true')
         run: |
           set -euo pipefail
+          test -f "${ORDAX_KERNEL_MODULES_ARCHIVE:?}"
+          test ! -L "$ORDAX_KERNEL_MODULES_ARCHIVE"
+          export ORDAX_HOST_PYTHON="$(command -v python3)"
+          export ORDAX_KERNEL_MODULES_RECEIPT="$RUNNER_TEMP/ordax-independent/kernel-module-selection.json"
           python3 bootstrap/independent-base/build.py build \
             --profile "$ORDAX_INDEPENDENT_PROFILE" \
             --out "$RUNNER_TEMP/ordax-independent" \
@@ -388,18 +392,15 @@ jobs:
           metadata="$RUNNER_TEMP/portable-v2-qemu/metadata"
           python3 bootstrap/independent-base/build.py verify \
             --profile "$ORDAX_INDEPENDENT_PROFILE" --out "$base_dir"
-          if [ "$ORDAX_INDEPENDENT_PROFILE" != minimal ]; then
-            test -s "$base_dir/kernel-module-selection.json"
-            parity="$base_dir/kernel-module-parity.json"
-            test ! -L "$parity"
-            rm -f "$parity"
-            python3 bootstrap/independent-base/module_parity.py verify \
-              --kernel-modules "${ORDAX_KERNEL_MODULES_ARCHIVE:?}" \
-              --selection-receipt "$base_dir/kernel-module-selection.json" \
-              --rootfs-tar "$base_dir/rootfs.tar" \
-              --base-provenance "$base_dir/provenance.json" \
-              --out "$parity"
-          fi
+          test -s "$base_dir/kernel-module-selection.json"
+          test ! -L "$base_dir/kernel-module-parity.json"
+          rm -f "$base_dir/kernel-module-parity.json"
+          python3 bootstrap/independent-base/module_parity.py verify \
+            --kernel-modules "${ORDAX_KERNEL_MODULES_ARCHIVE:?}" \
+            --selection-receipt "$base_dir/kernel-module-selection.json" \
+            --rootfs-tar "$base_dir/rootfs.tar" \
+            --base-provenance "$base_dir/provenance.json" \
+            --out "$base_dir/kernel-module-parity.json"
           # Strict provenance and kernel-module closure are verified above.
           # An integration receipt binds reused bytes to this HEAD without
           # modifying the original signed/source-bound producer provenance.
@@ -458,19 +459,19 @@ jobs:
         uses: actions/cache/save@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
         with:
           path: ${{ runner.temp }}/ordax-independent
-          key: ordax-portable-component-v1-${{ runner.os }}-${{ runner.arch }}-independent-base-${{ steps.component-fingerprints.outputs.independent_base }}
+          key: ordax-portable-component-v2-${{ runner.os }}-${{ runner.arch }}-independent-base-${{ steps.component-fingerprints.outputs.independent_base }}-${{ steps.component-fingerprints.outputs.kernel }}-${{ hashFiles('bootstrap/kernel/module_archive.py', 'bootstrap/independent-base/module_parity.py', 'docs/contracts/hardware-support-matrix.json') }}
       - name: Save verified Owner Buildroot component
         if: env.ORDAX_INDEPENDENT_PROFILE == 'owner-development' && steps.independent-owner-cache.outputs.cache-hit != 'true'
         uses: actions/cache/save@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
         with:
           path: ${{ runner.temp }}/ordax-independent
-          key: ordax-portable-component-v1-${{ runner.os }}-${{ runner.arch }}-independent-base-owner-${{ steps.component-fingerprints.outputs.independent_base_owner }}
+          key: ordax-portable-component-v2-${{ runner.os }}-${{ runner.arch }}-independent-base-owner-${{ steps.component-fingerprints.outputs.independent_base_owner }}-${{ steps.component-fingerprints.outputs.kernel }}-${{ hashFiles('bootstrap/kernel/module_archive.py', 'bootstrap/independent-base/module_parity.py', 'docs/contracts/hardware-support-matrix.json') }}
       - name: Save verified Stable Buildroot component
         if: env.ORDAX_INDEPENDENT_PROFILE == 'stable-mvp' && steps.independent-stable-cache.outputs.cache-hit != 'true'
         uses: actions/cache/save@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
         with:
           path: ${{ runner.temp }}/ordax-independent
-          key: ordax-portable-component-v1-${{ runner.os }}-${{ runner.arch }}-independent-base-stable-${{ steps.component-fingerprints.outputs.independent_base_stable }}
+          key: ordax-portable-component-v2-${{ runner.os }}-${{ runner.arch }}-independent-base-stable-${{ steps.component-fingerprints.outputs.independent_base_stable }}-${{ steps.component-fingerprints.outputs.kernel }}-${{ hashFiles('bootstrap/kernel/module_archive.py', 'bootstrap/independent-base/module_parity.py', 'docs/contracts/hardware-support-matrix.json') }}
       - name: Export complete verified Stable component for PR cache reuse
         if: env.ORDAX_INDEPENDENT_PROFILE == 'stable-mvp' && github.event_name == 'workflow_dispatch'
         uses: actions/upload-artifact@b7c566a772e6b6bfb58ed0dc250532a479d7789f # v6

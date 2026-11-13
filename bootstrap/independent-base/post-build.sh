@@ -100,6 +100,26 @@ cp "$ROOT/bootstrap/stable-base/ordax-stable-init" "$TARGET_DIR/sbin/ordax-stabl
 chmod 0755 "$TARGET_DIR/sbin/ordax-stable-init"
 test -x "$TARGET_DIR/sbin/modprobe"
 
+# Kernel-module ownership is distribution-neutral. Every Independent Base profile
+# consumes the already-verified canonical archive and embeds the exact selection
+# receipt. Firmware remains an Owner/Stable concern below.
+: "${ORDAX_HOST_PYTHON:?ORDAX_HOST_PYTHON is required}"
+: "${ORDAX_KERNEL_MODULES_ARCHIVE:?ORDAX_KERNEL_MODULES_ARCHIVE is required}"
+: "${ORDAX_KERNEL_MODULES_RECEIPT:?ORDAX_KERNEL_MODULES_RECEIPT is required}"
+test -x "$ORDAX_HOST_PYTHON"
+test -f "$ORDAX_KERNEL_MODULES_ARCHIVE"
+test ! -L "$ORDAX_KERNEL_MODULES_ARCHIVE"
+test ! -e "$ORDAX_KERNEL_MODULES_RECEIPT"
+test -f "$ROOT/bootstrap/kernel/module_archive.py"
+"$ORDAX_HOST_PYTHON" "$ROOT/bootstrap/kernel/module_archive.py" install-wifi \
+    --archive "$ORDAX_KERNEL_MODULES_ARCHIVE" \
+    --target "$TARGET_DIR" \
+    --receipt "$ORDAX_KERNEL_MODULES_RECEIPT"
+test -s "$ORDAX_KERNEL_MODULES_RECEIPT"
+cp "$ORDAX_KERNEL_MODULES_RECEIPT" "$TARGET_DIR/etc/ordax/kernel-module-selection.json"
+chmod 0644 "$TARGET_DIR/etc/ordax/kernel-module-selection.json"
+cmp -s "$ORDAX_KERNEL_MODULES_RECEIPT" "$TARGET_DIR/etc/ordax/kernel-module-selection.json"
+
 if test "$PROFILE" = owner-development || test "$PROFILE" = stable-mvp; then
     # Both profiles consume the same verified canonical hardware provider.
     HARDWARE_RECEIPT_PREFIX=ORDAX_INDEPENDENT_OWNER
@@ -144,35 +164,8 @@ if test "$PROFILE" = owner-development || test "$PROFILE" = stable-mvp; then
         exit 1
     }
 
-    # Kernel modules are a separately verified canonical component. Reuse the
-    # archive supplied by the integration workflow; never compile or download a
-    # second kernel from the Buildroot base build.
-    test -n "${ORDAX_HOST_PYTHON:-}" || {
-        echo "Owner/Development or Stable/MVP requires ORDAX_HOST_PYTHON" >&2
-        exit 1
-    }
-    test -n "${ORDAX_KERNEL_MODULES_ARCHIVE:-}" || {
-        echo "Owner/Development or Stable/MVP requires ORDAX_KERNEL_MODULES_ARCHIVE" >&2
-        exit 1
-    }
-    test -n "${ORDAX_KERNEL_MODULES_RECEIPT:-}" || {
-        echo "Owner/Development or Stable/MVP requires ORDAX_KERNEL_MODULES_RECEIPT" >&2
-        exit 1
-    }
-    test -n "${ORDAX_FIRMWARE_COVERAGE_RECEIPT:-}" || {
-        echo "Owner/Development or Stable/MVP requires ORDAX_FIRMWARE_COVERAGE_RECEIPT" >&2
-        exit 1
-    }
-    test -f "$ROOT/bootstrap/kernel/module_archive.py"
+    : "${ORDAX_FIRMWARE_COVERAGE_RECEIPT:?ORDAX_FIRMWARE_COVERAGE_RECEIPT is required}"
     test -f "$ROOT/bootstrap/base/firmware_policy.py"
-    "$ORDAX_HOST_PYTHON" "$ROOT/bootstrap/kernel/module_archive.py" install-wifi \
-        --archive "$ORDAX_KERNEL_MODULES_ARCHIVE" \
-        --target "$TARGET_DIR" \
-        --receipt "$ORDAX_KERNEL_MODULES_RECEIPT"
-    test -s "$ORDAX_KERNEL_MODULES_RECEIPT"
-    cp "$ORDAX_KERNEL_MODULES_RECEIPT" "$TARGET_DIR/etc/ordax/kernel-module-selection.json"
-    chmod 0644 "$TARGET_DIR/etc/ordax/kernel-module-selection.json"
-    cmp -s "$ORDAX_KERNEL_MODULES_RECEIPT" "$TARGET_DIR/etc/ordax/kernel-module-selection.json"
 
     # A module payload without matching firmware is not a valid Owner base.
     # Generate one external receipt for CI/evidence, then embed those exact
