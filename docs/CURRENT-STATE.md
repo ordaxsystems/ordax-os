@@ -13,6 +13,12 @@
 
 **Execução causal, não lista de microtarefas:** em cada owner, avançar a próxima lacuna real até produto observável; só aguardar outro repo quando o próximo passo consumir de fato seu contrato/artefato. Uma falha independente não bloqueia implementação sem dependência causal; nenhuma falha é mascarada por estado de UI. A entrega é medida por experiência funcional no destino, não por quantidade de PRs integradas.
 
+## Compatibilidade de base ainda presente no código (verificação de 13/11/2026)
+
+A migração para a base independente **não deve ser confundida com remoção já concluída de todos os consumidores Alpine**. Na fonte verificada nesta data, `bootstrap/dev-base/build.py` ainda importa `bootstrap/base/alpine_core.py`; `bootstrap/stable-base/build.py` ainda valida o lock Alpine/APK; e `system/surface/bin/ordax-surface` ainda contém um caminho de provisionamento do runtime gráfico via APK/Alpine 3.22. O perfil Buildroot em `bootstrap/independent-base/` é uma implementação separada; seu estado operacional/promovível deve ser determinado pelos candidatos, provas e contratos atuais, não inferido de uma decisão de produto ou de um README datado.
+
+**Regra para novas alterações:** não introduzir novas dependências Alpine em candidatos independentes; não declarar remoção global nem apagar caminhos de compatibilidade sem mapear chamadas, modo de produto, artefatos de release e substituto validado. Esta observação é um diagnóstico de *fonte*, não prova de execução no USB/host instalado e não cria fila global que bloqueie os outros owners.
+
 ## Como ler os checkpoints abaixo
 
 **Somente a seção inicial de 13/11/2026 acima representa o checkpoint operacional consolidado deste arquivo.** Todo bloco datado abaixo preserva evidência do estado observado naquele momento e pode conter PRs, SHAs, devices, prioridades, “next action”, “CURRENT” ou “pendente” que já foram superados. Esses termos **não** criam fila atual. Para estado volátil, consultar o código/contrato vigente e o owner correspondente; para PRs e CI, consultar o GitHub atual; para Runtime/Platform/MCP, consultar os respectivos owners. Em divergência, o bloco mais novo e as fontes canônicas vencem o snapshot antigo.
