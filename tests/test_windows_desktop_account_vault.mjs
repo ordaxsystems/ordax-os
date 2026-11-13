@@ -41,6 +41,12 @@ async function withServer(gateway,cookieVault,run) {
   finally{server.closeAllConnections();await new Promise(done=>server.close(done));}
 }
 
+test("DPAPI helper stays bounded while allowing Windows cold start",async()=>{
+  const source=await readFile(new URL("../system/adapters/desktop/account-cookie-vault.mjs",import.meta.url),"utf8");
+  assert.match(source,/const DPAPI_HELPER_TIMEOUT_MS = 30_000;/);
+  assert.match(source,/setTimeout\(\(\) => \{ failed = true; child\.kill\(\); \}, DPAPI_HELPER_TIMEOUT_MS\)/);
+});
+
 test("Desktop account vault is encrypted, origin bound and deleted on logout",async()=>{
   const root=await mkdtemp(prefix);
   try{

@@ -9,6 +9,10 @@ const SCHEMA = "ordax.desktop-account-cookies/1";
 const COOKIE_NAMES = new Set(["ordax_access", "ordax_refresh"]);
 const COOKIE_VALUE = /^[^;\r\n]{1,16384}$/;
 const MAX_FILE_BYTES = 100_000;
+// PowerShell + DPAPI can cold-start behind Windows Defender on hosted runners.
+// Keep the crypto helper bounded, but do not kill a legitimate CurrentUser
+// operation at the old 12 s threshold observed in real Windows CI.
+const DPAPI_HELPER_TIMEOUT_MS = 30_000;
 const FILENAME = "desktop-account-cookies.dpapi.json";
 
 function validateCookies(entries) {
@@ -45,7 +49,7 @@ if ('${mode}' -eq 'protect') {
     const child = spawn("powershell.exe", ["-NoLogo", "-NoProfile", "-NonInteractive",
       "-EncodedCommand", encoded], { windowsHide: true, stdio: ["pipe", "pipe", "ignore"] });
     let output = "", failed = false;
-    const timer = setTimeout(() => { failed = true; child.kill(); }, 12000);
+    const timer = setTimeout(() => { failed = true; child.kill(); }, DPAPI_HELPER_TIMEOUT_MS);
     child.stdout.setEncoding("utf8");
     child.stdout.on("data", data => {
       output += data;
