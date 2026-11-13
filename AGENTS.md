@@ -32,10 +32,15 @@ migração ou executar tarefas encerradas. Documentos antigos e seções
 datadas são contexto histórico, **não** autorização para recomeçar.
 O fluxo Windows MCP DEV da [Platform #291](https://github.com/ordaxsystems/ordax-platform/issues/291)
 foi encerrado com recibos reais e cinco devices obsoletos revogados;
-**não** repetir limpeza/grants/instalação. A integração Aura ↔
-Native Store `CURRENT` ↔ Product MCP **continua pendente** e deve
-preservar OS #2400 (aberta/conflitante na última checagem) e a
-separação de release da OS #2405.
+**não** repetir limpeza/grants/instalação. A ponte Native da
+[OS #2400](https://github.com/ordaxsystems/ordax-os/pull/2400) foi
+**integrada em 04/11/2026**; não tratá-la como pendência nem reabrir
+branch/PR por causa deste checkpoint. Qualquer lacuna atual entre Aura,
+Native Store `CURRENT` e Product MCP deve ser derivada de
+[`docs/CURRENT-STATE.md`](docs/CURRENT-STATE.md), dos contratos e do
+estado vivo dos owners/PRs. A OS #2405 é uma frente separada; verificar
+seu estado atual antes de agir, sem fundi-la à Surface ou reexecutar
+trabalho já encerrado.
 
 
 
