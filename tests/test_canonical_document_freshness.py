@@ -136,31 +136,25 @@ class CanonicalDocumentFreshnessTests(unittest.TestCase):
         self.assertIn("Native não autoriza leitura de módulo para Internet", document)
 
     def test_intelligence_app_owners_follow_the_external_source_of_truth(self):
-        canvas = (ROOT / "docs/INTELLIGENCE-CANVAS.md").read_text(encoding="utf-8")
         intelligence = (ROOT / "docs/INTELLIGENCE.md").read_text(encoding="utf-8")
         capabilities = json.loads(
             (ROOT / "docs/contracts/intelligence-conversation-capabilities.json")
             .read_text(encoding="utf-8")
         )
 
-        self.assertIn(
-            "ordaxsystems/ordax-apps/apps/assistant/src/conversation.mjs",
-            canvas,
-        )
+        assistant_owner = "ordaxsystems/ordax-apps/apps/assistant/src/conversation.mjs"
+        self.assertEqual(capabilities["conversation_owner"], assistant_owner)
+        self.assertIn(assistant_owner, intelligence)
         self.assertIn(
             "ordaxsystems/ordax-apps/apps/assistant/src/ui/result-view-model.mjs",
-            canvas,
+            intelligence,
         )
         self.assertIn(
             "ordaxsystems/ordax-apps/apps/activity/src/view-model.mjs",
-            canvas + intelligence,
+            intelligence,
         )
-        self.assertEqual(
-            capabilities["conversation_owner"],
-            "ordaxsystems/ordax-apps/apps/assistant/src/conversation.mjs",
-        )
-        self.assertNotIn("system/apps/assistant/", canvas + intelligence)
-        self.assertNotIn("system/apps/activity/", canvas + intelligence)
+        self.assertNotIn("system/apps/assistant/", intelligence)
+        self.assertNotIn("system/apps/activity/", intelligence)
 
     def test_physical_snapshot_distinguishes_seed_from_prepared_usb(self):
         state = assignment_map(CURRENT_STATE.read_text(encoding="utf-8"))
@@ -556,10 +550,7 @@ class CanonicalDocumentFreshnessTests(unittest.TestCase):
             "PHYSICAL_WRITE_AUTHORITY=BLOCKED_EXPLICIT_OWNER_AUTHORIZATION_PENDING",
             current,
         )
-        self.assertIn(
-            "PHYSICAL_WRITE_AUTHORITY=BLOCKED_EXPLICIT_OWNER_AUTHORIZATION_PENDING",
-            plan,
-        )
+        canonical = current + "\n" + promotion
         for stale in (
             "CANONICAL_V4_RELEASE_PROOF=PASS_SIGNED_MATERIALIZED_VERSIONED_PRERELEASE",
             "FIRST_STABLE_MVP_USB_WRITE=HOLD_CANONICAL_V4_RELEASE_PROOF_PENDING",
@@ -567,13 +558,13 @@ class CanonicalDocumentFreshnessTests(unittest.TestCase):
             "CURRENT_MAIN_STABLE_MVP_PHYSICAL_RETEST=PENDING_FRESH_AUTHORIZATION",
             "PHYSICAL_WRITE_AUTHORITY=BLOCKED_CANONICAL_V4_RELEASE_PROOF_PENDING",
         ):
-            self.assertNotIn(stale, current + "\n" + plan)
+            self.assertNotIn(stale, canonical)
         self.assertIn(
             "blocked-explicit-physical-authorization-pending",
             promotion,
         )
-        self.assertNotIn("AUTHORIZED_CANDIDATE_ONLY_TARGET_CONFIRMATION_REQUIRED", plan)
-        self.assertNotIn("Como não há USB disponível", plan)
+        self.assertNotIn("AUTHORIZED_CANDIDATE_ONLY_TARGET_CONFIRMATION_REQUIRED", canonical)
+        self.assertNotIn("Como não há USB disponível", canonical)
 
 
 if __name__ == "__main__":

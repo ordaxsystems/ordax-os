@@ -62,6 +62,13 @@ OrdaX bootable/native system
 
 Updating the Windows application must not silently write a USB or alter the host boot configuration. Downloading an OrdaX OS release must not silently install it to an internal disk.
 
+## Verified Store boundary on Windows
+
+The Desktop host may transport the read-only `ordax.verified-app-store-catalog/1` snapshot and an authority-free lifecycle proposal, but it does not own a second catalog or installer. Every install/update/remove request is revalidated against the signed catalog, generated first-party package policy and canonical runtime-component state.
+
+Install/update artifact URLs are derived from signed identities; redirects, foreign origins, wrong length/hash and oversized artifacts fail closed. The canonical Go component owner performs verify/stage/arm and returns only a durable `pending_health=unknown` generation—health, promotion, rollback and cleanup remain with the component Supervisor. Remove uses the same signed owner and durable removal state. Renderer input cannot select artifact URL/version, trust root or signing authority.
+
+
 ## Shared Surface invariant
 
 Desktop-specific code may provide capabilities and host chrome integration, but must not recreate:

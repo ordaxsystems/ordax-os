@@ -87,6 +87,10 @@ CLIENT_ONLY_PREFIXES = (
     "system/composition/web/",
     "tools/windows-emulator/",
 )
+# Test sources can tighten or relax CI coverage, but they are never bytes
+# installed into the Owner USB product. Mixed deltas still fail closed when
+# any non-test path is a real/unknown producer.
+TEST_ONLY_PREFIX = "tests/"
 # Narrow, content-proven DEV Windows Product bridge delta (OS #2400).
 # These additions are WindowsDesktopHost-guarded and data-only. Any other
 # shared Native/USB edit, unknown dependency or modified attestation blob
@@ -550,6 +554,8 @@ def classify(base, head, *, root=ROOT, event="push"):
             elif path in WINDOWS_PRODUCT_PINNED_BLOBS:
                 if not verified_windows_product_blob(head, path, root=root):
                     return True, "windows-product-untrusted-blob:" + path
+            elif path.startswith(TEST_ONLY_PREFIX):
+                continue
             elif path not in LIGHT_EXACT and not any(
                 path.startswith(prefix) for prefix in CLIENT_ONLY_PREFIXES
             ):

@@ -172,7 +172,7 @@ OrdaX Web/Studio ou nos providers externos. Não foi feito E2E com
 llama.cpp real nem certificação de parada do motor.
 
 A conversa Assistant continua sendo uma sessão limitada e vinculada aos owners
-de Identity/Space/Profile existentes, sem projeto inferido. O controle
+de Identity/Space/Profile existentes, sem projeto inferido. A fonte canônica da sessão é `ordaxsystems/ordax-apps/apps/assistant/src/conversation.mjs`; a projeção de resultado é `ordaxsystems/ordax-apps/apps/assistant/src/ui/result-view-model.mjs`. O OS mantém contratos/serviços de Intelligence e não deve recriar a UI/sessão do Assistant. O controle
 **Descartar resposta** só está disponível enquanto a inferência está pendente:
 bloqueia novos envios até a operação terminar, descarta o resultado tardio e
 não executa Memory capture para o turno descartado. **Não interrompe a geração
