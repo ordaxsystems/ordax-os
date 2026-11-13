@@ -25,7 +25,7 @@ O produto continua em desenvolvimento e homologação: a promoção/renomeação
 Antes de **continuar** uma missão envolvendo Fabric, Aura, aplicativos
 ou Product MCP, comece pelo topo de [`docs/CURRENT-STATE.md`](docs/CURRENT-STATE.md),
 pelo owner/código/contratos atuais e pelo estado vivo das PRs/artefatos
-pertinentes. [`INTELLIGENCE-HANDOFF.md`](INTELLIGENCE-HANDOFF.md) é
+pertinentes. [snapshot histórico de Intelligence](https://github.com/ordaxsystems/ordax-os/blob/d4027cd6d4c2458b735946767043d6ba49526dad/INTELLIGENCE-HANDOFF.md) é
 **REFERENCE/HISTORICAL** e só deve ser consultado quando for necessária
 proveniência de checkpoints anteriores.
 Execute a menor entrega realmente pendente no **owner correto**, sem
@@ -46,7 +46,7 @@ trabalho já encerrado.
 
 
 
-Antes de alterar Intelligence, chat, plugins, MCP, Studio ou a UI global do OrdaX Web, comece por [docs/README.md](docs/README.md), pelo topo de [docs/CURRENT-STATE.md](docs/CURRENT-STATE.md) e pelo owner canônico da capacidade. [INTELLIGENCE-HANDOFF.md](INTELLIGENCE-HANDOFF.md) é **referência histórica datada**, útil para contexto/evidência, mas não é fila operacional nem status vigente. Para Capability Fabric, use [docs/CAPABILITY-FABRIC.md](docs/CAPABILITY-FABRIC.md) como arquitetura/limites; tabelas e sequências operacionais datadas dentro dele também precisam ser revalidadas contra o estado atual. Diferencie explicitamente **chat OrdaX → provedor** de **ChatGPT externo → plugin MCP → OrdaX** e não ative bridges experimentais nem crie outra autoridade em Apps/Lovable.
+Antes de alterar Intelligence, chat, plugins, MCP, Studio ou a UI global do OrdaX Web, comece por [docs/README.md](docs/README.md), pelo topo de [docs/CURRENT-STATE.md](docs/CURRENT-STATE.md) e pelo owner canônico da capacidade. [snapshot histórico de Intelligence](https://github.com/ordaxsystems/ordax-os/blob/d4027cd6d4c2458b735946767043d6ba49526dad/INTELLIGENCE-HANDOFF.md) é **referência histórica datada**, útil para contexto/evidência, mas não é fila operacional nem status vigente. Para Capability Fabric, use [docs/CAPABILITY-FABRIC.md](docs/CAPABILITY-FABRIC.md) como arquitetura/limites; tabelas e sequências operacionais datadas dentro dele também precisam ser revalidadas contra o estado atual. Diferencie explicitamente **chat OrdaX → provedor** de **ChatGPT externo → plugin MCP → OrdaX** e não ative bridges experimentais nem crie outra autoridade em Apps/Lovable.
 
 **Capability Fabric — leitura obrigatória somente quando a tarefa o envolver:** [docs/CAPABILITY-FABRIC.md](docs/CAPABILITY-FABRIC.md) reúne o estado do v1 **integrado pela PR #2406**, o contrato `ordax.capability-discovery/1`, fontes Native/Store/Aura/Personal, evidências e gates futuros de UI/MCP. A descoberta tem `authority=none` e `toolExecution=false` e NÃO substitui Product tools, grants ou atestação da Platform. O diário v1 foi retirado da árvore ativa (preservado no histórico Git da PR #2406); não reexecutar etapas antigas nem criar catálogo, Runtime ou executor paralelos.
 
