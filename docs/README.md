@@ -41,6 +41,7 @@ Para mudanças cross-repo, **comece por `AGENTS.md`, o owner e o contrato aplic�
 | Capability Fabric — arquitetura e fronteiras canônicas; checkpoints operacionais datados são referência | `docs/CAPABILITY-FABRIC.md` (arquitetura/limites); diário v1 histórico preservado na PR #2406 |
 | Spaces + professional composition (single user journey) | `docs/SPACES-AND-PROFILES.md` + `docs/contracts/spaces-and-profile-packs.json` |
 | Account sync / entitlements across product modes | `docs/ACCOUNT-SYNC-AND-PLANS.md` |
+| App semantic manifests / intents | `docs/APP-INTELLIGENCE-MANIFEST.md` + `sdk/app-sdk-v1/README.md` |
 | Profile knowledge and Intelligence | `docs/PROFILE-INTELLIGENCE-ARCHITECTURE.md` + canonical Profile manifests |
 | Decisions / ADRs | `docs/DECISIONS.md` |
 | Build autonomy | `docs/BUILD-AUTONOMY.md` |
