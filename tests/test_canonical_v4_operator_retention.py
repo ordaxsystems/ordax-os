@@ -7,7 +7,7 @@ ROOT = Path(__file__).resolve().parents[1]
 WORKFLOWS = ROOT / ".github" / "workflows"
 OWNERS = {
     "system": "portable-release-image.yml",
-    "surface": "surface-runtime-lock-discovery.yml",
+    "surface": "independent-surface-runtime.yml",
     "local-ai": "local-ai-runtime-candidate.yml",
 }
 

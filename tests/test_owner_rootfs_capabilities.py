@@ -5,12 +5,8 @@ from __future__ import annotations
 import importlib.util
 from pathlib import Path
 import shutil
-import subprocess
 import tempfile
-import tarfile
-import stat
 import unittest
-from unittest.mock import patch
 
 ROOT = Path(__file__).resolve().parents[1]
 MODULE = ROOT / "tools/ci/owner_rootfs_capabilities.py"
@@ -156,48 +152,30 @@ done
             with self.assertRaisesRegex(ValueError, "unsafe"):
                 capabilities.owner_runtime_helpers(root)
 
-    def test_offline_seed_materializes_every_canonical_helper(self) -> None:
-        spec = importlib.util.spec_from_file_location(
-            "ordax_owner_alpine_core_under_test",
-            ROOT / "bootstrap/base/alpine_core.py",
-        )
-        assert spec is not None and spec.loader is not None
-        core = importlib.util.module_from_spec(spec)
-        spec.loader.exec_module(core)
-        with tempfile.TemporaryDirectory() as td:
-            directory = Path(td)
-            archive = directory / "kernel-modules.tar"
-            with tarfile.open(archive, "w"):
-                pass
-            rootfs = directory / "rootfs"
-            rootfs.mkdir()
-            with patch.object(core, "select_dev_module_members", return_value=[]):
-                core.install_runtime(rootfs, archive)
-            helpers = capabilities.owner_runtime_helpers(ROOT)
-            for source, target in helpers:
-                staged = rootfs / target
-                self.assertTrue(staged.is_file(), target)
-                self.assertFalse(staged.is_symlink(), target)
-                self.assertEqual(staged.read_bytes(), (ROOT / source).read_bytes(), target)
-                self.assertEqual(stat.S_IMODE(staged.stat().st_mode), 0o755, target)
-            self.assertEqual(
-                {str(path.relative_to(rootfs)).replace("\\", "/")
-                 for path in rootfs.rglob("*") if path.is_file()},
-                {target for _, target in helpers},
-            )
+    def test_preflight_test_registry_contains_only_real_modules(self) -> None:
+        import ast
+        preflight = ROOT / "tools/ci/preflight_owner_dev.py"
+        tree = ast.parse(preflight.read_text(encoding="utf-8"))
+        registered = [
+            ast.literal_eval(node.value)
+            for node in tree.body
+            if isinstance(node, ast.Assign)
+            and any(isinstance(target, ast.Name) and target.id == "TESTS" for target in node.targets)
+        ]
+        self.assertEqual(len(registered), 1)
+        for relative in registered[0]:
+            with self.subTest(module=relative):
+                self.assertTrue((ROOT / relative).is_file(), relative)
+        self.assertNotIn("tests/test_stable_base_contract.py", registered[0])
+        self.assertNotIn("tests/test_dev_offline_diagnostics.py", registered[0])
 
-    def test_initial_alpine_seed_and_preflight_consume_canonical_manifest(self) -> None:
-        core = (ROOT / "bootstrap/base/alpine_core.py").read_text(encoding="utf-8")
+    def test_owner_preflight_consumes_canonical_inventory_and_no_alpine(self) -> None:
         preflight = (ROOT / "tools/ci/preflight_owner_dev.py").read_text(encoding="utf-8")
-        self.assertIn('for helper in inventory["runtime_helpers"]:', core)
-        self.assertIn('helper["source"]', core)
-        self.assertIn('helper["target"]', core)
-        self.assertIn("Owner helper content differs from canonical manifest", core)
-        self.assertNotIn('for name in ("ordax-network", "ordax-pull"', core)
         self.assertIn('paths = owner_inventory(ROOT)["sources"]', preflight)
         self.assertNotIn("OWNER_PATHS = (", preflight)
-
-
+        stable = (ROOT / "bootstrap/stable-base/source.json").read_text(encoding="utf-8")
+        self.assertIn('"entrypoint": "bootstrap/independent-base/build.py"', stable)
+        self.assertFalse((ROOT / "bootstrap/base/alpine_core.py").exists())
 
     def test_final_creator_stage_enforces_exact_manifest_and_helper_bytes(self) -> None:
         entries = capabilities.owner_runtime_helpers(ROOT)
@@ -240,53 +218,3 @@ done
             manifest.write_text("# tampered\n", encoding="utf-8")
             with self.assertRaisesRegex(ValueError, "manifest"):
                 capabilities.verify_owner_stage(stage, ROOT)
-
-    def test_alpine_busybox_recursively_binds_real_owner_rootfs(self) -> None:
-        """Reject missing mount flags in the actual Owner/Alpine image."""
-        spec = importlib.util.spec_from_file_location(
-            "ordax_owner_alpine_core_rbind", ROOT / "bootstrap/base/alpine_core.py",
-        )
-        assert spec is not None and spec.loader is not None
-        core = importlib.util.module_from_spec(spec)
-        spec.loader.exec_module(core)
-        rootfs = Path("/nonexistent-isolated-owner-rootfs")
-        for help_text in (
-            "Usage: mount [-o OPT]\\n\\t[r]bind Bind recursively\\n",
-            "Usage: mount\\n[r]bind\\n",
-        ):
-            with self.subTest(help_text=help_text), patch.object(
-                core.subprocess, "run",
-                return_value=subprocess.CompletedProcess([], 0, "", help_text),
-            ) as call:
-                core.verify_busybox_recursive_bind(rootfs)
-                call.assert_called_once_with(
-                    ["chroot", str(rootfs), "/bin/busybox", "mount", "--help"],
-                    check=False, capture_output=True, text=True,
-                )
-
-        for status, stdout, stderr in (
-            (0, "mount present, no recursive bind", ""),
-            (1, "[r]bind", ""),
-        ):
-            with self.subTest(status=status, stdout=stdout), patch.object(
-                core.subprocess, "run",
-                return_value=subprocess.CompletedProcess([], status, stdout, stderr),
-            ):
-                with self.assertRaisesRegex(core.BuildError, "recursive bind"):
-                    core.verify_busybox_recursive_bind(rootfs)
-
-        text = (ROOT / "bootstrap/base/alpine_core.py").read_text(encoding="utf-8")
-        self.assertIn("verify_busybox_recursive_bind(rootfs)", text)
-
-    def test_alpine_fallback_verifier_consumes_the_same_inventory(self) -> None:
-        text = (ROOT / "bootstrap/base/alpine_core.py").read_text(encoding="utf-8")
-        self.assertIn("owner_rootfs_inventory()", text)
-        self.assertIn('set(inventory["explicit_busybox_applets"])', text)
-        self.assertIn('for command in inventory["commands"]:', text)
-        self.assertIn('helper["target"] for helper in inventory["runtime_helpers"]', text)
-        self.assertNotIn('"usr/local/bin/ordax-main-watch"', text)
-        self.assertNotIn('required_applets = {"mount", "pivot_root", "reboot", "sync"}', text)
-
-
-if __name__ == "__main__":
-    unittest.main()

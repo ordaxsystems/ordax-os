@@ -17,7 +17,7 @@ on:
       - 'tests/test_first_mvp_operator_readiness.py'
       - 'tests/test_canonical_v4_operator_retention.py'
       - '.github/workflows/portable-release-image.yml'
-      - '.github/workflows/surface-runtime-lock-discovery.yml'
+      - '.github/workflows/independent-surface-runtime.yml'
       - '.github/workflows/local-ai-runtime-candidate.yml'
       - 'docs/contracts/physical-write-authorization.json'
       - 'docs/contracts/mvp-app-delivery.json'

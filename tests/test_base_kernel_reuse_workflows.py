@@ -36,7 +36,7 @@ class BaseKernelReuseWorkflowTests(unittest.TestCase):
         self.assertIn("${ImageVersion}", workflow)
         self.assertIn("portable_component_cache.py fingerprints", workflow)
         self.assertIn(
-            "if: steps.kernel-cache.outputs.cache-hit != 'true'",
+            "steps.kernel-cache.outputs.cache-hit != 'true'",
             self.step_block(workflow, build_step),
         )
         verify = self.step_block(workflow, "Verify kernel component and exact integration binding")
@@ -65,24 +65,43 @@ class BaseKernelReuseWorkflowTests(unittest.TestCase):
         self.assertNotIn("      - 'tests/test_independent_base_experiment.py'", workflow)
         self.assertNotIn("      - 'tests/test_independent_network_parity.py'", workflow)
 
-    def test_stable_base_reuses_kernel_but_never_skips_base_build(self):
+    def test_stable_candidate_consumes_exact_buildroot_and_kernel_caches(self):
         workflow = self.workflow(STABLE)
-        self.assert_kernel_reuse_contract(
-            STABLE,
-            "Build exact kernel modules on verified cache miss",
-        )
-        stable_build = self.step_block(workflow, "Build and verify Stable Base candidate")
-        self.assertNotIn("cache-hit", stable_build)
-        self.assertIn(
-            '--kernel-modules "$kernel_dir/kernel-modules-$ORDAX_KERNEL_VERSION.tar"',
-            stable_build,
-        )
+        kernel_restore = self.step_block(workflow, "Restore verified kernel component")
+        stable_restore = self.step_block(workflow, "Restore verified Stable Buildroot component")
+        self.assertIn(f"actions/cache/restore@{CACHE_SHA}", kernel_restore)
+        self.assertIn(f"actions/cache/restore@{CACHE_SHA}", stable_restore)
+        self.assertIn("steps.component-fingerprints.outputs.kernel", kernel_restore)
+        self.assertIn("steps.component-fingerprints.outputs.independent_base_stable", stable_restore)
+        self.assertNotIn("restore-keys:", workflow)
+        self.assertIn("ORDAX_COMPONENT_CACHE_ENVIRONMENT", workflow)
+        self.assertIn("portable_component_cache.py fingerprints", workflow)
+        self.assertIn("kernel-modules-$ORDAX_KERNEL_VERSION.tar", workflow)
+        kernel_verify = self.step_block(workflow, "Verify previously built kernel; never rebuild on cache miss")
+        self.assertIn("ORDAX_KERNEL_CACHE_HIT", kernel_verify)
+        self.assertIn("bootstrap/kernel/verify.py", kernel_verify)
+        self.assertIn("portable_component_cache.py verify", kernel_verify)
+        self.assertIn("--component kernel", kernel_verify)
+        stable_verify = self.step_block(workflow, "Verify Stable Buildroot candidate without rebuilding")
+        self.assertIn("ORDAX_STABLE_CACHE_HIT", stable_verify)
+        self.assertIn("bootstrap/independent-base/build.py verify --profile stable-mvp", stable_verify)
+        self.assertIn("--component independent-base-stable", stable_verify)
+        self.assertIn("--cache-hit true", stable_verify)
+        self.assertIn("physical_artifact_authorized'] is False", stable_verify)
+        self.assertIn("signed_release_equivalence_proven'] is False", stable_verify)
+        self.assertNotIn("bootstrap/stable-base/build.py", workflow)
+        self.assertNotIn("bootstrap/kernel/build.py build", workflow)
+        self.assertNotIn("bootstrap/independent-base/build.py build", workflow)
+        self.assertNotIn("apk add", workflow)
+        self.assertNotIn("proot", workflow)
+        receipts = self.step_block(workflow, "Retain verified Stable receipts for review only")
+        self.assertNotIn("independent-base.erofs", receipts)
 
     def test_inventory_only_changes_do_not_trigger_stable_kernel_rebuild_workflow(self):
         workflow = self.workflow(STABLE)
         self.assertNotIn("      - 'platform/compliance/declared-inputs.json'", workflow)
         self.assertNotIn("      - 'tests/test_third_party_inventory.py'", workflow)
-        self.assertIn("tests.test_third_party_inventory", workflow)
+        self.assertNotIn("tests.test_third_party_inventory", workflow)
         foundation = (ROOT / ".github/workflows/foundation.yml").read_text(encoding="utf-8")
         self.assertIn("python -m unittest discover -s tests -p 'test_*.py' -v", foundation)
 

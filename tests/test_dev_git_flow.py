@@ -230,6 +230,19 @@ class DevelopmentGitFlowTest(unittest.TestCase):
         self.assertEqual((self.state / "current-commit").read_text().strip(), self.commit_v1)
         self.assertTrue((self.worktree / "system/entrypoint").is_file())
         self.assertFalse((self.worktree / "docs/not-runtime.txt").exists())
+        self.assertEqual((self.state / "dev-helpers-sha").read_text().strip(), self.commit_v1)
+        # The cold seed installs the same complete manifest as normal Pull.
+        # Verify source bytes, not just presence or a synthetic success token.
+        manifest = self.worktree / "system/services/base-update/dev-helper-manifest.tsv"
+        for row in manifest.read_text(encoding="utf-8").splitlines():
+            if not row or row.startswith("#"):
+                continue
+            source, target, *_ = row.split("\t")
+            installed = self.root / "installed-rootfs" / target
+            self.assertTrue(installed.is_file(), target)
+            self.assertFalse(installed.is_symlink(), target)
+            self.assertEqual(installed.read_bytes(), (self.worktree / source).read_bytes(), target)
+            self.assertTrue(installed.stat().st_mode & stat.S_IXUSR, target)
 
     def _script(
         self,
@@ -446,7 +459,18 @@ class DevelopmentGitFlowTest(unittest.TestCase):
             "test \"$(git -C \"$WORKTREE\" rev-parse HEAD)\" = \"$target_sha\"",
         ])
         result = self._run(["/bin/sh", "-c", script], env=self._env(), check=False)
-        self.assertEqual(result.returncode, 0, result.stderr + result.stdout)
+        # In this integration the real Supervisor redirects Pull errors to a
+        # private update log. Include bounded disposable fixture diagnostics on
+        # failure; a blank subprocess stderr hides the actual failing phase.
+        update_log = self.root / "run/ordax-update/update.log"
+        pull_phase = self.root / "run/ordax-update/pull-result"
+        detail = (
+            f"Supervisor handoff rc={result.returncode}; "
+            f"pull_phase={pull_phase.read_text().strip() if pull_phase.is_file() else 'missing'}; "
+            f"update_log={update_log.read_text(errors='replace')[-5000:] if update_log.is_file() else 'missing'}; "
+            f"stderr={result.stderr[-1000:]}; stdout={result.stdout[-1000:]}"
+        )
+        self.assertEqual(result.returncode, 0, detail)
         snapshot = json.loads(
             (self.root / "run/ordax-update/state.json").read_text(encoding="utf-8")
         )

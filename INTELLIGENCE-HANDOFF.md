@@ -121,7 +121,7 @@ O Capability Fabric v1 foi integrado à `ordax-os/main` pela
 para **o que já existe, como funciona, o que falta, owners e testes que
 realmente estão no remoto** é [`docs/CAPABILITY-FABRIC.md`](docs/CAPABILITY-FABRIC.md),
 com status datado em `docs/CURRENT-STATE.md`. O extenso
-`docs/plans/CAPABILITY-FABRIC-V1.md` é **histórico**, não uma nova fila.
+O diário `CAPABILITY-FABRIC-V1` foi removido da árvore ativa; sua proveniência permanece na [PR #2406](https://github.com/ordaxsystems/ordax-os/pull/2406). Não representa uma nova fila.
 
 **Não reiniciar a fase A/B/C:** Native Surface Host, Store `CURRENT`,
 Application Actions, Aura e Personal compartilham a projeção de leitura
@@ -277,7 +277,7 @@ A execução corrente está em:
 
 - **#1757 — Intelligence integration closure**: tracking de Web transport, provider adapters, voz/arquivos e prova de release;
 - **PR #1756 — canonical Web Intelligence boundary**: primeira fatia, ainda sem provider remoto. A composição Web atual (`Central`/Aura) recebe um client de `ordax.intelligence/1`; a ausência de transporte é representada por adapter Web fail-closed. O contrato público permanece inalterado.
-- `docs/plans/INTELLIGENCE-INTEGRATION-CLOSURE-2026-10-13.md`: plano executável, invariantes e sequência de promoção.
+- [Plano de integração Intelligence de 13/10 (snapshot no Git)](https://github.com/ordaxsystems/ordax-os/blob/752711fe18c85a5aa997c89035f488d8f52a4853/docs/plans/INTELLIGENCE-INTEGRATION-CLOSURE-2026-10-13.md): evidência histórica de sequência e invariantes; removido da árvore ativa, não é plano vigente.
 
 **Não interpretar #1756 como IA Web já conectada a um backend.** A fatia cria a boundary correta para que um transporte suportado possa ser composto depois. ChatGPT/OpenAI/xAI, voz, arquivos, egress, credenciais remotas e prova física continuam gates separados.
 
@@ -299,7 +299,7 @@ A experiência adaptativa/Jarvis de #1572 continua relevante como UX/resultado, 
 2. `docs/INTELLIGENCE.md`, `docs/contracts/intelligence.json`, `system/services/intelligence/` — Intelligence, model router e limites de inferência.
 3. `docs/APPLICATION-INTELLIGENCE.md`, `docs/APP-INTELLIGENCE-MANIFEST.md`, `docs/APPLICATION-ACTIONS.md` — catálogo semântico, intents, provedores de ações.
 4. `PERSONAL-ORDAX.md` e `docs/PERSONAL-ORDAX.md` — Work, Activity, Result, approvals, grants e receipts.
-5. `docs/plans/INTELLIGENCE-INTEGRATION-CLOSURE-2026-10-13.md` e issue #1757 — fechamento da integração corrente.
+5. O [snapshot do plano de 13/10](https://github.com/ordaxsystems/ordax-os/blob/752711fe18c85a5aa997c89035f488d8f52a4853/docs/plans/INTELLIGENCE-INTEGRATION-CLOSURE-2026-10-13.md) e a issue #1757 são **referências históricas**; revalidar source, owners e PRs atuais antes de qualquer execução.
 6. [Apps: Studio + ChatGPT em três superfícies](https://github.com/ordaxsystems/ordax-apps/blob/main/docs/STUDIO-CHATGPT-THREE-SURFACES.md), [Studio Web](https://github.com/ordaxsystems/ordax-apps/blob/main/docs/STUDIO-WEB-INTEGRATION.md).
 7. [Platform: providers](https://github.com/ordaxsystems/ordax-platform/blob/main/docs/ORDAX_PROVIDER_CONNECTORS.md), [Product MCP](https://github.com/ordaxsystems/ordax-platform/blob/main/docs/PRODUCT_MCP_CONNECT.md), [Runtime: bridge experimental](https://github.com/ordaxsystems/ordax-runtime/pull/63).
 

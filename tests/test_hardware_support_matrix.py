@@ -49,9 +49,24 @@ class HardwareSupportMatrixTests(unittest.TestCase):
             if item["id"] == "wifi-after-base-start"
         )
         actual_modules = set(self.base["kernel_modules"]["required_basenames"])
-        actual_packages = set(self.base["packages"])
         self.assertTrue(set(wifi["module_basenames"]).issubset(actual_modules))
-        self.assertTrue(set(wifi["firmware_packages"]).issubset(actual_packages))
+        # Buildroot fragment is the sole firmware package SSOT; the Stable
+        # release contract must not carry the retired Alpine package list.
+        self.assertNotIn("firmware_packages", wifi)
+        producer = self.base["base_producer"]
+        independent = json.loads(
+            (ROOT / producer["source_contract"]).read_text(encoding="utf-8")
+        )
+        fragment_path = independent["profiles"][producer["profile"]]["fragment"]
+        self.assertEqual(
+            fragment_path, "bootstrap/independent-base/configs/wifi-hardware.fragment"
+        )
+        fragment = (ROOT / fragment_path).read_text(encoding="utf-8")
+        self.assertIn("BR2_PACKAGE_LINUX_FIRMWARE=y", fragment)
+        self.assertEqual(
+            self.base["build"]["shared_firmware_policy"],
+            "bootstrap/base/firmware_policy.py",
+        )
         self.assertIn("does not claim every adapter", wifi["claim_limit"])
 
     def test_first_acquisition_network_paths_are_built_in(self):

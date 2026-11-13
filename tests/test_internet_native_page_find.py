@@ -4,7 +4,7 @@ from pathlib import Path
 import unittest
 from types import SimpleNamespace
 
-HOST = Path(__file__).resolve().parents[1] / "system/surface/runtime/ordax_browser_host.py"
+HOST = Path(__file__).resolve().parents[1] / "system/surface/runtime/native_internet_navigation.py"
 
 class Controller:
     def __init__(self):
@@ -40,7 +40,7 @@ class View:
 
 def isolated_host():
     tree = ast.parse(HOST.read_text(encoding="utf-8"))
-    host = next(n for n in tree.body if isinstance(n, ast.ClassDef) and n.name=="OrdaXBrowserHost")
+    host = next(n for n in tree.body if isinstance(n, ast.ClassDef) and n.name=="InternetNavigationHost")
     names={"finish_page_find","handle_page_find","on_find_found","on_find_failed"}
     methods = [n for n in host.body if isinstance(n,ast.FunctionDef) and n.name in names]
     assert len(methods)==len(names)

@@ -33,7 +33,7 @@ class SurfaceSourceMaterializationTests(unittest.TestCase):
         self.sha = self.run_git("rev-parse", "HEAD").strip()
         self.lock = {
             "$schema": "prototype-ordax.surface-source/1",
-            "status": "integration-candidate",
+            "status": "canonical",
             "source_repository": "ordaxsystems/ordax-surface",
             "source_commit": self.sha,
             "visual_source_paths": list(surface.VISUAL_PATHS),
@@ -87,6 +87,14 @@ class SurfaceSourceMaterializationTests(unittest.TestCase):
         self.lock["source_commit"] = self.run_git("rev-parse", "HEAD").strip()
         with self.assertRaisesRegex(surface.SurfaceSourceError, "unsafe source mode"):
             surface.verify_source(self.source, self.lock)
+
+    def test_rejects_retired_integration_candidate_before_materialization(self):
+        self.lock["status"] = "integration-candidate"
+        lock_file = self.root / "retired-surface-source.json"
+        lock_file.write_text(json.dumps(self.lock), encoding="utf-8")
+        with self.assertRaisesRegex(surface.SurfaceSourceError, "not canonical"):
+            surface.load_lock(lock_file)
+        self.assertFalse((self.root / "out").exists())
 
     def test_validates_contract_boundary(self):
         lock_file = self.root / "surface-source.json"

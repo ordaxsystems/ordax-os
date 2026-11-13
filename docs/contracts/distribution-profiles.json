@@ -159,8 +159,6 @@
       "stable_base_git_client_embedded": false,
       "stable_base_source_checkout_embedded": false,
       "stable_base_physical_boot_connected": false,
-      "stable_base_alpine_hash_pinned": false,
-      "stable_base_apk_versions_pinned": false,
       "portable_v2_release_agent_sha256": "721f8a3fcec1ccfd2dd75c4d633ff2efd960909287c5e11fcf9abf19e5372740",
       "portable_v2_release_agent_supports_offline_exact_verification": true,
       "portable_v3_release_agent_seed_sha256": "721f8a3fcec1ccfd2dd75c4d633ff2efd960909287c5e11fcf9abf19e5372740",
@@ -176,7 +174,9 @@
       "portable_v2_candidate_rearm_same_sha_allowed": false,
       "portable_v3_activation_primitive": "ordax-portable-state",
       "portable_v3_activation_state_root": "/state/ordax/portable-release",
-      "portable_v3_activation_physical_proven": false
+      "portable_v3_activation_physical_proven": false,
+      "stable_base_buildroot_source_pinned": true,
+      "stable_base_signed_release_equivalence_proven": false
     }
   },
   "invariants": {

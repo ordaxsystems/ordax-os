@@ -187,12 +187,32 @@ class PortableQemuImpactTests(unittest.TestCase):
         # expensive until explicitly classified with a separate owner proof.
         for critical in ("tests/test_unknown_boot_sensitive_owner.py",
                          "system/services/components/probation-orchestrator.mjs",
-                         "bootstrap/surface-runtime/source.json",
+                         "bootstrap/surface-runtime/build.py",
                          "system/supervisor"):
             with self.subTest(critical=critical):
                 self.assertTrue(impact.classify_paths(
                     desktop_paths + [critical], root=ROOT,
                 ).required)
+
+    def test_surface_source_pin_is_proven_by_single_independent_producer(self):
+        # The canonical Independent Surface workflow both builds verified
+        # EROFS and invokes Portable QEMU; the generic QEMU consumer must not
+        # duplicate those hours for the same exact source pin.
+        result = impact.classify_paths(
+            ["bootstrap/surface-runtime/source.json"], root=ROOT
+        )
+        self.assertFalse(result.required, result.reasons)
+
+    def test_store_preview_with_unresolved_native_graph_fails_closed(self):
+        with patch.object(
+            impact, "native_startup_import_graph",
+            return_value=(frozenset(), ("unresolved:system/composition/native/main.mjs",)),
+        ):
+            result = impact.classify_paths(
+                ["system/composition/web/store-preview/app.js"], root=ROOT,
+            )
+        self.assertTrue(result.required)
+        self.assertTrue(any(reason.startswith("runtime-graph:") for reason in result.reasons))
 
     def test_generated_calculator_store_policy_uses_native_app_gates_not_linux_qemu(self):
         """Declarative SSOT-generated read/health scope changes no boot image bytes."""
@@ -210,12 +230,12 @@ class PortableQemuImpactTests(unittest.TestCase):
         workflow = impact.classify_workflow_paths(light, root=ROOT)
         self.assertFalse(workflow.required, workflow.reasons)
         # The generated metadata exception must not spread to Native runtime
-        # implementations, mutable health, kernel, Alpine EROFS or boot.
+        # implementations, mutable health, kernel or boot. Buildroot Surface
+        # sources are covered by the independent producer/QEMU test above.
         for critical in (
             "system/surface/runtime/ordax_browser_host.py",
             "system/surface/runtime/native_component_probation.py",
             "system/services/components/probation-orchestrator.mjs",
-            "bootstrap/surface-runtime/source.json",
             "bootstrap/kernel/source.json",
         ):
             with self.subTest(critical=critical):

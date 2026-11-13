@@ -10,6 +10,8 @@ CONTRACT = ROOT / "system" / "contracts" / "browser-session.mjs"
 WEB_ADAPTER = ROOT / "system" / "adapters" / "web" / "browser-session.mjs"
 NATIVE_ADAPTER = ROOT / "system" / "adapters" / "native" / "browser-session.mjs"
 NATIVE_HOST = ROOT / "system" / "surface" / "runtime" / "ordax_browser_host.py"
+DOWNLOAD_HOST = ROOT / "system" / "surface" / "runtime" / "native_internet_downloads.py"
+NAVIGATION_HOST = ROOT / "system" / "surface" / "runtime" / "native_internet_navigation.py"
 SURFACE_LAUNCHER = ROOT / "system" / "surface" / "bin" / "ordax-surface"
 WEB_COMPOSITION = ROOT / "system" / "composition" / "web"
 NATIVE_COMPOSITION = ROOT / "system" / "composition" / "native"
@@ -21,7 +23,7 @@ class InternetBrowserContractTests(unittest.TestCase):
         return path.read_text(encoding="utf-8")
 
     def browser_uri_policy(self):
-        source = self.text(NATIVE_HOST)
+        source = self.text(NAVIGATION_HOST)
         tree = ast.parse(source)
         names = {
             "MAX_URI_LENGTH",
@@ -50,7 +52,7 @@ class InternetBrowserContractTests(unittest.TestCase):
             elif isinstance(node, ast.FunctionDef) and node.name in functions:
                 selected.append(node)
         namespace = {}
-        exec(compile(ast.Module(body=selected, type_ignores=[]), str(NATIVE_HOST), "exec"), namespace)
+        exec(compile(ast.Module(body=selected, type_ignores=[]), str(NAVIGATION_HOST), "exec"), namespace)
         return namespace
 
     def test_removed_internet_product_is_absent_while_browser_host_survives(self):
@@ -174,24 +176,41 @@ class InternetBrowserContractTests(unittest.TestCase):
 
     def test_native_host_separates_privileged_surface_from_external_webviews(self):
         host = self.text(NATIVE_HOST)
+        external = self.text(NAVIGATION_HOST)
+        downloads = self.text(DOWNLOAD_HOST)
+        self.assertIn("class OrdaXBrowserHost(InternetNavigationHost, InternetDownloadHost):", host)
+        self.assertIn("class InternetNavigationHost:", external)
         self.assertIn('WebView.new_with_context(self.surface_context)', host)
         self.assertIn('self.manager = self.surface_view.get_user_content_manager()', host)
         self.assertIn('base_data_directory=surface_profile_data', host)
         self.assertIn('os.path.join(self.profile_root, "surface", "data")', host)
         self.assertIn('WebsiteDataManager(', host)
         self.assertIn('WebContext.new_with_website_data_manager', host)
-        self.assertIn('WebView.new_with_context(self.external_context)', host)
-        self.assertIn('host == "localhost"', host)
-        self.assertIn('TOP_LEVEL_NETWORK_SCHEMES = frozenset({"http", "https"})', host)
-        self.assertIn('socket.inet_aton(host)', host)
-        self.assertIn('return address.is_global', host)
-        self.assertIn('resource-load-started', host)
-        self.assertIn('resource.connect("send-request"', host)
-        self.assertIn('request.set_uri("about:blank")', host)
-        self.assertIn('request.deny()', host)
-        self.assertIn('download.cancel()', host)
-        self.assertNotIn('new_with_user_content_manager(self.manager)', host.split('def create_external_view', 1)[1])
+        self.assertIn('WebView.new_with_context(self.external_context)', external)
+        self.assertIn("from browser_tab_registry import InternetTabRegistry", host)
+        self.assertIn("self.tab_registry = InternetTabRegistry(TAB_ID_RE, MAX_TABS)", host)
+        self.assertIn("from external_web_content import ExternalWebContent", host)
+        self.assertIn("self.external_content = ExternalWebContent(", host)
+        self.assertNotIn("self.external_context = WebKit2.WebContext", host)
+        for required in (
+            'host == "localhost"',
+            'TOP_LEVEL_NETWORK_SCHEMES = frozenset({"http", "https"})',
+            'socket.inet_aton(host)', 'return address.is_global',
+            'resource-load-started', 'resource.connect("send-request"',
+            'request.set_uri("about:blank")', 'request.deny()',
+        ):
+            self.assertIn(required, external)
+        self.assertIn("class InternetDownloadHost:", downloads)
+        self.assertIn('download.cancel()', downloads)
+        self.assertIn("self.allowed_untrusted_uri = allowed_external_uri", host)
+        self.assertNotIn("def on_download_started", host)
+        self.assertNotIn("def handle_download_decision", host)
+        for untrusted in (external, downloads):
+            self.assertNotIn("get_user_content_manager", untrusted)
+            self.assertNotIn("register_script_message_handler", untrusted)
+        self.assertNotIn('new_with_user_content_manager(self.manager)', external)
         ast.parse(host)
+        ast.parse(external)
 
     def test_external_uri_policy_rejects_local_and_non_public_targets(self):
         policy = self.browser_uri_policy()
@@ -263,7 +282,7 @@ class InternetBrowserContractTests(unittest.TestCase):
                 self.assertFalse(resource(url))
 
     def test_invalid_native_target_fails_before_tab_creation_or_activation(self):
-        host = self.text(NATIVE_HOST)
+        host = self.text(NAVIGATION_HOST)
         open_tab = host.split("    def open_tab(", 1)[1].split("    def close_tab(", 1)[0]
         validation = open_tab.index("not allowed_external_uri(url_value)")
         self.assertLess(validation, open_tab.index("if tab_id in self.tabs:"))
@@ -271,11 +290,14 @@ class InternetBrowserContractTests(unittest.TestCase):
 
     def test_native_surface_runtime_owns_webkit_dependencies_directly(self):
         launcher = self.text(SURFACE_LAUNCHER)
-        self.assertIn('RUNTIME_ID=alpine-v3.22-cage-webkitgtk-v1', launcher)
-        self.assertTrue({
-            'python3', 'py3-gobject3', 'gtk+3.0', 'webkit2gtk-4.1',
-            'pipewire-pulse', 'pipewire-alsa', 'wireplumber', 'gst-plugin-pipewire', 'dbus',
-        }.issubset((ROOT / 'system/surface/runtime/packages.txt').read_text().splitlines()))
+        self.assertIn('VERIFIED_RUNTIME_MODE=${ORDAX_SURFACE_RUNTIME_MODE:-}', launcher)
+        self.assertIn('RUNTIME_ROOT=$VERIFIED_RUNTIME_ROOT', launcher)
+        self.assertIn('verified-erofs-overlay', launcher)
+        self.assertNotIn('alpine-v3.22', launcher)
+        self.assertNotIn('/sbin/apk', launcher)
+        buildroot_config = (ROOT / 'bootstrap/surface-runtime/configs/ordax_surface_defconfig').read_text()
+        for required in ('BR2_PACKAGE_CAGE=y', 'BR2_PACKAGE_WEBKITGTK=y', 'BR2_PACKAGE_LIBGTK3_WAYLAND=y'):
+            self.assertIn(required, buildroot_config)
         self.assertIn('/srv/ordax-system/surface/runtime/ordax_browser_host.py', launcher)
         self.assertIn('--profile-root /var/lib/ordax-user/browser', launcher)
         self.assertNotIn('barkery-browser', launcher)

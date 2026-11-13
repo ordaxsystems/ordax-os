@@ -11,6 +11,7 @@ SCRIPT = ROOT / "tools/release-operator/select_active_signing_request.py"
 spec = importlib.util.spec_from_file_location("select_active_signing_request", SCRIPT)
 import sys
 sys.path.insert(0, str(SCRIPT.parent))
+import validate_canonical_v4_signing_request as validator
 selector = importlib.util.module_from_spec(spec)
 assert spec.loader is not None
 spec.loader.exec_module(selector)
@@ -32,6 +33,11 @@ class CanonicalSigningRequestSelectionTests(unittest.TestCase):
         result["source_repository"] = new_owner
         result["source_commit"] = "1" * 40
         result["release_tag"] = "ordax-stable-v4-" + result["source_commit"]
+        # A new request must point at the one active Buildroot Surface workflow,
+        # even when the historical fixture is copied for its other fields.
+        result["operator_artifacts"]["surface"]["workflow_path"] = (
+            validator.KIND_SPECS["surface"]["workflow_path"]
+        )
         for entry in result["operator_artifacts"].values():
             entry["run_id"] += 700
             entry["artifact_id"] += 700
@@ -69,6 +75,19 @@ class CanonicalSigningRequestSelectionTests(unittest.TestCase):
             valid["source_repository"] = selector.HISTORICAL_OWNER
             p.write_text(json.dumps(valid), encoding="utf-8")
             with self.assertRaisesRegex(selector.ValidationError, "source repository"):
+                selector.selection(root)
+
+    def test_new_release_cannot_reactivate_retired_alpine_surface_workflow(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            root = self.sandbox(tmp)
+            current = self.approved_shape(root)
+            current["operator_artifacts"]["surface"]["workflow_path"] = (
+                validator.ARCHIVED_SURFACE_OPERATOR_PATH
+            )
+            p = root / selector.ACTIVE_PATH
+            p.parent.mkdir(parents=True, exist_ok=True)
+            p.write_text(json.dumps(current), encoding="utf-8")
+            with self.assertRaisesRegex(selector.ValidationError, "operator workflow path is invalid: surface"):
                 selector.selection(root)
 
     def test_never_reuse_historical_run_or_artifact_or_source_commit(self):

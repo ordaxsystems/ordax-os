@@ -1,32 +1,15 @@
-# <ID> — <Título do relatório>
+# <Título do relatório>
 
-- **Tipo:** RESEARCH / ANALYSIS / AUDIT
-- **Status documental:** INBOX | TRIAGED | REFERENCE | SUPERSEDED | ARCHIVED
-- **Execução:** NOT APPLICABLE
-- **Data:** YYYY-MM-DD
-- **Escopo:**
-- **Fonte/origem:**
-- **Base do repo verificada:**
-- **Limitações:**
+> **Modelo opcional.** Criar relatório somente se a análise precisar ser preservada; não é etapa obrigatória para implementar ou concluir uma correção.
 
-## Pergunta investigada
+- **Data e fonte verificada:**
+- **Questão e escopo:**
+- **Owner/contrato relacionado:**
 
-## Resumo executivo
+## Evidências e limitações
 
-## Evidências/fatos
+## Conclusão ou decisão necessária
 
-## Alternativas
+## Referência ao documento vigente, se houver
 
-## Custos e limites
-
-## Riscos
-
-## Recomendação
-
-## O que este relatório não decide
-
-Relatório não altera contrato, prioridade, escopo de MVP, autoridade ou implementação por si só. Uma recomendação só vira execução quando o owner canônico correspondente a adota e o roadmap atual permite essa execução.
-
-## Plano relacionado
-
-`../plans/<ID>-....md`
+Relatórios não alteram owners, contratos, gates ou disponibilidade. Preservar evidências datadas sem transformá-las em instruções vigentes.
