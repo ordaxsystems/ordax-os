@@ -148,6 +148,7 @@ test("Windows current-slot metadata and exact module bytes delegate to Go withou
         + "SOURCE=SLOT\n"
         + "CURRENT_VERSION=0.1.2\n"
         + "CURRENT_SOURCE_COMMIT=" + SOURCE + "\n"
+        + "RELEASE_MODE=component-slot\nHEALTH_MODE=runtime\n"
         + "SLOT=" + join(f.componentRoot, "assistant", "slot") + "\n"
         + "ENTRYPOINT=system/apps/assistant/src/runtime.mjs\n"
         + "RUNTIME_SERVED_FROM_SLOT=NO\n",
@@ -191,10 +192,10 @@ test("Windows current-slot Go verifier bounds concurrent reads and queued import
     callbacks.push(() => {
       active--;
       cb(null, Buffer.from(
-        "RUNTIME_COMPONENT_CURRENT_RESOLVED=YES\\n"
-        + "COMPONENT_ID=assistant\\n"
-        + "REVISION=1\\nSOURCE=ABSENT\\n"
-        + "RUNTIME_SERVED_FROM_SLOT=NO\\n",
+        "RUNTIME_COMPONENT_CURRENT_RESOLVED=YES\n"
+        + "COMPONENT_ID=assistant\n"
+        + "REVISION=1\nSOURCE=ABSENT\n"
+        + "RUNTIME_SERVED_FROM_SLOT=NO\n",
       ));
     });
   });
@@ -246,6 +247,48 @@ test("Windows current-slot Go verifier bounds concurrent reads and queued import
   assert.equal((await recovery).status, 200);
 });
 
+test("Windows rejects stale or forged signed current-slot lifecycle metadata", async t => {
+  const f = setup(t);
+  let releaseMode = "component-slot";
+  let healthMode = "runtime";
+  const base = await serve(t, f, (_binary, args, _options, cb) => {
+    assert.equal(args[0], "resolve-current");
+    cb(null, Buffer.from(
+      "RUNTIME_COMPONENT_CURRENT_RESOLVED=YES\n"
+      + "COMPONENT_ID=assistant\n"
+      + "REVISION=4\n"
+      + "SOURCE=SLOT\n"
+      + "CURRENT_VERSION=0.1.2\n"
+      + "CURRENT_SOURCE_COMMIT=" + SOURCE + "\n"
+      + "RELEASE_MODE=" + releaseMode + "\n"
+      + (healthMode === null ? "" : "HEALTH_MODE=" + healthMode + "\n")
+      + "SLOT=" + join(f.componentRoot, "assistant", "slot") + "\n"
+      + "ENTRYPOINT=system/apps/assistant/src/runtime.mjs\n"
+      + "RUNTIME_SERVED_FROM_SLOT=NO\n",
+    ));
+  });
+  const path = base + "/__ordax/native/component-runtime?component=assistant&state=current";
+  for (const [release, health, expected] of [
+    ["component-slot", "runtime", 200],
+    ["component-slot", "none", 200],
+    ["git-app", "runtime", 409],
+    ["component-slot", "unknown", 409],
+    ["component-slot", null, 409],
+  ]) {
+    releaseMode = release;
+    healthMode = health;
+    const response = await fetch(path);
+    assert.equal(response.status, expected, release + "/" + health);
+    if (expected === 200) {
+      const payload = await response.json();
+      assert.equal(payload.source, "slot");
+      assert.equal(payload.entrypoint, "system/apps/assistant/src/runtime.mjs");
+      assert.equal(Object.hasOwn(payload, "releaseMode"), false,
+        "Native metadata transport must not silently expand its public contract");
+    }
+  }
+});
+
 test("Windows Store sees signed pending Go health without exposing pending modules or activation", async t => {
   const f = setup(t);
   let pending = null, health = "unknown", revision = 2, forged = false;
@@ -270,6 +313,7 @@ test("Windows Store sees signed pending Go health without exposing pending modul
         "PENDING_VERSION=" + pending.version,
         "PENDING_SOURCE_COMMIT=" + pending.source_commit,
         "PENDING_HEALTH=" + health,
+        "RELEASE_MODE=component-slot", "HEALTH_MODE=runtime",
         "SLOT=" + join(f.componentRoot, "assistant", "verified-pending"),
         "ENTRYPOINT=system/apps/assistant/src/runtime.mjs",
         "RUNTIME_SERVED_FROM_SLOT=NO",
@@ -308,6 +352,57 @@ test("Windows Store sees signed pending Go health without exposing pending modul
   assert.ok(commands.every(cmd => ["status", "resolve-pending"].includes(cmd)));
 });
 
+test("Windows probation-only pending module requires exact signed unknown-health generation", async t => {
+  const f = setup(t);
+  const calls = [];
+  let health = "unknown", version = "0.4.3";
+  const base = await serve(t, f, (_binary, args, _opts, cb) => {
+    calls.push(args[0]);
+    if (args[0] === "status") return cb(null, Buffer.from(JSON.stringify({
+      $schema: "prototype-ordax.runtime-component-activation-state/1",
+      component_id: "notes", revision: 6,
+      pending: {version, source_commit: SOURCE}, pending_health: health,
+    })));
+    if (args[0] === "resolve-pending") {
+      return cb(null, Buffer.from([
+        "RUNTIME_COMPONENT_PENDING_RESOLVED=YES",
+        "COMPONENT_ID=notes", "REVISION=6", "SOURCE=SLOT",
+        "PENDING_VERSION=0.4.3", "PENDING_SOURCE_COMMIT=" + SOURCE,
+        "PENDING_HEALTH=" + health,
+        "RELEASE_MODE=component-slot", "HEALTH_MODE=runtime",
+        "SLOT=" + join(f.componentRoot, "notes", "verified-pending"),
+        "ENTRYPOINT=system/apps/notes/runtime.mjs",
+        "RUNTIME_SERVED_FROM_SLOT=NO", "",
+      ].join("\n")));
+    }
+    if (args[0] === "read-runtime-file") {
+      assert.deepEqual(args, [
+        "read-runtime-file", "--component", "notes", "--state", "pending",
+        "--version", "0.4.3", "--source-commit", SOURCE,
+        "--path", "system/apps/notes/runtime.mjs",
+        "--trust", f.installedAnchorPath, "--root", f.componentRoot,
+      ]);
+      return cb(null, Buffer.from("export const pending = true;\n"));
+    }
+    throw Error("Unexpected Go command: " + args[0]);
+  });
+  const url = base + "/__ordax/native/component-module/notes/pending/0.4.3/"
+    + SOURCE + "/system/apps/notes/runtime.mjs";
+  const valid = await fetch(url);
+  assert.equal(valid.status, 200);
+  assert.equal(await valid.text(), "export const pending = true;\n");
+  assert.deepEqual(calls, ["status", "resolve-pending", "read-runtime-file"]);
+  assert.equal((await fetch(url.replace("/notes/", "/assistant/"))).status, 404);
+  assert.deepEqual(calls, ["status", "resolve-pending", "read-runtime-file"],
+    "a non-probation module must not invoke Go");
+  health = "healthy";
+  assert.equal((await fetch(url)).status, 409, "health cannot be silently promoted");
+  health = "unknown"; version = "0.4.2";
+  assert.equal((await fetch(url)).status, 409, "stale version cannot be served");
+  assert.deepEqual(calls.slice(3), ["status", "status"],
+    "rejected pending module must not request verifier bytes");
+});
+
 test("Windows Native slot reader rejects traversal, pending, stale identity and forged CLI responses", async t => {
   const f = setup(t);
   let invocations = 0;
@@ -318,7 +413,6 @@ test("Windows Native slot reader rejects traversal, pending, stale identity and 
   });
   const invalid = [
     "/__ordax/native/component-runtime?component=clock&state=current",
-    "/__ordax/native/component-runtime?component=assistant&state=pending",
     "/__ordax/native/component-runtime?component=assistant&component=studio&state=current",
     "/__ordax/native/component-module/assistant/pending/0.1.2/" + SOURCE
       + "/system/apps/assistant/src/runtime.mjs",
@@ -332,11 +426,13 @@ test("Windows Native slot reader rejects traversal, pending, stale identity and 
     assert.notEqual(response.status, 200, path);
   }
   assert.equal(invocations, 0);
+  assert.equal((await fetch(base + "/__ordax/native/component-runtime?component=assistant&state=pending")).status, 409);
+  assert.equal(invocations, 1, "pending metadata reaches the Go status proof");
   assert.equal((await fetch(base + "/__ordax/native/component-runtime?component=assistant&state=current")).status, 409);
-  assert.equal(invocations, 1);
+  assert.equal(invocations, 2);
   const nonGet = await fetch(base + "/__ordax/native/component-runtime?component=assistant&state=current", { method: "POST" });
   assert.equal(nonGet.status, 405);
-  assert.equal(invocations, 1);
+  assert.equal(invocations, 2);
 });
 
 test("Windows signed CURRENT reader rejects foreign Host, Origin and cross-site browser requests", async t => {
@@ -384,12 +480,13 @@ test("Windows signed CURRENT reader rejects foreign Host, Origin and cross-site 
   for (const path of paths) {
     // Native same-origin fetches may omit Origin. Module imports normally
     // include Sec-Fetch-Site but rely on their own Go CURRENT proof.
+    const expected = path.startsWith("/__ordax/native/component-module/") ? 200 : 409;
     assert.equal(await requestStatus(path, {
       Host: goodHost, "Sec-Fetch-Site": "same-origin",
-    }), 409);
+    }), expected);
     assert.equal(await requestStatus(path, {
       Host: goodHost, Origin: base, "Sec-Fetch-Site": "same-origin",
-    }), 409);
+    }), expected);
   }
   assert.equal(verifierCalls, paths.length * 2,
     "Allowed reads still enter the original signed Go verifier");

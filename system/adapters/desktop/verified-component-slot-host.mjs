@@ -6,12 +6,17 @@ import { execFile } from "node:child_process";
 import { lstatSync } from "node:fs";
 import { isAbsolute, join } from "node:path";
 import { readDesktopPinnedComponentTrust, withinPinnedRoot as within } from "./pinned-component-trust.mjs";
-import { EXTERNAL_FIRST_PARTY_NATIVE_MODULE_READ_IDS } from "../../services/apps/external-first-party-policy.mjs";
+import {
+  EXTERNAL_FIRST_PARTY_NATIVE_MODULE_READ_IDS,
+  EXTERNAL_FIRST_PARTY_NATIVE_PROBATION_IDS,
+} from "../../services/apps/external-first-party-policy.mjs";
 
 const META = "/__ordax/native/component-runtime";
 const COMPAT = "/__ordax/native/component-compatibility";
 const MODULE = "/__ordax/native/component-module/";
 const IDS = new Set(EXTERNAL_FIRST_PARTY_NATIVE_MODULE_READ_IDS);
+// Pending MODULE bytes are restricted to canonical probation-capable apps.
+const PENDING_IDS = new Set(EXTERNAL_FIRST_PARTY_NATIVE_PROBATION_IDS);
 const ID = /^[a-z][a-z0-9-]{0,63}$/;
 const SHA = /^[0-9a-f]{40}$/;
 const SHA256 = /^[0-9a-f]{64}$/;
@@ -66,7 +71,9 @@ function parseFields(buffer, id, state, slotRoot) {
     return { componentId: id, state, source: source === "REMOVED" ? "removed" : "absent",
       revision, version: null, sourceCommit: null, entrypoint: null, pendingHealth: null };
   }
-  if (source !== "SLOT" || fields.size !== 9
+  if (source !== "SLOT" || fields.size !== 11
+    || fields.get("RELEASE_MODE") !== "component-slot"
+    || !["runtime", "none"].includes(fields.get("HEALTH_MODE"))
     || !SEMVER.test(fields.get("CURRENT_VERSION") ?? "")
     || !SHA.test(fields.get("CURRENT_SOURCE_COMMIT") ?? "")
     || !within(slotRoot, fields.get("SLOT") ?? "")
@@ -119,7 +126,9 @@ function parseSignedPendingResolution(output, id, slotRoot, expected) {
     fields.set(key, line.slice(eq + 1));
   }
   const path = fields.get("ENTRYPOINT") ?? "";
-  if (fields.size !== 10
+  if (fields.size !== 12
+    || fields.get("RELEASE_MODE") !== "component-slot"
+    || fields.get("HEALTH_MODE") !== "runtime"
     || fields.get("RUNTIME_COMPONENT_PENDING_RESOLVED") !== "YES"
     || fields.get("COMPONENT_ID") !== id
     || fields.get("RUNTIME_SERVED_FROM_SLOT") !== "NO"
@@ -175,7 +184,9 @@ function parseRequest(url) {
     const parts = path.slice(MODULE.length).split("/");
     if (parts.length < 7) return { error: 400 };
     const [id, state, version, sourceCommit, ...fileParts] = parts;
-    if (!ID.test(id) || !IDS.has(id) || state !== "current") return { error: 404 };
+    if (!ID.test(id) || !IDS.has(id)
+      || (state !== "current" && !(state === "pending" && PENDING_IDS.has(id))))
+      return { error: 404 };
     if (!SEMVER.test(version) || !SHA.test(sourceCommit)
       || !fileParts.every(part => SEGMENT.test(part) && part !== "." && part !== "..")
       || fileParts.slice(0, 3).join("/") !== "system/apps/" + id
@@ -350,10 +361,24 @@ export function createDesktopVerifiedComponentSlotMiddleware({
         const identity = parseFields(output, request.id, request.state, config.root);
         return respond(res, 200, JSON.stringify(identity));
       }
-      // Exact immutable identity: the Go channel revalidates the signed slot
-      // and activation state for every individual file read.
+      // A pending probation read must be tied to the exact UNKNOWN-health
+      // activation generation, independently of the Go file-read signature.
+      // The installed Go channel revalidates the slot for every file read;
+      // never cache verified bytes or fabricate a successful health decision.
+      if (request.state === "pending") {
+        const status = parsePendingActivationStatus(await invoke(config.helper, [
+          "status", "--component", request.id, "--root", config.root,
+        ], execFileImpl, MAX_META), request.id);
+        if (!status || status.pendingHealth !== "unknown"
+          || status.version !== request.version
+          || status.sourceCommit !== request.sourceCommit) return respond(res, 409);
+        parseSignedPendingResolution(await invoke(config.helper, [
+          "resolve-pending", "--component", request.id,
+          "--trust", config.trust, "--root", config.root,
+        ], execFileImpl, MAX_META), request.id, config.root, status);
+      }
       const output = await invoke(config.helper, [
-        "read-runtime-file", "--component", request.id, "--state", "current",
+        "read-runtime-file", "--component", request.id, "--state", request.state,
         "--version", request.version, "--source-commit", request.sourceCommit,
         "--path", request.file, "--trust", config.trust, "--root", config.root,
       ], execFileImpl, MAX_MODULE);
