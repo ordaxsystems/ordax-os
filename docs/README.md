@@ -31,6 +31,10 @@ Para trabalho cross-repo, a ordem operacional é **`AGENTS.md` → `docs/README.
 | MVP scope | `MVP.md` |
 | Current state / handoff | `docs/CURRENT-STATE.md` |
 | Architecture | `docs/ARCHITECTURE.md` |
+| Repository ownership + dependency direction | `docs/REPOSITORY-OWNERSHIP.md` + `docs/contracts/repository-ownership.json` |
+| External Surface source / cutover / staging | `docs/SURFACE-REPOSITORY-MIGRATION.md` + `docs/contracts/surface-source.json` |
+| Brand tokens / derived public + email artifacts | `docs/BRAND-SSOT.md` (visual source remains `ordax-surface`; OS materializes the pinned revision) |
+| External Intelligence source / integration-candidate | `docs/INTELLIGENCE-REPOSITORY-MIGRATION.md` + `docs/contracts/intelligence-source.json` |
 | Personal OrdaX orchestration | `docs/PERSONAL-ORDAX.md` |
 | Web Research source boundary (providers disabled) | `docs/WEB-RESEARCH.md`, `system/contracts/web-research.mjs` |
 | Capability Fabric — arquitetura e fronteiras canônicas; checkpoints operacionais datados são referência | `docs/CAPABILITY-FABRIC.md` (arquitetura/limites); `docs/plans/CAPABILITY-FABRIC-V1.md` (histórico) |
