@@ -63,16 +63,16 @@ não prova branch protection, checks obrigatórios, ausência de branches sem PR
 ou completude da matriz cross-repo. Revalidar antes de qualquer integração.
 
 
-### P0-B — cutover de Intelligence sem código antigo (Windows primeiro)
+### P0-B — cutover de Intelligence sem código antigo
 
 - [x] Confirmar o `docs/contracts/intelligence-source.json` vigente, o grafo portátil completo fixado (nove blobs na revisão atual), o `integration-candidate` e `cutover_complete=false`; verificado contra a `main` do Intelligence sem assumir que a migração terminou. Evidência: lock, materializador, avanço automático e Owner slot derivados da árvore/lock canônicos; testes de expansão/redução, composição real com os nove blobs e pin `9ea04bc09618e1f0e5e1eb9b68c5330e8868a400`, cuja [Intelligence CI #41301047081](https://github.com/ordaxsystems/ordax-intelligence/actions/runs/41301047081) passou.
 - [ ] Separar motor portátil (`intelligence/runtime`, `model-router`, `local-ai/runtime`, streaming, compatibilidade e builder técnico) dos owners OS de `native-service`, `authorized-memory`, `client-actions`, `tool-grants`, Supervisor, modelos/locks, permissões, assinatura e distribuição.
-- [ ] Substituir consumidores da implementação OS por portas `ordax.intelligence/1`, `ordax.model-router/1` e `ordax.local-ai/1` e por artefatos/source fixados, sem import privado cross-repo; validar composição e inferência reais na plataforma **Windows prioritária**. Linux/Buildroot/QEMU só na janela autorizada.
+- [ ] Substituir consumidores da implementação OS por portas `ordax.intelligence/1`, `ordax.model-router/1` e `ordax.local-ai/1` e por artefatos/source fixados, sem import privado cross-repo; validar composição e inferência reais nos ambientes afetados. Windows, Linux/Buildroot/QEMU entram somente quando houver causalidade do candidato/canal correspondente.
 - [ ] Cobrir buffered/SSE, timeout, cancelamento, ausência de modelo, rejeição de `tool_calls`/ações não autorizadas, permissões, restart, modelo incompatível, falha do motor e recuperação; registrar limites de CPU/RAM quando testados de fato.
 - [ ] **Após gate real de cutover**, apagar as implementações OS substituídas, builder duplicado e referências antigas; bloquear sua reintrodução no CI. Não deixar implementação velha como fallback “temporário” indefinido; não marcar `cutover_complete=true` antes das provas.
 - [ ] Atualizar ownership, source lock, docs e receipts **na mesma PR/coordenação**; não copiar contratos OS para Intelligence nem criar segunda autoridade de Memory/Identity.
 
-**Aceite P0-B:** um motor canônico, nenhum import do legado, contratos/testes de consumidor verdes, Desktop real funcional, falha fechada, rollback verificável e status canônico fiel.
+**Aceite P0-B:** um motor canônico, nenhum import do legado, contratos/testes dos consumidores afetados verdes, execução real no canal em adoção quando exigida, falha fechada, rollback verificável e status canônico fiel.
 
 **Validação parcial do consumidor Windows (2026-11-01):** a CI de integração agora resolve o SHA do lock OS, materializa a fonte candidata e executa os testes de contratos no runner `windows-2022`. Essa prova usa backend fixture; não é inferência real, Desktop instalado, ativação nem rollback. O primeiro runner Windows revelou a diferença de modos POSIX do filesystem; o materializador agora valida o modo canônico do Git e as representações nativas Windows sem relaxar hashes, regularidade ou rejeição de links. P0-B continua aberto; as cinco implementações OS antigas permanecem no source até o cutover comprovado.
 
@@ -98,9 +98,9 @@ ou completude da matriz cross-repo. Revalidar antes de qualquer integração.
 
 **Aceite P0-D:** uma composição reconstituível por SHAs/hashes, contrato compatível, recibos verificáveis e nenhum segundo publisher/SSOT.
 
-### P0-E — Desktop Windows instalado: produto real antes de repositório novo
+### P0-E — Desktop Windows instalado: produto real no owner separado
 
-- [ ] Auditar `tools/windows-desktop`, Electron/NSIS, bundle Native, pin da Surface, Runtime distribuído, instalador, atualização e evidências reais; **não** inferir que CI verde significa produto instalado pronto.
+- [ ] Auditar `ordaxsystems/ordax-desktop`, Electron/NSIS, composição OrdaX/OS consumida, Runtime distribuído, instalador, atualização e evidências reais; **não** inferir que CI verde significa produto instalado pronto. O antigo `tools/windows-desktop` é histórico e não deve ser restaurado como segundo host.
 - [ ] Executar E2E em Windows físico instalado: instalação limpa → primeira abertura → login/Conta → criar/selecionar Space → Store/Apps → Files → Aura/Intelligence → Runtime/MCP permitido → fechar/reabrir/reiniciar → offline/reconnect → update e rollback; registrar SHA OS/Surface/Runtime/Intelligence, hashes, versão, logs e falhas.
 - [ ] Segurança Electron: `contextIsolation`, sandbox, `nodeIntegration` desativado no renderer não confiável, preload com allowlist, IPC tipada, validação de origem/parâmetros, CSP/navegação, acesso a arquivos mediado e testes de tentativa de escalada. Não expor token, shell ou APIs Windows genéricas à Surface.
 - [ ] Garantir que o Desktop não mantenha segunda UI, segundo catálogo de Apps, segunda sessão, segundo motor IA, segundo updater ou política divergente; diferenciar host Windows de Surface visual e Runtime de dispositivo.
@@ -118,19 +118,15 @@ ou completude da matriz cross-repo. Revalidar antes de qualquer integração.
 
 **Aceite P1-A:** builds por impacto corretos, provenance verificável, falhas de contrato detectadas antes do merge e resíduos antigos não reaparecem.
 
-### P1-B — decisão fundamentada sobre novos repositórios (não extrair por estética)
+### P1-B — repositórios já separados: preservar owners, medir coordenação
 
-| Candidato | Decisão nesta janela | Gate para reconsiderar |
-| --- | --- | --- |
-| `ordax-desktop` | **NÃO criar ainda**; auditar host Windows no OS | Pelo menos 4 de 6 evidências: release independente, owner distinto, build independente, packaging/assinatura/updater próprios, Surface consumida por contrato/artefato, maioria das mudanças sem PR simultânea na Surface. Registrar ADR e custo da migração. |
-| `ordax-kernel` | **NÃO** | Fork/patchset relevante, maintainer e ciclo de CVEs/backports próprio; caso contrário usar upstream pinado + configuração/patches no OS. |
-| `ordax-drivers`/`ordax-firmware` | **NÃO** | Hardware/BSP com releases e owner independentes; preferir pacotes/layers/`br2-external` quando apropriado. |
-| `ordax-updater` | **NÃO** | Produto reutilizável com protocolo/trust root e release realmente independentes; nunca dois mecanismos de promoção. |
-| `ordax-contracts`/`ordax-ci` | **NÃO por padrão** | Múltiplos consumidores independentes ou duplicação de workflows mensurada; preferir contratos do provider e reusable workflows existentes. |
-| `ordax-release-manifest` | **NÃO por padrão** | Só ADR após provar que os owners atuais de release/locks não comportam composição verificável; evitar segundo manifest/assinador. |
+A decisão de extração já ocorreu para Desktop, Surface, Apps, Runtime, Platform, Intelligence, Creator e Site. **Não reabrir a pergunta “criar ou não criar” esses repos** a partir deste plano. O trabalho atual é assegurar que a separação reduza coordenação:
 
-Se o Desktop for essencialmente um wrapper em lock-step com a Surface, **repo separado pode piorar** coordenação; se for host Windows com release/assinatura independentes, pode valer a pena. Não mover host privilegiado para `ordax-surface` sem revisar `repository-ownership.json`, `module-boundaries.json` e segurança. A extração aprovada exige preservar histórico, migrar CI/packaging, testes de IPC, instalação, upgrade, rollback, source locks e exclusão do caminho antigo **no corte final**.
-
+- consumidores pinam apenas dependências diretas e usam contratos/artefatos imutáveis;
+- nenhuma extração cria source duplicado, publisher paralelo ou cópia de Surface;
+- `ordax-desktop` mantém host/packaging Windows; `ordax-os` mantém composição/serviços; `ordax-surface` mantém UI; `ordax-creator` mantém o app/Core de mídia;
+- novo repositório adicional só nasce com owner/ciclo/release realmente independente e ADR atual, nunca por estética;
+- medir cascata de PRs, rebuilds sem causalidade e pins transitivos; corrigir o mecanismo de composição, não recombinar repos apenas para esconder integração ruim.
 ### P2 — Kernel, Base, USB/Creator e Native físico: preservar arquitetura e executar por causalidade
 
 - [ ] Manter Kernel Linux, boot, initramfs, Buildroot/Base, Supervisor, recovery e updater estrutural sob owners `ordax-os`, com upstream pinado, patches/configuração versionados, builds por artefato e sem fork/repo novo por estética.
