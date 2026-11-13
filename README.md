@@ -8,6 +8,12 @@ Repositório oficial e canônico do sistema operacional OrdaX em `ordaxsystems/o
 >
 > `washingtonmsdj/novo-ordax-os` permanece referência histórica, não uma segunda fonte de verdade ou destino de publicação.
 
+## Integração dos repositórios
+
+O OrdaX é um produto modular, não um conjunto de forks. Cada repositório possui uma responsabilidade; a composição Native é feita no `ordax-os` por contratos, locks e artefatos verificados. Consumidores não repetem pins transitivos: o Desktop consome uma composição OrdaX/OS, o Creator consome mídia verificada, a Surface consome ports e Apps publica componentes/catálogo.
+
+A regra operacional completa está em [docs/DEVELOPMENT-WORKFLOW.md](docs/DEVELOPMENT-WORKFLOW.md#integração-multi-repositório--composição-do-produto-2026-11-13) e a decisão em ADR-031 de [docs/DECISIONS.md](docs/DECISIONS.md). Owners independentes avançam em paralelo e só sincronizam quando uma nova revisão/artefato realmente precisa ser adotada.
+
 ## MVP e canais de produto
 
 O alvo de lançamento, a divisão **Owner/Development vs Stable/MVP**, o modelo de atualização sem Git para usuário final e os gates mínimos de produto estão documentados em [MVP.md](MVP.md). Leia esse arquivo antes de trabalhar em pendrive público, Creator, releases, site, conta ou lançamento.
