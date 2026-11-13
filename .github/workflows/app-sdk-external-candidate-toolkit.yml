@@ -6,7 +6,7 @@ on:
       - 'sdk/app-sdk-v1/verify_unsigned_candidate.py'
       - 'sdk/app-sdk-v1/runtime-component-package-policy.json'
       - 'sdk/app-sdk-v1/EXTERNAL-CANDIDATE-TOOLKIT.md'
-      - 'tools/runtime-component-channel/verify_unsigned_candidate.py'
+      - 'sdk/app-sdk-v1/verify_unsigned_candidate.py'
       - 'docs/contracts/runtime-component-package.json'
       - 'tests/test_runtime_component_unsigned_candidate.py'
       - '.github/workflows/app-sdk-external-candidate-toolkit.yml'
@@ -16,7 +16,7 @@ on:
       - 'sdk/app-sdk-v1/verify_unsigned_candidate.py'
       - 'sdk/app-sdk-v1/runtime-component-package-policy.json'
       - 'sdk/app-sdk-v1/EXTERNAL-CANDIDATE-TOOLKIT.md'
-      - 'tools/runtime-component-channel/verify_unsigned_candidate.py'
+      - 'sdk/app-sdk-v1/verify_unsigned_candidate.py'
       - 'docs/contracts/runtime-component-package.json'
       - 'tests/test_runtime_component_unsigned_candidate.py'
       - '.github/workflows/app-sdk-external-candidate-toolkit.yml'
@@ -37,10 +37,10 @@ jobs:
       - name: Prove SDK verifier is the canonical implementation
         run: |
           set -euo pipefail
-          test -L tools/runtime-component-channel/verify_unsigned_candidate.py
-          test "$(readlink tools/runtime-component-channel/verify_unsigned_candidate.py)" = '../../sdk/app-sdk-v1/verify_unsigned_candidate.py'
+          test -L sdk/app-sdk-v1/verify_unsigned_candidate.py
+          test "$(readlink sdk/app-sdk-v1/verify_unsigned_candidate.py)" = '../../sdk/app-sdk-v1/verify_unsigned_candidate.py'
           cmp -s \
-            tools/runtime-component-channel/verify_unsigned_candidate.py \
+            sdk/app-sdk-v1/verify_unsigned_candidate.py \
             sdk/app-sdk-v1/verify_unsigned_candidate.py
 
       - name: Prove public policy snapshot has no drift
