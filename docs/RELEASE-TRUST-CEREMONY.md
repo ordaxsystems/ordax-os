@@ -2,6 +2,8 @@
 
 Status: LOCAL KEY GENERATED — CRYPTOGRAPHIC RECOVERY VERIFIED — PUBLIC ANCHOR PINNED — PHYSICAL WRITE BLOCKED
 
+**Operational interpretation:** the first canonical release-trust ceremony is already complete. Do **not** run `generate-key` or the initialization sequence below as a routine setup/rebuild step. The detailed ceremony remains as provenance, recovery procedure and protocol reference. Creating a replacement canonical key requires an explicit rotation/recovery decision and the applicable machine-readable trust state; ordinary builds, PRs, new USB candidates or repository updates do not authorize a new identity.
+
 This ceremony exists so the first physical OrdaX prototype can be created without Codex, without committing a private key, and without inventing a CI-only trust anchor.
 
 The repository owns the protocol and policy. The developer owns the canonical private release-signing key. Only the matching public Ed25519 trust anchor may enter Git and the boot payload.
