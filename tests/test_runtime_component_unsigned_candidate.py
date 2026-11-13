@@ -8,7 +8,7 @@ from pathlib import Path
 import zipfile
 
 ROOT = Path(__file__).resolve().parents[1]
-VERIFIER = ROOT / "tools" / "runtime-component-channel" / "verify_unsigned_candidate.py"
+VERIFIER = ROOT / "sdk" / "app-sdk-v1" / "verify_unsigned_candidate.py"
 
 spec = importlib.util.spec_from_file_location("verify_unsigned_candidate", VERIFIER)
 verifier = importlib.util.module_from_spec(spec)

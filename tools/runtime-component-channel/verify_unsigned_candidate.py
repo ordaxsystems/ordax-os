@@ -1,1 +1,0 @@
-../../sdk/app-sdk-v1/verify_unsigned_candidate.py

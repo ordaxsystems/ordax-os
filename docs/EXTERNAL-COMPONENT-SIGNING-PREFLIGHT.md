@@ -15,7 +15,7 @@ External first-party applications such as Notes are produced in
 authority-free unsigned candidate. The OrdaX platform then performs:
 
 1. unsigned candidate verification through
-   `tools/runtime-component-channel/verify_unsigned_candidate.py`;
+   `sdk/app-sdk-v1/verify_unsigned_candidate.py`;
 2. canonical trust/publication readiness validation through
    `tools/runtime-component-channel/check_production_readiness.py`;
 3. public trust-anchor validation when the canonical anchor gate is pinned;
