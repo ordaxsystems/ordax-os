@@ -1,6 +1,6 @@
 # Auditoria transversal dos planos — 2026-10-14
 
-Status: **TRIAGED / EXECUTION ROUTER INPUT**
+Status: **HISTORICAL / REFERENCE — snapshot de 14/10/2026, não é roteador vigente de execução.**
 Base auditada: `ordaxsystems/ordax-os@ef6c111fb6fadc7eba2c63fe51e2abb50e44af58`
 Autoridade: este relatório **não** substitui source, contratos, `docs/CURRENT-STATE.md`, `MVP.md`, ADRs ou owners canônicos.
 
@@ -21,7 +21,7 @@ Reclassificar os planos existentes por utilidade real no estado atual do projeto
 | PERSONAL-001 | `PLANO-07-PERSONAL-ORDAX-E-TRABALHO-INTELIGENTE.md` | **ACTIVE / foreground foundation advanced** | Manter. Work/Activity/approvals/grants/Gateway/Executor/background/scheduler foundations já existem; autonomia pública segue desabilitada. |
 | NETWORK-001 | `PLANO-08-ORDAX-NETWORK-COMUNIDADES-E-MENSAGENS.md` | **ACTIVE CANONICAL PRODUCT PLAN** | Manter status. `system/network/README.md` o referencia como plano canônico e `docs/contracts/network-foundation.json` é a boundary machine-readable. |
 | INTEL-001 | `INTELLIGENCE-HANDOFF.md` | **ACTIVE GUIDE** | Manter como router transversal; não substitui `docs/INTELLIGENCE.md`/contracts. |
-| INTEL-002 | `docs/plans/INTELLIGENCE-INTEGRATION-CLOSURE-2026-10-13.md` | **ACTIVE CLOSURE PLAN** | Phase 1 mergeada; Phase 2/transport e external-provider gates continuam distintos. |
+| INTEL-002 | [Plano Intelligence — snapshot histórico](https://github.com/ordaxsystems/ordax-os/blob/752711fe18c85a5aa997c89035f488d8f52a4853/docs/plans/INTELLIGENCE-INTEGRATION-CLOSURE-2026-10-13.md) | **HISTORICAL (classificação em 14/10: ACTIVE CLOSURE PLAN)** | O arquivo foi retirado da árvore ativa; conferir owners, contracts e PRs atuais para qualquer trabalho de Intelligence. |
 | INTEL-003 | `docs/plans/NATIVE-INTELLIGENCE-SERVICE-BOUNDARY-2026-10-14.md` | **ACTIVE SOURCE-ONLY PLAN** | Native service boundary existe, ainda não host-composed/remotely reachable. |
 | WEB-001 | `00-PLANOS-PRIORITARIOS/plans/WEB-001-WEB-RESEARCH.md` | **ACTIVE / G0 PASS_SOURCE / G1 IN PROGRESS** | Continuar na branch dedicada; contratos provider-neutral iniciados, nenhum provider ativado. |
 
