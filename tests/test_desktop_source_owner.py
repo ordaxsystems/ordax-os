@@ -38,6 +38,40 @@ class DesktopSourceOwnerTests(unittest.TestCase):
         self.assertIn("ref: ${{ inputs.desktop_sha }}", workflow)
         self.assertIn("DESKTOP_OWNER_SHA: ${{ inputs.desktop_sha }}", workflow)
 
+    def test_windows_installer_preserves_verified_private_dependencies(self):
+        workflow = PRODUCER.read_text(encoding="utf-8")
+        lock = json.loads(
+            (ROOT / "system/services/local-ai/source-lock.json").read_text(encoding="utf-8")
+        )
+        vc = lock["engine"]["windows_artifact"]["msvc_runtime"]
+        self.assertEqual(vc["publisher"], "Microsoft Corporation")
+        self.assertEqual(vc["version"], "14.44.35211.0")
+        self.assertEqual(
+            [entry["name"] for entry in vc["files"]],
+            ["msvcp140.dll", "vcruntime140.dll", "vcruntime140_1.dll"],
+        )
+        for marker in (
+            "Restore exact private MinGit source archive cache",
+            "Materialize pinned private MinGit for Windows Dev updates",
+            "Verify source-pinned private MinGit on cache hit and miss",
+            "Select exact Microsoft-signed app-local VC143 dependency set",
+            "Reject unprovided MSVC dependencies in Windows Aura package",
+            "pe-dependency-audit.cjs",
+            "ORDAX_VC143_REDIST_SOURCE",
+        ):
+            self.assertIn(marker, workflow)
+        self.assertIn(
+            "materialize-local-ai.cjs $candidate $model out/windows-local-ai-runtime $env:ORDAX_VC143_REDIST_SOURCE",
+            workflow,
+        )
+        mingit = workflow.index("Restore exact private MinGit source archive cache")
+        aura = workflow.index("Restore content-pinned Windows Aura engine and model cache")
+        vc_gate = workflow.index("Select exact Microsoft-signed app-local VC143 dependency set")
+        materialize = workflow.index("Build and stage exact verified offline Aura payload")
+        pe_gate = workflow.index("Reject unprovided MSVC dependencies in Windows Aura package")
+        save = workflow.index("Save verified content-pinned Windows Aura cache")
+        self.assertTrue(mingit < aura < vc_gate < materialize < pe_gate < save)
+
     def test_installer_consumes_external_desktop_checkout_not_retired_path(self):
         workflow = PRODUCER.read_text(encoding="utf-8")
         self.assertIn("out/ordax-desktop-source/standalone-stage.cjs", workflow)
