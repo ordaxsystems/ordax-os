@@ -522,4 +522,3 @@ The public Site consumes authorized published catalog/assets and remains outside
 **Completion consequence:** implementation, integration, deliverability and product acceptance are distinct states. Merge/CI is not proof of installed Desktop, booted USB or installed app. Conversely, a local source change is not required to perform unrelated physical/release gates.
 
 Existing machine-readable contracts remain authoritative: `docs/contracts/repository-ownership.json`, source locks such as `docs/contracts/surface-source.json`, component/package/channel contracts, build-autonomy contract and signed release manifests. This ADR defines their cross-repository composition rule and creates no second manifest.
-
