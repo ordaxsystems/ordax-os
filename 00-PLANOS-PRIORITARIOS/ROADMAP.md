@@ -1,70 +1,35 @@
 # Roadmap de prioridades — OrdaX OS
 
 Status: **EXECUTION ROUTER**  
-Atualizado: **2026-10-31**
+Atualizado: **2026-11-13**
 
 Este roadmap ordena **janelas de execução**, não redefine arquitetura. Ele não substitui `docs/CURRENT-STATE.md`, `docs/PROMOTION-GATES.md`, `MVP.md`, contratos ou ADRs.
 
-## Janela atual — Desktop Windows funcional antes da mídia física
+## Roteamento atual — paralelismo por owner e fechamento por jornada
 
-O `MVP.md` já aboliu "produto mínimo" como estratégia ativa. A janela atual prioriza o **OrdaX Desktop Windows instalado**, seguido pela integração de Conta/Spaces, Loja/Apps, Aura, arquivos e Platform, estabilização e correção causal; o Web segue por deploy independente. A etapa de USB/Creator/Buildroot/Native físico é **posterior**, não uma dependência para fechar clientes Desktop/Web.
+Este roadmap preserva prioridades e ideias, mas **não serializa o ecossistema**. ADR-031 governa execução: cada owner avança quando há trabalho real no seu escopo e sincroniza apenas ao adotar uma dependência direta, contrato, artefato ou revisão.
 
-Durante esta janela:
+O Desktop Windows permanece o primeiro canal escolhido para uma prova operacional completa de usuário. Isso não torna USB/Creator/Buildroot/Native “posteriores” por definição. Essas frentes podem avançar em paralelo quando há missão ativa, como a #2243, sem serem disparadas por mudanças client-only nem bloqueadas por trabalho Desktop independente.
 
-- planos P1/P2/P3 permanecem documentados, pesquisáveis e reconciliáveis;
-- nenhum plano futuro abre task/issue/PR de implementação apenas por estar `READY`;
-- requisitos já iniciados no produto continuam integrados pelos owners canônicos, mas com priorização Windows-first e provas host-específicas;
-- corrigir documentação, links, classificação e SSOT não promove capacidade de produto;
-- depois de estabilizar Desktop e funcionalidades básicas, revalidar este roadmap antes de autorizar USB/Native físico.
+Regras:
+- `READY`, P1/P2/P3 ou texto detalhado não autorizam trabalho por si só;
+- owner, estado atual, dependência causal e pedido vigente determinam execução;
+- mudança visual/client-only não dispara kernel/USB/QEMU/Creator sem causalidade;
+- mídia física continua exigindo consentimento e gates próprios;
+- nenhuma prioridade de canal congela outro owner independente.
 
-Isso inclui uma distinção importante:
+### FOUNDATION-001 — referência de consolidação
 
-```text
-primeiro proof/release USB
-!=
-fechamento completo da jornada MVP instalável
-```
+`plans/FOUNDATION-001-OS-ARCHITECTURE-CONSOLIDATION.md` é referência histórica/estrutural para defeitos reais de SSOT, legado e integração. Não é fila transversal obrigatória nem exige auditar todos os repos antes de uma alteração localizada.
 
-`MVP.md` já inclui Native SSD/NVMe/HDD no ciclo integrado do MVP. Portanto o trabalho real de Native pode ser P0 **quando exigido pelos owners canônicos**, mesmo que a primeira candidata Stable permaneça temporariamente USB-only até os gates Native passarem.
-
-## Gates históricos de USB/Native — não são P0 da janela Windows
-
-Os requisitos abaixo permanecem preservados no baseline e continuam exigindo suas provas **quando houver liberação específica da etapa física**. A numeração e os gates históricos não autorizam builds USB, Creator, QEMU nem aplicação em disco durante a priorização Windows-first.
-
-1. **Stable/MVP físico USB:** consentimento explícito válido para o contexto corrente, seleção segura do alvo, escrita autorizada e prova física exigida pelo contrato atual.
-2. **Boot/recovery/cold-health canônicos:** validar o ciclo físico real quando o owner canônico ainda o exigir, sem substituir por mock/synthetic proof.
-3. **Surface smoke físico:** executar o harness source-controlled quando ainda pendente e encerrar com evidência canônica `FAIL=0`.
-4. **Modo gráfico/Secure Boot e demais provas físicas pendentes:** fechar somente quando permanecerem pendentes nos owners canônicos atuais e com evidência no hardware aplicável.
-5. **NATIVE-001 — USB → Native whole-disk:** continuar a infraestrutura já existente até APPLY físico autorizado, release materialization, boot sem USB, first-boot health, known-good e recovery, **sem criar novo instalador e sem relaxar flags fail-closed**.
-6. **Hardware mínimo do modelo Native anunciado:** quando necessário ao claim de produto, áudio e suspend/resume deixam de ser "extras" para aquele hardware específico e passam a integrar a homologação real do modelo; não generalizar suporte para outras máquinas.
-7. **Profiles profissionais já exigidos pelo MVP:** fechar somente os recortes seguros de `pizzaria-br@1` e `impressao-3d-br@1` definidos pelos owners atuais de Profile/MVP; isso **não** promove OrdaX Food ou OrdaX Fabrication comerciais completos para P0.
-
-### FOUNDATION-001 — integridade/SSOT do Desktop na janela atual
-
-Roteiro de auditoria, SSOT, limpeza de legado comprovado, boot/Supervisor, atualização transacional, Creator/USB e provas está em `plans/FOUNDATION-001-OS-ARCHITECTURE-CONSOLIDATION.md`. É **handoff interagentes**, não um novo instalador, atualizador, gate de release ou source de estado; complementa `EXEC-000` e **não duplica** `NATIVE-001`. Execute apenas defeitos e fechamento já exigidos pelos owners MVP, com testes e evidências por fase; nenhuma autorização de escrita física é concedida.
-
-Fonte de execução: `docs/CURRENT-STATE.md` + `docs/PROMOTION-GATES.md` + `MVP.md` + `docs/NATIVE-INSTALLATION.md` + contratos correntes. `PLANO-00-ESTADO-ATUAL-E-PRIORIDADES.md` é snapshot histórico arquivado, não overlay de prioridades atual.
-
-### NATIVE-001 — implementação preservada para etapa física posterior
+### NATIVE-001 — preservado, sem bloqueio artificial por Desktop
 
 - **Status documental:** READY
-- **Elegibilidade:** DEFERRED FOR EXECUTION até liberação do owner após Desktop funcional
-- **Prioridade:** posterior à estabilização Windows/Web
+- **Elegibilidade:** depende de necessidade/pedido atual e dos gates físicos próprios; não do término do Desktop
+- **Prioridade:** definida pelo owner e pelo estado contemporâneo
 - **Autoridade destrutiva:** continua nos contratos/gates existentes, nunca neste roadmap
 
-Objetivo de produto:
-
-```text
-Creator/release
- -> USB Stable
- -> usar OrdaX sem alterar disco interno
- -> Instalar OrdaX
- -> disco inteiro explicitamente selecionado
- -> release Stable assinada
- -> boot sem USB
- -> first-boot health
- -> known-good/recovery
-```
+Objetivo de produto permanece: Creator/release verificados → mídia autorizada → instalação whole-disk somente com consentimento explícito → first-boot health → known-good/recovery.
 
 Plano detalhado: `plans/NATIVE-001-USB-TO-NATIVE-MVP-CLOSURE.md`.
 
