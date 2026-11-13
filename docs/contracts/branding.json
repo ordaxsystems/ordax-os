@@ -10,7 +10,7 @@
     "studio_is_an_application_not_a_mode": true,
     "public_portal_is_not_web_mode": true
   },
-  "source_authority": "repository",
+  "source_authority": "owner-repository-via-os-adoption-lock",
   "visual_identity": {
     "implemented": true,
     "owner": "system/surface/ui/tokens.css",
@@ -24,17 +24,24 @@
     "preference_id": "appearance.theme",
     "preference_owner": "system/services/preferences/appearance.mjs",
     "default_theme": "light",
-    "external_visual_dependencies": false,
+    "external_visual_dependencies": true,
     "production_activation": false,
     "wallpaper": "system/surface/ui/brand/midnight-landscape.png",
-    "wallpaper_provenance": "system/surface/ui/brand/ARTWORK-SOURCE.md"
+    "wallpaper_provenance": "system/surface/ui/brand/ARTWORK-SOURCE.md",
+    "source_owner_repository": "ordaxsystems/ordax-surface",
+    "source_lock": "docs/contracts/surface-source.json",
+    "owner_kind": "materialized-surface-path"
   },
   "surface_loading": {
     "implemented": true,
     "owner": "system/surface/ui/boot-screen.*",
     "delivery": "runtime-git-checkout",
     "usb_rewrite_required": false,
-    "default_status": "Preparando OrdaX…"
+    "default_status": "Preparando OrdaX…",
+    "source_owner_repository": "ordaxsystems/ordax-surface",
+    "source_lock": "docs/contracts/surface-source.json",
+    "owner_kind": "materialized-surface-path",
+    "runtime_checkout_contains_materialized_surface": true
   },
   "first_run": {
     "implemented": true,
@@ -42,7 +49,10 @@
     "native_usb_only": true,
     "account_optional": true,
     "identity_actions_capability_driven": true,
-    "completion_is_persistent": true
+    "completion_is_persistent": true,
+    "source_owner_repository": "ordaxsystems/ordax-surface",
+    "source_lock": "docs/contracts/surface-source.json",
+    "owner_kind": "materialized-surface-path"
   },
   "early_boot": {
     "graphical_splash_implemented": false,
@@ -58,5 +68,9 @@
     "first_run_persistence_failure_stays_visible": true,
     "early_boot_graphics_must_have_text_fallback": true,
     "branding_must_not_block_boot": true
-  }
+  },
+  "visual_source_repository": "ordaxsystems/ordax-surface",
+  "visual_source_lock": "docs/contracts/surface-source.json",
+  "visual_paths_materialized_into_os_staging": true,
+  "os_derivation_owner": "tools/brand/build.py"
 }
