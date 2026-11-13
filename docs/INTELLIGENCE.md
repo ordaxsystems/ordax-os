@@ -324,6 +324,8 @@ Revisar quaisquer NOTICE/copyright adicionais, dependências transitivas
 e textos exibidos ao usuário é um gate de distribuição do **produto inteiro**,
 não uma alegação de aprovação jurídica automática.
 
+O contrato declarativo de `ai/manifest.json` é documentado em [`docs/APP-INTELLIGENCE-MANIFEST.md`](APP-INTELLIGENCE-MANIFEST.md); ele descreve identidade/intents e nunca concede execução.
+
 Para apps: `ai/manifest.json` e `actions/manifest.json` verificados alimentam
 somente conhecimento, intents e propostas. A presença de módulos de provider
 no pacote não equivale a execução autorizada: grants, confirmação, executor

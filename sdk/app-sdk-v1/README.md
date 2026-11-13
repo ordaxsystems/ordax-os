@@ -169,7 +169,7 @@ The complete bundle includes:
 
 - `ordax.app-activation/1`
 - `ordax.app-data/1`
-- `ordax.app-intelligence-manifest/1`
+- `ordax.app-intelligence-manifest/1` — semantic identity/intents contract; canonical guide: [`docs/APP-INTELLIGENCE-MANIFEST.md`](../../docs/APP-INTELLIGENCE-MANIFEST.md)
 - `ordax.application-action-capability/1`
 - `ordax.application-action-capability-registry/1`
 - `ordax.application-action-manifest/1`
