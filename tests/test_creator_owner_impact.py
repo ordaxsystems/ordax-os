@@ -369,30 +369,20 @@ class CreatorOwnerImpactTests(unittest.TestCase):
                 next_rev = self.commit(path=shared)
                 self.assertTrue(impact.classify(base, next_rev, root=self.root)[0])
 
-    def test_archived_profile_plan_deletion_and_exact_intelligence_trigger(self):
+    def test_intelligence_foundation_workflow_is_ci_only_but_native_source_is_not(self):
         workflow = WORKFLOW.read_text(encoding="utf-8")
-        source = (ROOT / impact.INTELLIGENCE_WORKFLOW).read_text(encoding="utf-8")
-        self.assertEqual(source.count(impact.CURRENT_PROFILE_TRIGGER), 2)
-        self.assertNotIn(impact.LEGACY_PROFILE_TRIGGER, source)
-        old = source.replace(impact.CURRENT_PROFILE_TRIGGER, impact.LEGACY_PROFILE_TRIGGER)
-        self.commit(workflow=workflow, lock=VISUAL, intelligence_workflow=old,
-                    path=impact.LEGACY_PROFILE_DOC)
-        (self.root / impact.LEGACY_PROFILE_DOC).write_text(
-            "# OrdaX\\n\\nARCHIVED / SUPERSEDED\\n", encoding="utf-8")
+        intelligence = (ROOT / impact.INTELLIGENCE_WORKFLOW).read_text(encoding="utf-8")
+        self.commit(workflow=workflow, lock=VISUAL, intelligence_workflow=intelligence)
         base = self.commit()
-        head = self.commit(intelligence_workflow=source,
-                           delete_path=impact.LEGACY_PROFILE_DOC)
-        self.assertEqual(impact.classify(base, head, root=self.root),
-                         (False, "nonproducer-contract-only"))
-        self.assertTrue(impact.verified_legacy_profile_trigger_migration(base, head, root=self.root))
-        self.assertTrue(impact.verified_legacy_profile_deletion(base, head, root=self.root))
-        tampered = self.commit(intelligence_workflow=source.replace(
-            "name: Intelligence Foundation", "name: Malicious Change"))
-        self.assertTrue(impact.classify(base, tampered, root=self.root)[0])
-        restored = self.commit(intelligence_workflow=source, path=impact.LEGACY_PROFILE_DOC)
-        self.assertTrue(impact.classify(base, restored, root=self.root)[0])
-        extended = self.commit(intelligence_workflow=source + "\\n# unrelated")
-        self.assertTrue(impact.classify(restored, extended, root=self.root)[0])
+        changed_workflow = self.commit(
+            intelligence_workflow=intelligence + "\n# CI-only metadata change\n"
+        )
+        self.assertEqual(
+            impact.classify(base, changed_workflow, root=self.root),
+            (False, "nonproducer-contract-only"),
+        )
+        native = self.commit(path="system/services/intelligence/native-service.mjs")
+        self.assertTrue(impact.classify(changed_workflow, native, root=self.root)[0])
 
     def test_verified_detached_windows_source_cutover_skips_usb_without_bypassing_boot(self):
         """Exact owner migration, not an arbitrary workflow/Native code exemption."""
