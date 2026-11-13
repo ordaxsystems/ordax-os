@@ -37,6 +37,8 @@ class PreUsbNovaOrdaxAuditTests(unittest.TestCase):
 
         self.assertTrue(status["source_ready"], status["blockers"])
         self.assertEqual(status["status"], "pass-source")
+        self.assertEqual(status["$schema"], audit.STATUS_SCHEMA)
+        self.assertEqual(status["gate_authority"], "docs/PROMOTION-GATES.md")
         self.assertEqual(set(status["gates"]), set(audit.GATE_NAMES))
         self.assertTrue(all(gate["passed"] for gate in status["gates"].values()))
         self.assertTrue(status["canonical_v4_release_proof_required_separately"])
