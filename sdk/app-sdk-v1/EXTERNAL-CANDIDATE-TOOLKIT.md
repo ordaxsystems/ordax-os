@@ -7,8 +7,6 @@ The App SDK publishes the read-only verifier used to validate unsigned external 
 - `verify_unsigned_candidate.py` — canonical verifier implementation.
 - `runtime-component-package-policy.json` — public SDK snapshot of the package policy consumed by that verifier.
 
-The historical platform path `tools/runtime-component-channel/verify_unsigned_candidate.py` is a repository compatibility symlink to the SDK verifier. It is not a second implementation or authority owner.
-
 The policy snapshot is byte-identical to `docs/contracts/runtime-component-package.json` for this SDK release. CI rejects drift between the two files, so external consumers do not need to import or copy private platform implementation code.
 
 ## Usage
