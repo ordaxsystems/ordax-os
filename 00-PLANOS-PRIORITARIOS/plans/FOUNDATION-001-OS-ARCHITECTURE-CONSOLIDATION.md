@@ -2,9 +2,9 @@
 
 - **Tipo:** PLAN / MVP FOUNDATION / CROSS-AGENT HANDOFF
 - **Status documental:** REFERENCE — roteiro/handoff de auditoria e consolidação, alinhado ao `REGISTRY.md`; não é fila paralela de implementação.
-- **Elegibilidade de execução:** EXECUTION-ELIGIBLE **somente** para defeitos reais, limpeza e integração exigidos pelos owners atuais do Desktop Windows/Web. USB/Creator/Buildroot/Native físico ficam DEFERRED até nova janela e autorização explícita; o plano não autoriza publicação ou escrita física.
-- **Prioridade:** P0 para integridade/SSOT, remoção de legado comprovado, contratos e Desktop Windows instalado; P1 para eficiência de integração/CI; USB/Native físico conforme janela posterior do `ROADMAP.md`.
-- **Criado:** 2026-10-23; **diretriz vigente revisada:** 2026-11-01.
+- **Elegibilidade de execução:** REFERENCE. Executar somente defeitos reais que pertençam ao owner/escopo atual; este plano não cria fila transversal, não bloqueia owners independentes e não autoriza publicação ou escrita física.
+- **Prioridade:** definida pelo estado atual, owner e dependência causal conforme ADR-031; integridade/SSOT e remoção de legado comprovado continuam importantes sem transformar Desktop em gate para USB/Creator/Buildroot/Native.
+- **Criado:** 2026-10-23; **diretriz revisada:** 2026-11-13.
 - **Owner de execução:** `ordaxsystems/ordax-os` (consolidação transversal; NÃO se torna dono dos demais repositórios).
 - **Autoridades reais:** `AGENTS.md`, `docs/README.md`, `docs/CURRENT-STATE.md`, `MVP.md`, `docs/ARCHITECTURE.md`, `docs/PROMOTION-GATES.md`, `docs/DECISIONS.md`, `docs/contracts/repository-ownership.json`, contratos de boot/storage/atualização e respectivos arquivos-fonte.
 - **Planejamento:** `00-PLANOS-PRIORITARIOS/ROADMAP.md` e `REGISTRY.md`; `NATIVE-001` continua proprietário do plano de instalação whole-disk, sem duplicação.
@@ -13,7 +13,7 @@
 > **Handoff independente de conversa:** este é o roteiro persistente de execução; NÃO é novo SSOT de arquitetura, versões, bugs, grants, estado físico ou releases. Nunca presumir que o snapshot abaixo permanece atual. Nenhuma tarefa pode ser marcada concluída por edição, teste isolado ou PR aberta; exigir evidência no owner correto.
 
 
-## Diretriz vigente — 2026-11-01: remoção de pendências, zero legado artificial, Windows-first
+## Diretriz histórica revisada em 13/11/2026: remoção de pendências sem fila global
 
 **Precedência:** `ROADMAP.md`, `REGISTRY.md`, `docs/CURRENT-STATE.md` e os contratos atuais vencem fotografias históricas abaixo. Este programa atualiza o handoff de consolidação, **não** cria outro SSOT, outro backlog ou uma nova autorização de release. A pesquisa pública comparou AOSP, GNOME, Linux/Buildroot, VS Code, Element, Bitwarden, discussões Reddit/Hacker News, Electron e práticas SLSA: a fronteira útil é ownership + contrato + build + release, não quantidade de repositórios.
 
@@ -37,7 +37,7 @@
 - [ ] Auditar SSOT visual `ordax-surface` versus `ordax-os/system/surface` (host, não UI); `ordax-apps` versus `system/apps` (apps removíveis versus Store/Settings/Account/System estruturais); `ordax-creator` versus `tools/creator` (app/core versus provas, payload e assinatura do OS); `ordax-site` versus gateways OS. Não apagar adapters legítimos por nomes parecidos.
 - [ ] Registrar cada defeito **com caminho, evidência, owner, consumidor, teste que falha, correção mínima, remoção esperada e PR existente**; não marcar hipóteses como bugs nem criar documento paralelo ao owner.
 
-**Aceite P0-A:** inventário verificável sem ownership ambíguo, fila deduplicada por owner e zero tarefa de exclusão sem prova.
+**Aceite P0-A:** quando uma auditoria transversal for realmente necessária, inventário verificável sem ownership ambíguo, fila deduplicada por owner e zero tarefa de exclusão sem prova. Mudanças locais não exigem executar P0-A integralmente.
 
 **Revalidação parcial de P0-A (2026-11-01, sem promoção):** os oito
 repositórios foram consultados por suas branches `main` no GitHub.
