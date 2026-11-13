@@ -1,6 +1,6 @@
-# Janela de entrega operacional — 06/11/2026
+# Estado operacional do produto — 13/11/2026
 
-**Status: prioridade de execução e checkpoint de fonte; NÃO é autorização de lançamento nem prova de instalação física da nova revisão.** O primeiro alvo utilizável é o **OrdaX Desktop Windows**: instalação/boot, Conta, Loja com catálogo verificado, pelo menos um app real instalado/aberto/atualizado e atualização confiável do host. USB/Creator/Buildroot e Native em disco seguem no Baseline, mas não bloqueiam este canal quando independentes. Política e critérios: [`MVP.md`](../MVP.md) e ADR-030 de [`docs/DECISIONS.md`](DECISIONS.md).
+**Status: checkpoint de fonte e entrega; NÃO é uma fila global de execução, autorização de lançamento nem prova automática de instalação física.** O Desktop Windows continua sendo um canal prioritário de fechamento ponta a ponta, mas owners independentes — incluindo USB/Creator/Buildroot, Surface, Apps, Intelligence e Site — avançam em paralelo quando não existe dependência causal. A regra de composição/dependência direta é ADR-031 e [`docs/DEVELOPMENT-WORKFLOW.md`](DEVELOPMENT-WORKFLOW.md#integração-multi-repositório--composição-do-produto-2026-11-13). Política de lançamento e critérios permanecem em [`MVP.md`](../MVP.md).
 
 | Frente | Evidência de integração em fonte | Disponibilidade real ainda não provada |
 | --- | --- | --- |
@@ -11,7 +11,7 @@
 | Seleção de Space Web | `system/adapters/web/space-selection.mjs` compõe `createWebSpaceSelectionStore()` somente em memória. | Seleção não persiste após recarga; persistência futura deve manter escopo por identidade e revalidar catálogo/permissões, sem criar segunda autoridade de Conta. |
 | Desktop Windows | Há prova física anterior da instalação/boot em `DESKTOP-4UFL03B` para uma revisão mais antiga, registrada abaixo. `ordax-desktop` e `ordax-os` têm fontes independentes. | Não há prova de que o novo conjunto OS/Surface/Apps esteja instalado, de que a Loja instale/execute um app real ou de que atualizações do host e app fechem o ciclo ponta a ponta. |
 
-**Fila causal, não lista de microtarefas:** (1) alinhar um conjunto de revisões/proveniência Windows verificáveis sem recompilar USB; (2) fechar transporte e lifecycle oficiais da Loja, instalação e execução de **um** aplicativo real; (3) provar atualização e recovery; (4) liberar primeiros usuários somente após os gates do canal. Uma falha independente não bloqueia a próxima implementação que não dependa dela; nenhuma falha é mascarada por estado de UI. A entrega é medida por experiência física funcional, não por quantidade de PRs integradas.
+**Jornada causal do canal Desktop, não fila global do ecossistema:** (1) alinhar um conjunto de revisões/proveniência Windows verificáveis sem recompilar USB; (2) fechar transporte e lifecycle oficiais da Loja, instalação e execução de **um** aplicativo real; (3) provar atualização e recovery; (4) liberar primeiros usuários somente após os gates do canal. Uma falha independente não bloqueia a próxima implementação que não dependa dela; nenhuma falha é mascarada por estado de UI. A entrega é medida por experiência física funcional, não por quantidade de PRs integradas.
 
 ---
 
