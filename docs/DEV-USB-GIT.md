@@ -170,6 +170,10 @@ additional promotion/fallback gates. This bundle does **not** imply that every
 Base update has been physically proven, that a fresh notebook boot passed, or
 that a public signed Stable release is available.
 
+## Intelligence externa no slot Owner/Development
+
+Quando o source lock de Intelligence participa da transação Owner/Dev, o detalhamento do staging/preseed fail-closed está em [`docs/OWNER-INTELLIGENCE-TRANSACTION.md`](OWNER-INTELLIGENCE-TRANSACTION.md). O Supervisor continua único owner da transação; enquanto `docs/contracts/intelligence-source.json` estiver `integration-candidate`, o adapter não promove a fonte externa nem cria segundo updater/canal.
+
 ## Aura local — aquisição assinada pelo Owner Dev
 
 **Estado de entrega versus política de produto (2026-10-23).** O download
