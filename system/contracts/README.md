@@ -1,8 +1,8 @@
 # Shared Runtime Contracts
 
-`system/contracts/` is the innermost, platform-neutral boundary of the OrdaX product runtime.
+`system/contracts/` is the innermost, platform-neutral boundary of the OrdaX OS runtime/composition.
 
-It exists so Surface, apps, shared services and platform adapters can evolve independently without importing one another's implementation details. Concrete interfaces and value types should be added here only when a real implementation needs them; this directory is not a dumping ground for speculative abstractions.
+It exists so the OS host, catalog/projection layer, shared services and platform adapters can evolve independently, while external Surface/apps consume the same public contracts through their owners. This layer graph describes **runtime dependencies inside the composed OS tree**, not Git repository ownership. Concrete interfaces and value types should be added here only when a real implementation needs them; this directory is not a dumping ground for speculative abstractions.
 
 Dependency direction:
 
@@ -18,7 +18,7 @@ contracts
    |----------|------ adapters
 ```
 
-Adapters implement environment-specific capabilities. Shared Surface/apps/services consume platform-neutral contracts and must not import `adapters/web`, `adapters/mobile`, `adapters/desktop` or `adapters/native` implementations directly.
+Adapters implement environment-specific capabilities. OS host/catalog/services and externally owned Surface/app code consume platform-neutral contracts and must not import concrete `adapters/web`, `adapters/mobile`, `adapters/desktop` or `adapters/native` implementations directly. Repository ownership is defined separately by `docs/contracts/repository-ownership.json`.
 
 Rules are machine-readable in `docs/contracts/module-boundaries.json`.
 Component update contracts follow the same boundary: `component-manifest.mjs` declares identity, version, failure domain and release mode; `component-state-store.mjs` owns persisted slot state; `component-manager.mjs` exposes the neutral runtime port. A semantic version does not by itself grant independent update authority — only `releaseMode: "component-slot"` does.
