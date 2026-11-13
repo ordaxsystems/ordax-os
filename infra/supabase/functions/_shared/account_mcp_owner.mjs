@@ -182,6 +182,10 @@ export function parseAccountOwnerCentralSelection(value) {
     device_id:value.device_id};
 }
 
+// Only a pending Owner challenge is time-bounded. Once Platform + Runtime
+// confirm conversation -> device, that binding is persistent Platform state;
+// this gateway never renews it, expires it from heartbeat/inactivity, or
+// chooses another target because the bound Runtime goes offline.
 export async function selectAccountOwnerCentralDevice(access, raw, fetcher=fetch) {
   const input = parseAccountOwnerCentralSelection(raw);
   if (!input) throw new Error("mcp-owner-central-selection-invalid");
