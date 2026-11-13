@@ -7,7 +7,7 @@
 - **Criado:** 2026-10-14
 - **Atualizado:** 2026-10-14
 - **Owner canônico:** `docs/PRODUCT-MODES.md` + owners de capabilities/serviços correspondentes; este plano não substitui esses owners
-- **Base factual:** `main` revalidada em 2026-10-14, `docs/PRODUCT-MODES.md`, `docs/CURRENT-STATE.md`, `docs/DEVICE-AGENT-PROJECTS-WEB-MCP.md`, `docs/STORE-WEB-CATALOG-PRESENTATION.md`
+- **Base factual:** `main` revalidada em 2026-10-14, `docs/PRODUCT-MODES.md`, `docs/CURRENT-STATE.md`, `docs/DEVICE-AGENT-PROJECTS-WEB-MCP.md`, `system/services/apps/README.md`
 - **Relatórios de apoio:** pesquisa externa de 2026-10-14 sobre Puter, Kasm, Windows 365, WebVM, Cloudflare, secure mesh/VPN moderna e VPS/cloud nodes; revalidar antes de decisões de provider
 - **Dependências:** Identity/Account, Sync, Spaces/Profile owners, Store/App lifecycle, Files, Action Gateway, Device Agent, product capabilities e infraestrutura remota corrente
 - **Não boot-critical:** SIM
@@ -274,7 +274,7 @@ Revalidar antes de execução. Áreas hoje relacionadas:
 - `docs/PRODUCT-MODES.md`;
 - `docs/ACCOUNT-SYNC-AND-PLANS.md`;
 - `docs/DEVICE-AGENT-PROJECTS-WEB-MCP.md`;
-- `docs/STORE-WEB-CATALOG-PRESENTATION.md`;
+- `system/services/apps/README.md`;
 - `system/contracts/product-capabilities.json`;
 - `system/contracts/product-family.mjs`;
 - `system/composition/web/`;
@@ -588,7 +588,7 @@ Não contratar VPS nem implantar Secure Mesh apenas para antecipar fases futuras
 Ao retomar `MODE-001`:
 
 1. ler `AGENTS.md`, `00-PLANOS-PRIORITARIOS/README.md`, `ROADMAP.md` e `REGISTRY.md`;
-2. ler `docs/PRODUCT-MODES.md`, `docs/CURRENT-STATE.md`, `docs/ACCOUNT-SYNC-AND-PLANS.md`, `docs/DEVICE-AGENT-PROJECTS-WEB-MCP.md` e `docs/STORE-WEB-CATALOG-PRESENTATION.md`;
+2. ler `docs/PRODUCT-MODES.md`, `docs/CURRENT-STATE.md`, `docs/ACCOUNT-SYNC-AND-PLANS.md`, `docs/DEVICE-AGENT-PROJECTS-WEB-MCP.md` e `system/services/apps/README.md`;
 3. verificar owners machine-readable de repository/product capabilities;
 4. não assumir que o provider remoto, VPN/mesh ou VPS documentado hoje continua sendo a melhor opção;
 5. se continuar `DEFERRED FOR EXECUTION`, limitar-se a documentação/reconciliação;
