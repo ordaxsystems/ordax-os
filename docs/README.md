@@ -124,7 +124,7 @@ Do **not** create `foo-v2.md`, `foo-final.md`, `foo-new.md` or parallel plans fo
 
 All root planning files are subordinate to the authority order above, including:
 
-- `PLANO-00-ESTADO-ATUAL-E-PRIORIDADES.md` — **archived 02/10 snapshot**; never use its USB-first priorities as current instructions;
+- [snapshot de execução de 02/10](https://github.com/ordaxsystems/ordax-os/blob/ba81a08db707d032464ae18e521073ef7e416f4f/PLANO-00-ESTADO-ATUAL-E-PRIORIDADES.md) — **arquivado no histórico Git e removido da árvore ativa**; nunca usar suas prioridades USB-first como instruções atuais;
 - `PLANO-FUNCIONAL-SURFACE-E-APPS.md` — functional reference, not canonical current state or changelog;
 - `PLANO-02-EVOLUCAO-E-REAPROVEITAMENTO-DO-LEGADO.md` — dated legacy analysis/reference;
 - `PLANO-03-FECHAMENTO-PRE-USB-NOVA-ORDAX.md` — completed source-closure baseline/reference; live physical gates come from current canonical owners;
