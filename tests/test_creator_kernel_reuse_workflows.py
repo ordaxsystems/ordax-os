@@ -112,6 +112,22 @@ class CreatorKernelReuseWorkflowTests(unittest.TestCase):
             'ORDAX_KERNEL_MODULES_ARCHIVE="$PWD/out/kernel/kernel-modules-$ORDAX_KERNEL_VERSION.tar"',
             dev_base,
         )
+        self.assertIn('owner_base="$RUNNER_TEMP/owner-independent-base"', dev_base)
+        self.assertIn('if [ -L "$owner_base" ]; then', dev_base)
+        self.assertIn('install -d -m 0755 "$owner_base"', dev_base)
+        self.assertIn('test ! -L "$owner_base"', dev_base)
+        self.assertIn(
+            'ORDAX_KERNEL_MODULES_RECEIPT="$owner_base/kernel-module-payload.json"',
+            dev_base,
+        )
+        self.assertIn(
+            'ORDAX_FIRMWARE_COVERAGE_RECEIPT="$owner_base/firmware-coverage.json"',
+            dev_base,
+        )
+        self.assertLess(
+            dev_base.index('install -d -m 0755 "$owner_base"'),
+            dev_base.index('export ORDAX_KERNEL_MODULES_RECEIPT='),
+        )
         self.assertIn('--seed-from-local "$GITHUB_WORKSPACE" "$ORDAX_OWNER_SOURCE_COMMIT"', dev_base)
         self.assertIn('test -z "$(sudo git -C "$rootfs/workspace/ordax" status --porcelain)"', dev_base)
         self.assertIn('test "$(sudo cat "$rootfs/state/ordax/current-commit")" = "$ORDAX_OWNER_SOURCE_COMMIT"', dev_base)
