@@ -40,6 +40,7 @@ Para trabalho cross-repo, a ordem operacional é **`AGENTS.md` → `docs/README.
 | Web Research source boundary (providers disabled) | `docs/WEB-RESEARCH.md`, `system/contracts/web-research.mjs` |
 | Capability Fabric — arquitetura e fronteiras canônicas; checkpoints operacionais datados são referência | `docs/CAPABILITY-FABRIC.md` (arquitetura/limites); `docs/plans/CAPABILITY-FABRIC-V1.md` (histórico) |
 | Spaces + professional composition (single user journey) | `docs/SPACES-AND-PROFILES.md` + `docs/contracts/spaces-and-profile-packs.json` |
+| Account sync / entitlements across product modes | `docs/ACCOUNT-SYNC-AND-PLANS.md` |
 | Profile knowledge and Intelligence | `docs/PROFILE-INTELLIGENCE-ARCHITECTURE.md` + canonical Profile manifests |
 | Decisions / ADRs | `docs/DECISIONS.md` |
 | Build autonomy | `docs/BUILD-AUTONOMY.md` |
@@ -48,6 +49,7 @@ Para trabalho cross-repo, a ordem operacional é **`AGENTS.md` → `docs/README.
 | Mobile Companion | `docs/MOBILE-COMPANION.md` |
 | Application compatibility | `docs/APPLICATION-COMPATIBILITY.md` + `docs/INSTALLED-APPLICATIONS.md` (presentation/trust invariant) |
 | Minimal USB bootstrap | `docs/MINIMAL-USB-BOOTSTRAP.md` |
+| Owner/Development USB Git update channel | `docs/DEV-USB-GIT.md` |
 | Creator installation / verified-media consumer boundary | `docs/CREATOR-INSTALLATION.md` |
 | Host independence | `docs/HOST-INDEPENDENCE.md` |
 | Physical media | `docs/PHYSICAL-MEDIA.md` |
