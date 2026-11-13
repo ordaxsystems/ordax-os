@@ -1706,7 +1706,7 @@ action and is disposed when leaving it. The local AI candidate comes from the
 OS source-lock/generated catalog. Snapshot revocation or invalidation clears
 old entries. Web transport and real lifecycle remain unavailable; no package
 installation, authenticated catalog or model compatibility is claimed.
-Owner, public dependencies, risk and acceptance: docs/STORE-WEB-CATALOG-PRESENTATION.md.
+Owner, public dependencies, risk and acceptance: system/services/apps/README.md.
 
 
 ## Canonical Web presentation cutover — 2026-10-10
