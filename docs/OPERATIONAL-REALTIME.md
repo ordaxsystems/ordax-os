@@ -1,6 +1,13 @@
 # OrdaX Operational Realtime and Device Actions
 
-Status: **PRE-MVP CONTRACT FOUNDATION — RUNTIME POST-MVP**
+Status: **CANONICAL CONTRACT FOUNDATION / RUNTIME NOT PROMOTED**
+
+> Compatibility note: the machine contract still carries the legacy status string
+> `pre-mvp-contract-foundation-runtime-post-mvp`. Under the current launch policy in
+> `MVP.md`, that string is a historical compatibility label, **not a global scheduling
+> rule**. Runtime enablement is decided by the domain owners and promotion gates below;
+> a currently required slice may advance without redefining this contract as a separate
+> “post-MVP” program.
 
 ## Why this exists
 
@@ -250,12 +257,18 @@ Mobile packaging technology remains replaceable. PWA/installed Web may be used f
 validation; Android APK and iOS packaging add secure storage, push, biometrics, background
 lifecycle and platform integrations without forking the product.
 
-## MVP boundary
+## Launch / activation boundary
 
-This document deliberately does **not** add a realtime backend, APK or remote printer
-runtime to the first USB gate.
+This contract foundation does **not** make a realtime backend, APK or remote printer runtime
+a prerequisite for the current USB candidate, and it does not claim those runtimes are
+already available. Conversely, the legacy phrase “runtime post-MVP” does not prohibit a
+realtime/device-action slice that is explicitly required by a current domain owner.
 
-Before the first USB we freeze the contracts so later implementation can arrive by normal
-OrdaX updates without redesigning identity, Spaces or Device Agent authority.
+The invariant is dependency-based: preserve the contracts so implementation can be promoted
+through its own authorization, persistence, transport, reconciliation and device-action gates
+without redesigning Identity, Spaces or Device Agent authority or blocking an independent
+release channel.
 
-Machine-readable owner: `docs/contracts/operational-realtime.json`.
+Machine-readable owner: `docs/contracts/operational-realtime.json`. Its legacy `status`
+identifier is retained for compatibility; current execution eligibility comes from the
+canonical owner, `MVP.md`, `docs/CURRENT-STATE.md` and the promotion gates.
