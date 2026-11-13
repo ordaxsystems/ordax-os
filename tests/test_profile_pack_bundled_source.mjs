@@ -36,7 +36,7 @@ test("bundled source loads the versioned authoritative Profile manifests", async
   assert.equal(source.schema, "ordax.profile-pack-bundled-source/1");
   assert.deepEqual(
     source.packs.map((pack) => `${pack.slug}@${pack.version}`),
-    ["developer@1", "legal-br@1", "pizzaria-br@1", "impressao-3d-br@1"],
+    ["developer@1", "legal-br@1", "pizzaria-br@1", "impressao-3d-br@1", "pessoal-basico@1"],
   );
   assert.equal(source.packs[0].spaceKind, "professional");
   assert.equal(source.packs[1].activation.publiclyAvailable, false);
@@ -52,11 +52,12 @@ test("bundled source loads the versioned authoritative Profile manifests", async
       "/system/profile-packs/legal-br/v1/manifest.json",
       "/system/profile-packs/pizzaria-br/v1/manifest.json",
       "/system/profile-packs/impressao-3d-br/v1/manifest.json",
+      "/system/profile-packs/pessoal-basico/v1/manifest.json",
     ],
   );
 });
 
-test("four independent bundled manifests start in parallel but retain catalog order", async () => {
+test("bounded bundled manifest batches retain catalog order", async () => {
   const catalog = JSON.parse(await readFile(resolve(ROOT, "system/profile-packs/catalog.json"), "utf8"));
   const manifestPayloads = new Map(await Promise.all(catalog.entries.map(async (entry) => [
     entry.manifest,
@@ -82,12 +83,20 @@ test("four independent bundled manifests start in parallel but retain catalog or
   };
   const loading = loadBundledProfilePacks({ fetchImpl });
   await new Promise((resolve) => setImmediate(resolve));
+  // The catalog loads in batches of four; a fifth profile must not bypass the limit.
+  assert.deepEqual(
+    requested,
+    catalog.entries.slice(0, 4).map((entry) => entry.manifest),
+    "no more than four reads may start before the first batch completes",
+  );
+  for (let i = pending.length - 1; i >= 0; i -= 1) pending[i]();
+  await new Promise((resolve) => setImmediate(resolve));
   assert.deepEqual(
     requested,
     catalog.entries.map((entry) => entry.manifest),
-    "independent reads must all start before any manifest completes",
+    "subsequent reads start after the first batch completes",
   );
-  for (let i = pending.length - 1; i >= 0; i -= 1) pending[i]();
+  for (let i = 4; i < pending.length; i += 1) pending[i]();
   const source = await loading;
   assert.deepEqual(
     source.packs.map((pack) => pack.slug),

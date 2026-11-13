@@ -36,14 +36,15 @@ const rows = [
   fixture("impressao-3d-br", "Impressão 3D", "digital-fabrication", ["files", "notes", "internet"]),
   fixture("developer", "Desenvolvimento", "development", ["projects", "notes"]),
   fixture("legal-br", "Advocacia", "legal", ["files", "notes"]),
+  fixture("pessoal-basico", "Pessoal", "general", []),
 ];
 
 test("the manifest remains the sole owner of category membership and apps", () => {
   const catalog = createProfilePackCatalog({ rows });
   const view = createProfileTaxonomyView({ catalogPort: catalog, taxonomy });
   assert.equal(view.schema, PROFILE_TAXONOMY_VIEW_SCHEMA);
-  assert.equal(view.profileCount, 4);
-  assert.equal(view.roots.length, 3);
+  assert.equal(view.profileCount, 5);
+  assert.equal(view.roots.length, 4);
   const business = view.getCategory("business");
   assert.equal(business.label, "Empresas e negócios");
   assert.equal(business.profileCount, 2);
@@ -68,6 +69,7 @@ test("the manifest remains the sole owner of category membership and apps", () =
     view.getCategory("legal").directProfiles.map((p) => p.slug),
     ["legal-br"],
   );
+  assert.deepEqual(view.getCategory("general").directProfiles.map(p=>p.slug), ["pessoal-basico"]);
   const pizzaria = catalog.get("pizzaria-br", 1);
   const printing = catalog.get("impressao-3d-br", 1);
   assert.deepEqual(pizzaria.apps, printing.apps);
@@ -131,7 +133,7 @@ test("invalid graph, duplicate ids, missing parent and cycles fail validation", 
     v.nodes[1].parentId = "no-such-category";
   })), /parent does not exist/);
   assert.throws(() => validateProfileTaxonomy(bad((v) => {
-    v.nodes[0].parentId = "business-food";
+    v.nodes.find(n=>n.id==="business").parentId = "business-food";
   })), /cycle/);
   assert.throws(() => validateProfileTaxonomy(bad((v) => {
     v.nodes[0].extraAuthority = true;

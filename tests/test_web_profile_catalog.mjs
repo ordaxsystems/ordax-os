@@ -30,14 +30,15 @@ function source({missingTaxonomy = false, invalidCategory = false, missingCatalo
 
 test('Web build assets retain active-only catalog and canonical category ancestry', async () => {
   const result = await reader(new AbortController().signal, source());
-  assert.deepEqual(result.entries.map(entry => entry.slug).sort(), ['impressao-3d-br', 'pizzaria-br']);
+  assert.deepEqual(result.entries.map(entry => entry.slug).sort(), ['impressao-3d-br', 'pessoal-basico', 'pizzaria-br']);
   assert.equal(result.categories.getCategory('business').profileCount, 2);
   assert.equal(result.categories.getCategory('business-food').profileCount, 1);
   assert.equal(result.categories.getCategory('development').profileCount, 0);
+  assert.equal(result.categories.getCategory('general').profileCount, 1);
 });
 test('missing taxonomy preserves the complete validated catalog without invented categories', async () => {
   const result = await reader(new AbortController().signal, source({missingTaxonomy: true}));
-  assert.equal(result.entries.length, 2);
+  assert.equal(result.entries.length, 3);
   assert.equal(result.categories, null);
 });
 test('unknown category disables filtering without discarding valid profile details', async () => {
