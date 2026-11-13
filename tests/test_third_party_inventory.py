@@ -6,7 +6,6 @@ from pathlib import Path
 ROOT = Path(__file__).resolve().parents[1]
 INVENTORY_PATH = ROOT / "platform" / "compliance" / "declared-inputs.json"
 KERNEL_SOURCE = ROOT / "bootstrap" / "kernel" / "source.json"
-DEV_BUILD = ROOT / "bootstrap" / "dev-base" / "build.py"
 STABLE_SOURCE = ROOT / "bootstrap" / "stable-base" / "source.json"
 INDEPENDENT_SOURCE = ROOT / "bootstrap" / "independent-base" / "source.json"
 INDEPENDENT_DEFCONFIG = ROOT / "bootstrap" / "independent-base" / "configs" / "ordax_minimal_defconfig"
