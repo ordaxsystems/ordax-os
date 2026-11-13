@@ -52,6 +52,8 @@ A CI do owner nesse SHA ([run #41301047081](https://github.com/ordaxsystems/orda
 - **Gate C/D:** montagem conjunta OS + Surface + Intelligence, wrappers
   compartilhados, `system.tar` reproduzível, EROFS candidato e proveniência
   que impede execução/ativação ou escrita física implícita.
+O detalhe do adapter Owner/Development e do preseed offline fica em [`docs/OWNER-INTELLIGENCE-TRANSACTION.md`](OWNER-INTELLIGENCE-TRANSACTION.md). Esse documento descreve somente a transação do Supervisor; o status e as flags de promoção continuam no lock `docs/contracts/intelligence-source.json`.
+
 - **Owner/Development (#2267):** o Supervisor usa seu próprio slot, health
   e rollback para preparar a fonte externa. O Creator só pré-carrega a fonte
   como código de boot quando a revisão OS exata declarar `canonical`. Em
