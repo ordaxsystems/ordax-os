@@ -38,6 +38,8 @@ const PUBLIC_ACCOUNT_ROUTES = new Map([
   ["/account/mcp/revoke", Object.freeze({ method: "POST", preActivation: false })],
   ["/account/mcp/central-targets", Object.freeze({ method: "GET", preActivation: false })],
   ["/account/mcp/central-selections", Object.freeze({ method: "GET", preActivation: false })],
+  ["/account/mcp/project-onboarding", Object.freeze({ method: "GET", preActivation: false })],
+  ["/account/mcp/project-onboarding/projects", Object.freeze({ method: "POST", preActivation: false })],
   ["/account/space-members", Object.freeze({ method: "GET", preActivation: true })],
   ["/account/space-actor-capability", Object.freeze({ method: "GET", preActivation: true })],
   ["/account/space-membership-actions", Object.freeze({ method: "POST", preActivation: false })],
