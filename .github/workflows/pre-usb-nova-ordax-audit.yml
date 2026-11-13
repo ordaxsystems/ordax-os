@@ -4,7 +4,6 @@ on:
   push:
     branches: [main]
     paths:
-      - 'PLANO-03-FECHAMENTO-PRE-USB-NOVA-ORDAX.md'
       - 'docs/contracts/intelligence.json'
       - 'docs/contracts/local-session.json'
       - 'docs/contracts/first-run.json'
@@ -33,7 +32,6 @@ on:
       - '.github/workflows/pre-usb-nova-ordax-audit.yml'
   pull_request:
     paths:
-      - 'PLANO-03-FECHAMENTO-PRE-USB-NOVA-ORDAX.md'
       - 'docs/contracts/intelligence.json'
       - 'docs/contracts/local-session.json'
       - 'docs/contracts/first-run.json'
