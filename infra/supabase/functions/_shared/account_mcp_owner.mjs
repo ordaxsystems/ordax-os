@@ -7,11 +7,15 @@ export const ACCOUNT_MCP_AUTHORITY_PATH = "/account/mcp/authority";
 export const ACCOUNT_MCP_REVOKE_PATH = "/account/mcp/revoke";
 export const ACCOUNT_MCP_CENTRAL_TARGETS_PATH = "/account/mcp/central-targets";
 export const ACCOUNT_MCP_CENTRAL_SELECTIONS_PATH = "/account/mcp/central-selections";
+export const ACCOUNT_MCP_PROJECT_ONBOARDING_PATH = "/account/mcp/project-onboarding";
+export const ACCOUNT_MCP_PROJECTS_PATH = "/account/mcp/project-onboarding/projects";
 export const OWNER_MCP_DEVICES_URL = "https://mcp.ordax.com.br/v3/owner/devices";
 const OWNER_MCP_AUTHORITY_URL = "https://mcp.ordax.com.br/v3/owner/remote-authority";
 const OWNER_MCP_GRANTS_URL = "https://mcp.ordax.com.br/v3/owner/remote-grant-groups";
 const OWNER_CENTRAL_TARGETS_URL = "https://mcp.ordax.com.br/v3/owner/central-session-targets";
 const OWNER_CENTRAL_SELECTIONS_URL = "https://mcp.ordax.com.br/v3/owner/central-session-selections";
+export const OWNER_PROJECT_ONBOARDING_URL = "https://mcp.ordax.com.br/v3/owner/project-onboarding";
+export const OWNER_PROJECTS_URL = OWNER_PROJECT_ONBOARDING_URL + "/projects";
 const MAX_OWNER_BODY = 65536;
 const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/;
 const TOKEN = /^[A-Za-z0-9_.-]{16,16384}$/;
@@ -77,7 +81,7 @@ export function validateAccountOwnerAuthority(value, requestedDeviceId) {
     device_id:requestedDeviceId, clients, grant_groups:groups};
 }
 
-async function ownerRequest(access, url, method, fetcher=fetch, body=null) {
+async function ownerRequest(access, url, method, fetcher=fetch, body=null, expectedStatus=200) {
   verifyToken(access);
   if (typeof url !== "string" || !url.startsWith("https://mcp.ordax.com.br/v3/owner/"))
     throw new Error("mcp-owner-noncanonical-destination");
@@ -88,7 +92,7 @@ async function ownerRequest(access, url, method, fetcher=fetch, body=null) {
     ...(body===null?{}:{body:JSON.stringify(body)}),
     signal:AbortSignal.timeout(10000),
   });
-  if (!response || response.status !== 200 || !response.ok || response.url !== url)
+  if (!response || response.status !== expectedStatus || !response.ok || response.url !== url)
     throw new Error("mcp-owner-upstream-unavailable");
   const bytes = await readBoundedBody(
     response.body, response.headers.get("content-length"), MAX_OWNER_BODY,
@@ -114,6 +118,89 @@ export async function readAccountOwnerAuthority(access, deviceId, fetcher=fetch)
 
 const validDate = value => typeof value === "string" && value.length <= 64
   && Number.isFinite(Date.parse(value));
+const PROJECT_KINDS = new Set(["general","development","creative","legal","business","research"]);
+const PROJECT_NEXT_STATES = new Set([
+  "needs_github_installation","needs_repository_selection",
+  "needs_device_binding","ready_without_grants",
+]);
+const ROOT_PROJECT_STATES = new Set(["needs_space","needs_project"]);
+const REPOSITORY = /^[A-Za-z0-9-]+\/[A-Za-z0-9._-]+$/;
+
+export function validateAccountOwnerProjectOnboarding(value, requestedDeviceId) {
+  if (!isRecord(value) || value.ok !== true || value.device_id !== requestedDeviceId
+      || !isOwnerUuid(requestedDeviceId) || !Array.isArray(value.spaces)
+      || value.spaces.length > 64 || !Array.isArray(value.projects)
+      || value.projects.length > 512
+      || !(value.next_state === null || ROOT_PROJECT_STATES.has(value.next_state))) return null;
+  const spaces=[], spaceIds=new Set();
+  for (const s of value.spaces) {
+    if (!isRecord(s) || !isOwnerUuid(s.space_id) || spaceIds.has(s.space_id)
+        || typeof s.name !== "string" || s.name.length < 1 || s.name.length > 120
+        || typeof s.kind !== "string" || s.kind.length < 1 || s.kind.length > 80
+        || s.state !== "active") return null;
+    spaceIds.add(s.space_id);
+    spaces.push({space_id:s.space_id,name:s.name,kind:s.kind,state:"active"});
+  }
+  const projects=[], projectIds=new Set();
+  for (const p of value.projects) {
+    if (!isRecord(p) || !isOwnerUuid(p.project_id) || projectIds.has(p.project_id)
+        || !isOwnerUuid(p.space_id) || !spaceIds.has(p.space_id)
+        || typeof p.name !== "string" || p.name.length < 1 || p.name.length > 120
+        || !PROJECT_KINDS.has(p.kind) || p.state !== "active"
+        || !Number.isSafeInteger(p.github_connection_count) || p.github_connection_count < 0
+        || typeof p.space_device_execute !== "boolean"
+        || typeof p.project_device_bound !== "boolean"
+        || !PROJECT_NEXT_STATES.has(p.next_state)
+        || !(p.repository_full_name === null
+          || (typeof p.repository_full_name === "string"
+            && p.repository_full_name.length <= 220 && REPOSITORY.test(p.repository_full_name)))
+        || (p.github_connection_count === 1) !== (p.repository_full_name !== null)) return null;
+    projectIds.add(p.project_id);
+    projects.push({project_id:p.project_id,space_id:p.space_id,name:p.name,kind:p.kind,
+      state:"active",github_connection_count:p.github_connection_count,
+      repository_full_name:p.repository_full_name,
+      space_device_execute:p.space_device_execute,
+      project_device_bound:p.project_device_bound,next_state:p.next_state});
+  }
+  if ((value.next_state === "needs_space" && spaces.length !== 0)
+      || (value.next_state === "needs_project" && (spaces.length === 0 || projects.length !== 0))
+      || (value.next_state === null && (spaces.length === 0 || projects.length === 0))) return null;
+  return {ok:true,schema:"ordax.owner-project-onboarding-view/1",
+    device_id:requestedDeviceId,spaces,projects,next_state:value.next_state};
+}
+
+export async function readAccountOwnerProjectOnboarding(access, deviceId, fetcher=fetch) {
+  if (!isOwnerUuid(deviceId)) throw new Error("mcp-owner-device-invalid");
+  const url=OWNER_PROJECT_ONBOARDING_URL+"?device_id="+deviceId;
+  const value=await ownerRequest(access,url,"GET",fetcher);
+  const verified=validateAccountOwnerProjectOnboarding(value,deviceId);
+  if (!verified) throw new Error("mcp-owner-project-onboarding-invalid");
+  return verified;
+}
+
+export function parseAccountOwnerProjectCreate(value) {
+  if (!isRecord(value)
+      || Object.keys(value).sort().join(",") !== "confirm,kind,name,space_id"
+      || !isOwnerUuid(value.space_id) || !PROJECT_KINDS.has(value.kind)
+      || typeof value.name !== "string" || value.name.trim().length < 1
+      || value.name.trim().length > 120 || /[\u0000-\u001f\u007f]/.test(value.name)
+      || value.confirm !== "create_project") return null;
+  return {space_id:value.space_id,name:value.name.trim(),kind:value.kind,confirm:"create_project"};
+}
+
+export async function createAccountOwnerProject(access, raw, fetcher=fetch) {
+  const input=parseAccountOwnerProjectCreate(raw);
+  if (!input) throw new Error("mcp-owner-project-create-invalid");
+  // Exactly one POST. An uncertain response is never retried because Project
+  // creation is a mutation with a server-generated identity.
+  const value=await ownerRequest(access,OWNER_PROJECTS_URL,"POST",fetcher,input,201);
+  if (!isRecord(value) || value.ok !== true || !isOwnerUuid(value.project_id)
+      || value.space_id !== input.space_id || value.state !== "active"
+      || value.next_state !== "needs_github_installation")
+    throw new Error("mcp-owner-project-create-unconfirmed");
+  return {ok:true,schema:"ordax.owner-project-created/1",project_id:value.project_id,
+    space_id:value.space_id,state:"active",next_state:"needs_github_installation"};
+}
 
 // These are projections of the existing Platform SQL results, not a second
 // device/permission catalog. Neither read is a grant, session or attestation.
