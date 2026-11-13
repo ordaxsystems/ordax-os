@@ -1,6 +1,8 @@
 # OrdaX MVP — pre-physical handoff
 
-Status: CANONICAL EXECUTION HANDOFF BEFORE THE NEXT STABLE/MVP PHYSICAL RETEST
+Status: HISTORICAL PHYSICAL-HANDOFF EVIDENCE — NOT THE CURRENT EXECUTION ROUTER
+
+> **Current execution:** do not use the dated asset counts, PR numbers, authorization labels or “next gate” statements below as live instructions. For a current USB/physical decision, read `docs/CURRENT-STATE.md`, `MVP.md`, `docs/PROMOTION-GATES.md`, the exact `docs/contracts/physical-*.json` contracts and the current state of the active USB integration PR (currently #2243). This file preserves the evidence and reasoning of earlier Stable/MVP physical passes.
 
 **Dev versus promoção:** o CI testa os contratos do Creator e os 17 artefatos em mídia descartável, mas não recompila uma Stable histórica assinada a partir de índices Alpine mutáveis. A reconstrução e publicação do pacote físico exigem `workflow_dispatch`, release canônica e autorização explícita. A integridade histórica da Stable Base permanece um gate separado, nunca contornado pelo CI de desenvolvimento.
 
