@@ -42,6 +42,10 @@ Every capability must declare whether it is:
 - privileged-helper gated;
 - unavailable on the current host.
 
+## Store boundary
+
+The OS-side Windows Store transport is documented in [`docs/STORE-WINDOWS-VERIFIED-CATALOG-BOUNDARY.md`](../../../docs/STORE-WINDOWS-VERIFIED-CATALOG-BOUNDARY.md). It reuses the canonical signed catalog, generated package policy and runtime-component lifecycle; it must not become a second Store, catalog, updater or installation authority. The Windows host/shell/package delivery remains owned by `ordaxsystems/ordax-desktop`.
+
 ## Creator boundary
 
 Creator is an independent product/source owner in `ordaxsystems/ordax-creator`. Desktop may expose or launch the Creator experience, but this adapter does not own Creator Core, media policy or physical-write authorization.
