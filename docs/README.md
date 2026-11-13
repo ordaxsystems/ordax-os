@@ -64,7 +64,7 @@ Para trabalho cross-repo, a ordem operacional é **`AGENTS.md` → `docs/README.
 | Release pipeline/channel/manifest | `docs/RELEASE-PIPELINE.md`, `docs/RELEASE-CHANNEL.md`, `docs/RELEASE-MANIFEST.md` |
 | Release bundle / portable image compatibility boundary | `docs/RELEASE-BUNDLE.md` |
 | Public site | `docs/PUBLIC-SITE.md` |
-| Desktop visual identity / Meridian ownership | `docs/DESKTOP-IDENTITY.md` |
+| Meridian visual identity / Surface source ownership | `docs/DESKTOP-IDENTITY.md` |
 | Internet first-party app boundary | `docs/INTERNET-APP.md` |
 | Storage | `docs/STORAGE-ARCHITECTURE.md` |
 | Update nomenclature | `docs/UPDATE-NOMENCLATURE.md` |
