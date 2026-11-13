@@ -304,6 +304,8 @@ This separation is what allows an already-shipped USB/Base to continue consuming
 
 **Store vs Space vs Profile versioning:** `Space` is the stable workspace/ownership boundary. The OrdaX Spaces service and its versioned contract can evolve without recreating Spaces. A Profile Pack (`pizzaria-br@1`, `@2`) changes the versioned **composition**, not the application binaries. The Store and component runtime own independently versioned signed app artifacts and their install/update/rollback lifecycle. Profile `apps[]` contains only references to those app IDs; its `components[]` cannot publish `kind: app`. Reusing one app across Spaces never shares their domain data. A Profile reference alone must never make a nonexistent/uninstalled app appear available, and Store install/update is not authorized by selecting or activating a Profile.
 
+**Read-only Store projection:** `system/services/spaces/profile-store-status.mjs` resolves the exact pinned `profilePack` identity and projects only the Store's verified snapshot. It must fail closed: no selected Space → `no-space`; inactive Space → `space-inactive`; bare/unpinned slug → `profile-unpinned`; malformed binding → `profile-invalid-binding`; exact Profile absent → `profile-not-listed`; wrong Space kind → `profile-kind-mismatch`; unavailable Store → `store-unavailable` with unknown app status. A valid Profile may reference app IDs, but never grants installation, entitlement, permission or lifecycle authority. Do not add a second Profile version field to Space; the canonical `profilePack` binding carries the exact `slug@version` identity.
+
 
 Prefer additive evolution below stable ports:
 
