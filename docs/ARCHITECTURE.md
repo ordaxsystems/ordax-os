@@ -9,7 +9,7 @@ Prove a minimal, reproducible OrdaX that boots independently, reaches the select
 ## Core invariant
 
 ```text
-GIT_SOURCE_AUTHORITY=YES
+GIT_SOURCE_AUTHORITY_PER_OWNER=YES
 BASE_UPDATE_CONTROL_FROM_GIT=YES
 DEV_BASE_HELPERS_FROM_GIT=YES
 RUNNING_KERNEL_SELF_REPLACEMENT=NO
@@ -31,6 +31,8 @@ SSH_REQUIRED=NO
 REMOTE_CONTROL_REQUIRED=NO
 CUSTOM_CRYPTO_ALLOWED=NO
 ```
+
+`SINGLE_SURFACE_SOURCE=YES` and `SINGLE_APPLICATION_SOURCE=YES` mean **one canonical owner/source per component**, not that those bytes must be tracked in `ordax-os` or share the same Git HEAD.
 
 `BOOTSTRAP_SEED_PARTITIONS=2` and `PREPARED_USB_PARTITIONS=3` describe different artifacts and are not contradictory:
 
@@ -56,7 +58,9 @@ UEFI
  -> drivers/firmware
  -> network
  -> Git
- -> partial+sparse checkout of main into /workspace/ordax
+ -> partial+sparse checkout of ordax-os/main into /workspace/ordax
+ -> verify direct component locks and materialize exact external revisions
+    (for example the pinned ordax-surface visual tree) into disposable staging
  -> /workspace/ordax/system/entrypoint
  -> OrdaX
 ```
@@ -72,6 +76,7 @@ Rules:
 - unexpected origin/branch state fails closed;
 - rollback pins the previous commit across reboot until an explicit `ordax-pull` releases the pin;
 - ordinary `system/` changes do not require USB reflash or kernel rebuild;
+- external component changes do not enter a running product merely because their owner `main` advanced; `ordax-os` must adopt the exact compatible revision through its direct-dependency contract/lock before composition;
 - the fixed development helpers and recovery entrypoint are refreshed from their Git-owned sources after the runtime bridge is available;
 - kernel/initramfs changes use exact-commit Base candidates and activate only on a later boot;
 - development-rootfs/package changes use the same exact-commit candidate identity and materialize a versioned rootfs; the selector is slot-coupled and ready for the matching one-shot A/B boot, while wiring the development candidate into ESP staging/arming remains an explicit physical gate;
