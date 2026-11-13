@@ -6,6 +6,7 @@ import unittest
 ROOT = Path(__file__).resolve().parents[1]
 BRANDING = ROOT / "docs" / "contracts" / "branding.json"
 COVERAGE = ROOT / "docs" / "contracts" / "device-update-coverage.json"
+SURFACE_SOURCE = ROOT / "docs" / "contracts" / "surface-source.json"
 BOOT_SCREEN = ROOT / "system" / "surface" / "ui" / "boot-screen.mjs"
 BOOT_CSS = ROOT / "system" / "surface" / "ui" / "boot-screen.css"
 WEB_HTML = ROOT / "system" / "composition" / "web" / "index.html"
@@ -19,9 +20,26 @@ class SurfaceBootScreenTests(unittest.TestCase):
     def test_branding_contract_distinguishes_surface_loading_from_early_splash(self):
         branding = json.loads(BRANDING.read_text(encoding="utf-8"))
         coverage = json.loads(COVERAGE.read_text(encoding="utf-8"))
+        surface_source = json.loads(SURFACE_SOURCE.read_text(encoding="utf-8"))
 
         self.assertEqual(branding["$schema"], "prototype-ordax.branding/1")
+        self.assertEqual(branding["visual_source_repository"], "ordaxsystems/ordax-surface")
+        self.assertEqual(branding["visual_source_lock"], "docs/contracts/surface-source.json")
+        self.assertTrue(branding["visual_paths_materialized_into_os_staging"])
+        self.assertEqual(
+            branding["visual_identity"]["source_owner_repository"],
+            surface_source["source_repository"],
+        )
+        self.assertEqual(
+            branding["visual_identity"]["owner_kind"],
+            "materialized-surface-path",
+        )
+        self.assertTrue(branding["visual_identity"]["external_visual_dependencies"])
         self.assertTrue(branding["surface_loading"]["implemented"])
+        self.assertEqual(
+            branding["surface_loading"]["source_owner_repository"],
+            "ordaxsystems/ordax-surface",
+        )
         self.assertEqual(
             branding["surface_loading"]["delivery"],
             "runtime-git-checkout",
@@ -39,6 +57,18 @@ class SurfaceBootScreenTests(unittest.TestCase):
         self.assertTrue(coverage["branding"]["surface_loading_implemented"])
         self.assertFalse(coverage["branding"]["graphical_boot_splash_implemented"])
         self.assertTrue(coverage["branding"]["branding_source_must_remain_repository_owned"])
+        self.assertEqual(
+            coverage["branding"]["surface_loading_source_repository"],
+            "ordaxsystems/ordax-surface",
+        )
+        self.assertEqual(
+            coverage["branding"]["surface_loading_source_lock"],
+            "docs/contracts/surface-source.json",
+        )
+        self.assertEqual(
+            coverage["branding"]["surface_loading_owner_kind"],
+            "materialized-surface-path",
+        )
 
     def test_both_compositions_render_loading_before_javascript_mount(self):
         for path in (WEB_HTML, NATIVE_HTML):
