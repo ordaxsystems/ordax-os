@@ -30,6 +30,7 @@ on:
       - 'docs/contracts/native-release-assembly.json'
       - 'tests/test_creator_full_media_external_source.py'
   pull_request:
+    types: [opened, synchronize, reopened, ready_for_review]
     paths:
       - 'boot/esp/**'
       - 'bootstrap/kernel/**'
@@ -63,10 +64,14 @@ permissions:
 
 concurrency:
   group: full-bootstrap-media-proof-${{ github.ref }}
-  cancel-in-progress: true
+  # Preserve a running physical-media proof; never discard expensive work.
+  cancel-in-progress: false
 
 jobs:
   full-bootstrap-media-proof:
+    # Keep this real build mandatory at review-ready and manual release gates.
+    # Drafts run cheap contracts elsewhere without recompiling unchanged bytes.
+    if: github.event_name != 'pull_request' || !github.event.pull_request.draft
     runs-on: ubuntu-24.04
     timeout-minutes: 120
     env:

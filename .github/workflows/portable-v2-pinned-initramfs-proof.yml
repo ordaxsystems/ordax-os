@@ -11,6 +11,8 @@ on:
       - '!bootstrap/kernel/update_engine.py'
       - '!bootstrap/kernel/module_archive.py'
       - 'bootstrap/stable-base/**'
+      - 'bootstrap/independent-base/**'
+      - 'tools/ci/portable_component_cache.py'
       - 'bootstrap/initramfs/**'
       - 'bootstrap/portable-v2/capsule/**'
       - 'bootstrap/release-acquisition/**'
@@ -32,6 +34,8 @@ on:
       - '!bootstrap/kernel/update_engine.py'
       - '!bootstrap/kernel/module_archive.py'
       - 'bootstrap/stable-base/**'
+      - 'bootstrap/independent-base/**'
+      - 'tools/ci/portable_component_cache.py'
       - 'bootstrap/initramfs/**'
       - 'bootstrap/portable-v2/capsule/**'
       - 'bootstrap/release-acquisition/**'
@@ -52,6 +56,7 @@ concurrency:
 
 permissions:
   contents: read
+  actions: read  # Exact canonical producer artifact fallback; never dispatches or rebuilds.
 
 jobs:
   pinned-initramfs:
@@ -101,7 +106,162 @@ jobs:
           python -m unittest tests.test_portable_v2_pinned_initramfs_proof_contract -v
           python -m unittest tests.test_initramfs_upstream_authentication -v
           python bootstrap/initramfs/build.py check
-          python bootstrap/stable-base/build.py check
+          python bootstrap/independent-base/build.py check --profile stable-mvp
+
+      # Stable/mvp is a verified consumer, not a second Alpine or Buildroot
+      # producer. A cache miss must not silently create a different rootfs.
+      - name: Resolve exact Stable Buildroot component fingerprint
+        id: base-fingerprints
+        run: |
+          set -euo pipefail
+          test -n "${ImageOS:-}"
+          test -n "${ImageVersion:-}"
+          export ORDAX_COMPONENT_CACHE_ENVIRONMENT="${RUNNER_OS:?}/${RUNNER_ARCH:?}/${ImageOS}/${ImageVersion}"
+          printf 'ORDAX_COMPONENT_CACHE_ENVIRONMENT=%s\n' "$ORDAX_COMPONENT_CACHE_ENVIRONMENT" >> "$GITHUB_ENV"
+          python3 tools/ci/portable_component_cache.py fingerprints --github-output "$GITHUB_OUTPUT"
+
+      - name: Restore verified Stable Buildroot component
+        id: independent-stable-cache
+        uses: actions/cache/restore@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
+        with:
+          path: ${{ runner.temp }}/ordax-independent
+          key: ordax-portable-component-v1-${{ runner.os }}-${{ runner.arch }}-independent-base-stable-${{ steps.base-fingerprints.outputs.independent_base_stable }}
+
+      - name: Restore exact Stable producer artifact on scoped cache race
+        id: stable-artifact
+        if: steps.independent-stable-cache.outputs.cache-hit != 'true'
+        env:
+          GH_TOKEN: ${{ github.token }}
+          ORDAX_SOURCE_COMMIT: ${{ github.event.pull_request.head.sha || github.sha }}
+          ORDAX_STABLE_FINGERPRINT: ${{ steps.base-fingerprints.outputs.independent_base_stable }}
+        run: |
+          set -euo pipefail
+          artifact_name="ordax-stable-cache-${ORDAX_STABLE_FINGERPRINT}-${ORDAX_SOURCE_COMMIT}"
+          export ORDAX_STABLE_ARTIFACT_NAME="$artifact_name"
+          run_id=''
+          # A parallel proof may reach this consumer before the canonical Stable
+          # producer publishes its exact artifact. Wait only for that same
+          # source/fingerprint; never compile a fallback rootfs here.
+          for attempt in $(seq 1 20); do
+            artifact_list="$(gh api --method GET "repos/${GITHUB_REPOSITORY}/actions/artifacts" -f "name=${artifact_name}" -F per_page=100)"
+            run_id="$(printf '%s' "$artifact_list" | python3 -c '
+          import json, os, sys
+          records = json.load(sys.stdin).get("artifacts", [])
+          matches = [a for a in records
+                     if a.get("name") == os.environ["ORDAX_STABLE_ARTIFACT_NAME"]
+                     and a.get("expired") is False
+                     and (a.get("workflow_run") or {}).get("head_sha") == os.environ["ORDAX_SOURCE_COMMIT"]]
+          if len(matches) > 1:
+              raise SystemExit("multiple exact Stable producer artifacts are ambiguous")
+          if matches:
+              print(matches[0]["workflow_run"]["id"])
+          ')"
+            if [ -n "$run_id" ]; then
+              break
+            fi
+            if [ "$attempt" -eq 20 ]; then
+              echo "Exact Stable producer artifact did not appear after bounded wait: $artifact_name" >&2
+              exit 1
+            fi
+            sleep 30
+          done
+          run_info="$(gh api --method GET "repos/${GITHUB_REPOSITORY}/actions/runs/${run_id}")"
+          printf '%s' "$run_info" | python3 -c '
+          import json, os, sys
+          run = json.load(sys.stdin)
+          if (run.get("head_sha") != os.environ["ORDAX_SOURCE_COMMIT"]
+              or run.get("path") != ".github/workflows/independent-base-experiment.yml"
+              or run.get("event") != "workflow_dispatch"
+              or run.get("status") != "completed"
+              or run.get("conclusion") != "success"
+              or (run.get("repository") or {}).get("full_name") != os.environ["GITHUB_REPOSITORY"]):
+              raise SystemExit("Stable artifact did not come from successful canonical producer")
+          '
+          source="$RUNNER_TEMP/ordax-independent"
+          test ! -e "$source" && test ! -L "$source"
+          gh run download "$run_id" --repo "$GITHUB_REPOSITORY" --name "$artifact_name" --dir "$source"
+          python3 tools/ci/portable_component_cache.py verify \
+            --component independent-base-stable --out-dir "$source" \
+            --integration-commit "$ORDAX_SOURCE_COMMIT" --cache-hit true \
+            --receipt "$RUNNER_TEMP/stable-artifact-reuse.json"
+          printf 'reused=true\n' >> "$GITHUB_OUTPUT"
+
+      - name: Verify and stage exact Stable Buildroot EROFS
+        env:
+          ORDAX_SOURCE_COMMIT: ${{ github.event.pull_request.head.sha || github.sha }}
+          ORDAX_STABLE_CACHE_HIT: ${{ steps.independent-stable-cache.outputs.cache-hit }}
+          ORDAX_STABLE_ARTIFACT_REUSED: ${{ steps.stable-artifact.outputs.reused }}
+        run: |
+          set -euo pipefail
+          if [ "$ORDAX_STABLE_CACHE_HIT" != true ] && [ "$ORDAX_STABLE_ARTIFACT_REUSED" != true ]; then
+            echo 'Verified Stable Buildroot component unavailable after exact producer wait' >&2
+            exit 1
+          fi
+          source="$RUNNER_TEMP/ordax-independent"
+          work="$RUNNER_TEMP/portable-v2-pinned"
+          mkdir -p "$work/metadata"
+          python3 bootstrap/independent-base/build.py verify \
+            --profile stable-mvp --out "$source" > "$work/metadata/stable-base-verify.json"
+          python3 tools/ci/portable_component_cache.py verify \
+            --component independent-base-stable --out-dir "$source" \
+            --integration-commit "$ORDAX_SOURCE_COMMIT" --cache-hit true \
+            --receipt "$work/metadata/stable-component-reuse.json"
+          python3 - "$source/provenance.json" <<'PY'
+          import json
+          import pathlib
+          import sys
+          p = json.loads(pathlib.Path(sys.argv[1]).read_text(encoding='utf-8'))
+          assert p['$schema'] == 'prototype-ordax.independent-base-provenance/1'
+          assert p['profile'] == 'stable-mvp'
+          assert p['status'] == 'candidate-build-only'
+          assert p['physical_artifact_authorized'] is False
+          assert p['signed_release_equivalence_proven'] is False
+          assert p['qemu_boot_proven'] is False
+          PY
+          mkdir -p "$work/stable-base"
+          cp --reflink=auto "$source/independent-base.erofs" "$work/stable-base/stable-base.erofs"
+          test -s "$work/stable-base/stable-base.erofs"
+          cmp "$source/independent-base.erofs" "$work/stable-base/stable-base.erofs"
+          fsck.erofs "$work/stable-base/stable-base.erofs"
+
+      - name: Save exact Stable artifact into this PR cache scope
+        if: steps.stable-artifact.outputs.reused == 'true'
+        uses: actions/cache/save@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
+        with:
+          path: ${{ runner.temp }}/ordax-independent
+          key: ordax-portable-component-v1-${{ runner.os }}-${{ runner.arch }}-independent-base-stable-${{ steps.base-fingerprints.outputs.independent_base_stable }}
+
+      # A verified kernel already exists at the canonical fingerprint.
+      # The pinned-initramfs proof consumes it; it never compiles the same
+      # kernel again merely because the Stable rootfs is being verified.
+      - name: Restore verified kernel component
+        id: kernel-cache
+        uses: actions/cache/restore@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
+        with:
+          path: ${{ runner.temp }}/portable-v2-qemu/kernel
+          key: ordax-portable-component-v1-${{ runner.os }}-${{ runner.arch }}-kernel-${{ steps.base-fingerprints.outputs.kernel }}
+
+      - name: Verify exact cached kernel modules without rebuilding
+        env:
+          ORDAX_SOURCE_COMMIT: ${{ github.event.pull_request.head.sha || github.sha }}
+          ORDAX_KERNEL_CACHE_HIT: ${{ steps.kernel-cache.outputs.cache-hit }}
+        run: |
+          set -euo pipefail
+          if [ "$ORDAX_KERNEL_CACHE_HIT" != true ]; then
+            echo 'Verified canonical kernel cache missing; run existing Kernel Candidate/Independent Base producer first' >&2
+            exit 1
+          fi
+          kernel_dir="$RUNNER_TEMP/portable-v2-qemu/kernel"
+          test ! -L "$kernel_dir"
+          test -s "$kernel_dir/kernel-modules-$ORDAX_KERNEL_VERSION.tar"
+          # bootstrap/kernel/verify.py rejects symlink entries and mismatched
+          # SHA256SUMS/provenance; this is an exact verified artifact.
+          python3 bootstrap/kernel/build.py check
+          python3 bootstrap/kernel/verify.py "$kernel_dir"
+          python3 tools/ci/portable_component_cache.py verify \
+            --component kernel --out-dir "$kernel_dir" \
+            --integration-commit "$ORDAX_SOURCE_COMMIT" --cache-hit true \
+            --receipt "$RUNNER_TEMP/portable-v2-pinned/metadata/kernel-component-reuse.json"
 
       - name: Build exact static release agent and bootstrap capsule
         run: |
@@ -123,37 +283,6 @@ jobs:
             --release-agent "$work/bin/ordax-release-agent" \
             --image "$work/capsule/bootstrap.erofs" \
             > "$work/metadata/capsule-verify.json"
-
-      - name: Build exact kernel modules
-        env:
-          ORDAX_SOURCE_COMMIT: ${{ github.event.pull_request.head.sha || github.sha }}
-        run: |
-          set -euo pipefail
-          python bootstrap/kernel/build.py check
-          python bootstrap/kernel/build.py build \
-            --jobs 4 \
-            --work-dir "$RUNNER_TEMP/portable-v2-pinned/kernel-work" \
-            --out-dir "$RUNNER_TEMP/portable-v2-pinned/kernel"
-          python bootstrap/kernel/verify.py "$RUNNER_TEMP/portable-v2-pinned/kernel"
-          test -s "$RUNNER_TEMP/portable-v2-pinned/kernel/kernel-modules-$ORDAX_KERNEL_VERSION.tar"
-
-      - name: Build and verify exact Stable Base
-        env:
-          ORDAX_SOURCE_COMMIT: ${{ github.event.pull_request.head.sha || github.sha }}
-        run: |
-          set -euo pipefail
-          work="$RUNNER_TEMP/portable-v2-pinned"
-          sudo -E env ORDAX_SOURCE_COMMIT="$ORDAX_SOURCE_COMMIT" \
-            python bootstrap/stable-base/build.py build \
-              --kernel-modules "$work/kernel/kernel-modules-$ORDAX_KERNEL_VERSION.tar" \
-              --out-dir "$work/stable-base" \
-              --cache-dir "$work/stable-base-cache" \
-              > "$work/metadata/stable-base-build.json"
-          sudo chown -R "$(id -u):$(id -g)" "$work/stable-base"
-          python bootstrap/stable-base/build.py verify \
-            --out-dir "$work/stable-base" \
-            > "$work/metadata/stable-base-verify.json"
-          test -s "$work/stable-base/stable-base.erofs"
 
       - name: Build one initramfs pinned to both real EROFS artifacts
         env:

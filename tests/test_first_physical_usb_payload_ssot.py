@@ -159,7 +159,14 @@ class PhysicalUsbPayloadIdentityTests(unittest.TestCase):
         self.assertIn("PHYSICAL_PREAUTHORIZATION=ELIGIBLE_NOT_AUTHORIZED", source)
         self.assertIn("PHYSICAL_TARGET_DEVICE_TOUCHED=NO", source)
         self.assertIn("tests.test_first_physical_usb_payload_ssot", source)
-        self.assertIn("Build and verify exact Stable Base", source)
+        self.assertIn("Verify exact authorized Buildroot Stable Base without rebuilding", source)
+        self.assertIn("Block historical Alpine signed sources before any physical build", source)
+        self.assertIn("--component independent-base-stable", source)
+        self.assertNotIn("bootstrap/stable-base/build.py", source)
+        self.assertLess(
+            source.index("Block historical Alpine signed sources before any physical build"),
+            source.index("Build and verify exact kernel"),
+        )
         self.assertIn("ref: ${{ steps.canonical.outputs.release_source_commit }}", source)
         self.assertIn("PORTABLE_APPLICATION_OPERATIONS=39", source)
         self.assertIn("Upload source-review or authorized physical operator payload", source)

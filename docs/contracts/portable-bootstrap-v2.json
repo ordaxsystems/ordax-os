@@ -258,11 +258,6 @@
     "signed_update_integration_implemented": false,
     "qemu_boot_proven": false,
     "physical_boot_proven": false,
-    "alpine_archive_sha256_pinned": true,
-    "apk_package_versions_pinned": true,
-    "apk_package_lock_count": 40,
-    "apk_install_policy": "full-transitive-lock-exact-version-specs",
-    "pinning_evidence_commit": "daf33badda46b82b1d4e3faafcf040ca8dca479c",
     "initramfs_hash_pin_builder_support": true,
     "initramfs_hash_pin_implemented": true,
     "initramfs_hash_pin_candidate_only": true,
@@ -272,7 +267,11 @@
     "hash_verification_helper_path": "/sbin/ordax-portable-base-verify",
     "hash_verification_helper_fixed_paths": true,
     "hash_verification_helper_pid1_connected": true,
-    "pid1_hash_enforcement_implemented": true
+    "pid1_hash_enforcement_implemented": true,
+    "base_producer": "bootstrap/independent-base/build.py",
+    "base_profile": "stable-mvp",
+    "package_manager_in_runtime_allowed": false,
+    "signed_buildroot_release_proven": false
   },
   "pinned_initramfs_composition_proof": {
     "contract": "docs/contracts/portable-v2-pinned-initramfs-proof.json",

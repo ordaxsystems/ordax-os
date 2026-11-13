@@ -40,14 +40,101 @@ class PortableV2PinnedInitramfsProofTests(unittest.TestCase):
 
     def test_workflow_builds_real_inputs_and_same_initramfs_pins(self):
         self.assertIn("bootstrap/portable-v2/capsule/build.py build", WORKFLOW)
-        self.assertIn("bootstrap/stable-base/build.py build", WORKFLOW)
-        self.assertIn("bootstrap/kernel/build.py build", WORKFLOW)
+        self.assertIn("bootstrap/independent-base/build.py verify", WORKFLOW)
+        self.assertIn("--profile stable-mvp", WORKFLOW)
+        self.assertIn("portable_component_cache.py fingerprints", WORKFLOW)
+        self.assertIn("actions/cache/restore@", WORKFLOW)
+        self.assertIn("actions: read", WORKFLOW)
+        self.assertIn("Restore exact Stable producer artifact on scoped cache race", WORKFLOW)
+        self.assertIn("ordax-stable-cache-", WORKFLOW)
+        self.assertIn("independent-base-experiment.yml", WORKFLOW)
+        self.assertIn("workflow_dispatch", WORKFLOW)
+        self.assertIn("gh run download", WORKFLOW)
+        self.assertIn("seq 1 20", WORKFLOW)
+        self.assertIn("sleep 30", WORKFLOW)
+        self.assertIn("--component independent-base-stable", WORKFLOW)
+        self.assertIn("--cache-hit true", WORKFLOW)
+        self.assertIn("fsck.erofs", WORKFLOW)
+        self.assertIn("cmp " + '"$source/independent-base.erofs" "$work/stable-base/stable-base.erofs"', WORKFLOW)
+        self.assertIn("signed_release_equivalence_proven", WORKFLOW)
+        self.assertNotIn("bootstrap/stable-base/build.py", WORKFLOW)
+        self.assertNotIn("bootstrap/independent-base/build.py build", WORKFLOW)
+        self.assertNotIn("apk add", WORKFLOW)
+        self.assertNotIn("bootstrap/kernel/build.py build", WORKFLOW)
+        self.assertIn("Restore verified kernel component", WORKFLOW)
+        self.assertIn("Verify exact cached kernel modules without rebuilding", WORKFLOW)
+        self.assertIn("--component kernel", WORKFLOW)
+        self.assertIn("bootstrap/kernel/verify.py", WORKFLOW)
         self.assertIn("--portable-bootstrap-capsule", WORKFLOW)
         self.assertIn("--portable-stable-base", WORKFLOW)
         self.assertIn("portable_bootstrap_capsule_pin", WORKFLOW)
         self.assertIn("portable_stable_base_pin", WORKFLOW)
         self.assertIn("ordax-portable-capsule-verify verify", WORKFLOW)
         self.assertIn("ordax-portable-base-verify verify", WORKFLOW)
+
+    def test_stable_cache_is_verified_before_expensive_artifact_builds(self):
+        # A missing exact Stable cache must block before Go capsule or kernel
+        # compilation. Cache verification remains strict, never a rebuild.
+        fingerprint = WORKFLOW.index(
+            "      - name: Resolve exact Stable Buildroot component fingerprint"
+        )
+        restore = WORKFLOW.index(
+            "      - name: Restore verified Stable Buildroot component"
+        )
+        artifact_fallback = WORKFLOW.index(
+            "      - name: Restore exact Stable producer artifact on scoped cache race"
+        )
+        verified = WORKFLOW.index(
+            "      - name: Verify and stage exact Stable Buildroot EROFS"
+        )
+        capsule = WORKFLOW.index(
+            "      - name: Build exact static release agent and bootstrap capsule"
+        )
+        kernel_restore = WORKFLOW.index(
+            "      - name: Restore verified kernel component"
+        )
+        kernel_verify = WORKFLOW.index(
+            "      - name: Verify exact cached kernel modules without rebuilding"
+        )
+        initramfs = WORKFLOW.index(
+            "      - name: Build one initramfs pinned to both real EROFS artifacts"
+        )
+        self.assertLess(WORKFLOW.index("      - name: Install exact-artifact build dependencies"), fingerprint)
+        self.assertLess(fingerprint, restore)
+        self.assertLess(restore, artifact_fallback)
+        self.assertLess(artifact_fallback, verified)
+        self.assertLess(verified, kernel_restore)
+        self.assertLess(kernel_restore, kernel_verify)
+        self.assertLess(kernel_verify, capsule)
+        self.assertLess(capsule, initramfs)
+        kernel_block = WORKFLOW[kernel_verify:capsule]
+        self.assertIn(
+            'path: ${{ runner.temp }}/portable-v2-qemu/kernel',
+            WORKFLOW[kernel_restore:kernel_verify],
+        )
+        self.assertIn('kernel_dir="$RUNNER_TEMP/portable-v2-qemu/kernel"', kernel_block)
+        self.assertNotIn('portable-v2-pinned/kernel', WORKFLOW)
+        self.assertIn('if [ "$ORDAX_KERNEL_CACHE_HIT" != true ]; then', kernel_block)
+        self.assertIn('--component kernel', kernel_block)
+        self.assertIn('--cache-hit true', kernel_block)
+        self.assertIn('kernel-component-reuse.json', kernel_block)
+        self.assertIn('bootstrap/kernel/verify.py', kernel_block)
+        self.assertNotIn('bootstrap/kernel/build.py build', kernel_block)
+        artifact_block = WORKFLOW[artifact_fallback:verified]
+        self.assertIn('if: steps.independent-stable-cache.outputs.cache-hit != \'true\'', artifact_block)
+        self.assertIn('run.get("path") != ".github/workflows/independent-base-experiment.yml"', artifact_block)
+        self.assertIn('run.get("event") != "workflow_dispatch"', artifact_block)
+        self.assertIn('run.get("head_sha") != os.environ["ORDAX_SOURCE_COMMIT"]', artifact_block)
+        self.assertIn('gh run download', artifact_block)
+        self.assertNotIn("bootstrap/independent-base/build.py build", artifact_block)
+        stable_block = WORKFLOW[verified:kernel_restore]
+        self.assertIn('mkdir -p "$work/metadata"', stable_block)
+        self.assertIn('ORDAX_STABLE_ARTIFACT_REUSED', stable_block)
+        self.assertIn('if [ "$ORDAX_STABLE_CACHE_HIT" != true ] && [ "$ORDAX_STABLE_ARTIFACT_REUSED" != true ]; then', stable_block)
+        self.assertIn('bootstrap/independent-base/build.py verify', stable_block)
+        self.assertIn('portable_component_cache.py verify', stable_block)
+        self.assertIn('fsck.erofs "$work/stable-base/stable-base.erofs"', stable_block)
+        self.assertNotIn("bootstrap/independent-base/build.py build", stable_block)
 
     def test_workflow_requires_tamper_rejection_without_qemu_or_physical_device(self):
         self.assertIn("CAPSULE_TAMPER_REJECTED=YES", WORKFLOW)

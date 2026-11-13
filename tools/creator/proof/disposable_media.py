@@ -12,7 +12,7 @@ import argparse
 import hashlib
 import json
 import os
-from pathlib import Path
+from pathlib import Path, PurePosixPath
 import re
 import shutil
 import stat
@@ -23,7 +23,17 @@ from typing import Any
 SCHEMA = "prototype-ordax.physical-media/1"
 ESP_TYPE_GUID = "c12a7328-f81f-11d2-ba4b-00a0c93ec93b"
 LINUX_FS_TYPE_GUID = "0fc63daf-8483-4772-8e79-3d69d8477de4"
-REQUIRED_TOOLS = ("sgdisk", "mkfs.vfat", "mkfs.ext4", "mmd", "mcopy", "mdir", "debugfs", "blkid", "dd")
+REQUIRED_TOOLS = (
+    "sgdisk",
+    "mkfs.vfat",
+    "mkfs.ext4",
+    "mmd",
+    "mcopy",
+    "mdir",
+    "debugfs",
+    "blkid",
+    "dd",
+)
 
 
 class ProofError(RuntimeError):
@@ -40,8 +50,16 @@ def run(args: list[str], *, text: bool = True) -> subprocess.CompletedProcess[An
             text=text,
         )
     except subprocess.CalledProcessError as exc:
-        stdout = exc.stdout.decode("utf-8", "replace") if isinstance(exc.stdout, bytes) else exc.stdout
-        stderr = exc.stderr.decode("utf-8", "replace") if isinstance(exc.stderr, bytes) else exc.stderr
+        stdout = (
+            exc.stdout.decode("utf-8", "replace")
+            if isinstance(exc.stdout, bytes)
+            else exc.stdout
+        )
+        stderr = (
+            exc.stderr.decode("utf-8", "replace")
+            if isinstance(exc.stderr, bytes)
+            else exc.stderr
+        )
         raise ProofError(
             f"command failed ({' '.join(args)}): stdout={stdout!r} stderr={stderr!r}"
         ) from exc
@@ -82,7 +100,9 @@ def validate_contract(data: dict[str, Any]) -> None:
     if image_bytes % alignment != 0:
         raise ProofError("disposable proof image must be alignment sized")
     if proof.get("physical_capacity_policy") != "proof-only-not-a-device-capacity-contract":
-        raise ProofError("proof image capacity must not become a physical-device capacity contract")
+        raise ProofError(
+            "proof image capacity must not become a physical-device capacity contract"
+        )
 
     partitions = data.get("partitions")
     if not isinstance(partitions, list) or len(partitions) != 2:
@@ -104,7 +124,9 @@ def validate_contract(data: dict[str, Any]) -> None:
         if isinstance(expected, str) and key == "gpt_type_guid":
             actual = str(actual).lower()
         if actual != expected:
-            raise ProofError(f"ESP contract mismatch for {key}: expected={expected!r} actual={actual!r}")
+            raise ProofError(
+                f"ESP contract mismatch for {key}: expected={expected!r} actual={actual!r}"
+            )
 
     expected_main_start = esp["start_lba"] + esp["size_bytes"] // sector
     expected_main = {
@@ -122,7 +144,9 @@ def validate_contract(data: dict[str, Any]) -> None:
         if isinstance(expected, str) and key == "gpt_type_guid":
             actual = str(actual).lower()
         if actual != expected:
-            raise ProofError(f"main partition contract mismatch for {key}: expected={expected!r} actual={actual!r}")
+            raise ProofError(
+                f"main partition contract mismatch for {key}: expected={expected!r} actual={actual!r}"
+            )
 
     forbidden = set(data.get("forbidden_partitions", []))
     if not {"ORDAX-HOME", "ORDAX-PLATFORM"}.issubset(forbidden):
@@ -152,40 +176,141 @@ def sha256_file(path: Path) -> str:
     return digest.hexdigest()
 
 
+def _safe_relative_path(value: str) -> bool:
+    if (
+        not isinstance(value, str)
+        or not value
+        or "\\" in value
+        or "\n" in value
+        or "\r" in value
+        or "\x00" in value
+    ):
+        return False
+    path = PurePosixPath(value)
+    return (
+        not path.is_absolute()
+        and path.as_posix() == value
+        and all(part not in ("", ".", "..") for part in path.parts)
+    )
+
+
+def _normalize_symlink_target(member_path: str, target: str) -> str:
+    if (
+        not isinstance(target, str)
+        or not target
+        or "\\" in target
+        or "\n" in target
+        or "\r" in target
+        or "\x00" in target
+        or PurePosixPath(target).is_absolute()
+    ):
+        raise ProofError(f"unsafe staged symlink target: {member_path} -> {target!r}")
+
+    parts = list(PurePosixPath(member_path).parent.parts)
+    for part in PurePosixPath(target).parts:
+        if part in ("", "."):
+            continue
+        if part == "..":
+            if not parts:
+                raise ProofError(
+                    f"staged symlink escapes partition root: {member_path} -> {target!r}"
+                )
+            parts.pop()
+            continue
+        parts.append(part)
+
+    if not parts:
+        raise ProofError(f"unsafe staged symlink target: {member_path} -> {target!r}")
+    normalized = PurePosixPath(*parts).as_posix()
+    if not _safe_relative_path(normalized):
+        raise ProofError(f"unsafe staged symlink target: {member_path} -> {target!r}")
+    return normalized
+
+
+def _inspect_symlink(relative: str, target: str) -> dict[str, Any]:
+    _normalize_symlink_target(relative, target)
+    return {"kind": "symlink", "path": relative, "target": target}
+
+
+def _validate_symlink_graph(inventory: list[dict[str, Any]]) -> None:
+    links = {
+        entry["path"]: _normalize_symlink_target(entry["path"], entry["target"])
+        for entry in inventory
+        if entry["kind"] == "symlink"
+    }
+    for name, target in links.items():
+        visited = {name}
+        current = target
+        while current in links:
+            if current in visited:
+                raise ProofError(f"staged symlink cycle detected: {name}")
+            visited.add(current)
+            current = links[current]
+
+
+def _regular_entry(candidate: Path, relative: str, info: os.stat_result) -> dict[str, Any]:
+    return {
+        "kind": "file",
+        "path": relative,
+        "sha256": sha256_file(candidate),
+        "size": info.st_size,
+    }
+
+
 def inspect_stage_tree(stage_root: Path) -> dict[str, list[dict[str, Any]]]:
     stage_root = stage_root.absolute()
     _is_real_directory(stage_root, "stage root")
     entries = sorted(item.name for item in stage_root.iterdir())
     if entries != ["ORDAX", "ORDAX-ESP"]:
-        raise ProofError(f"stage root must contain exactly ORDAX-ESP and ORDAX; found={entries!r}")
+        raise ProofError(
+            f"stage root must contain exactly ORDAX-ESP and ORDAX; found={entries!r}"
+        )
 
     inventory: dict[str, list[dict[str, Any]]] = {"ORDAX-ESP": [], "ORDAX": []}
     for partition in ("ORDAX-ESP", "ORDAX"):
         root = stage_root / partition
         _is_real_directory(root, partition)
-        for current, dirnames, filenames in os.walk(root, topdown=True, followlinks=False):
+        for current, dirnames, filenames in os.walk(
+            root, topdown=True, followlinks=False
+        ):
             current_path = Path(current)
             for name in list(dirnames):
                 candidate = current_path / name
                 info = candidate.lstat()
-                if stat.S_ISLNK(info.st_mode) or not stat.S_ISDIR(info.st_mode):
+                relative = candidate.relative_to(root).as_posix()
+                if not _safe_relative_path(relative):
+                    raise ProofError(f"unsafe staged path: {relative!r}")
+                if stat.S_ISLNK(info.st_mode):
+                    if partition != "ORDAX":
+                        raise ProofError(f"ESP may not contain symlink: {relative}")
+                    inventory[partition].append(
+                        _inspect_symlink(relative, os.readlink(candidate))
+                    )
+                    dirnames.remove(name)
+                    continue
+                if not stat.S_ISDIR(info.st_mode):
                     raise ProofError(f"unsafe staged directory: {candidate}")
+
             for name in filenames:
                 candidate = current_path / name
                 info = candidate.lstat()
-                if stat.S_ISLNK(info.st_mode) or not stat.S_ISREG(info.st_mode):
-                    raise ProofError(f"unsafe staged file: {candidate}")
                 relative = candidate.relative_to(root).as_posix()
-                if "\n" in relative or "\r" in relative or "\x00" in relative:
+                if not _safe_relative_path(relative):
                     raise ProofError(f"unsafe staged path: {relative!r}")
+                if stat.S_ISLNK(info.st_mode):
+                    if partition != "ORDAX":
+                        raise ProofError(f"ESP may not contain symlink: {relative}")
+                    inventory[partition].append(
+                        _inspect_symlink(relative, os.readlink(candidate))
+                    )
+                    continue
+                if not stat.S_ISREG(info.st_mode):
+                    raise ProofError(f"unsafe staged file: {candidate}")
                 inventory[partition].append(
-                    {
-                        "path": relative,
-                        "sha256": sha256_file(candidate),
-                        "size": info.st_size,
-                    }
+                    _regular_entry(candidate, relative, info)
                 )
-        inventory[partition].sort(key=lambda entry: entry["path"])
+        inventory[partition].sort(key=lambda entry: (entry["path"], entry["kind"]))
+        _validate_symlink_graph(inventory[partition])
     return inventory
 
 
@@ -224,7 +349,9 @@ def verify_partition_info(raw: Path, contract: dict[str, Any]) -> list[dict[str,
     sector = contract["logical_sector_bytes"]
     verified: list[dict[str, Any]] = []
     for expected in contract["partitions"]:
-        info_text = run(["sgdisk", f"--info={expected['index']}", str(raw)]).stdout
+        info_text = run(
+            ["sgdisk", f"--info={expected['index']}", str(raw)]
+        ).stdout
         info = parse_sgdisk_info(info_text)
         if info["name"] != expected["name"]:
             raise ProofError(f"partition {expected['index']} name mismatch")
@@ -259,11 +386,15 @@ def make_vfat(image: Path, size_bytes: int, label: str) -> None:
 def populate_vfat(image: Path, source_root: Path) -> None:
     directories: list[Path] = []
     files: list[Path] = []
-    for current, dirnames, filenames in os.walk(source_root, topdown=True, followlinks=False):
+    for current, dirnames, filenames in os.walk(
+        source_root, topdown=True, followlinks=False
+    ):
         current_path = Path(current)
         directories.extend(current_path / name for name in dirnames)
         files.extend(current_path / name for name in filenames)
-    directories.sort(key=lambda item: (len(item.relative_to(source_root).parts), item.as_posix()))
+    directories.sort(
+        key=lambda item: (len(item.relative_to(source_root).parts), item.as_posix())
+    )
     files.sort(key=lambda item: item.as_posix())
 
     for directory in directories:
@@ -277,10 +408,23 @@ def populate_vfat(image: Path, source_root: Path) -> None:
 def make_ext4(image: Path, size_bytes: int, label: str, source_root: Path) -> None:
     with image.open("wb") as handle:
         handle.truncate(size_bytes)
-    run(["mkfs.ext4", "-q", "-F", "-L", label, "-d", str(source_root), str(image)])
+    run(
+        [
+            "mkfs.ext4",
+            "-q",
+            "-F",
+            "-L",
+            label,
+            "-d",
+            str(source_root),
+            str(image),
+        ]
+    )
 
 
-def verify_filesystem_identity(image: Path, expected_type: str, expected_label: str) -> dict[str, str]:
+def verify_filesystem_identity(
+    image: Path, expected_type: str, expected_label: str
+) -> dict[str, str]:
     values = parse_blkid(image)
     if values.get("TYPE") != expected_type:
         raise ProofError(
@@ -290,18 +434,38 @@ def verify_filesystem_identity(image: Path, expected_type: str, expected_label: 
         raise ProofError(
             f"filesystem label mismatch for {image.name}: expected={expected_label!r} actual={values.get('LABEL')!r}"
         )
-    return {"type": values["TYPE"], "label": values["LABEL"], "uuid": values.get("UUID", "")}
+    return {
+        "type": values["TYPE"],
+        "label": values["LABEL"],
+        "uuid": values.get("UUID", ""),
+    }
 
 
-def verify_vfat_files(image: Path, inventory: list[dict[str, Any]], work: Path) -> None:
+def _file_entries(inventory: list[dict[str, Any]]) -> list[dict[str, Any]]:
+    return [entry for entry in inventory if entry["kind"] == "file"]
+
+
+def _symlink_entries(inventory: list[dict[str, Any]]) -> list[dict[str, Any]]:
+    return [entry for entry in inventory if entry["kind"] == "symlink"]
+
+
+def verify_vfat_files(
+    image: Path, inventory: list[dict[str, Any]], work: Path
+) -> None:
+    if _symlink_entries(inventory):
+        raise ProofError("FAT32 inventory unexpectedly contains symlinks")
     extract_root = work / "fat-extract"
     extract_root.mkdir()
-    for entry in inventory:
-        target = extract_root / hashlib.sha256(entry["path"].encode("utf-8")).hexdigest()
+    for entry in _file_entries(inventory):
+        target = extract_root / hashlib.sha256(
+            entry["path"].encode("utf-8")
+        ).hexdigest()
         run(["mcopy", "-i", str(image), f"::/{entry['path']}", str(target)])
         actual = sha256_file(target)
         if actual != entry["sha256"]:
-            raise ProofError(f"FAT32 file hash mismatch after extraction: {entry['path']}")
+            raise ProofError(
+                f"FAT32 file hash mismatch after extraction: {entry['path']}"
+            )
 
 
 def _debugfs_quote(path: str) -> str:
@@ -309,29 +473,77 @@ def _debugfs_quote(path: str) -> str:
 
 
 def verify_ext4_files(image: Path, inventory: list[dict[str, Any]]) -> None:
-    for entry in inventory:
+    for entry in _file_entries(inventory):
         command = "cat " + _debugfs_quote("/" + entry["path"])
         completed = run(["debugfs", "-R", command, str(image)], text=False)
         actual = hashlib.sha256(completed.stdout).hexdigest()
         if actual != entry["sha256"]:
-            raise ProofError(f"ext4 file hash mismatch after extraction: {entry['path']}")
+            raise ProofError(
+                f"ext4 file hash mismatch after extraction: {entry['path']}"
+            )
+
+
+def verify_ext4_symlinks(
+    image: Path, inventory: list[dict[str, Any]], work: Path
+) -> int:
+    symlinks = _symlink_entries(inventory)
+    if not symlinks:
+        return 0
+
+    extract_root = work / "ext4-extract"
+    extract_root.mkdir()
+    command = "rdump / " + _debugfs_quote(str(extract_root))
+    run(["debugfs", "-R", command, str(image)])
+
+    for entry in symlinks:
+        target = extract_root / entry["path"]
+        try:
+            metadata = target.lstat()
+        except OSError as exc:
+            raise ProofError(
+                f"ext4 symlink missing after materialization: {entry['path']}"
+            ) from exc
+        if not stat.S_ISLNK(metadata.st_mode):
+            raise ProofError(
+                f"ext4 entry is not a symlink after materialization: {entry['path']}"
+            )
+        actual_target = os.readlink(target)
+        if actual_target != entry["target"]:
+            raise ProofError(
+                f"ext4 symlink target changed after materialization: {entry['path']}"
+            )
+        _normalize_symlink_target(entry["path"], actual_target)
+    return len(symlinks)
 
 
 def verify_ext4_directories(image: Path, source_root: Path) -> int:
     directories: list[str] = []
-    for current, dirnames, _ in os.walk(source_root, topdown=True, followlinks=False):
+    for current, dirnames, _ in os.walk(
+        source_root, topdown=True, followlinks=False
+    ):
         current_path = Path(current)
-        for name in dirnames:
-            directories.append((current_path / name).relative_to(source_root).as_posix())
+        for name in list(dirnames):
+            candidate = current_path / name
+            metadata = candidate.lstat()
+            if stat.S_ISLNK(metadata.st_mode):
+                dirnames.remove(name)
+                continue
+            if not stat.S_ISDIR(metadata.st_mode):
+                raise ProofError(f"unsafe staged directory: {candidate}")
+            directories.append(candidate.relative_to(source_root).as_posix())
     for relative in sorted(directories):
         command = "stat " + _debugfs_quote("/" + relative)
         output = run(["debugfs", "-R", command, str(image)]).stdout
         if "Type: directory" not in output:
-            raise ProofError(f"ext4 directory missing after materialization: {relative}")
+            raise ProofError(
+                f"ext4 directory missing after materialization: {relative}"
+            )
     return len(directories)
 
 
-def embed_partition(raw: Path, partition_image: Path, start_lba: int, sector: int) -> None:
+def embed_partition(
+    raw: Path, partition_image: Path, start_lba: int, sector: int
+) -> None:
     run(
         [
             "dd",
@@ -345,7 +557,9 @@ def embed_partition(raw: Path, partition_image: Path, start_lba: int, sector: in
     )
 
 
-def compare_embedded_partition(raw: Path, partition_image: Path, start_lba: int, sector: int) -> None:
+def compare_embedded_partition(
+    raw: Path, partition_image: Path, start_lba: int, sector: int
+) -> None:
     offset = start_lba * sector
     with raw.open("rb") as raw_handle, partition_image.open("rb") as part_handle:
         raw_handle.seek(offset)
@@ -355,7 +569,9 @@ def compare_embedded_partition(raw: Path, partition_image: Path, start_lba: int,
                 break
             actual = raw_handle.read(len(expected))
             if actual != expected:
-                raise ProofError(f"raw image differs from {partition_image.name} at partition offset")
+                raise ProofError(
+                    f"raw image differs from {partition_image.name} at partition offset"
+                )
 
 
 def fsync_file(path: Path) -> None:
@@ -364,14 +580,18 @@ def fsync_file(path: Path) -> None:
 
 
 def fsync_directory(path: Path) -> None:
-    descriptor = os.open(path, os.O_RDONLY | getattr(os, "O_DIRECTORY", 0))
+    descriptor = os.open(
+        path, os.O_RDONLY | getattr(os, "O_DIRECTORY", 0)
+    )
     try:
         os.fsync(descriptor)
     finally:
         os.close(descriptor)
 
 
-def build_proof(contract_path: Path, stage_root: Path, output_root: Path) -> dict[str, Any]:
+def build_proof(
+    contract_path: Path, stage_root: Path, output_root: Path
+) -> dict[str, Any]:
     contract = load_contract(contract_path)
     require_tools()
     inventory = inspect_stage_tree(stage_root)
@@ -382,7 +602,9 @@ def build_proof(contract_path: Path, stage_root: Path, output_root: Path) -> dic
     proof_bytes = contract["disposable_proof"]["image_bytes"]
 
     staging = Path(
-        tempfile.mkdtemp(prefix=f".{output_root.name}.proof-", dir=str(output_root.parent))
+        tempfile.mkdtemp(
+            prefix=f".{output_root.name}.proof-", dir=str(output_root.parent)
+        )
     )
     published = False
     try:
@@ -390,7 +612,11 @@ def build_proof(contract_path: Path, stage_root: Path, output_root: Path) -> dic
         with raw.open("wb") as handle:
             handle.truncate(proof_bytes)
 
-        esp_last = esp_contract["start_lba"] + esp_contract["size_bytes"] // sector - 1
+        esp_last = (
+            esp_contract["start_lba"]
+            + esp_contract["size_bytes"] // sector
+            - 1
+        )
         run(["sgdisk", "--zap-all", str(raw)])
         run(["sgdisk", "--clear", str(raw)])
         run(
@@ -418,9 +644,18 @@ def build_proof(contract_path: Path, stage_root: Path, output_root: Path) -> dic
         main_image = staging / "ordax.ext4"
         main_bytes = partition_info[1]["sector_count"] * sector
 
-        make_vfat(esp_image, esp_contract["size_bytes"], esp_contract["filesystem_label"])
+        make_vfat(
+            esp_image,
+            esp_contract["size_bytes"],
+            esp_contract["filesystem_label"],
+        )
         populate_vfat(esp_image, stage_root / "ORDAX-ESP")
-        make_ext4(main_image, main_bytes, main_contract["filesystem_label"], stage_root / "ORDAX")
+        make_ext4(
+            main_image,
+            main_bytes,
+            main_contract["filesystem_label"],
+            stage_root / "ORDAX",
+        )
 
         esp_identity = verify_filesystem_identity(
             esp_image, "vfat", esp_contract["filesystem_label"]
@@ -431,21 +666,31 @@ def build_proof(contract_path: Path, stage_root: Path, output_root: Path) -> dic
 
         verify_vfat_files(esp_image, inventory["ORDAX-ESP"], staging)
         verify_ext4_files(main_image, inventory["ORDAX"])
-        ext4_directory_count = verify_ext4_directories(main_image, stage_root / "ORDAX")
+        ext4_symlink_count = verify_ext4_symlinks(
+            main_image, inventory["ORDAX"], staging
+        )
+        ext4_directory_count = verify_ext4_directories(
+            main_image, stage_root / "ORDAX"
+        )
 
         embed_partition(raw, esp_image, esp_contract["start_lba"], sector)
         embed_partition(raw, main_image, main_contract["start_lba"], sector)
-        compare_embedded_partition(raw, esp_image, esp_contract["start_lba"], sector)
-        compare_embedded_partition(raw, main_image, main_contract["start_lba"], sector)
+        compare_embedded_partition(
+            raw, esp_image, esp_contract["start_lba"], sector
+        )
+        compare_embedded_partition(
+            raw, main_image, main_contract["start_lba"], sector
+        )
 
         run(["sgdisk", "--verify", str(raw)])
         verify_partition_info(raw, contract)
 
         esp_image.unlink()
         main_image.unlink()
-        extract_root = staging / "fat-extract"
-        if extract_root.exists():
-            shutil.rmtree(extract_root)
+        for extract_name in ("fat-extract", "ext4-extract"):
+            extract_root = staging / extract_name
+            if extract_root.exists():
+                shutil.rmtree(extract_root)
 
         fsync_file(raw)
         proof = {
@@ -466,7 +711,10 @@ def build_proof(contract_path: Path, stage_root: Path, output_root: Path) -> dic
                     "last_lba": partition_info[0]["last_lba"],
                     "sector_count": partition_info[0]["sector_count"],
                     "filesystem": esp_identity,
-                    "verified_file_count": len(inventory["ORDAX-ESP"]),
+                    "verified_file_count": len(
+                        _file_entries(inventory["ORDAX-ESP"])
+                    ),
+                    "verified_symlink_count": 0,
                 },
                 {
                     "index": 2,
@@ -476,7 +724,10 @@ def build_proof(contract_path: Path, stage_root: Path, output_root: Path) -> dic
                     "last_lba": partition_info[1]["last_lba"],
                     "sector_count": partition_info[1]["sector_count"],
                     "filesystem": main_identity,
-                    "verified_file_count": len(inventory["ORDAX"]),
+                    "verified_file_count": len(
+                        _file_entries(inventory["ORDAX"])
+                    ),
+                    "verified_symlink_count": ext4_symlink_count,
                     "verified_directory_count": ext4_directory_count,
                 },
             ],
@@ -486,12 +737,16 @@ def build_proof(contract_path: Path, stage_root: Path, output_root: Path) -> dic
                 "partition_geometry_matches_contract": True,
                 "filesystem_types_and_labels_match_contract": True,
                 "staged_file_hashes_reverified_from_filesystems": True,
+                "ext4_symlinks_reverified_from_filesystem": True,
                 "raw_partition_bytes_match_filesystem_images": True,
                 "physical_write_remains_blocked": True,
             },
         }
         proof_path = staging / "proof.json"
-        proof_path.write_text(json.dumps(proof, indent=2, sort_keys=True) + "\n", encoding="utf-8")
+        proof_path.write_text(
+            json.dumps(proof, indent=2, sort_keys=True) + "\n",
+            encoding="utf-8",
+        )
         fsync_file(proof_path)
         fsync_directory(staging)
 

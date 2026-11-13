@@ -16,7 +16,6 @@ on:
       - '!bootstrap/kernel/**/*.md'
       - 'bootstrap/stable-base/**'
       - 'bootstrap/surface-runtime/**'
-      - 'system/surface/runtime/packages.txt'
       - 'system/surface/runtime/media_runtime_probe.py'
       - 'system/surface/runtime/audio-session.sh'
       - '!bootstrap/surface-runtime/**/*.md'
@@ -64,10 +63,12 @@ on:
       - 'tests/test_portable_component_cache.py'
       - 'tests/test_portable_component_reuse_workflow.py'
       - 'tools/ci/portable_component_cache.py'
+      - 'tools/ci/independent_surface_github_artifact.sh'
       - 'tools/ci/portable_qemu_impact.py'
       - 'tests/test_portable_qemu_impact.py'
       - '.github/workflows/portable-v2-qemu-boot-proof.yml'
   pull_request:
+    types: [opened, synchronize, reopened, ready_for_review]
     paths:
       - 'system/**'
       - '!system/**/*.md'
@@ -81,7 +82,6 @@ on:
       - '!bootstrap/kernel/**/*.md'
       - 'bootstrap/stable-base/**'
       - 'bootstrap/surface-runtime/**'
-      - 'system/surface/runtime/packages.txt'
       - 'system/surface/runtime/media_runtime_probe.py'
       - 'system/surface/runtime/audio-session.sh'
       - '!bootstrap/surface-runtime/**/*.md'
@@ -129,6 +129,7 @@ on:
       - 'tests/test_portable_component_cache.py'
       - 'tests/test_portable_component_reuse_workflow.py'
       - 'tools/ci/portable_component_cache.py'
+      - 'tools/ci/independent_surface_github_artifact.sh'
       - 'tools/ci/portable_qemu_impact.py'
       - 'tests/test_portable_qemu_impact.py'
       - '.github/workflows/portable-v2-qemu-boot-proof.yml'
@@ -137,7 +138,17 @@ on:
     inputs:
       base_source:
         type: string
-        description: 'stable (default) or isolated independent Buildroot candidate'
+        description: 'independent Buildroot candidate only (Stable signed proof must be explicitly requested)'
+        required: false
+        default: independent
+      independent_base_profile:
+        type: string
+        description: 'Independent base only: minimal or explicit non-promotable stable-mvp'
+        required: false
+        default: minimal
+      surface_source:
+        type: string
+        description: 'stable (default) or same-run verified independent Buildroot Surface artifact'
         required: false
         default: stable
       force_run:
@@ -145,16 +156,28 @@ on:
         description: 'force heavy Portable/QEMU proof for explicit reusable-workflow callers'
         required: false
         default: true
+    secrets:
+      ORDAX_R2_ACCESS_KEY_ID:
+        description: 'Optional scoped R2 key used only for hash-bound Surface artifact restore'
+        required: false
+      ORDAX_R2_SECRET_ACCESS_KEY:
+        description: 'Optional scoped R2 secret used only for hash-bound Surface artifact restore'
+        required: false
 
 
 concurrency:
-  # Called workflows inherit github.workflow from their caller. Use a distinct
-  # namespace so the official proof cannot cancel its invoking workflow.
-  group: canonical-portable-v2-${{ inputs.base_source || 'stable' }}-${{ github.event_name == 'workflow_dispatch' && github.run_id || github.event.pull_request.number || github.ref }}
-  cancel-in-progress: ${{ github.event_name != 'workflow_dispatch' }}
+  # The reusable proof inherits github.workflow from its caller. Its isolated
+  # namespace avoids cancelling the parent workflow.
+  # Canonical Surface EROFS is reused with the independent Buildroot base.
+  # Group by Surface/PR: QEMU consumers must not race on a
+  # Buildroot cache miss for identical Surface inputs.
+  # Keep an expensive current producer running across new PR revisions.
+  group: canonical-portable-v2-${{ inputs.surface_source || 'stable' }}-${{ github.event_name == 'workflow_dispatch' && github.run_id || github.event.pull_request.number || github.ref }}
+  cancel-in-progress: false
 
 permissions:
   contents: read
+  actions: read
 
 jobs:
   impact:
@@ -197,9 +220,11 @@ jobs:
 
   qemu-portable-v2:
     needs: impact
-    if: needs.impact.outputs.required == 'true'
+    if: needs.impact.outputs.required == 'true' && (github.event_name != 'pull_request' || !github.event.pull_request.draft)
     runs-on: ubuntu-24.04
     timeout-minutes: 300
+    env:
+      ORDAX_SURFACE_PRODUCER_ENVIRONMENT: ${{ vars.ORDAX_SURFACE_PRODUCER_ENVIRONMENT }}
     steps:
       - name: Checkout exact source commit
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
@@ -217,33 +242,35 @@ jobs:
           python-version: '3.12'
           check-latest: false
 
-      - name: Resolve exact Intelligence builder for real local AI QEMU payload
-        uses: ./.github/actions/resolve-intelligence-builder
-        with:
-          out-root: ${{ runner.temp }}/ordax-intelligence-builder
-
       - name: Resolve canonical kernel ABI for build artifacts
         run: |
           set -euo pipefail
           python3 bootstrap/kernel/ci_env.py --github-env "$GITHUB_ENV"
 
-      - name: Set up Go
-        uses: actions/setup-go@b7ad1dad31e06c5925ef5d2fc7ad053ef454303e # v7
-        with:
-          go-version: '1.27.1'
-          check-latest: false
-          cache: false
-
-      - name: Install bounded local AI build dependencies
-        run: |
-          set -euo pipefail
-          sudo apt-get update
-          sudo apt-get install -y --no-install-recommends \
-            binutils cmake curl erofs-utils g++ git iproute2 libc6-dev ninja-build openssl util-linux
-
       - name: Validate portable-v2 QEMU contract
+        env:
+          ORDAX_BASE_PROOF_SOURCE: ${{ inputs.base_source || 'independent' }}
+          ORDAX_INDEPENDENT_BASE_PROFILE: ${{ inputs.independent_base_profile || 'minimal' }}
+          ORDAX_PROOF_EVENT: ${{ github.event_name }}
+          ORDAX_EXPLICIT_STABLE_SIGNED_BOOT: ${{ github.event_name == 'push' && github.ref == 'refs/heads/integration/dev-usb-buildroot-surface-20261024' && contains(github.event.head_commit.message, '[stable-mvp-signed-boot]') }}
+          ORDAX_SURFACE_PROOF_SOURCE: ${{ inputs.surface_source || 'stable' }}
         run: |
           set -euo pipefail
+          case "$ORDAX_BASE_PROOF_SOURCE" in independent) ;; *) echo 'unsupported portable base proof source' >&2; exit 1 ;; esac
+          case "$ORDAX_INDEPENDENT_BASE_PROFILE" in minimal|stable-mvp) ;; *) echo 'unsupported independent base proof profile' >&2; exit 1 ;; esac
+          if [ "$ORDAX_INDEPENDENT_BASE_PROFILE" = stable-mvp ]; then
+            if [ "$ORDAX_BASE_PROOF_SOURCE" != independent ] || {
+              [ "$ORDAX_PROOF_EVENT" != workflow_dispatch ] && [ "$ORDAX_EXPLICIT_STABLE_SIGNED_BOOT" != true ];
+            }; then
+              echo 'Stable/MVP portable proof requires explicit dispatch or scoped signed-boot marker with independent base source' >&2
+              exit 1
+            fi
+          fi
+          case "$ORDAX_SURFACE_PROOF_SOURCE" in stable|independent) ;; *) echo 'unsupported Surface proof source' >&2; exit 1 ;; esac
+          if [ "$ORDAX_SURFACE_PROOF_SOURCE" = independent ] && [ "$ORDAX_BASE_PROOF_SOURCE" != independent ]; then
+            echo 'independent Surface proof currently requires the independent base candidate' >&2
+            exit 1
+          fi
           python -m unittest tests.test_portable_v2_qemu_boot_proof_contract -v
           python -m unittest tests.test_initramfs_upstream_authentication -v
           python -m unittest tests.test_portable_qemu_kernel_source_ssot -v
@@ -271,6 +298,108 @@ jobs:
           work="$RUNNER_TEMP/portable-v2-qemu"
           mkdir -p "$work/bin" "$work/metadata"
           python3 tools/ci/portable_component_cache.py fingerprints --github-output "$GITHUB_OUTPUT"
+
+      # The canonical Buildroot Surface belongs to the independent Surface/Creator
+      # producer. A Portable/QEMU consumer must NEVER rebuild the same graphical
+      # runtime on a cache miss: fail fast until a verified artifact is available.
+      - name: Resolve canonical Surface artifact fingerprint for QEMU
+        if: ${{ (inputs.surface_source || 'stable') == 'stable' }}
+        id: surface-artifact-fingerprint
+        run: |
+          set -euo pipefail
+          python3 tools/ci/independent_surface_component_cache.py fingerprint \
+            --github-output "$GITHUB_OUTPUT"
+
+      - name: Restore verified canonical Surface EROFS for QEMU
+        if: ${{ (inputs.surface_source || 'stable') == 'stable' }}
+        id: surface-artifact-cache
+        uses: actions/cache/restore@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
+        with:
+          path: ${{ runner.temp }}/ordax-independent-surface
+          key: ordax-independent-surface-artifact-v1-${{ runner.os }}-${{ runner.arch }}-${{ steps.surface-artifact-fingerprint.outputs.fingerprint }}
+
+      - name: Restore verified canonical Surface from durable R2 for QEMU
+        if: ${{ (inputs.surface_source || 'stable') == 'stable' && steps.surface-artifact-cache.outputs.cache-hit != 'true' }}
+        id: surface-r2
+        env:
+          ORDAX_R2_ACCOUNT_ID: '42586bf13b61436219d21def299833e4'
+          ORDAX_R2_BUCKET: 'ordax-device-artifacts'
+          ORDAX_R2_ACCESS_KEY_ID: ${{ secrets.ORDAX_R2_ACCESS_KEY_ID }}
+          ORDAX_R2_SECRET_ACCESS_KEY: ${{ secrets.ORDAX_R2_SECRET_ACCESS_KEY }}
+          ORDAX_SURFACE_FINGERPRINT: ${{ steps.surface-artifact-fingerprint.outputs.fingerprint }}
+          ORDAX_SOURCE_COMMIT: ${{ github.event.pull_request.head.sha || github.sha }}
+        run: bash tools/ci/independent_surface_r2.sh restore
+
+      - name: Restore verified canonical Surface from GitHub producer artifact for QEMU
+        if: ${{ (inputs.surface_source || 'stable') == 'stable' && steps.surface-artifact-cache.outputs.cache-hit != 'true' && steps.surface-r2.outputs.hit != 'true' }}
+        id: surface-github-artifact
+        env:
+          GH_TOKEN: ${{ github.token }}
+          ORDAX_SOURCE_COMMIT: ${{ github.event.pull_request.head.sha || github.sha }}
+          ORDAX_PRODUCER_BRANCH: ${{ github.head_ref || github.ref_name }}
+        run: |
+          bash tools/ci/independent_surface_github_artifact.sh \
+            "$RUNNER_TEMP/ordax-independent-surface" "$ORDAX_SOURCE_COMMIT" \
+            "$ORDAX_PRODUCER_BRANCH" "$GITHUB_OUTPUT"
+
+      # The canonical EROFS is a mandatory external input to the signed proof.
+      # Fail before external Intelligence checkout, Go setup, or broad apt
+      # installation when the producer has not published a verified artifact.
+      - name: Install minimal Surface EROFS verification tool
+        if: ${{ (inputs.surface_source || 'stable') == 'stable' && (steps.surface-artifact-cache.outputs.cache-hit == 'true' || steps.surface-r2.outputs.hit == 'true' || steps.surface-github-artifact.outputs.hit == 'true') }}
+        run: |
+          set -euo pipefail
+          sudo apt-get update
+          sudo apt-get install -y --no-install-recommends erofs-utils
+
+      - name: Verify and bind canonical Surface EROFS for QEMU
+        if: ${{ (inputs.surface_source || 'stable') == 'stable' }}
+        env:
+          ORDAX_SOURCE_COMMIT: ${{ github.event.pull_request.head.sha || github.sha }}
+        run: |
+          set -euo pipefail
+          if [ '${{ steps.surface-artifact-cache.outputs.cache-hit }}' != true ] &&
+             [ '${{ steps.surface-r2.outputs.hit }}' != true ] &&
+             [ '${{ steps.surface-github-artifact.outputs.hit }}' != true ]; then
+            echo '::error::Verified canonical Surface EROFS unavailable; run the Independent Surface/Creator producer before QEMU. Never compile Surface inside the QEMU consumer.'
+            exit 1
+          fi
+          work="$RUNNER_TEMP/portable-v2-qemu"
+          source="$RUNNER_TEMP/ordax-independent-surface"
+          test -s "$source/native-surface-runtime.erofs"
+          test -f "$source/.ordax-independent-surface-cache.json"
+          python3 bootstrap/surface-runtime/build.py verify \
+            --out "$source" > "$work/metadata/surface-runtime-verify.json"
+          python3 tools/ci/independent_surface_component_cache.py verify \
+            --out "$source" \
+            --integration-commit "$ORDAX_SOURCE_COMMIT" \
+            --cache-hit true --consumer \
+            --receipt "$work/metadata/surface-component-reuse.json"
+          mkdir -p "$work/surface-runtime"
+          cp -- "$source/native-surface-runtime.erofs" \
+            "$work/surface-runtime/native-surface-runtime.erofs"
+          cmp -- "$source/native-surface-runtime.erofs" \
+            "$work/surface-runtime/native-surface-runtime.erofs"
+          echo 'ORDAX_QEMU_SURFACE_SOURCE=VERIFIED_CANONICAL_ARTIFACT'
+
+      - name: Resolve exact Intelligence builder for real local AI QEMU payload
+        uses: ./.github/actions/resolve-intelligence-builder
+        with:
+          out-root: ${{ runner.temp }}/ordax-intelligence-builder
+
+      - name: Set up Go
+        uses: actions/setup-go@b7ad1dad31e06c5925ef5d2fc7ad053ef454303e # v7
+        with:
+          go-version: '1.27.1'
+          check-latest: false
+          cache: false
+
+      - name: Install bounded local AI build dependencies
+        run: |
+          set -euo pipefail
+          sudo apt-get update
+          sudo apt-get install -y --no-install-recommends \
+            binutils cmake curl erofs-utils g++ git iproute2 libc6-dev ninja-build openssl util-linux
 
       - name: Restore verified local AI component
         id: local-ai-cache
@@ -399,8 +528,18 @@ jobs:
           path: ${{ runner.temp }}/portable-v2-qemu/kernel
           key: ordax-portable-component-v1-${{ runner.os }}-${{ runner.arch }}-kernel-${{ steps.component-fingerprints.outputs.kernel }}
 
+      - name: Require existing verified kernel for Stable/MVP proof
+        if: ${{ (inputs.base_source || 'independent') == 'independent' && inputs.independent_base_profile == 'stable-mvp' }}
+        env:
+          ORDAX_KERNEL_CACHE_HIT: ${{ steps.kernel-cache.outputs.cache-hit }}
+        run: |
+          set -euo pipefail
+          if [ "$ORDAX_KERNEL_CACHE_HIT" != true ]; then
+            echo 'Stable/MVP proof requires verified kernel cache; no implicit kernel rebuild' >&2
+            exit 1
+          fi
       - name: Build exact kernel and kernel modules on cache miss
-        if: steps.kernel-cache.outputs.cache-hit != 'true'
+        if: steps.kernel-cache.outputs.cache-hit != 'true' && inputs.independent_base_profile != 'stable-mvp'
         env:
           ORDAX_SOURCE_COMMIT: ${{ github.event.pull_request.head.sha || github.sha }}
         run: |
@@ -442,50 +581,107 @@ jobs:
             --receipt "$work/metadata/kernel-component-reuse.json"
 
       - name: Save verified kernel component
-        if: steps.kernel-cache.outputs.cache-hit != 'true'
+        if: steps.kernel-cache.outputs.cache-hit != 'true' && inputs.independent_base_profile != 'stable-mvp'
         uses: actions/cache/save@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
         with:
           path: ${{ runner.temp }}/portable-v2-qemu/kernel
           key: ordax-portable-component-v1-${{ runner.os }}-${{ runner.arch }}-kernel-${{ steps.component-fingerprints.outputs.kernel }}
 
-      - name: Build and verify exact Stable Base or experimental independent candidate
+      - name: Restore verified Stable Buildroot component for official signed boot
+        if: ${{ (inputs.base_source || 'independent') == 'independent' && inputs.independent_base_profile == 'stable-mvp' }}
+        id: independent-stable-cache
+        uses: actions/cache/restore@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
+        with:
+          # Identical archive path to the single Independent Base producer.
+          path: ${{ runner.temp }}/ordax-independent
+          key: ordax-portable-component-v1-${{ runner.os }}-${{ runner.arch }}-independent-base-stable-${{ steps.component-fingerprints.outputs.independent_base_stable }}
+      - name: Reuse canonical Buildroot sources and package downloads for Stable
+        if: ${{ (inputs.base_source || 'independent') == 'independent' && inputs.independent_base_profile == 'stable-mvp' && steps.independent-stable-cache.outputs.cache-hit != 'true' }}
+        id: independent-buildroot-download-cache
+        uses: actions/cache/restore@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
+        with:
+          # Exact producer archive path and key; Buildroot source digests are
+          # still authenticated by bootstrap/independent-base/build.py.
+          path: ${{ runner.temp }}/ordax-independent-cache
+          key: ordax-buildroot-download-v1-${{ runner.os }}-${{ hashFiles('bootstrap/independent-base/source.json', 'bootstrap/independent-base/configs/**', 'bootstrap/independent-base/patches/**') }}
+      - name: Build and verify canonical independent Buildroot base
         env:
           ORDAX_SOURCE_COMMIT: ${{ github.event.pull_request.head.sha || github.sha }}
-          ORDAX_BASE_PROOF_SOURCE: ${{ inputs.base_source || 'stable' }}
+          ORDAX_BASE_PROOF_SOURCE: ${{ inputs.base_source || 'independent' }}
+          ORDAX_INDEPENDENT_BASE_PROFILE: ${{ inputs.independent_base_profile || 'minimal' }}
+          ORDAX_STABLE_BASE_CACHE_HIT: ${{ steps.independent-stable-cache.outputs.cache-hit }}
         run: |
           set -euo pipefail
           work="$RUNNER_TEMP/portable-v2-qemu"
           case "$ORDAX_BASE_PROOF_SOURCE" in
-            stable)
-              sudo -E env ORDAX_SOURCE_COMMIT="$ORDAX_SOURCE_COMMIT" \
-                python bootstrap/stable-base/build.py build \
-                  --kernel-modules "$work/kernel/kernel-modules-$ORDAX_KERNEL_VERSION.tar" \
-                  --out-dir "$work/stable-base" \
-                  --cache-dir "$work/stable-base-cache" \
-                  > "$work/metadata/stable-base-build.json"
-              sudo chown -R "$(id -u):$(id -g)" "$work/stable-base"
-              python bootstrap/stable-base/build.py verify \
-                --out-dir "$work/stable-base" \
-                > "$work/metadata/stable-base-verify.json"
-              ;;
             independent)
-              # Disposable CI adapter; the current Stable owner is never mutated.
-              sudo apt-get install -y --no-install-recommends \
-                gawk cpio unzip rsync file wget patch
+              # Consume the canonical independent Buildroot owner without altering signed Stable.
+              # Reused Stable bytes still undergo full verification, but do not
+              # reinstall Buildroot-only host tools when no build is required.
+              if [ "$ORDAX_INDEPENDENT_BASE_PROFILE" != stable-mvp ] || [ "$ORDAX_STABLE_BASE_CACHE_HIT" != true ]; then
+                sudo apt-get install -y --no-install-recommends \
+                  gawk cpio unzip rsync file wget patch
+              fi
               module_archive="$work/kernel/kernel-modules-$ORDAX_KERNEL_VERSION.tar"
               base_out="$work/independent-base"
+              if [ "$ORDAX_INDEPENDENT_BASE_PROFILE" = stable-mvp ]; then
+                base_out="$RUNNER_TEMP/ordax-independent"
+              fi
+              printf 'ORDAX_INDEPENDENT_BASE_OUT=%s\n' "$base_out" >> "$GITHUB_ENV"
               test -f "$module_archive"
               test ! -L "$module_archive"
+              case "$ORDAX_INDEPENDENT_BASE_PROFILE" in
+                minimal|stable-mvp) ;;
+                *) echo 'unexpected Buildroot base profile' >&2; exit 1 ;;
+              esac
               export ORDAX_HOST_PYTHON="$(command -v python3)"
               export ORDAX_KERNEL_MODULES_ARCHIVE="$module_archive"
+              mkdir -p "$base_out"
               export ORDAX_KERNEL_MODULES_RECEIPT="$base_out/kernel-module-selection.json"
-              python3 bootstrap/independent-base/build.py build \
-                --out "$base_out" \
-                --cache "$work/independent-base-cache" --jobs 4 \
-                > "$work/metadata/independent-base-build.json"
+              export ORDAX_FIRMWARE_COVERAGE_RECEIPT="$base_out/firmware-coverage.json"
+              if [ "$ORDAX_INDEPENDENT_BASE_PROFILE" != stable-mvp ] || [ "$ORDAX_STABLE_BASE_CACHE_HIT" != true ]; then
+                buildroot_cache="$work/independent-base-cache"
+                if [ "$ORDAX_INDEPENDENT_BASE_PROFILE" = stable-mvp ]; then
+                  buildroot_cache="$RUNNER_TEMP/ordax-independent-cache"
+                fi
+                python3 bootstrap/independent-base/build.py build \
+                  --profile "$ORDAX_INDEPENDENT_BASE_PROFILE" \
+                  --out "$base_out" \
+                  --cache "$buildroot_cache" --jobs 4 \
+                  > "$work/metadata/independent-base-build.json"
+              fi
               python3 bootstrap/independent-base/build.py verify \
-                --out "$base_out" \
+                --profile "$ORDAX_INDEPENDENT_BASE_PROFILE" --out "$base_out" \
                 > "$work/metadata/independent-base-verify.json"
+              if [ "$ORDAX_INDEPENDENT_BASE_PROFILE" = stable-mvp ]; then
+                parity="$base_out/kernel-module-parity.json"
+                test ! -L "$parity"
+                rm -f "$parity"
+                python3 bootstrap/independent-base/module_parity.py verify \
+                  --kernel-modules "$ORDAX_KERNEL_MODULES_ARCHIVE" \
+                  --selection-receipt "$base_out/kernel-module-selection.json" \
+                  --rootfs-tar "$base_out/rootfs.tar" \
+                  --base-provenance "$base_out/provenance.json" \
+                  --out "$parity"
+              fi
+              if [ "$ORDAX_INDEPENDENT_BASE_PROFILE" = stable-mvp ]; then
+                test -s "$ORDAX_KERNEL_MODULES_RECEIPT"
+                test -s "$ORDAX_FIRMWARE_COVERAGE_RECEIPT"
+                cache_hit="$ORDAX_STABLE_BASE_CACHE_HIT"
+                if [ "$cache_hit" != true ]; then
+                  cache_hit=false
+                  python3 tools/ci/portable_component_cache.py record \
+                    --component independent-base-stable --out-dir "$base_out" \
+                    --source-commit "$ORDAX_SOURCE_COMMIT" \
+                    > "$work/metadata/independent-stable-cache-record.json"
+                fi
+                python3 tools/ci/portable_component_cache.py verify \
+                  --component independent-base-stable --out-dir "$base_out" \
+                  --integration-commit "$ORDAX_SOURCE_COMMIT" --cache-hit "$cache_hit" \
+                  --receipt "$work/metadata/independent-stable-component-reuse.json"
+                echo "ORDAX_STABLE_BASE_CACHE_HIT=$cache_hit"
+                echo 'ORDAX_STABLE_MVP_HARDWARE_RECEIPTS=VERIFIED'
+              fi
               mkdir -p "$work/stable-base"
               cp -- "$base_out/independent-base.erofs" \
                 "$work/stable-base/stable-base.erofs"
@@ -499,61 +695,74 @@ jobs:
               ;;
           esac
 
-      - name: Restore verified Surface runtime component
-        id: surface-cache
-        uses: actions/cache/restore@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
-        with:
-          path: ${{ runner.temp }}/portable-v2-qemu/surface-runtime
-          key: ordax-portable-component-v1-${{ runner.os }}-${{ runner.arch }}-surface-${{ steps.component-fingerprints.outputs.surface }}
-
-      - name: Build exact offline Surface runtime on cache miss
-        if: steps.surface-cache.outputs.cache-hit != 'true'
-        env:
-          ORDAX_SOURCE_COMMIT: ${{ github.event.pull_request.head.sha || github.sha }}
-        run: |
-          set -euo pipefail
-          work="$RUNNER_TEMP/portable-v2-qemu"
-          sudo -E env ORDAX_SOURCE_COMMIT="$ORDAX_SOURCE_COMMIT" \
-            python bootstrap/surface-runtime/build.py build \
-              --out-dir "$work/surface-runtime" \
-              --cache-dir "$work/surface-runtime-cache" \
-              > "$work/metadata/surface-runtime-build.json"
-          sudo chown -R "$(id -u):$(id -g)" "$work/surface-runtime"
-
-      - name: Verify Surface component and exact integration binding
-        env:
-          ORDAX_SOURCE_COMMIT: ${{ github.event.pull_request.head.sha || github.sha }}
-        run: |
-          set -euo pipefail
-          work="$RUNNER_TEMP/portable-v2-qemu"
-          cache_hit='${{ steps.surface-cache.outputs.cache-hit }}'
-          if [ "$cache_hit" != 'true' ]; then
-            cache_hit=false
-          fi
-          python bootstrap/surface-runtime/build.py verify \
-            --out-dir "$work/surface-runtime" \
-            > "$work/metadata/surface-runtime-verify.json"
-          test -s "$work/surface-runtime/native-surface-runtime.erofs"
-          if [ "$cache_hit" = 'false' ]; then
-            python3 tools/ci/portable_component_cache.py record \
-              --component surface \
-              --out-dir "$work/surface-runtime" \
-              --source-commit "$ORDAX_SOURCE_COMMIT" \
-              > "$work/metadata/surface-cache-record.json"
-          fi
-          python3 tools/ci/portable_component_cache.py verify \
-            --component surface \
-            --out-dir "$work/surface-runtime" \
-            --integration-commit "$ORDAX_SOURCE_COMMIT" \
-            --cache-hit "$cache_hit" \
-            --receipt "$work/metadata/surface-component-reuse.json"
-
-      - name: Save verified Surface runtime component
-        if: steps.surface-cache.outputs.cache-hit != 'true'
+      - name: Save canonical Buildroot downloads after Stable cache miss
+        if: ${{ (inputs.base_source || 'independent') == 'independent' && inputs.independent_base_profile == 'stable-mvp' && steps.independent-stable-cache.outputs.cache-hit != 'true' && steps.independent-buildroot-download-cache.outputs.cache-hit != 'true' }}
         uses: actions/cache/save@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
         with:
-          path: ${{ runner.temp }}/portable-v2-qemu/surface-runtime
-          key: ordax-portable-component-v1-${{ runner.os }}-${{ runner.arch }}-surface-${{ steps.component-fingerprints.outputs.surface }}
+          path: ${{ runner.temp }}/ordax-independent-cache
+          key: ordax-buildroot-download-v1-${{ runner.os }}-${{ hashFiles('bootstrap/independent-base/source.json', 'bootstrap/independent-base/configs/**', 'bootstrap/independent-base/patches/**') }}
+
+      - name: Save verified Stable Buildroot component for signed Portable boot
+        if: ${{ (inputs.base_source || 'independent') == 'independent' && inputs.independent_base_profile == 'stable-mvp' && steps.independent-stable-cache.outputs.cache-hit != 'true' }}
+        uses: actions/cache/save@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
+        with:
+          path: ${{ runner.temp }}/ordax-independent
+          key: ordax-portable-component-v1-${{ runner.os }}-${{ runner.arch }}-independent-base-stable-${{ steps.component-fingerprints.outputs.independent_base_stable }}
+
+      - name: Download same-run independent Surface runtime
+        if: ${{ inputs.surface_source == 'independent' }}
+        uses: actions/download-artifact@9000827ccba6bdab643e8b6fd33ac0654aef8333 # v8.0.2
+        with:
+          name: ordax-independent-surface-runtime-${{ github.run_id }}
+          path: ${{ runner.temp }}/portable-v2-qemu/independent-surface-runtime
+
+      - name: Verify and bind exact independent Surface runtime
+        if: ${{ inputs.surface_source == 'independent' }}
+        env:
+          ORDAX_SOURCE_COMMIT: ${{ github.event.pull_request.head.sha || github.sha }}
+        run: |
+          set -euo pipefail
+          work="$RUNNER_TEMP/portable-v2-qemu"
+          artifact_root="$work/independent-surface-runtime"
+          independent="$artifact_root/ordax-independent-surface"
+          test -d "$independent"
+          test ! -e "$artifact_root/provenance.json"
+          source_image="$independent/native-surface-runtime.erofs"
+          target="$work/surface-runtime/native-surface-runtime.erofs"
+          python3 bootstrap/surface-runtime/build.py verify \
+            --out "$independent" \
+            > "$work/metadata/independent-surface-runtime-verify.json"
+          python3 tools/ci/independent_surface_component_cache.py verify \
+            --out "$independent" \
+            --integration-commit "$ORDAX_SOURCE_COMMIT" \
+            --cache-hit true \
+            --consumer \
+            --receipt "$work/metadata/independent-surface-component-binding.json"
+          python3 - "$independent/provenance.json" <<'PY'
+          import json, pathlib, re, sys
+          provenance = json.loads(pathlib.Path(sys.argv[1]).read_text(encoding='utf-8'))
+          assert provenance['$schema'] == 'prototype-ordax.surface-runtime-provenance/1'
+          assert provenance['status'] == 'candidate-not-promotable'
+          assert re.fullmatch(r'[0-9a-f]{40}', provenance['source_commit'])
+          assert provenance['image']['name'] == 'native-surface-runtime.erofs'
+          assert re.fullmatch(r'[0-9a-f]{64}', provenance['image']['sha256'])
+          assert provenance['package_manager_present'] is False
+          assert provenance['alpine_present'] is False
+          assert provenance['physical_artifact_authorized'] is False
+          assert provenance['stable_promotion_authorized'] is False
+          print('ORDAX_INDEPENDENT_SURFACE_PROVENANCE=VERIFIED')
+          PY
+          mkdir -p "$work/surface-runtime"
+          cp -- "$source_image" "$target"
+          source_sha="$(sha256sum "$source_image" | awk '{print $1}')"
+          target_sha="$(sha256sum "$target" | awk '{print $1}')"
+          provenance_sha="$(python3 -c 'import json,sys; print(json.load(open(sys.argv[1]))["image"]["sha256"])' "$independent/provenance.json")"
+          test "$source_sha" = "$target_sha"
+          test "$source_sha" = "$provenance_sha"
+          cp -- "$independent/provenance.json" \
+            "$work/metadata/independent-surface-runtime-provenance.json"
+          echo "ORDAX_INDEPENDENT_SURFACE_RUNTIME_SHA256=$target_sha"
+          echo 'ORDAX_INDEPENDENT_SURFACE_ARTIFACT_BINDING=VERIFIED'
 
       - name: Restore verified release-agent component
         id: release-agent-cache
@@ -896,9 +1105,13 @@ jobs:
           mkdir -p "$work/qemu-proof"
           proof_runner=bootstrap/portable-v2/qemu_boot.py
           proof_extra=()
-          if [ "${{ inputs.base_source || 'stable' }}" = independent ]; then
+          if [ "${{ inputs.base_source || 'independent' }}" = independent ]; then
             proof_runner=bootstrap/independent-base/portable_boot_proof.py
-            proof_extra=(--base-out "$work/independent-base" --output-dir "$work/qemu-proof/bridge")
+            proof_extra=(--base-out "${ORDAX_INDEPENDENT_BASE_OUT:?}" --base-profile "${{ inputs.independent_base_profile || 'minimal' }}" --output-dir "$work/qemu-proof/bridge")
+            if [ "${{ inputs.independent_base_profile || 'minimal' }}" = stable-mvp ]; then
+              proof_extra+=(--reuse-receipt "$work/metadata/independent-stable-component-reuse.json")
+              proof_extra+=(--kernel-modules "$work/kernel/kernel-modules-$ORDAX_KERNEL_VERSION.tar")
+            fi
             echo 'ORDAX_INDEPENDENT_PORTABLE_BRIDGE=EXECUTING'
           fi
           sudo -E python3 "$proof_runner" "${proof_extra[@]}" \
@@ -941,7 +1154,7 @@ jobs:
           PY
 
       - name: Boot signed Portable v4 on transitional Dev geometry in QEMU
-        if: ${{ (inputs.base_source || 'stable') == 'stable' }}
+        if: ${{ (inputs.base_source || 'independent') == 'independent' && (inputs.independent_base_profile || 'minimal') == 'stable-mvp' }}
         run: |
           set -euo pipefail
           work="$RUNNER_TEMP/portable-v2-qemu"
@@ -991,9 +1204,13 @@ jobs:
 
           proof_runner=bootstrap/portable-v2/qemu_boot.py
           proof_extra=()
-          if [ "${{ inputs.base_source || 'stable' }}" = independent ]; then
+          if [ "${{ inputs.base_source || 'independent' }}" = independent ]; then
             proof_runner=bootstrap/independent-base/portable_boot_proof.py
-            proof_extra=(--base-out "$work/independent-base" --output-dir "$work/qemu-one-shot-proof/bridge")
+            proof_extra=(--base-out "${ORDAX_INDEPENDENT_BASE_OUT:?}" --base-profile "${{ inputs.independent_base_profile || 'minimal' }}" --output-dir "$work/qemu-one-shot-proof/bridge")
+            if [ "${{ inputs.independent_base_profile || 'minimal' }}" = stable-mvp ]; then
+              proof_extra+=(--reuse-receipt "$work/metadata/independent-stable-component-reuse.json")
+              proof_extra+=(--kernel-modules "$work/kernel/kernel-modules-$ORDAX_KERNEL_VERSION.tar")
+            fi
             echo 'ORDAX_INDEPENDENT_PORTABLE_BRIDGE=EXECUTING'
           fi
           sudo -E python3 "$proof_runner" "${proof_extra[@]}" \
@@ -1039,7 +1256,7 @@ jobs:
           PY
 
       - name: Prove invalid Ed25519 candidate, durable rollback and read-only rescue in QEMU
-        if: ${{ inputs.base_source == 'independent' }}
+        if: ${{ (inputs.base_source || 'independent') == 'independent' }}
         run: |
           set -euo pipefail
           work="$RUNNER_TEMP/portable-v2-qemu"

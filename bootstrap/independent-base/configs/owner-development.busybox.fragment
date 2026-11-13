@@ -1,0 +1,7 @@
+# BusyBox applets required only by the Owner/Development Dev USB helpers.
+# The portable handoff fragment already owns stat/timeout/flock. Keep this
+# fragment restricted to capabilities that must not widen the minimal profile.
+# ordax-network uses one-shot client mode before Git/HTTPS bootstrap.
+CONFIG_NTPD=y
+CONFIG_NSLOOKUP=y
+CONFIG_WGET=y

@@ -14,6 +14,7 @@ on:
       - 'tests/test_kernel_reproducibility_ssot.py'
       - '.github/workflows/kernel-pinned-environment.yml'
   pull_request:
+    types: [opened, synchronize, reopened, ready_for_review]
     paths:
       - 'bootstrap/kernel/**'
       - '!bootstrap/kernel/candidates/**'
@@ -31,6 +32,9 @@ permissions:
 
 jobs:
   prove-pinned-environment:
+    # Keep this real build mandatory at review-ready and manual release gates.
+    # Drafts run cheap contracts elsewhere without recompiling unchanged bytes.
+    if: github.event_name != 'pull_request' || !github.event.pull_request.draft
     runs-on: ubuntu-24.04
     timeout-minutes: 90
     steps:
@@ -85,7 +89,12 @@ jobs:
           set -euo pipefail
           rm -rf out/kernel-pinned out/kernel-work-pinned out/kernel-pinned-repeat out/kernel-work-pinned-repeat out/kernel-pinned-observation
           mkdir -p out/kernel-pinned-observation
+          # The minimal digest-pinned image has no CA store. Supply only the
+          # trusted runner CA bundle as a read-only bootstrap input, rather
+          # than disabling TLS verification even temporarily.
+          test -s /etc/ssl/certs/ca-certificates.crt
           docker run --rm \
+            --mount type=bind,src=/etc/ssl/certs/ca-certificates.crt,dst=/run/ordax-host-ca.pem,readonly \
             -e ORDAX_SOURCE_COMMIT="$ORDAX_SOURCE_COMMIT" \
             -e BASE_IMAGE="$IMAGE" \
             -e SNAPSHOT_ID="$SNAPSHOT_ID" \
@@ -110,13 +119,31 @@ jobs:
                 "Signed-By: /usr/share/keyrings/ubuntu-archive-keyring.gpg" \
                 > /etc/apt/sources.list.d/ordax.sources
 
+              # Keep the exact immutable snapshot. Retry bounded transient
+              # transport outages; never switch archives, pins or trust roots.
+              apt_snapshot_update() {
+                local attempt
+                for attempt in 1 2 3; do
+                  if apt-get -o Acquire::Retries=2 -o Acquire::https::Timeout=30 \
+                      update --error-on=any; then
+                    return 0
+                  fi
+                  if [ "$attempt" -eq 3 ]; then
+                    echo "Pinned Ubuntu snapshot unavailable after 3 attempts: $SNAPSHOT_ID" >&2
+                    return 1
+                  fi
+                  sleep "$((attempt * 4))"
+                done
+              }
+
               # The digest-pinned minimal image lacks CA roots. Bootstrap only
               # ca-certificates while apt-secure still authenticates signed
               # Ubuntu metadata and package hashes with the bundled keyring.
+              test -s /run/ordax-host-ca.pem
               printf "%s\n" \
-                "Acquire::https::snapshot.ubuntu.com::Verify-Peer \"false\";" \
+                "Acquire::https::snapshot.ubuntu.com::CaInfo \"/run/ordax-host-ca.pem\";" \
                 > /etc/apt/apt.conf.d/49ordax-ca-bootstrap
-              apt-get update --error-on=any
+              apt_snapshot_update
               apt-get install -y --no-install-recommends ca-certificates
 
               rm -f /etc/apt/apt.conf.d/49ordax-ca-bootstrap
@@ -126,7 +153,7 @@ jobs:
 
               # Every build dependency is reacquired with normal TLS
               # verification from the exact same signed snapshot.
-              apt-get update --error-on=any
+              apt_snapshot_update
               apt-get install -y --no-install-recommends $PACKAGES
               dpkg-query -W -f="\${Package}=\${Version}\\n" $PACKAGES | LC_ALL=C sort > /repo/out/kernel-pinned-observation/package-versions.txt
               apt-cache policy $PACKAGES > /repo/out/kernel-pinned-observation/package-policy.txt

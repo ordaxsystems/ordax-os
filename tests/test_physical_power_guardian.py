@@ -35,6 +35,18 @@ class PhysicalPowerGuardianTests(unittest.TestCase):
         self.assertNotIn("busybox poweroff -f", ACTION.read_text(encoding="utf-8"))
         self.assertNotIn("busybox reboot -f", ACTION.read_text(encoding="utf-8"))
 
+    def test_owner_acpid_logs_to_guardian_without_var_log_dependency(self):
+        # Real offline QEMU showed BusyBox acpid aborting because its default
+        # /var/log/acpid.log does not exist on the minimal Buildroot USB base.
+        # Keep the single Guardian power authority and its existing FIFO.
+        guardian = GUARDIAN.read_text(encoding="utf-8")
+        listener = guardian.split("start_acpi_button_listener() {", 1)[1].split("\n}\n", 1)[0]
+        self.assertIn('/bin/busybox acpid -d -f -c "$ACPI_DIR"', listener)
+        self.assertIn('>>"$GUARDIAN_LOG" 2>&1 &', listener)
+        self.assertIn('ORDAX_HOST_POWER_REQUEST="$HOST_POWER_REQUEST"', listener)
+        self.assertNotIn('acpid -f -c "$ACPI_DIR"', listener)
+        self.assertNotIn(' -l /var/log/', listener)
+
     def test_shell_syntax(self):
         for script in (GUARDIAN, ACTION):
             subprocess.run(["sh", "-n", str(script)], check=True)

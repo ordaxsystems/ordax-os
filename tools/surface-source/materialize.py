@@ -42,8 +42,8 @@ def load_lock(path: Path = LOCK_PATH) -> dict:
     raw = json.loads(path.read_text(encoding="utf-8"))
     if raw.get("$schema") != "prototype-ordax.surface-source/1":
         raise SurfaceSourceError("unrecognized Surface source lock schema")
-    if raw.get("status") not in {"integration-candidate", "canonical"}:
-        raise SurfaceSourceError("invalid source lock status")
+    if raw.get("status") != "canonical":
+        raise SurfaceSourceError("Surface source lock is not canonical")
     if raw.get("source_repository") != "ordaxsystems/ordax-surface":
         raise SurfaceSourceError("untrusted Surface source repository")
     if not isinstance(raw.get("source_commit"), str) or not SHA40.fullmatch(raw["source_commit"]):
