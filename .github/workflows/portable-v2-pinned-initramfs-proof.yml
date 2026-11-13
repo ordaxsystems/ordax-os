@@ -56,6 +56,7 @@ concurrency:
 
 permissions:
   contents: read
+  actions: read  # Exact canonical producer artifact fallback; never dispatches or rebuilds.
 
 jobs:
   pinned-initramfs:
@@ -126,14 +127,74 @@ jobs:
           path: ${{ runner.temp }}/ordax-independent
           key: ordax-portable-component-v1-${{ runner.os }}-${{ runner.arch }}-independent-base-stable-${{ steps.base-fingerprints.outputs.independent_base_stable }}
 
+      - name: Restore exact Stable producer artifact on scoped cache race
+        id: stable-artifact
+        if: steps.independent-stable-cache.outputs.cache-hit != 'true'
+        env:
+          GH_TOKEN: ${{ github.token }}
+          ORDAX_SOURCE_COMMIT: ${{ github.event.pull_request.head.sha || github.sha }}
+          ORDAX_STABLE_FINGERPRINT: ${{ steps.base-fingerprints.outputs.independent_base_stable }}
+        run: |
+          set -euo pipefail
+          artifact_name="ordax-stable-cache-${ORDAX_STABLE_FINGERPRINT}-${ORDAX_SOURCE_COMMIT}"
+          export ORDAX_STABLE_ARTIFACT_NAME="$artifact_name"
+          run_id=''
+          # A parallel proof may reach this consumer before the canonical Stable
+          # producer publishes its exact artifact. Wait only for that same
+          # source/fingerprint; never compile a fallback rootfs here.
+          for attempt in $(seq 1 20); do
+            artifact_list="$(gh api --method GET "repos/${GITHUB_REPOSITORY}/actions/artifacts" -f "name=${artifact_name}" -F per_page=100)"
+            run_id="$(printf '%s' "$artifact_list" | python3 -c '
+          import json, os, sys
+          records = json.load(sys.stdin).get("artifacts", [])
+          matches = [a for a in records
+                     if a.get("name") == os.environ["ORDAX_STABLE_ARTIFACT_NAME"]
+                     and a.get("expired") is False
+                     and (a.get("workflow_run") or {}).get("head_sha") == os.environ["ORDAX_SOURCE_COMMIT"]]
+          if len(matches) > 1:
+              raise SystemExit("multiple exact Stable producer artifacts are ambiguous")
+          if matches:
+              print(matches[0]["workflow_run"]["id"])
+          ')"
+            if [ -n "$run_id" ]; then
+              break
+            fi
+            if [ "$attempt" -eq 20 ]; then
+              echo "Exact Stable producer artifact did not appear after bounded wait: $artifact_name" >&2
+              exit 1
+            fi
+            sleep 30
+          done
+          run_info="$(gh api --method GET "repos/${GITHUB_REPOSITORY}/actions/runs/${run_id}")"
+          printf '%s' "$run_info" | python3 -c '
+          import json, os, sys
+          run = json.load(sys.stdin)
+          if (run.get("head_sha") != os.environ["ORDAX_SOURCE_COMMIT"]
+              or run.get("path") != ".github/workflows/independent-base-experiment.yml"
+              or run.get("event") != "workflow_dispatch"
+              or run.get("status") != "completed"
+              or run.get("conclusion") != "success"
+              or (run.get("repository") or {}).get("full_name") != os.environ["GITHUB_REPOSITORY"]):
+              raise SystemExit("Stable artifact did not come from successful canonical producer")
+          '
+          source="$RUNNER_TEMP/ordax-independent"
+          test ! -e "$source" && test ! -L "$source"
+          gh run download "$run_id" --repo "$GITHUB_REPOSITORY" --name "$artifact_name" --dir "$source"
+          python3 tools/ci/portable_component_cache.py verify \
+            --component independent-base-stable --out-dir "$source" \
+            --integration-commit "$ORDAX_SOURCE_COMMIT" --cache-hit true \
+            --receipt "$RUNNER_TEMP/stable-artifact-reuse.json"
+          printf 'reused=true\n' >> "$GITHUB_OUTPUT"
+
       - name: Verify and stage exact Stable Buildroot EROFS
         env:
           ORDAX_SOURCE_COMMIT: ${{ github.event.pull_request.head.sha || github.sha }}
           ORDAX_STABLE_CACHE_HIT: ${{ steps.independent-stable-cache.outputs.cache-hit }}
+          ORDAX_STABLE_ARTIFACT_REUSED: ${{ steps.stable-artifact.outputs.reused }}
         run: |
           set -euo pipefail
-          if [ "$ORDAX_STABLE_CACHE_HIT" != true ]; then
-            echo 'Verified Stable Buildroot cache missing; run canonical independent-base stable-mvp producer first' >&2
+          if [ "$ORDAX_STABLE_CACHE_HIT" != true ] && [ "$ORDAX_STABLE_ARTIFACT_REUSED" != true ]; then
+            echo 'Verified Stable Buildroot component unavailable after exact producer wait' >&2
             exit 1
           fi
           source="$RUNNER_TEMP/ordax-independent"
@@ -162,6 +223,13 @@ jobs:
           test -s "$work/stable-base/stable-base.erofs"
           cmp "$source/independent-base.erofs" "$work/stable-base/stable-base.erofs"
           fsck.erofs "$work/stable-base/stable-base.erofs"
+
+      - name: Save exact Stable artifact into this PR cache scope
+        if: steps.stable-artifact.outputs.reused == 'true'
+        uses: actions/cache/save@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
+        with:
+          path: ${{ runner.temp }}/ordax-independent
+          key: ordax-portable-component-v1-${{ runner.os }}-${{ runner.arch }}-independent-base-stable-${{ steps.base-fingerprints.outputs.independent_base_stable }}
 
       # A verified kernel already exists at the canonical fingerprint.
       # The pinned-initramfs proof consumes it; it never compiles the same
