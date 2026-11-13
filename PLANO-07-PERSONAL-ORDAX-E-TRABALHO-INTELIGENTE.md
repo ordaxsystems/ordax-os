@@ -1,8 +1,8 @@
 # Plano 07 — Personal OrdaX e trabalho inteligente evolutivo
 
-> **Status:** EXECUÇÃO EM ANDAMENTO / FOREGROUND PROMOVIDO / AUTOMAÇÃO PÚBLICA AINDA DESABILITADA
+> **Status documental:** **READY / DEFERRED FOR EXECUTION**, conforme `00-PLANOS-PRIORITARIOS/REGISTRY.md`. As frases históricas de “execução em andamento”, fases promovidas e automação descrevem checkpoints daquele ciclo e **não** constituem uma fila atual.
 >
-> Este documento consolida a direção executável do Personal OrdaX. Ele não concede autoridade e não substitui os contratos canônicos, `PERSONAL-ORDAX.md`, `docs/ARCHITECTURE.md`, `docs/CURRENT-STATE.md`, `docs/SYSTEM-FOUNDATION.md` ou os promotion gates.
+> Este documento consolida uma direção de produto para Personal OrdaX, mas o owner humano canônico é `docs/PERSONAL-ORDAX.md` e os contratos/source vigentes definem implementação real. O plano não concede autoridade e não substitui `docs/ARCHITECTURE.md`, `docs/CURRENT-STATE.md`, `docs/SYSTEM-FOUNDATION.md` ou promotion gates. Só executar uma fatia quando um owner canônico/MVP atual exigir explicitamente a mesma capacidade.
 
 ## 1. Resultado que queremos
 
