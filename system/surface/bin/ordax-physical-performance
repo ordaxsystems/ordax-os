@@ -1,0 +1,34 @@
+#!/bin/sh
+set -eu
+
+BIN_DIR=${0%/*}
+RUNTIME_RESOLVER=$BIN_DIR/ordax-proof-runtime.sh
+SCRIPT=/srv/ordax-system/diagnostics/physical_surface_performance.py
+
+validate_arguments() {
+    while [ "$#" -gt 0 ]; do
+        case "$1" in
+            -h|--help) shift ;;
+            --samples|--interval-seconds)
+                [ "$#" -ge 2 ] || { echo "ordax-physical-performance: missing value for $1" >&2; return 2; }
+                shift 2
+                ;;
+            --samples=*|--interval-seconds=*) shift ;;
+            *)
+                echo "ordax-physical-performance: unsupported physical entrypoint argument: $1" >&2
+                return 2
+                ;;
+        esac
+    done
+}
+validate_arguments "$@" || exit $?
+
+[ -x /bin/busybox ] || { echo "ordax-physical-performance: /bin/busybox unavailable" >&2; exit 2; }
+[ -r "$RUNTIME_RESOLVER" ] || { echo "ordax-physical-performance: runtime resolver unavailable: $RUNTIME_RESOLVER" >&2; exit 2; }
+. "$RUNTIME_RESOLVER"
+resolve_ordax_proof_runtime_root || exit 2
+[ -x "$RUNTIME_ROOT/usr/bin/python3" ] || { echo "ordax-physical-performance: active runtime Python unavailable" >&2; exit 2; }
+[ -r "$RUNTIME_ROOT$SCRIPT" ] || { echo "ordax-physical-performance: probe unavailable in active runtime" >&2; exit 2; }
+[ -d "$RUNTIME_ROOT/proc" ] || { echo "ordax-physical-performance: active runtime /proc binding unavailable" >&2; exit 2; }
+
+exec /bin/busybox chroot "$RUNTIME_ROOT" /usr/bin/python3 "$SCRIPT" "$@"

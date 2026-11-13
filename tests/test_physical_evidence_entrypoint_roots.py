@@ -3,8 +3,8 @@ import unittest
 
 
 ROOT = Path(__file__).resolve().parents[1]
-ATA_ENTRYPOINT = ROOT / "system" / "surface" / "bin" / "ordax-ata-evidence"
-PERFORMANCE_ENTRYPOINT = ROOT / "system" / "surface" / "bin" / "ordax-performance-evidence"
+ATA_ENTRYPOINT = ROOT / "system" / "surface" / "bin" / "ordax-physical-ata"
+PERFORMANCE_ENTRYPOINT = ROOT / "system" / "surface" / "bin" / "ordax-physical-performance"
 
 
 class PhysicalEvidenceEntrypointRootTests(unittest.TestCase):
