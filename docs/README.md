@@ -23,7 +23,7 @@ Historical wording inside a root `PLANO-*` such as `CANONICAL`, `P0`, `mandatory
 
 ## Retomada transversal: estado atual primeiro
 
-Para trabalho cross-repo, a ordem operacional é **`AGENTS.md` → `docs/README.md` → topo de `docs/CURRENT-STATE.md` → documento canônico do domínio/owner → PRs e artefatos atuais**. [INTELLIGENCE-HANDOFF.md](../INTELLIGENCE-HANDOFF.md) preserva checkpoints de 04/11 e anteriores como **REFERENCE/HISTORICAL**; não é mais entrada operacional nem fila de tarefas. Use-o somente quando a proveniência histórica for necessária. Para Capability Fabric, `docs/CAPABILITY-FABRIC.md` permanece canônico para arquitetura e fronteiras, mas qualquer tabela de status ou sequência datada deve ser revalidada contra `CURRENT-STATE` e os owners atuais antes de agir.
+Para mudanças cross-repo, **comece por `AGENTS.md`, o owner e o contrato aplicável**. Consulte este índice e o topo de `docs/CURRENT-STATE.md` quando houver dúvida sobre autoridade, composição ou estado; leia o documento de domínio e PRs/artefatos pertinentes à alteração. **Não existe sequência obrigatória de leitura integral para toda tarefa.** [INTELLIGENCE-HANDOFF.md](../INTELLIGENCE-HANDOFF.md) preserva checkpoints de 04/11 e anteriores como **REFERENCE/HISTORICAL**; não é mais entrada operacional nem fila de tarefas. Use-o somente quando a proveniência histórica for necessária. Para Capability Fabric, `docs/CAPABILITY-FABRIC.md` permanece canônico para arquitetura e fronteiras, mas qualquer tabela de status ou sequência datada deve ser revalidada contra `CURRENT-STATE` e os owners atuais antes de agir.
 
 ## Active canonical map
 

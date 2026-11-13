@@ -53,7 +53,7 @@ Se já houver documento equivalente, atualizar o mesmo item em vez de criar vers
 ├── inbox/                    # material novo ainda não triado
 ├── plans/                    # planos executáveis ou preservados para execução futura
 ├── reports/                  # pesquisas e análises de apoio
-├── templates/                # formato obrigatório para novos documentos
+├── templates/                # modelos opcionais para planos/relatórios novos
 └── archive/                  # itens encerrados/superseded após auditoria de links
 ```
 
@@ -198,11 +198,10 @@ A regra é: **copiar bons princípios de UX; preservar os owners e contratos do 
 
 ## Regras de higiene
 
-- Todo novo relatório deve entrar em `inbox/` ou diretamente em `reports/` se já estiver triado.
-- Toda proposta de implementação precisa de um ID estável, por exemplo `WEB-001`.
-- Toda frente precisa registrar: prioridade, status documental, elegibilidade de execução, owner canônico, dependências, gates, próximos passos e caminhos de source afetados.
-- Branch/PR/issue de implementação só deve ser criado quando a frente estiver `EXECUTION-ELIGIBLE`; documentação não exige abrir tarefa de produto.
-- Ao concluir implementação autorizada, atualizar `REGISTRY.md`, `ROADMAP.md` e o owner canônico aplicável. Não declarar `DONE` só porque um plano foi escrito.
+- **Somente quando um novo plano ou relatório for realmente necessário**, cadastrar no índice existente (`inbox/`, `plans/` ou `reports/`) e reaproveitar modelo opcional. Não criar relatório por padrão após correções simples.
+- Novos programas de planejamento acompanhados pelo hub recebem ID estável (por exemplo, `WEB-001`), owner, status documental, dependências e gates pertinentes; pequenas alterações de código não precisam de ID ou ficha de programa.
+- `EXECUTION-ELIGIBLE` classifica propostas novas do hub; **não** condiciona tarefas já autorizadas e de owner conhecido à criação de um plano, branch ou issue de planejamento.
+- Atualizar `REGISTRY.md` e `ROADMAP.md` **apenas quando o próprio registro, a prioridade ou a elegibilidade do plano mudar**. Para correções comuns, atualizar somente source/contratos/testes e o documento canônico realmente impactado. Não declarar `DONE` só porque um plano foi escrito.
 - Custos, preços, versões externas e limites de provedores devem carregar data de verificação e nunca virar constantes arquiteturais.
 - Relatórios podem recomendar; contratos/ADRs decidem.
 - Não usar plano como changelog infinito: estado factual deve convergir para `docs/CURRENT-STATE.md`, contratos ou owner canônico do tópico.
