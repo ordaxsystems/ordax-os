@@ -44,6 +44,14 @@ class PortableV2PinnedInitramfsProofTests(unittest.TestCase):
         self.assertIn("--profile stable-mvp", WORKFLOW)
         self.assertIn("portable_component_cache.py fingerprints", WORKFLOW)
         self.assertIn("actions/cache/restore@", WORKFLOW)
+        self.assertIn("actions: read", WORKFLOW)
+        self.assertIn("Restore exact Stable producer artifact on scoped cache race", WORKFLOW)
+        self.assertIn("ordax-stable-cache-", WORKFLOW)
+        self.assertIn("independent-base-experiment.yml", WORKFLOW)
+        self.assertIn("workflow_dispatch", WORKFLOW)
+        self.assertIn("gh run download", WORKFLOW)
+        self.assertIn("seq 1 20", WORKFLOW)
+        self.assertIn("sleep 30", WORKFLOW)
         self.assertIn("--component independent-base-stable", WORKFLOW)
         self.assertIn("--cache-hit true", WORKFLOW)
         self.assertIn("fsck.erofs", WORKFLOW)
@@ -73,6 +81,9 @@ class PortableV2PinnedInitramfsProofTests(unittest.TestCase):
         restore = WORKFLOW.index(
             "      - name: Restore verified Stable Buildroot component"
         )
+        artifact_fallback = WORKFLOW.index(
+            "      - name: Restore exact Stable producer artifact on scoped cache race"
+        )
         verified = WORKFLOW.index(
             "      - name: Verify and stage exact Stable Buildroot EROFS"
         )
@@ -90,7 +101,8 @@ class PortableV2PinnedInitramfsProofTests(unittest.TestCase):
         )
         self.assertLess(WORKFLOW.index("      - name: Install exact-artifact build dependencies"), fingerprint)
         self.assertLess(fingerprint, restore)
-        self.assertLess(restore, verified)
+        self.assertLess(restore, artifact_fallback)
+        self.assertLess(artifact_fallback, verified)
         self.assertLess(verified, kernel_restore)
         self.assertLess(kernel_restore, kernel_verify)
         self.assertLess(kernel_verify, capsule)
@@ -108,9 +120,17 @@ class PortableV2PinnedInitramfsProofTests(unittest.TestCase):
         self.assertIn('kernel-component-reuse.json', kernel_block)
         self.assertIn('bootstrap/kernel/verify.py', kernel_block)
         self.assertNotIn('bootstrap/kernel/build.py build', kernel_block)
+        artifact_block = WORKFLOW[artifact_fallback:verified]
+        self.assertIn('if: steps.independent-stable-cache.outputs.cache-hit != \'true\'', artifact_block)
+        self.assertIn('run.get("path") != ".github/workflows/independent-base-experiment.yml"', artifact_block)
+        self.assertIn('run.get("event") != "workflow_dispatch"', artifact_block)
+        self.assertIn('run.get("head_sha") != os.environ["ORDAX_SOURCE_COMMIT"]', artifact_block)
+        self.assertIn('gh run download', artifact_block)
+        self.assertNotIn("bootstrap/independent-base/build.py build", artifact_block)
         stable_block = WORKFLOW[verified:kernel_restore]
         self.assertIn('mkdir -p "$work/metadata"', stable_block)
-        self.assertIn('if [ "$ORDAX_STABLE_CACHE_HIT" != true ]; then', stable_block)
+        self.assertIn('ORDAX_STABLE_ARTIFACT_REUSED', stable_block)
+        self.assertIn('if [ "$ORDAX_STABLE_CACHE_HIT" != true ] && [ "$ORDAX_STABLE_ARTIFACT_REUSED" != true ]; then', stable_block)
         self.assertIn('bootstrap/independent-base/build.py verify', stable_block)
         self.assertIn('portable_component_cache.py verify', stable_block)
         self.assertIn('fsck.erofs "$work/stable-base/stable-base.erofs"', stable_block)
