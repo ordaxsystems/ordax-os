@@ -16,6 +16,9 @@ test('OrdaX OS has one validated prototype version without publication authority
   assert.equal(identity.stableRelease,false);
   assert.equal(versionGovernancePolicy().unqualifiedMeansPublished,false);
   assert.equal(versionGovernancePolicy().sourceVersionAuthorizesRelease,false);
+  assert.equal(versionGovernancePolicy().everySourceChangeRequiresVersionAdvance,false);
+  assert.equal(versionGovernancePolicy().explicitCompositionVersionMustAdvance,true);
+  assert.equal(versionGovernancePolicy().sourceRevisionIdentity,'git-sha-and-provenance');
 });
 
 test('all OrdaX products can progress by SemVer with alpha/beta/rc channels',()=>{
@@ -23,8 +26,8 @@ test('all OrdaX products can progress by SemVer with alpha/beta/rc channels',()=
     ['0.1.0','unqualified'],['0.1.1-alpha.1','alpha'],
     ['0.1.1-beta.1','beta'],['0.1.1-rc.1','rc'],['1.0.0','unqualified'],
   ]) assert.equal(productVersionChannel(version),channel);
-  assert.deepEqual(assertVersionAdvance('0.1.0','0.1.1-alpha.1'),{
-    previous:'0.1.0',next:'0.1.1-alpha.1',changedRuntime:true,
+  assert.deepEqual(assertVersionAdvance('0.1.0','0.1.1-alpha.1',{required:true}),{
+    previous:'0.1.0',next:'0.1.1-alpha.1',required:true,
   });
   assertVersionAdvance('0.1.1-alpha.1','0.1.1-alpha.2');
   assertVersionAdvance('0.1.1-beta.1','0.1.1-rc.1');
@@ -33,8 +36,8 @@ test('all OrdaX products can progress by SemVer with alpha/beta/rc channels',()=
 
 test('versioning rejects regression, unversioned runtime edits and invalid prereleases',()=>{
   assert.throws(()=>assertVersionAdvance('0.2.0','0.2.0-alpha.1'),/regression/i);
-  assert.throws(()=>assertVersionAdvance('0.1.0','0.1.0'),/require a version advance/i);
-  assertVersionAdvance('0.1.0','0.1.0',{changedRuntime:false});
+  assert.throws(()=>assertVersionAdvance('0.1.0','0.1.0',{required:true}),/must advance SemVer/i);
+  assertVersionAdvance('0.1.0','0.1.0');
   for(const version of ['0.1.0-alpha','0.1.0-preview.1','0.1.0-alpha.01','0.01.0','v0.1.0']){
     assert.throws(()=>productVersionChannel(version),TypeError);
   }
