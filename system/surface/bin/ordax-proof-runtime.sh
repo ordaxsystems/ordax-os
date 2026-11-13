@@ -4,11 +4,8 @@
 # The running Surface publishes the authoritative ephemeral runtime context.
 # Harnesses must not infer a canonical Stable/MVP runtime from filesystem shape.
 resolve_ordax_proof_runtime_root() {
-    state_root=${ORDAX_STATE_DIR:-/state/ordax}
     context_file=${ORDAX_SURFACE_RUNTIME_PROOF_CONTEXT:-/run/ordax-surface/runtime-proof-context}
-    stable_root=/run/ordax/runtime/native-surface/rootfs
-    runtime_id=alpine-v3.22-cage-webkitgtk-v1
-    development_root=$state_root/runtime/native-surface/$runtime_id/rootfs
+    verified_root=/run/ordax/runtime/native-surface/rootfs
 
     [ -f "$context_file" ] && [ ! -L "$context_file" ] || {
         echo "ordax-proof-runtime: active Surface runtime proof context unavailable: $context_file" >&2
@@ -76,13 +73,6 @@ resolve_ordax_proof_runtime_root() {
     }
 
     case "$proof_profile:$proof_runtime_mode:$proof_evidence_scope" in
-        owner-development:dynamic-native-runtime:development)
-            [ -z "$proof_runtime_sha256" ] || {
-                echo "ordax-proof-runtime: development runtime context unexpectedly contains a verified digest" >&2
-                return 1
-            }
-            candidate=$development_root
-            ;;
         owner-development:verified-erofs-overlay:development|stable-mvp:verified-erofs-overlay:canonical-stable-mvp)
             [ "${#proof_runtime_sha256}" -eq 64 ] || {
                 echo "ordax-proof-runtime: verified runtime digest is invalid" >&2
@@ -94,7 +84,7 @@ resolve_ordax_proof_runtime_root() {
                     return 1
                     ;;
             esac
-            candidate=$stable_root
+            candidate=$verified_root
             ;;
         *)
             echo "ordax-proof-runtime: active Surface runtime proof context is invalid" >&2
