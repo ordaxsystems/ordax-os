@@ -22,7 +22,7 @@ A candidata Stable atualmente habilitada continua USB-only para uso físico; o c
 
 ## Continuidade do Intelligence entre OS, Web e aplicativos
 
-Para continuar a integração **OrdaX Intelligence + ChatGPT opcional + plugin MCP + ações nativas** leia [INTELLIGENCE-HANDOFF.md](INTELLIGENCE-HANDOFF.md) antes de alterar Studio, Surface, router, provider connectors ou Runtime. É guia de coordenação; a autoridade permanece nos contratos de `docs/INTELLIGENCE.md` e `docs/contracts/repository-ownership.json`. O chat dentro do Web e o conector usado no ChatGPT externo são fluxos distintos; source experimental não confirma disponibilidade real.
+Para trabalho em **OrdaX Intelligence**, comece por `docs/INTELLIGENCE.md`, `docs/CURRENT-STATE.md`, contracts e `docs/contracts/repository-ownership.json`. Para provenance dos checkpoints antigos de ChatGPT/plugin MCP, use o [snapshot histórico](https://github.com/ordaxsystems/ordax-os/blob/d4027cd6d4c2458b735946767043d6ba49526dad/INTELLIGENCE-HANDOFF.md); ele não é roteiro operacional. O chat dentro do Web e o conector usado no ChatGPT externo continuam fluxos distintos; source experimental não confirma disponibilidade real.
 
 **Capability Fabric v1 já integrado:** para descobrir exatamente o que a Aura/Personal já consomem, como a Store `CURRENT` invalida ações e por que isso não autoriza ferramentas MCP, consultar [docs/CAPABILITY-FABRIC.md](docs/CAPABILITY-FABRIC.md) antes de iniciar qualquer nova implementação. O estado atual e as pendências de UX/Runtime/Platform são separados no mesmo guia.
 
