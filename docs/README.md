@@ -128,7 +128,7 @@ All root planning files are subordinate to the authority order above, including:
 - `PLANO-FUNCIONAL-SURFACE-E-APPS.md` — functional reference, not canonical current state or changelog;
 - `PLANO-02-EVOLUCAO-E-REAPROVEITAMENTO-DO-LEGADO.md` — dated legacy analysis/reference;
 - `PLANO-03-FECHAMENTO-PRE-USB-NOVA-ORDAX.md` — completed source-closure baseline/reference; live physical gates come from current canonical owners;
-- `PLANO-04-FUNDACAO-ECOSSISTEMA-PRE-MVP.md` — ecosystem foundation reference with implemented and future material mixed;
+- [snapshot da fundação pré-MVP](https://github.com/ordaxsystems/ordax-os/blob/7ceb1de7ba6cc5c2daa14757a161afc3ae007a33/PLANO-04-FUNDACAO-ECOSSISTEMA-PRE-MVP.md) — referência histórica removida da árvore ativa; decisões atuais vivem nos owners/contratos canônicos;
 - `PLANO-07-PERSONAL-ORDAX-E-TRABALHO-INTELIGENTE.md` — execution plan/reference; `docs/PERSONAL-ORDAX.md` is the canonical foundation owner;
 - `PLANO-08-ORDAX-NETWORK-COMUNIDADES-E-MENSAGENS.md` — Network reference; any historical self-declaration of MVP canonicity is subordinate to `MVP.md`, contracts and canonical owners.
 

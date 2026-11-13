@@ -1479,8 +1479,8 @@ Para dependências incorporadas, manter inventário/SBOM e notices no repositór
 Para ideias apenas estudadas, registrar como referência; não sugerir que o projeto
 endossa ou participa da OrdaX.
 
-A política detalhada de licença, proveniência e modos de adoção fica em
-`PLANO-04-FUNDACAO-ECOSSISTEMA-PRE-MVP.md`, seção 4.
+A política vigente de inputs externos, licenças e proveniência fica em
+`docs/THIRD-PARTY-INVENTORY.md`, `docs/contracts/third-party-inventory.json` e nos contratos de release compliance; o plano pré-MVP antigo permanece apenas no histórico Git.
 
 ## Apresentação Web canônica aprovada — 2026-10-10
 
