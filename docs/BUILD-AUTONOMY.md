@@ -260,11 +260,23 @@ PHYSICAL_DEVICE_ACTION_STILL_REQUIRES_AUTHORIZED_LOCAL_EXECUTION=YES
 
 If CI is unavailable, source must remain reproducible from the versioned build recipe in another compatible container executor. CI availability must not redefine source truth.
 
+## Direct dependency and transitive composition
+
+Repository separation is an ownership boundary, not permission for every consumer to rebuild or pin every upstream repository.
+
+- A producer builds and validates its own artifact/source.
+- A composition owner selects the exact compatible revision or verified artifact of its **direct** dependency.
+- A downstream delivery owner consumes the composed candidate and its provenance instead of reopening all transitive source dependencies.
+- An unchanged upstream artifact must be reused by identity/hash. Rebuilding it only because another repository changed is not valid work.
+- A Surface-only change does not compile kernel/USB. An OS adoption of a new Surface revision runs the applicable composition gates. Desktop packaging runs when a new Desktop candidate is actually requested. Creator consumes the resulting verified media and does not become an OS builder.
+
+For Native product delivery, `ordax-os` is the composition owner. Its existing source locks, component catalog/channel contracts and release manifest remain the machine-readable authorities; this section does not introduce a second BOM.
+
 ## Desktop/Web independent of Creator and USB (2026-10-31)
 
 This is an artifact and release gate boundary, **not a fork of the product**:
 
-- **Desktop Windows:** Electron and its NSIS build policy are owned by `ordaxsystems/ordax-desktop`; OS-side Native adapters `tools/windows-emulator/` and `system/adapters/desktop/` remain owned by `ordax-os` and are validated through the single reusable Windows NSIS producer. The Desktop consumes shared versioned OS contracts and the separately pinned Surface; it never consumes or builds a Creator USB image, Buildroot, kernel or initramfs to deliver Windows-only code.
+- **Desktop Windows:** Electron and its NSIS build policy are owned by `ordaxsystems/ordax-desktop`; OS-side Native adapters `tools/windows-emulator/` and `system/adapters/desktop/` remain owned by `ordax-os` and are validated through the single reusable Windows NSIS producer. The Desktop consumes one exact, provenance-bearing OrdaX/OS composition candidate. The Surface revision used by that candidate is selected transitively by the OS composition lock; Desktop must not maintain a competing Surface pin. It never consumes or builds a Creator USB image, Buildroot, kernel or initramfs to deliver Windows-only code.
 - **OrdaX Web:** `system/composition/web/` is owned by Surface Web/Chromium client gates. It does not consume Creator, Native Linux releases, or USB installation. Shared Account/Platform semantics remain authoritative; no shadow backend is allowed.
 - **Shared Native / USB:** `system/composition/native/`, `system/adapters/native/`, `system/adapters/web/` (also imported by Native), shared nontrivial contracts, system runtime/hosts and boot/USB producer sources remain fail-closed. A change to `system/composition/native/main.mjs` is **not Windows-only** merely because a runtime branch checks `windowsDesktopHost`; it still reaches the USB entrypoint and requires a valid Native/Creator proof or a real architectural refactor.
 - **CI ownership:** `tools/ci/creator_owner_impact.py` recognizes only the exact client-exclusive roots and reviewed pure client contracts/tests. Web/Windows still run their respective builds and tests. Unknown or mixed deltas trigger the USB producer; the classifier cannot replace product tests, disable required checks or claim runtime availability.
