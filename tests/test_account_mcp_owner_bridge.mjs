@@ -9,12 +9,18 @@ import {
   ACCOUNT_MCP_CENTRAL_TARGETS_PATH,ACCOUNT_MCP_CENTRAL_SELECTIONS_PATH,
   readAccountOwnerCentralTargets,readAccountOwnerCentralSelections,
   selectAccountOwnerCentralDevice,parseAccountOwnerCentralSelection,
+  ACCOUNT_MCP_PROJECT_ONBOARDING_PATH,ACCOUNT_MCP_PROJECTS_PATH,
+  OWNER_PROJECT_ONBOARDING_URL,OWNER_PROJECTS_URL,
+  validateAccountOwnerProjectOnboarding,readAccountOwnerProjectOnboarding,
+  parseAccountOwnerProjectCreate,createAccountOwnerProject,
 } from "../infra/supabase/functions/_shared/account_mcp_owner.mjs";
 
 const device="11111111-1111-4111-8111-111111111111";
 const other="44444444-4444-4444-8444-444444444444";
 const client="22222222-2222-4222-8222-222222222222";
 const group="33333333-3333-4333-8333-333333333333";
+const space="55555555-5555-4555-8555-555555555555";
+const project="66666666-6666-4666-8666-666666666666";
 const access="abcDEFghi.abcDEFghi.abcDEFghi";
 const row={device_id:device,name:"OrdaX Desktop",kind:"desktop",
   channel:"development",state:"active",online:true,runtime_ready:true,last_seen_at:null};
@@ -50,6 +56,12 @@ test("Only three explicit MCP Owner routes, not publicly preactivated",()=>{
   assert.equal(isPublicBridgeRoute("POST",ACCOUNT_MCP_CENTRAL_SELECTIONS_PATH),true);
   assert.equal(isPublicAccountPreActivationRoute("POST",ACCOUNT_MCP_CENTRAL_SELECTIONS_PATH),false);
   assert.equal(isPublicBridgeRoute("POST",ACCOUNT_MCP_CENTRAL_TARGETS_PATH),false);
+  assert.equal(isPublicBridgeRoute("GET",ACCOUNT_MCP_PROJECT_ONBOARDING_PATH),true);
+  assert.equal(isPublicAccountPreActivationRoute("GET",ACCOUNT_MCP_PROJECT_ONBOARDING_PATH),false);
+  assert.equal(isPublicBridgeRoute("POST",ACCOUNT_MCP_PROJECT_ONBOARDING_PATH),false);
+  assert.equal(isPublicBridgeRoute("POST",ACCOUNT_MCP_PROJECTS_PATH),true);
+  assert.equal(isPublicAccountPreActivationRoute("POST",ACCOUNT_MCP_PROJECTS_PATH),false);
+  assert.equal(isPublicBridgeRoute("GET",ACCOUNT_MCP_PROJECTS_PATH),false);
 });
 test("Gateway Owner routes keep Supabase cookie authorization and fail-closed rollout",()=>{
   const source=readFileSync(new URL("../infra/supabase/functions/ordax-account-gateway/index.ts",import.meta.url),"utf8");
@@ -63,6 +75,11 @@ test("Gateway Owner routes keep Supabase cookie authorization and fail-closed ro
   assert.match(source,/parseAccountOwnerCentralSelection\(selection\)/);
   assert.match(source,/selectAccountOwnerCentralDevice\(session.access, selection\)/);
   assert.match(source,/mcp-owner-central-selection-unconfirmed/);
+  assert.match(source,/ORDAX_MCP_OWNER_PROJECT_ONBOARDING_ENABLED/);
+  assert.match(source,/readAccountOwnerProjectOnboarding\(session\.access, deviceIds\[0\]\)/);
+  assert.match(source,/parseAccountOwnerProjectCreate\(projectCreate\)/);
+  assert.match(source,/createAccountOwnerProject\(session\.access, projectCreate\)/);
+  assert.match(source,/mcp-owner-project-create-unconfirmed/);
   assert.doesNotMatch(source,/x-ordax-owner-token/);
 });
 test("Authenticated public bridge carries the verified origin, never mutable forwarded host",()=>{
@@ -103,6 +120,64 @@ test("Authority read ties every group to the requested device",async()=>{
   assert.equal(validateAccountOwnerAuthority({...authority,grant_groups:[authority.grant_groups[0],authority.grant_groups[0]]},device),null);
   assert.deepEqual(await readAccountOwnerAuthority(access,device,transport([authority])),result);
 });
+test("Project onboarding projects only bounded canonical state and exact Owner mutations",async()=>{
+  const state={ok:true,device_id:device,
+    spaces:[{space_id:space,name:"Owner",kind:"work",state:"active",secret:"drop"}],
+    projects:[{project_id:project,space_id:space,name:"Platform",kind:"development",
+      state:"active",github_connection_count:0,repository_full_name:null,
+      space_device_execute:false,project_device_bound:false,
+      next_state:"needs_github_installation",installation_id:99}],
+    next_state:null,owner_user_id:other};
+  const projected=validateAccountOwnerProjectOnboarding(state,device);
+  assert.equal(projected.schema,"ordax.owner-project-onboarding-view/1");
+  assert.equal(projected.spaces.length,1);
+  assert.equal(projected.projects[0].next_state,"needs_github_installation");
+  assert.equal("installation_id" in projected.projects[0],false);
+  assert.equal("owner_user_id" in projected,false);
+  const calls=[];
+  assert.deepEqual(await readAccountOwnerProjectOnboarding(access,device,transport([state],calls)),projected);
+  assert.equal(calls[0].url,OWNER_PROJECT_ONBOARDING_URL+"?device_id="+device);
+
+  const input={space_id:space,name:" Platform ",kind:"development",confirm:"create_project"};
+  assert.deepEqual(parseAccountOwnerProjectCreate(input),
+    {space_id:space,name:"Platform",kind:"development",confirm:"create_project"});
+  for(const bad of [
+    {...input,repository_id:123},{...input,installation_id:456},
+    {...input,repository_full_name:"ordaxsystems/ordax-platform"},
+    {...input,grant_profile:"project-native-terminal"},{...input,device_id:device},
+    {...input,confirm:"yes"}
+  ]) assert.equal(parseAccountOwnerProjectCreate(bad),null);
+
+  const createCalls=[];
+  const response={ok:true,project_id:project,space_id:space,state:"active",
+    next_state:"needs_github_installation",created_by_user_id:other};
+  const created=await createAccountOwnerProject(access,input,async(url,options)=>{
+    createCalls.push({url,options});
+    return makeResponse(response,url,201);
+  });
+  assert.deepEqual(created,{ok:true,schema:"ordax.owner-project-created/1",
+    project_id:project,space_id:space,state:"active",next_state:"needs_github_installation"});
+  assert.equal(createCalls.length,1);
+  assert.equal(createCalls[0].url,OWNER_PROJECTS_URL);
+  assert.equal(createCalls[0].options.method,"POST");
+  assert.deepEqual(JSON.parse(createCalls[0].options.body),
+    {space_id:space,name:"Platform",kind:"development",confirm:"create_project"});
+});
+
+test("Project onboarding rejects ambiguous state instead of inventing readiness",()=>{
+  const base={ok:true,device_id:device,
+    spaces:[{space_id:space,name:"Owner",kind:"work",state:"active"}],
+    projects:[],next_state:"needs_project"};
+  assert.ok(validateAccountOwnerProjectOnboarding(base,device));
+  for(const bad of [
+    {...base,device_id:other},
+    {...base,next_state:null},
+    {...base,projects:[{project_id:project,space_id:space,name:"Platform",kind:"development",
+      state:"active",github_connection_count:1,repository_full_name:null,
+      space_device_execute:false,project_device_bound:false,next_state:"needs_github_installation"}]},
+  ]) assert.equal(validateAccountOwnerProjectOnboarding(bad,device),null);
+});
+
 test("Old grant with withdrawn OAuth consent is still visible to Owner for revocation",()=>{
   const result=validateAccountOwnerAuthority({...authority,clients:[],
     grant_groups:[{...authority.grant_groups[0],client_consent_active:false}]},device);
@@ -256,6 +331,20 @@ test("Owner central selection refuses ambiguous, expired, wrong target and unver
   ])await assert.rejects(readAccountOwnerCentralTargets(access,client,transport([bad])));
   await assert.rejects(readAccountOwnerCentralSelections(access,client,
     transport([{...pending,count:2}])));
+});
+
+test("Vercel forwards only exact device UUID for authority or project onboarding",async()=>{
+  const {forwardOwnerMcpAuthorityQuery}=await import("../lib/account-proxy-core.mjs");
+  const params=(v)=>new URLSearchParams(v);
+  for(const path of ["/account/mcp/authority",ACCOUNT_MCP_PROJECT_ONBOARDING_PATH]) {
+    assert.equal(forwardOwnerMcpAuthorityQuery(path,params({device_id:device})),
+      path+"?device_id="+device);
+    assert.equal(forwardOwnerMcpAuthorityQuery(path+"?device_id="+device,
+      params({ordax_path:path+"?device_id="+device})),path+"?device_id="+device);
+    assert.equal(forwardOwnerMcpAuthorityQuery(path,params({device_id:device,owner_id:other})),null);
+    assert.equal(forwardOwnerMcpAuthorityQuery(path+"?device_id="+device+"&device_id="+other,
+      params({ordax_path:path})),null);
+  }
 });
 
 test("Vercel forwards only exact Owner client UUID for either central GET",async()=>{
