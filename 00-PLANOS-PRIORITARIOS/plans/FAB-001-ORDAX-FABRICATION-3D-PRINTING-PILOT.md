@@ -8,7 +8,7 @@
 - **Atualizado:** 2026-10-15
 - **Owner canônico:** `system/profile-packs/`, `docs/OPERATIONAL-REALTIME.md`, `docs/contracts/operational-realtime.json`, `docs/PROFILE-INTELLIGENCE-ARCHITECTURE.md`, owners canônicos de Account/Spaces/Entitlements/Applications/Intelligence/Device Agent
 - **Base factual:** `main` verificada em 2026-10-15; `impressao-3d-br@1` já existe como Profile Pack first-party ativo e demonstrável
-- **Relatórios/planos de apoio:** `docs/SPACES-AND-PROFILES.md`, `INTELLIGENCE-HANDOFF.md`, `plans/MODE-001-WEB-CLOUD-DEVICE-RUNTIME.md`
+- **Relatórios/planos de apoio:** `docs/SPACES-AND-PROFILES.md`, `docs/INTELLIGENCE.md`, `plans/MODE-001-WEB-CLOUD-DEVICE-RUNTIME.md`
 - **Dependências:** `docs/SPACES-AND-PROFILES.md`, MODE-001, Account/Spaces, Entitlements, Operational Realtime, Action Gateway/Device Agent, Intelligence/Model Router, Store/Billing quando monetização for promovida
 
 `READY` descreve maturidade documental. Este plano **não autoriza** iniciar o produto comercial completo durante a janela atual de fechamento do MVP. O recorte pré-MVP elegível continua sendo somente aquilo que `MVP.md`, contratos e owners canônicos já exigirem do `impressao-3d-br@1`.

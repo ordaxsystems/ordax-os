@@ -64,7 +64,7 @@ Compor o Work Canvas read-only (P0/#1574) no painel global com consentimento e
 contexto explícitos, sem iniciar Work pelo prompt; adicionar renderers por tipo
 somente com dados provenientes de fontes verificadas e grants revalidados.
 P2 pertence aos owners de capacidades/Runtime/Platform já descritos em
-`INTELLIGENCE-HANDOFF.md`.
+[snapshot histórico de Intelligence](https://github.com/ordaxsystems/ordax-os/blob/d4027cd6d4c2458b735946767043d6ba49526dad/INTELLIGENCE-HANDOFF.md).
 
 ## Missões verificadas no Assistant Native (fatia seguinte da P1)
 
