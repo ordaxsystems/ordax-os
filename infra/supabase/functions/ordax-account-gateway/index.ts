@@ -7,7 +7,7 @@ import {
 } from "../_shared/auth_rate_limit.mjs";
 import { readBoundedBody } from "../_shared/bounded_body.mjs";
 import { ACCOUNT_MCP_USAGE_PATH, readAccountMcpUsage } from "../_shared/account_mcp_usage.mjs";
-import { ACCOUNT_MCP_DEVICES_PATH, ACCOUNT_MCP_AUTHORITY_PATH, ACCOUNT_MCP_REVOKE_PATH, ACCOUNT_MCP_CENTRAL_TARGETS_PATH, ACCOUNT_MCP_CENTRAL_SELECTIONS_PATH, isOwnerUuid, readAccountOwnerDevices, readAccountOwnerAuthority, revokeAccountOwnerGrant, parseAccountOwnerRevoke, readAccountOwnerCentralTargets, readAccountOwnerCentralSelections, selectAccountOwnerCentralDevice, parseAccountOwnerCentralSelection } from "../_shared/account_mcp_owner.mjs";
+import { ACCOUNT_MCP_DEVICES_PATH, ACCOUNT_MCP_AUTHORITY_PATH, ACCOUNT_MCP_REVOKE_PATH, ACCOUNT_MCP_CENTRAL_TARGETS_PATH, ACCOUNT_MCP_CENTRAL_SELECTIONS_PATH, ACCOUNT_MCP_PROJECT_ONBOARDING_PATH, ACCOUNT_MCP_PROJECTS_PATH, isOwnerUuid, readAccountOwnerDevices, readAccountOwnerAuthority, revokeAccountOwnerGrant, parseAccountOwnerRevoke, readAccountOwnerCentralTargets, readAccountOwnerCentralSelections, selectAccountOwnerCentralDevice, parseAccountOwnerCentralSelection, readAccountOwnerProjectOnboarding, createAccountOwnerProject, parseAccountOwnerProjectCreate } from "../_shared/account_mcp_owner.mjs";
 import { verifyTrustedPublicRequestContext } from "../ordax-public-account-gateway/public_request_context.mjs";
 import { accountPrivilegedRpc } from "../_shared/account_privileged_rpc.mjs";
 import { authorizeAccountTransport, accountGatewayRoutePath, isPublicAccountPreActivationRoute } from "../_shared/account_transport_admission.mjs";
@@ -1313,7 +1313,9 @@ Deno.serve(async (req: Request) => {
       || (path === ACCOUNT_MCP_AUTHORITY_PATH && req.method === "GET")
       || (path === ACCOUNT_MCP_REVOKE_PATH && req.method === "POST")
       || (path === ACCOUNT_MCP_CENTRAL_TARGETS_PATH && req.method === "GET")
-      || (path === ACCOUNT_MCP_CENTRAL_SELECTIONS_PATH && ["GET","POST"].includes(req.method))) {
+      || (path === ACCOUNT_MCP_CENTRAL_SELECTIONS_PATH && ["GET","POST"].includes(req.method))
+      || (path === ACCOUNT_MCP_PROJECT_ONBOARDING_PATH && req.method === "GET")
+      || (path === ACCOUNT_MCP_PROJECTS_PATH && req.method === "POST")) {
     const session = await authenticated(req);
     if (!session.user || !session.access) {
       return json(401, {
@@ -1345,6 +1347,57 @@ Deno.serve(async (req: Request) => {
         ), session.cookies);
       } catch {
         return error(503, "mcp-owner-authority-unavailable", "Não foi possível consultar as autorizações.");
+      }
+    }
+    if (path === ACCOUNT_MCP_PROJECT_ONBOARDING_PATH || path === ACCOUNT_MCP_PROJECTS_PATH) {
+      // Project onboarding is independently releasable from device inventory
+      // and revocation. It never creates a GitHub connection, device binding,
+      // or Product grant on behalf of the browser.
+      if (Deno.env.get("ORDAX_MCP_OWNER_PROJECT_ONBOARDING_ENABLED") !== "1") {
+        return error(503, "mcp-owner-project-onboarding-unavailable",
+          "A autorização de projetos MCP ainda não está disponível.");
+      }
+      if (path === ACCOUNT_MCP_PROJECT_ONBOARDING_PATH) {
+        const deviceIds = url.searchParams.getAll("device_id");
+        if (url.searchParams.size !== 1 || deviceIds.length !== 1
+            || !isOwnerUuid(deviceIds[0])) {
+          return error(400, "mcp-owner-device-invalid", "Dispositivo inválido.");
+        }
+        try {
+          return json(200, await readAccountOwnerProjectOnboarding(session.access, deviceIds[0]),
+            session.cookies);
+        } catch {
+          return error(503, "mcp-owner-project-onboarding-unavailable",
+            "Não foi possível consultar a autorização de projetos.");
+        }
+      }
+      if (!publicSiteRequest(req) || !verifyTrustedPublicRequestContext(req).ok) {
+        return error(403, "mcp-owner-csrf-denied", "Origem de criação de projeto não autorizada.");
+      }
+      if (url.search !== "" ||
+          (req.headers.get("content-type") ?? "").split(";")[0].trim().toLowerCase()
+            !== "application/json") {
+        return error(400, "mcp-owner-project-create-invalid", "Solicitação inválida.");
+      }
+      let projectCreate;
+      try {
+        const raw = await boundedBody(req);
+        if (raw.length > 2048) throw new Error("mcp-owner-project-create-too-large");
+        projectCreate = JSON.parse(raw);
+      } catch {
+        return error(400, "mcp-owner-project-create-invalid", "Solicitação inválida.");
+      }
+      if (!parseAccountOwnerProjectCreate(projectCreate))
+        return error(400, "mcp-owner-project-create-invalid",
+          "Confirme o Space, o nome e o tipo exatos do projeto.");
+      try {
+        return json(201, await createAccountOwnerProject(session.access, projectCreate),
+          session.cookies);
+      } catch {
+        // An uncertain create is never retried. The next explicit Owner read
+        // must reconcile whether a Project was created.
+        return error(503, "mcp-owner-project-create-unconfirmed",
+          "A criação não foi confirmada. Consulte os projetos antes de tentar novamente.");
       }
     }
     if (path === ACCOUNT_MCP_CENTRAL_TARGETS_PATH || path === ACCOUNT_MCP_CENTRAL_SELECTIONS_PATH) {
