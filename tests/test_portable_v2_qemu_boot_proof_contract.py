@@ -315,7 +315,7 @@ class PortableV2QEMUBootProofTests(unittest.TestCase):
             'test ! -L "$module_archive"',
             'export ORDAX_HOST_PYTHON="$(command -v python3)"',
             'export ORDAX_KERNEL_MODULES_ARCHIVE="$module_archive"',
-            'export ORDAX_KERNEL_MODULES_RECEIPT="$base_out/kernel-module-payload.json"',
+            'export ORDAX_KERNEL_MODULES_RECEIPT="$base_out/kernel-module-selection.json"',
             '--out "$base_out"',
             'python3 bootstrap/independent-base/build.py verify',
             'portable_component_cache.py verify',

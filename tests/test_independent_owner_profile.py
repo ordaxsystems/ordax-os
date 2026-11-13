@@ -211,7 +211,7 @@ class IndependentOwnerDevelopmentProfileTests(unittest.TestCase):
             "ORDAX_KERNEL_MODULES_RECEIPT",
         ):
             self.assertIn(f"requires {variable}", script)
-        self.assertIn('bootstrap/base/kernel_module_payload.py" install', script)
+        self.assertIn('bootstrap/kernel/module_archive.py" install-wifi', script)
         self.assertIn('--archive "$ORDAX_KERNEL_MODULES_ARCHIVE"', script)
         self.assertIn('--receipt "$ORDAX_KERNEL_MODULES_RECEIPT"', script)
         self.assertNotIn("bootstrap/kernel/build.py", script)
@@ -226,11 +226,11 @@ class IndependentOwnerDevelopmentProfileTests(unittest.TestCase):
     def test_owner_hardware_receipts_are_embedded_exactly(self) -> None:
         script = POST_BUILD.read_text(encoding="utf-8")
         self.assertIn(
-            'cp "$ORDAX_KERNEL_MODULES_RECEIPT" "$TARGET_DIR/etc/ordax/kernel-module-payload.json"',
+            'cp "$ORDAX_KERNEL_MODULES_RECEIPT" "$TARGET_DIR/etc/ordax/kernel-module-selection.json"',
             script,
         )
         self.assertIn(
-            'cmp -s "$ORDAX_KERNEL_MODULES_RECEIPT" "$TARGET_DIR/etc/ordax/kernel-module-payload.json"',
+            'cmp -s "$ORDAX_KERNEL_MODULES_RECEIPT" "$TARGET_DIR/etc/ordax/kernel-module-selection.json"',
             script,
         )
         self.assertIn(
@@ -372,7 +372,7 @@ class OwnerBuildInputPreflightTests(unittest.TestCase):
             environment = {
                 "ORDAX_HOST_PYTHON": "/usr/bin/python3",
                 "ORDAX_KERNEL_MODULES_ARCHIVE": str(archive),
-                "ORDAX_KERNEL_MODULES_RECEIPT": str(root / "kernel-module-payload.json"),
+                "ORDAX_KERNEL_MODULES_RECEIPT": str(root / "kernel-module-selection.json"),
                 "ORDAX_FIRMWARE_COVERAGE_RECEIPT": str(root / "firmware-coverage.json"),
             }
             with patch.dict("os.environ", environment, clear=True):

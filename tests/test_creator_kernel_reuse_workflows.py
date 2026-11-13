@@ -117,7 +117,7 @@ class CreatorKernelReuseWorkflowTests(unittest.TestCase):
         self.assertIn('install -d -m 0755 "$owner_base"', dev_base)
         self.assertIn('test ! -L "$owner_base"', dev_base)
         self.assertIn(
-            'ORDAX_KERNEL_MODULES_RECEIPT="$owner_base/kernel-module-payload.json"',
+            'ORDAX_KERNEL_MODULES_RECEIPT="$owner_base/kernel-module-selection.json"',
             dev_base,
         )
         self.assertIn(

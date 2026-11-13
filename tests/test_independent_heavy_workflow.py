@@ -209,7 +209,7 @@ class IndependentHeavyWorkflowTests(unittest.TestCase):
         self.assertIn("kernel-modules-$kernel_version.tar", text)
         self.assertIn("ORDAX_KERNEL_MODULES_ARCHIVE", text)
         self.assertIn("ORDAX_KERNEL_MODULES_RECEIPT", text)
-        self.assertIn("kernel-module-payload.json", text)
+        self.assertIn("kernel-module-selection.json", text)
         self.assertIn('python3 -c \'import json; from pathlib import Path;', text)
         self.assertNotIn("<<'PY'", text)
 
@@ -228,7 +228,7 @@ class IndependentHeavyWorkflowTests(unittest.TestCase):
         self.assertIn('test ! -L "$receipt_root"', binding)
         self.assertIn('install -d -m 0700 -- "$receipt_root"', binding)
         self.assertIn(
-            '"$receipt_root/kernel-module-payload.json" >> "$GITHUB_ENV"',
+            '"$receipt_root/kernel-module-selection.json" >> "$GITHUB_ENV"',
             binding,
         )
         self.assertIn(
@@ -256,7 +256,7 @@ class IndependentHeavyWorkflowTests(unittest.TestCase):
 
     def test_evidence_upload_includes_owner_hardware_and_consumer_receipts(self) -> None:
         text = self.text()
-        self.assertIn("kernel-module-payload.json", text)
+        self.assertIn("kernel-module-selection.json", text)
         self.assertIn("firmware-coverage.json", text)
         self.assertIn("dev-channel-rootfs-compatibility.json", text)
         self.assertIn("kernel-component-reuse.json", text)
