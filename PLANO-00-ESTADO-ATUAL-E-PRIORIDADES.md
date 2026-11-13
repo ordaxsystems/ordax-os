@@ -110,6 +110,8 @@ A fundação de identidade/entitlements, Spaces/Profile Packs, memória provider
 
 ### Recorte do legado `novo-ordax-os` para o MVP USB-only
 
+**ATENÇÃO (13/11/2026): toda a matriz C01–C27 abaixo é inventário histórico do recorte USB-only e não define o MVP multi-canal vigente.** Para Desktop, USB/Native, Creator, Surface, Apps, Site e Intelligence, use `MVP.md` + `docs/CURRENT-STATE.md` + contratos/owners atuais. Em particular, a antiga linha C11 (“Desktop instalado NÃO”) não deve ser usada para serializar ou adiar a jornada Desktop; ela registra somente a decisão daquele snapshot arquivado.
+
 Os planos longos registram capacidades herdadas como referência de produto, mas a decisão posterior do MVP mudou a prioridade. Para o MVP público atual, interpretar a matriz C01–C27 assim:
 
 | Capacidade do plano legado | Decisão para o MVP | Estado/ação atual |
