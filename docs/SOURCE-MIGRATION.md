@@ -1,5 +1,7 @@
 # Source Migration Ledger
 
+Status: **CANONICAL MIGRATION LEDGER / HISTORICAL PROVENANCE — NOT CURRENT-STATE.** This file records source-adoption decisions and immutable provenance over time. Dated entries do not define current priority, owner status or an instruction to re-run a migration. For operational state use `docs/CURRENT-STATE.md`, current source/contracts and live PRs; this ledger remains authoritative only for what was migrated/reimplemented and why.
+
 ## Native emulator and Meridian First Run — 2026-10-18
 
 - User explicitly requires Meridian as the sole OS identity, staged from welcome.
@@ -41,7 +43,6 @@
 - Validation: first-run ownership regression and emulator OOBE-to-Surface smoke
   with a non-default time zone persisted in the shared preference store.
 
-Status: CANONICAL LEDGER
 
 ## First Run SSOT cleanup — 2026-10-17
 
