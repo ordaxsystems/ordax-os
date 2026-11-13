@@ -65,7 +65,6 @@ class ContinuousReadinessSnapshotTests(unittest.TestCase):
             "tools/creator/stable_mvp_usb_readiness.py",
             "docs/contracts/physical-write-authorization.json",
             "docs/PROMOTION-GATES.md",
-            "docs/MVP-PRE-PHYSICAL-HANDOFF.md",
             "docs/contracts/application-compatibility.json",
             "tools/ops/first_mvp_operator_readiness.py",
             "docs/contracts/creator-code-signing.json",
