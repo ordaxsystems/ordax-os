@@ -20,6 +20,52 @@ class CreatorExternalGoOnlyTests(unittest.TestCase):
         self.assertFalse((CREATOR / "cmd").exists())
         self.assertFalse((CREATOR / "physicalchannel").exists())
 
+    def test_creator_consumers_watch_only_live_os_producer_paths(self):
+        # External Creator Go is not vendored inside OS. Its only supported
+        # integration boundary is the immutable source pin and resolver.
+        retired_paths = (
+            "tools/creator/core/",
+            "tools/creator/cmd/",
+            "tools/creator/host/",
+            "tools/creator/physicalchannel/",
+            "tools/creator/go.mod",
+            "tools/creator/go.sum",
+        )
+        consumers = {
+            "full-bootstrap-media-proof.yml": "tools/creator/assemble.py",
+            "native-disposable-storage-proof.yml": "tools/creator/proof/native_disposable.py",
+            "native-esp-candidate.yml": "tools/creator/proof/native_esp.py",
+            "physical-write-promotion.yml": "tools/creator/physical_promotion.py",
+            "portable-usb-v2-proof.yml": "tools/creator/proof/portable_usb_v2.py",
+        }
+        for filename, live_source in consumers.items():
+            with self.subTest(workflow=filename):
+                text = (ROOT / ".github/workflows" / filename).read_text(encoding="utf-8")
+                events = text.split("\njobs:\n", 1)[0]
+                for old in retired_paths:
+                    self.assertNotIn(old, events)
+                self.assertIn("docs/contracts/native-release-assembly.json", events)
+                self.assertIn(".github/actions/resolve-creator-source/**", events)
+                self.assertIn(live_source, events)
+                self.assertIn("workflow_dispatch:", events)
+                self.assertIn("uses: ./.github/actions/resolve-creator-source", text)
+
+    def test_owner_usb_retains_go_resurrection_sentinels_only(self):
+        source = (
+            ROOT / ".github/workflows/creator-owner-dev-git.yml"
+        ).read_text(encoding="utf-8")
+        events = source.split("\njobs:\n", 1)[0]
+        self.assertIn("docs/contracts/native-release-assembly.json", events)
+        self.assertIn("tests/test_creator_no_embedded_go.py", events)
+        for expected in (
+            "tools/creator/**/*.go",
+            "tools/creator/go.mod",
+            "tools/creator/go.sum",
+        ):
+            self.assertIn(expected, events)
+        self.assertNotIn("tools/creator/core/README.md", events)
+        self.assertIn("resurrection sentinels", events)
+
     def test_exact_immutable_external_source_and_os_producers_coexist(self):
         contract = json.loads(PIN.read_text(encoding="utf-8"))
         source = contract["creator_source"]
