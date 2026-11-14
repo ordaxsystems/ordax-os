@@ -3,8 +3,8 @@
 // Release activation is forbidden until the OS canonical component trust gates
 // AND a signed, source-bound Windows executable have both been verified.
 import {spawn,execFile} from "node:child_process";
-import {createHash} from "node:crypto";
-import {lstatSync,readFileSync,realpathSync} from "node:fs";
+import {createHash,randomBytes} from "node:crypto";
+import {lstatSync,readFileSync,realpathSync,unlinkSync} from "node:fs";
 import {isAbsolute,join,relative,sep} from "node:path";
 import ownedProcessTree from "./owned-process-tree.cjs";
 const {stopOwnedWindowsProcessTree}=ownedProcessTree;
@@ -210,22 +210,30 @@ export function createDesktopSignedRuntimeHandoff({
 export function stopOwnedDesktopWindowsTree(pid,options){
   return stopOwnedWindowsProcessTree(pid,options);
 }
-function snapshot(state,reason,identity,deviceId=null){
+function snapshot(state,reason,identity,deviceId=null,observation={}){
   const exposedDeviceId=typeof deviceId==="string"&&UUID.test(deviceId)?deviceId:null;
+  const digest=typeof observation.capabilityDigest==="string"&&
+    SHA256.test(observation.capabilityDigest)?observation.capabilityDigest:null;
+  const productDispatchReady=observation.productDispatchReady===true&&
+    state==="running"&&identity===true&&digest!==null;
   return Object.freeze({
     schema:SCHEMA,host:HOST,state,reason,
     enrolled:identity,deviceId:exposedDeviceId,
     processRunning:state==="running"||state==="stopping",
-    // Device id is routing identity only. Process presence and a UUID never
-    // prove a centrally attested MCP session or grant any capability.
-    mcpReady:false,capabilityDigest:null,centralSessionAttested:false,
+    // Product dispatch readiness is a local observation of this exact Runtime.
+    // It is NOT the persistent conversation binding or a client grant; those
+    // remain Platform-owned. Legacy fields stay false to prevent old clients
+    // from interpreting readiness as a Central-session attestation.
+    productDispatchReady,capabilityDigest:digest,
+    mcpReady:false,centralSessionAttested:false,
   });
 }
 export function createDesktopProductRuntimeSupervisor({
   systemRoot,userData,verifiedHandoff=null,developmentCandidate=false,spawnImpl=spawn,
   platform=process.platform,env=process.env,log=()=>{},nativeBridge=null,
   stopTreeImpl=null,clock=Date.now,setTimeoutImpl=setTimeout,
-  clearTimeoutImpl=clearTimeout,
+  clearTimeoutImpl=clearTimeout,fetchImpl=globalThis.fetch,
+  randomBytesImpl=randomBytes,
 }={}){
   if(typeof systemRoot!=="string"||!isAbsolute(systemRoot)||
      typeof userData!=="string"||!isAbsolute(userData)||
@@ -235,7 +243,8 @@ export function createDesktopProductRuntimeSupervisor({
      (nativeBridge!==null&&typeof nativeBridge!=="function")||
      (stopTreeImpl!==null&&typeof stopTreeImpl!=="function")||
      typeof clock!=="function"||typeof setTimeoutImpl!=="function"||
-     typeof clearTimeoutImpl!=="function")
+     typeof clearTimeoutImpl!=="function"||typeof fetchImpl!=="function"||
+     typeof randomBytesImpl!=="function")
     throw TypeError("OrdaX Supervisor requires OS-owned roots and verifier");
   const stopOwnedTree=stopTreeImpl??(spawnImpl===spawn
     ? pid=>stopOwnedDesktopWindowsTree(pid,{windowsRoot:env.SystemRoot})
@@ -255,6 +264,71 @@ export function createDesktopProductRuntimeSupervisor({
   };
   const resetRetry=()=>{
     cancelRetry();retryAt=0;retryKey=null;failureCount=0;
+  };
+  const cleanupHandoff=owned=>{
+    if(!owned?.handoffPath)return;
+    try{unlinkSync(owned.handoffPath)}catch{}
+  };
+  const readRuntimeHandoff=owned=>{
+    try{
+      const raw=JSON.parse(readRegular(owned.handoffPath,4096).toString("utf8"));
+      if(raw?.schema!=="ordax.desktop-runtime-status-handoff/1"||
+         raw.launch_nonce!==owned.launchNonce||
+         !Number.isSafeInteger(raw.runtime_pid)||raw.runtime_pid<1||
+         !Number.isSafeInteger(raw.port)||raw.port<1||raw.port>65535)
+        return null;
+      return raw;
+    }catch{return null}
+  };
+  const observeActive=async owned=>{
+    if(!owned||active!==owned||owned.stopRequested||
+       owned.child.exitCode!==null||owned.child.signalCode!==null)
+      return current;
+    const handoff=readRuntimeHandoff(owned);
+    if(!handoff)
+      return current=snapshot("running","runtime_readiness_pending",true,
+        owned.deviceId);
+    let response,raw;
+    try{
+      const options={method:"GET",redirect:"error",cache:"no-store"};
+      if(typeof globalThis.AbortSignal?.timeout==="function")
+        options.signal=globalThis.AbortSignal.timeout(1500);
+      response=await fetchImpl("http://127.0.0.1:"+handoff.port+"/readiness",options);
+      if(response?.status!==200||
+         !String(response.headers?.get?.("content-type")??"")
+           .toLowerCase().includes("application/json"))
+        throw Error("Runtime readiness endpoint unavailable");
+      raw=await response.json();
+    }catch{
+      if(active!==owned)return current;
+      return current=snapshot("running","runtime_readiness_unavailable",true,
+        owned.deviceId);
+    }
+    if(active!==owned)return current;
+    const runtime=raw?.runtime;
+    const digest=typeof runtime?.capabilities_digest==="string"&&
+      SHA256.test(runtime.capabilities_digest)?runtime.capabilities_digest:null;
+    const baseValid=typeof raw?.local_dispatch_ready==="boolean"&&
+      raw.client_authorization==="not_verified_by_local_readiness"&&
+      runtime&&typeof runtime==="object"&&
+      typeof runtime.product_dispatch_ready==="boolean"&&
+      runtime.product_dispatch_ready===raw.local_dispatch_ready&&
+      typeof runtime.product_readiness_code==="string"&&
+      typeof runtime.state==="string"&&typeof runtime.transport_state==="string";
+    if(!baseValid)
+      return current=snapshot("running","runtime_readiness_invalid",true,
+        owned.deviceId);
+    const ready=raw.local_dispatch_ready===true&&digest!==null&&
+      runtime.product_readiness_code==="ready"&&
+      (runtime.state==="ready"||runtime.state==="busy")&&
+      runtime.transport_state==="connected";
+    if(raw.local_dispatch_ready===true&&!ready)
+      return current=snapshot("running","runtime_readiness_invalid",true,
+        owned.deviceId);
+    return current=snapshot("running",ready?"product_dispatch_ready":
+      "product_dispatch_not_ready",true,owned.deviceId,{
+        productDispatchReady:ready,capabilityDigest:digest,
+      });
   };
   const scheduleRecovery=(key,startedAt,requestedRestart=false)=>{
     if(closed)return;
@@ -389,7 +463,7 @@ export function createDesktopProductRuntimeSupervisor({
       bridgeDigest;
     if(retryKey!==null&&retryKey!==key)resetRetry();
     if(active?.key===key&&!active.stopRequested&&active.child.exitCode===null&&active.child.signalCode===null)
-      return current=snapshot("running",plan.dev?"dev_remote_attestation_pending":"remote_attestation_pending",true,prepared.identity.deviceId);
+      return await observeActive(active);
     if(!stopActive()){
       return current=snapshot("stopping","previous_instance_still_running",true);
     }
@@ -407,11 +481,19 @@ export function createDesktopProductRuntimeSupervisor({
         continue;
       childEnv[name]=value;
     }
+    let launchNonce;
+    try{launchNonce=randomBytesImpl(32).toString("hex")}catch{}
+    if(typeof launchNonce!=="string"||!TOKEN.test(launchNonce))
+      return current=snapshot("blocked","runtime_status_nonce_unavailable",true,
+        prepared.identity.deviceId);
+    const handoffPath=join(prepared.identity.directory,
+      "runtime-status-"+launchNonce+".json");
     Object.assign(childEnv,{
       ORDAX_RUNTIME_HOST_PROFILE:"ordax-desktop",
       ORDAX_DESKTOP_USER_DATA:userData,
       ORDAX_AGENT_STATE_DIR:prepared.identity.directory,
       ORDAX_PRODUCT_MCP_URL:prepared.identity.transport,
+      ORDAX_RUNTIME_STATUS_NONCE:launchNonce,
       PYTHONNOUSERSITE:"1",
     });
     if(bridge){
@@ -432,7 +514,8 @@ export function createDesktopProductRuntimeSupervisor({
       return current=snapshot("blocked","runtime_spawn_failed",true);
     }
     active={key,child,stopRequested:false,startedAt:clock(),
-      tokenFingerprint:prepared.identity.tokenFingerprint};
+      tokenFingerprint:prepared.identity.tokenFingerprint,
+      deviceId:prepared.identity.deviceId,launchNonce,handoffPath};
     child.once?.("error",()=>{
       if(active?.child!==child)return;
       const owned=active;
@@ -446,6 +529,8 @@ export function createDesktopProductRuntimeSupervisor({
         return;
       }
       // Spawn failed before the OS assigned a PID: no child can outlive us.
+      // Remove any launch handoff that appeared before the asynchronous error.
+      cleanupHandoff(owned);
       active=null;
       if(!owned.stopRequested&&!closed)
         scheduleRecovery(owned.key,owned.startedAt);
@@ -454,6 +539,7 @@ export function createDesktopProductRuntimeSupervisor({
     child.once?.("exit",(code)=>{
       if(active?.child===child){
         const owned=active;
+        cleanupHandoff(owned);
         // An exit code is safe to publish; never log stderr, tokens, paths or
         // the remote control-plane payload as part of lifecycle diagnostics.
         log("Product Runtime exit code="+(Number.isInteger(code)?code:"signal"));
@@ -475,8 +561,9 @@ export function createDesktopProductRuntimeSupervisor({
               : snapshot("stopped","runtime_exited",true);
       }
     });
-    log("OrdaX product runtime process owned by Native host; remote session not attested");
-    return current=snapshot("running",plan.dev?"dev_remote_attestation_pending":"remote_attestation_pending",true,prepared.identity.deviceId);
+    log("OrdaX product runtime process owned by Native host; Platform binding remains independent");
+    return current=snapshot("running","runtime_readiness_pending",true,
+      prepared.identity.deviceId);
   }
   function reconcile(){
     const op=transition.then(actuallyReconcile,actuallyReconcile);
@@ -485,6 +572,7 @@ export function createDesktopProductRuntimeSupervisor({
   }
   return Object.freeze({
     status(){return current},
+    async observe(){return active?observeActive(active):current},
     reconcile,
     stop(){
       closed=true;

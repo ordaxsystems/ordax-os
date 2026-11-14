@@ -473,6 +473,26 @@ enrollment, verified Runtime lifecycle, nonempty `capability_digest`,
 exact authorized client and one real MCP action. Native/USB continues
 using the existing Linux Supervisor and its own credential.
 
+Desktop Product MCP readiness reconciliation (2026-11-14): the Windows
+Supervisor no longer treats process presence or the historical Central-session
+observation as MCP readiness. The canonical `ordax-runtime` Desktop profile
+publishes its ephemeral loopback status port through a launch-bound nonce handoff
+inside the existing Product identity directory. The handoff contains only schema,
+nonce, PID and port. The Supervisor validates that exact handoff and reads
+`/readiness` from the same process; the Runtime returns
+`product_dispatch_ready` plus the `capabilities_digest` calculated from the
+same canonical action list used by Product heartbeat. The OS projects this as
+`productDispatchReady`; compatibility fields `mcpReady` and
+`centralSessionAttested` remain false so an older consumer cannot reinterpret
+readiness as authorization. Conversation -> Device binding remains persistent and
+Platform-owned until explicit authority invalidates it; no heartbeat TTL, second
+scheduler, second MCP, copied grant or local client authorization was added.
+Runtime source tests cover launch binding, loopback security, central-session
+semantics, ingress/failover and resource cleanup; OS tests cover forged nonce
+rejection, capability digest propagation and the authenticated Native projection.
+Production trust gates remain independently closed as recorded above, so this
+source reconciliation does not claim signed Stable/MVP component activation.
+
 Native Product MCP lifecycle integration (2026-10-23): Owner/Development USB
 `system/supervisor` reconciles the OS-owned
 `system/services/device-agent/native-product-lifecycle.sh` after the first

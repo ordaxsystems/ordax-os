@@ -405,14 +405,17 @@ export function nativeEmulatorPlugin(stateDirectory, { desktopHost = false, acco
           // A Vite config reload closes this HTTP server without exiting
           // the Node host. Its old Runtime must end before a new owner starts.
           server.httpServer?.once?.("close",stopProductRuntime);
-          server.middlewares.use((request,response,next) => {
+          server.middlewares.use(async (request,response,next) => {
             if (request.url?.split("?")[0]!=="/__ordax/native/product-runtime-status")
               return next();
             // The preceding shared observation middleware already verified
             // loopback, the per-launch Electron grant, GET and exact URL.
+            // Observe the SAME supervised Runtime's launch-bound loopback
+            // readiness; never infer a Platform binding from process presence.
+            const observation=await productRuntime.observe().catch(()=>productRuntime.status());
             response.writeHead(200,{"Content-Type":"application/json",
               "Cache-Control":"no-store","X-Content-Type-Options":"nosniff"});
-            response.end(JSON.stringify(productRuntime.status()));
+            response.end(JSON.stringify(observation));
           });
         }
         // Genuine Windows host observation under the canonical Native port.

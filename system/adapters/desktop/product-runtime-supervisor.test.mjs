@@ -1,7 +1,7 @@
 import test from "node:test";
 import assert from "node:assert/strict";
 import {EventEmitter} from "node:events";
-import {mkdtempSync,mkdirSync,writeFileSync,readFileSync,symlinkSync,rmSync} from "node:fs";
+import {mkdtempSync,mkdirSync,writeFileSync,readFileSync,symlinkSync,rmSync,existsSync} from "node:fs";
 import {tmpdir} from "node:os";
 import {join} from "node:path";
 import {createHash} from "node:crypto";
@@ -132,11 +132,59 @@ test("Runtime credential rejection (exit 43) halts retries until Owner rotates t
   writeFileSync(join(f.state,"device-token.cloudflare-v3.txt"),"c".repeat(64));
   const recovered=await sup.reconcile();
   assert.equal(recovered.state,"running");
-  assert.equal(recovered.reason,"dev_remote_attestation_pending");
+  assert.equal(recovered.reason,"runtime_readiness_pending");
   assert.equal(recovered.mcpReady,false);
   assert.equal(launches,2);
   sup.stop();
 });
+test("launch-bound Runtime readiness exposes dispatch without inventing Platform attestation",async t=>{
+  const f=fixture(t,{approved:false});
+  stagePinnedDesktopDevCandidate(f);
+  const proc=child(),requests=[];
+  let spawnedEnv=null;
+  const digest="d".repeat(64),nonce="11".repeat(32);
+  const sup=createDesktopProductRuntimeSupervisor({
+    systemRoot:f.systemRoot,userData:f.userData,platform:"win32",
+    developmentCandidate:true,
+    randomBytesImpl:()=>Buffer.alloc(32,0x11),
+    spawnImpl:(_executable,_args,options)=>{spawnedEnv=options.env;return proc},
+    fetchImpl:async (url,options)=>{
+      requests.push({url,options});
+      return {status:200,headers:{get:()=> "application/json; charset=utf-8"},
+        json:async()=>({
+          local_dispatch_ready:true,
+          runtime:{state:"ready",transport_state:"connected",
+            product_dispatch_ready:true,product_readiness_code:"ready",
+            capabilities_digest:digest},
+          client_authorization:"not_verified_by_local_readiness",
+        })};
+    },
+  });
+  const started=await sup.reconcile();
+  assert.equal(started.reason,"runtime_readiness_pending");
+  assert.equal(started.productDispatchReady,false);
+  assert.equal(spawnedEnv.ORDAX_RUNTIME_STATUS_NONCE,nonce);
+  const handoff=join(f.state,"runtime-status-"+nonce+".json");
+  writeFileSync(handoff,JSON.stringify({schema:"ordax.desktop-runtime-status-handoff/1",
+    launch_nonce:"00".repeat(32),runtime_pid:9999,port:43210}));
+  const forged=await sup.observe();
+  assert.equal(forged.productDispatchReady,false);
+  assert.equal(forged.reason,"runtime_readiness_pending");
+  assert.equal(requests.length,0);
+  writeFileSync(handoff,JSON.stringify({schema:"ordax.desktop-runtime-status-handoff/1",
+    launch_nonce:nonce,runtime_pid:9999,port:43210}));
+  const ready=await sup.observe();
+  assert.equal(ready.productDispatchReady,true);
+  assert.equal(ready.capabilityDigest,digest);
+  assert.equal(ready.mcpReady,false);
+  assert.equal(ready.centralSessionAttested,false);
+  assert.equal(ready.deviceId,"11111111-1111-4111-8111-111111111111");
+  assert.equal(requests.length,1);
+  assert.equal(requests[0].url,"http://127.0.0.1:43210/readiness");
+  proc.exitCode=0;proc.emit("exit",0,null);
+  assert.equal(existsSync(handoff),false);
+});
+
 test("Runtime requested restart (exit 42) retains prompt but bounded supervised recovery",async t=>{
   const f=fixture(t,{approved:false}),virtual=virtualRestartClock();
   stagePinnedDesktopDevCandidate(f);
@@ -210,8 +258,8 @@ test("opted-in, hash-pinned DEV candidate starts ONE canonical scoped process",a
   });
   const [one,two]=await Promise.all([sup.reconcile(),sup.reconcile()]);
   assert.equal(one.state,"running");
-  assert.equal(one.reason,"dev_remote_attestation_pending");
-  assert.equal(two.reason,"dev_remote_attestation_pending");
+  assert.equal(one.reason,"runtime_readiness_pending");
+  assert.equal(two.reason,"runtime_readiness_pending");
   assert.equal(launches,1);
   assert.equal(one.mcpReady,false);
   assert.equal(one.centralSessionAttested,false);
@@ -366,7 +414,7 @@ test("valid signed plan launches ONE scoped process without inherited Windows pr
  assert.equal(a.state,"running");assert.equal(b.state,"running");
  assert.equal(a.mcpReady,false);
  assert.equal(a.capabilityDigest,null);
- assert.equal(a.reason,"remote_attestation_pending");
+ assert.equal(a.reason,"runtime_readiness_pending");
  assert.equal(settings.env.ORDAX_RUNTIME_HOST_PROFILE,"ordax-desktop");
  assert.equal(settings.env.ORDAX_AGENT_STATE_DIR,f.state);
  assert.equal(settings.env.ORDAX_DESKTOP_USER_DATA,f.userData);
