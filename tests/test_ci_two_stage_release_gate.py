@@ -81,9 +81,6 @@ class ReleaseCandidateGateTests(unittest.TestCase):
         self.assertIn("needs.proposed-kernel-contract.outputs.version", heavy)
         self.assertNotIn("steps.candidate.outputs", heavy)
         self.assertIn("candidate_pipeline.py prove", heavy)
-        self.assertIn("verify_upstream_signature.py", (
-            ROOT / "kernel-lts-update-proposal.yml"
-        ).read_text(encoding="utf-8")) if False else None
 
     def test_independent_base_contract_remains_mandatory_in_draft(self):
         text = (ROOT / "independent-base-experiment.yml").read_text(encoding="utf-8")
