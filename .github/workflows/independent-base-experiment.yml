@@ -1,13 +1,6 @@
 name: Independent Base Experiment
 
 on:
-  push:
-    # Only explicitly marked migration-branch commits activate the heavy jobs.
-    branches: ['integration/dev-usb-buildroot-surface-20261024']
-    paths:
-      - 'bootstrap/independent-base/**'
-      - 'tests/test_independent_native_component.py'
-      - '.github/workflows/independent-base-experiment.yml'
   pull_request:
     types: [opened, synchronize, reopened, ready_for_review]
     paths:
@@ -55,8 +48,6 @@ jobs:
   independent-base-contract:
     # Validate the Owner Buildroot profile on draft PRs without building the
     # kernel/rootfs or starting QEMU. The release job must depend on this gate.
-    # Heavy push proof remains explicit on the single active integration branch.
-    if: ${{ github.event_name != 'push' || (github.ref == 'refs/heads/integration/dev-usb-buildroot-surface-20261024' && contains(github.event.head_commit.message, '[stable-mvp-proof]')) }}
     runs-on: ubuntu-24.04
     timeout-minutes: 20
     permissions:
@@ -88,9 +79,6 @@ jobs:
             # Any PR exercising Independent Base must prove the Owner USB target;
             # the minimal profile remains selectable explicitly by dispatch.
             profile=owner-development
-          elif [ "$EVENT_NAME" = push ] && [ "$GITHUB_REF" = refs/heads/integration/dev-usb-buildroot-surface-20261024 ]; then
-            # Isolated non-promotable Stable parity. Kernel cache miss must abort.
-            profile=stable-mvp
           fi
           case "$profile" in
             minimal|owner-development|stable-mvp) ;;
@@ -139,7 +127,7 @@ jobs:
 
   buildroot-qemu:
     needs: independent-base-contract
-    if: ${{ github.event_name == 'workflow_dispatch' || (github.event_name == 'pull_request' && !github.event.pull_request.draft) || (github.event_name == 'push' && github.ref == 'refs/heads/integration/dev-usb-buildroot-surface-20261024' && contains(github.event.head_commit.message, '[stable-mvp-proof]')) }}
+    if: ${{ github.event_name == 'workflow_dispatch' || (github.event_name == 'pull_request' && !github.event.pull_request.draft) }}
     runs-on: ubuntu-24.04
     timeout-minutes: 120
     # Serialize first cold-cache Owner Buildroot build with Creator/Surface.
@@ -267,21 +255,14 @@ jobs:
         env:
           ORDAX_STABLE_KERNEL_CACHE_HIT: ${{ steps.kernel-cache.outputs.cache-hit }}
           ORDAX_VERIFIED_KERNEL_ARTIFACT_REUSED: ${{ steps.kernel-artifact.outputs.reused }}
-          # Only this explicitly marked integration-branch commit may seed a
-          # missing kernel cache once. Ordinary Stable, dispatch, PR and
-          # subsequent unmarked commits remain strictly cache-only.
-          ORDAX_EXPLICIT_STABLE_KERNEL_BOOTSTRAP: ${{ github.event_name == 'push' && github.ref == 'refs/heads/integration/dev-usb-buildroot-surface-20261024' && contains(github.event.head_commit.message, '[stable-mvp-bootstrap-kernel]') }}
         run: |
           set -euo pipefail
           if [ "$ORDAX_STABLE_KERNEL_CACHE_HIT" != true ] && [ "$ORDAX_VERIFIED_KERNEL_ARTIFACT_REUSED" != true ]; then
-            if [ "$ORDAX_EXPLICIT_STABLE_KERNEL_BOOTSTRAP" != true ]; then
-              echo 'Stable candidate must reuse an existing verified kernel; no recompilation authorized' >&2
-              exit 1
-            fi
-            echo 'ORDAX_EXPLICIT_STABLE_KERNEL_CACHE_SEED=AUTHORIZED'
+            echo 'Stable candidate must reuse an existing verified kernel; no recompilation authorized' >&2
+            exit 1
           fi
       - name: Build canonical OrdaX kernel on verified cache miss
-        if: ${{ steps.kernel-cache.outputs.cache-hit != 'true' && steps.kernel-artifact.outputs.reused != 'true' && (env.ORDAX_INDEPENDENT_PROFILE != 'stable-mvp' || (github.event_name == 'push' && github.ref == 'refs/heads/integration/dev-usb-buildroot-surface-20261024' && contains(github.event.head_commit.message, '[stable-mvp-bootstrap-kernel]'))) }}
+        if: ${{ steps.kernel-cache.outputs.cache-hit != 'true' && steps.kernel-artifact.outputs.reused != 'true' && env.ORDAX_INDEPENDENT_PROFILE != 'stable-mvp' }}
         env:
           ORDAX_SOURCE_COMMIT: ${{ github.event.pull_request.head.sha || github.sha }}
         run: |
@@ -530,7 +511,7 @@ jobs:
 
   private-native-python:
     name: Compile private Buildroot Python component (no USB install)
-    if: (github.event_name == 'push' && github.ref == 'refs/heads/integration/dev-usb-buildroot-surface-20261024') || github.event_name == 'pull_request'
+    if: github.event_name == 'pull_request'
     runs-on: ubuntu-24.04
     timeout-minutes: 120
     steps:
