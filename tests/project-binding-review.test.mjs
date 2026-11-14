@@ -4,6 +4,9 @@ import {
   createProjectBindingReviewRuntime,
 } from "../system/services/projects/binding-review.mjs";
 import {
+  validateProjectBindingReviewSnapshot,
+} from "../system/contracts/project-binding-review.mjs";
+import {
   PROJECT_CATALOG_SCHEMA,
 } from "../system/contracts/project-catalog.mjs";
 import {
@@ -120,6 +123,23 @@ test("Project binding review links only explicit eligible Project authority for 
   assert.throws(() => runtime.link("project-1", CLOUD_READY),
     /not eligible/);
   runtime.dispose();
+});
+
+test("Project binding review non-ready snapshots remain idempotently valid without exposing Projects", () => {
+  const snapshot = validateProjectBindingReviewSnapshot({
+    schema: "ordax.project-binding-review-snapshot/1",
+    state: "idle",
+    deviceId: null,
+    localProjects: null,
+    cloudProjects: null,
+  });
+  assert.deepEqual(snapshot.localProjects, []);
+  assert.deepEqual(snapshot.cloudProjects, []);
+  assert.doesNotThrow(() => validateProjectBindingReviewSnapshot(snapshot));
+  assert.throws(() => validateProjectBindingReviewSnapshot({
+    ...snapshot,
+    localProjects: [{id: "project-1", name: "Forge"}],
+  }), /cannot expose projects/);
 });
 
 test("Project binding review stays fail-closed without an enrolled local device id", async () => {

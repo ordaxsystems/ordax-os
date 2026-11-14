@@ -58,7 +58,9 @@ export function validateProjectBindingReviewSnapshot(value) {
   if (value.state === "ready" && (deviceId === null || localProjects === null || cloudProjects === null)) {
     throw new TypeError("Ready project binding review requires device and projects");
   }
-  if (value.state !== "ready" && (localProjects !== null || cloudProjects !== null)) {
+  if (value.state !== "ready"
+      && ((localProjects !== null && localProjects.length > 0)
+        || (cloudProjects !== null && cloudProjects.length > 0))) {
     throw new TypeError("Non-ready project binding review cannot expose projects");
   }
   return Object.freeze({
