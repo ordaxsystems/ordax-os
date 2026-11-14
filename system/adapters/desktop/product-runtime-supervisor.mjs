@@ -210,11 +210,14 @@ export function createDesktopSignedRuntimeHandoff({
 export function stopOwnedDesktopWindowsTree(pid,options){
   return stopOwnedWindowsProcessTree(pid,options);
 }
-function snapshot(state,reason,identity){
+function snapshot(state,reason,identity,deviceId=null){
+  const exposedDeviceId=typeof deviceId==="string"&&UUID.test(deviceId)?deviceId:null;
   return Object.freeze({
     schema:SCHEMA,host:HOST,state,reason,
-    enrolled:identity,processRunning:state==="running"||state==="stopping",
-    // Process presence must never be displayed as an attested MCP session.
+    enrolled:identity,deviceId:exposedDeviceId,
+    processRunning:state==="running"||state==="stopping",
+    // Device id is routing identity only. Process presence and a UUID never
+    // prove a centrally attested MCP session or grant any capability.
     mcpReady:false,capabilityDigest:null,centralSessionAttested:false,
   });
 }
@@ -386,7 +389,7 @@ export function createDesktopProductRuntimeSupervisor({
       bridgeDigest;
     if(retryKey!==null&&retryKey!==key)resetRetry();
     if(active?.key===key&&!active.stopRequested&&active.child.exitCode===null&&active.child.signalCode===null)
-      return current=snapshot("running",plan.dev?"dev_remote_attestation_pending":"remote_attestation_pending",true);
+      return current=snapshot("running",plan.dev?"dev_remote_attestation_pending":"remote_attestation_pending",true,prepared.identity.deviceId);
     if(!stopActive()){
       return current=snapshot("stopping","previous_instance_still_running",true);
     }
@@ -473,7 +476,7 @@ export function createDesktopProductRuntimeSupervisor({
       }
     });
     log("OrdaX product runtime process owned by Native host; remote session not attested");
-    return current=snapshot("running",plan.dev?"dev_remote_attestation_pending":"remote_attestation_pending",true);
+    return current=snapshot("running",plan.dev?"dev_remote_attestation_pending":"remote_attestation_pending",true,prepared.identity.deviceId);
   }
   function reconcile(){
     const op=transition.then(actuallyReconcile,actuallyReconcile);

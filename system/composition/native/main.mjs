@@ -55,6 +55,7 @@ import { createSameOriginAccountLifecycle } from "../../adapters/web/account-lif
 import { createWebIdentitySession } from "../../adapters/web/identity.mjs";
 import { createWebSpacesCatalog } from "../../adapters/web/spaces.mjs";
 import { createWebSyncTransport } from "../../adapters/web/sync-transport.mjs";
+import { createWebJsonReader } from "../../adapters/web/json-read.mjs";
 import { validateAccountRuntime } from "../../services/account/runtime.mjs";
 import { createAccountConnectivityRecovery } from "../../services/account/connectivity-recovery.mjs";
 import { createAppActivationChannel } from "../../services/apps/activation.mjs";
@@ -79,6 +80,7 @@ import { createComponentManager } from "../../services/components/manager.mjs";
 import { createRecentFilesRuntime } from "../../services/files/recent-files.mjs";
 import { createProjectCatalogRuntime } from "../../services/files/projects.mjs";
 import { createProjectCloudLinksRuntime } from "../../services/projects/cloud-links.mjs";
+import { createProjectBindingReviewRuntime } from "../../services/projects/binding-review.mjs";
 import { createProjectCloudLinksReader } from "../../services/projects/cloud-links-reader.mjs";
 import { createProjectWebReferenceRuntime } from "../../services/projects/web-references.mjs";
 import { createProjectContinuityFileSpace } from "../../services/files/project-continuity-file-space.mjs";
@@ -1063,6 +1065,20 @@ async function start() {
         },
       )
     : null;
+  const desktopProductRuntimeStatus = windowsDesktopHost
+    ? createNativeDesktopProductRuntimeStatus(window)
+    : null;
+  const projectBindingReview = windowsDesktopHost
+      && desktopProductRuntimeStatus !== null
+      && projects !== null
+      && projectCloudLinks !== null
+    ? createProjectBindingReviewRuntime({
+        reader: createWebJsonReader(window),
+        productRuntimeStatus: desktopProductRuntimeStatus,
+        projects,
+        projectCloudLinks,
+      })
+    : null;
   const accountOverviewControls = mountAccountOverviewControls(
     root,
     identitySession,
@@ -1084,6 +1100,7 @@ async function start() {
     spaceExperience,
     { isAvailable: hasNativeHostBridge, postMessage: postNativeHostMessage },
     spaceCreatePort,
+    projectBindingReview,
   );
   const homeContinuation = mountHomeContinuation(root, { projects, recentFiles, surfaceLifecycle: surface });
   const homePending = mountHomePending(root, { notifications, syncRuntime: accountSync, surfaceLifecycle: surface });
@@ -1173,9 +1190,6 @@ async function start() {
   // the visible shell from requesting legitimate Surface health.
   let storeCatalog = createUnavailableAppStoreCatalogPort();
   let storeOverviewControls = null;
-  const desktopProductRuntimeStatus = windowsDesktopHost
-    ? createNativeDesktopProductRuntimeStatus(window)
-    : null;
   const systemOverviewControls = mountSystemOverviewControls(
     root,
     host,
@@ -1561,6 +1575,7 @@ async function start() {
       workspaceComponentBootstrap?.destroy();
       void externalAppRefresh?.destroy();
       projectReferences?.destroy();
+      projectBindingReview?.dispose();
       projectCloudLinks?.destroy();
       accountOverviewControls.destroy();
       spaceSwitcherControls.destroy();

@@ -9,6 +9,8 @@ export function validateDesktopProductRuntimeStatus(raw) {
       raw.host !== "ordax-desktop" || !STATES.has(raw.state) ||
       typeof raw.reason !== "string" || raw.reason.length > 100 ||
       typeof raw.enrolled !== "boolean" ||
+      !(raw.deviceId === null || (typeof raw.deviceId === "string" &&
+        /^[a-f0-9]{8}-(?:[a-f0-9]{4}-){3}[a-f0-9]{12}$/i.test(raw.deviceId))) ||
       typeof raw.processRunning !== "boolean" ||
       typeof raw.mcpReady !== "boolean" ||
       typeof raw.centralSessionAttested !== "boolean" ||
@@ -33,6 +35,7 @@ export function validateDesktopProductRuntimeStatus(raw) {
   return Object.freeze({
     schema: SCHEMA, host: "ordax-desktop",
     state: raw.state, reason: raw.reason, enrolled: raw.enrolled,
+    deviceId: raw.deviceId,
     processRunning: raw.processRunning, mcpReady: raw.mcpReady,
     centralSessionAttested: raw.centralSessionAttested,
     capabilityDigest: raw.capabilityDigest,
