@@ -217,6 +217,51 @@ class ReleaseCandidateGateTests(unittest.TestCase):
                 # queue: max is mandatory for the three shared producers.
                 self.assertIn("      cancel-in-progress: false\n      queue: max\n", section)
 
+    def test_test_only_deltas_do_not_queue_media_esp_or_local_ai_builds(self):
+        # A test-only change never changes the physical-media, ESP or AI
+        # producer inputs. Foundation must still validate those exact tests.
+        foundation = (ROOT / "foundation.yml").read_text(encoding="utf-8")
+        self.assertIn("  pull_request:\n", foundation)
+        self.assertIn("  push:\n    branches: [main]", foundation)
+        self.assertIn("python -m unittest discover -s tests -p 'test_*.py' -v", foundation)
+        self.assertIn("if: steps.impact.outputs.full != 'false'", foundation)
+        for workflow, excluded_tests, required_sources in (
+            (
+                "full-bootstrap-media-proof.yml",
+                ("tests/test_creator_full_media_external_source.py",),
+                ("boot/esp/**", "bootstrap/initramfs/**",
+                 "docs/contracts/physical-media.json"),
+            ),
+            (
+                "native-esp-candidate.yml",
+                ("tests/test_native_qemu_boot_readiness.py",
+                 "tests/test_native_qemu_boot_proof_contract.py",
+                 "tests/test_native_esp_proof_contract.py"),
+                ("boot/native/**", "bootstrap/native-initramfs/**",
+                 "docs/contracts/native-esp-proof.json"),
+            ),
+            (
+                "local-ai-runtime-candidate.yml",
+                ("tests/test_portable_v4_real_materialization_contract.py",
+                 "tests/test_local_ai_contract.py",
+                 "tests/test_local_ai_runtime_builder.py"),
+                ("bootstrap/local-ai-runtime/**",
+                 "system/services/local-ai/source-lock.json",
+                 "docs/contracts/local-ai.json"),
+            ),
+        ):
+            text = (ROOT / workflow).read_text(encoding="utf-8")
+            triggers = text.split("\njobs:\n", 1)[0]
+            with self.subTest(workflow=workflow):
+                for file in excluded_tests:
+                    self.assertNotIn(file, triggers)
+                    self.assertTrue((ROOT.parents[1] / file).is_file(), file)
+                for source in required_sources:
+                    self.assertIn(source, triggers)
+                self.assertIn("workflow_dispatch:", triggers)
+                self.assertIn("github.event_name != 'pull_request' || !github.event.pull_request.draft", text)
+                self.assertIn("actions/checkout@", text)
+
     def test_no_heavy_test_waiver_for_release(self):
         for filename, (_, guard) in TARGETS.items():
             with self.subTest(filename=filename):
