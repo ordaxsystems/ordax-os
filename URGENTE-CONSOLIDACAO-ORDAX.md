@@ -234,6 +234,11 @@ O contrato `docs/contracts/repository-ownership.json` ainda exigia `control-plan
 - **Contratos isolados OS↔Runtime/Platform, sem execução remota:** `node --test` nas cinco suítes existentes de Device Agent, Projects, capability discovery e bridges da conta/MCP aprovou **64/64**, e os testes Python de ownership MCP e bridge de uso público aprovaram **7/7**, no checkout Windows da `main` pós-`e761dc5c`. Os testes confirmam limites de capacidade, grants e escopo dentro do OS; **não** demonstram login, device binding, `capability_digest` ou execução física através do servidor Platform/Runtime.
 - Nenhum workflow novo, build de kernel, edição de owner Runtime/Platform ou atalho de segurança. **First Run POSIX no Linux concluído na revisão `e761dc5c`: 14/14 testes PASS** no mesmo Foundation, incluindo fsync, symlink, concorrência e recuperação após processo novo. P2.2 continua aberta somente para as integrações reais com dispositivo/Platform/Runtime e distribuição Apps; P1.2 segue aberta para redundâncias de execução ainda não comprovadamente eliminadas.
 
+### P2.2 — gate de assinatura externa acompanha a âncora pública — 2026-11-14
+
+- O workflow existente `runtime-component-external-signing-preflight.yml` validava `system/trust/runtime-components-ed25519.json` no preflight, mas não observava alterações isoladas desse arquivo nos filtros `push` e `pull_request`. A dependência de confiança agora participa de ambos os gatilhos, sem criar novo workflow, publicar assinatura ou liberar ativação.
+- A regressão foi incorporada a `tests/test_runtime_component_external_signing_preflight.py`, cobrindo a âncora e os contratos de trust/package/readiness. Na revisão local, 18/18 testes relacionados passaram e `git diff --check` retornou zero. A execução em GitHub Actions e a distribuição/instalação de Apps permanecem pendentes de prova real.
+
 ## 4. Regras obrigatórias
 
 1. **Nenhuma exclusão por volume**: só remover após verificar imports/referências, chamadas de CI, consumidores, histórico e obrigação de compliance/release. Migrations SQL aplicadas, contratos versionados, manifestos assinados, logs de proveniência obrigatória e gates de segurança não são “lixo”.

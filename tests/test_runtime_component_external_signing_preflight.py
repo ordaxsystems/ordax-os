@@ -35,6 +35,23 @@ def make_platform(root: Path):
 
 
 class ExternalSigningPreflightTests(unittest.TestCase):
+    def test_ci_revalidates_public_anchor_and_policies_on_main_and_pr(self):
+        workflow = (ROOT / ".github" / "workflows" / "runtime-component-external-signing-preflight.yml").read_text(
+            encoding="utf-8"
+        )
+        push, remainder = workflow.split("  pull_request:", 1)
+        pull_request = remainder.split("  workflow_dispatch:", 1)[0]
+        self.assertIn("    branches: [main]", push)
+        for path in (
+            "system/trust/runtime-components-ed25519.json",
+            "docs/contracts/runtime-component-trust-policy.json",
+            "docs/contracts/runtime-component-package.json",
+            "tools/runtime-component-channel/check_production_readiness.py",
+        ):
+            entry = f"      - '{path}'"
+            self.assertEqual(push.count(entry), 1, path)
+            self.assertEqual(pull_request.count(entry), 1, path)
+
     def test_current_policy_is_blocked_safe_after_candidate_verification(self):
         with tempfile.TemporaryDirectory() as temporary:
             work = Path(temporary)
