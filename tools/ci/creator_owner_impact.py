@@ -141,7 +141,7 @@ WINDOWS_PRODUCT_SHARED_ADDITIONS = {
 }
 WINDOWS_PRODUCT_PINNED_BLOBS = {
     "docs/evidence/desktop-runtime-windows-candidate-2026-10-31.json": "5f26c8d88b579fcaed95baceab0d197fdea31441",
-    "system/adapters/native/desktop-product-runtime-status.mjs": "1aa2dfb66bbb60ea3feab0c28ec5cc076dd29da1",
+    "system/adapters/native/desktop-product-runtime-status.mjs": "eba248309f7229d1b33a75ade2513810cb04bbd9",
     "system/adapters/native/desktop-surface-state-report.mjs": "08ce3a0588383b2fe30997e99a972396887d2246",
 }
 
