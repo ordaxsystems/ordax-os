@@ -11,6 +11,7 @@ import unittest
 ROOT = Path(__file__).resolve().parents[1] / ".github" / "workflows"
 TARGETS = {
     "creator-owner-dev-git.yml": ("build-and-publish:", "if: needs.impact.outputs.required == 'true' && (github.event_name != 'pull_request' || !github.event.pull_request.draft)"),
+    "creator-payload-candidate.yml": ("creator-payload:", "if: github.event_name != 'pull_request' || !github.event.pull_request.draft"),
     "independent-surface-runtime.yml": ("buildroot-surface:", "if: needs.impact.outputs.required == 'true' && (github.event_name != 'pull_request' || !github.event.pull_request.draft)"),
     "portable-v2-qemu-boot-proof.yml": ("qemu-portable-v2:", "if: needs.impact.outputs.required == 'true' && (github.event_name != 'pull_request' || !github.event.pull_request.draft)"),
     "independent-base-experiment.yml": ("buildroot-qemu:", "if: " + chr(36) + "{{ github.event_name == 'workflow_dispatch' || (github.event_name == 'pull_request' && !github.event.pull_request.draft) }}"),
