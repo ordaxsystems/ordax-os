@@ -206,17 +206,15 @@ test("Native account sync remains valid without Account Memory foundation", () =
 });
 
 
-test("Native Surface exposes only explicit manual Memory conflict review decisions", () => {
+test("Native composition exposes only explicit manual Memory conflict review authority", () => {
   const root = resolve(dirname(fileURLToPath(import.meta.url)), "..");
   const composition = readFileSync(resolve(root, "system/composition/native/main.mjs"), "utf8");
-  const accountUi = readFileSync(resolve(root, "system/surface/ui/account-overview-controls.mjs"), "utf8");
 
+  // Surface presentation is owned and tested in ordax-surface. The OS test
+  // verifies only its Native authority port; it must not traverse a local
+  // cross-repository junction or duplicate Surface UI assertions.
   assert.match(composition, /createMemoryConflictReviewRuntime/);
   assert.match(composition, /memoryConflictReview,/);
-  assert.match(accountUi, /data-account-memory-conflict-id/);
-  assert.match(accountUi, /preserve-local-intent/);
-  assert.match(accountUi, /accept-authoritative-remote/);
-  assert.doesNotMatch(accountUi, /last-write-wins.*=.*true/i);
 });
 
 test("Native Home refreshes the single authorized Spaces catalog at boot and reconnect", () => {
