@@ -163,7 +163,10 @@ class IndependentPortableBootIntegrationTest(unittest.TestCase):
     def test_stable_profile_is_explicit_without_automatic_pr_promotion(self):
         official = (ROOT / ".github/workflows/portable-v2-qemu-boot-proof.yml").read_text()
         experimental = (ROOT / ".github/workflows/independent-portable-v2-integration.yml").read_text()
-        self.assertIn('if [ "$ORDAX_BASE_PROOF_SOURCE" != independent ] || {', official)
+        self.assertIn(
+            'if [ "$ORDAX_BASE_PROOF_SOURCE" != independent ] || [ "$ORDAX_PROOF_EVENT" != workflow_dispatch ]; then',
+            official,
+        )
         self.assertIn('[ "$ORDAX_PROOF_EVENT" != workflow_dispatch ]', official)
         self.assertIn("inputs.independent_base_profile != 'stable-mvp'", official)
         self.assertIn("ORDAX_STABLE_MVP_HARDWARE_RECEIPTS=VERIFIED", official)
