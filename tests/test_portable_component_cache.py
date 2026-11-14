@@ -2,6 +2,7 @@ import hashlib
 import importlib.util
 import json
 import os
+import subprocess
 from pathlib import Path
 import tempfile
 import unittest
@@ -409,6 +410,61 @@ class PortableComponentCacheTests(unittest.TestCase):
             )
             with self.assertRaisesRegex(CACHE.CacheError, "exact source commit"):
                 CACHE.record_component("kernel", out, "1" * 40, root)
+    def test_uninspectable_mount_fails_closed(self):
+        with patch.object(Path, "is_symlink", side_effect=OSError("untrusted mount")):
+            self.assertTrue(CACHE._redirected_path(Path("cache-output")))
+            with self.assertRaisesRegex(CACHE.CacheError, "output directory is missing or unsafe"):
+                CACHE._verified_output_dir(Path("cache-output"))
+
+    def test_junctioned_output_and_receipt_are_rejected(self):
+        with tempfile.TemporaryDirectory() as td:
+            temp = Path(td)
+            root = self.make_kernel_root(temp / "repo")
+            out = temp / "real-output"
+            out.mkdir()
+            (out / "artifact.bin").write_bytes(b"verified")
+            (out / "kernel-provenance.json").write_text(
+                json.dumps({"source_commit": "1" * 40}), encoding="utf8"
+            )
+            linked_out = temp / "linked-output"
+            self._link_dir(linked_out, out)
+            with self.assertRaisesRegex(CACHE.CacheError, "output directory is missing or unsafe"):
+                CACHE.record_component("kernel", linked_out, "1" * 40, root)
+            CACHE.record_component("kernel", out, "1" * 40, root)
+            receipts = temp / "real-receipts"
+            receipts.mkdir()
+            linked_receipts = temp / "linked-receipts"
+            self._link_dir(linked_receipts, receipts)
+            with self.assertRaisesRegex(CACHE.CacheError, "receipt destination is unsafe"):
+                CACHE.verify_component(
+                    "kernel", out, "2" * 40, linked_receipts / "receipt.json",
+                    cache_hit=True, root=root
+                )
+            self.assertFalse((receipts / "receipt.json").exists())
+
+    def test_junctioned_input_directory_is_rejected(self):
+        with tempfile.TemporaryDirectory() as td:
+            temp = Path(td)
+            root = self.make_kernel_root(temp / "repo")
+            original = root / "bootstrap/kernel/config"
+            real = root / "bootstrap/kernel/config-real"
+            original.rename(real)
+            self._link_dir(original, real)
+            with self.assertRaisesRegex(CACHE.CacheError, "symlink, junction or unsafe path"):
+                CACHE.component_fingerprint("kernel", root)
+
+    def _link_dir(self, link: Path, real: Path) -> None:
+        if os.name == "nt":
+            created = subprocess.run(
+                ["cmd", "/c", "mklink", "/J", str(link), str(real)],
+                capture_output=True, text=True, errors="replace"
+            )
+            self.assertEqual(created.returncode, 0, created.stderr)
+            self.assertTrue(link.is_junction())
+        else:
+            link.symlink_to(real, target_is_directory=True)
+            self.assertTrue(link.is_symlink())
+
     def test_direct_symlink_input_is_rejected(self):
         with tempfile.TemporaryDirectory() as td:
             temp = Path(td)
