@@ -72,7 +72,8 @@ jobs:
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
         with:
           ref: ${{ github.event.pull_request.head.sha || github.sha }}
-          fetch-depth: 0
+          # Only HEAD/nearby history initially; fetch a verified base SHA if missing.
+          fetch-depth: 2
           persist-credentials: false
       - name: Validate Creator source, kernel identity and payload assembler
         run: |
@@ -107,6 +108,22 @@ jobs:
           required = True  # Fail closed on dispatch, missing history or errors.
           if os.environ["ORDAX_EVENT_NAME"] != "workflow_dispatch" and valid(base) and valid(head):
               try:
+                  # Both exact Git objects are required. A bounded SHA fetch
+                  # avoids cloning all history just to classify test-only PRs.
+                  for revision in (base, head):
+                      probe = subprocess.run(
+                          ["git", "cat-file", "-e", revision + "^{commit}"],
+                          capture_output=True, timeout=10,
+                      )
+                      if probe.returncode != 0:
+                          subprocess.run(
+                              ["git", "fetch", "--no-tags", "--depth=1", "origin", revision],
+                              check=True, capture_output=True, timeout=45,
+                          )
+                          subprocess.run(
+                              ["git", "cat-file", "-e", revision + "^{commit}"],
+                              check=True, capture_output=True, timeout=10,
+                          )
                   result = subprocess.run(
                       ["git", "diff", "--name-only", "-z", "--no-renames", base, head, "--"],
                       check=True, capture_output=True, timeout=30,
