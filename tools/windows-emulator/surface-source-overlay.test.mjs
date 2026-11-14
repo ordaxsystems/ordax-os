@@ -8,6 +8,7 @@ import { dirname, join, resolve } from "node:path";
 import {
   createLocalSurfaceOverlayPlugin,
   logicalSurfaceWatchIgnorePaths,
+  virtualSurfaceAssetRedirect,
   SURFACE_OVERLAY_PREFIX,
 } from "./surface-source-overlay.mjs";
 
@@ -139,4 +140,32 @@ test("physical Surface JS changes refresh the existing Vite client without a sec
   assert.equal(update(f.view, "create"), undefined, "A new file alone is not a running module update");
   assert.equal(update(f.view, "update", { environment: { name: "ssr" } }), undefined);
   assert.deepEqual(emitted, [{ type: "full-reload" }], "Only the verified browser JS update may trigger a reload");
+});
+
+test("virtual-module image URL redirects to Vite existing allowlisted filesystem handler", t => {
+  const f = fixture(t);
+  const url = "/%00ordax-surface-overlay:system/surface/ui/brand/mark.png";
+  const expected = "/@fs/" + encodeURI(f.asset.replaceAll("\\", "/"));
+  assert.equal(virtualSurfaceAssetRedirect(f.surface, url), expected);
+  assert.equal(virtualSurfaceAssetRedirect(f.surface, url + "?cache=1"), expected);
+  assert.equal(virtualSurfaceAssetRedirect(f.surface, "/%00ordax-surface-overlay:system/surface/ui/view.mjs"), null);
+  assert.equal(virtualSurfaceAssetRedirect(f.surface, "/%00ordax-surface-overlay:system/surface/ui/brand/missing.png"), null);
+  assert.equal(virtualSurfaceAssetRedirect(f.surface, "/%00ordax-surface-overlay:system/surface/ui/../../../contracts/secret.png"), null);
+  assert.equal(virtualSurfaceAssetRedirect(f.surface, "/%00ordax-surface-overlay:system/other/mark.png"), null);
+  assert.equal(virtualSurfaceAssetRedirect(f.surface, "/%ZZbad"), null);
+  assert.equal(virtualSurfaceAssetRedirect(f.surface, "/system/surface/ui/brand/mark.png"), null);
+  const plugin = createLocalSurfaceOverlayPlugin({ repoRoot:f.os,localSurface:f.surface });
+  let middleware;
+  plugin.configureServer({ middlewares: { use: fn => { middleware = fn; } } });
+  const headers = {};
+  const response = { statusCode:200, setHeader:(key,value)=>{headers[key]=value}, end(){this.ended=true} };
+  let nextCalled=false;
+  middleware({ method:"GET",url },response,()=>{nextCalled=true});
+  assert.equal(nextCalled,false);
+  assert.equal(response.statusCode,302);
+  assert.equal(response.ended,true);
+  assert.equal(headers.Location,expected);
+  const rejected={ statusCode:200, setHeader(){throw Error("Must not redirect")}, end(){throw Error("Must not respond")} };
+  middleware({ method:"POST",url },rejected,()=>{nextCalled=true});
+  assert.equal(nextCalled,true);
 });

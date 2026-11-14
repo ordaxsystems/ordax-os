@@ -13,6 +13,10 @@ const SOURCE_EXTENSIONS = new Set([
 const RESOLVE_EXTENSIONS = Object.freeze([
   "", ".mjs", ".js", ".cjs", ".ts", ".tsx", ".jsx", ".css", ".json",
 ]);
+const STATIC_ASSET_EXTENSIONS = new Set([
+  ".png", ".jpg", ".jpeg", ".gif", ".webp", ".svg", ".ico",
+  ".avif", ".woff", ".woff2", ".ttf", ".otf",
+]);
 
 function inside(root, target) {
   const value = relative(root, target);
@@ -85,6 +89,28 @@ function overlayId(logicalRelative, query = "") {
   return OVERLAY_PREFIX + logicalRelative + query;
 }
 
+// Runtime `new URL('./image.png', import.meta.url)` inside a virtual JS module
+// produces a virtual-path image URL. Only redirect verified static assets to
+// Vite's existing /@fs/ handler (which enforces its configured fs.allow).
+// Do not serve binary bytes or introduce a parallel static-file authority.
+export function virtualSurfaceAssetRedirect(surfaceRoot, requestUrl) {
+  if (typeof requestUrl !== "string") return null;
+  let decoded;
+  try { decoded = decodeURIComponent(requestUrl.split("?")[0]); }
+  catch { return null; }
+  if (!decoded.startsWith("/" + OVERLAY_PREFIX)) return null;
+  const logical = decoded.slice(OVERLAY_PREFIX.length + 1);
+  if (!VISUAL_ROOTS.some(prefix => logical.startsWith(prefix + "/"))) return null;
+  if (!STATIC_ASSET_EXTENSIONS.has(extname(logical).toLowerCase())) return null;
+  let found;
+  try { found = resolveSurfaceFile(surfaceRoot, logical); }
+  catch { return null; }
+  if (!found || !VISUAL_ROOTS.some(prefix => found.logicalRelative.startsWith(prefix + "/")))
+    return null;
+  const absolute = found.physical.split(sep).join("/");
+  return "/@fs/" + encodeURI(absolute).replaceAll("#", "%23").replaceAll("?", "%3F");
+}
+
 export function logicalSurfaceWatchIgnorePaths(repoRoot) {
   if (typeof repoRoot !== "string" || !isAbsolute(repoRoot))
     throw new TypeError("Surface overlay repoRoot must be absolute");
@@ -138,6 +164,18 @@ export function createLocalSurfaceOverlayPlugin({ repoRoot, localSurface }) {
   return {
     name: "ordax-local-surface-overlay",
     enforce: "pre",
+
+    configureServer(server) {
+      server.middlewares.use((request, response, next) => {
+        if (request.method !== "GET" && request.method !== "HEAD") return next();
+        const redirect = virtualSurfaceAssetRedirect(surface, request.url);
+        if (!redirect) return next();
+        response.statusCode = 302;
+        response.setHeader("Location", redirect);
+        response.setHeader("Cache-Control", "no-store");
+        response.end();
+      });
+    },
 
     resolveId(source, importer) {
       if (typeof source !== "string" || source.startsWith(OVERLAY_PREFIX)) return null;
