@@ -74,31 +74,31 @@ function onboardingProject(projectId, nextState, bound = false) {
 
 test("Project binding review links only explicit eligible Project authority for the enrolled device", async () => {
   let requested = null;
-  const windowRef = {
-    fetch: async (url, init) => {
-      requested = {url, init};
+  const reader = {
+    async read(url) {
+      requested = url;
       return {
         ok: true,
         status: 200,
-        async json() {
-          return {
-            ok: true,
-            schema: "ordax.owner-project-onboarding-view/1",
-            device_id: DEVICE,
-            spaces: [{space_id: SPACE, name: "Dev", kind: "personal", state: "active"}],
-            projects: [
-              onboardingProject(CLOUD, "needs_device_binding", false),
-              onboardingProject(CLOUD_READY, "ready", true),
-            ],
-            next_state: null,
-          };
+        value: {
+          ok: true,
+          schema: "ordax.owner-project-onboarding-view/1",
+          device_id: DEVICE,
+          spaces: [{space_id: SPACE, name: "Dev", kind: "personal", state: "active"}],
+          projects: [
+            onboardingProject(CLOUD, "needs_device_binding", false),
+            onboardingProject(CLOUD_READY, "ready", true),
+          ],
+          next_state: null,
         },
       };
     },
+    cancel() {},
+    dispose() {},
   };
   const links = cloudLinks();
   const runtime = createProjectBindingReviewRuntime({
-    windowRef,
+    reader,
     productRuntimeStatus: { read: async () => ({enrolled: true, deviceId: DEVICE}) },
     projects: projectCatalog(),
     projectCloudLinks: links,
@@ -106,8 +106,7 @@ test("Project binding review links only explicit eligible Project authority for 
 
   const ready = await runtime.refresh();
   assert.equal(ready.state, "ready");
-  assert.equal(requested.url, `/account/mcp/project-onboarding?device_id=${DEVICE}`);
-  assert.equal(requested.init.credentials, "same-origin");
+  assert.equal(requested, `/account/mcp/project-onboarding?device_id=${DEVICE}`);
   assert.deepEqual(ready.localProjects.map((entry) => entry.id), ["project-1"]);
 
   await runtime.link("project-1", CLOUD);
@@ -126,7 +125,11 @@ test("Project binding review links only explicit eligible Project authority for 
 test("Project binding review stays fail-closed without an enrolled local device id", async () => {
   let fetched = false;
   const runtime = createProjectBindingReviewRuntime({
-    windowRef: { fetch: async () => { fetched = true; throw new Error("unexpected"); } },
+    reader: {
+      async read() { fetched = true; throw new Error("unexpected"); },
+      cancel() {},
+      dispose() {},
+    },
     productRuntimeStatus: { read: async () => ({enrolled: false, deviceId: null}) },
     projects: projectCatalog(),
     projectCloudLinks: cloudLinks(),

@@ -55,6 +55,7 @@ import { createSameOriginAccountLifecycle } from "../../adapters/web/account-lif
 import { createWebIdentitySession } from "../../adapters/web/identity.mjs";
 import { createWebSpacesCatalog } from "../../adapters/web/spaces.mjs";
 import { createWebSyncTransport } from "../../adapters/web/sync-transport.mjs";
+import { createWebJsonReader } from "../../adapters/web/json-read.mjs";
 import { validateAccountRuntime } from "../../services/account/runtime.mjs";
 import { createAccountConnectivityRecovery } from "../../services/account/connectivity-recovery.mjs";
 import { createAppActivationChannel } from "../../services/apps/activation.mjs";
@@ -1072,7 +1073,7 @@ async function start() {
       && projects !== null
       && projectCloudLinks !== null
     ? createProjectBindingReviewRuntime({
-        windowRef: window,
+        reader: createWebJsonReader(window),
         productRuntimeStatus: desktopProductRuntimeStatus,
         projects,
         projectCloudLinks,

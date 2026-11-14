@@ -8,7 +8,6 @@ import {
   assertProjectCloudLinksPort,
   validateCloudProjectId,
 } from "../../contracts/project-cloud-links.mjs";
-import { createWebJsonReader } from "../../adapters/web/json-read.mjs";
 
 const ONBOARDING_SCHEMA = "ordax.owner-project-onboarding-view/1";
 const UUID = /^[a-f0-9]{8}-(?:[a-f0-9]{4}-){3}[a-f0-9]{12}$/i;
@@ -53,7 +52,7 @@ function normalizeOnboarding(value, deviceId) {
 }
 
 export function createProjectBindingReviewRuntime({
-  windowRef = globalThis.window,
+  reader,
   productRuntimeStatus,
   projects,
   projectCloudLinks,
@@ -63,7 +62,12 @@ export function createProjectBindingReviewRuntime({
   }
   const projectCatalog = assertProjectCatalogReader(projects);
   const cloudLinks = assertProjectCloudLinksPort(projectCloudLinks);
-  const reader = createWebJsonReader(windowRef);
+  if (!reader || typeof reader !== "object"
+      || typeof reader.read !== "function"
+      || typeof reader.cancel !== "function"
+      || typeof reader.dispose !== "function") {
+    throw new TypeError("Project binding review requires a JSON reader port");
+  }
   const listeners = new Set();
   let current = snapshot("idle");
   let refreshOrdinal = 0;
