@@ -36,7 +36,7 @@ No perfil Owner, os receipts externos de módulos e firmware são copiados byte 
 ## Limites importantes
 
 - Os builders Alpine Development e Stable anteriores foram retirados da `main` pela PR #2243. A homologação dos artefatos e o uso físico continuam sujeitos às provas e autorizações dos canais.
-- A branch `integration/dev-usb-buildroot-surface-20261024` pode alterar consumidores e contratos somente para provar a substituição; nenhum desses bytes é automaticamente Stable ou gravável em mídia física.
+- Os contratos e candidatos Buildroot seguem sujeitos a provas separadas. Nenhum commit de PR, execução manual ou artefato de CI autoriza automaticamente assinatura Stable ou gravação de mídia física.
 - O perfil `minimal` permanece sem Git, Wi-Fi de notebook e firmware Owner. O perfil `owner-development` já passou pela compilação e pelo QEMU da Base; o USB completo e a prova física ainda são gates separados e obrigatórios.
 - A inicialização `ordax-independent-probe-init` é exclusivamente um programa de **teste QEMU**, não substitui `bootstrap/initramfs/portable_init.sh`, os verificadores de release, seleção de slots ou serviços atuais.
 - **Não** se pode distribuir, assinar, instalar, ligar ao Creator, ativar Base Update, substituir `stable-base.erofs` ou modificar USB com este artefato enquanto os gates de promoção permanecerem fechados.
@@ -46,8 +46,9 @@ No perfil Owner, os receipts externos de módulos e firmware são copiados byte 
 ## Política de CI vigente (após o merge da migração)
 
 A migração Alpine → Buildroot já foi integrada à `main`; a antiga branch
-`integration/dev-usb-buildroot-surface-20261024` não é mais a autoridade
-operacional. O antigo gate isolado de remoção do Alpine foi incorporado
+de integração de outubro não é mais a autoridade operacional. Os caminhos
+de `push` exclusivos daquela branch também foram aposentados; apenas PRs
+e despacho manual disparam as provas dos candidatos. O antigo gate isolado de remoção do Alpine foi incorporado
 aos **owners existentes**, sem criar novo produtor:
 
 - **`.github/workflows/independent-base-experiment.yml`**: o job
