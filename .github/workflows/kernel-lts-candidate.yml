@@ -10,12 +10,6 @@ on:
       - 'bootstrap/kernel/update_engine.py'
       - 'bootstrap/kernel/candidates/**'
       - 'bootstrap/kernel/config/ordax.fragment'
-      - 'tests/test_kernel_build_authentication_gate.py'
-      - 'tests/test_kernel_upstream_signature.py'
-      - 'tests/test_kernel_module_release_abi.py'
-      - 'tests/test_kernel_candidate_pipeline.py'
-      - 'tests/test_kernel_update_engine.py'
-      - 'tests/test_kernel_candidate_ci_scope.py'
       - '.github/workflows/kernel-lts-candidate.yml'
       - '.github/workflows/kernel-lts-update-proposal.yml'
   workflow_dispatch:
