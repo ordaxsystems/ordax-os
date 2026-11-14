@@ -90,14 +90,16 @@ def changed_paths_between(base: str, head: str, *, root: Path = ROOT) -> tuple[s
         raise ValueError("base/head must be exact lowercase 40-hex commits")
     if base == "0" * 40:
         raise ValueError("zero base is not classifiable")
+    # Git's default quoted paths are not repository filenames; use -z and
+    # UTF-8 to preserve accented names and other characters without escapes.
     result = subprocess.run(
-        ["git", "-C", str(root), "diff", "--name-only", "--no-renames", base, head, "--"],
+        ["git", "-C", str(root), "diff", "--name-only", "-z", "--no-renames", base, head, "--"],
         check=True,
-        text=True,
         stdout=subprocess.PIPE,
         stderr=subprocess.PIPE,
+        timeout=30,
     )
-    return tuple(line.strip() for line in result.stdout.splitlines() if line.strip())
+    return tuple(path for path in result.stdout.decode("utf-8").split("\0") if path)
 
 
 def write_output(path: Path, result: ImpactResult) -> None:
