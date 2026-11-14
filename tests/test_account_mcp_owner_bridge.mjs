@@ -4,8 +4,10 @@ import {readFileSync} from "node:fs";
 import {isPublicBridgeRoute,isPublicAccountPreActivationRoute} from "../infra/supabase/functions/_shared/account_transport_admission.mjs";
 import {
   ACCOUNT_MCP_DEVICES_PATH, ACCOUNT_MCP_AUTHORITY_PATH, ACCOUNT_MCP_REVOKE_PATH,
+  ACCOUNT_MCP_PROJECT_GRANTS_PATH,
   OWNER_MCP_DEVICES_URL, validateAccountOwnerDevices,validateAccountOwnerAuthority,
   readAccountOwnerDevices,readAccountOwnerAuthority,revokeAccountOwnerGrant,parseAccountOwnerRevoke,
+  parseAccountOwnerProjectGrant,createAccountOwnerProjectGrant,
   ACCOUNT_MCP_CENTRAL_TARGETS_PATH,ACCOUNT_MCP_CENTRAL_SELECTIONS_PATH,
   readAccountOwnerCentralTargets,readAccountOwnerCentralSelections,
   selectAccountOwnerCentralDevice,parseAccountOwnerCentralSelection,
@@ -41,7 +43,8 @@ const row={device_id:device,name:"OrdaX Desktop",kind:"desktop",
 const inventory={ok:true,schema:"ordax.owner-mcp-devices/1",count:1,devices:[row]};
 const authority={ok:true,device_id:device,clients:[{client_id:client,client_name:"ChatGPT"}],
   grant_groups:[{grant_group_id:group,client_id:client,device_id:device,
-    profile_key:"full-computer-control",valid_until:null,client_consent_active:true}]};
+    profile_key:"full-computer-control",scope_kind:"device",space_id:null,project_id:null,
+    valid_until:null,client_consent_active:true}]};
 const makeResponse=(body,url,status=200)=>{
   const response=new Response(JSON.stringify(body),{status,headers:{"content-type":"application/json"}});
   Object.defineProperty(response,"url",{value:url});
@@ -54,10 +57,11 @@ const transport=(responses,calls=[])=>async (url,options)=>{
   return makeResponse(next,url);
 };
 
-test("Only three explicit MCP Owner routes, not publicly preactivated",()=>{
+test("MCP Owner routes remain exact and never publicly preactivated",()=>{
   for(const [method,path] of [["GET",ACCOUNT_MCP_DEVICES_PATH],
                               ["GET",ACCOUNT_MCP_AUTHORITY_PATH],
-                              ["POST",ACCOUNT_MCP_REVOKE_PATH]]) {
+                              ["POST",ACCOUNT_MCP_REVOKE_PATH],
+                              ["POST",ACCOUNT_MCP_PROJECT_GRANTS_PATH]]) {
     assert.equal(isPublicBridgeRoute(method,path),true);
     assert.equal(isPublicAccountPreActivationRoute(method,path),false);
     assert.equal(isPublicBridgeRoute(method==="GET"?"POST":"GET",path),false);
@@ -98,6 +102,10 @@ test("Gateway Owner routes keep Supabase cookie authorization and fail-closed ro
   assert.doesNotMatch(source,/origin\.host\.toLowerCase\(\) === forwardedHost/);
   assert.match(source,/await revokeAccountOwnerGrant\(session.access, revokeRequest\)/);
   assert.match(source,/mcp-owner-revoke-unconfirmed/);
+  assert.match(source,/ORDAX_MCP_OWNER_PROJECT_GRANT_ENABLED/);
+  assert.match(source,/parseAccountOwnerProjectGrant\(grantRequest\)/);
+  assert.match(source,/createAccountOwnerProjectGrant\(/);
+  assert.match(source,/mcp-owner-project-grant-unconfirmed/);
   assert.match(source,/ORDAX_MCP_OWNER_CENTRAL_SELECTION_ENABLED/);
   assert.match(source,/parseAccountOwnerCentralSelection\(selection\)/);
   assert.match(source,/selectAccountOwnerCentralDevice\(session.access, selection\)/);
@@ -153,9 +161,20 @@ test("Authority read ties every group to the requested device",async()=>{
   const result=validateAccountOwnerAuthority(authority,device);
   assert.equal(result.schema,"ordax.owner-mcp-authority-view/1");
   assert.equal(result.grant_groups[0].client_consent_active,true);
+  assert.deepEqual({
+    scope_kind:result.grant_groups[0].scope_kind,
+    space_id:result.grant_groups[0].space_id,
+    project_id:result.grant_groups[0].project_id,
+  },{scope_kind:"device",space_id:null,project_id:null});
   assert.equal(validateAccountOwnerAuthority({...authority,device_id:other},device),null);
   assert.equal(validateAccountOwnerAuthority({...authority,grant_groups:[{...authority.grant_groups[0],device_id:other}]},device),null);
   assert.equal(validateAccountOwnerAuthority({...authority,grant_groups:[authority.grant_groups[0],authority.grant_groups[0]]},device),null);
+  assert.equal(validateAccountOwnerAuthority({...authority,grant_groups:[{
+    ...authority.grant_groups[0],scope_kind:"project",space_id:null,project_id:null,
+  }]},device),null);
+  assert.equal(validateAccountOwnerAuthority({...authority,grant_groups:[{
+    ...authority.grant_groups[0],scope_kind:"device",space_id:space,project_id:project,
+  }]},device),null);
   assert.deepEqual(await readAccountOwnerAuthority(access,device,transport([authority])),result);
 });
 test("Project onboarding projects only bounded canonical state and exact Owner mutations",async()=>{
