@@ -1,7 +1,8 @@
 // OS workspace capabilities for an externally verified component, never bundled Files UI.
 import { assertDeviceLocalFileSpacePort } from "../../contracts/file-space.mjs";
 import { assertRecentFilesPort } from "../../contracts/recent-files.mjs";
-import { assertProjectCatalogPort } from "../../contracts/project-catalog.mjs";
+import { assertProjectCatalogReader } from "../../contracts/project-catalog.mjs";
+import { assertProjectMutations } from "../../contracts/project-mutations.mjs";
 import { assertAppActivationPort } from "../../contracts/app-activation.mjs";
 import { getFirstPartyApp } from "../../apps/catalog.mjs";
 import { hasNativeExternalFirstPartyModuleRead } from "../../services/apps/external-first-party-policy.mjs";
@@ -11,11 +12,12 @@ import { createNativePendingComponentHostBootstrap } from "./component-pending-h
 
 // The ID identifies the package allowed by the canonical Native policy.
 const WORKSPACE_COMPONENT_ID = "files";
-export function createNativeWorkspaceHostPorts({fileSpace=null,recentFiles=null,projects=null,appActivation=null}={}) {
+export function createNativeWorkspaceHostPorts({fileSpace=null,recentFiles=null,projects=null,projectMutations=null,appActivation=null}={}) {
   return Object.freeze({
     fileSpace:assertDeviceLocalFileSpacePort(fileSpace),
     recentFiles:assertRecentFilesPort(recentFiles),
-    projects:assertProjectCatalogPort(projects),
+    projects:assertProjectCatalogReader(projects),
+    projectMutations:assertProjectMutations(projectMutations),
     appActivation:assertAppActivationPort(appActivation),
   });
 }
@@ -27,7 +29,7 @@ export function createNativeWorkspacePendingBootstrap({installProvider}={}) {
   });
 }
 export function installNativeWorkspaceVerifiedContext({
-  installed=[],fileSpace=null,recentFiles=null,projects=null,appActivation=null,
+  installed=[],fileSpace=null,recentFiles=null,projects=null,projectMutations=null,appActivation=null,
   installProvider=installTrustedComponentContextProvider,
 }={}) {
   if (!hasNativeExternalFirstPartyModuleRead(WORKSPACE_COMPONENT_ID)||getFirstPartyApp(WORKSPACE_COMPONENT_ID)) return false;
@@ -35,7 +37,7 @@ export function installNativeWorkspaceVerifiedContext({
   const verifiedCurrent=installed.find(entry=>entry.component.id===WORKSPACE_COMPONENT_ID)?.metadata??null;
   installProvider(createVerifiedSlotHostContextProvider({
     componentId:WORKSPACE_COMPONENT_ID,verifiedCurrent,
-    createPorts:()=>createNativeWorkspaceHostPorts({fileSpace,recentFiles,projects,appActivation}),
+    createPorts:()=>createNativeWorkspaceHostPorts({fileSpace,recentFiles,projects,projectMutations,appActivation}),
   }));
   return true;
 }
