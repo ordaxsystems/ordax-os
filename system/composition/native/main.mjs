@@ -14,6 +14,7 @@ import { createNativeFileSpace } from "../../adapters/native/file-space.mjs";
 import { createNativePersonalOrdaxFileActions } from "../../adapters/native/personal-ordax-file-actions.mjs";
 import { createNativeRecentFilesStore } from "../../adapters/native/recent-files.mjs";
 import { createNativeProjectStore } from "../../adapters/native/projects.mjs";
+import { createNativeProjectStateTransport } from "../../adapters/native/project-state.mjs";
 import { createNativeProjectCloudLinkStore } from "../../adapters/native/project-cloud-links.mjs";
 import { createNativeProjectWebReferenceStore } from "../../adapters/native/project-web-references.mjs";
 import { createNativeNetworkManagement } from "../../adapters/native/network-management.mjs";
@@ -77,7 +78,8 @@ import {
 import { listBundledFirstPartyIntelligenceManifests } from "../../apps/intelligence-catalog.mjs";
 import { createComponentManager } from "../../services/components/manager.mjs";
 import { createRecentFilesRuntime } from "../../services/files/recent-files.mjs";
-import { createProjectCatalogRuntime } from "../../services/files/projects.mjs";
+import { createNativeProjectCatalogCasRuntime } from "../../services/files/native-project-catalog-runtime.mjs";
+import { createProjectNativeStateMigration } from "../../services/files/native-project-state-migration.mjs";
 import { createProjectCloudLinksRuntime } from "../../services/projects/cloud-links.mjs";
 import { createProjectCloudLinksReader } from "../../services/projects/cloud-links-reader.mjs";
 import { createProjectWebReferenceRuntime } from "../../services/projects/web-references.mjs";
@@ -491,9 +493,24 @@ async function start() {
   const recentFiles = fileSpace === null ? null : createRecentFilesRuntime({
     store: createNativeRecentFilesStore(window),
   });
-  const projects = fileSpace === null ? null : createProjectCatalogRuntime({
-    store: createNativeProjectStore(window),
-  });
+  let projects = null;
+  let projectMutations = null;
+  if (fileSpace !== null) {
+    const nativeProjectRuntime = await optionalNativeProbe(
+      "OrdaX Native Project catalog unavailable",
+      async () => {
+        const nativeTransport = createNativeProjectStateTransport(window);
+        const migration = createProjectNativeStateMigration({
+          legacyStore: createNativeProjectStore(window),
+          nativeTransport,
+        });
+        await migration.migrate();
+        return await createNativeProjectCatalogCasRuntime({ transport: nativeTransport });
+      },
+    );
+    projects = nativeProjectRuntime?.reader ?? null;
+    projectMutations = nativeProjectRuntime?.mutations ?? null;
+  }
   const projectCloudLinks = projects === null ? null : createProjectCloudLinksRuntime({
     projects,
     store: createNativeProjectCloudLinkStore(window),
@@ -1099,6 +1116,7 @@ async function start() {
   const filesOwnerSpace = fileSpace === null
     ? null
     : createProjectContinuityFileSpace(fileSpace, projects, {
+        projectMutations,
         onContinuityError(error) {
           reportClientDiagnostic("files-project-continuity", error);
         },
@@ -1106,7 +1124,7 @@ async function start() {
   try {
     workspaceComponentBootstrap?.bind({
       root,
-      ports: { fileSpace: filesOwnerSpace, recentFiles, projects, appActivation },
+      ports: { fileSpace: filesOwnerSpace, recentFiles, projects, projectMutations, appActivation },
     });
   } catch (error) {
     console.warn("OrdaX optional workspace component probation unavailable", error);
@@ -1115,7 +1133,7 @@ async function start() {
   // Verified-current slot metadata is the only authority for workspace ports.
   installNativeWorkspaceVerifiedContext({
     installed: installedAppCatalog?.installed ?? [],
-    fileSpace: filesOwnerSpace, recentFiles, projects, appActivation,
+    fileSpace: filesOwnerSpace, recentFiles, projects, projectMutations, appActivation,
   });
   // The existing verified-current loader revalidates this same slot before
   // import and mount. Missing/removed Aura cannot obtain these host ports.
