@@ -84,11 +84,13 @@ function checkedSha(value, label) {
   return value;
 }
 
-function changedPathsBetween(base, head) {
+export function changedPathsBetween(base, head, gitRoot = ROOT) {
   const stdout = execFileSync("git", [
-    "-C", ROOT, "diff", "--name-only", "--no-renames", base, head, "--",
-  ], { encoding: "utf8" });
-  return stdout.split(/\r?\n/u).map((item) => item.trim()).filter(Boolean);
+    "-C", gitRoot, "diff", "--name-only", "-z", "--no-renames", base, head, "--",
+  ]);
+  // Git's line mode quotes non-ASCII paths; NUL mode preserves their real bytes.
+  // Reject invalid UTF-8 instead of silently skipping a changed owner path.
+  return new TextDecoder("utf-8", { fatal: true }).decode(stdout).split("\0").filter(Boolean);
 }
 
 function writeOutput(result) {

@@ -1,17 +1,61 @@
 import assert from "node:assert/strict";
-import { readFileSync } from "node:fs";
+import { execFileSync } from "node:child_process";
+import { mkdirSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from "node:fs";
+import { tmpdir } from "node:os";
+import { dirname, join } from "node:path";
 import test from "node:test";
 
 import {
+  changedPathsBetween as appSdkChangedPathsBetween,
   classifyAppSdkImpact,
   exportedContractSources,
 } from "../tools/ci/app_sdk_impact.mjs";
-import { classifyServiceUpdateImpact } from "../tools/ci/service_update_impact.mjs";
+import {
+  changedPathsBetween as serviceChangedPathsBetween,
+  classifyServiceUpdateImpact,
+} from "../tools/ci/service_update_impact.mjs";
 
 const read = (path) => readFileSync(new URL(`../${path}`, import.meta.url), "utf8").split(/\r?\n/u).join("\n");
 const appBundle = JSON.parse(read("sdk/app-sdk-v1/bundle.json"));
 const exported = exportedContractSources(appBundle);
 const services = new Set(["system/services/components", "system/services/spaces"]);
+
+test("Git diff preserves UTF-8 owner paths without false negatives in both classifiers", () => {
+  const temporary = mkdtempSync(join(tmpdir(), "ordax-impact-git-"));
+  const git = (...args) => execFileSync("git", ["-C", temporary, ...args], { encoding: "utf8" }).trim();
+  try {
+    git("init", "--quiet");
+    git("config", "core.autocrlf", "false");
+    git("config", "core.quotepath", "true");
+    git("-c", "user.name=CI", "-c", "user.email=ci@example.com",
+      "commit", "--allow-empty", "--quiet", "-m", "base");
+    const base = git("rev-parse", "HEAD");
+    const changed = [
+      "system/services/components/ação.mjs",
+      "system/contracts/Árvore.mjs",
+      "docs/Guia á.md",
+    ];
+    for (const path of changed) {
+      const full = join(temporary, path);
+      mkdirSync(dirname(full), { recursive: true });
+      writeFileSync(full, "export const ok = true;\n", "utf8");
+    }
+    git("add", ".");
+    git("-c", "user.name=CI", "-c", "user.email=ci@example.com",
+      "commit", "--quiet", "-m", "utf8 paths");
+    const head = git("rev-parse", "HEAD");
+
+    const servicePaths = serviceChangedPathsBetween(base, head, temporary);
+    const appPaths = appSdkChangedPathsBetween(base, head, temporary);
+    assert.deepEqual(servicePaths.toSorted(), changed.toSorted());
+    assert.deepEqual(appPaths.toSorted(), changed.toSorted());
+    assert.equal(classifyServiceUpdateImpact(servicePaths, services, new Set(services)).required, true);
+    assert.equal(classifyAppSdkImpact(appPaths, new Set(["system/contracts/Árvore.mjs"])).required, true);
+    assert.equal(classifyServiceUpdateImpact(["docs/Guia á.md"], services, new Set(services)).required, false);
+  } finally {
+    rmSync(temporary, { recursive: true, force: true });
+  }
+});
 
 test("App SDK skips internal contracts that are not in the published bundle", () => {
   const result = classifyAppSdkImpact(["system/contracts/space-creation.mjs"], exported);
