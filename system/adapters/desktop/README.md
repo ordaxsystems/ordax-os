@@ -44,7 +44,7 @@ Every capability must declare whether it is:
 
 ## Store boundary
 
-The OS-side Windows Store transport is documented in [`docs/STORE-WINDOWS-VERIFIED-CATALOG-BOUNDARY.md`](../../../docs/STORE-WINDOWS-VERIFIED-CATALOG-BOUNDARY.md). It reuses the canonical signed catalog, generated package policy and runtime-component lifecycle; it must not become a second Store, catalog, updater or installation authority. The Windows host/shell/package delivery remains owned by `ordaxsystems/ordax-desktop`.
+The OS-side Windows Store transport is owned by this adapter (`verified-store-catalog-host.mjs`, `store-lifecycle-host.mjs` and `store-artifact-transport.mjs`) and consumes the canonical [Store services and verified projection](../../services/apps/README.md). It reuses the signed catalog, generated package policy and runtime-component lifecycle; it must not become a second Store, catalog, updater or installation authority. The Windows host/shell/package delivery remains owned by `ordaxsystems/ordax-desktop`.
 
 ## Creator boundary
 
