@@ -3,7 +3,7 @@
 **Prioridade:** URGENTE — organização e redução de complexidade comprovada  
 **Início:** 2026-11-14  
 **Owner:** `ordaxsystems/ordax-os` (cada alteração em outro repositório pertence ao respectivo owner)  
-**Estado:** EM EXECUÇÃO — P0.1 e P0.2 concluídos; P0.3 e P1.1 em execução com correções integradas  
+**Estado:** EM EXECUÇÃO — P0.1, P0.2 e P1.1 concluídos; P0.3 avançando por remoção histórica com consumidores preservados  
 **Regra:** Evolução Rápida — executar uma simplificação pequena e segura por vez, validar proporcionalmente e integrar.
 
 > Este arquivo é **roteiro operacional de consolidação**, não uma nova autoridade de arquitetura, produto, release ou implementação. A hierarquia vigente permanece em `docs/README.md`; source, contratos, `docs/CURRENT-STATE.md`, `MVP.md`, ADRs e gates prevalecem. Não duplicar o roadmap de produto de `00-PLANOS-PRIORITARIOS/`.
@@ -37,8 +37,8 @@ Já existe consolidação anterior: planos históricos da raiz foram movidos par
 | --- | --- | --- | --- |
 | P0.1 | Criar este roteiro na raiz e torná-lo descobrível pelo `README.md` sem substituir o roteador `docs/README.md` | Link funcional e hierarquia preservada | **CONCLUÍDO** — `41ddc196`, `d45de378` |
 | P0.2 | Confrontar a lista de planos da raiz com `00-PLANOS-PRIORITARIOS/REGISTRY.md` e referências realmente existentes | Apenas planos vivos permanecem ativos; históricos com link ao commit antigo | **CONCLUÍDO** — dois planos na raiz (`PLANO-07`, `PLANO-08`), ambos no registry e README; históricos já referenciados por snapshots |
-| P0.3 | Localizar documentos de mesmo assunto e conferir citações/consumidores antes de consolidar | Uma autoridade humana por assunto, sem perder contratos e runbooks | **EM EXECUÇÃO** — 4 links corrigidos; narrativa histórica Intelligence retirada da árvore ativa, owners preservados e apontados no índice (`0b9738ea`, `65f28fdb`); continuar demais assuntos |
-| P1.1 | Agrupar workflows por finalidade, `on:`, `workflow_call`, caminhos acionados e exigência de branch protection | Lista de candidatos **com sobreposição demonstrada**, não por semelhança de nome | **EM EXECUÇÃO** — 165 workflows; 137/140 `push` e 147/150 PR filtrados por caminho; conferir required checks antes de fusões |
+| P0.3 | Localizar documentos de mesmo assunto e conferir citações/consumidores antes de consolidar | Uma autoridade humana por assunto, sem perder contratos e runbooks | **EM EXECUÇÃO** — 4 links corrigidos; histórico Intelligence fora da árvore; `CURRENT-STATE` reduzido em ~46 KB preservando 674 marcadores (`a4a8707d`); continuar demais assuntos |
+| P1.1 | Agrupar workflows por finalidade, `on:`, `workflow_call`, caminhos acionados e exigência de branch protection | Lista de candidatos **com sobreposição demonstrada**, não por semelhança de nome | **CONCLUÍDO (inventário)** — 165 workflows; filtros e triggers revisados; nenhuma fusão segura demonstrada por nomes; P1.2 condicionado à equivalência de prova |
 | P1.2 | Consolidar cada par comprovadamente redundante no fluxo canônico; ajustar chamadas/regras consumidoras antes da exclusão | Mesmo gate/prova, disparo correto, sem rebuild desnecessário | PENDENTE |
 | P1.3 | Revisar `docs/evidence/`: separar prova exigida por contrato de registro histórico sem consumidor | Evidência vigente preservada; removida apenas redundância sem dependências | PENDENTE |
 | P2.1 | Verificar código, testes e scripts repetidos em `system/`, `tools/`, `bootstrap/` e `tests/` | Um único owner por responsabilidade, sem perda de comportamento | PENDENTE |
@@ -59,6 +59,13 @@ Já existe consolidação anterior: planos históricos da raiz foram movidos par
 - Validação read-only sobre a `main` após o corte: 235 Markdown rastreados, **zero links relativos quebrados**, três destinos existentes, snapshot anterior disponível. Contrato de origem continua `integration-candidate` / `activation_authorized=false` / `cutover_complete=false`; nenhuma ativação ou alteração de Runtime.
 - Verificação da família Network de workflows: as provas de migração repetem provisionamento PostgreSQL, mas exercitam migrations/funções SQL distintas e filtros específicos. **Sem supressão de gates** apenas por semelhança textual. Proteção de branch GitHub consultada em 14/11: nenhum required status check declarado pela proteção clássica e nenhuma ruleset listada naquele instante; isso não equivale a autorizar remoção de provas.
 - **Próximo recorte:** identificar outra narrativa realmente histórica e sem consumidor ativo; só retirar depois de indicar os owners atuais e apontar ao snapshot imutável. Workflows: reduzir quando o mesmo teste/efeito for comprovadamente executado mais de uma vez, sem perder isolamento dos gates.
+
+### Compactação do estado histórico sem perder gates — 2026-11-14
+
+- `docs/CURRENT-STATE.md` acumulava uma seção **explicitamente histórica** de ~46 KB (checkpoints de outubro e início de novembro) antes da seção de inventário legado. Retirou-se somente esse trecho; o link no próprio arquivo aponta ao snapshot Git integral `0ce5a9b7c14bde6f280a09172bf521d9f22d8c67` (`a4a8707d`).
+- A seção restante contém **674 marcadores de atribuição no total (653 distintos)** usados por testes de integridade. Comparação byte a byte dos marcadores antes/depois: **idênticos**. Não converter esses dados em outro SSOT por pressa; a futura compactação do legado depende de migrar os consumidores reais para contratos sem perda de validação.
+- Isolamento de teste: em worktree temporário, 18 testes de `canonical_document_freshness`, 5 de `current_state_first_run_input`, 4 de `physical_handoff_freshness` passaram. A suíte `repository_ownership_contract` passou 11/11 no checkout principal com o import `tools` corretamente resolvido; no worktree descartável houve erro de módulo nesse teste, não falha de asserção do arquivo. Todos os worktrees temporários de teste foram removidos.
+- **Não remover o restante de `CURRENT-STATE` só por volume**: há validações que consomem atribuições/termos específicos (especialmente `tests/test_canonical_document_freshness.py`). Revalidar qualquer novo corte com esses consumidores.
 
 ## 4. Regras obrigatórias
 
