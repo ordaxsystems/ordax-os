@@ -1,7 +1,12 @@
 #!/usr/bin/env python3
 """Read-only Creator payload candidate: OS assembles, immutable Creator verifies."""
 import json
+import os
 from pathlib import Path
+import subprocess
+import sys
+import tempfile
+import textwrap
 import unittest
 
 ROOT = Path(__file__).resolve().parents[1]
@@ -40,18 +45,97 @@ class CreatorPayloadExternalSourceTests(unittest.TestCase):
         jobs = text.split("\njobs:\n", 1)[1]
         self.assertIn("\n  creator-payload-contract:\n", "\n" + jobs)
         contract, heavy = jobs.split("\n  creator-payload:\n", 1)
-        self.assertIn("python3 -m unittest tests.test_creator_payload_external_source -v", contract)
+        for test in (
+            "tests.test_creator_payload_external_source",
+            "tests.test_kernel_consumer_ssot",
+            "tests.test_creator_payload_assembler",
+        ):
+            self.assertIn(test, contract)
+        self.assertIn("fetch-depth: 0", contract)
+        self.assertIn("required: ${{ steps.impact.outputs.required }}", contract)
         self.assertIn("persist-credentials: false", contract)
         for build in ("bootstrap/kernel/build.py build", "boot/esp/build.py build",
                       "bootstrap/initramfs/build.py build", "go build"):
             self.assertNotIn(build, contract)
         self.assertIn("needs: creator-payload-contract", heavy)
         self.assertIn(
-            "if: github.event_name != 'pull_request' || !github.event.pull_request.draft",
+            "if: needs.creator-payload-contract.outputs.required == 'true' && (github.event_name != 'pull_request' || !github.event.pull_request.draft)",
             heavy,
         )
         self.assertIn("Build kernel candidate on verified cache miss", heavy)
         self.assertIn("queue: max", heavy)
+
+    def test_only_executed_contract_tests_skip_heavy_build(self):
+        w = self.workflow
+        prefix = "          python3 - <<'PY'\n"
+        self.assertEqual(w.count(prefix), 1)
+        script = textwrap.dedent(w.split(prefix, 1)[1].split("\n          PY", 1)[0])
+        with tempfile.TemporaryDirectory(prefix="ordax-creator-payload-impact-") as temp:
+            root = Path(temp)
+
+            def git(*args):
+                return subprocess.check_output(
+                    ["git", "-C", str(root), *args], stderr=subprocess.PIPE, text=True
+                ).strip()
+
+            for argv in (
+                ("init", "-q"),
+                ("config", "user.email", "ci@example.invalid"),
+                ("config", "user.name", "CI"),
+            ):
+                git(*argv)
+            tracked = (
+                "tests/test_creator_payload_external_source.py",
+                "tests/test_kernel_consumer_ssot.py",
+                "tests/test_creator_payload_assembler.py",
+                "bootstrap/kernel/source.json",
+                "docs/contracts/minimal-bootstrap.json",
+            )
+            for name in tracked:
+                target = root / name
+                target.parent.mkdir(parents=True, exist_ok=True)
+                target.write_text("before\n", encoding="utf-8")
+            git("add", "-A")
+            git("commit", "-qm", "base")
+            base = git("rev-parse", "HEAD")
+
+            def change(name):
+                (root / name).write_text("changed\n", encoding="utf-8")
+                git("add", "-A")
+                git("commit", "-qm", "change")
+                return git("rev-parse", "HEAD")
+
+            def classified(base_sha, head_sha, event="pull_request"):
+                output = root / "scope.out"
+                output.write_text("", encoding="utf-8")
+                env = {
+                    **os.environ,
+                    "ORDAX_EVENT_NAME": event,
+                    "ORDAX_BASE_SHA": base_sha,
+                    "ORDAX_HEAD_SHA": head_sha,
+                    "GITHUB_OUTPUT": str(output),
+                }
+                finished = subprocess.run(
+                    [sys.executable, "-c", script], cwd=root, env=env,
+                    capture_output=True, text=True, timeout=20, check=True,
+                )
+                value = output.read_text(encoding="utf-8").strip()
+                self.assertIn("CREATOR_PAYLOAD_HEAVY_REQUIRED=", finished.stdout)
+                return value
+
+            tests_only = change("tests/test_creator_payload_external_source.py")
+            self.assertEqual(classified(base, tests_only), "required=false")
+            self.assertEqual(classified(base, tests_only, "push"), "required=false")
+            self.assertEqual(classified(base, tests_only, "workflow_dispatch"), "required=true")
+            self.assertEqual(classified(tests_only, tests_only), "required=true")
+            self.assertEqual(classified("0" * 40, tests_only), "required=true")
+            self.assertEqual(classified("f" * 40, tests_only), "required=true")
+
+            mixed = change("bootstrap/kernel/source.json")
+            self.assertEqual(classified(base, mixed), "required=true")
+            self.assertEqual(classified(tests_only, mixed), "required=true")
+            manifest = change("docs/contracts/minimal-bootstrap.json")
+            self.assertEqual(classified(mixed, manifest), "required=true")
 
     def test_payload_kernel_uses_shared_verified_producer_queue(self):
         workflow = self.workflow
