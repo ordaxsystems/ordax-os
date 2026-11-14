@@ -892,5 +892,27 @@ class PortableQemuImpactTests(unittest.TestCase):
         self.assertTrue(any(reason.startswith("runtime-graph:") for reason in result.reasons))
 
 
+class PortableQemuUntrustedImportTests(unittest.TestCase):
+    def test_unreadable_junction_is_reported_as_graph_error(self):
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory)
+            source = root / "system/composition/native/main.mjs"
+            source.parent.mkdir(parents=True, exist_ok=True)
+            source.write_text('import "./blocked.mjs";\n', encoding="utf-8")
+            with patch.object(impact, "_native_runtime_roots", return_value=((source,), ())):
+                with patch.object(
+                    impact, "_resolve_relative_import",
+                    side_effect=OSError("untrusted junction"),
+                ):
+                    reachable, errors = impact.native_startup_import_graph(root)
+            self.assertIn("system/composition/native/main.mjs", reachable)
+            self.assertIn(
+                "unreadable-import:system/composition/native/main.mjs:"
+                "./blocked.mjs:OSError",
+                errors,
+            )
+
+
+
 if __name__ == "__main__":
     unittest.main()
