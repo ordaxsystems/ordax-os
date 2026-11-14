@@ -2,6 +2,7 @@ name: Kernel TPM2 Staged Candidate
 
 on:
   pull_request:
+    types: [opened, synchronize, reopened, ready_for_review]
     paths:
       - 'bootstrap/kernel/build.py'
       - 'bootstrap/kernel/config/overlays/tpm2.fragment'
@@ -13,7 +14,32 @@ permissions:
   contents: read
 
 jobs:
+  contract:
+    # A draft PR validates the overlay contract without compiling a kernel.
+    runs-on: ubuntu-24.04
+    timeout-minutes: 10
+    steps:
+      - name: Checkout exact source commit
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
+        with:
+          ref: ${{ github.event.pull_request.head.sha || github.sha }}
+          persist-credentials: false
+
+      - name: Set up Python
+        uses: actions/setup-python@ece7cb06caefa5fff74198d8649806c4678c61a1 # v6
+        with:
+          python-version: '3.12'
+
+      - name: Check production, isolated TPM2 overlay and regressions
+        run: |
+          set -euo pipefail
+          python bootstrap/kernel/build.py check
+          python bootstrap/kernel/build.py check --config-overlay bootstrap/kernel/config/overlays/tpm2.fragment
+          python -m unittest discover -s tests -p 'test_kernel_tpm2_staged_overlay.py' -v
+
   staged-tpm2:
+    needs: contract
+    if: github.event_name != 'pull_request' || !github.event.pull_request.draft
     runs-on: ubuntu-24.04
     timeout-minutes: 90
     steps:
@@ -34,12 +60,6 @@ jobs:
           sudo apt-get install -y --no-install-recommends \
             gcc-13 make bc perl bison flex openssl libssl-dev libelf-dev \
             dwarves kmod xz-utils pkg-config gpg gpg-agent
-
-      - name: Check both production and isolated candidate contracts
-        run: |
-          python bootstrap/kernel/build.py check
-          python bootstrap/kernel/build.py check --config-overlay bootstrap/kernel/config/overlays/tpm2.fragment
-          python -m unittest discover -s tests -p 'test_kernel_tpm2_staged_overlay.py' -v
 
       - name: Compile TPM2 candidate with authenticated canonical source
         env:
