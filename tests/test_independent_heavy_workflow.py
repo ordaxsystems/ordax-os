@@ -68,11 +68,10 @@ class IndependentHeavyWorkflowTests(unittest.TestCase):
             text.index("- name: Verify kernel component and exact integration binding")
         ]
         self.assertIn("env.ORDAX_INDEPENDENT_PROFILE != 'stable-mvp'", kernel_build)
-        self.assertIn("contains(github.event.head_commit.message, '[stable-mvp-bootstrap-kernel]')", kernel_build)
-        self.assertIn("github.ref == 'refs/heads/integration/dev-usb-buildroot-surface-20261024'", kernel_build)
-        self.assertIn("ORDAX_EXPLICIT_STABLE_KERNEL_BOOTSTRAP", text)
-        self.assertIn("if [ \"$ORDAX_EXPLICIT_STABLE_KERNEL_BOOTSTRAP\" != true ]; then", text)
-        self.assertIn("ORDAX_EXPLICIT_STABLE_KERNEL_CACHE_SEED=AUTHORIZED", text)
+        self.assertNotIn("stable-mvp-bootstrap-kernel", kernel_build)
+        self.assertNotIn("ORDAX_EXPLICIT_STABLE_KERNEL_BOOTSTRAP", text)
+        self.assertNotIn("integration/dev-usb-buildroot-surface-20261024", text)
+        self.assertIn("Stable candidate must reuse an existing verified kernel", text)
         self.assertEqual(text.count("python3 bootstrap/kernel/build.py build"), 1)
         self.assertIn("--component kernel", text)
         self.assertIn("--cache-hit \"$cache_hit\"", text)
@@ -176,7 +175,7 @@ class IndependentHeavyWorkflowTests(unittest.TestCase):
         self.assertIn("profile=owner-development", text)
         self.assertIn("ORDAX_INDEPENDENT_PROFILE", text)
 
-    def test_push_and_dispatched_qemu_have_isolated_concurrency(self) -> None:
+    def test_pr_and_dispatched_qemu_have_isolated_concurrency(self) -> None:
         text = self.text()
         group = next(line for line in text.splitlines() if line.startswith("  group:"))
         self.assertIn("${{ github.event_name }}", group)
@@ -189,20 +188,18 @@ class IndependentHeavyWorkflowTests(unittest.TestCase):
         self.assertIn("      queue: max", text)
         self.assertNotIn("ordax-surface-producer-${{ github.event.pull_request.head.sha || github.sha }}", text)
         self.assertIn("needs: independent-base-contract", text)
-        # Heavy proof requires dispatch, a ready PR, or exact migration-branch
-        # opt-in marker; draft PRs remain contract-only.
+        # Heavy proof only after manual dispatch or a ready PR; draft
+        # remains contract-only and no retired branch can opt into Stable.
         self.assertIn("github.event_name == 'workflow_dispatch'", text)
         self.assertIn("github.event_name == 'pull_request' && !github.event.pull_request.draft", text)
-        self.assertEqual(text.count("contains(github.event.head_commit.message, '[stable-mvp-proof]')"), 2)
-        self.assertIn("branches: ['integration/dev-usb-buildroot-surface-20261024']", text)
-        self.assertNotIn("platform/remove-alpine", text)
-        self.assertIn("if: ${{ github.event_name != 'push' || (github.ref == 'refs/heads/integration/dev-usb-buildroot-surface-20261024'", text)
-        self.assertIn("github.ref == 'refs/heads/integration/dev-usb-buildroot-surface-20261024'", text)
-        self.assertIn('elif [ "$EVENT_NAME" = push ] && [ "$GITHUB_REF" = refs/heads/integration/dev-usb-buildroot-surface-20261024 ]; then', text)
-        self.assertIn("profile=stable-mvp", text)
+        self.assertNotIn("\n  push:\n", text)
+        self.assertNotIn("integration/dev-usb-buildroot-surface-20261024", text)
+        self.assertNotIn("stable-mvp-proof", text)
+        self.assertIn('elif [ "$EVENT_NAME" = pull_request ]; then', text)
+        self.assertIn("profile=owner-development", text)
+        self.assertIn("minimal|owner-development|stable-mvp", text)
         self.assertIn("Stable candidate must reuse an existing verified kernel; no recompilation authorized", text)
-        self.assertNotIn("if: github.event_name != 'push'", text)
-        self.assertIn("(github.event_name == 'push' && github.ref == 'refs/heads/integration/dev-usb-buildroot-surface-20261024') || github.event_name == 'pull_request'", text)
+        self.assertIn("    if: github.event_name == 'pull_request'", text)
 
     def test_verified_kernel_precedes_rootfs_consumer_proof_and_qemu(self) -> None:
         text = self.text()
