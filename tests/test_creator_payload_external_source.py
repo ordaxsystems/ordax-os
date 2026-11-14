@@ -51,7 +51,9 @@ class CreatorPayloadExternalSourceTests(unittest.TestCase):
             "tests.test_creator_payload_assembler",
         ):
             self.assertIn(test, contract)
-        self.assertIn("fetch-depth: 0", contract)
+        self.assertIn("fetch-depth: 2", contract)
+        self.assertIn('["git", "fetch", "--no-tags", "--depth=1", "origin", revision]', contract)
+        self.assertIn('["git", "cat-file", "-e", revision + "^{commit}"]', contract)
         self.assertIn("required: ${{ steps.impact.outputs.required }}", contract)
         self.assertIn("persist-credentials: false", contract)
         for build in ("bootstrap/kernel/build.py build", "boot/esp/build.py build",
@@ -105,7 +107,7 @@ class CreatorPayloadExternalSourceTests(unittest.TestCase):
                 git("commit", "-qm", "change")
                 return git("rev-parse", "HEAD")
 
-            def classified(base_sha, head_sha, event="pull_request"):
+            def classified(base_sha, head_sha, event="pull_request", checkout_root=None):
                 output = root / "scope.out"
                 output.write_text("", encoding="utf-8")
                 env = {
@@ -116,7 +118,7 @@ class CreatorPayloadExternalSourceTests(unittest.TestCase):
                     "GITHUB_OUTPUT": str(output),
                 }
                 finished = subprocess.run(
-                    [sys.executable, "-c", script], cwd=root, env=env,
+                    [sys.executable, "-c", script], cwd=checkout_root or root, env=env,
                     capture_output=True, text=True, timeout=20, check=True,
                 )
                 value = output.read_text(encoding="utf-8").strip()
@@ -124,6 +126,38 @@ class CreatorPayloadExternalSourceTests(unittest.TestCase):
                 return value
 
             tests_only = change("tests/test_creator_payload_external_source.py")
+            # Shallow GitHub checkout has HEAD but may lack the exact PR base.
+            # Fetching that SHA must preserve the light result without cloning
+            # full repository history or trusting an unverified range.
+            with tempfile.TemporaryDirectory(prefix="ordax-creator-shallow-") as checkout:
+                remote = Path(checkout) / "remote.git"
+                shallow = Path(checkout) / "checkout"
+                subprocess.run(
+                    ["git", "init", "--bare", "-q", str(remote)],
+                    check=True, capture_output=True,
+                )
+                git("remote", "add", "origin", str(remote))
+                git("push", "-q", "origin", f"{tests_only}:refs/heads/main")
+                subprocess.run(
+                    ["git", "clone", "-q", "--depth=1", "--branch", "main",
+                     remote.as_uri(), str(shallow)],
+                    check=True, capture_output=True,
+                )
+                self.assertNotEqual(
+                    subprocess.run(
+                        ["git", "-C", str(shallow), "cat-file", "-e", base + "^{commit}"],
+                        capture_output=True,
+                    ).returncode, 0,
+                )
+                self.assertEqual(
+                    classified(base, tests_only, checkout_root=shallow), "required=false"
+                )
+                self.assertEqual(
+                    subprocess.run(
+                        ["git", "-C", str(shallow), "cat-file", "-e", base + "^{commit}"],
+                        capture_output=True,
+                    ).returncode, 0,
+                )
             self.assertEqual(classified(base, tests_only), "required=false")
             self.assertEqual(classified(base, tests_only, "push"), "required=false")
             self.assertEqual(classified(base, tests_only, "workflow_dispatch"), "required=true")
