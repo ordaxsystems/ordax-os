@@ -462,7 +462,13 @@ def native_startup_import_graph(root: Path = ROOT) -> tuple[frozenset[str], tupl
 
         for match in IMPORT_RE.finditer(text):
             specifier = match.group(1) or match.group(2)
-            target = _resolve_relative_import(source, specifier, root)
+            try:
+                target = _resolve_relative_import(source, specifier, root)
+            except (OSError, UnicodeError, ValueError) as exc:
+                # An untrusted Windows junction must block the graph/gate,
+                # but not crash classification or pretend the import exists.
+                errors.append(f"unreadable-import:{relative}:{specifier}:{type(exc).__name__}")
+                continue
             if target is None:
                 errors.append(f"unresolved:{relative}:{specifier}")
                 continue
