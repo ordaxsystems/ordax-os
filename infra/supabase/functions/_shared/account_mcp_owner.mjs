@@ -541,13 +541,18 @@ export function parseAccountOwnerProjectGrant(value, now=Date.now()) {
   };
 }
 
+function sameGrantExpiry(a, b) {
+  if (a === null || b === null) return a === b;
+  return Date.parse(a) === Date.parse(b);
+}
+
 function sameGrantIdentity(a, b) {
   return a.client_id === b.client_id
     && a.profile_key === b.profile_key
     && a.scope_kind === b.scope_kind
     && a.space_id === b.space_id
     && a.project_id === b.project_id
-    && a.valid_until === b.valid_until
+    && sameGrantExpiry(a.valid_until, b.valid_until)
     && a.client_consent_active === b.client_consent_active;
 }
 
@@ -609,7 +614,7 @@ export async function createAccountOwnerProjectGrant(
       && group.scope_kind === "project"
       && group.space_id === input.space_id
       && group.project_id === input.project_id
-      && group.valid_until === input.valid_until
+      && sameGrantExpiry(group.valid_until, input.valid_until)
       && group.client_consent_active === true);
   if (created.length !== 1) throw new Error("mcp-owner-project-grant-unconfirmed");
 
