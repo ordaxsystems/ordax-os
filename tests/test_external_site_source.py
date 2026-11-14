@@ -62,6 +62,36 @@ class ExternalSiteSourceTests(unittest.TestCase):
                     f"duplicate Site presentation tool reintroduced: {filename}",
                 )
 
+    def test_os_web_site_consumer_validates_exact_pin_on_pr_and_main_push(self):
+        workflow = (
+            ROOT / ".github/workflows/public-site-source-repoint.yml"
+        ).read_text(encoding="utf-8")
+        events, jobs = workflow.split("\njobs:\n", 1)
+        self.assertIn("  workflow_dispatch:\n", events)
+        pr = events.split("  pull_request:\n    paths:\n", 1)[1].split(
+            "  push:\n", 1
+        )[0]
+        push = events.split("  push:\n    branches: [main]\n    paths:\n", 1)[1].split(
+            "  workflow_dispatch:", 1
+        )[0]
+        self.assertEqual(pr, push)
+        for path in (
+            "docs/contracts/public-site-source.json",
+            "tools/vercel/site_source.py",
+            "tools/vercel/build.py",
+            "tests/test_external_site_source.py",
+            ".github/workflows/public-site-source-repoint.yml",
+        ):
+            self.assertIn('"' + path + '"', push)
+        self.assertIn("test_external_site_source.py", jobs)
+        self.assertIn("source.resolve()", jobs)
+        self.assertIn('manifest["site_source_commit"] == pinned', jobs)
+        self.assertIn('portal["source_commit"] == pinned', jobs)
+        self.assertIn('build.OUTPUT = Path(temporary) / "public"', jobs)
+        self.assertIn('build.OUTPUT = Path(temporary) / "web"', jobs)
+        self.assertNotIn("deploy --prod", jobs)
+        self.assertFalse(SOURCE.contract()["production_deployment_activated"])
+
     def test_exact_pinned_source_and_dirty_checkout_are_fail_closed(self):
         with tempfile.TemporaryDirectory() as temp:
             root = Path(temp)
