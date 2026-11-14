@@ -4,6 +4,8 @@ on:
   push:
     branches: [main]
     paths:
+      # Source UI is external: test the immutable owner pin, not retired OS paths.
+      - 'docs/contracts/surface-source.json'
       - 'system/apps/intelligence-catalog.mjs'
       - 'system/apps/**/ai/**'
       - 'tests/test_application_intelligence_awareness.mjs'
@@ -68,11 +70,6 @@ on:
       - 'system/services/memory/**'
       - 'system/services/preferences/memory.mjs'
       - 'system/services/profile-packs/**'
-      - 'system/surface/ui/memory-review-controls.mjs'
-      - 'system/surface/ui/space-switcher-controls.mjs'
-      - 'system/surface/ui/space-switcher.css'
-      - 'system/surface/ui/desktop-shell.mjs'
-      - 'system/surface/ui/profile-activation-review.mjs'
       - 'system/services/i18n/catalog/account.mjs'
       - 'system/adapters/web/memory.mjs'
       - 'system/adapters/native/memory.mjs'
@@ -185,6 +182,8 @@ on:
       - '.github/workflows/intelligence-foundation.yml'
   pull_request:
     paths:
+      # Source UI is external: test the immutable owner pin, not retired OS paths.
+      - 'docs/contracts/surface-source.json'
       - 'system/apps/intelligence-catalog.mjs'
       - 'system/apps/**/ai/**'
       - 'tests/test_application_intelligence_awareness.mjs'
@@ -248,11 +247,6 @@ on:
       - 'system/services/memory/**'
       - 'system/services/preferences/memory.mjs'
       - 'system/services/profile-packs/**'
-      - 'system/surface/ui/memory-review-controls.mjs'
-      - 'system/surface/ui/space-switcher-controls.mjs'
-      - 'system/surface/ui/space-switcher.css'
-      - 'system/surface/ui/desktop-shell.mjs'
-      - 'system/surface/ui/profile-activation-review.mjs'
       - 'system/services/i18n/catalog/account.mjs'
       - 'system/adapters/web/memory.mjs'
       - 'system/adapters/native/memory.mjs'
