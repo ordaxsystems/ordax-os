@@ -32,6 +32,27 @@ class CreatorPayloadExternalSourceTests(unittest.TestCase):
         self.assertNotIn("'tools/creator/core/**'", w)
         self.assertNotIn("'tools/creator/cmd/**'", w)
 
+    def test_draft_pr_only_runs_light_contract_and_ready_restarts_heavy(self):
+        text = self.workflow
+        self.assertIn(
+            "types: [opened, synchronize, reopened, ready_for_review]", text
+        )
+        jobs = text.split("\njobs:\n", 1)[1]
+        self.assertIn("\n  creator-payload-contract:\n", "\n" + jobs)
+        contract, heavy = jobs.split("\n  creator-payload:\n", 1)
+        self.assertIn("python3 -m unittest tests.test_creator_payload_external_source -v", contract)
+        self.assertIn("persist-credentials: false", contract)
+        for build in ("bootstrap/kernel/build.py build", "boot/esp/build.py build",
+                      "bootstrap/initramfs/build.py build", "go build"):
+            self.assertNotIn(build, contract)
+        self.assertIn("needs: creator-payload-contract", heavy)
+        self.assertIn(
+            "if: github.event_name != 'pull_request' || !github.event.pull_request.draft",
+            heavy,
+        )
+        self.assertIn("Build kernel candidate on verified cache miss", heavy)
+        self.assertIn("queue: max", heavy)
+
     def test_payload_kernel_uses_shared_verified_producer_queue(self):
         workflow = self.workflow
         owner = (ROOT / ".github/workflows/creator-owner-dev-git.yml").read_text(encoding="utf-8")
