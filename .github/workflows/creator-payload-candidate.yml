@@ -25,6 +25,7 @@ on:
       - 'docs/contracts/minimal-bootstrap.json'
       - '.github/workflows/creator-payload-candidate.yml'
   pull_request:
+    types: [opened, synchronize, reopened, ready_for_review]
     paths:
       - 'boot/esp/**'
       - 'bootstrap/kernel/**'
@@ -57,7 +58,23 @@ concurrency:
   cancel-in-progress: false
 
 jobs:
+  creator-payload-contract:
+    # Draft PRs validate the source/producer boundary without building kernel,
+    # ESP, initramfs or Creator. A ready PR re-enters the heavy job below.
+    runs-on: ubuntu-24.04
+    timeout-minutes: 8
+    steps:
+      - name: Checkout exact source for immutable Creator contract
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
+        with:
+          ref: ${{ github.event.pull_request.head.sha || github.sha }}
+          persist-credentials: false
+      - name: Validate Creator payload source authority and fail-closed gates
+        run: python3 -m unittest tests.test_creator_payload_external_source -v
+
   creator-payload:
+    needs: creator-payload-contract
+    if: github.event_name != 'pull_request' || !github.event.pull_request.draft
     # This job builds the same pinned kernel/cache as Creator Owner and Base.
     # Share their producer queue rather than compiling the same kernel twice.
     concurrency:
