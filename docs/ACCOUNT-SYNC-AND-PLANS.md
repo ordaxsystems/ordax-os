@@ -351,10 +351,12 @@ nova.
 
 ### Release atual: código canônico não significa feature ativada
 
-O merge OS #2558 produziu deployment Vercel `ordax-os-public` READY no SHA
-`bf8da2ab...`. Isso publica o proxy, **não** ativa GitHub Owner: o gateway
-Supabase, o GitHub App real, seus secrets e as flags continuam gates
-separados.
+Os merges OS #2558 e #2560 produziram deployments Vercel READY. Para #2560,
+`ordax-web` e `ordax-os-public` estão READY no SHA `9e8a060c...`. Isso
+publica source/proxy, **não** ativa GitHub Owner nem Project binding: o gateway
+Supabase, o GitHub App real, os secrets e as flags Account/Platform continuam
+gates separados. Nenhum deploy Supabase do Account gateway foi promovido por
+#2560.
 
 Os merges Site #38 e #44 **não foram publicados no Vercel**. Ambos tiveram
 status Vercel failure por `build-rate-limit` no plano atual; portanto a UI
