@@ -3,7 +3,7 @@
 **Prioridade:** URGENTE — organização e redução de complexidade comprovada  
 **Início:** 2026-11-14  
 **Owner:** `ordaxsystems/ordax-os` (cada alteração em outro repositório pertence ao respectivo owner)  
-**Estado:** EM EXECUÇÃO — P0.1 e P0.2 concluídos; próxima frente: consolidação documental por consumidores  
+**Estado:** EM EXECUÇÃO — P0.1 e P0.2 concluídos; P0.3 e P1.1 em execução com correções integradas  
 **Regra:** Evolução Rápida — executar uma simplificação pequena e segura por vez, validar proporcionalmente e integrar.
 
 > Este arquivo é **roteiro operacional de consolidação**, não uma nova autoridade de arquitetura, produto, release ou implementação. A hierarquia vigente permanece em `docs/README.md`; source, contratos, `docs/CURRENT-STATE.md`, `MVP.md`, ADRs e gates prevalecem. Não duplicar o roadmap de produto de `00-PLANOS-PRIORITARIOS/`.
@@ -37,13 +37,21 @@ Já existe consolidação anterior: planos históricos da raiz foram movidos par
 | --- | --- | --- | --- |
 | P0.1 | Criar este roteiro na raiz e torná-lo descobrível pelo `README.md` sem substituir o roteador `docs/README.md` | Link funcional e hierarquia preservada | **CONCLUÍDO** — `41ddc196`, `d45de378` |
 | P0.2 | Confrontar a lista de planos da raiz com `00-PLANOS-PRIORITARIOS/REGISTRY.md` e referências realmente existentes | Apenas planos vivos permanecem ativos; históricos com link ao commit antigo | **CONCLUÍDO** — dois planos na raiz (`PLANO-07`, `PLANO-08`), ambos no registry e README; históricos já referenciados por snapshots |
-| P0.3 | Localizar documentos de mesmo assunto e conferir citações/consumidores antes de consolidar | Uma autoridade humana por assunto, sem perder contratos e runbooks | PENDENTE |
-| P1.1 | Agrupar workflows por finalidade, `on:`, `workflow_call`, caminhos acionados e exigência de branch protection | Lista de candidatos **com sobreposição demonstrada**, não por semelhança de nome | PENDENTE |
+| P0.3 | Localizar documentos de mesmo assunto e conferir citações/consumidores antes de consolidar | Uma autoridade humana por assunto, sem perder contratos e runbooks | **EM EXECUÇÃO** — 4 referências órfãs corrigidas; sem duplicatas Markdown exatas no inventário; seguir por consumidores |
+| P1.1 | Agrupar workflows por finalidade, `on:`, `workflow_call`, caminhos acionados e exigência de branch protection | Lista de candidatos **com sobreposição demonstrada**, não por semelhança de nome | **EM EXECUÇÃO** — 165 workflows; 137/140 `push` e 147/150 PR filtrados por caminho; conferir required checks antes de fusões |
 | P1.2 | Consolidar cada par comprovadamente redundante no fluxo canônico; ajustar chamadas/regras consumidoras antes da exclusão | Mesmo gate/prova, disparo correto, sem rebuild desnecessário | PENDENTE |
 | P1.3 | Revisar `docs/evidence/`: separar prova exigida por contrato de registro histórico sem consumidor | Evidência vigente preservada; removida apenas redundância sem dependências | PENDENTE |
 | P2.1 | Verificar código, testes e scripts repetidos em `system/`, `tools/`, `bootstrap/` e `tests/` | Um único owner por responsabilidade, sem perda de comportamento | PENDENTE |
 | P2.2 | Revalidar fronteiras com Apps, Surface, Runtime, Platform, Desktop, Creator e Site | Integrações por contratos/artefatos, sem cópia de implementação entre owners | PENDENTE |
 | P3 | Consolidar a navegação final: README conciso, `docs/README.md` como índice de documentação, registry de planos sem concorrentes | Qualquer agente encontra owner, fonte vigente e validação com poucos cliques | PENDENTE |
+
+## 3.1. Execução e verificação — 2026-11-14
+
+- **Navegação/duplicação efetivamente corrigidas:** a PR #2541 já havia removido `docs/STORE-WINDOWS-VERIFIED-CATALOG-BOUNDARY.md`, mas dois READMEs ainda apontavam para esse arquivo inexistente. Reapontados para os owners atuais sem recriar o documento (commits `fc4fb7dd` e `3ec65f81`).
+- **Evidências históricas:** dois links relativos quebrados corrigidos (`ff520d73`, `1e2b7074`); evidências preservadas.
+- **CI sem rebuild desnecessário:** `URGENTE-CONSOLIDACAO-ORDAX.md` adicionado **somente** à allowlist explícita de diff documental do Foundation (`92a21366`). Verificados seis cenários de classificação: roadmap/README somente `docs-only`; arquivos de código, contratos, workflow e desconhecidos continuam `full` (fail-closed).
+- **Inventário de workflows:** 165 arquivos; 137 de 140 com gatilho `push` e 147 de 150 com `pull_request` possuem `paths` ou `paths-ignore`. Os três restantes são `branch-hygiene`, `foundation` e `product-version-governance`; possuem finalidade transversal. Uma semelhança textual de ~65% entre provas de migração Network não elimina suas asserções SQL distintas.
+- **Limite da conclusão:** não há arquivos Markdown com conteúdo exatamente igual no snapshot inspecionado, mas isso **não** prova ausência de repetição semântica. Nenhum workflow foi excluído; antes de fusionar, validar required status checks, triggers, provas SQL e consumidores. A auditoria de referências Markdown identificou quatro links quebrados que já foram corrigidos; não confundir auditoria pontual com garantia universal de links em todos os tipos de arquivo.
 
 ## 4. Regras obrigatórias
 
