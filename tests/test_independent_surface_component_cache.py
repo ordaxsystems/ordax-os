@@ -13,6 +13,7 @@ ROOT = Path(__file__).resolve().parents[1]
 SCRIPT = ROOT / "tools/ci/independent_surface_component_cache.py"
 WORKFLOW = ROOT / ".github/workflows/independent-surface-runtime.yml"
 R2_SCRIPT = ROOT / "tools/ci/independent_surface_r2.sh"
+GITHUB_ARTIFACT_SCRIPT = ROOT / "tools/ci/independent_surface_github_artifact.sh"
 
 
 def load_module():
@@ -686,6 +687,18 @@ with Path(os.environ["SURFACE_MOCK_CURL_LOG"]).open("a") as log:
                             self.assertEqual(requests.count("GET_BLOB"), 2)
                             self.assertEqual(requests.count("PUT_MANIFEST"), 1)
                             self.assertIn("Verified Surface ensured", result.stdout)
+
+    def test_github_artifact_reuse_is_content_addressed_across_squash_merges(self):
+        script = GITHUB_ARTIFACT_SCRIPT.read_text(encoding="utf-8")
+        self.assertIn('item.get("event") != "workflow_dispatch"', script)
+        self.assertIn('item.get("status") != "completed" or item.get("conclusion") != "success"', script)
+        self.assertIn('(item.get("head_repository") or {}).get("full_name") != repo', script)
+        self.assertNotIn('item.get("head_branch") != branch', script)
+        self.assertNotIn('merge-base', script)
+        self.assertNotIn('-f branch="$branch"', script)
+        self.assertIn('item.get("head_branch") == preferred_branch', script)
+        self.assertIn('independent_surface_component_cache.py verify', script)
+        self.assertIn('--cache-hit true --consumer', script)
 
     def test_durable_publication_is_immutable_and_credentials_are_not_hardcoded(self):
         workflow = WORKFLOW.read_text(encoding="utf-8")
