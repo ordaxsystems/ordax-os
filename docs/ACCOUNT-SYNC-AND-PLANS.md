@@ -307,6 +307,7 @@ de devices, GitHub installation ou estado de projeto paralelos.
 - `GET /account/mcp/devices`;
 - `GET /account/mcp/authority?device_id=UUID`;
 - `POST /account/mcp/revoke`;
+- `POST /account/mcp/project-grants`;
 - `GET /account/mcp/central-targets?client_id=UUID`;
 - `GET /account/mcp/central-selections?client_id=UUID`;
 - `POST /account/mcp/central-selections`;
@@ -323,7 +324,8 @@ As rotas Owner gerais permanecem fechadas enquanto
 Seleção central exige também `ORDAX_MCP_OWNER_CENTRAL_SELECTION_ENABLED=1`;
 Project onboarding exige `ORDAX_MCP_OWNER_PROJECT_ONBOARDING_ENABLED=1`;
 o request de binding exige separadamente
-`ORDAX_MCP_OWNER_PROJECT_DEVICE_BINDING_ENABLED=1`; e GitHub exige
+`ORDAX_MCP_OWNER_PROJECT_DEVICE_BINDING_ENABLED=1`; criação/substituição de
+grant Project exige `ORDAX_MCP_OWNER_PROJECT_GRANT_ENABLED=1`; e GitHub exige
 `ORDAX_MCP_OWNER_GITHUB_AUTHORIZATION_ENABLED=1`.
 `PUBLIC_SITE_ACCOUNT_ENABLED` continua um gate independente.
 
@@ -400,6 +402,35 @@ transporte Device canônico. Até essa prova E2E, manter
 Grants continuam posteriores e separados; repository selection e binding
 nunca auto-concedem `terminal.exec`, process, filesystem ou qualquer outro
 grant.
+
+### Grants Project pós-binding
+
+A Conta pode projetar a autoridade de grant já existente na Platform, mas não
+mantém ACL própria. `POST /account/mcp/project-grants` é uma operação Owner
+explícita e aceita somente os perfis Project Native necessários ao E2E de #220:
+
+- `project-native-terminal` → `terminal.exec`;
+- `project-native-process` → process start/status/list/logs/write_stdin/stop.
+
+Antes da mutação, a Conta reconsulta o onboarding do mesmo device e exige o
+Project exato em `ready_without_grants`, com
+`space_device_execute=true`, `project_device_bound=true` e repositório
+GitHub verificado. Também reconsulta o catálogo Owner de OAuth clients. Depois
+de exatamente um POST para a autoridade Platform já canônica, reconsulta
+`remote-authority` e confirma o mesmo
+`device/client/space/project/profile/expiry`, preservando todos os grants não
+substituídos. Resultado incerto nunca é reenviado automaticamente.
+
+O browser não escolhe capabilities nem `access_mode`; eles vêm do
+`profile_key` canônico da Platform. `local_project_ref/project-N`, path,
+repository/installation ids e grants device-wide não pertencem a essa rota.
+`valid_until` precisa ser explícito; `null` significa sem expiração somente
+quando enviado intencionalmente pelo Owner. A flag
+`ORDAX_MCP_OWNER_PROJECT_GRANT_ENABLED` permanece independente e default-off.
+
+Esse bridge não remove o gate Runtime: enquanto o Device Agent não confirmar o
+`project-N`, o Project não alcança `ready_without_grants` e a criação de
+grant é recusada antes da mutação.
 
 **Gates de entrega — código não é deploy:** os workflows de destino Supabase
 continuam manuais e exigem SHA/confirmacão de produção; merge não habilita

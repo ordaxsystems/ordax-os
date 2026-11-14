@@ -4,8 +4,10 @@ import {readFileSync} from "node:fs";
 import {isPublicBridgeRoute,isPublicAccountPreActivationRoute} from "../infra/supabase/functions/_shared/account_transport_admission.mjs";
 import {
   ACCOUNT_MCP_DEVICES_PATH, ACCOUNT_MCP_AUTHORITY_PATH, ACCOUNT_MCP_REVOKE_PATH,
+  ACCOUNT_MCP_PROJECT_GRANTS_PATH,
   OWNER_MCP_DEVICES_URL, validateAccountOwnerDevices,validateAccountOwnerAuthority,
   readAccountOwnerDevices,readAccountOwnerAuthority,revokeAccountOwnerGrant,parseAccountOwnerRevoke,
+  parseAccountOwnerProjectGrant,createAccountOwnerProjectGrant,
   ACCOUNT_MCP_CENTRAL_TARGETS_PATH,ACCOUNT_MCP_CENTRAL_SELECTIONS_PATH,
   readAccountOwnerCentralTargets,readAccountOwnerCentralSelections,
   selectAccountOwnerCentralDevice,parseAccountOwnerCentralSelection,
@@ -41,7 +43,8 @@ const row={device_id:device,name:"OrdaX Desktop",kind:"desktop",
 const inventory={ok:true,schema:"ordax.owner-mcp-devices/1",count:1,devices:[row]};
 const authority={ok:true,device_id:device,clients:[{client_id:client,client_name:"ChatGPT"}],
   grant_groups:[{grant_group_id:group,client_id:client,device_id:device,
-    profile_key:"full-computer-control",valid_until:null,client_consent_active:true}]};
+    profile_key:"full-computer-control",scope_kind:"device",space_id:null,project_id:null,
+    valid_until:null,client_consent_active:true}]};
 const makeResponse=(body,url,status=200)=>{
   const response=new Response(JSON.stringify(body),{status,headers:{"content-type":"application/json"}});
   Object.defineProperty(response,"url",{value:url});
@@ -54,10 +57,11 @@ const transport=(responses,calls=[])=>async (url,options)=>{
   return makeResponse(next,url);
 };
 
-test("Only three explicit MCP Owner routes, not publicly preactivated",()=>{
+test("MCP Owner routes remain exact and never publicly preactivated",()=>{
   for(const [method,path] of [["GET",ACCOUNT_MCP_DEVICES_PATH],
                               ["GET",ACCOUNT_MCP_AUTHORITY_PATH],
-                              ["POST",ACCOUNT_MCP_REVOKE_PATH]]) {
+                              ["POST",ACCOUNT_MCP_REVOKE_PATH],
+                              ["POST",ACCOUNT_MCP_PROJECT_GRANTS_PATH]]) {
     assert.equal(isPublicBridgeRoute(method,path),true);
     assert.equal(isPublicAccountPreActivationRoute(method,path),false);
     assert.equal(isPublicBridgeRoute(method==="GET"?"POST":"GET",path),false);
@@ -98,6 +102,10 @@ test("Gateway Owner routes keep Supabase cookie authorization and fail-closed ro
   assert.doesNotMatch(source,/origin\.host\.toLowerCase\(\) === forwardedHost/);
   assert.match(source,/await revokeAccountOwnerGrant\(session.access, revokeRequest\)/);
   assert.match(source,/mcp-owner-revoke-unconfirmed/);
+  assert.match(source,/ORDAX_MCP_OWNER_PROJECT_GRANT_ENABLED/);
+  assert.match(source,/parseAccountOwnerProjectGrant\(grantRequest\)/);
+  assert.match(source,/createAccountOwnerProjectGrant\(/);
+  assert.match(source,/mcp-owner-project-grant-unconfirmed/);
   assert.match(source,/ORDAX_MCP_OWNER_CENTRAL_SELECTION_ENABLED/);
   assert.match(source,/parseAccountOwnerCentralSelection\(selection\)/);
   assert.match(source,/selectAccountOwnerCentralDevice\(session.access, selection\)/);
@@ -153,11 +161,171 @@ test("Authority read ties every group to the requested device",async()=>{
   const result=validateAccountOwnerAuthority(authority,device);
   assert.equal(result.schema,"ordax.owner-mcp-authority-view/1");
   assert.equal(result.grant_groups[0].client_consent_active,true);
+  assert.deepEqual({
+    scope_kind:result.grant_groups[0].scope_kind,
+    space_id:result.grant_groups[0].space_id,
+    project_id:result.grant_groups[0].project_id,
+  },{scope_kind:"device",space_id:null,project_id:null});
   assert.equal(validateAccountOwnerAuthority({...authority,device_id:other},device),null);
   assert.equal(validateAccountOwnerAuthority({...authority,grant_groups:[{...authority.grant_groups[0],device_id:other}]},device),null);
   assert.equal(validateAccountOwnerAuthority({...authority,grant_groups:[authority.grant_groups[0],authority.grant_groups[0]]},device),null);
+  assert.equal(validateAccountOwnerAuthority({...authority,grant_groups:[{
+    ...authority.grant_groups[0],scope_kind:"project",space_id:null,project_id:null,
+  }]},device),null);
+  assert.equal(validateAccountOwnerAuthority({...authority,grant_groups:[{
+    ...authority.grant_groups[0],scope_kind:"device",space_id:space,project_id:project,
+  }]},device),null);
   assert.deepEqual(await readAccountOwnerAuthority(access,device,transport([authority])),result);
 });
+test("Project grant parser is explicit, bounded and limited to canonical Native Project profiles",()=>{
+  const now=Date.parse("2026-11-13T23:00:00.000Z");
+  const input={device_id:device,client_id:client,space_id:space,project_id:project,
+    profile_key:"project-native-process",valid_until:"2026-11-14T12:00:00Z",
+    confirm:"authorize_project"};
+  assert.deepEqual(parseAccountOwnerProjectGrant(input,now),{
+    ...input,valid_until:"2026-11-14T12:00:00.000Z",
+  });
+  assert.deepEqual(parseAccountOwnerProjectGrant({...input,
+    profile_key:"project-native-terminal",valid_until:null},now),{
+      ...input,profile_key:"project-native-terminal",valid_until:null,
+    });
+  for(const bad of [
+    {...input,profile_key:"full-computer-control"},
+    {...input,profile_key:"project-browser-automation"},
+    {...input,profile_key:"project-workspace-read"},
+    {...input,profile_key:"project-continuity"},
+    {...input,profile_key:"constructor"},
+    {...input,confirm:"yes"},
+    {...input,valid_until:"2020-01-01T00:00:00Z"},
+    {...input,valid_until:"2028-01-01T00:00:00Z"},
+    {...input,valid_until:""},
+    {...input,device_id:other},
+    {...input,space_id:"bad"},
+    {...input,project_id:"bad"},
+    {...input,local_project_ref:"project-1"},
+    {...input,path:"C:/repo"},
+    {...input,capabilities:["terminal.exec"]},
+    {...input,access_mode:"write"},
+  ]) {
+    if (bad.device_id===other) continue; // cross-device is structurally valid; authority checks it server-side.
+    assert.equal(parseAccountOwnerProjectGrant(bad,now),null,JSON.stringify(bad));
+  }
+});
+
+test("Project grant creation requires ready binding, one POST and exact scoped read-back",async()=>{
+  const now=Date.parse("2026-11-13T23:00:00.000Z");
+  const validUntil="2026-11-14T12:00:00.000Z";
+  const input={device_id:device,client_id:client,space_id:space,project_id:project,
+    profile_key:"project-native-process",valid_until:validUntil,confirm:"authorize_project"};
+  const onboarding={ok:true,device_id:device,
+    spaces:[{space_id:space,name:"Owner",kind:"work",state:"active"}],
+    projects:[{project_id:project,space_id:space,name:"Platform",kind:"development",
+      state:"active",github_connection_count:1,
+      repository_full_name:"ordaxsystems/ordax-platform",
+      space_device_execute:true,project_device_bound:true,next_state:"ready_without_grants"}],
+    next_state:null};
+  const newGroup="99999999-9999-4999-8999-999999999999";
+  const after={...authority,grant_groups:[...authority.grant_groups,{
+    grant_group_id:newGroup,client_id:client,device_id:device,
+    profile_key:"project-native-process",scope_kind:"project",
+    space_id:space,project_id:project,valid_until:"2026-11-14T12:00:00+00:00",
+    client_consent_active:true,
+  }]};
+  const calls=[];
+  const result=await createAccountOwnerProjectGrant(access,input,
+    transport([onboarding,authority,{ok:true,grant_group_id:newGroup,
+      capability_count:6,scope_kind:"project"},after],calls),now);
+  assert.deepEqual(result,{ok:true,schema:"ordax.owner-project-grant/1",
+    grant_group_id:newGroup,device_id:device,client_id:client,space_id:space,
+    project_id:project,profile_key:"project-native-process",valid_until:validUntil});
+  assert.deepEqual(calls.map(call=>call.options.method),["GET","GET","POST","GET"]);
+  assert.equal(calls[2].url,"https://mcp.ordax.com.br/v3/owner/remote-grant-groups");
+  assert.deepEqual(JSON.parse(calls[2].options.body),{
+    client_id:client,device_id:device,profile_key:"project-native-process",
+    project_id:project,space_id:space,valid_until:validUntil,
+  });
+  assert.equal("confirm" in JSON.parse(calls[2].options.body),false);
+  assert.equal(calls.filter(call=>call.options.method==="POST").length,1);
+});
+
+test("Project grant creation fails closed before mutation unless binding and OAuth client are canonical",async()=>{
+  const now=Date.parse("2026-11-13T23:00:00.000Z");
+  const input={device_id:device,client_id:client,space_id:space,project_id:project,
+    profile_key:"project-native-terminal",valid_until:null,confirm:"authorize_project"};
+  const ready={ok:true,device_id:device,
+    spaces:[{space_id:space,name:"Owner",kind:"work",state:"active"}],
+    projects:[{project_id:project,space_id:space,name:"Platform",kind:"development",
+      state:"active",github_connection_count:1,
+      repository_full_name:"ordaxsystems/ordax-platform",
+      space_device_execute:true,project_device_bound:true,next_state:"ready_without_grants"}],
+    next_state:null};
+
+  for(const projectState of [
+    {...ready.projects[0],next_state:"needs_device_binding",
+      space_device_execute:false,project_device_bound:false},
+    {...ready.projects[0],space_device_execute:false},
+    {...ready.projects[0],project_device_bound:false},
+    {...ready.projects[0],repository_full_name:null,github_connection_count:0},
+  ]) {
+    const calls=[];
+    await assert.rejects(createAccountOwnerProjectGrant(access,input,
+      transport([{...ready,projects:[projectState]}],calls),now),/scope-not-ready/);
+    assert.deepEqual(calls.map(call=>call.options.method),["GET"]);
+  }
+
+  const noClient={...authority,clients:[]};
+  const calls=[];
+  await assert.rejects(createAccountOwnerProjectGrant(access,input,
+    transport([ready,noClient],calls),now),/client-not-consented/);
+  assert.deepEqual(calls.map(call=>call.options.method),["GET","GET"]);
+});
+
+test("Project grant mutation is never replayed and exact read-back must preserve unrelated grants",async()=>{
+  const now=Date.parse("2026-11-13T23:00:00.000Z");
+  const input={device_id:device,client_id:client,space_id:space,project_id:project,
+    profile_key:"project-native-terminal",valid_until:null,confirm:"authorize_project"};
+  const ready={ok:true,device_id:device,
+    spaces:[{space_id:space,name:"Owner",kind:"work",state:"active"}],
+    projects:[{project_id:project,space_id:space,name:"Platform",kind:"development",
+      state:"active",github_connection_count:1,
+      repository_full_name:"ordaxsystems/ordax-platform",
+      space_device_execute:true,project_device_bound:true,next_state:"ready_without_grants"}],
+    next_state:null};
+
+  let postCalls=0;
+  const uncertain=async(url,options)=>{
+    if(options.method==="GET") {
+      const value=url.includes("project-onboarding")?ready:authority;
+      return makeResponse(value,url);
+    }
+    postCalls++;
+    throw Error("uncertain");
+  };
+  await assert.rejects(createAccountOwnerProjectGrant(access,input,uncertain,now));
+  assert.equal(postCalls,1,"uncertain grant POST must never be replayed");
+
+  const newGroup="aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa";
+  const changedUnrelated={...authority.grant_groups[0],profile_key:"computer-observe"};
+  const badAfter={...authority,grant_groups:[changedUnrelated,{
+    grant_group_id:newGroup,client_id:client,device_id:device,
+    profile_key:"project-native-terminal",scope_kind:"project",
+    space_id:space,project_id:project,valid_until:null,client_consent_active:true,
+  }]};
+  await assert.rejects(createAccountOwnerProjectGrant(access,input,
+    transport([ready,authority,{ok:true,grant_group_id:newGroup,
+      capability_count:1,scope_kind:"project"},badAfter]),now),
+    /isolation-unverified/);
+
+  for(const receipt of [
+    {ok:true,grant_group_id:"bad",capability_count:1,scope_kind:"project"},
+    {ok:true,grant_group_id:newGroup,capability_count:2,scope_kind:"project"},
+    {ok:true,grant_group_id:newGroup,capability_count:1,scope_kind:"device"},
+  ]) {
+    await assert.rejects(createAccountOwnerProjectGrant(access,input,
+      transport([ready,authority,receipt]),now),/grant-unconfirmed/);
+  }
+});
+
 test("Project onboarding projects only bounded canonical state and exact Owner mutations",async()=>{
   const state={ok:true,device_id:device,
     spaces:[{space_id:space,name:"Owner",kind:"work",state:"active",secret:"drop"}],
@@ -486,6 +654,7 @@ test("Isolated revoke proves every unrelated grant survives, including another O
     {...after,grant_groups:[{...extraSame,profile_key:"full-computer-control"},extraOther]},
     {...after,grant_groups:[extraSame,{...extraOther,client_id:client}]},
     {...after,grant_groups:[{...extraSame,valid_until:"2026-12-01T10:00:00.000Z"},extraOther]},
+    {...after,grant_groups:[{...extraSame,scope_kind:"project",space_id:space,project_id:project},extraOther]},
     {...after,grant_groups:[extraSame,{...extraOther,client_consent_active:false}]},
   ]){
     const calls=[];

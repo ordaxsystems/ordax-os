@@ -5,6 +5,7 @@ import { readBoundedBody } from "./bounded_body.mjs";
 export const ACCOUNT_MCP_DEVICES_PATH = "/account/mcp/devices";
 export const ACCOUNT_MCP_AUTHORITY_PATH = "/account/mcp/authority";
 export const ACCOUNT_MCP_REVOKE_PATH = "/account/mcp/revoke";
+export const ACCOUNT_MCP_PROJECT_GRANTS_PATH = "/account/mcp/project-grants";
 export const ACCOUNT_MCP_CENTRAL_TARGETS_PATH = "/account/mcp/central-targets";
 export const ACCOUNT_MCP_CENTRAL_SELECTIONS_PATH = "/account/mcp/central-selections";
 export const ACCOUNT_MCP_PROJECT_ONBOARDING_PATH = "/account/mcp/project-onboarding";
@@ -30,6 +31,10 @@ const MAX_OWNER_BODY = 65536;
 const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/;
 const TOKEN = /^[A-Za-z0-9_.-]{16,16384}$/;
 const PROFILE = /^[a-z][a-z0-9._-]{1,79}$/;
+const PROJECT_NATIVE_GRANT_PROFILES = Object.freeze({
+  "project-native-process": 6,
+  "project-native-terminal": 1,
+});
 
 const isRecord = value => value && typeof value === "object" && !Array.isArray(value);
 export const isOwnerUuid = value => typeof value === "string" && UUID.test(value);
@@ -83,8 +88,14 @@ export function validateAccountOwnerAuthority(value, requestedDeviceId) {
     groupIds.add(g.grant_group_id);
     // A revoked OAuth consent can leave a previously active grant visible.
     // An Owner must still be able to revoke that exact grant safely.
+    const projectScope = g.scope_kind === "project";
+    const deviceScope = g.scope_kind === "device";
+    if ((!projectScope && !deviceScope)
+        || (projectScope && (!isOwnerUuid(g.space_id) || !isOwnerUuid(g.project_id)))
+        || (deviceScope && (g.space_id !== null || g.project_id !== null))) return null;
     groups.push({grant_group_id:g.grant_group_id, client_id:g.client_id,
-      profile_key:g.profile_key, valid_until:g.valid_until,
+      profile_key:g.profile_key, scope_kind:g.scope_kind,
+      space_id:g.space_id, project_id:g.project_id, valid_until:g.valid_until,
       client_consent_active:g.client_consent_active});
   }
   return {ok:true, schema:"ordax.owner-mcp-authority-view/1",
@@ -503,6 +514,136 @@ export async function selectAccountOwnerCentralDevice(access, raw, fetcher=fetch
     attested:false,dispatch_authorized:false};
 }
 
+export function parseAccountOwnerProjectGrant(value, now=Date.now()) {
+  if (!isRecord(value)
+      || Object.keys(value).sort().join(",")
+        !== "client_id,confirm,device_id,profile_key,project_id,space_id,valid_until"
+      || !isOwnerUuid(value.device_id) || !isOwnerUuid(value.client_id)
+      || !isOwnerUuid(value.space_id) || !isOwnerUuid(value.project_id)
+      || typeof value.profile_key !== "string"
+      || !Object.hasOwn(PROJECT_NATIVE_GRANT_PROFILES, value.profile_key)
+      || value.confirm !== "authorize_project") return null;
+  let validUntil = null;
+  if (value.valid_until !== null) {
+    if (typeof value.valid_until !== "string" || value.valid_until.length > 64) return null;
+    const parsed = Date.parse(value.valid_until);
+    if (!Number.isFinite(parsed) || !Number.isFinite(now) || parsed <= now
+        || parsed > now + 365 * 24 * 60 * 60 * 1000) return null;
+    validUntil = new Date(parsed).toISOString();
+  }
+  return {
+    device_id:value.device_id,
+    client_id:value.client_id,
+    space_id:value.space_id,
+    project_id:value.project_id,
+    profile_key:value.profile_key,
+    valid_until:validUntil,
+    confirm:"authorize_project",
+  };
+}
+
+function sameGrantExpiry(a, b) {
+  if (a === null || b === null) return a === b;
+  return Date.parse(a) === Date.parse(b);
+}
+
+function sameGrantIdentity(a, b) {
+  return a.client_id === b.client_id
+    && a.profile_key === b.profile_key
+    && a.scope_kind === b.scope_kind
+    && a.space_id === b.space_id
+    && a.project_id === b.project_id
+    && sameGrantExpiry(a.valid_until, b.valid_until)
+    && a.client_consent_active === b.client_consent_active;
+}
+
+export async function createAccountOwnerProjectGrant(
+  access, raw, fetcher=fetch, now=Date.now(),
+) {
+  const input = parseAccountOwnerProjectGrant(raw, now);
+  if (!input) throw new Error("mcp-owner-project-grant-request-invalid");
+
+  // A browser-selected Project/Space tuple never proves scope. Re-read the
+  // canonical onboarding state and require the completed two-party binding.
+  const onboarding = await readAccountOwnerProjectOnboarding(
+    access, input.device_id, fetcher,
+  );
+  const project = onboarding.projects.find(item =>
+    item.project_id === input.project_id && item.space_id === input.space_id);
+  if (!project || project.next_state !== "ready_without_grants"
+      || project.space_device_execute !== true
+      || project.project_device_bound !== true
+      || typeof project.repository_full_name !== "string")
+    throw new Error("mcp-owner-project-grant-scope-not-ready");
+
+  const before = await readAccountOwnerAuthority(access, input.device_id, fetcher);
+  if (!before.clients.some(item => item.client_id === input.client_id))
+    throw new Error("mcp-owner-project-grant-client-not-consented");
+  const replacing = before.grant_groups.filter(group =>
+    group.client_id === input.client_id
+      && group.profile_key === input.profile_key
+      && group.scope_kind === "project"
+      && group.space_id === input.space_id
+      && group.project_id === input.project_id);
+  if (replacing.length > 1)
+    throw new Error("mcp-owner-project-grant-ambiguous");
+
+  const requestBody = {
+    client_id:input.client_id,
+    device_id:input.device_id,
+    profile_key:input.profile_key,
+    project_id:input.project_id,
+    space_id:input.space_id,
+    valid_until:input.valid_until,
+  };
+  // Exactly one POST. An unknown outcome is reconciled by an explicit later
+  // Owner read; it is never retried automatically.
+  const receipt = await ownerRequest(
+    access, OWNER_MCP_GRANTS_URL, "POST", fetcher, requestBody,
+  );
+  if (!isRecord(receipt) || receipt.ok !== true
+      || !isOwnerUuid(receipt.grant_group_id)
+      || receipt.scope_kind !== "project"
+      || receipt.capability_count !== PROJECT_NATIVE_GRANT_PROFILES[input.profile_key])
+    throw new Error("mcp-owner-project-grant-unconfirmed");
+
+  const after = await readAccountOwnerAuthority(access, input.device_id, fetcher);
+  const created = after.grant_groups.filter(group =>
+    group.grant_group_id === receipt.grant_group_id
+      && group.client_id === input.client_id
+      && group.profile_key === input.profile_key
+      && group.scope_kind === "project"
+      && group.space_id === input.space_id
+      && group.project_id === input.project_id
+      && sameGrantExpiry(group.valid_until, input.valid_until)
+      && group.client_consent_active === true);
+  if (created.length !== 1) throw new Error("mcp-owner-project-grant-unconfirmed");
+
+  const replaceIds = new Set(replacing.map(group => group.grant_group_id));
+  const afterById = new Map(after.grant_groups.map(group => [group.grant_group_id, group]));
+  for (const group of before.grant_groups) {
+    if (replaceIds.has(group.grant_group_id)) continue;
+    const current = afterById.get(group.grant_group_id);
+    if (!current || !sameGrantIdentity(current, group))
+      throw new Error("mcp-owner-project-grant-isolation-unverified");
+  }
+  const expectedAfterCount = before.grant_groups.length - replacing.length + 1;
+  if (after.grant_groups.length !== expectedAfterCount)
+    throw new Error("mcp-owner-project-grant-isolation-unverified");
+
+  return {
+    ok:true,
+    schema:"ordax.owner-project-grant/1",
+    grant_group_id:receipt.grant_group_id,
+    device_id:input.device_id,
+    client_id:input.client_id,
+    space_id:input.space_id,
+    project_id:input.project_id,
+    profile_key:input.profile_key,
+    valid_until:input.valid_until,
+  };
+}
+
 export function parseAccountOwnerRevoke(value) {
   if (!isRecord(value)
       || Object.keys(value).sort().join(",") !== "client_id,confirm,device_id,grant_group_id"
@@ -537,10 +678,7 @@ export async function revokeAccountOwnerGrant(access, raw, fetcher=fetch) {
   for (const group of before.grant_groups) {
     if (group.grant_group_id === input.grant_group_id) continue;
     const current = preserved.get(group.grant_group_id);
-    if (!current || current.client_id !== group.client_id
-        || current.profile_key !== group.profile_key
-        || current.valid_until !== group.valid_until
-        || current.client_consent_active !== group.client_consent_active)
+    if (!current || !sameGrantIdentity(current, group))
       throw new Error("mcp-owner-revoke-isolation-unverified");
   }
   return {ok:true, schema:"ordax.owner-mcp-revocation/1", revoked:true,
