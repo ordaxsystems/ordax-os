@@ -94,7 +94,7 @@ test("OAuth workflow watches shared account origin on both PR and main push", as
   const pr = workflow.split("  pull_request:\n    paths:\n")[1]?.split("  push:\n")[0];
   const push = workflow.split("  push:\n    branches: [main]\n    paths:\n")[1]?.split("  workflow_dispatch:\n")[0];
   assert.ok(pr && push, "both PR and main push must be defined");
-  const paths = (block) => block.split("\n").filter((line) => line.trim().startsWith("- "));
+  const paths = (block) => block.split("\n").map((line) => line.trim()).filter((line) => line.startsWith("- "));
   assert.deepEqual(paths(pr), paths(push), "shared OAuth dependencies must trigger on both events");
   assert.ok(paths(push).includes(
     '      - "infra/supabase/functions/_shared/account_email_confirmation.mjs"'.trim()
