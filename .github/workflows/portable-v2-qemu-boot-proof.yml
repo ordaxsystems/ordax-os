@@ -252,17 +252,14 @@ jobs:
           ORDAX_BASE_PROOF_SOURCE: ${{ inputs.base_source || 'independent' }}
           ORDAX_INDEPENDENT_BASE_PROFILE: ${{ inputs.independent_base_profile || 'minimal' }}
           ORDAX_PROOF_EVENT: ${{ github.event_name }}
-          ORDAX_EXPLICIT_STABLE_SIGNED_BOOT: ${{ github.event_name == 'push' && github.ref == 'refs/heads/integration/dev-usb-buildroot-surface-20261024' && contains(github.event.head_commit.message, '[stable-mvp-signed-boot]') }}
           ORDAX_SURFACE_PROOF_SOURCE: ${{ inputs.surface_source || 'stable' }}
         run: |
           set -euo pipefail
           case "$ORDAX_BASE_PROOF_SOURCE" in independent) ;; *) echo 'unsupported portable base proof source' >&2; exit 1 ;; esac
           case "$ORDAX_INDEPENDENT_BASE_PROFILE" in minimal|stable-mvp) ;; *) echo 'unsupported independent base proof profile' >&2; exit 1 ;; esac
           if [ "$ORDAX_INDEPENDENT_BASE_PROFILE" = stable-mvp ]; then
-            if [ "$ORDAX_BASE_PROOF_SOURCE" != independent ] || {
-              [ "$ORDAX_PROOF_EVENT" != workflow_dispatch ] && [ "$ORDAX_EXPLICIT_STABLE_SIGNED_BOOT" != true ];
-            }; then
-              echo 'Stable/MVP portable proof requires explicit dispatch or scoped signed-boot marker with independent base source' >&2
+            if [ "$ORDAX_BASE_PROOF_SOURCE" != independent ] || [ "$ORDAX_PROOF_EVENT" != workflow_dispatch ]; then
+              echo 'Stable/MVP portable proof requires explicit dispatch with independent base source' >&2
               exit 1
             fi
           fi
