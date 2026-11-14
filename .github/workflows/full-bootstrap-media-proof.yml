@@ -28,7 +28,7 @@ on:
       - '.github/workflows/full-bootstrap-media-proof.yml'
       - '.github/actions/resolve-creator-source/**'
       - 'docs/contracts/native-release-assembly.json'
-      - 'tests/test_creator_full_media_external_source.py'
+  # Test-only changes are validated by Foundation's Python suite on PRs e pushes de código.
   pull_request:
     types: [opened, synchronize, reopened, ready_for_review]
     paths:
@@ -56,7 +56,6 @@ on:
       - '.github/workflows/full-bootstrap-media-proof.yml'
       - '.github/actions/resolve-creator-source/**'
       - 'docs/contracts/native-release-assembly.json'
-      - 'tests/test_creator_full_media_external_source.py'
   workflow_dispatch:
 
 permissions:
