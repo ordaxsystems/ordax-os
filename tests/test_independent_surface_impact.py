@@ -48,6 +48,7 @@ class IndependentSurfaceImpactTests(unittest.TestCase):
             "tests/test_portable_component_reuse_workflow.py",
             "tests/test_portable_qemu_impact.py",
             "tests/test_ci_git_diff_exact_paths.py",
+            "tests/test_creator_owner_impact.py",
             ".github/workflows/independent-surface-runtime.yml",
             ".github/workflows/portable-v2-qemu-boot-proof.yml",
             ".github/workflows/portable-qemu-impact-contract.yml",
