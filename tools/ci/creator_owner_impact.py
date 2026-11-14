@@ -142,7 +142,7 @@ WINDOWS_PRODUCT_SHARED_ADDITIONS = {
 WINDOWS_PRODUCT_PINNED_BLOBS = {
     "docs/evidence/desktop-runtime-windows-candidate-2026-10-31.json": "5f26c8d88b579fcaed95baceab0d197fdea31441",
     "system/adapters/native/desktop-product-runtime-status.mjs": "1aa2dfb66bbb60ea3feab0c28ec5cc076dd29da1",
-    "system/adapters/native/desktop-surface-state-report.mjs": "175f000801fd7953cec693e441a7ceb5107e9227",
+    "system/adapters/native/desktop-surface-state-report.mjs": "08ce3a0588383b2fe30997e99a972396887d2246",
 }
 
 # The installed Linux Git updater is a source file, not a Creator build dependency.
@@ -413,32 +413,44 @@ def verified_windows_product_additions(base, head, path, *, root=ROOT):
 
 
 def verified_windows_semantic_surface_mount(base, head, *, root=ROOT):
-    """Prove only the existing Windows-guarded call uses Surface's read port.
+    """Prove one exact Windows-guarded Surface reporter wiring transition.
 
     No Native/Linux entrypoint, import, branch, boot path or other byte may
-    change under this exception. Unknown Native changes still require USB.
+    change under this exception. Each accepted transition is byte-exact and
+    remains guarded by windowsDesktopHost; unknown Native changes require USB.
     """
     path = "system/composition/native/main.mjs"
-    original_call = (
+    legacy_call = (
         "  const desktopSurfaceReporter = windowsDesktopHost\n"
         "    ? mountNativeDesktopSurfaceStateReport(window, root, surface, appActivation)\n"
         "    : null;"
     )
-    semantic_call = (
+    read_port_call = (
         "  const desktopSurfaceReporter = windowsDesktopHost\n"
         "    ? mountNativeDesktopSurfaceStateReport(window, surface, appActivation)\n"
         "    : null;"
     )
+    project_links_call = (
+        "  const desktopSurfaceReporter = windowsDesktopHost\n"
+        "    ? mountNativeDesktopSurfaceStateReport(\n"
+        "        window, surface, appActivation, projectCloudLinksReader,\n"
+        "      )\n"
+        "    : null;"
+    )
+    transitions = (
+        (legacy_call, read_port_call),
+        (read_port_call, project_links_call),
+    )
     try:
         before = _git_show(base, path, root)
         after = _git_show(head, path, root)
-        return before.count(original_call) == 1 and (
-            after == before.replace(original_call, semantic_call)
+        return any(
+            before.count(original) == 1
+            and after == before.replace(original, replacement)
+            for original, replacement in transitions
         )
     except (OSError, UnicodeError, ValueError, subprocess.SubprocessError):
         return False
-
-
 def verified_windows_product_blob(head, path, *, root=ROOT):
     """Pin actual Native sidecar and DEV evidence bytes, not a filename claim."""
     expected = WINDOWS_PRODUCT_PINNED_BLOBS.get(path)

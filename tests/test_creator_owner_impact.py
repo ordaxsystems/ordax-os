@@ -272,6 +272,40 @@ class CreatorOwnerImpactTests(unittest.TestCase):
         unguarded = self.commit()
         self.assertTrue(impact.classify(base, unguarded, root=self.root)[0])
 
+    def test_exact_windows_project_links_reporter_wiring_is_not_a_usb_producer(self):
+        path = "system/composition/native/main.mjs"
+        source = self.root / path
+        source.parent.mkdir(parents=True, exist_ok=True)
+        old = (
+            "const something = true;\n"
+            "  const desktopSurfaceReporter = windowsDesktopHost\n"
+            "    ? mountNativeDesktopSurfaceStateReport(window, surface, appActivation)\n"
+            "    : null;\n"
+        )
+        source.write_text(old, encoding="utf-8")
+        base = self.commit(workflow=WORKFLOW.read_text(encoding="utf-8"), lock=VISUAL)
+        new = old.replace(
+            "    ? mountNativeDesktopSurfaceStateReport(window, surface, appActivation)\n",
+            (
+                "    ? mountNativeDesktopSurfaceStateReport(\n"
+                "        window, surface, appActivation, projectCloudLinksReader,\n"
+                "      )\n"
+            ),
+        )
+        source.write_text(new, encoding="utf-8")
+        head = self.commit()
+        self.assertTrue(impact.verified_windows_semantic_surface_mount(
+            base, head, root=self.root
+        ))
+        self.assertEqual(impact.classify(base, head, root=self.root),
+                         (False, "nonproducer-contract-only"))
+        source.write_text(new + "\nconst unrelatedNativeMutation = true;\n", encoding="utf-8")
+        bad = self.commit()
+        self.assertFalse(impact.verified_windows_semantic_surface_mount(
+            base, bad, root=self.root
+        ))
+        self.assertTrue(impact.classify(base, bad, root=self.root)[0])
+
     def test_unrecognized_native_and_catalog_additions_remain_usb_gated(self):
         native, catalog = tuple(impact.WINDOWS_PRODUCT_SHARED_ADDITIONS)
         for path in (native, catalog):
