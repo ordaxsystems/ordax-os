@@ -194,6 +194,7 @@ test("Project grant parser is explicit, bounded and limited to canonical Native 
     {...input,profile_key:"project-browser-automation"},
     {...input,profile_key:"project-workspace-read"},
     {...input,profile_key:"project-continuity"},
+    {...input,profile_key:"constructor"},
     {...input,confirm:"yes"},
     {...input,valid_until:"2020-01-01T00:00:00Z"},
     {...input,valid_until:"2028-01-01T00:00:00Z"},
