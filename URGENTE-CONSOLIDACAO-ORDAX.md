@@ -92,7 +92,7 @@ Já existe consolidação anterior: planos históricos da raiz foram movidos par
 
 - A comparação de AST dos 13 scripts Python em `tools/ci` detectou somente uma função de hash de arquivo identicamente implementada entre `portable_component_cache.py` e `independent_surface_component_cache.py`; fundir esses dois owners por uma função de seis linhas **aumentaria acoplamento sem eliminar um rebuild**. Nenhum produtor, workflow ou cache foi duplicado ou removido.
 - A comparação dos dois validadores identificou uma lacuna de trust: o cache Surface já rejeitava junctions e erros de inspeção do Windows, mas o cache Portable conferia somente symlinks nas folhas e fazia `resolve()` dos destinos de artefatos/recibos. O verificador genérico recebeu validação fail-closed dos componentes pais, entradas e recibos (`f93f8323`), e três casos de regressão (`596244ab`).
-- Os testes foram adicionados à suíte existente `test_portable_component_cache.py`; a execução física no Windows e a limpeza do worktree temporário estão sendo conferidas separadamente, **sem alegar PASS antes do resultado**. O impacto é a validação do filesystem para cache e recibos, não o kernel, o Criador nem o Runtime.
+- **Prova Windows no checkout canônico:** `test_portable_component_cache.py` executou **21 testes: 20 PASS, 1 SKIP esperado por privilégio de symlink, 0 FAIL**. `test_portable_component_reuse_workflow.py` executou **11/11 PASS**. `py_compile` dos dois arquivos e `git diff --check` também passaram. Não houve build pesado, alteração de workflow ou prova física USB. A limpeza do worktree descartável segue como housekeeping separado, sem afetar a main.
 
 ## 4. Regras obrigatórias
 
