@@ -88,6 +88,12 @@ Já existe consolidação anterior: planos históricos da raiz foram movidos par
 - **Verificações pontuais:** `HEAD` local e `origin/main` alinhados em `8966df35`, checkout limpo no momento da checagem, `git diff --check` sem erros, três links Markdown do documento com destinos válidos, zero links externos para âncoras removidas. Um teste amplo do `creator_owner_impact` excedeu 100 segundos; **não** foi contado como aprovado; o worktree temporário foi removido.
 - **Preservado por segurança:** `docs/RELEASE-CHANNEL.md` e os runbooks de signing/trust continuam ativos, com seus gates normativos. `docs/contracts/distribution-profiles.json` ainda define `runtime_method_switch_implemented=false`, `owner_signed_release_transport_implemented=false` e `stable_signed_git_transport_implemented=false`. Reduzir esse material sem outro owner autoritativo enfraqueceria o canal seguro.
 
+### Scripts de CI — consistência de trust entre caches — 2026-11-14
+
+- A comparação de AST dos 13 scripts Python em `tools/ci` detectou somente uma função de hash de arquivo identicamente implementada entre `portable_component_cache.py` e `independent_surface_component_cache.py`; fundir esses dois owners por uma função de seis linhas **aumentaria acoplamento sem eliminar um rebuild**. Nenhum produtor, workflow ou cache foi duplicado ou removido.
+- A comparação dos dois validadores identificou uma lacuna de trust: o cache Surface já rejeitava junctions e erros de inspeção do Windows, mas o cache Portable conferia somente symlinks nas folhas e fazia `resolve()` dos destinos de artefatos/recibos. O verificador genérico recebeu validação fail-closed dos componentes pais, entradas e recibos (`f93f8323`), e três casos de regressão (`596244ab`).
+- Os testes foram adicionados à suíte existente `test_portable_component_cache.py`; a execução física no Windows e a limpeza do worktree temporário estão sendo conferidas separadamente, **sem alegar PASS antes do resultado**. O impacto é a validação do filesystem para cache e recibos, não o kernel, o Criador nem o Runtime.
+
 ## 4. Regras obrigatórias
 
 1. **Nenhuma exclusão por volume**: só remover após verificar imports/referências, chamadas de CI, consumidores, histórico e obrigação de compliance/release. Migrations SQL aplicadas, contratos versionados, manifestos assinados, logs de proveniência obrigatória e gates de segurança não são “lixo”.
