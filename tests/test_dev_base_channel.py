@@ -5,6 +5,9 @@ import os
 import tarfile
 import json
 import tempfile
+import subprocess
+import sys
+import textwrap
 import unittest
 from unittest.mock import patch
 import urllib.error
@@ -175,6 +178,87 @@ class DevBaseProducerTests(unittest.TestCase):
                     )
                     with self.assertRaises(builder.CandidateError):
                         builder.validate_rootfs_source(independent, SOURCE)
+
+    def test_complete_main_push_range_gates_producer_before_queue(self):
+        workflow = (ROOT / ".github/workflows/dev-base-channel.yml").read_text(encoding="utf-8")
+        verify, publish = workflow.split("\n  publish:\n", 1)
+        self.assertIn("publish: ${{ steps.scope.outputs.publish }}", verify)
+        self.assertIn("fetch-depth: 2", verify)
+        self.assertIn("needs.verify.outputs.publish == 'true'", publish)
+        self.assertIn("github.actor == 'ordaxos-admin'", publish)
+        self.assertIn("DEV_BASE_OWNER_VALIDATION_EXACT_HEAD=PASS", publish)
+        self.assertNotIn("HEAD^ HEAD", workflow)
+        self.assertIn("compare/{before}...{head}", verify)
+        for path in ("bootstrap/independent-base/**", "bootstrap/base/firmware_policy.py",
+                     "docs/contracts/hardware-support-matrix.json"):
+            self.assertEqual(workflow.count("'" + path + "'"), 2)
+
+        marker = "          python3 - <<'PY'\n"
+        self.assertEqual(verify.count(marker), 1)
+        script = textwrap.dedent(verify.split(marker, 1)[1].split("\n          PY", 1)[0])
+        with tempfile.TemporaryDirectory(prefix="ordax-dev-base-impact-") as tmp:
+            repo = Path(tmp)
+            def git(*args):
+                return subprocess.check_output(
+                    ["git", "-C", str(repo), *args],
+                    stderr=subprocess.PIPE, text=True,
+                ).strip()
+            for args in (
+                ("init", "-q"), ("config", "user.name", "CI"),
+                ("config", "user.email", "ci@example.invalid")
+            ):
+                git(*args)
+            paths = [
+                "bootstrap/kernel/source.json",
+                "tests/test_dev_base_channel.py",
+                "bootstrap/dev-base/ordax-pull",
+                "bootstrap/independent-base/configs/minimal",
+                "bootstrap/base/firmware_policy.py",
+                "docs/contracts/hardware-support-matrix.json",
+            ]
+            for name in paths:
+                file = repo / name
+                file.parent.mkdir(parents=True, exist_ok=True)
+                file.write_text("initial\n", encoding="utf-8")
+            git("add", "-A")
+            git("commit", "-qm", "base")
+            base = git("rev-parse", "HEAD")
+
+            def change(name):
+                (repo / name).write_text("changed\n", encoding="utf-8")
+                git("add", "-A")
+                git("commit", "-qm", "change")
+                return git("rev-parse", "HEAD")
+
+            def classify(before, head):
+                output = repo / "scope.out"
+                output.write_text("", encoding="utf-8")
+                env = {**os.environ, "ORDAX_BEFORE_SHA": before,
+                       "ORDAX_HEAD_SHA": head,
+                       "GITHUB_REPOSITORY": "ordaxsystems/ordax-os",
+                       "GITHUB_OUTPUT": str(output)}
+                done = subprocess.run(
+                    [sys.executable, "-c", script], cwd=repo, env=env,
+                    capture_output=True, text=True, timeout=20, check=True,
+                )
+                self.assertIn("DEV_BASE_BYTES_CHANGED=", done.stdout)
+                return output.read_text(encoding="utf-8").strip()
+
+            kernel = change(paths[0])
+            test_only = change(paths[1])
+            # A two-commit push must not ignore the earlier kernel change.
+            self.assertEqual(classify(base, test_only), "publish=true")
+            self.assertEqual(classify(kernel, test_only), "publish=false")
+            self.assertEqual(classify("0" * 40, test_only), "publish=true")
+            self.assertEqual(classify(test_only, test_only), "publish=true")
+            excluded = change(paths[2])
+            self.assertEqual(classify(test_only, excluded), "publish=false")
+            owner = change(paths[3])
+            self.assertEqual(classify(excluded, owner), "publish=true")
+            firmware = change(paths[4])
+            self.assertEqual(classify(owner, firmware), "publish=true")
+            hardware = change(paths[5])
+            self.assertEqual(classify(firmware, hardware), "publish=true")
 
     def test_development_base_workflow_consumes_one_buildroot_owner(self):
         workflow = (ROOT / ".github/workflows/dev-base-channel.yml").read_text()
