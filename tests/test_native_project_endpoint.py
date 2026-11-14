@@ -33,6 +33,14 @@ def body(value):
 
 
 class NativeProjectEndpointTests(unittest.TestCase):
+    def test_native_host_mounts_read_and_cas_route_without_second_server(self):
+        host = (RUNTIME / "native_host_server.py").read_text(encoding="utf-8")
+        self.assertIn('PROJECT_STATE_PATH = "/__ordax/native/project-state"', host)
+        self.assertIn("read_project_endpoint()", host)
+        self.assertIn("mutate_project_endpoint(", host)
+        self.assertIn("MAX_PROJECT_REQUEST_BODY_BYTES", host)
+        self.assertNotIn("ThreadingHTTPServer", (RUNTIME / "native_project_endpoint.py").read_text(encoding="utf-8"))
+
     def test_read_and_cas_round_trip(self):
         with tempfile.TemporaryDirectory() as directory:
             root = str(Path(directory) / "projects")
