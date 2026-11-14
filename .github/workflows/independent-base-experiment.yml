@@ -102,7 +102,11 @@ jobs:
       - name: Verify isolated contract and regressions
         run: |
           set -euo pipefail
-          python3 bootstrap/independent-base/build.py check --profile "$ORDAX_INDEPENDENT_PROFILE"
+          # All three Kconfig/profile boundaries are cheap and independent
+          # of the selected expensive Buildroot/QEMU producer profile.
+          python3 bootstrap/independent-base/build.py check --profile minimal
+          python3 bootstrap/independent-base/build.py check --profile owner-development
+          python3 bootstrap/independent-base/build.py check --profile stable-mvp
           python3 -m unittest \
             tests.test_alpine_removal_boundary \
             tests.test_dev_base_symlink_policy \
