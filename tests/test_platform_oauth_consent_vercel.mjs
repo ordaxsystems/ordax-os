@@ -83,9 +83,9 @@ test("Vercel has exactly one first-party OAuth consent rewrite, isolated from ac
 });
 
 test("OAuth workflow watches shared account origin on both PR and main push", async () => {
-  const workflow = await readFile(
+  const workflow = (await readFile(
     new URL("../.github/workflows/platform-oauth-consent.yml", import.meta.url), "utf8"
-  );
+  )).replaceAll("\r\n", "\n");
   const source = await readFile(new URL("../api/oauth-consent.mjs", import.meta.url), "utf8");
   assert.match(
     source,
