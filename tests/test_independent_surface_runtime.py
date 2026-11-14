@@ -506,7 +506,7 @@ class IndependentSurfaceRuntimeTests(unittest.TestCase):
     def test_public_pr_cannot_select_private_persistent_surface_runner(self):
         workflow = WORKFLOW_PATH.read_text(encoding="utf-8")
         build = workflow.split("  buildroot-surface:", 1)[1].split("\n  portable-qemu:", 1)[0]
-        trusted = "github.event_name == 'workflow_dispatch' && github.ref == 'refs/heads/integration/dev-usb-buildroot-surface-20261024'"
+        trusted = "github.event_name == 'workflow_dispatch' && github.ref == 'refs/heads/main'"
         self.assertIn("runs-on: ${{ " + trusted + " && vars.ORDAX_SURFACE_RUNNER_LABEL || 'ubuntu-24.04' }}", build)
         self.assertIn("ORDAX_SURFACE_PERSISTENT_WORK_ROOT: ${{ " + trusted + " && vars.ORDAX_SURFACE_PERSISTENT_WORK_ROOT || '' }}", build)
         self.assertIn("ORDAX_SURFACE_BUILD_WORK_ROOT: ${{ " + trusted + " && vars.ORDAX_SURFACE_BUILD_WORK_ROOT || '' }}", build)
