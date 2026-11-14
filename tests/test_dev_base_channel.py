@@ -262,6 +262,66 @@ class DevBaseProducerTests(unittest.TestCase):
             hardware = change(paths[5])
             self.assertEqual(classify(firmware, hardware), "publish=true")
 
+            # Force the GitHub API fallback with an actual shallow checkout.
+            # The fake API response stays local: no network or credentials.
+            (repo / paths[1]).write_text("only tests after hardware\n", encoding="utf-8")
+            git("add", "-A")
+            git("commit", "-qm", "test-only final")
+            final_head = git("rev-parse", "HEAD")
+            bare = repo / "remote.git"
+            shallow = repo / "shallow"
+            subprocess.run(["git", "init", "--bare", "-q", str(bare)],
+                           capture_output=True, check=True)
+            git("remote", "add", "origin", str(bare))
+            git("push", "-q", "origin", f"{final_head}:refs/heads/main")
+            subprocess.run(
+                ["git", "clone", "-q", "--depth=1", "--branch=main",
+                 bare.as_uri(), str(shallow)], capture_output=True, check=True,
+            )
+            missing = subprocess.run(
+                ["git", "-C", str(shallow), "cat-file", "-e", hardware + "^{commit}"],
+                capture_output=True,
+            )
+            self.assertNotEqual(missing.returncode, 0)
+
+            def api_fallback(data):
+                output = repo / "api.out"
+                output.write_text("", encoding="utf-8")
+                # Intercept only the GitHub CLI read; every Git call remains real.
+                replacement = json.dumps(data).encode("utf-8")
+                prefix = (
+                    "import subprocess\n"
+                    "_real_check_output = subprocess.check_output\n"
+                    f"_answer = {replacement!r}\n"
+                    "def _check_output(args, *a, **k):\n"
+                    "    if args[:2] == ['gh', 'api']: return _answer\n"
+                    "    return _real_check_output(args, *a, **k)\n"
+                    "subprocess.check_output = _check_output\n"
+                )
+                env = {**os.environ, "ORDAX_BEFORE_SHA": hardware,
+                       "ORDAX_HEAD_SHA": final_head,
+                       "GITHUB_REPOSITORY": "ordaxsystems/ordax-os",
+                       "GITHUB_OUTPUT": str(output)}
+                subprocess.run(
+                    [sys.executable, "-c", prefix + script], cwd=shallow,
+                    env=env, capture_output=True, text=True,
+                    check=True, timeout=20,
+                )
+                return output.read_text(encoding="utf-8").strip()
+
+            comparison = {
+                "status": "ahead", "total_commits": 1,
+                "base_commit": {"sha": hardware},
+                "head_commit": {"sha": final_head},
+                "merge_base_commit": {"sha": hardware},
+                "files": [{"filename": paths[1]}],
+            }
+            self.assertEqual(api_fallback(comparison), "publish=false")
+            divergent = {**comparison, "merge_base_commit": {"sha": base}}
+            self.assertEqual(api_fallback(divergent), "publish=true")
+            truncated = {**comparison, "files": comparison["files"] * 300}
+            self.assertEqual(api_fallback(truncated), "publish=true")
+
     def test_development_base_workflow_consumes_one_buildroot_owner(self):
         workflow = (ROOT / ".github/workflows/dev-base-channel.yml").read_text()
         self.assertIn("bootstrap/independent-base/build.py build", workflow)
