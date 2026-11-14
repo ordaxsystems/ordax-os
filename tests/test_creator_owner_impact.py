@@ -285,10 +285,12 @@ class CreatorOwnerImpactTests(unittest.TestCase):
         source.write_text(old, encoding="utf-8")
         base = self.commit(workflow=WORKFLOW.read_text(encoding="utf-8"), lock=VISUAL)
         new = old.replace(
-            "    ? mountNativeDesktopSurfaceStateReport(window, surface, appActivation)\n"
-            "    ? mountNativeDesktopSurfaceStateReport(\n"
-            "        window, surface, appActivation, projectCloudLinksReader,\n"
-            "      )\n",
+            "    ? mountNativeDesktopSurfaceStateReport(window, surface, appActivation)\n",
+            (
+                "    ? mountNativeDesktopSurfaceStateReport(\n"
+                "        window, surface, appActivation, projectCloudLinksReader,\n"
+                "      )\n"
+            ),
         )
         source.write_text(new, encoding="utf-8")
         head = self.commit()
