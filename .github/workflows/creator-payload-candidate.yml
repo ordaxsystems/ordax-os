@@ -53,10 +53,17 @@ permissions:
 
 concurrency:
   group: creator-payload-candidate-${{ github.ref }}
-  cancel-in-progress: true
+  # Do not kill an already running verified candidate on a new revision.
+  cancel-in-progress: false
 
 jobs:
   creator-payload:
+    # This job builds the same pinned kernel/cache as Creator Owner and Base.
+    # Share their producer queue rather than compiling the same kernel twice.
+    concurrency:
+      group: ordax-surface-producer-${{ github.event.pull_request.number || github.ref }}
+      cancel-in-progress: false
+      queue: max
     runs-on: ubuntu-24.04
     timeout-minutes: 120
     env:
