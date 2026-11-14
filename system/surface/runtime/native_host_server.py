@@ -60,6 +60,12 @@ from native_memory_endpoint import (
     read_memory_endpoint,
     write_memory_endpoint,
 )
+from native_project_endpoint import (
+    MAX_PROJECT_REQUEST_BODY_BYTES,
+    ProjectEndpointRequestError,
+    mutate_project_endpoint,
+    read_project_endpoint,
+)
 from native_memory_entitlement_proxy import (
     NativeMemoryEntitlementProxyError,
     read_native_memory_cloud_entitlement,
@@ -110,6 +116,7 @@ FIRST_RUN_CURSOR_PATH = "/__ordax/native/first-run-cursor"
 DEVICE_PROFILE_PATH = "/__ordax/native/device-profile"
 LOCAL_SESSION_PATH = "/__ordax/native/local-session"
 MEMORY_PATH = "/__ordax/native/intelligence-memory"
+PROJECT_STATE_PATH = "/__ordax/native/project-state"
 COMPONENT_STATE_PATH = "/__ordax/native/component-state"
 PROFILE_COMPONENT_INVENTORY_PATH = "/__ordax/native/profile-component-inventory"
 PROFILE_ACTIVATION_STATE_PATH = "/__ordax/native/profile-activation-state"
@@ -4742,6 +4749,20 @@ class NativeHostHandler(SimpleHTTPRequestHandler):
                 return
             self._write_json(200, payload)
             return
+        if self.path == PROJECT_STATE_PATH:
+            try:
+                payload = read_project_endpoint()
+            except (OSError, UnicodeError, ValueError, ProjectEndpointRequestError) as exc:
+                print(
+                    f"ordax-native-host: could not read Project state: {exc}",
+                    file=sys.stderr,
+                    flush=True,
+                )
+                self._empty(500)
+                return
+            self._write_json(200, payload)
+            return
+
         if self.path == COMPONENT_STATE_PATH:
             try:
                 payload = read_component_state_payload()
@@ -5586,6 +5607,32 @@ class NativeHostHandler(SimpleHTTPRequestHandler):
             except OSError as exc:
                 print(
                     f"ordax-native-host: could not persist Intelligence memory: {exc}",
+                    file=sys.stderr,
+                    flush=True,
+                )
+                self._empty(507 if exc.errno == errno.ENOSPC else 500)
+                return
+            except (UnicodeError, ValueError):
+                self._empty(400)
+                return
+            self._write_json(200, result)
+            return
+
+        if self.path == PROJECT_STATE_PATH:
+            body = self._read_json_body(MAX_PROJECT_REQUEST_BODY_BYTES)
+            if body is None:
+                self._empty(400)
+                return
+            try:
+                result = mutate_project_endpoint(
+                    json.dumps(body, separators=(",", ":")).encode("utf-8")
+                )
+            except ProjectEndpointRequestError as exc:
+                self._empty(exc.status_code)
+                return
+            except OSError as exc:
+                print(
+                    f"ordax-native-host: could not persist Project state: {exc}",
                     file=sys.stderr,
                     flush=True,
                 )
