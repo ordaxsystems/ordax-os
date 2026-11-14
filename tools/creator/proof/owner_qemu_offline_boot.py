@@ -44,6 +44,7 @@ WEBKIT_LOAD_ORDER = (
     "surface-page-load-committed",
     "surface-page-load-finished",
 )
+WELCOME_RENDERED_EVENT = WEBKIT_EVENT_PREFIX + "surface-first-run-welcome-rendered"
 WEBKIT_FATAL_MARKERS = (
     WEBKIT_EVENT_PREFIX + "surface-page-load-failed",
     WEBKIT_EVENT_PREFIX + "surface-web-process-terminated",
@@ -150,6 +151,7 @@ def observed(text: str, source: str) -> dict[str, bool]:
         "offline_surface_handoff": MARKER_OFFLINE in text,
         "native_surface_heartbeat": MARKER_HEALTH in text,
         "privileged_webkit_page_loaded": webkit_page_loaded(text),
+        "welcome_screen_rendered": WELCOME_RENDERED_EVENT in text,
         "virtual_drm_transport_selected": MARKER_VIRTIO_WEBKIT in text,
         "webkit_process_not_failed": not any(item in text for item in WEBKIT_FATAL_MARKERS),
         "recovery_not_entered": not any(item in text for item in RECOVERY),
@@ -535,10 +537,13 @@ def main() -> int:
                 "network_device_attached": False,
                 "physical_device_touched": False,
                 "physical_write_authorized": False,
-                "qemu_boot_scope": "direct-kernel-owner-initramfs-to-real-surface-heartbeat",
+                "qemu_boot_scope": "direct-kernel-owner-initramfs-to-real-surface-welcome-and-heartbeat",
                 "virtual_power_cycle_only": True,
                 "first_run_completion_persistence_proven": False,
-                "welcome_screen_rendered_proven": False,
+                "welcome_screen_rendered_proven": (
+                    boots[0]["checks"]["welcome_screen_rendered"] is True
+                    and boots[1]["checks"]["welcome_screen_rendered"] is True
+                ),
                 "notebook_boot_proven": False,
             }
             args.output.write_text(json.dumps(report, indent=2, sort_keys=True) + "\n", encoding="utf-8")

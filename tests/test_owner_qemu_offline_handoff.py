@@ -73,6 +73,9 @@ class OwnerQemuHandoffTests(unittest.TestCase):
         self.assertTrue(PROOF.observed(PROOF.MARKER_VIRTIO_WEBKIT, "a" * 40)["virtual_drm_transport_selected"])
         callbacks = "\n".join(PROOF.WEBKIT_EVENT_PREFIX + event for event in PROOF.WEBKIT_LOAD_ORDER)
         self.assertTrue(PROOF.observed(callbacks, "a" * 40)["privileged_webkit_page_loaded"])
+        self.assertFalse(PROOF.observed(callbacks, "a" * 40)["welcome_screen_rendered"])
+        welcome = callbacks + "\n" + PROOF.WELCOME_RENDERED_EVENT
+        self.assertTrue(PROOF.observed(welcome, "a" * 40)["welcome_screen_rendered"])
         self.assertFalse(PROOF.observed("\n".join(reversed(callbacks.splitlines())), "a" * 40)["privileged_webkit_page_loaded"])
         self.assertFalse(PROOF.observed(callbacks.replace(PROOF.WEBKIT_EVENT_PREFIX, "untrusted-prefix:"), "a" * 40)["privileged_webkit_page_loaded"])
         self.assertFalse(PROOF.observed(PROOF.WEBKIT_FATAL_MARKERS[0], "a" * 40)["webkit_process_not_failed"])
@@ -271,6 +274,9 @@ class OwnerQemuHandoffTests(unittest.TestCase):
         self.assertIn('self.surface_view.connect("load-failed", self.on_surface_load_failed)', browser)
         self.assertIn('self.surface_view.connect("web-process-terminated", self.on_surface_web_process_terminated)', browser)
         self.assertIn('emit_owner_graphics_probe(self.owner_graphics_probe_enabled, event)', browser)
+        self.assertIn('.ordax-first-run[data-first-run-step=', browser)
+        self.assertIn('firstRunWelcome', browser)
+        self.assertIn('surface-first-run-welcome-rendered', browser)
         self.assertIn("self.surface_web_process_failed = True", browser)
         self.assertIn("if host.surface_web_process_failed:", browser)
 
@@ -384,6 +390,9 @@ class OwnerQemuHandoffTests(unittest.TestCase):
         self.assertIn("ORDAX_OWNER_SOURCE_COMMIT", workflow)
         self.assertIn('--framebuffer-out "$RUNNER_TEMP/owner-qemu-framebuffer.ppm"', workflow)
         self.assertIn("proof['graphical_framebuffer_varied_proven'] is True", workflow)
+        self.assertIn("proof['welcome_screen_rendered_proven'] is True", workflow)
+        self.assertIn("proof['checks']['welcome_screen_rendered'] is True", workflow)
+        self.assertIn("proof['second_boot']['checks']['welcome_screen_rendered'] is True", workflow)
         self.assertIn("actions/upload-artifact@", workflow)
 
 
