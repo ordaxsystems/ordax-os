@@ -32,6 +32,26 @@ class CreatorPayloadExternalSourceTests(unittest.TestCase):
         self.assertNotIn("'tools/creator/core/**'", w)
         self.assertNotIn("'tools/creator/cmd/**'", w)
 
+    def test_payload_kernel_uses_shared_verified_producer_queue(self):
+        workflow = self.workflow
+        owner = (ROOT / ".github/workflows/creator-owner-dev-git.yml").read_text(encoding="utf-8")
+        group = "group: ordax-surface-producer-${{ github.event.pull_request.number || github.ref }}"
+        kernel_cache_key = (
+            "ordax-portable-component-v1-${{ runner.os }}-${{ runner.arch }}-"
+            "kernel-${{ steps.component-fingerprints.outputs.kernel }}"
+        )
+        # Two independent candidate jobs may be needed, but only one can
+        # compile the same immutable kernel on a miss at a time.
+        for source in (workflow, owner):
+            self.assertIn(group, source)
+            self.assertIn(kernel_cache_key, source)
+            self.assertIn("      cancel-in-progress: false\n      queue: max", source)
+            self.assertIn("Build kernel candidate on verified cache miss", source)
+            self.assertIn("Verify kernel component and exact integration binding", source)
+        self.assertNotIn("cancel-in-progress: true", workflow)
+        self.assertIn("group: creator-payload-candidate-${{ github.ref }}", workflow)
+        self.assertEqual(workflow.count("Build kernel candidate on verified cache miss"), 1)
+
     def test_payload_trigger_has_no_alpine_stable_dependency(self):
         workflow = self.workflow
         self.assertNotIn("bootstrap/base/alpine_core.py", workflow)
