@@ -47,7 +47,7 @@ No perfil Owner, os receipts externos de módulos e firmware são copiados byte 
 
 A migração Alpine → Buildroot já foi integrada à `main`; a antiga branch
 `integration/dev-usb-buildroot-surface-20261024` não é mais a autoridade
-operacional. O workflow isolado `remove-alpine-fast.yml` foi incorporado
+operacional. O antigo gate isolado de remoção do Alpine foi incorporado
 aos **owners existentes**, sem criar novo produtor:
 
 - **`.github/workflows/independent-base-experiment.yml`**: o job
