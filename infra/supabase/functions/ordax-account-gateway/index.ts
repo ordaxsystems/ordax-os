@@ -7,7 +7,7 @@ import {
 } from "../_shared/auth_rate_limit.mjs";
 import { readBoundedBody } from "../_shared/bounded_body.mjs";
 import { ACCOUNT_MCP_USAGE_PATH, readAccountMcpUsage } from "../_shared/account_mcp_usage.mjs";
-import { ACCOUNT_MCP_DEVICES_PATH, ACCOUNT_MCP_AUTHORITY_PATH, ACCOUNT_MCP_REVOKE_PATH, ACCOUNT_MCP_PROJECT_GRANTS_PATH, ACCOUNT_MCP_CENTRAL_TARGETS_PATH, ACCOUNT_MCP_CENTRAL_SELECTIONS_PATH, ACCOUNT_MCP_PROJECT_ONBOARDING_PATH, ACCOUNT_MCP_PROJECTS_PATH, ACCOUNT_MCP_PROJECT_BINDING_INTENTS_PATH, ACCOUNT_MCP_GITHUB_CHALLENGES_PATH, ACCOUNT_MCP_GITHUB_CALLBACK_PATH, ACCOUNT_MCP_GITHUB_CANDIDATES_PATH, ACCOUNT_MCP_GITHUB_SELECTIONS_PATH, isOwnerUuid, readAccountOwnerDevices, readAccountOwnerAuthority, revokeAccountOwnerGrant, parseAccountOwnerRevoke, createAccountOwnerProjectGrant, parseAccountOwnerProjectGrant, readAccountOwnerCentralTargets, readAccountOwnerCentralSelections, selectAccountOwnerCentralDevice, parseAccountOwnerCentralSelection, readAccountOwnerProjectOnboarding, createAccountOwnerProject, parseAccountOwnerProjectCreate, createAccountOwnerProjectBindingIntent, parseAccountOwnerProjectBindingIntent, startAccountOwnerGithubAuthorization, parseAccountOwnerGithubAuthorizationStart, completeAccountOwnerGithubAuthorization, parseAccountOwnerGithubCallback, readAccountOwnerGithubCandidates, selectAccountOwnerGithubRepository, parseAccountOwnerGithubSelection } from "../_shared/account_mcp_owner.mjs";
+import { ACCOUNT_MCP_DEVICES_PATH, ACCOUNT_MCP_AUTHORITY_PATH, ACCOUNT_MCP_REVOKE_PATH, ACCOUNT_MCP_REAUTHORIZE_PATH, ACCOUNT_MCP_PROJECT_GRANTS_PATH, ACCOUNT_MCP_CENTRAL_TARGETS_PATH, ACCOUNT_MCP_CENTRAL_SELECTIONS_PATH, ACCOUNT_MCP_PROJECT_ONBOARDING_PATH, ACCOUNT_MCP_PROJECTS_PATH, ACCOUNT_MCP_PROJECT_BINDING_INTENTS_PATH, ACCOUNT_MCP_GITHUB_CHALLENGES_PATH, ACCOUNT_MCP_GITHUB_CALLBACK_PATH, ACCOUNT_MCP_GITHUB_CANDIDATES_PATH, ACCOUNT_MCP_GITHUB_SELECTIONS_PATH, isOwnerUuid, readAccountOwnerDevices, readAccountOwnerAuthority, revokeAccountOwnerGrant, parseAccountOwnerRevoke, reauthorizeAccountOwnerGrant, parseAccountOwnerProfileReauthorization, createAccountOwnerProjectGrant, parseAccountOwnerProjectGrant, readAccountOwnerCentralTargets, readAccountOwnerCentralSelections, selectAccountOwnerCentralDevice, parseAccountOwnerCentralSelection, readAccountOwnerProjectOnboarding, createAccountOwnerProject, parseAccountOwnerProjectCreate, createAccountOwnerProjectBindingIntent, parseAccountOwnerProjectBindingIntent, startAccountOwnerGithubAuthorization, parseAccountOwnerGithubAuthorizationStart, completeAccountOwnerGithubAuthorization, parseAccountOwnerGithubCallback, readAccountOwnerGithubCandidates, selectAccountOwnerGithubRepository, parseAccountOwnerGithubSelection } from "../_shared/account_mcp_owner.mjs";
 import { verifyTrustedPublicRequestContext } from "../ordax-public-account-gateway/public_request_context.mjs";
 import { accountPrivilegedRpc } from "../_shared/account_privileged_rpc.mjs";
 import { authorizeAccountTransport, accountGatewayRoutePath, isPublicAccountPreActivationRoute } from "../_shared/account_transport_admission.mjs";
@@ -1318,6 +1318,7 @@ Deno.serve(async (req: Request) => {
   if ((path === ACCOUNT_MCP_DEVICES_PATH && req.method === "GET")
       || (path === ACCOUNT_MCP_AUTHORITY_PATH && req.method === "GET")
       || (path === ACCOUNT_MCP_REVOKE_PATH && req.method === "POST")
+      || (path === ACCOUNT_MCP_REAUTHORIZE_PATH && req.method === "POST")
       || (path === ACCOUNT_MCP_PROJECT_GRANTS_PATH && req.method === "POST")
       || (path === ACCOUNT_MCP_CENTRAL_TARGETS_PATH && req.method === "GET")
       || (path === ACCOUNT_MCP_CENTRAL_SELECTIONS_PATH && ["GET","POST"].includes(req.method))
@@ -1455,6 +1456,41 @@ Deno.serve(async (req: Request) => {
         // separate and the next explicit onboarding read reconciles state.
         return error(503, "mcp-owner-project-binding-intent-unconfirmed",
           "O pedido de vínculo não foi confirmado. Consulte o projeto antes de tentar novamente.");
+      }
+    }
+
+    if (path === ACCOUNT_MCP_REAUTHORIZE_PATH) {
+      // Reauthorization can only refresh a device-scoped grant that already
+      // exists. Browser never submits profile_key, capabilities, scope or expiry;
+      // those are derived from the canonical grant read before the one mutation.
+      if (!publicSiteRequest(req) || !verifyTrustedPublicRequestContext(req).ok) {
+        return error(403, "mcp-owner-csrf-denied",
+          "Origem da reautorização MCP não autorizada.");
+      }
+      if (url.search !== ""
+          || (req.headers.get("content-type") ?? "").split(";")[0].trim().toLowerCase()
+            !== "application/json") {
+        return error(400, "mcp-owner-reauthorize-invalid", "Solicitação inválida.");
+      }
+      let reauthorization;
+      try {
+        const raw=await boundedBody(req);
+        if (raw.length>1024) throw new Error("mcp-owner-reauthorize-too-large");
+        reauthorization=JSON.parse(raw);
+      } catch {
+        return error(400, "mcp-owner-reauthorize-invalid", "Solicitação inválida.");
+      }
+      if (!parseAccountOwnerProfileReauthorization(reauthorization)) {
+        return error(400, "mcp-owner-reauthorize-invalid",
+          "Confirme exatamente a autorização existente.");
+      }
+      try {
+        return json(200,await reauthorizeAccountOwnerGrant(
+          session.access,reauthorization,
+        ),session.cookies);
+      } catch {
+        return error(503, "mcp-owner-reauthorize-unconfirmed",
+          "A reautorização não foi confirmada. Consulte as autorizações antes de tentar novamente.");
       }
     }
 

@@ -36,6 +36,7 @@ const PUBLIC_ACCOUNT_ROUTES = new Map([
   ["/account/mcp/devices", Object.freeze({ method: "GET", preActivation: false })],
   ["/account/mcp/authority", Object.freeze({ method: "GET", preActivation: false })],
   ["/account/mcp/revoke", Object.freeze({ method: "POST", preActivation: false })],
+  ["/account/mcp/reauthorize", Object.freeze({ method: "POST", preActivation: false })],
   ["/account/mcp/project-grants", Object.freeze({ method: "POST", preActivation: false })],
   ["/account/mcp/central-targets", Object.freeze({ method: "GET", preActivation: false })],
   ["/account/mcp/central-selections", Object.freeze({ method: "GET", preActivation: false })],

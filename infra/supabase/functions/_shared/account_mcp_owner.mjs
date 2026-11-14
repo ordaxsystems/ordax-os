@@ -5,6 +5,7 @@ import { readBoundedBody } from "./bounded_body.mjs";
 export const ACCOUNT_MCP_DEVICES_PATH = "/account/mcp/devices";
 export const ACCOUNT_MCP_AUTHORITY_PATH = "/account/mcp/authority";
 export const ACCOUNT_MCP_REVOKE_PATH = "/account/mcp/revoke";
+export const ACCOUNT_MCP_REAUTHORIZE_PATH = "/account/mcp/reauthorize";
 export const ACCOUNT_MCP_PROJECT_GRANTS_PATH = "/account/mcp/project-grants";
 export const ACCOUNT_MCP_CENTRAL_TARGETS_PATH = "/account/mcp/central-targets";
 export const ACCOUNT_MCP_CENTRAL_SELECTIONS_PATH = "/account/mcp/central-selections";
@@ -642,6 +643,61 @@ export async function createAccountOwnerProjectGrant(
     profile_key:input.profile_key,
     valid_until:input.valid_until,
   };
+}
+
+export function parseAccountOwnerProfileReauthorization(value) {
+  if (!isRecord(value)
+      || Object.keys(value).sort().join(",") !== "client_id,confirm,device_id,grant_group_id"
+      || !isOwnerUuid(value.device_id) || !isOwnerUuid(value.client_id)
+      || !isOwnerUuid(value.grant_group_id) || value.confirm !== "reauthorize") return null;
+  return {device_id:value.device_id,client_id:value.client_id,
+    grant_group_id:value.grant_group_id};
+}
+
+export async function reauthorizeAccountOwnerGrant(access, raw, fetcher=fetch) {
+  const input=parseAccountOwnerProfileReauthorization(raw);
+  if (!input) throw new Error("mcp-owner-reauthorize-request-invalid");
+  const before=await readAccountOwnerAuthority(access,input.device_id,fetcher);
+  const selected=before.grant_groups.filter(group =>
+    group.grant_group_id===input.grant_group_id && group.client_id===input.client_id);
+  if (selected.length!==1 || selected[0].scope_kind!=="device"
+      || selected[0].client_consent_active!==true)
+    throw new Error("mcp-owner-reauthorize-not-eligible");
+  const target=selected[0];
+  const sameProfile=before.grant_groups.filter(group => group.client_id===input.client_id
+    && group.profile_key===target.profile_key && group.scope_kind==="device");
+  if (sameProfile.length!==1 || sameProfile[0].grant_group_id!==target.grant_group_id)
+    throw new Error("mcp-owner-reauthorize-ambiguous");
+  const receipt=await ownerRequest(access,OWNER_MCP_GRANTS_URL,"POST",fetcher,{
+    device_id:input.device_id,client_id:input.client_id,profile_key:target.profile_key,
+    space_id:null,project_id:null,valid_until:target.valid_until,
+  });
+  if (!isRecord(receipt) || receipt.ok!==true || !isOwnerUuid(receipt.grant_group_id)
+      || receipt.scope_kind!=="device" || !Number.isSafeInteger(receipt.capability_count)
+      || receipt.capability_count<1 || receipt.capability_count>256)
+    throw new Error("mcp-owner-reauthorize-unconfirmed");
+  const after=await readAccountOwnerAuthority(access,input.device_id,fetcher);
+  const replacement=after.grant_groups.filter(group => group.grant_group_id===receipt.grant_group_id
+    && group.client_id===input.client_id && group.profile_key===target.profile_key
+    && group.scope_kind==="device" && group.space_id===null && group.project_id===null
+    && group.client_consent_active===true && sameGrantExpiry(group.valid_until,target.valid_until));
+  if (replacement.length!==1 || after.grant_groups.length!==before.grant_groups.length)
+    throw new Error("mcp-owner-reauthorize-unconfirmed");
+  const preserved=new Map(after.grant_groups.map(group=>[group.grant_group_id,group]));
+  for (const group of before.grant_groups) {
+    if (group.grant_group_id===target.grant_group_id) continue;
+    const current=preserved.get(group.grant_group_id);
+    if (!current || !sameGrantIdentity(current,group))
+      throw new Error("mcp-owner-reauthorize-isolation-unverified");
+  }
+  if (receipt.grant_group_id!==target.grant_group_id
+      && after.grant_groups.some(group=>group.grant_group_id===target.grant_group_id))
+    throw new Error("mcp-owner-reauthorize-old-grant-retained");
+  return {ok:true,schema:"ordax.owner-profile-reauthorization/1",
+    device_id:input.device_id,client_id:input.client_id,
+    previous_grant_group_id:target.grant_group_id,grant_group_id:receipt.grant_group_id,
+    profile_key:target.profile_key,valid_until:target.valid_until,
+    capability_count:receipt.capability_count};
 }
 
 export function parseAccountOwnerRevoke(value) {

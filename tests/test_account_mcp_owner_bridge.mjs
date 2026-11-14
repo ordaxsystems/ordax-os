@@ -4,9 +4,10 @@ import {readFileSync} from "node:fs";
 import {isPublicBridgeRoute,isPublicAccountPreActivationRoute} from "../infra/supabase/functions/_shared/account_transport_admission.mjs";
 import {
   ACCOUNT_MCP_DEVICES_PATH, ACCOUNT_MCP_AUTHORITY_PATH, ACCOUNT_MCP_REVOKE_PATH,
-  ACCOUNT_MCP_PROJECT_GRANTS_PATH,
+  ACCOUNT_MCP_REAUTHORIZE_PATH, ACCOUNT_MCP_PROJECT_GRANTS_PATH,
   OWNER_MCP_DEVICES_URL, validateAccountOwnerDevices,validateAccountOwnerAuthority,
   readAccountOwnerDevices,readAccountOwnerAuthority,revokeAccountOwnerGrant,parseAccountOwnerRevoke,
+  parseAccountOwnerProfileReauthorization,reauthorizeAccountOwnerGrant,
   parseAccountOwnerProjectGrant,createAccountOwnerProjectGrant,
   ACCOUNT_MCP_CENTRAL_TARGETS_PATH,ACCOUNT_MCP_CENTRAL_SELECTIONS_PATH,
   readAccountOwnerCentralTargets,readAccountOwnerCentralSelections,
@@ -61,6 +62,7 @@ test("MCP Owner routes remain exact and never publicly preactivated",()=>{
   for(const [method,path] of [["GET",ACCOUNT_MCP_DEVICES_PATH],
                               ["GET",ACCOUNT_MCP_AUTHORITY_PATH],
                               ["POST",ACCOUNT_MCP_REVOKE_PATH],
+                              ["POST",ACCOUNT_MCP_REAUTHORIZE_PATH],
                               ["POST",ACCOUNT_MCP_PROJECT_GRANTS_PATH]]) {
     assert.equal(isPublicBridgeRoute(method,path),true);
     assert.equal(isPublicAccountPreActivationRoute(method,path),false);
@@ -177,6 +179,65 @@ test("Authority read ties every group to the requested device",async()=>{
   }]},device),null);
   assert.deepEqual(await readAccountOwnerAuthority(access,device,transport([authority])),result);
 });
+test("Device profile reauthorization derives the canonical profile from one existing grant",async()=>{
+  const input={device_id:device,client_id:client,grant_group_id:group,confirm:"reauthorize"};
+  assert.deepEqual(parseAccountOwnerProfileReauthorization(input),{
+    device_id:device,client_id:client,grant_group_id:group,
+  });
+  assert.equal(parseAccountOwnerProfileReauthorization({...input,profile_key:"full-computer-control"}),null);
+  assert.equal(parseAccountOwnerProfileReauthorization({...input,confirm:"yes"}),null);
+  const nextGroup="aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa";
+  const unrelated={...authority.grant_groups[0],
+    grant_group_id:"bbbbbbbb-bbbb-4bbb-8bbb-bbbbbbbbbbbb",profile_key:"mcp-discovery"};
+  const before={...authority,grant_groups:[authority.grant_groups[0],unrelated]};
+  const replacement={...authority.grant_groups[0],grant_group_id:nextGroup};
+  const after={...authority,grant_groups:[replacement,unrelated]};
+  const calls=[];
+  const result=await reauthorizeAccountOwnerGrant(access,input,transport([
+    before,{ok:true,grant_group_id:nextGroup,capability_count:40,scope_kind:"device"},after,
+  ],calls));
+  assert.deepEqual(result,{ok:true,schema:"ordax.owner-profile-reauthorization/1",
+    device_id:device,client_id:client,previous_grant_group_id:group,
+    grant_group_id:nextGroup,profile_key:"full-computer-control",valid_until:null,
+    capability_count:40});
+  assert.deepEqual(calls.map(call=>call.options.method),["GET","POST","GET"]);
+  assert.deepEqual(JSON.parse(calls[1].options.body),{
+    device_id:device,client_id:client,profile_key:"full-computer-control",
+    space_id:null,project_id:null,valid_until:null,
+  });
+});
+
+test("Device profile reauthorization fails closed before or after the single mutation",async()=>{
+  const input={device_id:device,client_id:client,grant_group_id:group,confirm:"reauthorize"};
+  for(const ineligible of [
+    {...authority,grant_groups:[]},
+    {...authority,grant_groups:[{...authority.grant_groups[0],scope_kind:"project",space_id:space,project_id:project}]},
+    {...authority,grant_groups:[{...authority.grant_groups[0],client_consent_active:false}]},
+  ]){
+    const calls=[];
+    await assert.rejects(reauthorizeAccountOwnerGrant(access,input,transport([ineligible],calls)));
+    assert.deepEqual(calls.map(call=>call.options.method),["GET"]);
+  }
+  let posts=0;
+  const uncertain=async(url,options)=>{
+    if(options.method==="GET") return makeResponse(authority,url);
+    posts+=1; throw Error("uncertain");
+  };
+  await assert.rejects(reauthorizeAccountOwnerGrant(access,input,uncertain));
+  assert.equal(posts,1,"uncertain reauthorization must never replay POST");
+  const nextGroup="aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa";
+  const unrelated={...authority.grant_groups[0],
+    grant_group_id:"bbbbbbbb-bbbb-4bbb-8bbb-bbbbbbbbbbbb",profile_key:"mcp-discovery"};
+  const before={...authority,grant_groups:[authority.grant_groups[0],unrelated]};
+  const badAfter={...authority,grant_groups:[
+    {...authority.grant_groups[0],grant_group_id:nextGroup},
+    {...unrelated,profile_key:"full-computer-control"},
+  ]};
+  await assert.rejects(reauthorizeAccountOwnerGrant(access,input,transport([
+    before,{ok:true,grant_group_id:nextGroup,capability_count:40,scope_kind:"device"},badAfter,
+  ])),/isolation-unverified/);
+});
+
 test("Project grant parser is explicit, bounded and limited to canonical Native Project profiles",()=>{
   const now=Date.parse("2026-11-13T23:00:00.000Z");
   const input={device_id:device,client_id:client,space_id:space,project_id:project,
