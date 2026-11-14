@@ -145,6 +145,8 @@ jobs:
                       or data["total_commits"] > 250
                       or data.get("base_commit", {}).get("sha") != before
                       or data.get("head_commit", {}).get("sha") != head
+                      or data.get("merge_base_commit", {}).get("sha") != before
+                      or data.get("status") != "ahead"
                   ):
                       raise ValueError("unverifiable/truncated push comparison")
                   paths = []
