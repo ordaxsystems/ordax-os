@@ -273,36 +273,14 @@ preloads only the same bounded sparse runtime/control checkout that `ordax-pull`
 the bundle's exact `source_commit`. `main` remains the sole source authority; the preload
 is a disposable local cache, not a second authority.
 
-## Recuperação do primeiro runtime gráfico (11/10/2026)
+## Recuperação do primeiro runtime gráfico — referência histórica (11/10/2026)
 
-Em um notebook Owner/Development, a instalação inicial do Cage/WebKit pode
-registrar `Installing (218/247)` e ser interrompida antes da confirmação de
-saúde da Surface. Esse progresso **não é conclusão** da instalação.
-A fase de aquisição do runtime e a verificação posterior da Surface possuem
-orçamentos/heartbeats separados na `main`.
-
-Uma base de desenvolvimento anterior à correção do PATH de recuperação pode
-mostrar `sh: ordax-pull: not found`, apesar de ter o helper em
-`/usr/local/bin/ordax-pull`. Isso decorre do PATH mínimo compartilhado da
-recuperação, não prova falta de checkout nem requer novo flash. Para mídia
-já inicializada, no shell local de recuperação:
-
-```sh
-ls -l /usr/local/bin/ordax-pull /usr/local/bin/ordax-run
-/usr/local/bin/ordax-pull
-/usr/local/bin/ordax-run
-```
-
-Execute `ordax-run` apenas depois de o pull ter sido concluído com sucesso.
-Caso os arquivos não existam, registre o resultado e não tente copiar
-arquivos de terceiros nem reformatar o USB. A recuperação agora expõe os
-comandos no PATH **somente** no perfil `owner-development` USB e somente quando
-ambos os helpers já estão presentes e executáveis. No Stable/MVP o PATH mínimo
-permanece intocado; nenhum desses fluxos inicia rede, Git ou mutação automática
-ao entrar no shell de recuperação. O sistema Development atualiza a cópia
-pré-instalada do helper de recuperação por meio do bridge de helpers após
-o supervisor se tornar operacional; a imagem física antiga não se altera
-automaticamente apenas porque o repositório recebeu a correção.
+A ocorrência antiga de instalação incompleta do Cage/WebKit e o PATH de
+recuperação estão preservados no [snapshot Git de 14/11/2026](https://github.com/ordaxsystems/ordax-os/blob/5b3ba101ac7fc347b514f0e42212c8ff96f30329/docs/DEV-USB-GIT.md).
+Não usar instruções desse checkpoint como reparo vigente: verificar o
+Supervisor, os helpers instalados e a saúde reais antes de qualquer ação.
+Progresso de instalação não equivale a boot gráfico saudável nem a autorização
+de regravação USB.
 
 ## Dimensionamento do Creator Development — 11/10/2026
 
@@ -369,81 +347,23 @@ Não criar um segundo transportador remoto nem ativar uma sessão de shell
 arbitrário para contornar o Product PostgreSQL. O Starter deve permanecer
 independente da Surface gráfica.
 
-## Recuperação assistida por Windows/WSL — evidência física de 19/10/2026
+## Recuperação Windows/WSL — evidência histórica (19/10/2026)
 
-Este registro é **histórico e restrito ao USB Owner/Development**: documenta
-o reparo de um checkout Git por meio de outro computador. **Não** constitui
-ferramenta de atualização offline assinada nem dispensa Git no computador
-auxiliar. Essa capacidade segue como gate separado na
-[issue #2005](https://github.com/ordaxsystems/ordax-os/issues/2005),
-reutilizando o agente de releases, trust Ed25519, A/B e rollback existentes.
+A intervenção física, SHAs e observações do notebook em 19/10 estão no
+[snapshot Git imutável](https://github.com/ordaxsystems/ordax-os/blob/5b3ba101ac7fc347b514f0e42212c8ff96f30329/docs/DEV-USB-GIT.md).
+Aquela execução não comprova a prontidão atual de rede, boot, Surface ou release.
+Não repetir o procedimento em outro dispositivo sem identificação e autorização
+explícitas; ele não é um segundo updater nem fluxo Stable/MVP.
 
-### Diagnóstico observado antes e após o reparo
-
-- O USB inicializou no commit `52b7d73dc4e3bd9f3cd5626efa6d48863b66254f`,
-  mas registrava `atomic-checkout-failed`. O diário mostrava fases de
-  `fetching → validating → pull-error`, **sem o stderr original do Pull**.
-  Não atribuir retrospectivamente o problema a Git, DNS, TLS, ext4, energia ou
-  espaço livre sem evidência específica.
-- O USB foi desligado e conectado ao Windows. A identificação física da
-  mídia pelo modelo, serial, barramento, GPT e partições foi confirmada antes
-  de qualquer montagem; o disco interno ficou fora do escopo. Nesse host,
-  `usbipd` + WSL 2 permitiu leitura ext4 `ro,noload`; `wsl --mount`
-  diretamente não funcionou.
-- Antes de qualquer montagem RW, foi realizado backup privado `tar.gz`,
-  acompanhado de `gzip -t` bem-sucedido. **Esse backup pode conter contas e
-  credenciais e não deve ser enviado a artefatos públicos.**
-- O operador usou o **`ordax-pull` canônico**, com
-  `ORDAX_WORKTREE=<montagem>/dev-base/workspace/ordax`,
-  `ORDAX_STATE_DIR=<montagem>/dev-base/state/ordax` e
-  `ORDAX_UPDATE_RUN_DIR=<diretório-privado-do-host>`. O recibo de
-  transação reportou `329197346239ec673cf49ec83fa93c3298b64d00`.
-  `current-commit` coincidiu com `HEAD`; `previous-commit` reteve
-  `52b7d73d`; worktree e helpers foram verificados; o
-  `git fsck --connectivity-only` concluiu com sucesso.
-- Finalização: `sync`, desmontagem e `usbipd detach`, sem escrever RAW,
-  reformatar ou trocar partições.
-
-Uma observação gráfica posterior mostrou **Entrega 1188**, commit
-`32919734`, `remote-check-failed` e relógio em **31/12/2015**.
-Isso comprova somente abertura da Surface e o SHA exibido, **não**
-Wi-Fi/DNS funcional, TLS confiável, NTP sincronizado, runtime integral,
-reinício físico subsequente ou ativação de Base/Stable. Não promover
-esta observação a certificação de boot físico.
-
-### Gates antes de repetir em outra mídia
-
-1. Desligar o notebook, retirar o USB e **identificar positivamente somente
-   a mídia removível** por serial/modelo/GPT. Não aplicar a procedimento em
-   discos internos, mídia montada pelo notebook ou dispositivo incerto.
-2. Montar ext4 primeiramente **somente leitura**, sem replay de journal
-   (`ro,noload`); preservar dados e comprovantes num backup privado e testar
-   sua integridade **antes** de qualquer operação RW.
-3. Inspecionar `current-commit`, `previous-commit`, `.git/HEAD`,
-   `first-run.json` e os recibos persistidos. Confirmar ancestry do commit
-   pretendido, origem autorizada e ausência de modificações locais não salvas.
-4. Usar **somente o `ordax-pull` oficial** e paths explícitos. Não fazer
-   `git reset --hard`, forçar marcadores de saúde, clonar sobre a mídia,
-   copiar uma rootfs não assinada ou desativar validações para avançar.
-5. Depois da transação, verificar `HEAD == current-commit`, SHA dos helpers,
-   worktree limpa, `previous-commit`, integridade Git e diretórios
-   transacionais. Executar `sync`/unmount/detach antes de desconectar.
-6. Validar separadamente no **mesmo notebook físico** um cold boot, Surface,
-   status de rede, atualização e reinício real; até haver esses recibos,
-   manter o gate físico como **pendente**.
-
-No Owner/Development o Supervisor faz `git ls-remote` com timeout e repassa
-um SHA já verificado ao Pull, que **não repete a descoberta remota** durante
-essa transação. A execução manual isolada tem diagnóstico próprio e pode
-depender do Git remoto. A correção estrutural de Wi-Fi passou por #2052; a
-classificação dos erros Git standalone por #2072. Para investigar um
-`remote-check-failed` antigo, distinguir link/IP, DNS, hora/NTP, HTTPS/TLS e
-Git remoto, preferindo `ordax-diagnose` e observações permitidas em
-`/run/ordax-network-status`, `/run/ordax-surface/time-sync.log`,
-`/run/ordax-surface/network-broker.log` e
-`/run/ordax-update/update.log`. Arquivos em `/run` são voláteis; redigir
-tokens, WPA, cookies e outros segredos antes de compartilhar. Não executar
-`ordax-network` como se fosse um leitor: ele pode alterar o estado de rede.
+**Limites de segurança ainda aplicáveis:** identificar positivamente o USB
+removível e excluir o disco interno; inspecionar inicialmente em leitura apenas
+e preservar dados confidenciais fora de artefatos públicos; conferir origem,
+ancestralidade, checkout limpo e recibos; executar somente a transação
+`ordax-pull` canônica, **nunca** `git reset --hard` como atalho;
+confirmar `HEAD == current-commit`, integridade dos helpers, desmontagem segura
+e somente então observar cold boot/Surface/rede no notebook físico. Sem essa
+observação, o gate físico permanece pendente. Diagnóstico de rede/tempo não
+deve expor segredos nem executar comandos que alterem estado involuntariamente.
 
 ## Atualização manual dentro do OrdaX — somente USB Owner/Dev
 
