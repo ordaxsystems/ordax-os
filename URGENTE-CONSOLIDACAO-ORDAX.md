@@ -3,7 +3,7 @@
 **Prioridade:** URGENTE — organização e redução de complexidade comprovada  
 **Início:** 2026-11-14  
 **Owner:** `ordaxsystems/ordax-os` (cada alteração em outro repositório pertence ao respectivo owner)  
-**Estado:** EM EXECUÇÃO — primeira etapa: organizar entrada e medir redundâncias reais  
+**Estado:** EM EXECUÇÃO — P0.1 e P0.2 concluídos; próxima frente: consolidação documental por consumidores  
 **Regra:** Evolução Rápida — executar uma simplificação pequena e segura por vez, validar proporcionalmente e integrar.
 
 > Este arquivo é **roteiro operacional de consolidação**, não uma nova autoridade de arquitetura, produto, release ou implementação. A hierarquia vigente permanece em `docs/README.md`; source, contratos, `docs/CURRENT-STATE.md`, `MVP.md`, ADRs e gates prevalecem. Não duplicar o roadmap de produto de `00-PLANOS-PRIORITARIOS/`.
@@ -35,8 +35,8 @@ Já existe consolidação anterior: planos históricos da raiz foram movidos par
 
 | Ordem | Frente / ação concreta | Critério de aceite | Estado |
 | --- | --- | --- | --- |
-| P0.1 | Criar este roteiro na raiz e torná-lo descobrível pelo `README.md` sem substituir o roteador `docs/README.md` | Link funcional e hierarquia preservada | **EM EXECUÇÃO** |
-| P0.2 | Confrontar a lista de planos da raiz com `00-PLANOS-PRIORITARIOS/REGISTRY.md` e referências realmente existentes | Apenas planos vivos permanecem ativos; históricos com link ao commit antigo | PENDENTE |
+| P0.1 | Criar este roteiro na raiz e torná-lo descobrível pelo `README.md` sem substituir o roteador `docs/README.md` | Link funcional e hierarquia preservada | **CONCLUÍDO** — `41ddc196`, `d45de378` |
+| P0.2 | Confrontar a lista de planos da raiz com `00-PLANOS-PRIORITARIOS/REGISTRY.md` e referências realmente existentes | Apenas planos vivos permanecem ativos; históricos com link ao commit antigo | **CONCLUÍDO** — dois planos na raiz (`PLANO-07`, `PLANO-08`), ambos no registry e README; históricos já referenciados por snapshots |
 | P0.3 | Localizar documentos de mesmo assunto e conferir citações/consumidores antes de consolidar | Uma autoridade humana por assunto, sem perder contratos e runbooks | PENDENTE |
 | P1.1 | Agrupar workflows por finalidade, `on:`, `workflow_call`, caminhos acionados e exigência de branch protection | Lista de candidatos **com sobreposição demonstrada**, não por semelhança de nome | PENDENTE |
 | P1.2 | Consolidar cada par comprovadamente redundante no fluxo canônico; ajustar chamadas/regras consumidoras antes da exclusão | Mesmo gate/prova, disparo correto, sem rebuild desnecessário | PENDENTE |
@@ -59,6 +59,6 @@ Já existe consolidação anterior: planos históricos da raiz foram movidos par
 
 Para cada item: **(a)** identificar arquivo/owner e consumidor, **(b)** fazer a menor mudança segura, **(c)** executar verificação proporcional, **(d)** integrar na `main` quando permitido, **(e)** anotar no próprio item o caminho ou commit que demonstra conclusão. Sem abrir uma coleção de planos satélites, sem evidência fictícia e sem declarar “limpo” por contagem bruta.
 
-**Primeiro recorte:** tornar esta prioridade visível e eliminar ambiguidade de navegação no README; depois concentrar a revisão em redundâncias comprováveis de documentação e workflows, uma família por vez.
+**Primeira entrega concluída (2026-11-14):** documento de execução na raiz (`41ddc196`) e link explícito/correção de navegação no README (`d45de378`). Conferência do estado da raiz: somente `PLANO-07` e `PLANO-08`, ambos referenciados pelo registry e README. **Próximo recorte:** documentação repetida com consumidores demonstrados, seguida de workflows por família. Evitar reabrir limpeza histórica já integrada.
 
 **Encerramento:** nenhum documento ativo concorrendo por mesma autoridade; nenhum workflow removido sem substituto ou justificativa; nenhum consumidor quebrado; navegação simples; código e testes existentes permanecem funcionais.
