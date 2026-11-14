@@ -37,6 +37,42 @@ MODULE_ARCHIVE_FINGERPRINT_CONSUMERS = (
 
 
 class KernelCandidateCIScopeTests(unittest.TestCase):
+    def test_test_only_kernel_changes_are_covered_without_rebuilding(self):
+        # Foundation is an unconditional PR/main-push owner for Python
+        # regressions. A change to a test cannot alter kernel build bytes.
+        foundation = (
+            ROOT / ".github/workflows/foundation.yml"
+        ).read_text(encoding="utf-8")
+        self.assertIn("  push:\n    branches: [main]", foundation)
+        self.assertIn("  pull_request:\n", foundation)
+        self.assertIn("python -m unittest discover -s tests -p 'test_*.py' -v", foundation)
+        self.assertIn("if: steps.impact.outputs.full != 'false'", foundation)
+        for workflow, test_paths, source_path in (
+            (
+                "kernel-candidate.yml",
+                ("tests/test_kernel_artifact_verifier.py",
+                 "tests/test_kernel_build_authentication_gate.py"),
+                "bootstrap/kernel/**",
+            ),
+            (
+                "kernel-pinned-environment.yml",
+                ("tests/test_kernel_build_environment_contract.py",
+                 "tests/test_kernel_reproducibility_ssot.py"),
+                "docs/contracts/kernel-build-environment.json",
+            ),
+        ):
+            source = (ROOT / ".github/workflows" / workflow).read_text(encoding="utf-8")
+            trigger = source.split("\njobs:\n", 1)[0]
+            with self.subTest(workflow=workflow):
+                for path in test_paths:
+                    self.assertNotIn(path, trigger)
+                self.assertEqual(trigger.count(source_path), 2)
+                self.assertIn(f".github/workflows/{workflow}", trigger)
+                self.assertIn("workflow_dispatch:", trigger)
+                self.assertIn("github.event_name != 'pull_request' || !github.event.pull_request.draft",
+                              source)
+                self.assertIn("actions/upload-artifact@", source)
+
     def test_stable_consumers_exclude_only_candidate_metadata(self):
         for workflow in WORKFLOWS:
             with self.subTest(workflow=workflow):
