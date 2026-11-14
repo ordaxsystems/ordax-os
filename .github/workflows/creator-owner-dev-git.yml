@@ -328,6 +328,19 @@ jobs:
           ORDAX_SOURCE_COMMIT: ${{ env.ORDAX_OWNER_SOURCE_COMMIT }}
         run: bash tools/ci/independent_surface_r2.sh restore
 
+      - name: Restore verified Surface EROFS from trusted GitHub producer for Owner
+        id: owner-surface-github-artifact
+        if: steps.owner-surface-artifact-cache.outputs.cache-hit != 'true' && steps.owner-surface-r2.outputs.hit != 'true'
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          set -euo pipefail
+          bash tools/ci/independent_surface_github_artifact.sh \
+            "$RUNNER_TEMP/ordax-independent-surface" \
+            "$ORDAX_OWNER_SOURCE_COMMIT" \
+            "${GITHUB_HEAD_REF:-$GITHUB_REF_NAME}" \
+            "$GITHUB_OUTPUT"
+
       # The Creator consumes only a preverified content-addressed artifact.
       # Compiler/download caches belong exclusively to the Surface producer.
       - name: Consume verified canonical offline Surface runtime
@@ -336,7 +349,8 @@ jobs:
           set -euo pipefail
           out="$RUNNER_TEMP/ordax-independent-surface"
           if [ '${{ steps.owner-surface-artifact-cache.outputs.cache-hit }}' != true ] &&
-             [ '${{ steps.owner-surface-r2.outputs.hit }}' != true ]; then
+             [ '${{ steps.owner-surface-r2.outputs.hit }}' != true ] &&
+             [ '${{ steps.owner-surface-github-artifact.outputs.hit }}' != true ]; then
             echo "::error title=Canonical Surface EROFS missing::Run Independent Surface Runtime producer for the exact fingerprint before Creator. Never compile WebKit in the Creator consumer." >&2
             exit 1
           fi
@@ -344,7 +358,13 @@ jobs:
             --out "$out" --integration-commit "$ORDAX_OWNER_SOURCE_COMMIT" \
             --cache-hit true --consumer \
             --receipt "$RUNNER_TEMP/owner-surface-cache-inspection.json"
-          echo 'OWNER_SURFACE_RUNTIME_SOURCE=verified-content-addressed-cache'
+          source='actions-cache'
+          if [ '${{ steps.owner-surface-r2.outputs.hit }}' = true ]; then
+            source='durable-r2'
+          elif [ '${{ steps.owner-surface-github-artifact.outputs.hit }}' = true ]; then
+            source='trusted-github-producer-artifact'
+          fi
+          echo "OWNER_SURFACE_RUNTIME_SOURCE=$source"
           python3 bootstrap/surface-runtime/build.py verify --out "$out"
           mkdir -p "$RUNNER_TEMP/owner-dev-surface-runtime"
           cp -a "$out/." "$RUNNER_TEMP/owner-dev-surface-runtime/"

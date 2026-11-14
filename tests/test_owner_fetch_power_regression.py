@@ -38,7 +38,7 @@ def active_process(pid: int) -> bool:
     try:
         state = Path(f"/proc/{pid}/status").read_text(encoding="ascii")
         return not any(line.startswith("State:") and "\tZ" in line for line in state.splitlines())
-    except FileNotFoundError:
+    except (FileNotFoundError, ProcessLookupError):
         return False
 
 
