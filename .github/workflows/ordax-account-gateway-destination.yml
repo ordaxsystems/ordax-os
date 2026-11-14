@@ -13,6 +13,15 @@ on:
         description: 'Type DEPLOY_ACCOUNT_GATEWAY_PRODUCTION after Owner E2E and release approval'
         required: true
         type: string
+      owner_project_rollout:
+        description: 'Project MCP Owner rollout after deploying the reviewed gateway bundle'
+        required: true
+        type: choice
+        default: unchanged
+        options:
+          - unchanged
+          - enable
+          - disable
 
 permissions:
   contents: read
@@ -114,6 +123,27 @@ jobs:
             --project-ref "${SUPABASE_PROJECT_REF}" \
             --no-verify-jwt \
             --use-api
+
+      - name: Apply explicit Owner Project MCP rollout
+        if: steps.credential.outputs.enabled == 'true' && inputs.owner_project_rollout != 'unchanged'
+        shell: bash
+        env:
+          SUPABASE_ACCESS_TOKEN: ${{ secrets.SUPABASE_ACCESS_TOKEN }}
+        run: |
+          set -euo pipefail
+          case "${{ inputs.owner_project_rollout }}" in
+            enable) VALUE=1 ;;
+            disable) VALUE=0 ;;
+            *) echo '::error::Invalid Owner Project MCP rollout'; exit 2 ;;
+          esac
+          supabase secrets set --project-ref "${SUPABASE_PROJECT_REF}" \
+            "ORDAX_MCP_OWNER_ACCOUNT_ENABLED=${VALUE}" \
+            "ORDAX_MCP_OWNER_PROJECT_ONBOARDING_ENABLED=${VALUE}" \
+            "ORDAX_MCP_OWNER_GITHUB_AUTHORIZATION_ENABLED=${VALUE}" \
+            "ORDAX_MCP_OWNER_PROJECT_DEVICE_BINDING_ENABLED=${VALUE}" \
+            "ORDAX_MCP_OWNER_PROJECT_GRANT_ENABLED=${VALUE}"
+          echo "ACCOUNT_GATEWAY_OWNER_PROJECT_ROLLOUT=${{ inputs.owner_project_rollout }}"
+          echo 'ACCOUNT_GATEWAY_OWNER_PROJECT_SECRET_VALUES_PRINTED=NO'
 
       - name: Smoke destination gateway without changing Auth cutover
         if: steps.credential.outputs.enabled == 'true'
