@@ -2,8 +2,8 @@ import {
   FILE_SPACE_SCHEMA,
   assertFileSpacePort,
 } from "../../contracts/file-space.mjs";
-import { assertProjectCatalogReader } from "../../contracts/project-catalog.mjs";
-import { assertProjectMutations } from "../../contracts/project-mutations.mjs";
+import { assertProjectCatalogPort, assertProjectCatalogReader } from "../../contracts/project-catalog.mjs";
+import { PROJECT_MUTATIONS_SCHEMA, PROJECT_MUTATION_METHODS, assertProjectMutations } from "../../contracts/project-mutations.mjs";
 
 function joinPath(path, name) {
   return path === "/" ? `/${name}` : `${path}/${name}`;
@@ -18,6 +18,18 @@ function reportContinuityError(callback, error) {
   }
 }
 
+function resolveProjectMutations(projects, projectMutations) {
+  if (projectMutations !== null) return assertProjectMutations(projectMutations);
+  const full = assertProjectCatalogPort(projects);
+  return Object.freeze({
+    schema: PROJECT_MUTATIONS_SCHEMA,
+    ...Object.fromEntries(PROJECT_MUTATION_METHODS.map((method) => [
+      method,
+      (...args) => full[method](...args),
+    ])),
+  });
+}
+
 export function createProjectContinuityFileSpace(
   fileSpace,
   projects = null,
@@ -27,7 +39,7 @@ export function createProjectContinuityFileSpace(
   const projectReader = projects === null ? null : assertProjectCatalogReader(projects);
   const mutationPort = projects === null
     ? null
-    : assertProjectMutations(projectMutations ?? projects);
+    : resolveProjectMutations(projects, projectMutations);
   if (onContinuityError !== null && typeof onContinuityError !== "function") {
     throw new TypeError("Project continuity file-space error reporter must be a function");
   }
