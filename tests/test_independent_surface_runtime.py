@@ -425,7 +425,7 @@ class IndependentSurfaceRuntimeTests(unittest.TestCase):
         self.assertNotIn('--work-dir "$ORDAX_SURFACE_PERSISTENT_WORK_ROOT/', build_step)
 
     def test_fast_gate_reports_producer_variable_presence_without_exposing_values(self):
-        gate = (ROOT / ".github/workflows/remove-alpine-fast.yml").read_text(encoding="utf-8")
+        gate = (ROOT / ".github/workflows/independent-surface-runtime.yml").read_text(encoding="utf-8")
         self.assertIn("Diagnose durable Surface producer configuration without building", gate)
         diagnostic = gate.split("      - name: Diagnose durable Surface producer configuration without building", 1)[1].split("      - name: Prove authenticated runner context reaches Shell", 1)[0]
         for variable in (
