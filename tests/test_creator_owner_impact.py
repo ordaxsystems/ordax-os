@@ -488,8 +488,13 @@ class CreatorOwnerImpactTests(unittest.TestCase):
             impact.classify(base, policy, root=self.root, event="push"),
             (False, "nonproducer-contract-only"),
         )
+        roadmap = self.commit(path="URGENTE-CONSOLIDACAO-ORDAX.md")
+        self.assertEqual(
+            impact.classify(policy, roadmap, root=self.root, event="push"),
+            (False, "nonproducer-contract-only"),
+        )
         boot = self.commit(path="bootstrap/kernel/source.json")
-        self.assertTrue(impact.classify(policy, boot, root=self.root, event="push")[0])
+        self.assertTrue(impact.classify(roadmap, boot, root=self.root, event="push")[0])
 
     def test_build_autonomy_has_no_creator_dependency_for_web_or_desktop(self):
         contract = json.loads((ROOT / "docs/contracts/build-autonomy.json").read_text(encoding="utf-8"))
