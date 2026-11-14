@@ -108,7 +108,7 @@ New desktop controls must have a real state owner and contract before being pres
 
 ## Acceptance and delivery
 
-Roadmap: shared Surface identity and minimal functional desktop in [snapshot funcional histórico](https://github.com/ordaxsystems/ordax-os/blob/3f304b05af33e40658025ff289523560b298153c/[snapshot funcional histórico](https://github.com/ordaxsystems/ordax-os/blob/3f304b05af33e40658025ff289523560b298153c/PLANO-FUNCIONAL-SURFACE-E-APPS.md)). Historical label only: visual source ownership is now `ordaxsystems/ordax-surface`. Dependencies: existing appearance/runtime/workspace/store contracts, local Inter, SVG and PNG; no new public execution contract. Scope: shared Web/Native composition, loading screen, shell, Settings previews and tokens consumed by first-party views. Risks: contrast over artwork, CSS specificity, narrow layout, image size and offline asset resolution.
+Roadmap: shared Surface identity and minimal functional desktop in [snapshot funcional histórico](https://github.com/ordaxsystems/ordax-os/blob/3f304b05af33e40658025ff289523560b298153c/PLANO-FUNCIONAL-SURFACE-E-APPS.md)). Historical label only: visual source ownership is now `ordaxsystems/ordax-surface`. Dependencies: existing appearance/runtime/workspace/store contracts, local Inter, SVG and PNG; no new public execution contract. Scope: shared Web/Native composition, loading screen, shell, Settings previews and tokens consumed by first-party views. Risks: contrast over artwork, CSS specificity, narrow layout, image size and offline asset resolution.
 
 Acceptance requires visual/contrast regressions, existing preference/localization tests, source-graph and deterministic bundle verification, and real Chromium shell/composition smoke. Web inspection covers desktop and narrow breakpoints and both materials. Source publication is a reviewable candidate, not production activation, a signed release or proof of USB/mobile hardware operation. A visual refresh does not require a kernel rebuild or USB rewrite.
 
@@ -140,7 +140,7 @@ the next integration phase; the former WebShell is not mounted or exposed as
 a second page. Broad code removal was rejected by automatic approval review,
 so no shared application/window functionality was deleted.
 
-Historical label only: visual source ownership is now `ordaxsystems/ordax-surface`, under [snapshot funcional histórico](https://github.com/ordaxsystems/ordax-os/blob/3f304b05af33e40658025ff289523560b298153c/[snapshot funcional histórico](https://github.com/ordaxsystems/ordax-os/blob/3f304b05af33e40658025ff289523560b298153c/PLANO-FUNCIONAL-SURFACE-E-APPS.md)).
+Historical label only: visual source ownership is now `ordaxsystems/ordax-surface`, under [snapshot funcional histórico](https://github.com/ordaxsystems/ordax-os/blob/3f304b05af33e40658025ff289523560b298153c/PLANO-FUNCIONAL-SURFACE-E-APPS.md)).
 Provenance and reversible integration adjustments:
 `docs/evidence/web-central-reference-2026-10-11.json`.
 Risk: unconnected example data, viewport/focus behavior, dependency versions
@@ -150,46 +150,7 @@ their presence is not a passing result or a release/deployment proof.
 
 ## Superseded Web presentation notes — 2026-10-10/11
 
-The Web notes below describe the previous presentation, retained as source
-history and library capabilities. They do not describe the currently mounted
-Central or certify its behavior. The section above is the active Web decision.
-
-### Previous canonical Web presentation — 2026-10-10
-
-The approved Account Hub layout is adopted into the OS-owned portable Surface at
-system/surface/workspace/. The sole Web bootstrap is system/composition/web/main.tsx.
-The evaluation workspace has been removed; no compatibility route or redirect remains.
-
-Upstream: washingtonmsdj/account-hub-pro@0f955ece6e570801976d8ed77d2cada101b7a3fa.
-Digests, reversible edits and asset exclusions are recorded in
-docs/evidence/web-layout-reference-2026-10-10.json. User approved copying their
-supplied layout and replacing Web presentation. Upstream README states author
-ownership; no LICENSE was found. Distribution license review remains pending.
-
-Historical label only: visual source ownership is now `ordaxsystems/ordax-surface`. Root package.json/package-lock.json own dependencies;
-tools/surface-web owns compilation and candidate receipts. React/router/UI code
-is bundled locally. Existing shared Inter and approved symbol remain the asset
-authority. Browsers need no Node, CDN or remote font to render the client.
-This Web-only cutover preserves the Native operational composition and controls.
-
-Service integration is explicitly the next phase. Studio, Files, Projects,
-Spaces, Gallery, Notes, Internet, Settings, Store and Intelligence interfaces
-remain, including future controls. Unavailable services cannot create accounts,
-expose user files, grant tools or activate packages. Labeled Store/Intelligence
-demonstrations are interface examples. Account links to canonical /conta/;
-it does not create another Identity flow.
-
-Future connections must consume existing services, contracts and adapters.
-The public /web/ portal remains a separately configured Identity/runtime
-handoff: this source change does not enable that production gate.
-Native/domain assertions and browser proof remain; obsolete Web DOM wiring
-checks are replaced by canonical compiled-client route/viewport/window proofs.
-
-Acceptance: strict typecheck, reference integrity, atomic build receipts,
-repeatable compilation, Chromium desktop/mobile proof and Native/domain
-regressions. Risks: initial JS/artwork payload, dependency maintenance, final
-distribution review and deferred service wiring. No kernel rebuild, USB write,
-signing or production activation is implied.
+**HISTÓRICO / SUBSTITUÍDO:** detalhes incrementais da apresentação Web em [snapshot imutável de 14/11/2026](https://github.com/ordaxsystems/ordax-os/blob/f5c66ec2d99d7707f3fd3b1a0d0a2d8bd7a55f7b/docs/DESKTOP-IDENTITY.md). O contrato visual Meridian e o owner `ordax-surface` permanecem definidos nas primeiras seções deste documento; estas notas não definem o estado atual.
 
 ## Web Store consumer — 2026-10-11
 
@@ -202,7 +163,7 @@ authority has been introduced. See [Store service boundary](../system/services/a
 ## Responsive compact-window panes — 2026-10-11
 
 Historical label only: visual source ownership is now `ordaxsystems/ordax-surface`, within the functional workspace/window increment of
-[snapshot funcional histórico](https://github.com/ordaxsystems/ordax-os/blob/3f304b05af33e40658025ff289523560b298153c/[snapshot funcional histórico](https://github.com/ordaxsystems/ordax-os/blob/3f304b05af33e40658025ff289523560b298153c/PLANO-FUNCIONAL-SURFACE-E-APPS.md)). The canonical Web composition divides the
+[snapshot funcional histórico](https://github.com/ordaxsystems/ordax-os/blob/3f304b05af33e40658025ff289523560b298153c/PLANO-FUNCIONAL-SURFACE-E-APPS.md)). The canonical Web composition divides the
 available desktop into a primary pane and a compact pane. Expanded compact
 windows receive half the height after the shared navigation and mobile safe
 area are deducted. Collapsing the carousel leaves only its accessible control
@@ -228,7 +189,7 @@ No App, Runtime, Intelligence, Identity or device-execution authority changes.
 ## Mobile workspace navigation — 2026-10-11
 
 Historical label only: visual source ownership is now `ordaxsystems/ordax-surface`, within the canonical Web workspace increment of
-[snapshot funcional histórico](https://github.com/ordaxsystems/ordax-os/blob/3f304b05af33e40658025ff289523560b298153c/[snapshot funcional histórico](https://github.com/ordaxsystems/ordax-os/blob/3f304b05af33e40658025ff289523560b298153c/PLANO-FUNCIONAL-SURFACE-E-APPS.md)). Mobile navigation uses the same
+[snapshot funcional histórico](https://github.com/ordaxsystems/ordax-os/blob/3f304b05af33e40658025ff289523560b298153c/PLANO-FUNCIONAL-SURFACE-E-APPS.md)). Mobile navigation uses the same
 `WorkspaceNavigation`, catalog and reducer as the desktop sidebar. The bottom
 bar follows the reference order: Início, Aura, Apps, Space and Menu. Aura opens
 the existing Intelligence session and Space opens the existing Space picker.
@@ -499,227 +460,7 @@ production-readiness claim.
 
 ## Collapsible sidebar and lower account utilities — 2026-10-11
 
-User-requested Surface revision: remove visible OrdaX OS Web/More Options labels
-from the Home footer, retaining an accessible icon for overflow destinations and
-the mode select where required. Move the sidebar bell into AccountCard's action
-row beside settings, removing the Home-row bell. Add one sidebar collapse control.
-Central owns the presentation mode (auto/collapsed/expanded); CSS owns resolved rail
-width and responsive layout. The existing resize observer reads that resolved
-layout for the control's accessible expanded state. No second window manager.
-Desktop collapse frees app space; mobile expansion overlays the content instead
-of shrinking the already narrow work area. App instances remain mounted.
-
-Owner: OS Surface. Risk: responsive rail sizing and narrow account action spacing.
-Acceptance: no visible footer labels, one sidebar bell next to settings, operable
-collapse/expand in both views, available overflow/actions and stable app instances.
-Existing browser-check source updated; no build, npm, typecheck or tests executed
-under the user's standing restriction. No backend authority or real quota change.
-
-### Remove Home ellipsis modal entry — 2026-10-11
-
-Explicit user revision: remove the Home-footer ellipsis button and its More-modal
-branch. The footer only reserves height when the responsive Aura mode selector is
-needed. Sidebar navigation and measured overflow remain available independently.
-Owner: OS Surface; no backend/window-state change. Existing check source updated;
-no build, npm or tests run under the standing restriction.
-
-### Sidebar edge chevron — 2026-10-11
-
-Explicit Surface styling request: move the existing collapse control outside the
-sidebar header flow to the divider edge, centered vertically. A left/right chevron
-shows collapse/expand direction. It has no persistent button frame and uses shared
-theme hover/focus feedback; its 24x44px target and accessible labels are retained.
-The CSS rail/visual-width variables position it for desktop and mobile overlay
-modes. One state/control remains; no window remount or backend change. No build,
-npm or tests executed under the standing user restriction.
-
-### Single-line sidebar storage caption — 2026-10-11
-
-Requested account-card readability adjustment: show used/limit once as 128 / 500 GB
-in the expanded rail, with nowrap and tabular numbers. A compact rail shows the
-same fixture's derived 25.6% usage (localized decimal), keeping the full used/limit
-in the tooltip and accessible progress metadata. No smaller illegible font,
-ellipsis hiding units or wrapped quota sentence. Actions stay beside each other.
-Owner: OS Surface; presentation-only quota, no backend change. No build, npm or
-tests executed under the standing user restriction.
-
-### User name in sidebar account card — 2026-10-11
-
-Requested presentation change: the account card title now uses the shared demo
-user display name instead of the Space name. Avatar name/initials consume the
-same presentation fixture; the existing single-line truncation is retained with
-full-name tooltip/accessible labels. Space labels elsewhere retain their own
-meaning. The account action/real identity backend is unchanged and remains
-pending. Owner: OS Surface. No build, npm or tests run under user restriction.
-
-### Edge chevron aligned with logo — 2026-10-11
-
-Requested placement revision: the outside-flow edge chevron now uses the shared
-sidebar top inset and logo-row height for its vertical position, rather than the
-viewport midpoint. The header and arrow consume the same CSS geometry in expanded,
-collapsed and narrow modes; short layouts retain the logo row with a smaller inset.
-Owner: OS Surface. State, app layout and backend unchanged. No build, npm or tests
-executed under the standing user restriction.
-
-### Visible sidebar edge control — 2026-10-11
-
-Requested visibility revision: the existing logo-aligned chevron now has an
-opaque theme surface, contrasting border, subtle elevation and a larger, heavier
-icon. Hover/keyboard focus use shared accent tokens. The same control remains
-outside sidebar flow in both themes and responsive states. Owner: OS Surface.
-Acceptance: visible resting control with unchanged sidebar behavior and geometry.
-No build, npm or tests executed under the standing user restriction.
-
-### Neutral app frame and Home-aligned chevron — 2026-10-11
-
-Owner: OS Surface. Active windows use the same neutral border token as the
-resting shell, without the lime active-frame highlight. Automatic region focus
-does not paint the frame; keyboard focus retains an inset visible indicator.
-The divider chevron aligns with Home using shared header, gap and Home-height
-tokens across responsive sidebar modes. Window lifecycle and app contracts
-remain unchanged. Acceptance: neutral resting app edges and Home-centered arrow.
-No build, npm or tests executed under the standing user restriction.
-
-### Compact divider chevron — 2026-10-11
-
-Owner: OS Surface. Requested size refinement reduces the edge button to 24 by
-32 pixels and its chevron to 16 pixels, retaining the shared contrasting surface
-and Home-row alignment. No behavior or contract changes. No build, npm or tests
-executed under the standing user restriction.
-
-### Single desktop brand in sidebar — 2026-10-11
-
-Owner: OS Surface. Removed the duplicated Brand from the desktop header, keeping
-the shared sidebar as its sole brand location. Existing theme/profile actions
-remain right aligned; app and window behavior are unchanged. No build, npm or
-tests executed under the standing user restriction.
-
-### Desktop controls through sidebar — 2026-10-11
-
-Owner: OS Surface. Removed the desktop header profile and theme buttons.
-Theme switching remains in the existing Appearance settings, reached through
-the shared sidebar gear; no duplicate theme state/control was added. Removed
-the now-empty header and its workspace clearance. Acceptance: desktop has no
-duplicate account header; sidebar Settings still exposes the theme action.
-No build, npm or tests executed under the standing user restriction.
-
-### Central controls consolidated in sidebar — 2026-10-11
-
-Owner: OS Surface. Removed duplicated profile, notifications and theme actions
-from Central hero/mobile headers, including the repeated mobile brand. Narrow
-grid tracks no longer reserve space for that header. Sidebar account/bell/gear
-remain shared entry points; Appearance uses existing theme state. Existing
-browser-check source follows Settings but was not executed.
-No build, npm or tests run under the standing user restriction.
-
-### Responsive hero landscape — 2026-10-11
-
-Owner: OS Surface. Removed the older viewport rule that hid hero wallpaper
-and overlay below 760px. A single hero image selects the existing day/night
-asset from shared theme state; removed conflicting display overrides.
-Central retains clipped rounded hero and theme foreground at narrow widths.
-Acceptance: landscape remains visible in both themes and responsive layouts.
-No build, npm or tests executed under the standing user restriction.
-
-### Time-aware Central greeting — 2026-10-11
-
-Owner: OS Surface. Replaced fixed date and theme-dependent greeting with local
-browser date/time and the shared presentation user fixture. Refresh on minute
-interval and window focus has effect cleanup; accessible time carries ISO value.
-No separate identity source or backend inference. Acceptance: greeting matches
-local hour across themes; date updates after midnight and resume.
-No build, npm or tests executed under the standing user restriction.
-
-### Current destination from window SSOT — 2026-10-11
-
-Owner: OS Surface. Sidebar current destination derives from the existing window
-state, with project windows grouped under Projects and Intelligence under Aura.
-Home highlights only Central without an active visible window. Navigation and
-overflow entries expose aria-current; More indicates a current hidden destination.
-No second navigation state or execution authority added. Acceptance: open,
-focus, minimize and close update the indicated destination from the same reducer.
-No build, npm or tests executed under the standing user restriction.
-
-### Multiple compact apps — 2026-10-11
-
-Owner: OS Surface. All non-minimized compact apps divide the available width
-equally in one flex strip, with zero basis and no horizontal strip scrolling.
-Regular windows anchor to the shared outer layer above the strip. Each keyed
-app stays under one stable parent across modes; focusing a visible compact pane
-preserves neighbor order and collapsed state. Minimize/close redistributes the
-remaining divisions. Narrow cards adapt their title, control grid and content
-layouts to the panel width. Vertical app-body scrolling remains available.
-Existing browser-check source covers two non-overlapping compact apps and node
-preservation, but was not run. Acceptance: N panels share the available width
-equally, without hidden offscreen panels or duplicate instances; drafts and
-independent window actions remain intact. Runtime/backend unchanged.
-No build, npm or tests executed under the standing user restriction.
-
-### Compact titlebar density — 2026-10-11
-
-Owner: OS Surface. Compact headers use a single 40px row instead of a 76px
-stack. Controls are 28px with 6px gaps; close gets additional separation.
-Below 260px, close remains visible and secondary actions use the existing
-accessible dropdown component. One typed action list feeds buttons and menu,
-preserving reducer authority and equal pane geometry. Full app title is
-available on hover. Existing browser-check source follows either control mode.
-Acceptance: shorter header with distinct controls and all actions reachable.
-No build, npm or tests executed under the standing user restriction.
-
-### Upper app follows available compact geometry — 2026-10-11
-
-Owner: OS Surface. Regular and compact windows now use one direct grid rather
-than absolute regular positioning inside a nested compact strip. The main app
-spans all columns in the upper track; compact apps occupy equal lower columns.
-Both window layer and Central stage use the existing --compact-track token,
-so collapsing/expanding reallocates height without independent measurements.
-No compact panels reserves zero lower space. App-body container queries use
-actual panel width in either mode. Stable keyed instances/reducer are retained.
-Existing browser-check source covers a new upper app, no overlap and height
-growth/restoration on compact collapse/expand, but was not executed.
-Acceptance: upper app fits the available track, expands when the lower track
-shrinks/disappears, and retains content and controls. Backend unchanged.
-No build, npm or tests executed under the standing user restriction.
-
-### Running-app identification — 2026-10-11
-
-Owner: OS Surface. Window headers and dock use one icon primitive resolving
-existing navigation/favorite/project metadata with a generic unknown-app fallback.
-Dock exposes active-window aria-current, descriptive state tooltip and a distinct
-minimized marker while preserving readable labels and restore actions. No new
-window or service state. Acceptance: recognizable icons agree across surfaces;
-minimized/active indications follow the shared reducer. Backend unchanged.
-No build, npm or tests executed under the standing user restriction.
-
-### Dock label density follows available width — 2026-10-11
-
-Owner: OS Surface. Dock measures label font metrics, icon/padding widths and
-row gaps against available width. When labels would overflow, all tasks switch
-to 44px icon buttons; labels return when space permits. Calculation uses natural
-dimensions independent of the hidden-label mode to avoid oscillation.
-ResizeObserver, window resize and font readiness refresh density; cleanup guards
-late font callbacks. Window count/title changes also remeasure. Accessible names,
-full title/state tooltips and active/minimized indicators remain intact.
-Acceptance: crowded dock shows icons, wider/less crowded dock restores names.
-No build, npm or tests executed under the standing user restriction.
-
-### Narrow Central uses vertical capacity — 2026-10-11
-
-Owner: OS Surface, continuation of the shared Central composition. The former
-width-only panel selection left tall, narrow areas with one oversized summary.
-Container queries now retain tabs below 680px of available height and stack
-Projects, Favorites and Activity above that threshold, reusing the same nodes.
-All summary items remain accessible in this tall mode; bounded cards can scroll
-internally when necessary while the main page remains within its work area.
-Lower Space/device summaries appear when vertical capacity permits; very narrow
-layouts reserve additional height for their stacked arrangement. Aura modes use
-the existing chips when width permits and the existing selector otherwise.
-Compact-window reservations and sidebar width still determine the single named
-container; no viewport observer, alternate page or duplicate product state added.
-Acceptance: tall narrow Central does not hide Apps/Activity merely because of
-width, and shorter compact work areas retain reachable panel selection.
-Only source/diff review performed. Visual verification remains pending.
-No build, npm or tests executed under the standing user restriction.
+**HISTÓRICO / SUBSTITUÍDO:** detalhes incrementais da apresentação Web em [snapshot imutável de 14/11/2026](https://github.com/ordaxsystems/ordax-os/blob/f5c66ec2d99d7707f3fd3b1a0d0a2d8bd7a55f7b/docs/DESKTOP-IDENTITY.md). O contrato visual Meridian e o owner `ordax-surface` permanecem definidos nas primeiras seções deste documento; estas notas não definem o estado atual.
 
 ### Web Central account and Spaces binding — 2026-10-12
 
