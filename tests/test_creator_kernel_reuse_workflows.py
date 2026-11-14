@@ -149,7 +149,22 @@ class CreatorKernelReuseWorkflowTests(unittest.TestCase):
 
     def test_dev_base_channel_skips_helper_only_publication_and_reuses_kernel(self):
         workflow = self.assert_verified_kernel_reuse(DEV_BASE_CHANNEL)
-        detector = self.step_block(workflow, "Detect Base-byte changes")
+        # The impact decision belongs to the lightweight verify job, before
+        # the 120-minute producer enters its serialized queue. Keep the
+        # multi-commit push comparison and fail-closed API fallback intact.
+        self.assertIn("needs: verify", workflow)
+        self.assertIn("needs.verify.outputs.publish == 'true'", workflow)
+        self.assertIn("publish: ${{ steps.scope.outputs.publish }}", workflow)
+        detector = self.step_block(
+            workflow, "Classify complete main push before entering the heavy producer queue"
+        )
+        self.assertIn("if: github.event_name == 'push'", detector)
+        self.assertIn('ORDAX_BEFORE_SHA: ${{ github.event.before }}', detector)
+        self.assertIn('ORDAX_HEAD_SHA: ${{ github.sha }}', detector)
+        self.assertIn('"--no-renames", before, head', detector)
+        self.assertIn("compare/{before}...{head}", detector)
+        self.assertIn('data.get("merge_base_commit", {}).get("sha") != before', detector)
+        self.assertIn("publish = True", detector)
         for helper in (
             "bootstrap/dev-base/ordax-dev-init",
             "bootstrap/dev-base/ordax-network",
@@ -184,7 +199,11 @@ class CreatorKernelReuseWorkflowTests(unittest.TestCase):
             build,
         )
         self.assertIn("owner_validation_pr", workflow)
-        self.assertIn("DEV_BASE_OWNER_VALIDATION_EXACT_HEAD=PASS", detector)
+        authority = self.step_block(
+            workflow, "Authorize exact Owner validation dispatch or confirmed main push"
+        )
+        self.assertIn("DEV_BASE_OWNER_VALIDATION_EXACT_HEAD=PASS", authority)
+        self.assertIn('test "$(jq -r \'.head.sha\' <<<"$pr_json")" = "$GITHUB_SHA"', authority)
         self.assertIn("github.actor == 'ordaxos-admin'", workflow)
 
     def test_retired_diagnose_cannot_build_and_live_owners_use_canonical_kernel_uapi(self):
