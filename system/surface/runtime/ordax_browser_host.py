@@ -149,6 +149,7 @@ OWNER_GRAPHICS_PROBE_EVENTS = frozenset({
     "surface-boot-ready",
     "surface-boot-missing",
     "surface-boot-probe-unavailable",
+    "surface-first-run-welcome-rendered",
 })
 
 
@@ -733,6 +734,7 @@ class OrdaXBrowserHost(InternetNavigationHost, InternetDownloadHost):
 
         def complete(view: object, result: object, _user_data: object) -> None:
             state = "probe-unavailable"
+            welcome_rendered = False
             try:
                 answer = view.run_javascript_finish(result)
                 raw = answer.get_js_value().to_string()
@@ -742,6 +744,7 @@ class OrdaXBrowserHost(InternetNavigationHost, InternetDownloadHost):
                         "loading", "error", "ready", "missing",
                     }:
                         state = value["state"]
+                        welcome_rendered = value.get("firstRunWelcome") is True
                         if state == "error":
                             emit_owner_boot_error_probe(
                                 self.owner_graphics_probe_enabled,
@@ -751,12 +754,19 @@ class OrdaXBrowserHost(InternetNavigationHost, InternetDownloadHost):
             except Exception:
                 pass
             self.record_surface_loading_event(f"surface-boot-{state}")
+            if welcome_rendered:
+                self.record_surface_loading_event("surface-first-run-welcome-rendered")
 
         try:
             self.surface_view.run_javascript(
                 "(function(){const el=document.getElementById('ordax-boot-screen');"
                 "const d=el&&el.dataset;"
-                "return JSON.stringify({state:d&&d.state||'missing',"
+                "const first=document.querySelector('.ordax-first-run[data-first-run-step=\"welcome\"]');"
+                "const title=document.getElementById('ordax-first-run-title');"
+                "const style=first&&getComputedStyle(first);"
+                "const firstRunWelcome=!!(first&&title&&first.isConnected&&title.isConnected&&"
+                "first.getClientRects().length&&style&&style.display!=='none'&&style.visibility!=='hidden');"
+                "return JSON.stringify({state:d&&d.state||'missing',firstRunWelcome,"
                 "errorName:d&&d.errorName||'',source:d&&d.errorSource||''});})()",
                 None, complete, None,
             )

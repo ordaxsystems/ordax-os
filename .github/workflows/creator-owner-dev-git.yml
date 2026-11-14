@@ -790,7 +790,9 @@ jobs:
           assert proof['healthy_observation_seconds'] >= 15
           assert proof['network_device_attached'] is False
           assert proof['physical_write_authorized'] is False
-          assert proof['welcome_screen_rendered_proven'] is False
+          assert proof['welcome_screen_rendered_proven'] is True
+          assert proof['checks']['welcome_screen_rendered'] is True
+          assert proof['second_boot']['checks']['welcome_screen_rendered'] is True
           assert proof['notebook_boot_proven'] is False
           assert proof['graphical_framebuffer_varied_proven'] is True
           assert proof['guest_acpi_shutdown_proven'] is True
