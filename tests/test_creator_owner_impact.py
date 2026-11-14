@@ -481,6 +481,16 @@ class CreatorOwnerImpactTests(unittest.TestCase):
         actual_boot = self.commit(path="bootstrap/kernel/source.json")
         self.assertTrue(impact.classify(base, actual_boot, root=self.root)[0])
 
+    def test_surface_impact_policy_does_not_rebuild_physical_usb(self):
+        base = self.commit(path="docs/DEV-USB-GIT.md")
+        policy = self.commit(path="tools/ci/independent_surface_impact.py")
+        self.assertEqual(
+            impact.classify(base, policy, root=self.root, event="push"),
+            (False, "nonproducer-contract-only"),
+        )
+        boot = self.commit(path="bootstrap/kernel/source.json")
+        self.assertTrue(impact.classify(policy, boot, root=self.root, event="push")[0])
+
     def test_build_autonomy_has_no_creator_dependency_for_web_or_desktop(self):
         contract = json.loads((ROOT / "docs/contracts/build-autonomy.json").read_text(encoding="utf-8"))
         graph = contract["target_relationships"]
