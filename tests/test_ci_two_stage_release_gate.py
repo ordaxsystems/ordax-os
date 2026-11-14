@@ -262,6 +262,46 @@ class ReleaseCandidateGateTests(unittest.TestCase):
                 self.assertIn("github.event_name != 'pull_request' || !github.event.pull_request.draft", text)
                 self.assertIn("actions/checkout@", text)
 
+    def test_lts_and_independent_base_test_only_deltas_stay_in_foundation(self):
+        foundation = (ROOT / "foundation.yml").read_text(encoding="utf-8")
+        self.assertIn("  push:\n    branches: [main]", foundation)
+        self.assertIn("  pull_request:\n", foundation)
+        self.assertIn("python -m unittest discover -s tests -p 'test_*.py' -v", foundation)
+        self.assertIn("if: steps.impact.outputs.full != 'false'", foundation)
+        # Foundation treats every test fixture as executable, not a doc-only skip.
+        self.assertIn("scripts, test fixtures and unknown paths must run full Foundation", foundation)
+        for workflow, tests, producer in (
+            (
+                "kernel-lts-candidate.yml",
+                ("test_kernel_build_authentication_gate.py",
+                 "test_kernel_upstream_signature.py",
+                 "test_kernel_module_release_abi.py",
+                 "test_kernel_candidate_pipeline.py",
+                 "test_kernel_update_engine.py",
+                 "test_kernel_candidate_ci_scope.py"),
+                "bootstrap/kernel/candidate_pipeline.py",
+            ),
+            (
+                "independent-base-experiment.yml",
+                ("test_dev_base_symlink_policy.py",
+                 "test_independent_dev_channel_compatibility.py",
+                 "test_independent_rootfs_export.py"),
+                "bootstrap/independent-base/**",
+            ),
+        ):
+            source = (ROOT / workflow).read_text(encoding="utf-8")
+            events = source.split("\njobs:\n", 1)[0]
+            with self.subTest(workflow=workflow):
+                for name in tests:
+                    self.assertTrue((ROOT.parents[1] / "tests" / name).is_file(), name)
+                    self.assertNotIn("      - 'tests/" + name + "'", events)
+                self.assertIn(producer, events)
+                self.assertIn(".github/workflows/" + workflow, events)
+                self.assertIn("ready_for_review", events)
+                self.assertIn("workflow_dispatch:", events)
+                self.assertIn("github.event.pull_request.draft", source)
+                self.assertIn("actions/checkout@", source)
+
     def test_no_heavy_test_waiver_for_release(self):
         for filename, (_, guard) in TARGETS.items():
             with self.subTest(filename=filename):
