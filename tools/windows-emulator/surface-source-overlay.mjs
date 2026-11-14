@@ -163,6 +163,28 @@ export function createLocalSurfaceOverlayPlugin({ repoRoot, localSurface }) {
       this.addWatchFile(found.physical);
       return readFileSync(found.physical, "utf8");
     },
+
+    // The Surface lives outside Vite's logical OS root. For JS/TS sources
+    // loaded through virtual overlay IDs, an on-disk change can have no HMR
+    // boundary in the module graph and silently leave the running UI stale.
+    // Reuse Vite's existing file watcher and channel; never create another.
+    hotUpdate({ type, file, server }) {
+      if (type !== "update" || (this.environment?.name && this.environment.name !== "client")) return;
+      const physical = resolve(file);
+      if (!inside(surface, physical) || !regular(physical)) return;
+      const logical = relative(surface, physical).split(sep).join("/");
+      if (!VISUAL_ROOTS.some(prefix => logical.startsWith(prefix + "/"))) return;
+      const extension = extname(physical);
+      if (extension === ".css" || !SOURCE_EXTENSIONS.has(extension)) return;
+      // Vite caches transformed virtual modules under the overlay ID, not the
+      // physical checkout path. Invalidate that entry before asking the client
+      // to reload, or the new page may receive the previous JS bytes.
+      const graph = server.environments?.client?.moduleGraph ?? server.moduleGraph;
+      const module = graph?.getModuleById?.(overlayId(logical));
+      if (module) graph.invalidateModule(module);
+      server.ws.send({ type: "full-reload" });
+      return [];
+    },
   };
 }
 

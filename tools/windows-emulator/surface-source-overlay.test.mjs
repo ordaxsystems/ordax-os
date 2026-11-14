@@ -112,3 +112,31 @@ test("overlay requires absolute, explicit roots", () => {
     /repoRoot must be absolute/,
   );
 });
+
+test("physical Surface JS changes refresh the existing Vite client without a second watcher", t => {
+  const f = fixture(t);
+  const plugin = createLocalSurfaceOverlayPlugin({ repoRoot: f.os, localSurface: f.surface });
+  const emitted = [];
+  const invalidated = [];
+  const tracked = { id: SURFACE_OVERLAY_PREFIX + "system/surface/ui/view.mjs" };
+  const graph = {
+    getModuleById: id => id === tracked.id ? tracked : undefined,
+    invalidateModule: module => invalidated.push(module),
+  };
+  const context = { environment: { name: "client" } };
+  const update = (file, type = "update", owner = context) =>
+    plugin.hotUpdate.call(owner, {
+      file, type, server: {
+        environments: { client: { moduleGraph: graph } },
+        ws: { send: payload => emitted.push(payload) },
+      },
+    });
+  assert.deepEqual(update(f.view), []);
+  assert.deepEqual(invalidated, [tracked], "Cached virtual JS must be invalidated before reload");
+  assert.deepEqual(emitted, [{ type: "full-reload" }]);
+  assert.equal(update(f.css), undefined, "CSS must retain its existing no-reload HMR path");
+  assert.equal(update(f.contract), undefined, "OS modules are not owned by the Surface overlay");
+  assert.equal(update(f.view, "create"), undefined, "A new file alone is not a running module update");
+  assert.equal(update(f.view, "update", { environment: { name: "ssr" } }), undefined);
+  assert.deepEqual(emitted, [{ type: "full-reload" }], "Only the verified browser JS update may trigger a reload");
+});
