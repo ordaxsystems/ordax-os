@@ -271,8 +271,8 @@ On Native/USB, provider bearer tokens never enter Surface JavaScript. The **Nati
 
 ## Account MCP Owner gateway — controlled release (updated 2026-11-13)
 
-A cadeia Owner MCP de Conta/Projeto/GitHub já tem três boundaries canônicas
-integradas, cada uma com autoridade separada:
+A cadeia Owner MCP de Conta/Projeto/GitHub/Device binding já tem boundaries
+canônicas integradas, cada uma com autoridade separada:
 
 - [ordax-platform #364](https://github.com/ordaxsystems/ordax-platform/pull/364)
   → `ca00fd18bbe52b5e9abf81c06e38ac7343cadea3`: estado de onboarding e criação
@@ -280,9 +280,16 @@ integradas, cada uma com autoridade separada:
 - [ordax-platform #365](https://github.com/ordaxsystems/ordax-platform/pull/365)
   → `d150a2a046cc376872a4a5116afc1d325e93dfaf`: autorização GitHub
   server-authoritative e seleção de repositório verificado;
+- [ordax-platform #366](https://github.com/ordaxsystems/ordax-platform/pull/366)
+  → `a7d5533e1aba21e9241ecc83be8908d626cba317`: binding Project↔Device em
+  duas partes, com intent Owner e confirmação pelo Device Agent enrolled;
 - [ordax-os #2558](https://github.com/ordaxsystems/ordax-os/pull/2558)
   → `bf8da2ab12fbd8cf33ea83aa8a5cfbb3bbcc8dc3`: transporte Account/Vercel
-  dessas autoridades sem expor bearer MCP ou token GitHub ao navegador.
+  da autoridade GitHub sem expor bearer MCP ou token GitHub ao navegador;
+- [ordax-os #2560](https://github.com/ordaxsystems/ordax-os/pull/2560)
+  → `9e8a060cd89814858c828c0aaa3452e332305a01`: transporte Account somente
+  para solicitar o binding intent Owner; a confirmação local permanece fora
+  do browser e da Conta.
 
 Os consumidores visuais estão em:
 
@@ -305,6 +312,7 @@ de devices, GitHub installation ou estado de projeto paralelos.
 - `POST /account/mcp/central-selections`;
 - `GET /account/mcp/project-onboarding?device_id=UUID`;
 - `POST /account/mcp/project-onboarding/projects`;
+- `POST /account/mcp/project-onboarding/device-binding-intents`;
 - `POST /account/mcp/github/authorization-challenges`;
 - `GET /account/mcp/github/callback?code=...&state=...`;
 - `GET /account/mcp/github/repository-candidates?challenge_id=UUID`;
@@ -313,8 +321,9 @@ de devices, GitHub installation ou estado de projeto paralelos.
 As rotas Owner gerais permanecem fechadas enquanto
 `ORDAX_MCP_OWNER_ACCOUNT_ENABLED` não estiver explicitamente em `1`.
 Seleção central exige também `ORDAX_MCP_OWNER_CENTRAL_SELECTION_ENABLED=1`;
-Project onboarding exige `ORDAX_MCP_OWNER_PROJECT_ONBOARDING_ENABLED=1`; e
-GitHub exige separadamente
+Project onboarding exige `ORDAX_MCP_OWNER_PROJECT_ONBOARDING_ENABLED=1`;
+o request de binding exige separadamente
+`ORDAX_MCP_OWNER_PROJECT_DEVICE_BINDING_ENABLED=1`; e GitHub exige
 `ORDAX_MCP_OWNER_GITHUB_AUTHORIZATION_ENABLED=1`.
 `PUBLIC_SITE_ACCOUNT_ENABLED` continua um gate independente.
 
@@ -353,16 +362,42 @@ publicada anterior continua sendo a autoridade visual até um deployment
 canônico que contenha `6b3656b0...` ficar READY. Não criar projeto/deploy
 paralelo para contornar cota.
 
-### Próximo gate real
+### Binding Project↔Device e próximo gate real
 
-Depois da seleção GitHub, o Project avança somente para
-`needs_device_binding`. Hoje a leitura deriva esse estado de
-`ordax_space_devices(access_mode='execute')` +
-`ordax_device_project_bindings(state='active')`, mas não existe RPC pública
-canônica que faça a confirmação Owner das duas relações de forma atômica.
-Esse é o próximo backend a implementar. Grants continuam posteriores e
-separados; repository selection nunca auto-vincula dispositivo e nunca
-auto-concede `terminal.exec`, process, filesystem ou qualquer outro grant.
+Depois da seleção GitHub, o Project avança para `needs_device_binding`.
+A Platform #366 já implementa a autoridade canônica em duas partes:
+
+1. Owner cria um intent de cinco minutos para o `project_id + device_id`;
+2. o Device Agent enrolled lê esse intent pelo transporte Device existente e
+   confirma um `local_project_ref` opaco do Project Catalog, formato
+   `project-N`.
+
+A confirmação transacional ativa
+`ordax_space_devices(access_mode='execute')` e exatamente um
+`ordax_device_project_bindings(state='active')`. Ela nunca cria
+`ordax_remote_capability_grants`. O teto de `allowed_capabilities` do
+binding apenas limita quais grants Project podem ser concedidos depois.
+
+A migration
+`20261113235000_owner_project_device_binding_authority_v1.sql` está aplicada
+no ledger Supabase como
+`20261114000316 / owner_project_device_binding_authority_v1`, source blob
+imutável `de556507828ba53c2a69e234c353e01d07335e16`.
+
+O Account #2560 pode solicitar somente o intent Owner com
+`project_id + device_id + confirm=bind_project_device`. Ele não aceita
+`project-N`, path, capabilities, repository/installation ids, metadata ou
+grant profile.
+
+**O próximo gate real é Runtime/Device Agent:** consumir o intent pendente,
+resolver um Project local já registrado e confirmar o seu `project-N` pelo
+transporte Device canônico. Até essa prova E2E, manter
+`OWNER_PROJECT_DEVICE_BINDING_ENABLED` na Platform e
+`ORDAX_MCP_OWNER_PROJECT_DEVICE_BINDING_ENABLED` na Conta desligados.
+
+Grants continuam posteriores e separados; repository selection e binding
+nunca auto-concedem `terminal.exec`, process, filesystem ou qualquer outro
+grant.
 
 **Gates de entrega — código não é deploy:** os workflows de destino Supabase
 continuam manuais e exigem SHA/confirmacão de produção; merge não habilita
