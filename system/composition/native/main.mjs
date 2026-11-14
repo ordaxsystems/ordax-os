@@ -1219,7 +1219,9 @@ async function start() {
   const firstRunPending = !firstRunStateStore.load().completed;
   if (!firstRunPending) bootScreen.ready();
   const desktopSurfaceReporter = windowsDesktopHost
-    ? mountNativeDesktopSurfaceStateReport(window, surface, appActivation)
+    ? mountNativeDesktopSurfaceStateReport(
+        window, surface, appActivation, projectCloudLinksReader,
+      )
     : null;
   componentManager.setCurrentHealth("surface-shell", "healthy");
   void updateWatcher.markHealthy();
