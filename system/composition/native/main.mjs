@@ -1124,7 +1124,7 @@ async function start() {
   try {
     workspaceComponentBootstrap?.bind({
       root,
-      ports: { fileSpace: filesOwnerSpace, recentFiles, projects, appActivation },
+      ports: { fileSpace: filesOwnerSpace, recentFiles, projects, projectMutations, appActivation },
     });
   } catch (error) {
     console.warn("OrdaX optional workspace component probation unavailable", error);
@@ -1133,7 +1133,7 @@ async function start() {
   // Verified-current slot metadata is the only authority for workspace ports.
   installNativeWorkspaceVerifiedContext({
     installed: installedAppCatalog?.installed ?? [],
-    fileSpace: filesOwnerSpace, recentFiles, projects, appActivation,
+    fileSpace: filesOwnerSpace, recentFiles, projects, projectMutations, appActivation,
   });
   // The existing verified-current loader revalidates this same slot before
   // import and mount. Missing/removed Aura cannot obtain these host ports.
