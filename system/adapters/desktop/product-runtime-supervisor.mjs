@@ -79,7 +79,7 @@ function readDesktopDevCandidateGate(systemRoot){
   const policy=JSON.parse(readRegular(join(systemRoot,"docs","contracts",
     "runtime-component-trust-policy.json"),65536).toString("utf8"));
   const evidence=JSON.parse(readRegular(join(systemRoot,"docs","evidence",
-    "desktop-runtime-windows-candidate-2026-10-31.json"),65536).toString("utf8"));
+    "desktop-runtime-windows-candidate-2026-11-14.json"),65536).toString("utf8"));
   const candidate=evidence.candidate,proof=evidence.physical_offline_proof;
   if(policy.$schema!==POLICY_SCHEMA||policy.trust_domain!=="runtime-components"||
      policy.status!=="operator-ceremony-pending"||

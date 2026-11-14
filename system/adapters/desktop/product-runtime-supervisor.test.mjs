@@ -101,7 +101,7 @@ function stagePinnedDesktopDevCandidate(f){
       remote_action_proven:false,
     },
   };
-  const path=join(evidenceDirectory,"desktop-runtime-windows-candidate-2026-10-31.json");
+  const path=join(evidenceDirectory,"desktop-runtime-windows-candidate-2026-11-14.json");
   writeFileSync(path,JSON.stringify(evidence));
   return {executable,path,payload,evidence};
 }

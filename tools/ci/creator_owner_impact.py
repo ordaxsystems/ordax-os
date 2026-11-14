@@ -140,8 +140,8 @@ WINDOWS_PRODUCT_SHARED_ADDITIONS = {
     ),
 }
 WINDOWS_PRODUCT_PINNED_BLOBS = {
-    "docs/evidence/desktop-runtime-windows-candidate-2026-10-31.json": "5f26c8d88b579fcaed95baceab0d197fdea31441",
-    "system/adapters/native/desktop-product-runtime-status.mjs": "eba248309f7229d1b33a75ade2513810cb04bbd9",
+    "docs/evidence/desktop-runtime-windows-candidate-2026-11-14.json": "c2a612880e4e5e96c0db9f3299c83bebd53eb15a",
+    "system/adapters/native/desktop-product-runtime-status.mjs": "2e4b3f7aaaea1210cccac346c7f895fe7f576b35",
     "system/adapters/native/desktop-surface-state-report.mjs": "08ce3a0588383b2fe30997e99a972396887d2246",
 }
 

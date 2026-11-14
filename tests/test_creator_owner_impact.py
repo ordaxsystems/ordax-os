@@ -226,7 +226,7 @@ class CreatorOwnerImpactTests(unittest.TestCase):
             base, bad, native, root=self.root))
         # A candidate's signature or authority cannot change under a stale
         # content pin, even if its path looks Windows-only.
-        suspect = self.commit(path="docs/evidence/desktop-runtime-windows-candidate-2026-10-31.json")
+        suspect = self.commit(path="docs/evidence/desktop-runtime-windows-candidate-2026-11-14.json")
         self.assertEqual(impact.classify(base, suspect, root=self.root)[0], True)
 
     def test_exact_windows_semantic_surface_mount_is_not_a_usb_producer(self):
