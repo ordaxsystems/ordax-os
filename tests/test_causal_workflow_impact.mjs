@@ -14,12 +14,14 @@ const exported = exportedContractSources(appBundle);
 const services = new Set(["system/services/components", "system/services/spaces"]);
 
 test("App SDK skips internal contracts that are not in the published bundle", () => {
-  const result = classifyAppSdkImpact([
-    "system/contracts/space-creation.mjs",
-    "system/contracts/space-experience.mjs",
-  ], exported);
+  const result = classifyAppSdkImpact(["system/contracts/space-creation.mjs"], exported);
   assert.equal(result.required, false);
   assert.deepEqual(result.reasons, ["no-public-app-sdk-impact"]);
+  // space-experience is now exported by the canonical bundle and must be tested.
+  assert.equal(exported.has("system/contracts/space-experience.mjs"), true);
+  assert.equal(classifyAppSdkImpact([
+    "system/contracts/space-experience.mjs",
+  ], exported).required, true);
   assert.equal(classifyAppSdkImpact([
     "docs/CURRENT-STATE.md",
     "system/services/spaces/creation-preflight.mjs",
@@ -54,7 +56,7 @@ test("service inventory skips content-only changes inside an existing service do
   ], services, new Set(services)).required, false);
 });
 
-test("the complete #1840 Spaces slice is non-causal to App SDK and service inventory", () => {
+test("the #1840 Spaces slice requires App SDK proof but not service inventory", () => {
   const changed = [
     "docs/CURRENT-STATE.md",
     "docs/SPACES-AND-PROFILES.md",
@@ -64,7 +66,7 @@ test("the complete #1840 Spaces slice is non-causal to App SDK and service inven
     "system/services/spaces/type-catalog.mjs",
     "tests/test_space_experience.mjs",
   ];
-  assert.equal(classifyAppSdkImpact(changed, exported).required, false);
+  assert.equal(classifyAppSdkImpact(changed, exported).required, true);
   assert.equal(classifyServiceUpdateImpact(changed, services, new Set(services)).required, false);
 });
 test("service inventory runs when top-level service domains change", () => {
@@ -82,6 +84,16 @@ test("service inventory runs for component owners and canonical manifest inputs"
   assert.equal(classifyServiceUpdateImpact([
     "system/apps/component-catalog.mjs",
   ], services, new Set(services)).required, true);
+});
+
+test("service update readiness rechecks the canonical trust anchor on main and PR", () => {
+  const path = "system/trust/runtime-components-ed25519.json";
+  const result = classifyServiceUpdateImpact([path], services, new Set(services));
+  assert.equal(result.required, true);
+  assert.ok(result.reasons.includes(`owned-input:${path}`));
+  const workflow = read(".github/workflows/service-update-inventory.yml");
+  assert.equal(workflow.split(`- '${path}'`).length - 1, 2);
+  assert.match(workflow, /python3 tools\/runtime-component-channel\/check_production_readiness\.py/u);
 });
 
 test("Notes absence workflow is scoped to the files the proof actually reads", () => {
