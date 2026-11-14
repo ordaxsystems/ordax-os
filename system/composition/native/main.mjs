@@ -364,7 +364,10 @@ async function start() {
         deferInitialRead: windowsDesktopHost,
       }),
     ),
-    optionalNativeProbe(
+    // Linux/USB owns the ALSA/PipeWire audio provider. Windows Desktop
+    // does not have a Native audio owner yet, so do not probe a capability the
+    // host cannot authorize. Keep Settings truthful with a null port.
+    windowsDesktopHost ? Promise.resolve(null) : optionalNativeProbe(
       "OrdaX native audio output controls unavailable",
       () => createNativeAudioOutputs(window),
     ),

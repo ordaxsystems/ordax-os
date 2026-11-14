@@ -98,13 +98,13 @@ test("real Windows diagnostic host shares canonical Native session and stores on
 test("Native Host grants local HMR session only for genuine unversioned Windows preview",()=>{
   const base={
     desktopHost:true,platform:"win32",userData:"C:\\Users\\ordax\\AppData\\Roaming\\OrdaX Local",
-    renderedSha:"",localDevelopment:true,assetsRoot:"",
+    renderedSha:"",unversionedSourceSession:true,assetsRoot:"",
   };
   assert.deepEqual(selectDesktopDiagnosticSessionMode(base),{
     sourceSha:null,allowUnversionedDevelopmentSession:true,
   });
   const release=selectDesktopDiagnosticSessionMode({
-    ...base,renderedSha:SOURCE,localDevelopment:false,assetsRoot:"C:\\Program Files\\OrdaX\\assets",
+    ...base,renderedSha:SOURCE,unversionedSourceSession:false,assetsRoot:"C:\\Program Files\\OrdaX\\assets",
   });
   assert.deepEqual(release,{
     sourceSha:SOURCE,allowUnversionedDevelopmentSession:false,
@@ -112,7 +112,7 @@ test("Native Host grants local HMR session only for genuine unversioned Windows 
   assert.equal(selectDesktopDiagnosticSessionMode({...base,desktopHost:false}),null);
   assert.equal(selectDesktopDiagnosticSessionMode({...base,platform:"linux"}),null);
   assert.equal(selectDesktopDiagnosticSessionMode({...base,userData:""}),null);
-  assert.equal(selectDesktopDiagnosticSessionMode({...base,localDevelopment:false}),null);
+  assert.equal(selectDesktopDiagnosticSessionMode({...base,unversionedSourceSession:false}),null);
   assert.equal(selectDesktopDiagnosticSessionMode({...base,assetsRoot:"built-assets"}),null);
   assert.equal(selectDesktopDiagnosticSessionMode({...base,renderedSha:"not-a-sha"}),null);
   assert.equal(selectDesktopDiagnosticSessionMode({...base,renderedSha:"f".repeat(39)}),null);

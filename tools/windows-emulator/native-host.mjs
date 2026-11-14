@@ -204,7 +204,7 @@ export function createEmulatorNativeHost({
 // diagnostics. A malformed SHA must never become an HMR exemption.
 export function selectDesktopDiagnosticSessionMode({
   desktopHost=false, platform=process.platform, userData="",
-  renderedSha="", localDevelopment=false, assetsRoot="",
+  renderedSha="", unversionedSourceSession=false, assetsRoot="",
 }={}) {
   if(!desktopHost || platform!=="win32" ||
      typeof userData!=="string" || !userData ||
@@ -212,7 +212,7 @@ export function selectDesktopDiagnosticSessionMode({
   if(/^[0-9a-f]{40}$/.test(renderedSha))return Object.freeze({
     sourceSha:renderedSha,allowUnversionedDevelopmentSession:false,
   });
-  if(renderedSha==="" && localDevelopment===true && !assetsRoot)return Object.freeze({
+  if(renderedSha==="" && unversionedSourceSession===true && !assetsRoot)return Object.freeze({
     sourceSha:null,allowUnversionedDevelopmentSession:true,
   });
   return null;
@@ -232,7 +232,8 @@ export function nativeEmulatorPlugin(stateDirectory, { desktopHost = false, acco
       const diagnosticMode=selectDesktopDiagnosticSessionMode({
         desktopHost,platform:process.platform,userData,
         renderedSha:process.env.ORDAX_DESKTOP_RENDERED_SOURCE_SHA??"",
-        localDevelopment:process.env.ORDAX_DESKTOP_LOCAL_DEV==="1",
+        unversionedSourceSession:
+          process.env.ORDAX_DESKTOP_UNVERSIONED_SOURCE_SESSION==="1",
         assetsRoot:process.env.ORDAX_DESKTOP_ASSETS_ROOT??"",
       });
       const diagnostics=diagnosticMode
