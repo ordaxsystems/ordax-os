@@ -7,15 +7,6 @@ on:
       - 'bootstrap/independent-base/**'
       - 'tests/test_independent_portable_boot_integration.py'
       - '.github/workflows/independent-portable-v2-integration.yml'
-  push:
-    # No automatic signed boot on ordinary migration commits: both jobs are
-    # explicitly gated by the source-commit marker below.
-    branches: ['integration/dev-usb-buildroot-surface-20261024']
-    paths:
-      - 'bootstrap/independent-base/**'
-      - '.github/workflows/independent-portable-v2-integration.yml'
-      - '.github/workflows/portable-v2-qemu-boot-proof.yml'
-      - 'tests/test_independent_portable_boot_integration.py'
   workflow_dispatch:
     inputs:
       base_profile:
@@ -39,7 +30,6 @@ concurrency:
 
 jobs:
   canonical-portable-boundary:
-    if: ${{ github.event_name != 'push' || (github.ref == 'refs/heads/integration/dev-usb-buildroot-surface-20261024' && contains(github.event.head_commit.message, '[stable-mvp-signed-boot]')) }}
     runs-on: ubuntu-24.04
     timeout-minutes: 10
     steps:
@@ -69,14 +59,14 @@ jobs:
           echo 'ORDAX_INDEPENDENT_PORTABLE_V2_QEMU=NOT_YET_PROVEN'
 
   independent-real-portable-qemu:
-    if: ${{ github.event_name == 'workflow_dispatch' || (github.event_name == 'pull_request' && !github.event.pull_request.draft) || (github.event_name == 'push' && github.ref == 'refs/heads/integration/dev-usb-buildroot-surface-20261024' && contains(github.event.head_commit.message, '[stable-mvp-signed-boot]')) }}
+    if: ${{ github.event_name == 'workflow_dispatch' || (github.event_name == 'pull_request' && !github.event.pull_request.draft) }}
     # Reuse the official pipeline, build/sign/release/mount/roll back in real
     # QEMU. The single parameter selects the isolated Buildroot candidate.
     # The portable-v2 default is Buildroot minimal; Stable/MVP is explicit.
     uses: ./.github/workflows/portable-v2-qemu-boot-proof.yml
     with:
       base_source: independent
-      independent_base_profile: ${{ github.event_name == 'push' && 'stable-mvp' || inputs.base_profile || 'minimal' }}
+      independent_base_profile: ${{ inputs.base_profile || 'minimal' }}
     permissions:
       contents: read
       actions: read
