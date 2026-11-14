@@ -4,6 +4,8 @@ on:
   push:
     branches: [main]
     paths:
+      # Source UI is external: test the immutable owner pin, not retired OS paths.
+      - 'docs/contracts/surface-source.json'
       - 'system/composition/native/component-workspace-ports.mjs'
       - 'system/services/components/verified-host-context.mjs'
       - 'system/apps/projects/**'
@@ -33,7 +35,6 @@ on:
       - 'system/contracts/verified-app-store-catalog.mjs'
       - 'system/services/apps/delivery-policy.mjs'
       - 'system/services/apps/first-run-selection.mjs'
-      - 'system/surface/ui/first-run.mjs'
       - 'system/services/i18n/first-run.mjs'
       - 'tests/test_first_run_contract.py'
       - 'tests/test_first_run_selection.mjs'
@@ -74,6 +75,8 @@ on:
       - '.github/workflows/first-party-app-delivery.yml'
   pull_request:
     paths:
+      # Source UI is external: test the immutable owner pin, not retired OS paths.
+      - 'docs/contracts/surface-source.json'
       - 'system/composition/native/component-workspace-ports.mjs'
       - 'system/services/components/verified-host-context.mjs'
       - 'system/apps/projects/**'
@@ -103,7 +106,6 @@ on:
       - 'system/contracts/verified-app-store-catalog.mjs'
       - 'system/services/apps/delivery-policy.mjs'
       - 'system/services/apps/first-run-selection.mjs'
-      - 'system/surface/ui/first-run.mjs'
       - 'system/services/i18n/first-run.mjs'
       - 'tests/test_first_run_contract.py'
       - 'tests/test_first_run_selection.mjs'
