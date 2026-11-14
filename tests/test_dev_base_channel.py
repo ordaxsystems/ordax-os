@@ -189,6 +189,8 @@ class DevBaseProducerTests(unittest.TestCase):
         self.assertIn("DEV_BASE_OWNER_VALIDATION_EXACT_HEAD=PASS", publish)
         self.assertNotIn("HEAD^ HEAD", workflow)
         self.assertIn("compare/{before}...{head}", verify)
+        self.assertIn('data.get("merge_base_commit", {}).get("sha") != before', verify)
+        self.assertIn('data.get("status") != "ahead"', verify)
         for path in ("bootstrap/independent-base/**", "bootstrap/base/firmware_policy.py",
                      "docs/contracts/hardware-support-matrix.json"):
             self.assertEqual(workflow.count("'" + path + "'"), 2)
