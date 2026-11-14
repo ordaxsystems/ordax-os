@@ -55,6 +55,38 @@ jobs:
           ref: ${{ github.event.pull_request.head.sha || github.sha }}
           fetch-depth: 0
           persist-credentials: false
+      - name: Diagnose durable Surface producer configuration without building
+        env:
+          ORDAX_SURFACE_LABEL_DEFINED: ${{ vars.ORDAX_SURFACE_RUNNER_LABEL != '' }}
+          ORDAX_SURFACE_WORK_ROOT_DEFINED: ${{ vars.ORDAX_SURFACE_PERSISTENT_WORK_ROOT != '' }}
+          ORDAX_SURFACE_BUILD_ROOT_DEFINED: ${{ vars.ORDAX_SURFACE_BUILD_WORK_ROOT != '' }}
+          ORDAX_SURFACE_ENVIRONMENT_DEFINED: ${{ vars.ORDAX_SURFACE_PRODUCER_ENVIRONMENT != '' }}
+        run: |
+          set -euo pipefail
+          complete=true
+          for config in ORDAX_SURFACE_LABEL_DEFINED ORDAX_SURFACE_WORK_ROOT_DEFINED ORDAX_SURFACE_BUILD_ROOT_DEFINED ORDAX_SURFACE_ENVIRONMENT_DEFINED; do
+            case "${!config}" in
+              true) echo "$config=CONFIGURED" ;;
+              false)
+                echo "$config=MISSING"
+                complete=false
+                ;;
+              *) echo "Invalid boolean from GitHub vars context: $config" >&2; exit 1 ;;
+            esac
+          done
+          if [ "$complete" = true ]; then
+            echo 'ORDAX_SURFACE_PRODUCER_VARS=CONFIGURED_NOT_ATTESTED'
+          else
+            echo 'ORDAX_SURFACE_PRODUCER_VARS=INCOMPLETE'
+          fi
+      - name: Prove authenticated runner context reaches Shell
+        env:
+          ORDAX_VERIFIED_RUNNER_ENVIRONMENT: ${{ runner.environment }}
+        run: |
+          set -euo pipefail
+          test "${ORDAX_VERIFIED_RUNNER_ENVIRONMENT:-}" = github-hosted
+          test "$RUNNER_OS" = Linux
+          echo 'ORDAX_SURFACE_RUNNER_CONTEXT=VERIFIED_GITHUB_HOSTED'
       - name: Validate Alpine-free Surface migration contract
         run: |
           python3 -m unittest \
