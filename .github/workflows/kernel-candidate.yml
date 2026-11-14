@@ -9,8 +9,7 @@ on:
       - '!bootstrap/kernel/candidate_pipeline.py'
       - '!bootstrap/kernel/update_engine.py'
       - '!bootstrap/kernel/module_archive.py'
-      - "tests/test_kernel_artifact_verifier.py"
-      - "tests/test_kernel_build_authentication_gate.py"
+      # Test-only deltas run in Foundation's full Python suite, not a kernel rebuild.
       - ".github/workflows/kernel-candidate.yml"
   pull_request:
     types: [opened, synchronize, reopened, ready_for_review]
@@ -20,8 +19,7 @@ on:
       - '!bootstrap/kernel/candidate_pipeline.py'
       - '!bootstrap/kernel/update_engine.py'
       - '!bootstrap/kernel/module_archive.py'
-      - "tests/test_kernel_artifact_verifier.py"
-      - "tests/test_kernel_build_authentication_gate.py"
+      # Test-only deltas run in Foundation's full Python suite, not a kernel rebuild.
       - ".github/workflows/kernel-candidate.yml"
   workflow_dispatch:
 
