@@ -183,7 +183,7 @@ jobs:
                   and (path.startswith(producing) or path in exact)
                   for path in paths
               )
-          except (OSError, ValueError, KeyError, TypeError, UnicodeError, subprocess.SubprocessError) as exc:
+          except (OSError, ValueError, KeyError, TypeError, AttributeError, UnicodeError, subprocess.SubprocessError) as exc:
               print("DEV_BASE_SCOPE=UNVERIFIABLE:" + type(exc).__name__)
               publish = True
           with open(os.environ["GITHUB_OUTPUT"], "a", encoding="utf-8") as stream:
