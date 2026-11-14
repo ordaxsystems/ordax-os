@@ -1,8 +1,12 @@
 // The Native Surface (not the Windows host) reports its displayed app and
 // executes only OS-authorized application activation through the shared port.
+import {assertProjectCloudLinksReaderPort}
+  from "../../contracts/project-cloud-links-reader.mjs";
+
 const ROUTE = "/__ordax/native/desktop-surface-state";
 const COMMAND = "/__ordax/native/desktop-surface-command";
 const RECEIPT = "/__ordax/native/desktop-surface-receipt";
+const PROJECT_LINKS = "/__ordax/native/desktop-project-links";
 const ID = /^[a-z][a-z0-9-]{0,63}$/;
 const REQUEST_ID = /^[a-f0-9]{32}$/;
 const NATIVE_APPS = new Set(["account","settings","system","store"]);
@@ -22,7 +26,9 @@ export function readMountedDesktopSurfaceApp(lifecycle) {
   return id;
 }
 
-export function mountNativeDesktopSurfaceStateReport(windowRef,lifecycle,activationPort=null) {
+export function mountNativeDesktopSurfaceStateReport(
+  windowRef,lifecycle,activationPort=null,projectCloudLinksReader=null,
+) {
   if(typeof windowRef?.fetch!=="function"||
      typeof windowRef?.setInterval!=="function"||
      typeof windowRef?.clearInterval!=="function"||
@@ -30,8 +36,11 @@ export function mountNativeDesktopSurfaceStateReport(windowRef,lifecycle,activat
      typeof lifecycle?.getActiveAppId!=="function"||
      (activationPort!==null&&typeof activationPort?.publish!=="function"))
     throw new TypeError("Mounted Surface and Native activation transport required");
+  const cloudLinks = projectCloudLinksReader===null
+    ? null : assertProjectCloudLinksReaderPort(projectCloudLinksReader);
   let disposed=false;
   let pendingReport=null;
+  let pendingProjectLinksReport=null;
   let polling=false;
   let handled=null;
   const commandAbort=new AbortController();
@@ -56,6 +65,40 @@ export function mountNativeDesktopSurfaceStateReport(windowRef,lifecycle,activat
     })();
     const result=pendingReport;
     void result.finally(()=>{if(pendingReport===result)pendingReport=null});
+    return result;
+  };
+  const reportProjectLinks=(force=false)=>{
+    if(disposed||cloudLinks===null)return Promise.resolve(false);
+    if(pendingProjectLinksReport)
+      return force?pendingProjectLinksReport.then(()=>reportProjectLinks())
+        :pendingProjectLinksReport;
+    let snapshot;
+    try{snapshot=cloudLinks.getSnapshot()}catch{return Promise.resolve(false)}
+    // Only durable local Project Catalog links may reach the Product Runtime.
+    // A session snapshot explicitly withdraws any prior host projection.
+    const durable=snapshot.persistence==="device";
+    const body={
+      schema:"ordax.desktop-project-links/1",
+      persistence:durable?"device":"session",
+      links:durable?snapshot.links.map(link=>({
+        localProjectId:link.localProjectId,
+        cloudProjectId:link.cloudProjectId,
+        spaceId:link.spaceId,
+      })):[],
+    };
+    pendingProjectLinksReport=(async()=>{
+      try{
+        const response=await windowRef.fetch(PROJECT_LINKS,{
+          method:"POST",credentials:"same-origin",cache:"no-store",
+          headers:{"Content-Type":"application/json"},body:JSON.stringify(body),
+        });
+        return response.status===200;
+      }catch{return false}
+    })();
+    const result=pendingProjectLinksReport;
+    void result.finally(()=>{
+      if(pendingProjectLinksReport===result)pendingProjectLinksReport=null;
+    });
     return result;
   };
 
@@ -115,9 +158,15 @@ export function mountNativeDesktopSurfaceStateReport(windowRef,lifecycle,activat
     }finally{polling=false}
   };
   const unsubscribe=lifecycle.subscribeRender(()=>{void report()});
-  const reportTimer=windowRef.setInterval(()=>{void report()},REPORT_INTERVAL_MS);
+  const unsubscribeProjectLinks=cloudLinks===null?()=>{}:
+    cloudLinks.subscribe(()=>{void reportProjectLinks(true)});
+  const reportTimer=windowRef.setInterval(()=>{
+    void report();
+    void reportProjectLinks();
+  },REPORT_INTERVAL_MS);
   const commandTimer=activationPort?windowRef.setInterval(()=>{void poll()},COMMAND_POLL_MS):null;
   void report();
+  void reportProjectLinks();
   return Object.freeze({
     dispose(){
       if(disposed)return;
@@ -126,6 +175,7 @@ export function mountNativeDesktopSurfaceStateReport(windowRef,lifecycle,activat
       windowRef.clearInterval(reportTimer);
       if(commandTimer!==null)windowRef.clearInterval(commandTimer);
       unsubscribe();
+      unsubscribeProjectLinks();
     },
   });
 }
