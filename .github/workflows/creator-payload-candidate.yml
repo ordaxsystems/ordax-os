@@ -19,6 +19,7 @@ on:
       - 'bootstrap/entrypoint'
       - 'tools/creator/assemble.py'
       - 'tests/test_kernel_consumer_ssot.py'
+      - 'tests/test_creator_payload_assembler.py'
       - '.github/actions/resolve-creator-source/**'
       - 'docs/contracts/native-release-assembly.json'
       - 'tests/test_creator_payload_external_source.py'
@@ -42,6 +43,7 @@ on:
       - 'bootstrap/entrypoint'
       - 'tools/creator/assemble.py'
       - 'tests/test_kernel_consumer_ssot.py'
+      - 'tests/test_creator_payload_assembler.py'
       - '.github/actions/resolve-creator-source/**'
       - 'docs/contracts/native-release-assembly.json'
       - 'tests/test_creator_payload_external_source.py'
@@ -59,22 +61,68 @@ concurrency:
 
 jobs:
   creator-payload-contract:
-    # Draft PRs validate the source/producer boundary without building kernel,
-    # ESP, initramfs or Creator. A ready PR re-enters the heavy job below.
+    # Draft PRs validate source/producer boundaries and tests without building.
+    # Actual payload changes re-enter the heavy job only when the PR is ready.
     runs-on: ubuntu-24.04
+    outputs:
+      required: ${{ steps.impact.outputs.required }}
     timeout-minutes: 8
     steps:
       - name: Checkout exact source for immutable Creator contract
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
         with:
           ref: ${{ github.event.pull_request.head.sha || github.sha }}
+          fetch-depth: 0
           persist-credentials: false
-      - name: Validate Creator payload source authority and fail-closed gates
-        run: python3 -m unittest tests.test_creator_payload_external_source -v
+      - name: Validate Creator source, kernel identity and payload assembler
+        run: |
+          set -euo pipefail
+          python3 -m unittest \
+            tests.test_creator_payload_external_source \
+            tests.test_kernel_consumer_ssot \
+            tests.test_creator_payload_assembler -v
+
+      - name: Classify exact payload delta before expensive compilation
+        id: impact
+        env:
+          ORDAX_EVENT_NAME: ${{ github.event_name }}
+          ORDAX_BASE_SHA: ${{ github.event.pull_request.base.sha || github.event.before || '' }}
+          ORDAX_HEAD_SHA: ${{ github.event.pull_request.head.sha || github.sha }}
+        run: |
+          python3 - <<'PY'
+          import os
+          import re
+          import subprocess
+
+          # These files are executed in the contract job above. They cannot
+          # alter the OS payload, pinned source or release trust authority.
+          light_tests = {
+              "tests/test_creator_payload_external_source.py",
+              "tests/test_kernel_consumer_ssot.py",
+              "tests/test_creator_payload_assembler.py",
+          }
+          base = os.environ["ORDAX_BASE_SHA"]
+          head = os.environ["ORDAX_HEAD_SHA"]
+          valid = lambda sha: re.fullmatch(r"[0-9a-f]{40}", sha) and int(sha, 16) != 0
+          required = True  # Fail closed on dispatch, missing history or errors.
+          if os.environ["ORDAX_EVENT_NAME"] != "workflow_dispatch" and valid(base) and valid(head):
+              try:
+                  result = subprocess.run(
+                      ["git", "diff", "--name-only", "-z", "--no-renames", base, head, "--"],
+                      check=True, capture_output=True, timeout=30,
+                  )
+                  changes = {name for name in result.stdout.decode("utf-8").split("\0") if name}
+                  required = not changes or not changes.issubset(light_tests)
+              except (OSError, UnicodeError, subprocess.SubprocessError):
+                  required = True
+          with open(os.environ["GITHUB_OUTPUT"], "a", encoding="utf-8") as output:
+              output.write(f"required={str(required).lower()}\n")
+          print("CREATOR_PAYLOAD_HEAVY_REQUIRED=" + str(required).upper())
+          PY
 
   creator-payload:
     needs: creator-payload-contract
-    if: github.event_name != 'pull_request' || !github.event.pull_request.draft
+    if: needs.creator-payload-contract.outputs.required == 'true' && (github.event_name != 'pull_request' || !github.event.pull_request.draft)
     # This job builds the same pinned kernel/cache as Creator Owner and Base.
     # Share their producer queue rather than compiling the same kernel twice.
     concurrency:
@@ -133,11 +181,6 @@ jobs:
           echo 'CREATOR_PAYLOAD_CLI_PHYSICAL_WRITE=NOT_AUTHORIZED'
 
 
-
-      - name: Validate canonical kernel artifact consumers
-        run: |
-          python -m unittest discover -s tests -p 'test_kernel_consumer_ssot.py' -v
-          python -m unittest discover -s tests -p 'test_creator_payload_assembler.py' -v
 
       - name: Restore canonical release-agent seed for bootstrap assembly
         run: bash bootstrap/release-acquisition/restore_pinned_seed.sh
