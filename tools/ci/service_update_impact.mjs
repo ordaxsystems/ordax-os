@@ -89,12 +89,14 @@ function serviceDirsAt(commit) {
   return new Set(dirs);
 }
 
-function writeOutput(result) {
-  const reason = result.reasons.join(";");
+export function writeOutput(result, githubOutputPath = process.env.GITHUB_OUTPUT) {
+  // Git permits LF/CR in filenames. Never let a diagnostic path inject a
+  // second required= or reason= record into the GitHub output file.
+  const reason = result.reasons.join(";").replaceAll("\r", "\\r").replaceAll("\n", "\\n");
   process.stdout.write(`SERVICE_UPDATE_CAUSAL_IMPACT=${result.required ? "REQUIRED" : "SKIPPED"}\n`);
   process.stdout.write(`SERVICE_UPDATE_CAUSAL_REASON=${reason}\n`);
-  if (process.env.GITHUB_OUTPUT) {
-    appendFileSync(process.env.GITHUB_OUTPUT,
+  if (githubOutputPath) {
+    appendFileSync(githubOutputPath,
       `required=${result.required ? "true" : "false"}\nreason=${reason}\n`, "utf8");
   }
 }

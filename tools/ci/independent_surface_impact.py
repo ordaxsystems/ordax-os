@@ -107,9 +107,11 @@ def changed_paths_between(base: str, head: str, *, root: Path = ROOT) -> tuple[s
 
 
 def write_output(path: Path, result: ImpactResult) -> None:
+    # Filenames can contain line breaks; never let a reason inject GITHUB_OUTPUT records.
+    reason = ";".join(result.reasons).replace("\r", "\\r").replace("\n", "\\n")
     with path.open("a", encoding="utf-8", newline="\n") as handle:
         handle.write(f"required={'true' if result.required else 'false'}\n")
-        handle.write(f"reason={';'.join(result.reasons)}\n")
+        handle.write(f"reason={reason}\n")
         handle.write(f"changed_count={len(result.changed_paths)}\n")
 
 

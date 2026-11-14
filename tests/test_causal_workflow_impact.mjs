@@ -9,16 +9,42 @@ import {
   changedPathsBetween as appSdkChangedPathsBetween,
   classifyAppSdkImpact,
   exportedContractSources,
+  writeOutput as appSdkWriteOutput,
 } from "../tools/ci/app_sdk_impact.mjs";
 import {
   changedPathsBetween as serviceChangedPathsBetween,
   classifyServiceUpdateImpact,
+  writeOutput as serviceWriteOutput,
 } from "../tools/ci/service_update_impact.mjs";
 
 const read = (path) => readFileSync(new URL(`../${path}`, import.meta.url), "utf8").split(/\r?\n/u).join("\n");
 const appBundle = JSON.parse(read("sdk/app-sdk-v1/bundle.json"));
 const exported = exportedContractSources(appBundle);
 const services = new Set(["system/services/components", "system/services/spaces"]);
+
+test("GitHub outputs preserve required=true when a changed path contains injected LF/CR records", () => {
+  const temporary = mkdtempSync(join(tmpdir(), "ordax-output-safety-"));
+  const injected = "\nrequired=false\r\nreason=spoof";
+  try {
+    const servicePath = `system/services/components/unsafe${injected}.mjs`;
+    const sdkPath = `system/contracts/unsafe${injected}.mjs`;
+    const cases = [
+      [serviceWriteOutput, classifyServiceUpdateImpact([servicePath], services, services)],
+      [appSdkWriteOutput, classifyAppSdkImpact([sdkPath], new Set([sdkPath]))],
+    ];
+    for (const [index, [writer, result]] of cases.entries()) {
+      const output = join(temporary, `gate-${index}.txt`);
+      writer(result, output);
+      const lines = readFileSync(output, "utf8").trimEnd().split("\n");
+      assert.equal(lines.length, 2, "untrusted path must not create extra output records");
+      assert.equal(lines[0], "required=true");
+      assert.match(lines[1], /^reason=/u);
+      assert.ok(lines[1].includes("\\nrequired=false\\r\\nreason=spoof"));
+    }
+  } finally {
+    rmSync(temporary, { recursive: true, force: true });
+  }
+});
 
 test("Git diff preserves UTF-8 owner paths without false negatives in both classifiers", () => {
   const temporary = mkdtempSync(join(tmpdir(), "ordax-impact-git-"));

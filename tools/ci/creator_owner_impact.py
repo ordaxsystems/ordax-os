@@ -594,11 +594,13 @@ def main():
     event = os.environ.get("GITHUB_EVENT_NAME", "push")
     required, reason = ((True, "manual-dispatch-producer-proof") if args.force
                         else classify(args.base, args.head, event=event))
-    result = f"required={'true' if required else 'false'}\nreason={reason}\n"
+    # Preserve a single reason= record even if a Git pathname contains LF/CR.
+    safe_reason = reason.replace("\r", "\\r").replace("\n", "\\n")
+    result = f"required={'true' if required else 'false'}\nreason={safe_reason}\n"
     if os.environ.get("GITHUB_OUTPUT"):
         with open(os.environ["GITHUB_OUTPUT"], "a", encoding="utf-8") as output:
             output.write(result)
-    print("CREATOR_OWNER_USB_REQUIRED=" + ("YES" if required else "NO") + " reason=" + reason)
+    print("CREATOR_OWNER_USB_REQUIRED=" + ("YES" if required else "NO") + " reason=" + safe_reason)
     return 0
 
 

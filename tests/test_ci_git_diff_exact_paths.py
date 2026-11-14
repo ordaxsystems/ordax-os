@@ -3,10 +3,13 @@
 Each classifier keeps its own policy; this fixture proves that the Git output
 does not quote or split repository paths and cause an unnecessary heavy build.
 """
+import os
 from pathlib import Path
 import subprocess
+import sys
 import tempfile
 import unittest
+from unittest.mock import patch
 
 from tools.ci import (
     creator_owner_impact,
@@ -16,6 +19,39 @@ from tools.ci import (
 
 
 class CiGitDiffExactPathsTests(unittest.TestCase):
+    def test_github_output_filename_line_breaks_cannot_add_required_false(self):
+        injected = "unsafe\nrequired=false\r\nreason=spoof"
+        with tempfile.TemporaryDirectory() as td:
+            root = Path(td)
+            for index, (module, writer) in enumerate((
+                (independent_surface_impact, independent_surface_impact.write_output),
+                (portable_qemu_impact, portable_qemu_impact.write_github_output),
+            )):
+                with self.subTest(module=module.__name__):
+                    output = root / f"impact-{index}.txt"
+                    result = module.ImpactResult(True, (f"unclassified:{injected}",), (injected,))
+                    writer(output, result)
+                    lines = output.read_text(encoding="utf-8").splitlines()
+                    self.assertEqual(len(lines), 3)
+                    self.assertEqual(lines[0], "required=true")
+                    self.assertIn(r"\nrequired=false\r\nreason=spoof", lines[1])
+                    self.assertEqual(lines[2], "changed_count=1")
+
+            creator_output = root / "creator.txt"
+            with (
+                patch.object(creator_owner_impact, "classify",
+                             return_value=(True, f"real-or-unknown-usb-producer:{injected}")),
+                patch.dict(os.environ, {"GITHUB_OUTPUT": str(creator_output),
+                                        "GITHUB_EVENT_NAME": "push"}),
+                patch.object(sys, "argv", ["creator_owner_impact.py", "classify",
+                                           "--base", "a" * 40, "--head", "b" * 40]),
+            ):
+                self.assertEqual(creator_owner_impact.main(), 0)
+            lines = creator_output.read_text(encoding="utf-8").splitlines()
+            self.assertEqual(len(lines), 2)
+            self.assertEqual(lines[0], "required=true")
+            self.assertIn(r"\nrequired=false\r\nreason=spoof", lines[1])
+
     def test_utf8_markdown_paths_are_returned_verbatim_by_all_three_gates(self):
         with tempfile.TemporaryDirectory() as td:
             root = Path(td)
