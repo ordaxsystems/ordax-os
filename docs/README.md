@@ -45,6 +45,7 @@ Para mudanças cross-repo, **comece por `AGENTS.md`, o owner e o contrato aplic�
 | Profile knowledge and Intelligence | `docs/PROFILE-INTELLIGENCE-ARCHITECTURE.md` + canonical Profile manifests |
 | Decisions / ADRs | `docs/DECISIONS.md` |
 | Build autonomy | `docs/BUILD-AUTONOMY.md` |
+| CI: cache Surface, runner persistente e Base Owner/Dev | `docs/CI-SURFACE-CACHE-SSOT.md` + `docs/CI-OWNER-BASE-CACHE-SSOT.md` (gates executáveis nos workflows, sem segunda política) |
 | Product modes | `docs/PRODUCT-MODES.md` |
 | Operational realtime / device actions | `docs/OPERATIONAL-REALTIME.md` |
 | Mobile Companion | `docs/MOBILE-COMPANION.md` |
