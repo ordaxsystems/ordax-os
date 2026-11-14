@@ -216,6 +216,21 @@ def make_candidate(root: Path):
 
 
 class UnsignedExternalCandidateTests(unittest.TestCase):
+    def test_ci_revalidates_external_candidates_when_component_trust_changes(self):
+        workflow = (ROOT / ".github" / "workflows" / "runtime-component-unsigned-candidate.yml").read_text(encoding="utf-8")
+        push, remainder = workflow.split("  pull_request:", 1)
+        pull_request = remainder.split("  workflow_dispatch:", 1)[0]
+        self.assertIn("check_external_signing_preflight.py", workflow)
+        self.assertIn("    branches: [main]", push)
+        for path in (
+            "docs/contracts/runtime-component-package.json",
+            "docs/contracts/runtime-component-trust-policy.json",
+            "system/trust/runtime-components-ed25519.json",
+        ):
+            entry = f"      - '{path}'"
+            self.assertEqual(push.count(entry), 1, path)
+            self.assertEqual(pull_request.count(entry), 1, path)
+
     def test_valid_notes_candidate_is_verified_without_authority(self):
         with tempfile.TemporaryDirectory() as temporary:
             root = Path(temporary)

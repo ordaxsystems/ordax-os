@@ -37,6 +37,20 @@ PACKAGE_POLICY = json.loads(
 
 
 class ComponentTrustToolkitTests(unittest.TestCase):
+    def test_toolkit_rechecks_public_trust_anchor_on_pr_and_main(self):
+        push, remainder = WORKFLOW.split("  pull_request:", 1)
+        pull_request = remainder.split("  workflow_dispatch:", 1)[0]
+        self.assertIn("    branches: [main]", push)
+        self.assertIn("check_production_readiness.py", WORKFLOW)
+        for path in (
+            "docs/contracts/runtime-component-package.json",
+            "docs/contracts/runtime-component-trust-policy.json",
+            "system/trust/runtime-components-ed25519.json",
+        ):
+            entry = f"      - '{path}'"
+            self.assertEqual(push.count(entry), 1, path)
+            self.assertEqual(pull_request.count(entry), 1, path)
+
     def test_toolkit_is_canonical_only_for_main_push_with_prerequisites(self):
         self.assertIn("prototype-ordax.component-trust-toolkit/1", WORKFLOW)
         self.assertIn("canonical_component_trust_ceremony_eligible", WORKFLOW)

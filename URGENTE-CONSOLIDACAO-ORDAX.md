@@ -237,7 +237,8 @@ O contrato `docs/contracts/repository-ownership.json` ainda exigia `control-plan
 ### P2.2 — gate de assinatura externa acompanha a âncora pública — 2026-11-14
 
 - O workflow existente `runtime-component-external-signing-preflight.yml` validava `system/trust/runtime-components-ed25519.json` no preflight, mas não observava alterações isoladas desse arquivo nos filtros `push` e `pull_request`. A dependência de confiança agora participa de ambos os gatilhos, sem criar novo workflow, publicar assinatura ou liberar ativação.
-- A regressão foi incorporada a `tests/test_runtime_component_external_signing_preflight.py`, cobrindo a âncora e os contratos de trust/package/readiness. Na revisão local, 18/18 testes relacionados passaram e `git diff --check` retornou zero. A execução em GitHub Actions e a distribuição/instalação de Apps permanecem pendentes de prova real.
+- A regressão foi incorporada a `tests/test_runtime_component_external_signing_preflight.py`, cobrindo a âncora e os contratos de trust/package/readiness. Na revisão local, 18/18 testes relacionados passaram e `git diff --check` retornou zero. O workflow no GitHub Actions [#43653086629](https://github.com/ordaxsystems/ordax-os/actions/runs/43653086629) concluiu com sucesso. Distribuição/instalação de Apps continua pendente de prova real.
+- **Mesmo trust, outros dois consumidores:** `runtime-component-unsigned-candidate.yml` executa o preflight para artefatos externos de Apps e `component-trust-toolkit.yml` executa readiness antes do toolkit. Ambos passaram a observar mudanças na âncora pública em PR e `main`; o verificador unsigned também observa a política de trust. Foram adicionadas regressões nos testes existentes, com **30/30 testes locais PASS** e `git diff --check` limpo. Sem emitir assinatura, aprovar publicação ou ativar componentes.
 
 ## 4. Regras obrigatórias
 
