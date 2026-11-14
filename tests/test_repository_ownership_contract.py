@@ -140,6 +140,14 @@ class RepositoryOwnershipContractTests(unittest.TestCase):
         self.assertEqual(legacy["role"], "incubation-legacy-retirement-only")
         self.assertFalse(legacy["new_features_allowed"])
         self.assertGreaterEqual(len(legacy["delete_only_after"]), 6)
+        control_plane_repo = self.contract["repositories"]["control_plane"]["repo"]
+        self.assertEqual(control_plane_repo, "ordaxsystems/ordax-platform")
+        conditions = legacy["delete_only_after"]
+        self.assertIn(
+            "control-plane-canonical-in-" + control_plane_repo.split("/", 1)[1],
+            conditions,
+        )
+        self.assertNotIn("control-plane-canonical-in-ordax-control-plane", conditions)
 
     def test_current_owner_documentation_matches_canonical_namespace(self):
         document = (ROOT / "docs" / "REPOSITORY-OWNERSHIP.md").read_text(encoding="utf-8")
