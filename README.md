@@ -28,6 +28,8 @@ Para trabalho em **OrdaX Intelligence**, comece por `docs/INTELLIGENCE.md`, `doc
 
 ## Planejamento e referências históricas
 
+**Consolidação estrutural em execução:** [`URGENTE-CONSOLIDACAO-ORDAX.md`](URGENTE-CONSOLIDACAO-ORDAX.md) acompanha a simplificação de documentação, workflows e duplicações comprovadas. É um roteiro de execução, não outra fonte de verdade; o índice canônico de documentação continua em [`docs/README.md`](docs/README.md).
+
 O roteador de planejamento fica em [`00-PLANOS-PRIORITARIOS/`](00-PLANOS-PRIORITARIOS/README.md). Antes de interpretar ou retomar qualquer `PLANO-*`, consulte também:
 
 1. [`00-PLANOS-PRIORITARIOS/ROADMAP.md`](00-PLANOS-PRIORITARIOS/ROADMAP.md);
@@ -35,7 +37,7 @@ O roteador de planejamento fica em [`00-PLANOS-PRIORITARIOS/`](00-PLANOS-PRIORIT
 
 Prioridades operacionais não são fixadas neste README. Consulte `MVP.md`, `docs/CURRENT-STATE.md`, PRs/branches atuais e os owners canônicos antes de retomar trabalho. Texto datado em planos, handoffs ou evidências é contexto histórico; não cria fila global nem bloqueia owners independentes. `READY` documental não significa `EXECUTION-ELIGIBLE`.
 
-Os planos antigos da raiz permanecem temporariamente nos caminhos atuais porque ainda possuem referências vivas. Eles são subordinados a `docs/README.md`, `docs/CURRENT-STATE.md`, `MVP.md`, contratos, ADRs e owners canônicos.
+Os planos ainda presentes na raiz são referências de escopo futuro, não autoridades de implementação. Planos históricos já retirados da árvore ativa continuam acessíveis pelos snapshots do Git e classificados em `00-PLANOS-PRIORITARIOS/REGISTRY.md`. Todos permanecem subordinados a `docs/README.md`, `docs/CURRENT-STATE.md`, `MVP.md`, contratos, ADRs e owners canônicos.
 
 - A antiga referência funcional acumulada de Surface/apps foi retirada da árvore ativa e permanece no [snapshot Git histórico](https://github.com/ordaxsystems/ordax-os/blob/3f304b05af33e40658025ff289523560b298153c/PLANO-FUNCIONAL-SURFACE-E-APPS.md); owners atuais estão em `ordax-surface`, `ordax-apps`, contratos e `docs/CURRENT-STATE.md`.
 - [`docs/SOURCE-MIGRATION.md`](docs/SOURCE-MIGRATION.md) é o ledger canônico de decisões de migração/reimplementação; a análise comparativa antiga foi retirada da árvore ativa e permanece no histórico Git.
