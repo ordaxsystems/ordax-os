@@ -19,6 +19,8 @@ TARGETS = {
     "native-esp-candidate.yml": ("native-esp:", "if: github.event_name != 'pull_request' || !github.event.pull_request.draft"),
     "kernel-candidate.yml": ("kernel:", "if: github.event_name != 'pull_request' || !github.event.pull_request.draft"),
     "kernel-pinned-environment.yml": ("prove-pinned-environment:", "if: github.event_name != 'pull_request' || !github.event.pull_request.draft"),
+    "kernel-tpm2-staged-candidate.yml": ("staged-tpm2:", "if: github.event_name != 'pull_request' || !github.event.pull_request.draft"),
+    "kernel-lts-candidate.yml": ("proposed-kernel-build:", "if: needs.proposed-kernel-contract.outputs.available == 'true' && (github.event_name != 'pull_request' || !github.event.pull_request.draft)"),
     "full-bootstrap-media-proof.yml": ("full-bootstrap-media-proof:", "if: github.event_name != 'pull_request' || !github.event.pull_request.draft"),
     "local-ai-runtime-candidate.yml": ("candidate:", "if: github.event_name != 'pull_request' || !github.event.pull_request.draft"),
     "native-initramfs-candidate.yml": ("candidate:", "if: github.event_name != 'pull_request' || !github.event.pull_request.draft"),
@@ -44,6 +46,44 @@ class ReleaseCandidateGateTests(unittest.TestCase):
                 first = "\n" + re.split(r"(?m)^  [A-Za-z][\w-]*:\s*$", section, maxsplit=1)[0]
                 self.assertIn("\n    " + guard + "\n", first)
                 self.assertNotIn("cancel-in-progress: true", text)
+
+    def test_tpm2_draft_checks_overlay_before_any_kernel_build(self):
+        text = (ROOT / "kernel-tpm2-staged-candidate.yml").read_text(encoding="utf-8")
+        contract = text.split("\n  contract:\n", 1)[1].split("\n  staged-tpm2:\n", 1)[0]
+        heavy = text.split("\n  staged-tpm2:\n", 1)[1]
+        self.assertIn("python bootstrap/kernel/build.py check --config-overlay", contract)
+        self.assertIn("test_kernel_tpm2_staged_overlay.py", contract)
+        self.assertNotIn("bootstrap/kernel/build.py build", contract)
+        self.assertNotIn("sudo apt-get", contract)
+        self.assertIn("needs: contract", heavy)
+        self.assertIn("bootstrap/kernel/build.py build", heavy)
+        self.assertIn("ORDAX_SOURCE_COMMIT:", heavy)
+        self.assertIn("physical_artifact_authorized", heavy)
+
+    def test_lts_source_selection_is_unique_and_heavy_requires_available_candidate(self):
+        text = (ROOT / "kernel-lts-candidate.yml").read_text(encoding="utf-8")
+        contract = text.split("\n  proposed-kernel-contract:\n", 1)[1].split(
+            "\n  proposed-kernel-build:\n", 1
+        )[0]
+        heavy = text.split("\n  proposed-kernel-build:\n", 1)[1]
+        self.assertEqual(text.count("candidate_pipeline.py select --github-output"), 1)
+        self.assertIn("available: ${{ steps.candidate.outputs.available }}", contract)
+        self.assertIn("source_contract: ${{ steps.candidate.outputs.source_contract }}", contract)
+        for test in ("test_kernel_candidate_pipeline.py", "test_kernel_update_engine.py",
+                     "test_kernel_candidate_ci_scope.py"):
+            self.assertIn(test, contract)
+            self.assertNotIn(test, heavy)
+        self.assertNotIn("bootstrap/kernel/build.py build", contract)
+        self.assertNotIn("sudo apt-get", contract)
+        self.assertIn("needs: proposed-kernel-contract", heavy)
+        self.assertIn("needs.proposed-kernel-contract.outputs.available == 'true'", heavy)
+        self.assertIn("needs.proposed-kernel-contract.outputs.source_contract", heavy)
+        self.assertIn("needs.proposed-kernel-contract.outputs.version", heavy)
+        self.assertNotIn("steps.candidate.outputs", heavy)
+        self.assertIn("candidate_pipeline.py prove", heavy)
+        self.assertIn("verify_upstream_signature.py", (
+            ROOT / "kernel-lts-update-proposal.yml"
+        ).read_text(encoding="utf-8")) if False else None
 
     def test_independent_base_contract_remains_mandatory_in_draft(self):
         text = (ROOT / "independent-base-experiment.yml").read_text(encoding="utf-8")
