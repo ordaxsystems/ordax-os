@@ -386,11 +386,13 @@ def changed_paths(base, head, *, root=ROOT):
     if any(not re.fullmatch(r"[0-9a-f]{40}", x or "") or x == "0" * 40
            for x in (base, head)):
         raise ValueError("invalid Git revision")
+    # -z returns exact paths. The default quoted Git output can turn an
+    # accented Markdown filename into an unknown, unnecessarily heavy input.
     out = subprocess.run(
-        ["git", "-C", str(root), "diff", "--name-only", "--no-renames", base, head, "--"],
-        check=True, capture_output=True, text=True, timeout=30,
+        ["git", "-C", str(root), "diff", "--name-only", "-z", "--no-renames", base, head, "--"],
+        check=True, capture_output=True, timeout=30,
     ).stdout
-    return tuple(x for x in out.splitlines() if x)
+    return tuple(path for path in out.decode("utf-8").split("\0") if path)
 
 
 def verified_windows_product_additions(base, head, path, *, root=ROOT):
