@@ -15,6 +15,7 @@ on:
     paths:
       - "api/oauth-consent.mjs"
       - "vercel.json"
+      - "infra/supabase/functions/_shared/account_email_confirmation.mjs"
       - "tests/test_platform_oauth_consent_vercel.mjs"
       - "scripts/probe_public_oauth_consent.py"
       - "tests/test_live_oauth_consent_probe.py"
