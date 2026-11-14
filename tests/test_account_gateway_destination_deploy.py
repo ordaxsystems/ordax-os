@@ -65,7 +65,7 @@ class AccountGatewayDestinationDeployTests(unittest.TestCase):
         self.assertNotIn("exit 0", missing_credential_step)
 
         self.assertIn("enabled=true", text)
-        self.assertEqual(text.count("if: steps.credential.outputs.enabled == 'true'"), 4)
+        self.assertEqual(text.count("if: steps.credential.outputs.enabled == 'true'"), 5)
         self.assertNotIn("SUPABASE_ACCESS_TOKEN repository secret is required.", text)
         self.assertIn("supabase functions deploy ordax-account-gateway", text)
         self.assertIn('--project-ref "${SUPABASE_PROJECT_REF}"', text)
@@ -80,6 +80,21 @@ class AccountGatewayDestinationDeployTests(unittest.TestCase):
         self.assertIn("ACCOUNT_GATEWAY_MCP_USAGE_UNAUTH=PASS", text)
         self.assertIn('Deno.env.get("ORDAX_MCP_USAGE_READ_ENABLED")', text)
         self.assertIn("node --test tests/test_account_mcp_usage_bridge.mjs", text)
+        self.assertIn("      owner_project_rollout:", text)
+        self.assertIn("          - unchanged", text)
+        self.assertIn("          - enable", text)
+        self.assertIn("          - disable", text)
+        self.assertIn("inputs.owner_project_rollout != 'unchanged'", text)
+        self.assertIn("supabase secrets set", text)
+        for key in (
+            "ORDAX_MCP_OWNER_ACCOUNT_ENABLED",
+            "ORDAX_MCP_OWNER_PROJECT_ONBOARDING_ENABLED",
+            "ORDAX_MCP_OWNER_GITHUB_AUTHORIZATION_ENABLED",
+            "ORDAX_MCP_OWNER_PROJECT_DEVICE_BINDING_ENABLED",
+            "ORDAX_MCP_OWNER_PROJECT_GRANT_ENABLED",
+        ):
+            self.assertIn(key, text)
+        self.assertIn("ACCOUNT_GATEWAY_OWNER_PROJECT_SECRET_VALUES_PRINTED=NO", text)
 
     def test_workflow_pins_approved_cli_action_and_version(self):
         text = WORKFLOW.read_text(encoding="utf-8")
@@ -100,6 +115,7 @@ class AccountGatewayDestinationDeployTests(unittest.TestCase):
         self.assertIn("  workflow_dispatch:", text)
         self.assertIn("      approved_sha:", text)
         self.assertIn("      release_confirmation:", text)
+        self.assertIn("      owner_project_rollout:", text)
         self.assertIn("github.event_name == 'workflow_dispatch'", text)
         self.assertIn("github.ref == 'refs/heads/main'", text)
         self.assertIn("inputs.approved_sha == github.sha", text)
