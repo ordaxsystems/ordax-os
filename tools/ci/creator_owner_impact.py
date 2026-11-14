@@ -69,6 +69,8 @@ LIGHT_EXACT = frozenset({
     "tools/surface-web/browser-smoke.mjs",
     "tests/test_windows_desktop_local_ai_host.mjs",
     "tests/test_creator_owner_external_source.py",
+    # Another CI impact policy cannot alter the installed Owner USB payload.
+    "tools/ci/independent_surface_impact.py",
     "tools/ci/portable_qemu_impact.py",
     "tests/test_portable_qemu_impact.py",
     "tools/ci/creator_owner_impact.py",
