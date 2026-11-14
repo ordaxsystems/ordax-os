@@ -37,6 +37,9 @@ class OwnerSurfaceCacheContractTests(unittest.TestCase):
     def test_owner_is_a_verified_artifact_consumer_not_another_webkit_producer(self):
         text = OWNER.read_text(encoding="utf-8")
         self.assertIn("owner-surface-r2.outputs.hit", text)
+        self.assertIn("owner-surface-github-artifact.outputs.hit", text)
+        self.assertIn("tools/ci/independent_surface_github_artifact.sh", text)
+        self.assertIn("GH_TOKEN: ${{ github.token }}", text)
         self.assertIn("python3 " + CACHE + " verify", text)
         self.assertIn("--cache-hit true --consumer", text)
         self.assertNotIn("--cache-hit false", text)
@@ -64,6 +67,7 @@ class OwnerSurfaceCacheContractTests(unittest.TestCase):
             workflow.index("- name: Install build dependencies"),
             workflow.index("- name: Resolve independent Surface artifact fingerprint for Owner"),
             workflow.index("- name: Restore exact verified Surface EROFS for Owner"),
+            workflow.index("- name: Restore verified Surface EROFS from trusted GitHub producer for Owner"),
             workflow.index("- name: Consume verified canonical offline Surface runtime"),
             workflow.index("- name: Build kernel candidate on verified cache miss"),
             workflow.index("- name: Build boot initramfs and Git development base"),
