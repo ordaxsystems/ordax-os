@@ -45,6 +45,7 @@ jobs:
           # scripts, test fixtures and unknown paths must run full Foundation.
           docs = {
               "AGENTS.md", "README.md", "docs/README.md",
+              "URGENTE-CONSOLIDACAO-ORDAX.md",
               "docs/DEVELOPMENT-WORKFLOW.md", "docs/DECISIONS.md",
               "docs/BUILD-AUTONOMY.md",
               "docs/CURRENT-STATE.md",
