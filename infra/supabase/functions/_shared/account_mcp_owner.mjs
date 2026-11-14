@@ -520,7 +520,8 @@ export function parseAccountOwnerProjectGrant(value, now=Date.now()) {
         !== "client_id,confirm,device_id,profile_key,project_id,space_id,valid_until"
       || !isOwnerUuid(value.device_id) || !isOwnerUuid(value.client_id)
       || !isOwnerUuid(value.space_id) || !isOwnerUuid(value.project_id)
-      || !(value.profile_key in PROJECT_NATIVE_GRANT_PROFILES)
+      || typeof value.profile_key !== "string"
+      || !Object.hasOwn(PROJECT_NATIVE_GRANT_PROFILES, value.profile_key)
       || value.confirm !== "authorize_project") return null;
   let validUntil = null;
   if (value.valid_until !== null) {
