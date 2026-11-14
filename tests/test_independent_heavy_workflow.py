@@ -12,6 +12,19 @@ class IndependentHeavyWorkflowTests(unittest.TestCase):
     def text(self) -> str:
         return WORKFLOW.read_text(encoding="utf-8")
 
+    def test_light_base_contract_checks_all_profiles_without_build(self) -> None:
+        text = self.text()
+        lightweight = text.split("- name: Verify isolated contract and regressions", 1)[1].split(
+            "  buildroot-qemu:", 1
+        )[0]
+        for profile in ("minimal", "owner-development", "stable-mvp"):
+            self.assertIn(
+                f"python3 bootstrap/independent-base/build.py check --profile {profile}",
+                lightweight,
+            )
+        self.assertIn("python3 bootstrap/independent-base/build.py check-component", lightweight)
+        self.assertNotIn("bootstrap/independent-base/build.py build ", lightweight)
+
     def test_owner_base_reuse_is_profile_bound_and_verified(self) -> None:
         text = self.text()
         restore = text.index("- name: Restore verified independent base component")
