@@ -40,6 +40,7 @@ const PUBLIC_ACCOUNT_ROUTES = new Map([
   ["/account/mcp/central-selections", Object.freeze({ method: "GET", preActivation: false })],
   ["/account/mcp/project-onboarding", Object.freeze({ method: "GET", preActivation: false })],
   ["/account/mcp/project-onboarding/projects", Object.freeze({ method: "POST", preActivation: false })],
+  ["/account/mcp/project-onboarding/device-binding-intents", Object.freeze({ method: "POST", preActivation: false })],
   ["/account/mcp/github/authorization-challenges", Object.freeze({ method: "POST", preActivation: false })],
   ["/account/mcp/github/callback", Object.freeze({ method: "GET", preActivation: false })],
   ["/account/mcp/github/repository-candidates", Object.freeze({ method: "GET", preActivation: false })],

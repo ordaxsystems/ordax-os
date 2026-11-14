@@ -9,6 +9,7 @@ export const ACCOUNT_MCP_CENTRAL_TARGETS_PATH = "/account/mcp/central-targets";
 export const ACCOUNT_MCP_CENTRAL_SELECTIONS_PATH = "/account/mcp/central-selections";
 export const ACCOUNT_MCP_PROJECT_ONBOARDING_PATH = "/account/mcp/project-onboarding";
 export const ACCOUNT_MCP_PROJECTS_PATH = "/account/mcp/project-onboarding/projects";
+export const ACCOUNT_MCP_PROJECT_BINDING_INTENTS_PATH = "/account/mcp/project-onboarding/device-binding-intents";
 export const ACCOUNT_MCP_GITHUB_CHALLENGES_PATH = "/account/mcp/github/authorization-challenges";
 export const ACCOUNT_MCP_GITHUB_CALLBACK_PATH = "/account/mcp/github/callback";
 export const ACCOUNT_MCP_GITHUB_CANDIDATES_PATH = "/account/mcp/github/repository-candidates";
@@ -20,6 +21,7 @@ const OWNER_CENTRAL_TARGETS_URL = "https://mcp.ordax.com.br/v3/owner/central-ses
 const OWNER_CENTRAL_SELECTIONS_URL = "https://mcp.ordax.com.br/v3/owner/central-session-selections";
 export const OWNER_PROJECT_ONBOARDING_URL = "https://mcp.ordax.com.br/v3/owner/project-onboarding";
 export const OWNER_PROJECTS_URL = OWNER_PROJECT_ONBOARDING_URL + "/projects";
+export const OWNER_PROJECT_BINDING_INTENTS_URL = OWNER_PROJECT_ONBOARDING_URL + "/device-binding-intents";
 export const OWNER_GITHUB_CHALLENGES_URL = "https://mcp.ordax.com.br/v3/owner/github/authorization-challenges";
 export const OWNER_GITHUB_COMPLETIONS_URL = "https://mcp.ordax.com.br/v3/owner/github/authorization-completions";
 export const OWNER_GITHUB_CANDIDATES_URL = "https://mcp.ordax.com.br/v3/owner/github/repository-candidates";
@@ -247,6 +249,46 @@ export async function createAccountOwnerProject(access, raw, fetcher=fetch) {
     throw new Error("mcp-owner-project-create-unconfirmed");
   return {ok:true,schema:"ordax.owner-project-created/1",project_id:value.project_id,
     space_id:value.space_id,state:"active",next_state:"needs_github_installation"};
+}
+
+export function parseAccountOwnerProjectBindingIntent(value) {
+  if (!isRecord(value)
+      || Object.keys(value).sort().join(",") !== "confirm,device_id,project_id"
+      || !isOwnerUuid(value.project_id) || !isOwnerUuid(value.device_id)
+      || value.confirm !== "bind_project_device") return null;
+  return {
+    project_id:value.project_id,
+    device_id:value.device_id,
+    confirm:"bind_project_device",
+  };
+}
+
+export async function createAccountOwnerProjectBindingIntent(access, raw, fetcher=fetch) {
+  const input=parseAccountOwnerProjectBindingIntent(raw);
+  if (!input) throw new Error("mcp-owner-project-binding-intent-invalid");
+  // Exactly one POST. Device confirmation is a separate enrolled-Runtime step,
+  // and an uncertain Owner mutation is never retried by Account.
+  const value=await ownerRequest(
+    access,OWNER_PROJECT_BINDING_INTENTS_URL,"POST",fetcher,input,201,
+  );
+  if (!isRecord(value) || value.ok !== true
+      || value.schema !== "ordax.owner-project-device-binding-intent/1"
+      || !isOwnerUuid(value.intent_id)
+      || value.project_id !== input.project_id
+      || value.device_id !== input.device_id
+      || !validDate(value.expires_at)
+      || value.next_state !== "awaiting_device_confirmation") {
+    throw new Error("mcp-owner-project-binding-intent-unconfirmed");
+  }
+  return {
+    ok:true,
+    schema:"ordax.owner-project-device-binding-intent/1",
+    intent_id:value.intent_id,
+    project_id:value.project_id,
+    device_id:value.device_id,
+    expires_at:value.expires_at,
+    next_state:"awaiting_device_confirmation",
+  };
 }
 
 export function parseAccountOwnerGithubAuthorizationStart(value) {

@@ -10,9 +10,11 @@ import {
   readAccountOwnerCentralTargets,readAccountOwnerCentralSelections,
   selectAccountOwnerCentralDevice,parseAccountOwnerCentralSelection,
   ACCOUNT_MCP_PROJECT_ONBOARDING_PATH,ACCOUNT_MCP_PROJECTS_PATH,
-  OWNER_PROJECT_ONBOARDING_URL,OWNER_PROJECTS_URL,
+  ACCOUNT_MCP_PROJECT_BINDING_INTENTS_PATH,
+  OWNER_PROJECT_ONBOARDING_URL,OWNER_PROJECTS_URL,OWNER_PROJECT_BINDING_INTENTS_URL,
   validateAccountOwnerProjectOnboarding,readAccountOwnerProjectOnboarding,
   parseAccountOwnerProjectCreate,createAccountOwnerProject,
+  parseAccountOwnerProjectBindingIntent,createAccountOwnerProjectBindingIntent,
   ACCOUNT_MCP_GITHUB_CHALLENGES_PATH,ACCOUNT_MCP_GITHUB_CALLBACK_PATH,
   ACCOUNT_MCP_GITHUB_CANDIDATES_PATH,ACCOUNT_MCP_GITHUB_SELECTIONS_PATH,
   OWNER_GITHUB_CHALLENGES_URL,OWNER_GITHUB_COMPLETIONS_URL,
@@ -74,6 +76,9 @@ test("Only three explicit MCP Owner routes, not publicly preactivated",()=>{
   assert.equal(isPublicBridgeRoute("POST",ACCOUNT_MCP_PROJECTS_PATH),true);
   assert.equal(isPublicAccountPreActivationRoute("POST",ACCOUNT_MCP_PROJECTS_PATH),false);
   assert.equal(isPublicBridgeRoute("GET",ACCOUNT_MCP_PROJECTS_PATH),false);
+  assert.equal(isPublicBridgeRoute("POST",ACCOUNT_MCP_PROJECT_BINDING_INTENTS_PATH),true);
+  assert.equal(isPublicAccountPreActivationRoute("POST",ACCOUNT_MCP_PROJECT_BINDING_INTENTS_PATH),false);
+  assert.equal(isPublicBridgeRoute("GET",ACCOUNT_MCP_PROJECT_BINDING_INTENTS_PATH),false);
   for(const [method,path] of [
     ["POST",ACCOUNT_MCP_GITHUB_CHALLENGES_PATH],
     ["GET",ACCOUNT_MCP_GITHUB_CALLBACK_PATH],
@@ -102,6 +107,11 @@ test("Gateway Owner routes keep Supabase cookie authorization and fail-closed ro
   assert.match(source,/parseAccountOwnerProjectCreate\(projectCreate\)/);
   assert.match(source,/createAccountOwnerProject\(session\.access, projectCreate\)/);
   assert.match(source,/mcp-owner-project-create-unconfirmed/);
+  assert.match(source,/ORDAX_MCP_OWNER_PROJECT_DEVICE_BINDING_ENABLED/);
+  assert.match(source,/parseAccountOwnerProjectBindingIntent\(bindingRequest\)/);
+  assert.match(source,/createAccountOwnerProjectBindingIntent\(/);
+  assert.match(source,/mcp-owner-project-binding-intent-unconfirmed/);
+  assert.doesNotMatch(source,/ACCOUNT_MCP_PROJECT_BINDING_CONFIRM|local_project_ref.*bindingRequest/);
   assert.match(source,/ORDAX_MCP_OWNER_GITHUB_AUTHORIZATION_ENABLED/);
   assert.match(source,/completeAccountOwnerGithubAuthorization\(session\.access,callback\)/);
   assert.match(source,/readAccountOwnerGithubCandidates/);
@@ -204,6 +214,66 @@ test("Project onboarding rejects ambiguous state instead of inventing readiness"
       state:"active",github_connection_count:1,repository_full_name:null,
       space_device_execute:false,project_device_bound:false,next_state:"needs_github_installation"}]},
   ]) assert.equal(validateAccountOwnerProjectOnboarding(bad,device),null);
+});
+
+test("Project binding intent accepts only Owner project/device confirmation and never local Runtime authority",async()=>{
+  const input={project_id:project,device_id:device,confirm:"bind_project_device"};
+  assert.deepEqual(parseAccountOwnerProjectBindingIntent(input),input);
+  for(const bad of [
+    {...input,local_project_ref:"project-1"},
+    {...input,allowed_capabilities:["terminal.exec"]},
+    {...input,repository_id:"123456789"},
+    {...input,repository_full_name:"ordaxsystems/ordax-platform"},
+    {...input,installation_id:"9001"},
+    {...input,grant_profile:"project-native-terminal"},
+    {...input,space_id:space},
+    {...input,path:"/Documentos/Projeto"},
+    {...input,metadata:{}},
+    {...input,confirm:"yes"},
+  ]) assert.equal(parseAccountOwnerProjectBindingIntent(bad),null);
+
+  const intent="99999999-9999-4999-8999-999999999999";
+  const upstream={ok:true,schema:"ordax.owner-project-device-binding-intent/1",
+    intent_id:intent,project_id:project,device_id:device,
+    expires_at:"2026-11-14T00:10:00Z",
+    next_state:"awaiting_device_confirmation",
+    local_project_ref:"drop",allowed_capabilities:["drop"],grant_id:"drop"};
+  const calls=[];
+  const result=await createAccountOwnerProjectBindingIntent(access,input,async(url,options)=>{
+    calls.push({url,options});
+    return makeResponse(upstream,url,201);
+  });
+  assert.deepEqual(result,{ok:true,schema:"ordax.owner-project-device-binding-intent/1",
+    intent_id:intent,project_id:project,device_id:device,
+    expires_at:"2026-11-14T00:10:00Z",
+    next_state:"awaiting_device_confirmation"});
+  assert.equal(calls.length,1);
+  assert.equal(calls[0].url,OWNER_PROJECT_BINDING_INTENTS_URL);
+  assert.equal(calls[0].options.method,"POST");
+  assert.deepEqual(JSON.parse(calls[0].options.body),input);
+  assert.equal(calls[0].options.headers.Authorization,"Bearer "+access);
+  assert.equal("local_project_ref" in result,false);
+  assert.equal("allowed_capabilities" in result,false);
+  assert.equal("grant_id" in result,false);
+
+  let uncertainCalls=0;
+  await assert.rejects(createAccountOwnerProjectBindingIntent(access,input,async()=>{
+    uncertainCalls+=1;
+    throw Error("uncertain");
+  }));
+  assert.equal(uncertainCalls,1,"an uncertain binding-intent POST must never be replayed");
+
+  for(const invalid of [
+    {...upstream,intent_id:"bad"},
+    {...upstream,project_id:other},
+    {...upstream,device_id:other},
+    {...upstream,expires_at:"bad"},
+    {...upstream,next_state:"ready_without_grants"},
+    {...upstream,schema:"other"},
+  ]) {
+    await assert.rejects(createAccountOwnerProjectBindingIntent(access,input,
+      async(url)=>makeResponse(invalid,url,201)),/unconfirmed/);
+  }
 });
 
 test("GitHub start accepts only Project confirmation and projects a fixed provider destination",async()=>{
