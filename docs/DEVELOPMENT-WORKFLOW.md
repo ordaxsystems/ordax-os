@@ -137,17 +137,21 @@ estado atual dos owners e contratos antes de qualquer ação.
   sem confirmar uma acao inexistente. Prova integrada sobre HTTP
   loopback com tokens distintos e rejeicao de acesso indevido.
   Testes: 58 OS e 130 Surface.
-- Compilacao local oficial ordax-runtime em
-  5173f2b01cb7abb1e5d98fdd00750c17fb6f85e4;
-  SHA-256 988f2ee5a57404f03db8536d515551d3ed2976783a1575e92223b8f611fe327e,
-  18.682.343 bytes; self-test congelado offline e dependencias
-  verificadas por hash. Slot DEV atualizado sem reinstalar Electron.
-- Janela Electron real e Surface prontas, reporter e polling autenticados
-  no Native Host, 1 instancia Product (2 processos), 1 MCP Windows separado.
-- Testes de integracao no OS, regressao da Surface, testes Python do
-  Runtime e provas fisicas de loopback invalidado aprovadas.
-- SSOT de evidencias: docs/evidence/desktop-runtime-windows-candidate-2026-10-31.json.
-  Arquivo historico de CI/prova remota da revisao anterior so no Git.
+- Runtime canonico sincronizado em
+  d37149e96b8a6c26efeba4385e3fef3a227aceac (0.4.8), com source lock
+  OS no mesmo SHA. Candidate Linux pós-merge: run 43570687048 / artifact
+  14103998630; continua unsigned, source-only e sem autoridade de instalacao.
+- Candidate Windows pós-merge: run 43571454760 / artifact 14104387935;
+  ordax-product-agent.exe SHA-256
+  5b41b527f0557b25a715b8c1c766a1b7c82383e1b99b31dd0cf08f17deeb66e3,
+  19.549.060 bytes. Prova física isolada e self-test no slot DEV passaram
+  sem Python, checkout, rede ou credencial e sem reinstalar Electron.
+- O Supervisor GitHub atual observa readiness do mesmo Runtime por handoff
+  launch-bound e nunca converte readiness em binding/grant. No estado físico
+  atual o Product está fail-closed em device_not_enrolled e nenhum processo
+  ordax-product-agent está ativo; restaurar matrícula é uma ação Owner separada.
+- SSOT de evidencias: docs/evidence/desktop-runtime-windows-candidate-2026-11-14.json.
+  Evidencias anteriores permanecem historicas e nao autorizam o slot atual.
 
 **Gates por responsabilidade (02/11/2026):**
 - Platform #333 ja foi integrada a main (bcb9c8e7), com

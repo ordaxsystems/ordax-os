@@ -19,6 +19,42 @@ A [PR #2243](https://github.com/ordaxsystems/ordax-os/pull/2243) foi **integrada
 
 **Limite da prova:** integração Git não comprova, por si só, imagem Linux/EROFS exata, publicação, gravação de USB, boot físico ou promoção Stable. O corpo histórico abaixo preserva checkpoints anteriores ao merge, inclusive declarações `#2243 draft`, conflitos, locks APK e produtores ausentes: **não são o estado atual**. Para cada gate consultar artefato/CI/recibo da revisão final e autorização física vigente; não assumir sucesso nem refazer builds sem causalidade. Este checkpoint não bloqueia a execução paralela de outros owners.
 
+## Product Runtime / Desktop MCP reconciliado — 14/11/2026
+
+O Runtime canônico está em `ordax-runtime/main` no commit
+`d37149e96b8a6c26efeba4385e3fef3a227aceac` (0.4.8), e o source lock
+do OS aponta para o mesmo SHA e para o contrato de compatibilidade
+`ef5f2439f7644bbacf03b67636d7ec3cbe2a45b292ad86e42f53134c69f33c3a`.
+A evidência Linux pós-merge é o run `43570687048`, artifact
+`14103998630`, archive SHA-256
+`51cb35bf5007e28c3718df7bbc504eee05cff5bcdcfa0487455f873df87b6405`;
+continua `ci-only-unsigned`, source-only e sem autoridade de instalação.
+
+O candidate Windows canônico vem do run `43571454760`, artifact
+`14104387935`. O `ordax-product-agent.exe` aprovado tem 19.549.060 bytes
+e SHA-256
+`5b41b527f0557b25a715b8c1c766a1b7c82383e1b99b31dd0cf08f17deeb66e3`.
+A prova física isolada e o self-test no slot DEV passaram; o readback de
+14/11 confirmou os mesmos bytes em
+`%APPDATA%\\OrdaX OS Desktop Dev\\native-state\\product-runtime-dev`.
+Isso não altera a pasta de instalação do Desktop nem ativa Stable/MVP.
+
+A identidade Product DEV possui `agent-settings.json` para o Device
+`51ad4baf-7805-499e-9c48-b89f52af1953`, protocolo `cloudflare-v3` e
+`https://mcp.ordax.com.br`, mas o token Product está ausente. Portanto o
+Supervisor permanece fail-closed: não copiar credenciais/grants do MCP Windows,
+não criar Device paralelo e não inferir prontidão de processo, heartbeat ou CI.
+
+O Desktop/OS agora observa o **mesmo** `ordax-runtime` por handoff local
+launch-bound e projeta `productDispatchReady` somente após validar
+`/readiness` e o `capabilities_digest` calculado do mesmo catálogo usado no
+heartbeat. Os campos legados `mcpReady` e `centralSessionAttested` permanecem
+falsos: readiness local não é autorização de cliente. O binding persistente
+conversa/Project -> Device e os grants continuam autoridade da Platform até
+invalidação explícita; não há TTL de heartbeat, segundo scheduler, segundo MCP
+ou catálogo duplicado. SSOT Windows:
+`docs/evidence/desktop-runtime-windows-candidate-2026-11-14.json`.
+
 ## Como ler os checkpoints abaixo
 
 **Somente a seção inicial de 13/11/2026 acima representa o checkpoint operacional consolidado deste arquivo.** Todo bloco datado abaixo preserva evidência do estado observado naquele momento e pode conter PRs, SHAs, devices, prioridades, “next action”, “CURRENT” ou “pendente” que já foram superados. Esses termos **não** criam fila atual. Para estado volátil, consultar o código/contrato vigente e o owner correspondente; para PRs e CI, consultar o GitHub atual; para Runtime/Platform/MCP, consultar os respectivos owners. Em divergência, o bloco mais novo e as fontes canônicas vencem o snapshot antigo.
