@@ -73,6 +73,7 @@ import {
 } from "./verified-installed-apps.mjs";
 import {
   createNativeVerifiedInstalledAppRefresh,
+  hasUnreconciledVerifiedCurrentMounts,
   verifiedCurrentInstallationFingerprint,
 } from "./verified-installed-app-refresh.mjs";
 import { listBundledFirstPartyIntelligenceManifests } from "../../apps/intelligence-catalog.mjs";
@@ -1430,6 +1431,12 @@ async function start() {
     () => mountVerifiedExternalApps(installedAppCatalog?.installed ?? []),
   );
   const mountedExternalIds = new Set(externalAppMounts?.mountedIds ?? []);
+  // A failed cold mount must not poison deduplication: the next verified
+  // CURRENT notification must retry even when its signed revision is unchanged.
+  // Only actually mounted slots enter the published app catalog below.
+  if (hasUnreconciledVerifiedCurrentMounts(installedAppEntries, mountedExternalIds)) {
+    lastInstalledCurrentFingerprint = null;
+  }
   const activeExternalCatalog = createNativeVerifiedInstalledAppCatalog(
     installedAppEntries.filter((entry) => mountedExternalIds.has(entry.component.id)),
   );

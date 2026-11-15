@@ -1,9 +1,36 @@
 import test from "node:test";
 import assert from "node:assert/strict";
-import { createNativeVerifiedInstalledAppRefresh, verifiedCurrentInstallationFingerprint } from "./verified-installed-app-refresh.mjs";
+import {
+  createNativeVerifiedInstalledAppRefresh,
+  hasUnreconciledVerifiedCurrentMounts,
+  verifiedCurrentInstallationFingerprint,
+} from "./verified-installed-app-refresh.mjs";
 
 const entry = (id, rev = 1) => ({ component: { id }, metadata: { revision: rev } });
 const catalog = (entries) => ({ catalog: { ids: entries.map(x => x.component.id) }, installed: entries });
+
+test("failed cold CURRENT mount remains retryable when signed Store fingerprint is unchanged", () => {
+  const installed = [entry("calculator"), entry("notes")];
+  const onlyCalculator = new Set(["calculator"]);
+  const coldFingerprint = verifiedCurrentInstallationFingerprint([
+    {componentId: "calculator", source: "slot", revision: 1, version: "1.0.0",
+      sourceCommit: "a".repeat(40), entrypoint: "system/apps/calculator/main.mjs"},
+    {componentId: "notes", source: "slot", revision: 1, version: "1.0.0",
+      sourceCommit: "b".repeat(40), entrypoint: "system/apps/notes/main.mjs"},
+  ]);
+  let lastObservedFingerprint = coldFingerprint;
+  if (hasUnreconciledVerifiedCurrentMounts(installed, onlyCalculator)) {
+    lastObservedFingerprint = null;
+  }
+  assert.equal(lastObservedFingerprint, null,
+    "next signed observation must retry a missing cold mount even without a revision change");
+  assert.notEqual(lastObservedFingerprint, coldFingerprint);
+  assert.equal(hasUnreconciledVerifiedCurrentMounts(installed, new Set(["calculator", "notes"])), false,
+    "fully mounted cold start must not cause unnecessary remounts");
+  assert.equal(hasUnreconciledVerifiedCurrentMounts([], new Set()), false);
+  assert.throws(() => hasUnreconciledVerifiedCurrentMounts([null], new Set()), TypeError);
+  assert.throws(() => hasUnreconciledVerifiedCurrentMounts(installed, ["calculator"]), TypeError);
+});
 
 test("CURRENT changed: withdraw synchronously, destroy old, mount verified app", async () => {
   const published = [];
