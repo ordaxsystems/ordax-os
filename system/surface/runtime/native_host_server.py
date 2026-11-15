@@ -5446,7 +5446,9 @@ class NativeHostHandler(SimpleHTTPRequestHandler):
                 # SSIDs, passwords, PSKs and WPA logs never enter the response.
                 detail = getattr(exc, "network_detail", "")
                 known = {"authentication-failed", "dhcp-failed", "supplicant-start-failed",
-                         "network-owner-unavailable", "connect-failed", "reconnect-failed"}
+                         "network-owner-unavailable", "connect-failed", "reconnect-failed",
+                         "wifi-tools-unavailable", "no-wifi-interface",
+                         "credential-save-failed"}
                 if detail in known:
                     status = 409 if detail in {"authentication-failed", "dhcp-failed",
                                               "connect-failed", "reconnect-failed"} else 503
@@ -5454,9 +5456,15 @@ class NativeHostHandler(SimpleHTTPRequestHandler):
                 else:
                     self._empty(503)
                 return
-            except (FileNotFoundError, PermissionError, TimeoutError, OSError) as exc:
-                print(f"ordax-native-host: network management action failed safely: {exc}", file=sys.stderr, flush=True)
-                self._empty(503)
+            except FileNotFoundError:
+                self._write_json(503, {"reason": "network-broker-unavailable"})
+                return
+            except TimeoutError:
+                self._write_json(503, {"reason": "network-broker-timeout"})
+                return
+            except (PermissionError, OSError) as exc:
+                print(f"ordax-native-host: network management IPC failure: {type(exc).__name__}", file=sys.stderr, flush=True)
+                self._write_json(503, {"reason": "network-broker-io-failed"})
                 return
             self._write_json(200, snapshot)
             return

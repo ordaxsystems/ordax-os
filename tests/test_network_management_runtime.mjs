@@ -85,6 +85,12 @@ test("network failures distinguish WPA, DHCP and controller issues without secre
     ["dhcp-failed", 409, "dhcp", "DHCP"],
     ["supplicant-start-failed", 503, "supplicant", "serviço de autenticação"],
     ["network-owner-unavailable", 503, "ownerUnavailable", "controlador Wi-Fi"],
+    ["network-broker-unavailable", 503, "brokerUnavailable", "serviço nativo"],
+    ["network-broker-timeout", 503, "brokerTimeout", "demorou demais"],
+    ["network-broker-io-failed", 503, "brokerIo", "falhou ao acessar"],
+    ["wifi-tools-unavailable", 503, "wifiTools", "ferramentas Wi-Fi"],
+    ["no-wifi-interface", 503, "noInterface", "interface Wi-Fi"],
+    ["credential-save-failed", 503, "credentialSave", "não pôde ser salva"],
   ]) {
     const error = Object.assign(new Error("private"), { status, networkReason: reason });
     assert.equal(networkManagementFailureMessageId("connect", error), "network.management.error." + kind);

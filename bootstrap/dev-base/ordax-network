@@ -11,6 +11,7 @@ SCAN_FILE=/run/ordax-wifi-scan.tsv
 SSID_FILE=/run/ordax-wifi-ssids
 WPA_CTRL_DIR=/run/ordax-wpa-supplicant
 WPA_PID_FILE=/run/ordax-wpa-supplicant.pid
+DHCP_SCRIPT=/ordax/bootstrap/network/udhcpc.script
 NETWORK_STATUS_FILE=${ORDAX_NETWORK_STATUS_FILE:-/run/ordax-network-status}
 PROBE_REPO_URL=${ORDAX_REPO_URL:-https://github.com/ordaxsystems/ordax-os.git}
 CLOCK_SYNC_TIMEOUT=${ORDAX_CLOCK_SYNC_TIMEOUT_SECONDS:-5}
@@ -154,9 +155,10 @@ finish_network() {
 try_dhcp() {
     iface=$1
     ip link set "$iface" up >/dev/null 2>&1 || return 1
+    [ -x "$DHCP_SCRIPT" ] || return 1
     /bin/busybox timeout -k 1 "$DHCP_TIMEOUT" \
-        udhcpc -n -q -t 2 -T 2 -i "$iface" >/dev/null 2>&1 || return 1
-    have_ipv4
+        udhcpc -n -q -t 2 -T 2 -i "$iface" -s "$DHCP_SCRIPT" >/dev/null 2>&1 || return 1
+    ip -4 -o addr show dev "$iface" scope global 2>/dev/null | grep -q " inet "
 }
 
 if [ "$force_choose" -eq 0 ] && have_ipv4; then

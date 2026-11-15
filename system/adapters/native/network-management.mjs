@@ -48,7 +48,10 @@ export async function createNativeNetworkManagement(windowRef = globalThis.windo
         try {
           const body = await response.json();
           if (["authentication-failed", "dhcp-failed", "supplicant-start-failed",
-               "network-owner-unavailable"].includes(body?.reason)) {
+               "network-owner-unavailable", "network-broker-unavailable",
+               "network-broker-timeout", "network-broker-io-failed",
+               "wifi-tools-unavailable", "no-wifi-interface",
+               "credential-save-failed"].includes(body?.reason)) {
             error.networkReason = body.reason;
           }
         } catch {

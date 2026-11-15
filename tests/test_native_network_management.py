@@ -247,6 +247,9 @@ class NativeNetworkManagementTests(unittest.TestCase):
         self.assertIn('WIFI_TOOLS_READY=0', broker)
         self.assertIn('wifi-tools-unavailable', broker)
         self.assertIn('timeout -k 1 8 "$UDHCPC_BIN"', broker)
+        self.assertIn("DHCP_SCRIPT=/ordax/bootstrap/network/udhcpc.script", broker)
+        self.assertIn('-i "$wifi" -s "$DHCP_SCRIPT"', broker)
+        self.assertIn('[ -x "$DHCP_SCRIPT" ] || return 1', broker)
 
     def test_wired_carrier_is_read_only_after_interface_is_raised(self):
         # A DOWN NIC can expose an unreadable or 0 carrier. Skipping it
@@ -328,6 +331,9 @@ class NativeNetworkManagementTests(unittest.TestCase):
         self.assertIn('failure_reason=$connect_failure_reason', broker)
         self.assertIn('respond "$request_id" error "$wifi" "$failure_reason"', broker)
         self.assertIn('self._write_json(status, {"reason": detail})', host)
+        self.assertIn('self._write_json(503, {"reason": "network-broker-unavailable"})', host)
+        self.assertIn('self._write_json(503, {"reason": "network-broker-timeout"})', host)
+        self.assertIn('self._write_json(503, {"reason": "network-broker-io-failed"})', host)
         self.assertIn('timeout_seconds=42.0 if action in {"connect", "reconnect"}', host)
 
     def test_first_run_wifi_waits_for_wpa_handshake_and_bounded_scan(self):
