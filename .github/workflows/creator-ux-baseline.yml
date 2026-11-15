@@ -207,12 +207,13 @@ jobs:
                   'ordax-creator-physical-test.exe', 'ordax-bootstrap-seed.raw', 'provenance.json',
               ],
               'release': [
-                  'name: Creator Owner Development Git USB', "-tags 'ordax_raw_backend'",
-                  "-tags 'ordax_owner_prototype'", 'OrdaX-Creator-Owner-Prototype.zip',
+                  'name: Creator Owner Development Git USB', "-tags 'ordax_owner_prototype ordax_single_exe ordax_raw_backend'",
+                  "-X main.buildCreatorVersion=", "-X main.buildCreatorSourceCommit=",
+                  'OrdaX-Creator-Owner-Prototype.zip',
                   'prototype-ordax.creator-owner-bundle-update/1', "'automatic_in_app_update': False",
                   "delete-asset creator-owner-prototype 'OrdaX-Creator.exe'",
-                  'OWNER_RELEASE_PIPELINE=SPLIT_BUNDLE', 'OWNER_STANDALONE_EXE_PUBLISHED=NO',
-                  'OWNER_SPLIT_BUNDLE_PUBLISHED=YES',
+                  'OWNER_RELEASE_PIPELINE=SINGLE_EXE_ZIP', 'OWNER_STANDALONE_EXE_PUBLISHED=YES',
+                  'OWNER_SPLIT_BUNDLE_PUBLISHED=NO',
               ],
           }
           for name, anchors in required.items():
