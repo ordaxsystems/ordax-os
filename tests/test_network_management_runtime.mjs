@@ -99,6 +99,9 @@ test("network failures distinguish WPA, DHCP and controller issues without secre
     assert.ok(message.includes(phrase));
     assert.equal(message.includes("private"), false);
   }
+  const expired = Object.assign(new Error("private"), { status: 403 });
+  assert.equal(networkManagementFailureMessageId("connect", expired), "network.management.error.sessionUnavailable");
+  assert.ok(networkManagementFailureMessage("connect", expired).includes("sessão nativa"));
   const untrusted = Object.assign(new Error("private"), { status: 409, networkReason: "raw-wpa-secret" });
   assert.equal(networkManagementFailureMessageId("connect", untrusted), "network.management.error.connectConflict");
 });
