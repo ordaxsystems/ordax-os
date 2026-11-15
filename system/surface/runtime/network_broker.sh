@@ -35,6 +35,9 @@ IW_BIN=$(command -v iw || true)
 WPA_BIN=$(command -v wpa_supplicant || true)
 WPA_CLI_BIN=$(command -v wpa_cli || true)
 UDHCPC_BIN=$(command -v udhcpc || true)
+# The Base owns one DHCP lease/route/DNS implementation. Never fall back to
+# BusyBox's build-dependent default.script for Surface Wi-Fi or wired renewal.
+DHCP_SCRIPT=/ordax/bootstrap/network/udhcpc.script
 
 [ -n "$IP_BIN" ] && [ -n "$UDHCPC_BIN" ] || {
     echo "ordax-network-broker: IP/DHCP host tools are unavailable" >&2
@@ -188,6 +191,9 @@ restore_wired_network_if_needed() {
             [ "$carrier" = 1 ] || continue
         fi
         if try_dhcp "$iface"; then
+            # The Native chroot keeps its own resolver snapshot. A wired
+            # reconnection must refresh it just like a Wi-Fi reconnection.
+            sync_runtime_resolver
             return 0
         fi
     done
@@ -197,7 +203,8 @@ restore_wired_network_if_needed() {
 try_dhcp() {
     wifi=$1
     "$IP_BIN" link set "$wifi" up >/dev/null 2>&1 || return 1
-    /bin/busybox timeout -k 1 8 "$UDHCPC_BIN" -n -q -t 2 -T 2 -i "$wifi" >/dev/null 2>&1 || return 1
+    [ -x "$DHCP_SCRIPT" ] || return 1
+    /bin/busybox timeout -k 1 8 "$UDHCPC_BIN" -n -q -t 2 -T 2 -i "$wifi" -s "$DHCP_SCRIPT" >/dev/null 2>&1 || return 1
     have_ipv4 "$wifi"
 }
 

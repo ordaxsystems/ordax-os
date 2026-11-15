@@ -68,13 +68,19 @@ test("native network adapter reports safe WPA/DHCP failures without exposing sec
         return { ok: true, json: async () => ({ networkToken: "012345678901234567890123456789ab" }) };
       }
       if (options.method === "GET") return { ok: true, json: async () => snapshot };
-      return { ok: false, status: reason === "network-owner-unavailable" ? 503 : 409,
+      return { ok: false, status: reason === "dhcp-failed" || reason === "untrusted-secret" ? 409 : 503,
         json: async () => ({ reason, password: "PRIVATE_VALUE" }) };
     },
   };
   const port = await createNativeNetworkManagement(fakeWindow);
   for (const [nextReason, expected] of [["dhcp-failed", "dhcp-failed"],
     ["network-owner-unavailable", "network-owner-unavailable"],
+    ["network-broker-unavailable", "network-broker-unavailable"],
+    ["network-broker-timeout", "network-broker-timeout"],
+    ["network-broker-io-failed", "network-broker-io-failed"],
+    ["wifi-tools-unavailable", "wifi-tools-unavailable"],
+    ["no-wifi-interface", "no-wifi-interface"],
+    ["credential-save-failed", "credential-save-failed"],
     ["untrusted-secret", undefined]]) {
     reason = nextReason;
     await assert.rejects(port.connect({ ssid: "Casa", password: "validpassword" }), (error) => {

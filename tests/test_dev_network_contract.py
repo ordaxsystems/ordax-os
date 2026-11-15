@@ -46,6 +46,9 @@ class DevelopmentNetworkContractTest(unittest.TestCase):
         self.assertIn('net_type=$(cat "$netpath/type" 2>/dev/null || true)', text)
         self.assertIn('[ "$net_type" = 1 ] || continue', text)
         self.assertIn('echo "ordax-network: tentando DHCP em $iface"', text)
+        self.assertIn("DHCP_SCRIPT=/ordax/bootstrap/network/udhcpc.script", text)
+        self.assertIn('-i "$iface" -s "$DHCP_SCRIPT"', text)
+        self.assertIn('ip -4 -o addr show dev "$iface" scope global', text)
         self.assertLess(
             text.index('[ "$net_type" = 1 ] || continue'),
             text.index('echo "ordax-network: tentando DHCP em $iface"'),

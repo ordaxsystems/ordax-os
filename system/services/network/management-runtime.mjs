@@ -31,6 +31,12 @@ function failureKind(action, error) {
       "dhcp-failed": "dhcp",
       "supplicant-start-failed": "supplicant",
       "network-owner-unavailable": "ownerUnavailable",
+      "network-broker-unavailable": "brokerUnavailable",
+      "network-broker-timeout": "brokerTimeout",
+      "network-broker-io-failed": "brokerIo",
+      "wifi-tools-unavailable": "wifiTools",
+      "no-wifi-interface": "noInterface",
+      "credential-save-failed": "credentialSave",
     };
     if (Object.hasOwn(reasons, error?.networkReason)) return reasons[error.networkReason];
   }
@@ -60,6 +66,12 @@ export function networkManagementFailureMessage(action, error) {
     dhcp: "O Wi-Fi autenticou, mas o roteador não forneceu um endereço IP (DHCP).",
     supplicant: "O serviço de autenticação Wi-Fi não conseguiu iniciar neste dispositivo.",
     ownerUnavailable: "O controlador Wi-Fi não respondeu. A conexão anterior foi preservada.",
+    brokerUnavailable: "O serviço nativo de Wi-Fi não está disponível. Reinicie a Surface para recuperar o controlador.",
+    brokerTimeout: "O serviço nativo de Wi-Fi demorou demais para responder. A conexão não foi confirmada.",
+    brokerIo: "O serviço nativo de Wi-Fi falhou ao acessar o controlador. Nenhuma conexão foi confirmada.",
+    wifiTools: "As ferramentas Wi-Fi necessárias não estão disponíveis no sistema.",
+    noInterface: "Nenhuma interface Wi-Fi foi detectada pelo sistema. Verifique o adaptador sem fio.",
+    credentialSave: "A conexão Wi-Fi foi iniciada, mas a configuração não pôde ser salva.",
     reconnectConflict: "A rede salva não pôde ser reconectada. A configuração salva foi preservada.",
     validation: "SSID ou senha fora dos limites aceitos para esta rede Wi-Fi.",
     generic: "A ação de Wi-Fi não pôde ser concluída. A rede anterior foi preservada quando aplicável.",
