@@ -1519,8 +1519,10 @@ select_owner_virtio_webkit_transport() {
         # EGL segfaults inside libgallium during Cage's first output modeset
         # (Owner QEMU proof 40334704786, exit 139). Merely allowing wlroots
         # software GLES still invokes the crashing Gallium path. Use wlroots'
-        # native pixman CPU compositor for this verified Owner virtio device;
-        # keep Mesa software rendering and non-DMA-BUF transport for WebKit.
+        # native pixman CPU compositor for this verified Owner virtio device.
+        # LIBGL/WLR renderer flags belong to Cage; the existing browser host
+        # strips those compositor-only overrides before importing WebKit while
+        # preserving WEBKIT_DISABLE_DMABUF_RENDERER for the WebProcess.
         # Stable/MVP and physical GPUs retain their normal renderer policy.
         export LIBGL_ALWAYS_SOFTWARE=1
         export WLR_RENDERER=pixman
