@@ -75,7 +75,9 @@ class PhysicalMvpHardeningTests(unittest.TestCase):
         self.assertRegex(card, r"min-height\s*:\s*0")
         self.assertRegex(body, r"overflow\s*:\s*auto")
         self.assertRegex(footer, r"flex\s*:\s*0\s+0\s+auto")
-        self.assertRegex(shell, r"height\s*:\s*min\(\d+px,\s*calc\(100dvh\s*-\s*\d+px\)\)")
+        # The shell remains viewport-bounded with a fixed or responsive gutter.
+        self.assertRegex(shell, r"height\s*:\s*min\(\d+px,\s*calc\(100dvh\s*-\s*(?:\d+px|var\(--ordax-first-run-gutter\)(?:\s*-\s*var\(--ordax-first-run-gutter\))?)\)\)")
+        self.assertRegex(shell, r"max-height\s*:\s*calc\(100dvh\s*-")
 
         # USB/native First Run is desktop-only: its Meridian rail and content
         # panel remain the same layout instead of switching to a phone flow.
