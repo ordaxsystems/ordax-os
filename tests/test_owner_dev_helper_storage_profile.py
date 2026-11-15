@@ -8,6 +8,9 @@ HELPER = (Path(os.environ["ORDAX_CREATOR_NATIVE_SOURCE"])
           / "cmd/ordax-creator-physical-test/main_windows.go"
           if os.environ.get("ORDAX_CREATOR_NATIVE_SOURCE") else None)
 WORKFLOW = ROOT / ".github/workflows/creator-owner-dev-git.yml"
+OWNER_SINGLE_EXE = (Path(os.environ["ORDAX_CREATOR_NATIVE_SOURCE"])
+                    / "cmd/ordax-creator-app/owner_single_exe_backend_windows.go"
+                    if os.environ.get("ORDAX_CREATOR_NATIVE_SOURCE") else None)
 
 
 class OwnerDevHelperSourceBoundaryTests(unittest.TestCase):
@@ -20,15 +23,23 @@ class OwnerDevHelperSourceBoundaryTests(unittest.TestCase):
         self.assertIn("uses: ./.github/actions/resolve-creator-source", owner)
         self.assertIn("uses: ./.github/actions/resolve-creator-source", physical)
         self.assertIn("tests/test_owner_dev_helper_storage_profile.py", physical)
-        self.assertIn("-X main.buildStorageProfile=owner-development", owner)
+        self.assertIn("-tags 'ordax_owner_prototype ordax_single_exe ordax_raw_backend'", owner)
+        self.assertIn("OWNER_RAW_HELPER_SEPARATE=NO", owner)
 
 
 @unittest.skipUnless(os.environ.get("ORDAX_CREATOR_NATIVE_SOURCE"),
                      "Windows helper implementation is checked from pinned standalone source in Windows CI")
 class OwnerDevHelperStorageProfileTests(unittest.TestCase):
-    def test_owner_workflow_binds_development_storage_profile_into_split_helper(self):
+    def test_owner_workflow_binds_development_storage_profile_into_embedded_backend(self):
         workflow = WORKFLOW.read_text(encoding="utf-8")
-        self.assertIn("-X main.buildStorageProfile=owner-development", workflow)
+        source = OWNER_SINGLE_EXE.read_text(encoding="utf-8")
+        self.assertIn("-tags 'ordax_owner_prototype ordax_single_exe ordax_raw_backend'", workflow)
+        self.assertIn('StorageProfile:            "owner-development"', source)
+        self.assertIn("creatorcore.PrepareOwnerDevelopmentStorageImage(", source)
+        self.assertIn("creatorcore.PlanOwnerDevelopmentStorage(", source)
+        self.assertIn("windowsadapter.ApplyPhysicalTestWithProgress(", source)
+        self.assertIn("windowsadapter.FormatPortableDataVolume(", source)
+        self.assertIn("ownerEnumerateConfirmed(*confirm)", source)
 
     def test_split_helper_resolves_profile_once_per_prepare_and_apply(self):
         source = HELPER.read_text(encoding="utf-8")
