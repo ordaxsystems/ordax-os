@@ -243,6 +243,8 @@ class NativeNetworkManagementTests(unittest.TestCase):
         self.assertIn('[ "$net_type" = 1 ] || continue', broker)
         self.assertIn('[ "$carrier" = 1 ] || continue', broker)
         self.assertIn('if try_dhcp "$iface"; then', broker)
+        wired_reconnect = broker.split('restore_wired_network_if_needed() {', 1)[1].split('\n}\n', 1)[0]
+        self.assertIn('sync_runtime_resolver', wired_reconnect)
         self.assertIn('restore_wired_network_if_needed >/dev/null 2>&1 || true', broker)
         self.assertIn('WIFI_TOOLS_READY=0', broker)
         self.assertIn('wifi-tools-unavailable', broker)

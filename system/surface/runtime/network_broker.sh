@@ -191,6 +191,9 @@ restore_wired_network_if_needed() {
             [ "$carrier" = 1 ] || continue
         fi
         if try_dhcp "$iface"; then
+            # The Native chroot keeps its own resolver snapshot. A wired
+            # reconnection must refresh it just like a Wi-Fi reconnection.
+            sync_runtime_resolver
             return 0
         fi
     done
