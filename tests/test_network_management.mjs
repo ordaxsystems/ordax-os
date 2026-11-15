@@ -3,6 +3,7 @@ import test from "node:test";
 
 import {
   NETWORK_MANAGEMENT_SCHEMA,
+  WifiCredentialsValidationError,
   assertNetworkManagementPort,
   validateNetworkManagementSnapshot,
   validateWifiCredentials,
@@ -37,7 +38,8 @@ test("network management credentials stay input-only", () => {
 });
 
 test("network management rejects duplicates and invalid credentials", () => {
-  assert.throws(() => validateWifiCredentials({ ssid: "Casa", password: "curta" }));
+  assert.throws(() => validateWifiCredentials({ ssid: "Casa", password: "curta" }), WifiCredentialsValidationError);
+  assert.throws(() => validateWifiCredentials({ ssid: "", password: "12345678" }), WifiCredentialsValidationError);
   assert.throws(() => validateNetworkManagementSnapshot({
     wifiInterface: "wlan0",
     currentSsid: null,

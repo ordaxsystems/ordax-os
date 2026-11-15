@@ -1,4 +1,4 @@
-import { assertNetworkManagementPort } from "../../contracts/network-management.mjs";
+import { assertNetworkManagementPort, WifiCredentialsValidationError } from "../../contracts/network-management.mjs";
 
 const ACTIONS = new Set(["scan", "connect", "disconnect", "forget", "reconnect"]);
 
@@ -27,7 +27,8 @@ function failureKind(action, error) {
   assertAction(action);
   if (error?.status === 409 && action === "connect") return "connectConflict";
   if (error?.status === 409 && action === "reconnect") return "reconnectConflict";
-  if (error instanceof TypeError) return "validation";
+  // A malformed native snapshot also throws TypeError; it is not a bad password.
+  if (error instanceof WifiCredentialsValidationError) return "validation";
   return "generic";
 }
 

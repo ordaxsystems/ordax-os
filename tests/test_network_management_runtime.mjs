@@ -1,7 +1,7 @@
 import assert from "node:assert/strict";
 import test from "node:test";
 
-import { NETWORK_MANAGEMENT_SCHEMA } from "../system/contracts/network-management.mjs";
+import { NETWORK_MANAGEMENT_SCHEMA, WifiCredentialsValidationError } from "../system/contracts/network-management.mjs";
 import {
   networkManagementActionMessage,
   networkManagementActionMessageId,
@@ -66,8 +66,16 @@ test("shared network management runtime exposes locale-neutral presentation ids"
     "network.management.error.connectConflict",
   );
   assert.equal(
-    networkManagementFailureMessageId("disconnect", new TypeError("invalid secret input")),
+    networkManagementFailureMessageId("disconnect", new TypeError("invalid native snapshot")),
+    "network.management.error.generic",
+  );
+  assert.equal(
+    networkManagementFailureMessageId("connect", new WifiCredentialsValidationError("invalid credentials")),
     "network.management.error.validation",
+  );
+  assert.equal(
+    networkManagementFailureMessage("connect", new TypeError("native snapshot invalid")),
+    "A ação de Wi-Fi não pôde ser concluída. A rede anterior foi preservada quando aplicável.",
   );
 });
 

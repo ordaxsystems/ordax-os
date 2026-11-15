@@ -1,5 +1,8 @@
 export const NETWORK_MANAGEMENT_SCHEMA = "ordax.network-management/1";
 
+// Invalid credentials are distinct from malformed native network snapshots.
+export class WifiCredentialsValidationError extends TypeError {}
+
 const INTERFACE_RE = /^[A-Za-z0-9_.:-]{1,32}$/;
 const SECURITY_MODES = new Set(["wpa-psk"]);
 const MAX_NETWORKS = 32;
@@ -83,10 +86,16 @@ export function validateNetworkManagementSnapshot(value) {
 
 export function validateWifiCredentials(value) {
   if (!value || typeof value !== "object") {
-    throw new TypeError("Wi-Fi credentials must be an object");
+    throw new WifiCredentialsValidationError("Wi-Fi credentials must be an object");
   }
-  const ssid = optionalSsid(value.ssid, "ssid");
-  if (ssid === null) throw new TypeError("Wi-Fi SSID is required");
+  let ssid;
+  try {
+    ssid = optionalSsid(value.ssid, "ssid");
+  } catch (error) {
+    if (!(error instanceof TypeError)) throw error;
+    throw new WifiCredentialsValidationError("Wi-Fi SSID must contain 1 to 32 valid UTF-8 bytes");
+  }
+  if (ssid === null) throw new WifiCredentialsValidationError("Wi-Fi SSID is required");
   const passwordBytes = typeof value.password === "string" ? textEncoder.encode(value.password).length : 0;
   if (
     typeof value.password !== "string"
@@ -94,7 +103,7 @@ export function validateWifiCredentials(value) {
     || passwordBytes > 63
     || hasControlCharacter(value.password)
   ) {
-    throw new TypeError("Wi-Fi password must contain 8 to 63 valid bytes");
+    throw new WifiCredentialsValidationError("Wi-Fi password must contain 8 to 63 valid bytes");
   }
   return Object.freeze({ ssid, password: value.password });
 }
