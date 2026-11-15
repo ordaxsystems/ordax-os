@@ -1073,9 +1073,9 @@ jobs:
             --checksums "$release/SHA256SUMS.txt" \
             --readme "$release/LEIA-ME.txt" \
             --source-commit "$ORDAX_OWNER_SOURCE_COMMIT"
-          echo 'OWNER_RELEASE_PIPELINE=SPLIT_BUNDLE'
-          echo 'OWNER_STANDALONE_EXE_PUBLISHED=NO'
-          echo 'OWNER_SPLIT_BUNDLE_PUBLISHED=YES'
+          echo 'OWNER_RELEASE_PIPELINE=SINGLE_EXE_ZIP'
+          echo 'OWNER_STANDALONE_EXE_PUBLISHED=YES'
+          echo 'OWNER_SPLIT_BUNDLE_PUBLISHED=NO'
 
       - name: Cleanup ephemeral private material
         if: ${{ always() }}
