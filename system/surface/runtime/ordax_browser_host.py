@@ -17,6 +17,24 @@ import sys
 import threading
 from urllib.parse import urlsplit
 
+
+def _scope_owner_virtio_compositor_environment() -> None:
+    """Keep Owner/QEMU Cage renderer overrides out of WebKit child processes."""
+    if (
+        os.environ.get("LIBGL_ALWAYS_SOFTWARE") == "1"
+        and os.environ.get("WLR_RENDERER") == "pixman"
+        and os.environ.get("WEBKIT_DISABLE_DMABUF_RENDERER") == "1"
+    ):
+        # Cage has already consumed its renderer selection before launching this
+        # command. WebKit must retain only the non-DMA-BUF transport policy; a
+        # global Mesa software override forces its WebProcess back into the
+        # softpipe path that the Owner/QEMU transport is intended to avoid.
+        os.environ.pop("LIBGL_ALWAYS_SOFTWARE", None)
+        os.environ.pop("WLR_RENDERER", None)
+
+
+_scope_owner_virtio_compositor_environment()
+
 import gi
 
 gi.require_version("Gtk", "3.0")
