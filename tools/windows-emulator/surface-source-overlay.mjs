@@ -132,7 +132,16 @@ export function createLocalSurfaceOverlayPlugin({ repoRoot, localSurface }) {
 
   function logicalFromSource(source, importer) {
     const parsed = stripQuery(source);
-    const base = importerPath(importer, root);
+    const physicalBase = importerPath(importer, root);
+    // Vite sometimes reports the real Surface checkout path as importer,
+    // rather than the virtual overlay ID. Keep relative imports anchored to
+    // the logical OS namespace so contracts still resolve to their owner.
+    const surfaceRelative = physicalBase && inside(surface, physicalBase)
+      ? relative(surface, physicalBase).split(sep).join("/") : null;
+    const logicalBase = surfaceRelative === null ? null
+      : resolve(root, ...surfaceRelative.split("/"));
+    const surfaceImporter = logicalBase && visualRelative(root, logicalBase) !== null;
+    const base = surfaceImporter ? logicalBase : physicalBase;
     if (parsed.path === "@" || parsed.path.startsWith("@/")) {
       const rest = parsed.path === "@" ? "" : parsed.path.slice(2);
       return Object.freeze({
@@ -158,7 +167,7 @@ export function createLocalSurfaceOverlayPlugin({ repoRoot, localSurface }) {
     const target = resolve(dirname(base), parsed.path);
     if (!inside(root, target))
       throw new Error("Surface overlay import escaped OS source root");
-    return Object.freeze({ target, query: parsed.query });
+    return Object.freeze({ target, query: parsed.query, physicalSurfaceImporter: Boolean(surfaceImporter) });
   }
 
   return {
@@ -189,7 +198,8 @@ export function createLocalSurfaceOverlayPlugin({ repoRoot, localSurface }) {
           return found.physical + resolved.query;
         return overlayId(found.logicalRelative, resolved.query);
       }
-      if (importer?.startsWith(OVERLAY_PREFIX)) return resolved.target + resolved.query;
+      if (importer?.startsWith(OVERLAY_PREFIX) || resolved.physicalSurfaceImporter)
+        return resolved.target + resolved.query;
       return null;
     },
 
