@@ -346,6 +346,9 @@ class NativeNetworkManagementTests(unittest.TestCase):
         self.assertIn('-O"$WPA_CTRL_DIR" -i "$wifi" -c "$conf"', text)
         self.assertIn('grep -q \'^wpa_state=COMPLETED$\'', text)
         self.assertIn('/bin/busybox timeout -k 1 15 "$IW_BIN" dev "$wifi" scan', text)
+        host = SERVER.read_text(encoding="utf-8")
+        # Native must outlast the broker's own bounded 15s scan + cleanup.
+        self.assertIn('20.0 if action == "scan" else 12.0', host)
         self.assertLess(
             text.index('if ! wait_for_wifi_link "$wifi"; then'),
             text.index('    if ! try_dhcp "$wifi"; then', text.index('connect_conf()')),
