@@ -5436,7 +5436,10 @@ class NativeHostHandler(SimpleHTTPRequestHandler):
                         action,
                         ssid=payload.get("ssid"),
                         password=payload.get("password"),
-                        timeout_seconds=42.0 if action in {"connect", "reconnect"} else 12.0,
+                        # Native scan must outlive the broker's own 15s iw timeout,
+                        # including signal/IPC receipt overhead. Otherwise a valid
+                        # scan becomes a spurious 503 before the broker replies.
+                        timeout_seconds=42.0 if action in {"connect", "reconnect"} else (20.0 if action == "scan" else 12.0),
                     )
             except ValueError:
                 self._empty(400)
