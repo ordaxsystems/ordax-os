@@ -43,7 +43,7 @@ test("native cursor adapter uses single-owner same-origin bounded JSON", async (
   });
 });
 
-test("optional Windows First Run cursor bootstrap GET can be cancelled without changing durable writes", async () => {
+test("optional Native First Run cursor bootstrap GET can be cancelled without changing durable writes", async () => {
   const controller = new AbortController();
   let initialRead = null;
   const pending = createNativeFirstRunCursor({
@@ -65,8 +65,9 @@ test("native First Run retains independent cursor and durable completion contrac
   const native = await readFile(new URL("../system/composition/native/main.mjs", import.meta.url), "utf8");
   const contract = JSON.parse(await readFile(new URL("../docs/contracts/first-run.json", import.meta.url), "utf8"));
   assert.equal(contract.resume_cursor.resume_later_steps_at_account, true);
-  assert.equal(contract.resume_cursor.windows_read_deadline_ms, 5000);
+  assert.equal(contract.resume_cursor.native_read_deadline_ms, 5000);
   assert.equal(contract.resume_cursor.completion_receipt_unchanged, true);
+  assert.match(native, /const firstRunOptionalReadSignal = AbortSignal\.timeout\(5000\)/);
   assert.match(native, /createNativeFirstRunCursor\(window, \{ signal: firstRunOptionalReadSignal \}\)/);
 });
 

@@ -12,7 +12,7 @@ test("First Run device name remains owned by device-profile", () => {
   assert.equal(contract.device_name.rename_must_be_confirmed_before_advancing, true);
   assert.equal(contract.device_name.must_not_enter_first_run_state, true);
   assert.equal(contract.device_name.owner_unavailable_must_not_block_boot, true);
-  assert.equal(contract.device_name.windows_read_deadline_ms, 5000);
+  assert.equal(contract.device_name.native_read_deadline_ms, 5000);
   assert.equal(contract.owners.device_profile_contract, "system/contracts/device-profile.mjs");
   assert.equal(contract.owners.device_profile_adapter, "system/adapters/native/device-profile.mjs");
 });
@@ -23,7 +23,7 @@ test("Native composition supplies the real device-profile port to First Run", ()
   assert.match(nativeMainSource, /mountFirstRunExperience\(root, \{[\s\S]*?deviceProfile,/);
 });
 
-test("optional Windows device-profile bootstrap GET can be cancelled without changing rename authority", async () => {
+test("optional Native device-profile bootstrap GET can be cancelled without changing rename authority", async () => {
   const controller = new AbortController();
   let initialRead = null;
   const pending = createNativeDeviceProfile({

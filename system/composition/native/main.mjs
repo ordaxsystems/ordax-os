@@ -280,11 +280,11 @@ async function start() {
     "OrdaX Profile component inventory unavailable; using empty session inventory",
     () => createNativeProfileComponentInventory(window),
   );
-  // First Run's read-only Device Profile and cursor must not hang the Windows
-  // welcome screen if their optional Native routes stop answering. Use one
-  // shared deadline, not two serial waits; do not bound writes/rename because
-  // they must receive an actual durable acknowledgement from their owner.
-  const firstRunOptionalReadSignal = windowsDesktopHost ? AbortSignal.timeout(5000) : null;
+  // First Run's read-only Device Profile and cursor must not hang any Native
+  // welcome screen if their optional routes stop answering. Use one shared
+  // deadline on Desktop and USB; do not bound writes/rename because they must
+  // receive an actual durable acknowledgement from their owner.
+  const firstRunOptionalReadSignal = AbortSignal.timeout(5000);
   const deviceProfilePromise = optionalNativeProbe(
     "OrdaX native device profile unavailable",
     () => createNativeDeviceProfile(window, { signal: firstRunOptionalReadSignal }),
