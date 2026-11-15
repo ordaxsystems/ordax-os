@@ -250,8 +250,9 @@ jobs:
 
           release = files['release']
           assert 'workflow_run:' not in release
-          assert 'ordax_single_exe' not in release
-          assert 'owner_payload/ordax-bootstrap-seed.raw.gz' not in release
+          assert "-tags 'ordax_owner_prototype ordax_single_exe ordax_raw_backend'" in release
+          assert 'embedded="$ORDAX_CREATOR_NATIVE_SOURCE/cmd/ordax-creator-app/owner_payload"' in release
+          assert 'gzip -n -c "$seed" > "$embedded/ordax-bootstrap-seed.raw.gz"' in release
           assert '"prepare"' not in files['portable']
           assert '"apply"' not in files['portable']
           assert 'ordax-bootstrap-seed.raw' not in files['portable']
