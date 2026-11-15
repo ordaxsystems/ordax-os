@@ -860,7 +860,6 @@ jobs:
           manifest_sha="$(sha256sum "$manifest" | cut -d' ' -f1)"
           seed_sha="$(sha256sum "$seed" | cut -d' ' -f1)"
           seed_size="$(stat -c '%s' "$seed")"
-          cp "$seed" "$bundle/ordax-bootstrap-seed.raw"
 
           python - "$bundle/provenance.json" "$trust_sha" "$manifest_sha" "$seed_sha" "$seed_size" "$symbol_sha" "$theme_sha" <<'PY'
           import json, os, pathlib, sys
@@ -891,24 +890,27 @@ jobs:
           pathlib.Path(sys.argv[1]).write_text(json.dumps(data, indent=2, sort_keys=True) + '\n', encoding='utf-8')
           PY
 
+          # One user-facing executable: the canonical Creator app contains the
+          # compressed, hash-bound OS seed and its own privilege-separated backend.
+          # This is a disposable checkout of the exact pinned Creator owner.
+          embedded="$ORDAX_CREATOR_NATIVE_SOURCE/cmd/ordax-creator-app/owner_payload"
+          mkdir -p "$embedded"
+          gzip -n -c "$seed" > "$embedded/ordax-bootstrap-seed.raw.gz"
+          cp "$bundle/provenance.json" "$embedded/provenance.json"
+          test -s "$embedded/ordax-bootstrap-seed.raw.gz"
+          cmp "$embedded/provenance.json" "$bundle/provenance.json"
+
           pushd "$ORDAX_CREATOR_NATIVE_SOURCE" >/dev/null
           CGO_ENABLED=0 GOOS=windows GOARCH=amd64 \
             go build -trimpath -buildvcs=false \
-              -tags 'ordax_raw_backend' \
-              -ldflags="-s -w -X main.buildSourceCommit=$ORDAX_OWNER_SOURCE_COMMIT -X main.buildReleaseSourceCommit=$ORDAX_OWNER_SOURCE_COMMIT -X main.buildCanonicalTrustSHA256=$trust_sha -X main.buildManifestSHA256=$manifest_sha -X main.buildSeedImageSHA256=$seed_sha -X main.buildSeedImageSize=$seed_size -X main.buildStorageProfile=owner-development -X main.buildPhysicalWriteAuthorized=YES" \
-              -o "$bundle/ordax-creator-physical-test.exe" \
-              ./cmd/ordax-creator-physical-test
-          CGO_ENABLED=0 GOOS=windows GOARCH=amd64 \
-            go build -trimpath -buildvcs=false \
-              -tags 'ordax_owner_prototype' \
-              -ldflags='-s -w -H=windowsgui' \
+              -tags 'ordax_owner_prototype ordax_single_exe ordax_raw_backend' \
+              -ldflags="-s -w -H=windowsgui -X main.buildCreatorVersion=$ORDAX_CREATOR_PRODUCT_VERSION -X main.buildCreatorSourceCommit=$ORDAX_CREATOR_SOURCE_COMMIT" \
               -o "$bundle/OrdaX-Creator.exe" \
               ./cmd/ordax-creator-app
           popd >/dev/null
 
           test -s "$bundle/OrdaX-Creator.exe"
-          test -s "$bundle/ordax-creator-physical-test.exe"
-          test -s "$bundle/ordax-bootstrap-seed.raw"
+          test "$(find "$bundle" -maxdepth 1 -type f -name '*.exe' | wc -l)" -eq 1
           test -s "$bundle/provenance.json"
           test -s "$bundle/ordax-symbol.png"
           test -s "$bundle/ordax-design-theme.json"
@@ -918,9 +920,9 @@ jobs:
 
           1. Extraia a pasta inteira do ZIP.
           2. Execute somente OrdaX-Creator.exe.
-          3. O helper ordax-creator-physical-test.exe sera elevado apenas quando a gravacao do USB for autorizada.
+          3. O mesmo aplicativo executa a gravacao com UAC apenas apos a confirmacao do pendrive.
 
-          Esta distribuicao separa a interface normal do componente privilegiado de escrita RAW.
+          A distribuicao contem um unico EXE; o backend privado e extraido e verificado internamente.
           O canal owner/development ainda nao possui assinatura Authenticode configurada.
 
           Esta imagem USB Dev inclui Kernel, drivers, checkout local e runtime grafico offline
@@ -943,8 +945,6 @@ jobs:
           output = pathlib.Path(sys.argv[2])
           expected = [
               'OrdaX-Creator.exe',
-              'ordax-creator-physical-test.exe',
-              'ordax-bootstrap-seed.raw',
               'provenance.json',
               'ordax-symbol.png',
               'ordax-design-theme.json',
@@ -984,8 +984,8 @@ jobs:
           echo "OWNER_BUNDLE_SOURCE=$ORDAX_OWNER_SOURCE_COMMIT"
           echo "OWNER_BUNDLE_SHA256=$zip_sha"
           echo "OWNER_SEED_SHA256=$seed_sha"
-          echo 'OWNER_GUI_RAW_BACKEND_LINKED=NO'
-          echo 'OWNER_RAW_HELPER_SEPARATE=YES'
+          echo 'OWNER_GUI_RAW_BACKEND_LINKED=YES'
+          echo 'OWNER_RAW_HELPER_SEPARATE=NO'
 
       - name: Verify exact Owner Development ZIP before publication
         run: |
@@ -996,7 +996,8 @@ jobs:
             --metadata "$release/creator-owner-update.json" \
             --checksums "$release/SHA256SUMS.txt" \
             --source-commit "$ORDAX_OWNER_SOURCE_COMMIT" \
-            --creator-version "${ORDAX_CREATOR_PRODUCT_VERSION:?}"
+            --creator-version "${ORDAX_CREATOR_PRODUCT_VERSION:?}" \
+            --seed "$(cat "$RUNNER_TEMP/owner-prototype-seed-path")"
 
       - name: Destroy ephemeral private key before publish
         run: |
