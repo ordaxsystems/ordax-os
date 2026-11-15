@@ -229,17 +229,30 @@ EXPECTED_IMPACT_JOB = """
 # The current Buildroot Owner branch retains its lightweight contract job.
 # Adding main's exact impact classifier must not delete that job or trigger
 # expensive Creator builds for draft PRs.
+# The Creator's existing artifact consumer has an exact job permission
+# boundary. It belongs to BOTH comparison baselines: migration of the
+# causal impact gate never adds or widens any permission. Unknown changes
+# to this block still fail closed as real/unknown USB producer deltas.
+CREATOR_ARTIFACT_READ_PERMISSION_BLOCK = (
+    "    # Read only canonical Surface producer artifacts; release publishing keeps\n"
+    "    # its existing contents write permission and other jobs stay unchanged.\n"
+    "    permissions:\n"
+    "      contents: write\n"
+    "      actions: read\n"
+)
 BUILD_GUARD_OLD = (
     "\n  build-and-publish:\n"
     "    needs: owner-dev-contract\n"
-    "    # Draft PRs use fast contracts; full USB/QEMU only for a release candidate.\n"
+    + CREATOR_ARTIFACT_READ_PERMISSION_BLOCK
+    + "    # Draft PRs use fast contracts; full USB/QEMU only for a release candidate.\n"
     "    # workflow_dispatch and main push remain explicit/full delivery entrypoints.\n"
     "    if: github.event_name != 'pull_request' || !github.event.pull_request.draft\n"
 )
 BUILD_GUARD_NEW = (
     "\n  build-and-publish:\n"
     "    needs: [owner-dev-contract, impact]\n"
-    "    # Draft PRs use fast contracts; full USB/QEMU only for a release candidate.\n"
+    + CREATOR_ARTIFACT_READ_PERMISSION_BLOCK
+    + "    # Draft PRs use fast contracts; full USB/QEMU only for a release candidate.\n"
     "    # workflow_dispatch and main push remain explicit/full delivery entrypoints.\n"
     "    if: needs.impact.outputs.required == 'true' && (github.event_name != 'pull_request' || !github.event.pull_request.draft)\n"
 )

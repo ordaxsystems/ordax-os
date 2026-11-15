@@ -84,6 +84,20 @@ class CreatorOwnerImpactTests(unittest.TestCase):
         self.assertTrue(impact.workflow_trigger_only(base, after, root=self.root))
         self.assertEqual(impact.classify(base, after, root=self.root), (False, "nonproducer-contract-only"))
 
+    def test_creator_artifact_reader_permissions_cannot_be_widened_as_ci_only(self):
+        original = WORKFLOW.read_text(encoding="utf-8")
+        self.assertIn(impact.CREATOR_ARTIFACT_READ_PERMISSION_BLOCK, original)
+        baseline = self.commit(original, VISUAL)
+        widened = original.replace(
+            "      actions: read\n",
+            "      actions: write\n",
+            1,
+        )
+        self.assertNotEqual(widened, original)
+        changed = self.commit(widened)
+        self.assertFalse(impact.workflow_trigger_only(baseline, changed, root=self.root))
+        self.assertTrue(impact.classify(baseline, changed, root=self.root)[0])
+
     def test_push_and_pr_use_same_fail_closed_diff_manual_dispatch_forces_build(self):
         w = WORKFLOW.read_text(encoding="utf-8")
         self.assertIn('case "$ORDAX_EVENT_NAME" in', w)
