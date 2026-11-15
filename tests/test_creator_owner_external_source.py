@@ -97,9 +97,10 @@ class CreatorOwnerExternalSourceTests(unittest.TestCase):
             "system/services/surface-source/owner-stage.sh ready",
             "gh release upload creator-owner-prototype",
             "if: github.event_name == 'push' && github.ref == 'refs/heads/main'",
-            "-tags 'ordax_raw_backend'",
-            "-tags 'ordax_owner_prototype'",
-            "-X main.buildStorageProfile=owner-development",
+            "-tags 'ordax_owner_prototype ordax_single_exe ordax_raw_backend'",
+            "-X main.buildCreatorVersion=",
+            "-X main.buildCreatorSourceCommit=",
+            "OWNER_RAW_HELPER_SEPARATE=NO",
         ):
             self.assertIn(marker, w)
         for marker in (
