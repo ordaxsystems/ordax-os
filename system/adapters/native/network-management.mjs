@@ -26,7 +26,7 @@ export async function createNativeNetworkManagement(windowRef = globalThis.windo
     throw new TypeError("Native network management adapter requires window.fetch");
   }
 
-  const token = await readNetworkToken(windowRef);
+  let token = await readNetworkToken(windowRef);
 
   const request = async (method, action = null, payload = {}) => {
     const options = {
@@ -39,7 +39,19 @@ export async function createNativeNetworkManagement(windowRef = globalThis.windo
       options.headers["Content-Type"] = "application/json";
       options.body = JSON.stringify({ action, ...payload });
     }
-    const response = await windowRef.fetch(NETWORK_ENDPOINT, options);
+    let response = await windowRef.fetch(NETWORK_ENDPOINT, options);
+    if (response.status === 403) {
+      // The Native host can restart while First Run remains open, rotating
+      // its independent network grant. 403 occurs before any Wi-Fi action;
+      // retry only when an authenticated session supplies a DIFFERENT token.
+      // Do not repeat an action that reached the broker (409/503/timeout).
+      const refreshedToken = await readNetworkToken(windowRef);
+      if (refreshedToken !== token) {
+        token = refreshedToken;
+        options.headers[TOKEN_HEADER] = token;
+        response = await windowRef.fetch(NETWORK_ENDPOINT, options);
+      }
+    }
     if (!response.ok) {
       const error = new Error(`Native network management request failed: ${response.status}`);
       error.status = response.status;

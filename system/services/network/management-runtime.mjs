@@ -40,6 +40,7 @@ function failureKind(action, error) {
     };
     if (Object.hasOwn(reasons, error?.networkReason)) return reasons[error.networkReason];
   }
+  if (error?.status === 403) return "sessionUnavailable";
   if (error?.status === 409 && action === "connect") return "connectConflict";
   if (error?.status === 409 && action === "reconnect") return "reconnectConflict";
   // A malformed native snapshot also throws TypeError; it is not a bad password.
@@ -66,6 +67,7 @@ export function networkManagementFailureMessage(action, error) {
     dhcp: "O Wi-Fi autenticou, mas o roteador não forneceu um endereço IP (DHCP).",
     supplicant: "O serviço de autenticação Wi-Fi não conseguiu iniciar neste dispositivo.",
     ownerUnavailable: "O controlador Wi-Fi não respondeu. A conexão anterior foi preservada.",
+    sessionUnavailable: "A sessão nativa de Wi-Fi não autorizou a ação. Reinicie a etapa de Rede e tente novamente.",
     brokerUnavailable: "O serviço nativo de Wi-Fi não está disponível. Reinicie a Surface para recuperar o controlador.",
     brokerTimeout: "O serviço nativo de Wi-Fi demorou demais para responder. A conexão não foi confirmada.",
     brokerIo: "O serviço nativo de Wi-Fi falhou ao acessar o controlador. Nenhuma conexão foi confirmada.",
