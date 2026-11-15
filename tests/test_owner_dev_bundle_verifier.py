@@ -26,10 +26,15 @@ class DevelopmentCreatorBundleTests(unittest.TestCase):
         self.metadata = self.root / "creator-owner-update.json"
         self.sums = self.root / "SHA256SUMS.txt"
         self.seed = b"test-development-seed"
+        self.seed_path = self.root / "verified-source-seed.raw"
+        self.seed_path.write_bytes(self.seed)
         self.provenance = {
             "$schema": "prototype-ordax.creator-owner-physical/1",
             "source_commit": COMMIT,
             "creator_version": VERSION,
+            "creator_source_repository": "ordaxsystems/ordax-creator",
+            "creator_source_commit": "b" * 40,
+            "creator_source_tree": "c" * 40,
             "symbol_sha256": hashlib.sha256(SYMBOL_BYTES).hexdigest(),
             "theme_sha256": hashlib.sha256(THEME).hexdigest(),
             "canonical_public_release": False,
@@ -44,8 +49,6 @@ class DevelopmentCreatorBundleTests(unittest.TestCase):
     def create(self):
         with zipfile.ZipFile(self.archive, "w") as z:
             z.writestr("OrdaX-Creator/OrdaX-Creator.exe", b"MZ" + b"gui")
-            z.writestr("OrdaX-Creator/ordax-creator-physical-test.exe", b"MZ" + b"writer")
-            z.writestr("OrdaX-Creator/ordax-bootstrap-seed.raw", self.seed)
             z.writestr("OrdaX-Creator/provenance.json", json.dumps(self.provenance))
             z.writestr("OrdaX-Creator/ordax-symbol.png", SYMBOL_BYTES)
             z.writestr("OrdaX-Creator/ordax-design-theme.json", THEME)
@@ -64,7 +67,7 @@ class DevelopmentCreatorBundleTests(unittest.TestCase):
         return subprocess.run([sys.executable, str(SCRIPT),
             "--archive", str(self.archive), "--metadata", str(self.metadata),
             "--checksums", str(self.sums), "--source-commit", COMMIT,
-            "--creator-version", VERSION],
+            "--creator-version", VERSION, "--seed", str(self.seed_path)],
             capture_output=True, text=True, check=False)
 
     def test_valid_owner_bundle_passes(self):
@@ -103,8 +106,6 @@ class DevelopmentCreatorBundleTests(unittest.TestCase):
         # Tampering must be rejected even when the ZIP metadata has been re-hashed.
         with zipfile.ZipFile(self.archive, "w") as z:
             z.writestr("OrdaX-Creator/OrdaX-Creator.exe", b"MZgui")
-            z.writestr("OrdaX-Creator/ordax-creator-physical-test.exe", b"MZwriter")
-            z.writestr("OrdaX-Creator/ordax-bootstrap-seed.raw", self.seed)
             z.writestr("OrdaX-Creator/provenance.json", json.dumps(self.provenance))
             z.writestr("OrdaX-Creator/ordax-symbol.png", SYMBOL_BYTES)
             z.writestr("OrdaX-Creator/ordax-design-theme.json", THEME + b" ")
@@ -114,6 +115,20 @@ class DevelopmentCreatorBundleTests(unittest.TestCase):
         d["sha256"], d["size"] = digest, self.archive.stat().st_size
         self.metadata.write_text(json.dumps(d))
         self.sums.write_text(f"{digest}  {self.archive.name}\n")
+        self.assertNotEqual(self.run_check().returncode, 0)
+
+    def test_separate_privileged_writer_fails(self):
+        with zipfile.ZipFile(self.archive, "a") as z:
+            z.writestr("OrdaX-Creator/ordax-creator-physical-test.exe", b"MZlegacy")
+        digest = hashlib.sha256(self.archive.read_bytes()).hexdigest()
+        d = json.loads(self.metadata.read_text())
+        d["sha256"], d["size"] = digest, self.archive.stat().st_size
+        self.metadata.write_text(json.dumps(d))
+        self.sums.write_text(f"{digest}  {self.archive.name}\n")
+        self.assertNotEqual(self.run_check().returncode, 0)
+
+    def test_external_seed_drift_fails(self):
+        self.seed_path.write_bytes(b"another-seed")
         self.assertNotEqual(self.run_check().returncode, 0)
 
     def test_missing_member_fails(self):
