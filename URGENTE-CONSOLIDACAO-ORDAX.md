@@ -254,6 +254,12 @@ O contrato `docs/contracts/repository-ownership.json` ainda exigia `control-plan
 - Em `system/composition/native/main.mjs`, confrontar os IDs efetivamente montados com o inventário descoberto: quando faltar qualquer mount, invalidar **somente** o fingerprint de deduplicação para permitir nova verificação na próxima notificação assinada. A comparação compartilhada em `verified-installed-app-refresh.mjs` também governa refresh subsequente, sem catálogo paralelo.
 - **Validação Windows:** 56/56 testes Node de refresh, catálogo Native, descoberta externa e projeção da Store aprovados; sintaxe dos módulos e `git diff --check` aprovados. Esta correção não concede instalação, assinatura, ativação ou prova física de App; gates de trust e execução real continuam independentes.
 
+### P2.2 — Creator consome artefato canônico GitHub após cache/R2 ausentes — 2026-11-14
+
+- No push `af3f189f5`, o workflow Creator [#43656705535](https://github.com/ordaxsystems/ordax-os/actions/runs/43656705535) terminou com `build-and-publish` bloqueado no passo `Consume verified canonical offline Surface runtime`: fingerprint `47f4191dc8cc0c2ed625dd8e8179c71309f4aa80a886d14c889c3240b79a7200`, cache ausente e R2 indisponível no runner. Não houve build ou USB incompleto.
+- O Creator passou a reutilizar **o mesmo** `tools/ci/independent_surface_github_artifact.sh` do produtor independente, como terceira fonte de bytes, depois do cache exato e de R2. Somente a job de publicação ganhou `actions: read`; a recuperação exige run oficial `workflow_dispatch` concluída e verifica fingerprint, proveniência, SHA-256 e identidade contra o source atual **antes** do gate e novamente no consumidor. Sem segundo compilador, chave, runtime ou serviço.
+- Regressão adicionada no contrato existente `tests/test_owner_surface_cache_contract.py`, e sintaxe do recuperador incluída no preflight existente. **21/21 testes Windows locais PASS**, `git diff --check` limpo. A correção **não inventa o artefato**: sem producer válido, o gate continua vermelho e a ação correta é homologar o produtor independente com recursos persistentes e publicar o artefato verificado, não reconstruir WebKit no Creator.
+
 ## 4. Regras obrigatórias
 
 1. **Nenhuma exclusão por volume**: só remover após verificar imports/referências, chamadas de CI, consumidores, histórico e obrigação de compliance/release. Migrations SQL aplicadas, contratos versionados, manifestos assinados, logs de proveniência obrigatória e gates de segurança não são “lixo”.

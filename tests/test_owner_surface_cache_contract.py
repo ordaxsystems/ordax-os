@@ -57,6 +57,31 @@ class OwnerSurfaceCacheContractTests(unittest.TestCase):
         self.assertIn('--cache-hit "$reused"', producer)
 
 
+    def test_creator_reuses_verified_github_producer_artifact_after_cache_and_r2_miss(self):
+        owner = OWNER.read_text(encoding="utf-8")
+        producer = SURFACE.read_text(encoding="utf-8")
+        github_artifact = "tools/ci/independent_surface_github_artifact.sh"
+        self.assertIn("      actions: read", owner)
+        self.assertIn("      contents: write", owner)
+        self.assertEqual(owner.count(f"      - '{github_artifact}'"), 2)
+        self.assertIn("bash -n " + github_artifact, owner)
+        self.assertIn("bash " + github_artifact + " \\\n", owner)
+        self.assertIn("id: owner-surface-github-artifact", owner)
+        self.assertIn("steps.owner-surface-github-artifact.outputs.hit", owner)
+        self.assertIn("GH_TOKEN: ${{ github.token }}", owner)
+        self.assertIn("ORDAX_SOURCE_COMMIT: ${{ env.ORDAX_OWNER_SOURCE_COMMIT }}", owner)
+        # Both consumers use one immutable producer retrieval and verifier,
+        # never a new build or a revision-only shortcut.
+        self.assertIn("bash " + github_artifact, producer)
+        self.assertLess(owner.index("Restore exact verified Surface EROFS for Owner"),
+                        owner.index("Restore verified Surface EROFS from durable R2 for Owner"))
+        self.assertLess(owner.index("Restore verified Surface EROFS from durable R2 for Owner"),
+                        owner.index("Restore verified Surface EROFS from canonical GitHub producer for Owner"))
+        self.assertLess(owner.index("Restore verified Surface EROFS from canonical GitHub producer for Owner"),
+                        owner.index("Consume verified canonical offline Surface runtime"))
+        self.assertIn("--cache-hit true --consumer", owner)
+        self.assertNotIn("bootstrap/surface-runtime/build.py build", owner)
+
     def test_creator_validates_graphical_artifact_before_native_heavy_work(self):
         """A missing Surface cache must not waste hours building Base/kernel."""
         workflow = OWNER.read_text(encoding="utf-8")

@@ -35,6 +35,7 @@ on:
       - '.github/workflows/creator-owner-dev-git.yml'
       - 'tools/ci/independent_surface_component_cache.py'
       - 'tools/ci/independent_surface_r2.sh'
+      - 'tools/ci/independent_surface_github_artifact.sh'
       - 'tests/test_owner_surface_cache_contract.py'
       - 'tools/ci/preflight_owner_dev.py'
       - 'tests/test_ci_two_stage_release_gate.py'
@@ -78,6 +79,7 @@ on:
       - '.github/workflows/creator-owner-dev-git.yml'
       - 'tools/ci/independent_surface_component_cache.py'
       - 'tools/ci/independent_surface_r2.sh'
+      - 'tools/ci/independent_surface_github_artifact.sh'
       - 'tests/test_owner_surface_cache_contract.py'
       - '.github/actions/resolve-creator-source/**'
       - 'docs/contracts/native-release-assembly.json'
@@ -173,6 +175,7 @@ jobs:
         run: |
           set -euo pipefail
           bash -n tools/ci/independent_surface_r2.sh
+          bash -n tools/ci/independent_surface_github_artifact.sh
           python3 -m unittest tests.test_owner_surface_cache_contract tests.test_ci_two_stage_release_gate tests.test_dev_components_direct tests.test_owner_dev_raw_direct tests.test_direct_owner_dev_image -v
           python3 -m py_compile tools/ci/dev_components.py tools/creator/owner_dev_manifest.py tools/creator/owner_dev_raw.py tools/creator/direct_owner_dev_image.py
           bash -n tools/creator/owner_dev_stage.sh
@@ -180,6 +183,11 @@ jobs:
 
   build-and-publish:
     needs: [owner-dev-contract, impact]
+    # Read only canonical Surface producer artifacts; release publishing keeps
+    # its existing contents write permission and other jobs stay unchanged.
+    permissions:
+      contents: write
+      actions: read
     # Draft PRs use fast contracts; full USB/QEMU only for a release candidate.
     # workflow_dispatch and main push remain explicit/full delivery entrypoints.
     if: needs.impact.outputs.required == 'true' && (github.event_name != 'pull_request' || !github.event.pull_request.draft)
@@ -328,6 +336,18 @@ jobs:
           ORDAX_SOURCE_COMMIT: ${{ env.ORDAX_OWNER_SOURCE_COMMIT }}
         run: bash tools/ci/independent_surface_r2.sh restore
 
+      - name: Restore verified Surface EROFS from canonical GitHub producer for Owner
+        id: owner-surface-github-artifact
+        if: steps.owner-surface-artifact-cache.outputs.cache-hit != 'true' && steps.owner-surface-r2.outputs.hit != 'true'
+        env:
+          GH_TOKEN: ${{ github.token }}
+          ORDAX_SOURCE_COMMIT: ${{ env.ORDAX_OWNER_SOURCE_COMMIT }}
+          ORDAX_PRODUCER_BRANCH: ${{ github.head_ref || github.ref_name }}
+        run: |
+          bash tools/ci/independent_surface_github_artifact.sh \
+            "$RUNNER_TEMP/ordax-independent-surface" "$ORDAX_SOURCE_COMMIT" \
+            "$ORDAX_PRODUCER_BRANCH" "$GITHUB_OUTPUT"
+
       # The Creator consumes only a preverified content-addressed artifact.
       # Compiler/download caches belong exclusively to the Surface producer.
       - name: Consume verified canonical offline Surface runtime
@@ -336,7 +356,8 @@ jobs:
           set -euo pipefail
           out="$RUNNER_TEMP/ordax-independent-surface"
           if [ '${{ steps.owner-surface-artifact-cache.outputs.cache-hit }}' != true ] &&
-             [ '${{ steps.owner-surface-r2.outputs.hit }}' != true ]; then
+             [ '${{ steps.owner-surface-r2.outputs.hit }}' != true ] &&
+             [ '${{ steps.owner-surface-github-artifact.outputs.hit }}' != true ]; then
             echo "::error title=Canonical Surface EROFS missing::Run Independent Surface Runtime producer for the exact fingerprint before Creator. Never compile WebKit in the Creator consumer." >&2
             exit 1
           fi
