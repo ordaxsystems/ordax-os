@@ -317,6 +317,19 @@ class NativeNetworkManagementTests(unittest.TestCase):
         self.assertNotIn('echo "$ssid_hex"', text)
         self.assertNotIn("logger", text)
 
+    def test_broker_failure_reasons_are_bounded_and_have_enough_wpa_time(self):
+        broker = BROKER.read_text(encoding="utf-8")
+        host = SERVER.read_text(encoding="utf-8")
+        for reason in ("authentication-failed", "dhcp-failed", "supplicant-start-failed",
+                       "network-owner-unavailable"):
+            self.assertIn(reason, broker)
+            self.assertIn(reason, host)
+        self.assertIn("WIFI_HANDSHAKE_ATTEMPTS=18", broker)
+        self.assertIn('failure_reason=$connect_failure_reason', broker)
+        self.assertIn('respond "$request_id" error "$wifi" "$failure_reason"', broker)
+        self.assertIn('self._write_json(status, {"reason": detail})', host)
+        self.assertIn('timeout_seconds=42.0 if action in {"connect", "reconnect"}', host)
+
     def test_first_run_wifi_waits_for_wpa_handshake_and_bounded_scan(self):
         text = BROKER.read_text(encoding="utf-8")
         self.assertIn('WPA_CLI_BIN=$(command -v wpa_cli || true)', text)

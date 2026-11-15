@@ -25,6 +25,15 @@ function assertAction(action) {
 
 function failureKind(action, error) {
   assertAction(action);
+  if (["connect", "reconnect"].includes(action) && [409, 503].includes(error?.status)) {
+    const reasons = {
+      "authentication-failed": "authentication",
+      "dhcp-failed": "dhcp",
+      "supplicant-start-failed": "supplicant",
+      "network-owner-unavailable": "ownerUnavailable",
+    };
+    if (Object.hasOwn(reasons, error?.networkReason)) return reasons[error.networkReason];
+  }
   if (error?.status === 409 && action === "connect") return "connectConflict";
   if (error?.status === 409 && action === "reconnect") return "reconnectConflict";
   // A malformed native snapshot also throws TypeError; it is not a bad password.
@@ -47,6 +56,10 @@ export function networkManagementActionMessage(action, state) {
 export function networkManagementFailureMessage(action, error) {
   const messages = {
     connectConflict: "Não foi possível conectar. Confira a senha e se a rede ainda está disponível.",
+    authentication: "O Wi-Fi não concluiu a autenticação WPA. Confira a senha e o modo de segurança do roteador.",
+    dhcp: "O Wi-Fi autenticou, mas o roteador não forneceu um endereço IP (DHCP).",
+    supplicant: "O serviço de autenticação Wi-Fi não conseguiu iniciar neste dispositivo.",
+    ownerUnavailable: "O controlador Wi-Fi não respondeu. A conexão anterior foi preservada.",
     reconnectConflict: "A rede salva não pôde ser reconectada. A configuração salva foi preservada.",
     validation: "SSID ou senha fora dos limites aceitos para esta rede Wi-Fi.",
     generic: "A ação de Wi-Fi não pôde ser concluída. A rede anterior foi preservada quando aplicável.",

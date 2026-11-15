@@ -58,6 +58,33 @@ test("network management enforces real SSID and WPA passphrase byte limits", () 
   assert.throws(() => validateWifiCredentials({ ssid: "Casa", password: "senha\ninvalida" }));
 });
 
+test("native network adapter reports safe WPA/DHCP failures without exposing secrets", async () => {
+  const { createNativeNetworkManagement } = await import("../system/adapters/native/network-management.mjs");
+  const snapshot = { wifiInterface: "wlan0", currentSsid: null, savedSsid: null, networks: [] };
+  let reason = "dhcp-failed";
+  const fakeWindow = {
+    fetch: async (url, options) => {
+      if (url === "/__ordax/native/session") {
+        return { ok: true, json: async () => ({ networkToken: "012345678901234567890123456789ab" }) };
+      }
+      if (options.method === "GET") return { ok: true, json: async () => snapshot };
+      return { ok: false, status: reason === "network-owner-unavailable" ? 503 : 409,
+        json: async () => ({ reason, password: "PRIVATE_VALUE" }) };
+    },
+  };
+  const port = await createNativeNetworkManagement(fakeWindow);
+  for (const [nextReason, expected] of [["dhcp-failed", "dhcp-failed"],
+    ["network-owner-unavailable", "network-owner-unavailable"],
+    ["untrusted-secret", undefined]]) {
+    reason = nextReason;
+    await assert.rejects(port.connect({ ssid: "Casa", password: "validpassword" }), (error) => {
+      assert.equal(error.networkReason, expected);
+      assert.equal(JSON.stringify(error).includes("PRIVATE_VALUE"), false);
+      return true;
+    });
+  }
+});
+
 test("network management port has explicit bounded actions", () => {
   const port = {
     schema: NETWORK_MANAGEMENT_SCHEMA,

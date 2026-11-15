@@ -43,6 +43,18 @@ export async function createNativeNetworkManagement(windowRef = globalThis.windo
     if (!response.ok) {
       const error = new Error(`Native network management request failed: ${response.status}`);
       error.status = response.status;
+      if (method === "POST" && [409, 503].includes(response.status)) {
+        // Only allowlisted, non-secret reason codes cross the Native boundary.
+        try {
+          const body = await response.json();
+          if (["authentication-failed", "dhcp-failed", "supplicant-start-failed",
+               "network-owner-unavailable"].includes(body?.reason)) {
+            error.networkReason = body.reason;
+          }
+        } catch {
+          // A legacy empty response remains a bounded generic failure.
+        }
+      }
       throw error;
     }
     return validateNetworkManagementSnapshot(await response.json());

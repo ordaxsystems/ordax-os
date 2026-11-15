@@ -5436,14 +5436,23 @@ class NativeHostHandler(SimpleHTTPRequestHandler):
                         action,
                         ssid=payload.get("ssid"),
                         password=payload.get("password"),
-                        timeout_seconds=24.0 if action in {"connect", "reconnect"} else 12.0,
+                        timeout_seconds=42.0 if action in {"connect", "reconnect"} else 12.0,
                     )
             except ValueError:
                 self._empty(400)
                 return
             except RuntimeError as exc:
+                # Only bounded, non-secret reasons cross the Native boundary.
+                # SSIDs, passwords, PSKs and WPA logs never enter the response.
                 detail = getattr(exc, "network_detail", "")
-                self._empty(409 if detail in {"connect-failed", "reconnect-failed"} else 503)
+                known = {"authentication-failed", "dhcp-failed", "supplicant-start-failed",
+                         "network-owner-unavailable", "connect-failed", "reconnect-failed"}
+                if detail in known:
+                    status = 409 if detail in {"authentication-failed", "dhcp-failed",
+                                              "connect-failed", "reconnect-failed"} else 503
+                    self._write_json(status, {"reason": detail})
+                else:
+                    self._empty(503)
                 return
             except (FileNotFoundError, PermissionError, TimeoutError, OSError) as exc:
                 print(f"ordax-native-host: network management action failed safely: {exc}", file=sys.stderr, flush=True)
