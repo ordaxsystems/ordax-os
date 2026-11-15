@@ -58,28 +58,29 @@ jobs:
           python -m unittest tests.test_creator_single_paint tests.test_creator_ux_external_source tests.test_user_consent_experience -v
           echo 'CREATOR_GUIDED_EXPERIENCE_TESTS=PASS'
 
-      - name: Compile split Windows owner boundaries
+      - name: Compile single Windows Owner EXE without physical media
         run: |
           set -euo pipefail
-          out="$RUNNER_TEMP/ordax-creator-split-smoke"
+          out="$RUNNER_TEMP/ordax-creator-standalone-smoke"
           mkdir -p "$out"
           test -n "${ORDAX_CREATOR_NATIVE_SOURCE:-}"
+          # Build-only synthetic fixtures satisfy go:embed, never authorize USB.
+          embedded="$ORDAX_CREATOR_NATIVE_SOURCE/cmd/ordax-creator-app/owner_payload"
+          mkdir -p "$embedded"
+          printf 'nonbootable-compile-fixture' | gzip -n > "$embedded/ordax-bootstrap-seed.raw.gz"
+          printf '{"status":"compile-only-no-authorization"}\n' > "$embedded/provenance.json"
           pushd "$ORDAX_CREATOR_NATIVE_SOURCE" >/dev/null
           CGO_ENABLED=0 GOOS=windows GOARCH=amd64 \
             go build -trimpath -buildvcs=false \
-              -tags 'ordax_raw_backend' \
-              -o "$out/ordax-creator-physical-test.exe" \
-              ./cmd/ordax-creator-physical-test
-          CGO_ENABLED=0 GOOS=windows GOARCH=amd64 \
-            go build -trimpath -buildvcs=false \
-              -tags 'ordax_owner_prototype' \
+              -tags 'ordax_owner_prototype ordax_single_exe ordax_raw_backend' \
               -ldflags='-H=windowsgui' \
               -o "$out/OrdaX-Creator.exe" \
               ./cmd/ordax-creator-app
           popd >/dev/null
-          test -s "$out/ordax-creator-physical-test.exe"
+          rm -rf "$embedded"
           test -s "$out/OrdaX-Creator.exe"
-          echo 'CREATOR_SPLIT_WINDOWS_CROSS_BUILD=PASS'
+          test "$(find "$out" -maxdepth 1 -type f -name '*.exe' | wc -l)" -eq 1
+          echo 'CREATOR_SINGLE_EXE_WINDOWS_CROSS_BUILD=PASS'
 
       - name: Verify Creator UX contract and implementation anchors
         run: |
