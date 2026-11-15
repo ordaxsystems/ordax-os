@@ -95,7 +95,7 @@ class OwnerGraphicalOfflineBootTests(unittest.TestCase):
         self.assertIn('os.environ.pop("LIBGL_ALWAYS_SOFTWARE", None)', BROWSER_HOST)
         self.assertIn('os.environ.pop("WLR_RENDERER", None)', BROWSER_HOST)
         self.assertNotIn('os.environ.pop("WEBKIT_DISABLE_DMABUF_RENDERER"', BROWSER_HOST)
-        cleanup = BROWSER_HOST.index("_scope_owner_virtio_compositor_environment()")
+        cleanup = BROWSER_HOST.index("\n_scope_owner_virtio_compositor_environment()\n")
         webkit_import = BROWSER_HOST.index("\nimport gi\n")
         self.assertLess(cleanup, webkit_import)
 
