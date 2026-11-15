@@ -16,8 +16,6 @@ from theme_bridge import render_theme, SYMBOL
 
 EXPECTED = {
     "OrdaX-Creator/OrdaX-Creator.exe",
-    "OrdaX-Creator/ordax-creator-physical-test.exe",
-    "OrdaX-Creator/ordax-bootstrap-seed.raw",
     "OrdaX-Creator/provenance.json",
     "OrdaX-Creator/ordax-symbol.png",
     "OrdaX-Creator/ordax-design-theme.json",
@@ -46,6 +44,8 @@ def main() -> int:
     parser.add_argument("--source-commit", required=True)
     parser.add_argument("--creator-version", required=True,
                         help="Version from the already pinned standalone Creator checkout")
+    parser.add_argument("--seed", type=Path, required=True,
+                        help="Exact verified source seed embedded into the one executable")
     args = parser.parse_args()
     if not SHA40.fullmatch(args.source_commit):
         fail("invalid-exact-source-commit")
@@ -63,6 +63,7 @@ def main() -> int:
         fail("invalid-canonical-creator-version")
     if metadata.get("version") != version:
         fail("version-drift")
+    seed_digest, seed_size = sha_file(args.seed)
     digest, size = sha_file(args.archive)
     if digest != metadata.get("sha256") or size != metadata.get("size"):
         fail("archive-integrity-mismatch")
@@ -84,6 +85,12 @@ def main() -> int:
             fail("seed-commit-drift")
         if provenance.get("creator_version") != version:
             fail("creator-version-provenance-drift")
+        if provenance.get("creator_source_repository") != "ordaxsystems/ordax-creator":
+            fail("creator-source-owner-drift")
+        if not SHA40.fullmatch(provenance.get("creator_source_commit", "")) or not SHA40.fullmatch(provenance.get("creator_source_tree", "")):
+            fail("creator-source-pin-invalid")
+        if provenance.get("seed_sha256") != seed_digest or provenance.get("seed_size") != seed_size:
+            fail("embedded-seed-source-drift")
         theme = archive.read("OrdaX-Creator/ordax-design-theme.json")
         symbol = archive.read("OrdaX-Creator/ordax-symbol.png")
         if len(theme) > 64 << 10 or len(symbol) > 2 << 20:
@@ -104,19 +111,11 @@ def main() -> int:
             fail("private-key-marked-as-packaged")
         if provenance.get("physical_write_authorized_in_binary") is not True:
             fail("owner-writer-not-bound")
-        h = hashlib.sha256()
-        uncompressed = 0
-        with archive.open("OrdaX-Creator/ordax-bootstrap-seed.raw") as raw:
-            for block in iter(lambda: raw.read(1024 * 1024), b""):
-                uncompressed += len(block)
-                h.update(block)
-        if h.hexdigest() != provenance.get("seed_sha256") or uncompressed != provenance.get("seed_size"):
-            fail("development-seed-integrity-mismatch")
-        for filename in ("OrdaX-Creator/OrdaX-Creator.exe",
-                         "OrdaX-Creator/ordax-creator-physical-test.exe"):
-            with archive.open(filename) as stream:
-                if stream.read(2) != b"MZ":
-                    fail("invalid-windows-executable")
+        # No loose RAW seed or privileged writer may be shipped. The build
+        # embeds the verified seed and provenance into the single GUI binary.
+        with archive.open("OrdaX-Creator/OrdaX-Creator.exe") as stream:
+            if stream.read(2) != b"MZ":
+                fail("invalid-windows-executable")
     print(f"OWNER_DEV_BUNDLE_VERIFY=PASS source={args.source_commit} size={size}")
     return 0
 
