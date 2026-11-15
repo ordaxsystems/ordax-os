@@ -54,6 +54,11 @@ test("DEV overlay keeps Surface modules in the logical OS namespace", async t =>
     plugin.resolveId("./sibling.mjs", id),
     SURFACE_OVERLAY_PREFIX + "system/surface/ui/sibling.mjs",
   );
+  // Vite can supply a physical checkout importer after transforming a
+  // virtual Surface module. That must resolve to the same logical owners.
+  assert.equal(plugin.resolveId("../../contracts/example.mjs", f.view), f.contract);
+  assert.equal(plugin.resolveId("./sibling.mjs", f.view),
+    SURFACE_OVERLAY_PREFIX + "system/surface/ui/sibling.mjs");
 });
 
 test("workspace and brand aliases use verified Surface bytes without a junction", t => {
