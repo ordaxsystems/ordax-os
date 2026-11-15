@@ -23,6 +23,8 @@ RESOLVER_ROOT=${ORDAX_RUNTIME_RESOLVER_ROOT:-}
 RESOLVER_LOG=${ORDAX_RUNTIME_RESOLVER_LOG:-$SESSION_DIR/network-broker.log}
 AUTO_CONNECT_PAUSED=$STATE_DIR/autoconnect-paused
 RECONNECT_INTERVAL=15
+# Give real WPA2 access points time to finish authentication before DHCP.
+WIFI_HANDSHAKE_ATTEMPTS=18
 
 umask 077
 mkdir -p "$STATE_DIR" "$SESSION_DIR"
@@ -144,7 +146,7 @@ stop_wifi() {
 wait_for_wifi_link() {
     wifi=$1
     attempts=0
-    while [ "$attempts" -lt 8 ]; do
+    while [ "$attempts" -lt "$WIFI_HANDSHAKE_ATTEMPTS" ]; do
         # Association alone is not authentication; DHCP waits for WPA.
         if "$WPA_CLI_BIN" -p "$WPA_CTRL_DIR" -i "$wifi" status 2>/dev/null |
            /bin/busybox grep -q '^wpa_state=COMPLETED$'; then
@@ -213,12 +215,22 @@ sync_runtime_resolver() {
 connect_conf() {
     wifi=$1
     conf=$2
+    connect_failure_reason=authentication-failed
     [ -s "$conf" ] || return 1
-    stop_wifi "$wifi" || return 1
-    mkdir -p "$WPA_CTRL_DIR" || return 1
-    chmod 700 "$WPA_CTRL_DIR"
-    "$WPA_BIN" -B -P"$WPA_PID_FILE" -O"$WPA_CTRL_DIR" -i "$wifi" -c "$conf" >/dev/null 2>&1 || return 1
+    if ! stop_wifi "$wifi"; then
+        connect_failure_reason=network-owner-unavailable
+        return 1
+    fi
+    if ! mkdir -p "$WPA_CTRL_DIR" || ! chmod 700 "$WPA_CTRL_DIR"; then
+        connect_failure_reason=supplicant-start-failed
+        return 1
+    fi
+    if ! "$WPA_BIN" -B -P"$WPA_PID_FILE" -O"$WPA_CTRL_DIR" -i "$wifi" -c "$conf" >/dev/null 2>&1; then
+        connect_failure_reason=supplicant-start-failed
+        return 1
+    fi
     if ! wait_for_wifi_link "$wifi"; then
+        connect_failure_reason=authentication-failed
         stop_wifi "$wifi" || true
         return 1
     fi
@@ -227,8 +239,11 @@ connect_conf() {
     # the SAME runtime resolver immediately, without restarting or simulating
     # an Account provider.
     if ! try_dhcp "$wifi"; then
+        connect_failure_reason=dhcp-failed
+        stop_wifi "$wifi" || true
         return 1
     fi
+    connect_failure_reason=""
     sync_runtime_resolver
     return 0
 }
@@ -348,13 +363,19 @@ handle_request() {
                 capture_saved_ssid
                 respond "$request_id" ok "$wifi" connected
             else
+                # Keep this attempt's reason even if restoring a saved network
+                # changes the broker's shared connection state.
+                failure_reason=$connect_failure_reason
+                [ -n "$failure_reason" ] || failure_reason=connect-failed
                 rm -f "$CANDIDATE"
+                # Report the true failure before potentially slow saved-network
+                # recovery so the Native HTTP timeout never hides WPA/DHCP errors.
+                capture_link "$wifi"
+                capture_saved_ssid
+                respond "$request_id" error "$wifi" "$failure_reason"
                 if [ ! -e "$AUTO_CONNECT_PAUSED" ]; then
                     restore_saved_network_if_needed >/dev/null 2>&1 || true
                 fi
-                capture_link "$wifi"
-                capture_saved_ssid
-                respond "$request_id" error "$wifi" connect-failed
             fi
             ;;
         disconnect)
@@ -405,7 +426,8 @@ handle_request() {
             else
                 capture_link "$wifi"
                 capture_saved_ssid
-                respond "$request_id" error "$wifi" reconnect-failed
+                [ -n "$connect_failure_reason" ] || connect_failure_reason=reconnect-failed
+                respond "$request_id" error "$wifi" "$connect_failure_reason"
             fi
             ;;
         *)

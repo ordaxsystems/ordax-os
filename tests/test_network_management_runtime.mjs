@@ -79,6 +79,24 @@ test("shared network management runtime exposes locale-neutral presentation ids"
   );
 });
 
+test("network failures distinguish WPA, DHCP and controller issues without secrets", () => {
+  for (const [reason, status, kind, phrase] of [
+    ["authentication-failed", 409, "authentication", "autenticação WPA"],
+    ["dhcp-failed", 409, "dhcp", "DHCP"],
+    ["supplicant-start-failed", 503, "supplicant", "serviço de autenticação"],
+    ["network-owner-unavailable", 503, "ownerUnavailable", "controlador Wi-Fi"],
+  ]) {
+    const error = Object.assign(new Error("private"), { status, networkReason: reason });
+    assert.equal(networkManagementFailureMessageId("connect", error), "network.management.error." + kind);
+    assert.equal(networkManagementFailureMessageId("reconnect", error), "network.management.error." + kind);
+    const message = networkManagementFailureMessage("connect", error);
+    assert.ok(message.includes(phrase));
+    assert.equal(message.includes("private"), false);
+  }
+  const untrusted = Object.assign(new Error("private"), { status: 409, networkReason: "raw-wpa-secret" });
+  assert.equal(networkManagementFailureMessageId("connect", untrusted), "network.management.error.connectConflict");
+});
+
 test("shared network management runtime maps bounded failures without secrets", () => {
   const rejected = Object.assign(new Error("server detail that must not surface"), { status: 409 });
   assert.equal(
