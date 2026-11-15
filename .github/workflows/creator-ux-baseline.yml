@@ -110,9 +110,9 @@ jobs:
               'additional_locales_component_scoped': True,
           }
           assert contract['owner_distribution'] == {
-              'format': 'split-zip-bundle',
+              'format': 'single-exe-zip-bundle',
               'artifact': 'OrdaX-Creator-Owner-Prototype.zip',
-              'gui_raw_backend_separate': True,
+              'gui_raw_backend_separate': False,
               'standalone_gui_published': False,
               'bundle_extraction_required': True,
           }
@@ -213,8 +213,8 @@ jobs:
                   'OrdaX-Creator-Owner-Prototype.zip',
                   'prototype-ordax.creator-owner-bundle-update/1', "'automatic_in_app_update': False",
                   "delete-asset creator-owner-prototype 'OrdaX-Creator.exe'",
-                  'OWNER_RELEASE_PIPELINE=SINGLE_EXE_ZIP', 'OWNER_STANDALONE_EXE_PUBLISHED=YES',
-                  'OWNER_SPLIT_BUNDLE_PUBLISHED=NO',
+                  'OWNER_RELEASE_PIPELINE=SINGLE_EXE_ZIP', 'OWNER_STANDALONE_EXE_PUBLISHED=NO',
+                  'OWNER_SINGLE_EXE_ZIP_PUBLISHED=YES', 'OWNER_SPLIT_BUNDLE_PUBLISHED=NO',
               ],
           }
           for name, anchors in required.items():

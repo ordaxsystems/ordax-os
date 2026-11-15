@@ -29,11 +29,11 @@ class CreatorUxStandaloneSource(unittest.TestCase):
         self.assertIn("tests.test_creator_single_paint",workflow)
         self.assertIn('os.environ["ORDAX_CREATOR_NATIVE_SOURCE"]',paint)
         self.assertNotIn("creator_source_commit = 'main'",workflow)
-        self.assertIn("-tags 'ordax_raw_backend'",workflow)
         self.assertIn("-tags 'ordax_owner_prototype ordax_single_exe ordax_raw_backend'",workflow)
         self.assertIn("creator-owner-dev-git.yml",workflow)
         self.assertIn("creatorSupportedLocales()",workflow)
         self.assertIn("OWNER_STANDALONE_EXE_PUBLISHED=NO",workflow)
+        self.assertIn("OWNER_SINGLE_EXE_ZIP_PUBLISHED=YES",workflow)
         self.assertIn("permissions:\n  contents: read",workflow)
         self.assertNotIn("gh release",workflow)
 

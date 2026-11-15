@@ -1074,7 +1074,8 @@ jobs:
             --readme "$release/LEIA-ME.txt" \
             --source-commit "$ORDAX_OWNER_SOURCE_COMMIT"
           echo 'OWNER_RELEASE_PIPELINE=SINGLE_EXE_ZIP'
-          echo 'OWNER_STANDALONE_EXE_PUBLISHED=YES'
+          echo 'OWNER_STANDALONE_EXE_PUBLISHED=NO'
+          echo 'OWNER_SINGLE_EXE_ZIP_PUBLISHED=YES'
           echo 'OWNER_SPLIT_BUNDLE_PUBLISHED=NO'
 
       - name: Cleanup ephemeral private material
