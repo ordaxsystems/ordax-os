@@ -38,6 +38,8 @@ class OwnerPinnedBusyBoxSourceTests(unittest.TestCase):
             archive = MODULE.download(self.spec, self.root)
         self.assertEqual(archive.read_bytes(), self.payload)
         self.assertEqual(urlopen.call_count, 2)
+        self.assertEqual(urlopen.call_args_list[1].args[0],
+                         "https://sources.buildroot.net/busybox/busybox-1.38.0.tar.bz2")
         sleep.assert_called_once_with(1)
         with mock.patch.object(MODULE.urllib.request, "urlopen") as urlopen:
             self.assertEqual(MODULE.download(self.spec, self.root), archive)
