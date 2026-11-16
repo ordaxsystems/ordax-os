@@ -5451,11 +5451,13 @@ class NativeHostHandler(SimpleHTTPRequestHandler):
                 known = {"authentication-failed", "dhcp-failed", "supplicant-start-failed",
                          "network-owner-unavailable", "connect-failed", "reconnect-failed",
                          "dhcp-runtime-unavailable", "scan-failed",
+                         "saved-network-unavailable",
                          "wifi-tools-unavailable", "no-wifi-interface",
                          "credential-save-failed"}
                 if detail in known:
                     status = 409 if detail in {"authentication-failed", "dhcp-failed",
-                                              "connect-failed", "reconnect-failed"} else 503
+                                              "connect-failed", "reconnect-failed",
+                                              "saved-network-unavailable"} else 503
                     self._write_json(status, {"reason": detail})
                 else:
                     self._empty(503)
