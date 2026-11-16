@@ -465,6 +465,15 @@ jobs:
           path: ${{ runner.temp }}/owner-independent-base
           key: ordax-portable-component-v1-${{ runner.os }}-${{ runner.arch }}-independent-base-owner-${{ steps.component-fingerprints.outputs.independent_base_owner }}
 
+      # The source archive is independently pinned by its canonical SHA-256.
+      # Cache the tiny upstream input separately from expensive image builds.
+      - name: Restore pinned BusyBox source
+        id: busybox-source-cache
+        uses: actions/cache/restore@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
+        with:
+          path: out/upstream/busybox
+          key: ordax-owner-busybox-${{ runner.os }}-${{ hashFiles('bootstrap/initramfs/source.json') }}
+
       - name: Build boot initramfs and Git development base
         env:
           ORDAX_SOURCE_COMMIT: ${{ github.event.pull_request.head.sha || github.sha }}
@@ -669,6 +678,13 @@ jobs:
           test -x out/dev-base/rootfs/sbin/ordax-dev-init
           test -x out/dev-base/rootfs/usr/local/bin/ordax-pull
           test -z "$(sudo find "$rootfs/dev" -mindepth 1 -print -quit)"
+
+      - name: Save verified pinned BusyBox source
+        if: steps.busybox-source-cache.outputs.cache-hit != 'true'
+        uses: actions/cache/save@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
+        with:
+          path: out/upstream/busybox
+          key: ordax-owner-busybox-${{ runner.os }}-${{ hashFiles('bootstrap/initramfs/source.json') }}
 
       - name: Save verified Owner Buildroot for reuse
         if: steps.owner-base-cache.outputs.cache-hit != 'true'
@@ -917,7 +933,7 @@ jobs:
       - name: Publish verified OS media for independent Creator owner
         if: github.event_name == 'push' && github.ref == 'refs/heads/main'
         env:
-          GH_TOKEN: \${{ github.token }}
+          GH_TOKEN: ${{ github.token }}
         run: |
           set -euo pipefail
           freshness="$(python3 tools/ci/creator_owner_publish_freshness.py \

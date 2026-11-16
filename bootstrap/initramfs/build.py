@@ -23,7 +23,9 @@ import stat
 import subprocess
 import sys
 import tarfile
+import urllib.error
 import urllib.request
+import time
 
 ROOT = Path(__file__).resolve().parents[2]
 HERE = ROOT / "bootstrap" / "initramfs"
@@ -47,6 +49,7 @@ def _load_repo_module(name: str, path: Path):
 
 
 KERNEL_BUILD = _load_repo_module("ordax_kernel_build_for_initramfs", KERNEL_BUILDER_PATH)
+PINNED_BUSYBOX = _load_repo_module("ordax_pinned_busybox", ROOT / "bootstrap/pinned_busybox.py")
 _SHA256 = re.compile(r"^[0-9a-f]{64}$")
 _SAFE_VERSION = re.compile(r"^[0-9]+\.[0-9]+\.[0-9]+$")
 REQUIRED_APPLETS = {
@@ -365,25 +368,11 @@ def prepare_kernel_uapi(work_dir: Path, env: dict[str, str]) -> dict:
 
 
 def download(contract: dict, destination: Path) -> Path:
-    busybox = contract["busybox"]
-    archive = destination / f"busybox-{busybox['version']}.tar.bz2"
-    if archive.is_file() and sha256_file(archive) == busybox["archive_sha256"]:
-        return archive
-    destination.mkdir(parents=True, exist_ok=True)
-    part = archive.with_suffix(archive.suffix + ".part")
-    part.unlink(missing_ok=True)
     try:
-        with urllib.request.urlopen(busybox["archive_url"], timeout=120) as response, part.open("wb") as out:
-            shutil.copyfileobj(response, out, length=1024 * 1024)
-    except Exception as exc:
-        part.unlink(missing_ok=True)
-        raise BuildError(f"BusyBox download failed: {exc}") from exc
-    actual = sha256_file(part)
-    if actual != busybox["archive_sha256"]:
-        part.unlink(missing_ok=True)
-        raise BuildError(f"BusyBox digest mismatch: expected={busybox['archive_sha256']} actual={actual}")
-    part.replace(archive)
-    return archive
+        return PINNED_BUSYBOX.download(contract["busybox"], destination)
+    except PINNED_BUSYBOX.PinnedBusyBoxSourceError as exc:
+        raise BuildError(str(exc)) from exc
+
 
 
 def safe_member(member: tarfile.TarInfo, top: str) -> None:
@@ -721,7 +710,7 @@ def build(
     shutil.rmtree(out_dir, ignore_errors=True)
     work_dir.mkdir(parents=True)
     out_dir.mkdir(parents=True)
-    archive = download(contract, work_dir / "cache")
+    archive = download(contract, ROOT / "out" / "upstream" / "busybox")
     source = extract(archive, work_dir / "source", contract["busybox"]["version"])
     env = dict(os.environ)
     env.update(FIXED_ENV)
