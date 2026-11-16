@@ -150,7 +150,7 @@ export const NETWORK_ENGLISH_MESSAGES = Object.freeze({
   "network.management.error.ownerUnavailable": "The Wi-Fi controller did not respond. The previous connection was preserved.",
   "network.management.error.dhcpRuntime": "Native DHCP components are missing from this installation. The existing Wi-Fi connection was preserved.",
   "network.management.error.scanFailed": "The Wi-Fi adapter could not complete the network scan.",
-  "network.management.error.connectFailure": "The Wi-Fi controller did not confirm the new connection. No password failure was identified.",
+  "network.management.error.connectFailure": "The Wi-Fi controller did not confirm the new connection. The exact cause has not yet been identified.",
   "network.management.error.reconnectFailure": "The Wi-Fi controller did not confirm reconnection. The saved network was preserved.",
   "network.management.error.sessionUnavailable": "The native Wi-Fi session did not authorize this action. Restart the Network step and try again.",
   "network.management.error.brokerUnavailable": "The native Wi-Fi service is unavailable. Restart Surface to recover the controller.",
