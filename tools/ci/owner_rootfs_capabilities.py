@@ -76,6 +76,7 @@ BUILDROOT_PROGRAMS = {
 BUSYBOX_SYMBOLS = {
     "acpid": "CONFIG_ACPID", "awk": "CONFIG_AWK", "cat": "CONFIG_CAT", "chmod": "CONFIG_CHMOD",
     "chroot": "CONFIG_CHROOT", "cmp": "CONFIG_CMP", "cp": "CONFIG_CP",
+    "blkid": "CONFIG_BLKID",
     "cut": "CONFIG_CUT", "date": "CONFIG_DATE", "df": "CONFIG_DF",
     "dirname": "CONFIG_DIRNAME", "echo": "CONFIG_ECHO", "flock": "CONFIG_FLOCK", "grep": "CONFIG_GREP",
     "head": "CONFIG_HEAD", "kill": "CONFIG_KILL", "killall": "CONFIG_KILLALL",

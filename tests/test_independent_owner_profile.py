@@ -87,13 +87,14 @@ class IndependentOwnerDevelopmentProfileTests(unittest.TestCase):
         self.assertIn("BR2_PACKAGE_WPA_SUPPLICANT=y", stable["fragment_config"])
         self.assertNotIn("BR2_PACKAGE_GIT=y", stable["fragment_config"])
 
-    def test_owner_busybox_fragment_adds_only_network_diagnostics(self) -> None:
+    def test_owner_busybox_fragment_adds_only_required_dev_transport_and_diagnostics(self) -> None:
         lines = [
             line.strip()
             for line in OWNER_BUSYBOX_FRAGMENT.read_text(encoding="utf-8").splitlines()
             if line.strip() and not line.lstrip().startswith("#")
         ]
-        self.assertEqual(lines, ["CONFIG_NTPD=y", "CONFIG_NSLOOKUP=y", "CONFIG_WGET=y"])
+        self.assertEqual(lines, ["CONFIG_NTPD=y", "CONFIG_NSLOOKUP=y", "CONFIG_WGET=y",
+                                 "CONFIG_BLKID=y", "CONFIG_FEATURE_VOLUMEID_EXFAT=y"])
         self.assertNotIn("CONFIG_TIMEOUT=y", lines)
         self.assertNotIn("CONFIG_IP=y", lines)
 
@@ -118,7 +119,7 @@ class IndependentOwnerDevelopmentProfileTests(unittest.TestCase):
         for applet in (
             "awk", "date", "df", "dirname", "head", "killall", "mv", "ntpd",
             "pivot_root", "reboot", "rm", "sed", "setsid", "stty", "tail",
-            "test", "touch", "wc", "flock", "nslookup", "wget",
+            "test", "touch", "wc", "flock", "nslookup", "wget", "blkid",
         ):
             self.assertIn(f'"{applet}"', builder)
 
@@ -129,7 +130,8 @@ class IndependentOwnerDevelopmentProfileTests(unittest.TestCase):
         self.assertIn("validate_wifi_hardware_fragment", text)
         self.assertIn('selected["shared_fragment_config"]', text)
         self.assertIn('selected["fragment_config"]', text)
-        self.assertIn('OWNER_BUSYBOX_SYMBOLS = ("CONFIG_NTPD=y", "CONFIG_NSLOOKUP=y", "CONFIG_WGET=y")', text)
+        self.assertIn('OWNER_BUSYBOX_SYMBOLS = ("CONFIG_NTPD=y", "CONFIG_NSLOOKUP=y", "CONFIG_WGET=y",', text)
+        self.assertIn('"CONFIG_BLKID=y", "CONFIG_FEATURE_VOLUMEID_EXFAT=y")', text)
         self.assertIn("OWNER_BUSYBOX_FRAGMENT_CONFIG", text)
         self.assertNotIn("OWNER_FIRMWARE_CONFIG = (", text)
         self.assertNotIn("IWLWIFI_22000", text)

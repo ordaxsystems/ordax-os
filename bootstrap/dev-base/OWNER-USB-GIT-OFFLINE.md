@@ -33,3 +33,22 @@ no Stable, sem uma autoridade assinada e um handoff explícito ao Supervisor.
 A seleção/montagem da partição, a geração de bundles no Windows e a ativação
 continuam fora deste helper. A disponibilidade do helper em Git também não
 significa que o pendrive físico já possua esta revisão.
+
+### Consumo canônico no Supervisor (Owner Dev)
+
+O `system/supervisor` monta temporariamente a partição 3 `ORDAX-DATA` do **mesmo**
+disco removível que contém a raiz ext4 ativa, com `ro,nodev,nosuid,noexec`.
+A identidade do disco deriva de `/proc/self/mountinfo` e `/sys/dev/block`,
+sem selecionar outro pendrive apenas por rótulo. No ciclo existente do Supervisor,
+a importação ocorre uma única vez por boot, através deste helper, e só alimenta
+`refs/ordax/offline/main`. A montagem é desmontada em seguida.
+
+O Supervisor continua consultando `origin/main` pela conexão HTTPS canônica.
+Apenas quando esse SHA remoto corresponde **exatamente** aos objetos já importados,
+reutiliza o cache para a preparação do `ordax-pull`, sem baixar esses objetos
+novamente. O mesmo preflight, troca atômica, health-check e rollback existentes
+seguem obrigatórios. Sem internet ou quando há discrepância, **não há ativação
+offline**: o checkout atual continua íntegro e a reconciliação fica pendente.
+
+A Base antiga, sem este consumidor, necessita de uma instalação inicial de Base
+atualizada. Copiar o bundle para `ORDAX-DATA` não altera a Base instalada.
