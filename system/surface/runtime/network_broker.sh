@@ -429,10 +429,18 @@ handle_request() {
             respond "$request_id" ok "$wifi" forgotten
             ;;
         reconnect)
+            # Without an actual saved credential, there is nothing to restore.
+            # Do not unpause the network or read an unset failure reason:
+            # under set -u that would terminate the single Wi-Fi broker.
+            if [ ! -s "$WPA_CONF" ] || [ -L "$WPA_CONF" ]; then
+                respond "$request_id" error "$wifi" saved-network-unavailable
+                return 0
+            fi
             if ! rm -f "$AUTO_CONNECT_PAUSED" || ! /bin/busybox sync; then
                 respond "$request_id" error "$wifi" reconnect-state-failed
                 return 0
             fi
+            connect_failure_reason=reconnect-failed
             if restore_saved_network_if_needed; then
                 capture_link "$wifi"
                 capture_saved_ssid
@@ -440,8 +448,7 @@ handle_request() {
             else
                 capture_link "$wifi"
                 capture_saved_ssid
-                [ -n "$connect_failure_reason" ] || connect_failure_reason=reconnect-failed
-                respond "$request_id" error "$wifi" "$connect_failure_reason"
+                respond "$request_id" error "$wifi" "${connect_failure_reason:-reconnect-failed}"
             fi
             ;;
         *)
