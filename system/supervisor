@@ -2609,7 +2609,7 @@ owner_usb_data_device() {
         [ -f "$owner_data_sys/partition" ] || continue
         [ "$(/bin/busybox cat "$owner_data_sys/partition" 2>/dev/null)" = 3 ] || continue
         [ "$(/bin/busybox cat "$owner_data_sys/../dev" 2>/dev/null)" = "$owner_parent_mm" ] || continue
-        owner_data_name=$(/bin/busybox basename "$owner_data_sys")
+        owner_data_name=${owner_data_sys##*/}
         owner_data_candidate=/dev/$owner_data_name
         [ -b "$owner_data_candidate" ] || continue
         owner_data_identity=$(/bin/busybox blkid "$owner_data_candidate" 2>/dev/null || true)
@@ -3148,7 +3148,11 @@ while :; do
     else
         recover_stale_surface_if_needed
     fi
-    owner_stage_usb_git_once
+    # Prefetch untrusted Git objects after initial health, even when First Run
+    # has not completed Wi-Fi setup. Activation still waits for confirmed main.
+    if [ "$OWNER_INITIAL_HEALTH_PENDING" -eq 0 ]; then
+        owner_stage_usb_git_once
+    fi
     check_for_update
     # One owner and one event loop. Recheck the pinned signed current slot,
     # local consent and the sole Runtime child only after first Surface

@@ -109,7 +109,11 @@ record_fetch_failure() {{ :; }}
 
     def test_same_supervisor_read_only_owner_path(self):
         source = SUPERVISOR.read_text(encoding="utf-8")
-        self.assertEqual(source.count("    owner_stage_usb_git_once\n"), 1)
+        self.assertEqual(source.count("        owner_stage_usb_git_once\n"), 1)
+        # Prefetch can run without Wi-Fi onboarding; no update is authorized there.
+        self.assertIn('if [ "$OWNER_INITIAL_HEALTH_PENDING" -eq 0 ]; then\n        owner_stage_usb_git_once\n    fi\n    check_for_update', source)
+        first_run_gate = source.split("check_for_update() {", 1)[1].split("record_owner_poll_boot_stage git-remote-started", 1)[0]
+        self.assertNotIn("owner_stage_usb_git_once", first_run_gate)
         self.assertIn("owner_root_sys=/sys/dev/block/$owner_root_mm", source)
         self.assertIn('[ "$owner_data_count" -eq 1 ] || return 1', source)
         self.assertIn("mount -t exfat -o ro,nosuid,nodev,noexec", source)
@@ -120,7 +124,7 @@ record_fetch_failure() {{ :; }}
             self.assertNotIn(forbidden, stage)
         builder = (ROOT / "bootstrap/independent-base/build.py").read_text(encoding="utf-8")
         fragment = (ROOT / "bootstrap/independent-base/configs/owner-development.busybox.fragment").read_text(encoding="utf-8")
-        self.assertIn('"wget", "blkid", "basename",', builder)
+        self.assertIn('"wget", "blkid",', builder)
         self.assertIn("CONFIG_BLKID=y", fragment)
         self.assertIn("CONFIG_FEATURE_VOLUMEID_EXFAT=y", fragment)
         subprocess.run([BASH, "-n", str(SUPERVISOR)], check=True, timeout=15)

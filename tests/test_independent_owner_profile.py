@@ -119,7 +119,7 @@ class IndependentOwnerDevelopmentProfileTests(unittest.TestCase):
         for applet in (
             "awk", "date", "df", "dirname", "head", "killall", "mv", "ntpd",
             "pivot_root", "reboot", "rm", "sed", "setsid", "stty", "tail",
-            "test", "touch", "wc", "flock", "nslookup", "wget", "blkid", "basename",
+            "test", "touch", "wc", "flock", "nslookup", "wget", "blkid",
         ):
             self.assertIn(f'"{applet}"', builder)
 

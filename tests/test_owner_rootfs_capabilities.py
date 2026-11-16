@@ -21,6 +21,10 @@ class OwnerRootfsCapabilitiesTest(unittest.TestCase):
         inventory = capabilities.owner_inventory(ROOT)
         self.assertEqual(inventory["missing_sources"], [])
         self.assertEqual(inventory["unknown_commands"], [])
+        # USB-DATA discovery uses one real BusyBox applet; no basename binary.
+        self.assertIn("blkid", inventory["busybox_applets"])
+        self.assertIn("blkid", inventory["explicit_busybox_applets"])
+        self.assertNotIn("basename", inventory["commands"])
         self.assertIn("system/services/device-agent/native-product-lifecycle.sh", inventory["sources"])
         self.assertNotIn("native_product_reconcile", inventory["commands"])
         self.assertNotIn("native_product_stop", inventory["commands"])

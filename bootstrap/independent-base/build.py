@@ -862,7 +862,7 @@ def verify_target(target: Path, profile: str) -> dict:
         required_applets.update({
             "awk", "date", "df", "dirname", "head", "killall", "mv", "ntpd",
             "pivot_root", "reboot", "rm", "sed", "setsid", "stty", "tail",
-            "test", "touch", "wc", "nslookup", "wget", "blkid", "basename",
+            "test", "touch", "wc", "nslookup", "wget", "blkid",
         })
     missing = required_applets - applets
     if missing:
