@@ -363,28 +363,27 @@ def verified_creator_freshness_wiring_only(base, head, *, root=ROOT):
             ),
             (
                 """          repo='ordaxsystems/ordax-os'
-          release="$GITHUB_WORKSPACE/out/owner-prototype/release"
-          if ! gh release view creator-owner-prototype --repo "$repo" >/dev/null 2>&1; then""",
-                r"""          repo='ordaxsystems/ordax-os'
-          release="$GITHUB_WORKSPACE/out/owner-prototype/release"
-          # Recheck immediately before mutating the rolling channel: main can
-          # advance during a long Creator/QEMU build after the first CI gate.
-          # A newer non-producer-only main revision may reuse the proved USB.
-          freshness="$(python3 tools/ci/creator_owner_publish_freshness.py \
+          media="$GITHUB_WORKSPACE/out/owner-prototype/media"
+          tag='creator-owner-media'
+          if ! gh release view "$tag" --repo "$repo" >/dev/null 2>&1; then""",
+                r"""          freshness="$(python3 tools/ci/creator_owner_publish_freshness.py \
             --source "$ORDAX_OWNER_SOURCE_COMMIT")"
           echo "$freshness"
           case "$freshness" in
             'CREATOR_MAIN_FRESHNESS=SKIP '*)
-              echo 'OWNER_CREATOR_PUBLICATION=SKIPPED_SUPERSEDED_SOURCE'
+              echo 'OWNER_MEDIA_PUBLICATION=SKIPPED_SUPERSEDED_SOURCE'
               exit 0
               ;;
             'CREATOR_MAIN_FRESHNESS=ALLOW '*) ;;
             *)
-              echo 'Creator main freshness result is unrecognized: fail closed' >&2
+              echo 'Owner media main freshness cannot be verified' >&2
               exit 1
               ;;
           esac
-          if ! gh release view creator-owner-prototype --repo "$repo" >/dev/null 2>&1; then""",
+          repo='ordaxsystems/ordax-os'
+          media="$GITHUB_WORKSPACE/out/owner-prototype/media"
+          tag='creator-owner-media'
+          if ! gh release view "$tag" --repo "$repo" >/dev/null 2>&1; then""",
             ),
         )
         for old, new in replacements:
