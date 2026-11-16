@@ -248,7 +248,7 @@ def build(work_dir: Path, out_dir: Path, jobs: int) -> dict:
     work_dir.mkdir(parents=True)
     out_dir.mkdir(parents=True)
 
-    archive = download(contract, work_dir / "cache")
+    archive = download(contract, ROOT / "out" / "upstream" / "busybox")
     source = extract(archive, work_dir / "source", contract["busybox"]["version"])
     env = dict(os.environ)
     env.update(FIXED_ENV)

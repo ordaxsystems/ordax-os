@@ -23,7 +23,9 @@ import stat
 import subprocess
 import sys
 import tarfile
+import urllib.error
 import urllib.request
+import time
 
 ROOT = Path(__file__).resolve().parents[2]
 HERE = ROOT / "bootstrap" / "initramfs"
@@ -370,20 +372,33 @@ def download(contract: dict, destination: Path) -> Path:
     if archive.is_file() and sha256_file(archive) == busybox["archive_sha256"]:
         return archive
     destination.mkdir(parents=True, exist_ok=True)
-    part = archive.with_suffix(archive.suffix + ".part")
-    part.unlink(missing_ok=True)
-    try:
-        with urllib.request.urlopen(busybox["archive_url"], timeout=120) as response, part.open("wb") as out:
-            shutil.copyfileobj(response, out, length=1024 * 1024)
-    except Exception as exc:
+    if archive.is_symlink():
+        raise BuildError("BusyBox source cache cannot be a symbolic link")
+    # The archive is immutable and independently SHA-256 verified on every use.
+    # A timeout at the upstream host should not discard an otherwise valid CI run.
+    # Keep the complete retry budget below the old single 120s request.
+    part = archive.with_suffix(archive.suffix + f".part.{os.getpid()}")
+    for attempt, timeout in enumerate((20, 35, 60), start=1):
         part.unlink(missing_ok=True)
-        raise BuildError(f"BusyBox download failed: {exc}") from exc
-    actual = sha256_file(part)
-    if actual != busybox["archive_sha256"]:
-        part.unlink(missing_ok=True)
-        raise BuildError(f"BusyBox digest mismatch: expected={busybox['archive_sha256']} actual={actual}")
-    part.replace(archive)
-    return archive
+        try:
+            with urllib.request.urlopen(busybox["archive_url"], timeout=timeout) as response, part.open("wb") as out:
+                shutil.copyfileobj(response, out, length=1024 * 1024)
+        except urllib.error.HTTPError as exc:
+            part.unlink(missing_ok=True)
+            raise BuildError(f"BusyBox source rejected request: HTTP {exc.code}") from exc
+        except (urllib.error.URLError, TimeoutError, OSError) as exc:
+            part.unlink(missing_ok=True)
+            if attempt == 3:
+                raise BuildError(f"BusyBox download failed after {attempt} attempts: {exc}") from exc
+            time.sleep(attempt)
+            continue
+        actual = sha256_file(part)
+        if actual != busybox["archive_sha256"]:
+            part.unlink(missing_ok=True)
+            raise BuildError(f"BusyBox digest mismatch: expected={busybox['archive_sha256']} actual={actual}")
+        part.replace(archive)
+        return archive
+    raise BuildError("BusyBox download retry budget exhausted")
 
 
 def safe_member(member: tarfile.TarInfo, top: str) -> None:
@@ -721,7 +736,7 @@ def build(
     shutil.rmtree(out_dir, ignore_errors=True)
     work_dir.mkdir(parents=True)
     out_dir.mkdir(parents=True)
-    archive = download(contract, work_dir / "cache")
+    archive = download(contract, ROOT / "out" / "upstream" / "busybox")
     source = extract(archive, work_dir / "source", contract["busybox"]["version"])
     env = dict(os.environ)
     env.update(FIXED_ENV)
