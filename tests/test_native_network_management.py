@@ -294,6 +294,72 @@ class NativeNetworkManagementTests(unittest.TestCase):
         self.assertIn('rm -f "$AUTO_CONNECT_PAUSED"', reconnect)
         self.assertIn('rm -f "$WPA_CONF" "$AUTO_CONNECT_PAUSED"', broker)
 
+    def test_reconnect_with_no_saved_network_returns_without_killing_broker(self):
+        # Run the checked-in reconnect branch with safe fake network operations.
+        # Missing WPA state used to reference an unset shell variable with set -u,
+        # terminating the sole IPC broker instead of reporting a bounded cause.
+        broker = BROKER.read_text(encoding="utf-8")
+        reconnect = broker.split("        reconnect)\n", 1)[1].split("            ;;\n", 1)[0]
+        self.assertLess(
+            reconnect.index('if [ ! -s "$WPA_CONF" ] || [ -L "$WPA_CONF" ]; then'),
+            reconnect.index('rm -f "$AUTO_CONNECT_PAUSED"'),
+        )
+        self.assertIn('connect_failure_reason=reconnect-failed', reconnect)
+        # Only replace global filesystem sync inside this isolated fixture;
+        # the real policy still retains the original /bin/busybox sync.
+        reconnect_fixture = reconnect.replace("/bin/busybox sync", "true")
+        script = "\n".join((
+            "set -eu",
+            "request_id=fixture",
+            "wifi=wlan0",
+            'respond() { printf "%s\\n" "$4" >>"$NETWORK_TEST_RECEIPTS"; }',
+            'capture_link() { :; }',
+            'capture_saved_ssid() { :; }',
+            'restore_saved_network_if_needed() { printf "restore\\n" >>"$NETWORK_TEST_EVENTS"; return 1; }',
+            "reconnect_once() {",
+            "case reconnect in",
+            "reconnect)",
+            reconnect_fixture,
+            ";;",
+            "esac",
+            "}",
+            "reconnect_once",
+            "",
+        ))
+        with tempfile.TemporaryDirectory() as temporary:
+            root = Path(temporary)
+            saved = root / "wpa.conf"
+            paused = root / "autoconnect-paused"
+            receipts = root / "receipts"
+            events = root / "events"
+            env = dict(
+                os.environ,
+                WPA_CONF=str(saved), AUTO_CONNECT_PAUSED=str(paused),
+                NETWORK_TEST_RECEIPTS=str(receipts),
+                NETWORK_TEST_EVENTS=str(events),
+            )
+            paused.touch()
+            missing = subprocess.run(
+                ["/bin/sh", "-c", script], env=env, text=True,
+                capture_output=True, timeout=6, check=False,
+            )
+            self.assertEqual(missing.returncode, 0, missing.stderr)
+            self.assertEqual(receipts.read_text(), "saved-network-unavailable\n")
+            self.assertTrue(paused.exists(), "no saved state must preserve user pause")
+            self.assertFalse(events.exists(), "no WPA owner action without a saved network")
+
+            # A saved credential with failed reconnection still emits a reason
+            # and does not exit due to an unset connect_failure_reason.
+            saved.write_text("network={\\nssid=43617361\\npsk=0123456789\\n}\\n")
+            receipts.unlink()
+            retry = subprocess.run(
+                ["/bin/sh", "-c", script], env=env, text=True,
+                capture_output=True, timeout=6, check=False,
+            )
+            self.assertEqual(retry.returncode, 0, retry.stderr)
+            self.assertEqual(receipts.read_text(), "reconnect-failed\n")
+            self.assertEqual(events.read_text(), "restore\n")
+
     def test_shared_surface_clock_retry_waits_for_ip_before_ntp(self):
         surface = SURFACE_LAUNCHER.read_text(encoding="utf-8")
         section = surface.split("supervise_time_sync_agent() (", 1)[1].split(

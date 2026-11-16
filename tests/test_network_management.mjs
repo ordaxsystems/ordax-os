@@ -79,6 +79,7 @@ test("native network adapter reports safe WPA/DHCP failures without exposing sec
     ["scan-failed", "scan-failed"],
     ["connect-failed", "connect-failed"],
     ["reconnect-failed", "reconnect-failed"],
+    ["saved-network-unavailable", "saved-network-unavailable"],
     ["network-broker-unavailable", "network-broker-unavailable"],
     ["network-broker-timeout", "network-broker-timeout"],
     ["network-broker-io-failed", "network-broker-io-failed"],
