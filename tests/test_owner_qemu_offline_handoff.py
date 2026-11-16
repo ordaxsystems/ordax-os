@@ -374,7 +374,7 @@ class OwnerQemuHandoffTests(unittest.TestCase):
         workflow = (ROOT / ".github/workflows/creator-owner-dev-git.yml").read_text(encoding="utf-8")
         materialize = workflow.index("- name: Materialize and verify RAW development seed")
         qemu = workflow.index("- name: Prove actual Owner USB offline handoff in QEMU")
-        bundle = workflow.index("- name: Build split Windows Creator bundle")
+        bundle = workflow.index("- name: Package QEMU-proven Owner USB media without compiling Creator")
         self.assertLess(materialize, qemu)
         self.assertLess(qemu, bundle)
         self.assertIn("owner_qemu_offline_boot.py", workflow)
