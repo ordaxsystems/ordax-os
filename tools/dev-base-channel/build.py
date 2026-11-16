@@ -7,12 +7,9 @@ import argparse
 import hashlib
 import importlib.util
 import json
-import os
-from pathlib import Path, PurePosixPath
+from pathlib import Path
 import re
 import shutil
-import stat
-import tarfile
 import sys
 
 SCHEMA = "prototype-ordax.dev-base-candidate/3"
@@ -22,8 +19,6 @@ SHA256_RE = re.compile(r"^[0-9a-f]{64}$")
 MAX_KERNEL_BYTES = 64 * 1024 * 1024
 MAX_INITRAMFS_BYTES = 128 * 1024 * 1024
 MAX_ROOTFS_BYTES = 384 * 1024 * 1024
-MAX_ROOTFS_EXPANDED_BYTES = 320 * 1024 * 1024
-ROOTFS_PROVENANCE_SCHEMA = "prototype-ordax.dev-base/1"
 REQUIRED_ROOTFS_PATHS = (
     "bin/busybox",
     "bin/sh",
@@ -113,197 +108,46 @@ def artifact_from_provenance(
 def validate_rootfs_source(
     rootfs_dir: Path, source_commit: str, owner_reuse_receipt: Path | None = None
 ) -> Path:
+    """Accept only the canonical authenticated Independent Owner rootfs archive."""
     provenance = read_json(rootfs_dir / "provenance.json", "development rootfs provenance")
-    if provenance.get("$schema") == "prototype-ordax.independent-base-provenance/1":
-        # The authoritative Buildroot producer already exports a canonical,
-        # deterministic archive. Never unpack/re-tar or fabricate a competing
-        # rootfs provenance record in this release-channel adapter.
-        policy_file = Path(__file__).resolve().parent / "independent_rootfs.py"
-        spec = importlib.util.spec_from_file_location(
-            "ordax_channel_independent_rootfs", policy_file
+    if provenance.get("$schema") != "prototype-ordax.independent-base-provenance/1":
+        raise CandidateError(
+            "development rootfs must use canonical Independent Base provenance"
         )
-        if spec is None or spec.loader is None:
-            raise CandidateError("canonical Independent rootfs verifier is unavailable")
-        policy = importlib.util.module_from_spec(spec)
-        spec.loader.exec_module(policy)
-        try:
-            policy.validate(
-                rootfs=rootfs_dir / "rootfs.tar",
-                provenance_path=rootfs_dir / "provenance.json",
-                expected_commit=source_commit,
-                reuse_receipt=owner_reuse_receipt,
-            )
-        except (policy.IndependentRootfsError, OSError) as exc:
-            raise CandidateError(f"Independent Owner rootfs failed verification: {exc}") from exc
-        return regular_file(
-            rootfs_dir / "rootfs.tar", "authenticated Independent Owner rootfs",
-            MAX_ROOTFS_BYTES,
+
+    policy_file = Path(__file__).resolve().parent / "independent_rootfs.py"
+    spec = importlib.util.spec_from_file_location(
+        "ordax_channel_independent_rootfs", policy_file
+    )
+    if spec is None or spec.loader is None:
+        raise CandidateError("canonical Independent rootfs verifier is unavailable")
+    policy = importlib.util.module_from_spec(spec)
+    spec.loader.exec_module(policy)
+    try:
+        policy.validate(
+            rootfs=rootfs_dir / "rootfs.tar",
+            provenance_path=rootfs_dir / "provenance.json",
+            expected_commit=source_commit,
+            reuse_receipt=owner_reuse_receipt,
         )
-    if provenance.get("$schema") != ROOTFS_PROVENANCE_SCHEMA:
-        raise CandidateError("development rootfs provenance schema is invalid")
-    if provenance.get("source_commit") != source_commit:
-        raise CandidateError("development rootfs provenance source commit does not match candidate")
-    measured = provenance.get("unique_regular_bytes")
-    if not isinstance(measured, int) or isinstance(measured, bool) or measured <= 0:
-        raise CandidateError("development rootfs provenance size is invalid")
-    if measured > 220 * 1024 * 1024:
-        raise CandidateError("development rootfs provenance exceeds builder size policy")
-    if provenance.get("git_client_preseeded") is not True:
-        raise CandidateError("development rootfs must contain the Git acquisition client")
-    if provenance.get("network_preseeded") is not True:
-        raise CandidateError("development rootfs must contain the network substrate")
-
-    rootfs = rootfs_dir / "rootfs"
-    if rootfs.is_symlink() or not rootfs.is_dir():
-        raise CandidateError("development rootfs tree is missing or unsafe")
-    # The source builder accounts for unique regular inodes, including
-    # flattened APK symlinks. Counting every pathname would turn hundreds of
-    # hardlinks into fictitious expanded bytes, rejecting a valid 67 MiB Base.
-    total = 0
-    seen_inodes: set[tuple[int, int]] = set()
-    for path in sorted(rootfs.rglob("*"), key=lambda item: item.relative_to(rootfs).as_posix()):
-        metadata = path.lstat()
-        if stat.S_ISLNK(metadata.st_mode):
-            raise CandidateError(f"development rootfs contains symlink: {path.relative_to(rootfs)}")
-        if stat.S_ISDIR(metadata.st_mode):
-            continue
-        if not stat.S_ISREG(metadata.st_mode):
-            raise CandidateError(f"development rootfs contains unsafe object: {path.relative_to(rootfs)}")
-        inode = (metadata.st_dev, metadata.st_ino)
-        if inode not in seen_inodes:
-            seen_inodes.add(inode)
-            total += metadata.st_size
-            if total > MAX_ROOTFS_EXPANDED_BYTES:
-                raise CandidateError("development rootfs expanded bytes exceed channel limit")
-    if total != measured:
-        raise CandidateError("development rootfs unique bytes differ from provenance")
-    for relative in REQUIRED_ROOTFS_PATHS:
-        path = rootfs / relative
-        if path.is_symlink() or not path.is_file():
-            raise CandidateError(f"development rootfs required file is missing: {relative}")
-        if path.stat().st_mode & 0o111 == 0:
-            raise CandidateError(f"development rootfs required file is not executable: {relative}")
-    for relative in REQUIRED_ROOTFS_DIRS:
-        path = rootfs / relative
-        if path.is_symlink() or not path.is_dir():
-            raise CandidateError(f"development rootfs required directory is missing: {relative}")
-    return rootfs
-
-
-
-def _canonical_archive_path(value: str) -> bool:
-    if not isinstance(value, str) or not value or "\\" in value:
-        return False
-    path = PurePosixPath(value)
-    return (
-        not path.is_absolute()
-        and path.as_posix() == value
-        and all(part not in (".", "..") for part in path.parts)
+    except (policy.IndependentRootfsError, OSError) as exc:
+        raise CandidateError(f"Independent Owner rootfs failed verification: {exc}") from exc
+    return regular_file(
+        rootfs_dir / "rootfs.tar",
+        "authenticated Independent Owner rootfs",
+        MAX_ROOTFS_BYTES,
     )
 
-
-def build_rootfs_tar(rootfs: Path, destination: Path) -> None:
-    # Flattened APK symlinks are actual filesystem hardlinks. Serialize the
-    # already-present inode identity instead of copying applet bytes hundreds
-    # of times. The reader validates every hardlink before extraction.
-    regular_owners: dict[tuple[int, int], str] = {}
-    with tarfile.open(destination, "w", format=tarfile.GNU_FORMAT) as archive:
-        for path in sorted(rootfs.rglob("*"), key=lambda item: item.relative_to(rootfs).as_posix()):
-            relative = path.relative_to(rootfs).as_posix()
-            metadata = path.lstat()
-            if not _canonical_archive_path(relative) or stat.S_ISLNK(metadata.st_mode):
-                raise CandidateError(f"development rootfs contains unsafe path: {relative}")
-            info = tarfile.TarInfo(relative)
-            info.uid = 0
-            info.gid = 0
-            info.uname = ""
-            info.gname = ""
-            info.mtime = 0
-            info.mode = stat.S_IMODE(metadata.st_mode)
-            if stat.S_ISDIR(metadata.st_mode):
-                info.type = tarfile.DIRTYPE
-                info.size = 0
-                archive.addfile(info)
-            elif stat.S_ISREG(metadata.st_mode):
-                inode = (metadata.st_dev, metadata.st_ino)
-                owner = regular_owners.get(inode)
-                if owner is not None:
-                    info.type = tarfile.LNKTYPE
-                    info.linkname = owner
-                    info.size = 0
-                    archive.addfile(info)
-                else:
-                    regular_owners[inode] = relative
-                    info.type = tarfile.REGTYPE
-                    info.size = metadata.st_size
-                    with path.open("rb") as handle:
-                        archive.addfile(info, handle)
-            else:
-                raise CandidateError(f"development rootfs contains unsafe object: {relative}")
-    regular_file(destination, "development rootfs tar", MAX_ROOTFS_BYTES)
-
-
 def verify_rootfs_tar(path: Path) -> None:
+    """Verify published rootfs bytes with the installed Dev Channel consumer policy."""
     regular_file(path, "development rootfs tar", MAX_ROOTFS_BYTES)
-    names: list[str] = []
-    unique_payload_bytes = 0
-    required = set(REQUIRED_ROOTFS_PATHS)
-    required_dirs = set(REQUIRED_ROOTFS_DIRS)
-    seen: set[str] = set()
-    seen_dirs: set[str] = set()
-    regular_modes: dict[str, int] = {}
-    try:
-        with tarfile.open(path, "r:") as archive:
-            for member in archive.getmembers():
-                name = member.name
-                if not _canonical_archive_path(name) or name in seen:
-                    raise CandidateError("development rootfs tar contains unsafe or duplicate path")
-                seen.add(name)
-                names.append(name)
-                if member.uid != 0 or member.gid != 0 or member.uname or member.gname or member.mtime != 0:
-                    raise CandidateError("development rootfs tar metadata is not deterministic")
-                if member.isdir():
-                    if member.linkname or member.size != 0:
-                        raise CandidateError("development rootfs tar directory is malformed")
-                    seen_dirs.add(name)
-                elif member.isreg():
-                    if member.linkname:
-                        raise CandidateError("development rootfs regular member has a link target")
-                    unique_payload_bytes += member.size
-                    if unique_payload_bytes > MAX_ROOTFS_EXPANDED_BYTES:
-                        raise CandidateError("development rootfs tar expanded bytes exceed channel limit")
-                    regular_modes[name] = member.mode
-                elif member.islnk():
-                    # Only canonical, already-seen *regular* targets are valid;
-                    # no external paths, link chains, or forward references.
-                    target = member.linkname
-                    if (not _canonical_archive_path(target) or target not in regular_modes
-                            or member.size != 0 or member.mode != regular_modes[target]):
-                        raise CandidateError("development rootfs tar has unsafe hardlink")
-                elif member.issym():
-                    # Buildroot's canonical archive preserves confined applet,
-                    # resolver and firmware symlinks. The real Dev consumer
-                    # validates their full graph, including escapes and cycles.
-                    if member.size != 0:
-                        raise CandidateError("development rootfs tar has malformed symlink")
-                else:
-                    raise CandidateError(f"development rootfs tar contains unsafe member: {name}")
-    except tarfile.TarError as exc:
-        raise CandidateError("development rootfs tar is invalid") from exc
-    if names != sorted(names):
-        raise CandidateError("development rootfs tar entries are not deterministic")
-    missing = sorted(required - seen)
-    if missing:
-        raise CandidateError(f"development rootfs tar is missing required files: {missing}")
-    missing_dirs = sorted(required_dirs - seen_dirs)
-    if missing_dirs:
-        raise CandidateError(
-            f"development rootfs tar is missing required directories: {missing_dirs}"
-        )
-    # One and the same safe archive policy is used by both publisher and the
-    # installed Dev Channel consumer; no divergent symlink acceptance.
-    consumer_path = Path(__file__).resolve().parents[2] / "system/services/base-update/dev_channel.py"
-    spec = importlib.util.spec_from_file_location("ordax_channel_candidate_consumer", consumer_path)
+    consumer_path = (
+        Path(__file__).resolve().parents[2]
+        / "system/services/base-update/dev_channel.py"
+    )
+    spec = importlib.util.spec_from_file_location(
+        "ordax_channel_candidate_consumer", consumer_path
+    )
     if spec is None or spec.loader is None:
         raise CandidateError("canonical Dev Channel consumer is unavailable")
     consumer = importlib.util.module_from_spec(spec)
@@ -453,12 +297,10 @@ def build(
     rootfs_out = out_dir / "rootfs.tar"
     shutil.copyfile(kernel, kernel_out)
     shutil.copyfile(initramfs, initramfs_out)
-    if rootfs.is_file():
-        # Exact Buildroot bytes; the source and release hashes identify the
-        # same verified archive, never a second tar producer.
-        shutil.copyfile(rootfs, rootfs_out)
-    else:
-        build_rootfs_tar(rootfs, rootfs_out)
+    # Exact Buildroot bytes; the source and release hashes identify the
+    # same verified archive. The Dev Channel is a publisher/consumer adapter,
+    # never a second rootfs or tar producer.
+    shutil.copyfile(rootfs, rootfs_out)
 
     tag = f"ordax-dev-base-{source_commit}"
     descriptor = {
