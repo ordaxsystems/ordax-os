@@ -115,9 +115,11 @@ jobs:
               'gui_raw_backend_separate': False,
               'standalone_gui_published': False,
               'bundle_extraction_required': True,
+              'publisher_repository': 'ordaxsystems/ordax-creator',
+              'os_media_repository': 'ordaxsystems/ordax-os',
           }
           assert contract['owner_update'] == {
-              'manifest_schema': 'prototype-ordax.creator-owner-bundle-update/1',
+              'manifest_schema': 'prototype-ordax.creator-owner-bundle-update/2',
               'artifact': 'OrdaX-Creator-Owner-Prototype.zip',
               'automatic_in_app_update': False,
               'anti_downgrade_check': True,
@@ -252,7 +254,7 @@ jobs:
           assert 'Package QEMU-proven Owner USB media without compiling Creator' in release
           assert 'gzip -n -6 -c "$seed" > "$media/ordax-bootstrap-seed.raw.gz"' in release
           assert 'OrdaX-Creator.exe' not in release
-          assert 'gh release upload creator-owner-prototype' not in release
+          assert 'OrdaX-Creator-Owner-Prototype.zip' not in release
           assert '"prepare"' not in files['portable']
           assert '"apply"' not in files['portable']
           assert 'ordax-bootstrap-seed.raw' not in files['portable']
