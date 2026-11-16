@@ -57,7 +57,11 @@ class CreatorOwnerImpactTests(unittest.TestCase):
         self.assertIn("if: needs.impact.outputs.required == 'true'", text)
         self.assertIn("CREATOR_OWNER_USB_REQUIRED=", (ROOT / "tools/ci/creator_owner_impact.py").read_text())
         self.assertIn("github.event_name", text)
-        self.assertIn("gh release upload creator-owner-prototype", text)
+        self.assertIn("Publish verified OS media for independent Creator owner", text)
+        self.assertIn("tag='creator-owner-media'", text)
+        self.assertIn('gh release upload "$tag"', text)
+        self.assertIn("OWNER_CREATOR_WINDOWS_RELEASE_OWNED_BY=ordaxsystems/ordax-creator", text)
+        self.assertNotIn("OrdaX-Creator.exe", text)
         self.assertEqual(text.count("build-and-publish:"), 1)
 
     def test_canonical_visual_and_ci_only_changes_skip_real_usb(self):
@@ -345,8 +349,12 @@ class CreatorOwnerImpactTests(unittest.TestCase):
         early = old.index("      # On a queued main push, avoid an expensive build")
         early_end = old.index("  owner-dev-contract:", early)
         old = old[:early] + old[early_end:]
-        late = old.index("          # Recheck immediately before mutating the rolling channel")
-        late_end = old.index("          if ! gh release view creator-owner-prototype", late)
+        publish = old.index("      - name: Publish verified OS media for independent Creator owner")
+        late = old.index(
+            '          freshness="$(python3 tools/ci/creator_owner_publish_freshness.py \\',
+            publish,
+        )
+        late_end = old.index("          repo='ordaxsystems/ordax-os'", late)
         old = old[:late] + old[late_end:]
         base = self.commit(workflow=old, lock=VISUAL)
         head = self.commit(workflow=current, path="tools/ci/creator_owner_publish_freshness.py")
@@ -363,8 +371,8 @@ class CreatorOwnerImpactTests(unittest.TestCase):
         # A changed publisher command, permissions, raw USB producer or unknown
         # extension cannot be smuggled through this exact governance proof.
         tampered = current.replace(
-            "gh release upload creator-owner-prototype",
-            "gh release upload untrusted-owner-prototype")
+            'gh release upload "$tag"',
+            'gh release upload untrusted-owner-media')
         self.assertNotEqual(current, tampered)
         bad = self.commit(workflow=tampered)
         self.assertFalse(impact.verified_creator_freshness_wiring_only(

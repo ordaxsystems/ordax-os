@@ -105,11 +105,13 @@ class CreatorMainFreshnessTests(unittest.TestCase):
         self.assertIn("steps.freshness.outputs.publish_allowed != 'false'", flow)
         self.assertEqual(flow.count("python3 " + gate), 2)
         self.assertIn("Skip superseded main USB production", flow)
-        pub = flow.index("      - name: Publish development Creator bundle")
+        pub = flow.index("      - name: Publish verified OS media for independent Creator owner")
         verify = flow.index("python3 " + gate, pub)
-        upload = flow.index("gh release upload creator-owner-prototype", pub)
+        upload = flow.index('gh release upload "$tag"', pub)
         self.assertLess(verify, upload)
         self.assertIn("'CREATOR_MAIN_FRESHNESS=SKIP '*", flow[pub:upload])
+        self.assertIn("OWNER_MEDIA_PUBLICATION=SKIPPED_SUPERSEDED_SOURCE", flow[pub:upload])
+        self.assertIn("tag='creator-owner-media'", flow[pub:upload])
         # No replacement scheduler, rebuild loop or unsafe cancellation.
         self.assertIn("cancel-in-progress: false", flow)
 
