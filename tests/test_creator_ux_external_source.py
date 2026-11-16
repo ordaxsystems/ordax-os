@@ -14,7 +14,7 @@ class CreatorUxStandaloneSource(unittest.TestCase):
         workflow=WORKFLOW.read_text(encoding="utf-8")
         source=json.loads(PIN.read_text(encoding="utf-8"))["creator_source"]
         self.assertEqual(source["repository"],"ordaxsystems/ordax-creator")
-        self.assertEqual(source["publisher_authority"],"ordaxsystems/ordax-os")
+        self.assertEqual(source["publisher_authority"],"ordaxsystems/ordax-creator")
         self.assertIs(source["physical_apply_authorized"],False)
         self.assertEqual(workflow.count("uses: ./.github/actions/resolve-creator-source"),1)
         self.assertIn("docs/contracts/native-release-assembly.json",workflow)
@@ -32,8 +32,8 @@ class CreatorUxStandaloneSource(unittest.TestCase):
         self.assertIn("-tags 'ordax_owner_prototype ordax_single_exe ordax_raw_backend'",workflow)
         self.assertIn("creator-owner-dev-git.yml",workflow)
         self.assertIn("creatorSupportedLocales()",workflow)
-        self.assertIn("OWNER_STANDALONE_EXE_PUBLISHED=NO",workflow)
-        self.assertIn("OWNER_SINGLE_EXE_ZIP_PUBLISHED=YES",workflow)
+        self.assertIn("CREATOR_RELEASE_PIPELINE=OS_MEDIA_ONLY",workflow)
+        self.assertNotIn("OWNER_SINGLE_EXE_ZIP_PUBLISHED=YES",workflow)
         self.assertIn("permissions:\n  contents: read",workflow)
         self.assertNotIn("gh release",workflow)
 

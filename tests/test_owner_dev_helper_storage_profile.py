@@ -23,8 +23,8 @@ class OwnerDevHelperSourceBoundaryTests(unittest.TestCase):
         self.assertIn("uses: ./.github/actions/resolve-creator-source", owner)
         self.assertIn("uses: ./.github/actions/resolve-creator-source", physical)
         self.assertIn("tests/test_owner_dev_helper_storage_profile.py", physical)
-        self.assertIn("-tags 'ordax_owner_prototype ordax_single_exe ordax_raw_backend'", owner)
-        self.assertIn("OWNER_RAW_HELPER_SEPARATE=NO", owner)
+        self.assertIn("OWNER_CREATOR_BINARY_BUILT_IN_OS=NO", owner)
+        self.assertIn("Publish verified OS media for independent Creator owner", owner)
 
 
 @unittest.skipUnless(os.environ.get("ORDAX_CREATOR_NATIVE_SOURCE"),
@@ -33,7 +33,7 @@ class OwnerDevHelperStorageProfileTests(unittest.TestCase):
     def test_owner_workflow_binds_development_storage_profile_into_embedded_backend(self):
         workflow = WORKFLOW.read_text(encoding="utf-8")
         source = OWNER_SINGLE_EXE.read_text(encoding="utf-8")
-        self.assertIn("-tags 'ordax_owner_prototype ordax_single_exe ordax_raw_backend'", workflow)
+        self.assertIn("OWNER_CREATOR_BINARY_BUILT_IN_OS=NO", workflow)
         self.assertIn('StorageProfile:            "owner-development"', source)
         self.assertIn("creatorcore.PrepareOwnerDevelopmentStorageImage(", source)
         self.assertIn("creatorcore.PlanOwnerDevelopmentStorage(", source)
