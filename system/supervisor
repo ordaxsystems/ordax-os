@@ -781,10 +781,10 @@ apply_remote_checkout() {
     # check_for_update() has already read the exact GitHub origin/main SHA
     # via the canonical TLS remote before invoking this function.
     owner_cached_objects_approved=0
-    if [ "$DISTRIBUTION_PROFILE" = owner-development ] &&
-       [ "$PRODUCT_MODE" = usb ] &&
-       [ "$BRANCH" = main ] &&
-       [ "$REPO_URL" = https://github.com/ordaxsystems/ordax-os.git ] &&
+    if [ "${DISTRIBUTION_PROFILE:-}" = owner-development ] &&
+       [ "${PRODUCT_MODE:-}" = usb ] &&
+       [ "${BRANCH:-}" = main ] &&
+       [ "${REPO_URL:-}" = https://github.com/ordaxsystems/ordax-os.git ] &&
        is_sha "$checkout_target_sha"; then
         owner_cached_sha=$("$GIT_BIN" -C "$WORKTREE" rev-parse refs/ordax/offline/main 2>/dev/null || true)
         owner_tracking_before=$("$GIT_BIN" -C "$WORKTREE" rev-parse refs/remotes/origin/main 2>/dev/null || true)
