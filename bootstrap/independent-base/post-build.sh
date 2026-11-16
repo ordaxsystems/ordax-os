@@ -132,6 +132,7 @@ if test "$PROFILE" = owner-development || test "$PROFILE" = stable-mvp; then
             "$TARGET_DIR/sbin/ordax-dev-init" \
             "$TARGET_DIR/usr/local/bin/ordax-network" \
             "$TARGET_DIR/usr/local/bin/ordax-pull" \
+            "$TARGET_DIR/usr/local/bin/ordax-owner-usb-git" \
             "$TARGET_DIR/usr/local/bin/ordax-rollback" \
             "$TARGET_DIR/usr/local/bin/ordax-run" \
             "$TARGET_DIR/usr/local/bin/ordax-diagnose" \
@@ -185,7 +186,7 @@ if test "$PROFILE" = owner-development || test "$PROFILE" = stable-mvp; then
         }
     mkdir -p "$TARGET_DIR/usr/local/bin" "$TARGET_DIR/state" "$TARGET_DIR/workspace" "$TARGET_DIR/home" "$TARGET_DIR/root" "$TARGET_DIR/run" "$TARGET_DIR/tmp"
     chmod 1777 "$TARGET_DIR/tmp"
-    for helper in ordax-network ordax-pull ordax-rollback ordax-run ordax-diagnose; do
+    for helper in ordax-network ordax-pull ordax-owner-usb-git ordax-rollback ordax-run ordax-diagnose; do
         test -f "$ROOT/bootstrap/dev-base/$helper"
         cp "$ROOT/bootstrap/dev-base/$helper" "$TARGET_DIR/usr/local/bin/$helper"
         chmod 0755 "$TARGET_DIR/usr/local/bin/$helper"

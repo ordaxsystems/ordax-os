@@ -118,5 +118,14 @@ class OwnerUSBGitTests(unittest.TestCase):
         self.assertIn("origin is not canonical", result.stderr)
 
 
+    def test_owner_base_packages_transport_but_stable_rejects_it(self):
+        root = Path(__file__).resolve().parents[1]
+        post = (root / "bootstrap/independent-base/post-build.sh").read_text(encoding="utf-8")
+        builder = (root / "bootstrap/independent-base/build.py").read_text(encoding="utf-8")
+        self.assertIn("ordax-pull ordax-owner-usb-git ordax-rollback", post)
+        self.assertIn('"$TARGET_DIR/usr/local/bin/ordax-owner-usb-git"', post)
+        self.assertIn('"usr/local/bin/ordax-owner-usb-git": ROOT / "bootstrap/dev-base/ordax-owner-usb-git"', builder)
+
+
 if __name__ == "__main__":
     unittest.main()

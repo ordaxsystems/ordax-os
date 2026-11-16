@@ -796,6 +796,7 @@ def verify_owner_target(target: Path) -> None:
         "sbin/ordax-dev-init": ROOT / "bootstrap/dev-base/ordax-dev-init",
         "usr/local/bin/ordax-network": ROOT / "bootstrap/dev-base/ordax-network",
         "usr/local/bin/ordax-pull": ROOT / "bootstrap/dev-base/ordax-pull",
+        "usr/local/bin/ordax-owner-usb-git": ROOT / "bootstrap/dev-base/ordax-owner-usb-git",
         "usr/local/bin/ordax-checkout-exchange": None,
         "usr/local/bin/ordax-usb-mountattr": None,
         "usr/local/bin/ordax-rollback": ROOT / "bootstrap/dev-base/ordax-rollback",
