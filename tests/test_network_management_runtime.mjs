@@ -89,6 +89,7 @@ test("network failures distinguish WPA, DHCP and controller issues without secre
     ["scan-failed", 503, "scanFailed", "busca de redes"],
     ["connect-failed", 409, "connectFailure", "O motivo específico"],
     ["reconnect-failed", 409, "reconnectFailure", "rede salva"],
+    ["saved-network-unavailable", 409, "noSavedNetwork", "Não há uma rede Wi-Fi salva"],
     ["network-broker-unavailable", 503, "brokerUnavailable", "serviço nativo"],
     ["network-broker-timeout", 503, "brokerTimeout", "demorou demais"],
     ["network-broker-io-failed", 503, "brokerIo", "falhou ao acessar"],
