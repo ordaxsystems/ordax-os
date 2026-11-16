@@ -85,6 +85,10 @@ test("network failures distinguish WPA, DHCP and controller issues without secre
     ["dhcp-failed", 409, "dhcp", "DHCP"],
     ["supplicant-start-failed", 503, "supplicant", "serviço de autenticação"],
     ["network-owner-unavailable", 503, "ownerUnavailable", "controlador Wi-Fi"],
+    ["dhcp-runtime-unavailable", 503, "dhcpRuntime", "Componentes nativos de DHCP"],
+    ["scan-failed", 503, "scanFailed", "busca de redes"],
+    ["connect-failed", 409, "connectFailure", "O motivo específico"],
+    ["reconnect-failed", 409, "reconnectFailure", "rede salva"],
     ["network-broker-unavailable", 503, "brokerUnavailable", "serviço nativo"],
     ["network-broker-timeout", 503, "brokerTimeout", "demorou demais"],
     ["network-broker-io-failed", 503, "brokerIo", "falhou ao acessar"],
@@ -102,6 +106,9 @@ test("network failures distinguish WPA, DHCP and controller issues without secre
   const expired = Object.assign(new Error("private"), { status: 403 });
   assert.equal(networkManagementFailureMessageId("connect", expired), "network.management.error.sessionUnavailable");
   assert.ok(networkManagementFailureMessage("connect", expired).includes("sessão nativa"));
+  const scan = Object.assign(new Error("private"), { status: 503, networkReason: "scan-failed" });
+  assert.equal(networkManagementFailureMessageId("scan", scan), "network.management.error.scanFailed");
+  assert.equal(networkManagementFailureMessage("scan", scan).includes("private"), false);
   const untrusted = Object.assign(new Error("private"), { status: 409, networkReason: "raw-wpa-secret" });
   assert.equal(networkManagementFailureMessageId("connect", untrusted), "network.management.error.connectConflict");
 });
