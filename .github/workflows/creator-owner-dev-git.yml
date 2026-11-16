@@ -917,7 +917,7 @@ jobs:
       - name: Publish verified OS media for independent Creator owner
         if: github.event_name == 'push' && github.ref == 'refs/heads/main'
         env:
-          GH_TOKEN: \${{ github.token }}
+          GH_TOKEN: ${{ github.token }}
         run: |
           set -euo pipefail
           freshness="$(python3 tools/ci/creator_owner_publish_freshness.py \
