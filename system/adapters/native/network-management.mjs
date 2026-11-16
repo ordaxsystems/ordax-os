@@ -62,6 +62,7 @@ export async function createNativeNetworkManagement(windowRef = globalThis.windo
           if (["authentication-failed", "dhcp-failed", "supplicant-start-failed",
                "network-owner-unavailable", "dhcp-runtime-unavailable",
                "scan-failed", "connect-failed", "reconnect-failed",
+               "saved-network-unavailable",
                "network-broker-unavailable",
                "network-broker-timeout", "network-broker-io-failed",
                "wifi-tools-unavailable", "no-wifi-interface",
