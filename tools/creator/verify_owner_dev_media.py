@@ -71,6 +71,18 @@ def verify(directory: Path, expected_source: str, seed: Path | None,
     if (directory / "ordax-symbol.png").stat().st_size > 2 << 20 or (
             directory / "ordax-design-theme.json").stat().st_size > 64 << 10:
         raise ValueError("media-brand-size-invalid")
+    # The published compressed image must reproduce exactly the RAW that was
+    # accepted by QEMU. Merely hashing the compressed bytes is insufficient.
+    unpacked_sha = hashlib.sha256()
+    unpacked_size = 0
+    with gzip.open(directory / "ordax-bootstrap-seed.raw.gz", "rb") as reader:
+        for chunk in iter(lambda: reader.read(1024 * 1024), b""):
+            unpacked_size += len(chunk)
+            if unpacked_size > meta["seed_size"]:
+                raise ValueError("compressed-media-expansion-exceeds-proven-seed")
+            unpacked_sha.update(chunk)
+    if unpacked_sha.hexdigest() != meta["seed_sha256"] or unpacked_size != meta["seed_size"]:
+        raise ValueError("compressed-media-does-not-match-proven-seed")
     if seed is not None:
         raw_sha, raw_size = digest(seed)
         if raw_sha != meta["seed_sha256"] or raw_size != meta["seed_size"]:
