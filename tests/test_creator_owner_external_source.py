@@ -20,7 +20,8 @@ class CreatorOwnerExternalSourceTests(unittest.TestCase):
     def test_immutable_standalone_checkout_and_only_one_go_source(self):
         w = self.workflow
         self.assertEqual(self.source["repository"], "ordaxsystems/ordax-creator")
-        self.assertEqual(self.source["publisher_authority"], "ordaxsystems/ordax-creator")
+        self.assertEqual(self.source["publisher_authority"], "ordaxsystems/ordax-os")
+        self.assertEqual(self.source["windows_app_publisher"], "ordaxsystems/ordax-creator")
         self.assertIs(self.source["physical_apply_authorized"], False)
         self.assertEqual(w.count("uses: ./.github/actions/resolve-creator-source"), 1)
         self.assertIn('git -C "$creator" rev-parse HEAD', w)

@@ -60,7 +60,8 @@
     "module": "github.com/ordaxsystems/ordax-creator",
     "helper_package": "./cmd/ordax-creator-native-targets",
     "physical_apply_authorized": false,
-    "publisher_authority": "ordaxsystems/ordax-creator"
+    "publisher_authority": "ordaxsystems/ordax-os",
+    "windows_app_publisher": "ordaxsystems/ordax-creator"
   },
   "intelligence_source_candidate": {
     "owner": "ordaxsystems/ordax-intelligence",

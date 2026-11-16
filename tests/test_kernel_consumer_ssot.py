@@ -117,7 +117,7 @@ class KernelConsumerSSOTTests(unittest.TestCase):
         self.assertIn("'trust_sha256': digest(trust)", workflow)
         self.assertNotIn('--trust bootstrap/trust/release-ed25519.json', workflow)
         self.assertNotIn('sha256sum bootstrap/trust/release-ed25519.json', workflow)
-        self.assertEqual(workflow.count('rm -f "$RUNNER_TEMP/owner-prototype-trust.json"'), 2)
+        self.assertEqual(workflow.count('rm -f "$RUNNER_TEMP/owner-prototype-trust.json"'), 1)
         self.assertIn('rm -f "$RUNNER_TEMP/owner-prototype-private.pem"', workflow)
 
     def test_owner_creator_physical_writer_binding_uses_complete_source(self):

@@ -25,6 +25,7 @@ class CreatorPayloadExternalSourceTests(unittest.TestCase):
         w = self.workflow
         self.assertEqual(self.source["repository"], "ordaxsystems/ordax-creator")
         self.assertEqual(self.source["publisher_authority"], "ordaxsystems/ordax-os")
+        self.assertEqual(self.source["windows_app_publisher"], "ordaxsystems/ordax-creator")
         self.assertIs(self.source["physical_apply_authorized"], False)
         self.assertEqual(w.count("uses: ./.github/actions/resolve-creator-source"), 1)
         self.assertIn("docs/contracts/native-release-assembly.json", w)
