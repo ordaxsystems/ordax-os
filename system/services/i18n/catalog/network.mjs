@@ -67,7 +67,7 @@ export const NETWORK_SOURCE_MESSAGES = Object.freeze({
   "network.management.error.ownerUnavailable": "O controlador Wi-Fi não respondeu. A conexão anterior foi preservada.",
   "network.management.error.dhcpRuntime": "Componentes nativos de DHCP ausentes nesta instalação. A conexão Wi-Fi existente foi preservada.",
   "network.management.error.scanFailed": "O adaptador Wi-Fi não conseguiu concluir a busca de redes.",
-  "network.management.error.connectFailure": "O controlador Wi-Fi não confirmou a nova conexão. A senha não foi identificada como a causa.",
+  "network.management.error.connectFailure": "O controlador Wi-Fi não confirmou a nova conexão. O motivo específico ainda não foi identificado.",
   "network.management.error.reconnectFailure": "O controlador Wi-Fi não confirmou a reconexão. A rede salva foi preservada.",
   "network.management.error.sessionUnavailable": "A sessão nativa de Wi-Fi não autorizou a ação. Reinicie a etapa de Rede e tente novamente.",
   "network.management.error.brokerUnavailable": "O serviço nativo de Wi-Fi não está disponível. Reinicie a Surface para recuperar o controlador.",
