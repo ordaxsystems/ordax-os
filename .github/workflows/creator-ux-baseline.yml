@@ -115,9 +115,11 @@ jobs:
               'gui_raw_backend_separate': False,
               'standalone_gui_published': False,
               'bundle_extraction_required': True,
+              'publisher_repository': 'ordaxsystems/ordax-creator',
+              'os_media_repository': 'ordaxsystems/ordax-os',
           }
           assert contract['owner_update'] == {
-              'manifest_schema': 'prototype-ordax.creator-owner-bundle-update/1',
+              'manifest_schema': 'prototype-ordax.creator-owner-bundle-update/2',
               'artifact': 'OrdaX-Creator-Owner-Prototype.zip',
               'automatic_in_app_update': False,
               'anti_downgrade_check': True,
@@ -208,15 +210,14 @@ jobs:
                   'ordax-creator-physical-test.exe', 'ordax-bootstrap-seed.raw', 'provenance.json',
               ],
               'release': [
-                  'name: Creator Owner Development Git USB', "-tags 'ordax_owner_prototype ordax_single_exe ordax_raw_backend'",
-                  "-X main.buildCreatorVersion=", "-X main.buildCreatorSourceCommit=",
-                  'OrdaX-Creator-Owner-Prototype.zip',
-                  'prototype-ordax.creator-owner-bundle-update/1', "'automatic_in_app_update': False",
-                  "delete-asset creator-owner-prototype 'OrdaX-Creator.exe'",
-                  'OWNER_RELEASE_PIPELINE=SINGLE_EXE_ZIP', 'OWNER_STANDALONE_EXE_PUBLISHED=NO',
-                  'OWNER_SINGLE_EXE_ZIP_PUBLISHED=YES', 'OWNER_SPLIT_BUNDLE_PUBLISHED=NO',
-              ],
-          }
+                  'name: Creator Owner Development Git USB',
+                  'Package QEMU-proven Owner USB media without compiling Creator',
+                  'prototype-ordax.creator-owner-media/1',
+                  'creator-owner-media.json',
+                  'OWNER_CREATOR_BINARY_BUILT_IN_OS=NO',
+                  'Publish verified OS media for independent Creator owner',
+                  "OWNER_CREATOR_WINDOWS_RELEASE_OWNED_BY=ordaxsystems/ordax-creator",
+              ],          }
           for name, anchors in required.items():
               for anchor in anchors:
                   assert anchor in files[name], f'missing Creator {name} anchor: {anchor}'
@@ -250,9 +251,10 @@ jobs:
 
           release = files['release']
           assert 'workflow_run:' not in release
-          assert "-tags 'ordax_owner_prototype ordax_single_exe ordax_raw_backend'" in release
-          assert 'embedded="$ORDAX_CREATOR_NATIVE_SOURCE/cmd/ordax-creator-app/owner_payload"' in release
-          assert 'gzip -n -c "$seed" > "$embedded/ordax-bootstrap-seed.raw.gz"' in release
+          assert 'Package QEMU-proven Owner USB media without compiling Creator' in release
+          assert 'gzip -n -6 -c "$seed" > "$media/ordax-bootstrap-seed.raw.gz"' in release
+          assert 'OrdaX-Creator.exe' not in release
+          assert 'OrdaX-Creator-Owner-Prototype.zip' not in release
           assert '"prepare"' not in files['portable']
           assert '"apply"' not in files['portable']
           assert 'ordax-bootstrap-seed.raw' not in files['portable']
@@ -269,6 +271,6 @@ jobs:
           print('CREATOR_LOCALIZATION_BASELINE=pt-BR,en-US')
           print('CREATOR_USER_REQUIRED_INPUT=usb_target')
           print('CREATOR_OPTIONAL_PREFERENCE=locale')
-          print('CREATOR_RELEASE_PIPELINE=SPLIT_BUNDLE')
+          print('CREATOR_RELEASE_PIPELINE=OS_MEDIA_ONLY')
           print('CREATOR_AUTOMATIC_IN_APP_BUNDLE_UPDATE=NO')
           PY

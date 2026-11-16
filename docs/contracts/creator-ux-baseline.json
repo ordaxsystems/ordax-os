@@ -47,10 +47,12 @@
     "artifact": "OrdaX-Creator-Owner-Prototype.zip",
     "gui_raw_backend_separate": false,
     "standalone_gui_published": false,
-    "bundle_extraction_required": true
+    "bundle_extraction_required": true,
+    "publisher_repository": "ordaxsystems/ordax-creator",
+    "os_media_repository": "ordaxsystems/ordax-os"
   },
   "owner_update": {
-    "manifest_schema": "prototype-ordax.creator-owner-bundle-update/1",
+    "manifest_schema": "prototype-ordax.creator-owner-bundle-update/2",
     "artifact": "OrdaX-Creator-Owner-Prototype.zip",
     "automatic_in_app_update": false,
     "anti_downgrade_check": true,

@@ -114,21 +114,21 @@ class KernelConsumerSSOTTests(unittest.TestCase):
         self.assertIn('trust="$RUNNER_TEMP/owner-prototype-trust.json"', workflow)
         self.assertIn('--trust "$trust"', workflow)
         self.assertIn('test ! -e "$trust"', workflow)
-        self.assertIn('sha256sum "$RUNNER_TEMP/owner-prototype-trust.json"', workflow)
+        self.assertIn("'trust_sha256': digest(trust)", workflow)
         self.assertNotIn('--trust bootstrap/trust/release-ed25519.json', workflow)
         self.assertNotIn('sha256sum bootstrap/trust/release-ed25519.json', workflow)
-        self.assertEqual(workflow.count('rm -f "$RUNNER_TEMP/owner-prototype-trust.json"'), 2)
+        self.assertEqual(workflow.count('rm -f "$RUNNER_TEMP/owner-prototype-trust.json"'), 1)
         self.assertIn('rm -f "$RUNNER_TEMP/owner-prototype-private.pem"', workflow)
 
     def test_owner_creator_physical_writer_binding_uses_complete_source(self):
         workflow = (ROOT / ".github/workflows/creator-owner-dev-git.yml").read_text(encoding="utf-8")
-        self.assertIn("-tags 'ordax_owner_prototype ordax_single_exe ordax_raw_backend'", workflow)
-        self.assertIn("-X main.buildCreatorVersion=$ORDAX_CREATOR_PRODUCT_VERSION", workflow)
-        self.assertIn("-X main.buildCreatorSourceCommit=$ORDAX_CREATOR_SOURCE_COMMIT", workflow)
+        self.assertIn("Package QEMU-proven Owner USB media without compiling Creator", workflow)
+        self.assertIn("OWNER_CREATOR_BINARY_BUILT_IN_OS=NO", workflow)
+        self.assertIn("tools/creator/verify_owner_dev_media.py", workflow)
         self.assertIn("ORDAX_OWNER_SOURCE_COMMIT: ${{ github.event.pull_request.head.sha || github.sha }}", workflow)
         self.assertIn("'source_commit': os.environ['ORDAX_OWNER_SOURCE_COMMIT']", workflow)
-        self.assertIn("'physical_write_authorized_in_binary': True", workflow)
-        self.assertIn('cp "$bundle/provenance.json" "$embedded/provenance.json"', workflow)
+        self.assertIn("'windows_executable_in_media': False", workflow)
+        self.assertIn('gzip -n -6 -c "$seed" > "$media/ordax-bootstrap-seed.raw.gz"', workflow)
         independent = os.environ.get("ORDAX_CREATOR_NATIVE_SOURCE")
         pin = json.loads((ROOT / "docs/contracts/native-release-assembly.json").read_text(encoding="utf-8"))["creator_source"]
         self.assertEqual(pin["repository"], "ordaxsystems/ordax-creator")
@@ -142,7 +142,7 @@ class KernelConsumerSSOTTests(unittest.TestCase):
         self.assertIn('"$creator/version.json" "$GITHUB_ENV"', workflow)
         self.assertIn('ORDAX_CREATOR_PRODUCT_VERSION', workflow)
         self.assertNotIn('tools/creator/version.json', workflow)
-        self.assertIn("creator_version", workflow)
+        self.assertNotIn("OrdaX-Creator.exe", workflow)
 
     def test_stale_bootstrap_manifest_rejected_before_output(self):
         with tempfile.TemporaryDirectory() as tmp:

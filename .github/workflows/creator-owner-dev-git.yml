@@ -842,241 +842,119 @@ jobs:
           if-no-files-found: ignore
           retention-days: 7
 
-      - name: Build split Windows Creator bundle
+      - name: Package QEMU-proven Owner USB media without compiling Creator
         run: |
           set -euo pipefail
           seed="$(cat "$RUNNER_TEMP/owner-prototype-seed-path")"
-          manifest="$RUNNER_TEMP/minimal-bootstrap-owner-dev.json"
-          release="$GITHUB_WORKSPACE/out/owner-prototype/release"
-          bundle="$RUNNER_TEMP/OrdaX-Creator"
-          mkdir -p "$release" "$bundle"
-          python3 tools/creator/theme_bridge.py --out "$bundle/ordax-design-theme.json"
-          cp system/surface/ui/brand/ordax-symbol.png "$bundle/ordax-symbol.png"
-          python3 tools/creator/theme_bridge.py --out "$bundle/ordax-design-theme.json" --check
-          symbol_sha="$(sha256sum "$bundle/ordax-symbol.png" | cut -d' ' -f1)"
-          theme_sha="$(sha256sum "$bundle/ordax-design-theme.json" | cut -d' ' -f1)"
-
-          trust_sha="$(sha256sum "$RUNNER_TEMP/owner-prototype-trust.json" | cut -d' ' -f1)"
-          manifest_sha="$(sha256sum "$manifest" | cut -d' ' -f1)"
-          seed_sha="$(sha256sum "$seed" | cut -d' ' -f1)"
-          seed_size="$(stat -c '%s' "$seed")"
-
-          python - "$bundle/provenance.json" "$trust_sha" "$manifest_sha" "$seed_sha" "$seed_size" "$symbol_sha" "$theme_sha" <<'PY'
-          import json, os, pathlib, sys
+          media="$GITHUB_WORKSPACE/out/owner-prototype/media"
+          mkdir -p "$media"
+          python3 tools/creator/theme_bridge.py --out "$media/ordax-design-theme.json"
+          cp system/surface/ui/brand/ordax-symbol.png "$media/ordax-symbol.png"
+          python3 tools/creator/theme_bridge.py --out "$media/ordax-design-theme.json" --check
+          gzip -n -6 -c "$seed" > "$media/ordax-bootstrap-seed.raw.gz"
+          python3 - "$seed" "$media" "$RUNNER_TEMP/owner-prototype-trust.json" \
+            "$RUNNER_TEMP/minimal-bootstrap-owner-dev.json" "$RUNNER_TEMP/owner-qemu-offline-handoff.json" <<'PY'
+          import hashlib, json, os, pathlib, sys
+          raw, dest, trust, manifest, proof = map(pathlib.Path, sys.argv[1:])
+          def digest(path):
+              h = hashlib.sha256()
+              with path.open('rb') as stream:
+                  for chunk in iter(lambda: stream.read(1024*1024), b''):
+                      h.update(chunk)
+              return h.hexdigest()
+          qemu = json.loads(proof.read_text(encoding='utf-8'))
+          if qemu.get('status') != 'pass' or not all(qemu.get('checks', {}).values()) or \
+             not qemu.get('welcome_screen_rendered_proven') or \
+             not qemu.get('second_offline_boot_proven') or \
+             not qemu.get('guest_acpi_shutdown_proven') or \
+             not qemu.get('ext4_clean_after_guest_shutdown') or \
+             qemu.get('physical_device_touched') is not False:
+              raise SystemExit('Owner media requires full two-boot QEMU acceptance')
           data = {
-              '$schema': 'prototype-ordax.creator-owner-physical/1',
-              'status': 'owner-prototype-write-enabled',
-              'source_commit': os.environ['ORDAX_OWNER_SOURCE_COMMIT'],
-              'creator_source_repository': os.environ['ORDAX_CREATOR_SOURCE_REPOSITORY'],
-              'creator_source_commit': os.environ['ORDAX_CREATOR_SOURCE_COMMIT'],
-              'creator_source_tree': os.environ['ORDAX_CREATOR_SOURCE_TREE'],
-              'creator_version': os.environ['ORDAX_CREATOR_PRODUCT_VERSION'],
-              'canonical_public_release': False,
-              'ephemeral_prototype_trust': True,
-              'private_key_in_package': False,
-              'raw_backend_linked': True,
-              'physical_write_authorized_in_binary': True,
-              'system_disk_exclusion_required': True,
-              'live_target_revalidation_required': True,
-              'windows_uac_required': True,
-              'readback_verification_required': True,
-              'trust_sha256': sys.argv[2],
-              'prototype_manifest_sha256': sys.argv[3],
-              'seed_sha256': sys.argv[4],
-              'seed_size': int(sys.argv[5]),
-              'symbol_sha256': sys.argv[6],
-              'theme_sha256': sys.argv[7]
-          }
-          pathlib.Path(sys.argv[1]).write_text(json.dumps(data, indent=2, sort_keys=True) + '\n', encoding='utf-8')
-          PY
-
-          # One user-facing executable: the canonical Creator app contains the
-          # compressed, hash-bound OS seed and its own privilege-separated backend.
-          # This is a disposable checkout of the exact pinned Creator owner.
-          embedded="$ORDAX_CREATOR_NATIVE_SOURCE/cmd/ordax-creator-app/owner_payload"
-          mkdir -p "$embedded"
-          gzip -n -c "$seed" > "$embedded/ordax-bootstrap-seed.raw.gz"
-          cp "$bundle/provenance.json" "$embedded/provenance.json"
-          test -s "$embedded/ordax-bootstrap-seed.raw.gz"
-          cmp "$embedded/provenance.json" "$bundle/provenance.json"
-
-          pushd "$ORDAX_CREATOR_NATIVE_SOURCE" >/dev/null
-          CGO_ENABLED=0 GOOS=windows GOARCH=amd64 \
-            go build -trimpath -buildvcs=false \
-              -tags 'ordax_owner_prototype ordax_single_exe ordax_raw_backend' \
-              -ldflags="-s -w -H=windowsgui -X main.buildCreatorVersion=$ORDAX_CREATOR_PRODUCT_VERSION -X main.buildCreatorSourceCommit=$ORDAX_CREATOR_SOURCE_COMMIT" \
-              -o "$bundle/OrdaX-Creator.exe" \
-              ./cmd/ordax-creator-app
-          popd >/dev/null
-
-          test -s "$bundle/OrdaX-Creator.exe"
-          test "$(find "$bundle" -maxdepth 1 -type f -name '*.exe' | wc -l)" -eq 1
-          test -s "$bundle/provenance.json"
-          test -s "$bundle/ordax-symbol.png"
-          test -s "$bundle/ordax-design-theme.json"
-
-          cat > "$bundle/LEIA-ME.txt" <<'TXT'
-          OrdaX Creator - Development Git USB
-
-          1. Extraia a pasta inteira do ZIP.
-          2. Execute somente OrdaX-Creator.exe.
-          3. O mesmo aplicativo executa a gravacao com UAC apenas apos a confirmacao do pendrive.
-
-          A distribuicao contem um unico EXE; o backend privado e extraido e verificado internamente.
-          O canal owner/development ainda nao possui assinatura Authenticode configurada.
-
-          Esta imagem USB Dev inclui Kernel, drivers, checkout local e runtime grafico offline
-          verificado antes da distribuicao. Ao ligar, o OrdaX deve abrir as boas-vindas
-          automaticamente, sem PowerShell ou comandos manuais no notebook.
-
-          Na Surface: selecione o Wi-Fi (ou pule) e conclua a configuracao.
-          Depois, o mecanismo integrado consulta a main, atualiza de modo transacional
-          e preserva a versao anterior se a atualizacao nao for saudavel.
-          A falha de internet nunca deve impedir a utilizacao da versao local.
-
-          ordax-pull, ordax-run e ordax-rollback sao ferramentas de diagnostico/recuperacao,
-          nao etapas normais do primeiro uso.
-          TXT
-          cp "$bundle/LEIA-ME.txt" "$release/LEIA-ME.txt"
-
-          python - "$bundle" "$release/OrdaX-Creator-Owner-Prototype.zip" <<'PY'
-          import pathlib, sys, zipfile
-          source = pathlib.Path(sys.argv[1])
-          output = pathlib.Path(sys.argv[2])
-          expected = [
-              'OrdaX-Creator.exe',
-              'provenance.json',
-              'ordax-symbol.png',
-              'ordax-design-theme.json',
-              'LEIA-ME.txt',
-          ]
-          with zipfile.ZipFile(output, 'w', compression=zipfile.ZIP_DEFLATED, compresslevel=9) as archive:
-              for name in expected:
-                  path = source / name
-                  if not path.is_file():
-                      raise SystemExit(f'missing bundle file: {name}')
-                  archive.write(path, arcname=f'OrdaX-Creator/{name}')
-          PY
-
-          zip_sha="$(sha256sum "$release/OrdaX-Creator-Owner-Prototype.zip" | cut -d' ' -f1)"
-          zip_size="$(stat -c '%s' "$release/OrdaX-Creator-Owner-Prototype.zip")"
-          printf '%s  %s\n' "$zip_sha" 'OrdaX-Creator-Owner-Prototype.zip' > "$release/SHA256SUMS.txt"
-          version="${ORDAX_CREATOR_PRODUCT_VERSION:?missing verified independent Creator version}"
-          python - "$release/creator-owner-update.json" "$ORDAX_OWNER_SOURCE_COMMIT" "$version" "$zip_sha" "$zip_size" <<'PY'
-          import json, pathlib, sys
-          output, source, version, digest, size = sys.argv[1:]
-          data = {
-              '$schema': 'prototype-ordax.creator-owner-bundle-update/1',
+              '$schema': 'prototype-ordax.creator-owner-media/1',
               'channel': 'owner-prototype',
-              'version': version,
-              'source_commit': source,
-              'artifact': 'OrdaX-Creator-Owner-Prototype.zip',
-              'download_url': 'https://github.com/ordaxsystems/ordax-os/releases/download/creator-owner-prototype/OrdaX-Creator-Owner-Prototype.zip',
-              'sha256': digest,
-              'size': int(size),
-              'automatic_in_app_update': False
+              'status': 'qemu-accepted-development-media-only',
+              'source_repository': 'ordaxsystems/ordax-os',
+              'source_commit': os.environ['ORDAX_OWNER_SOURCE_COMMIT'],
+              'assembly_creator_source_commit': os.environ['ORDAX_CREATOR_SOURCE_COMMIT'],
+              'seed_sha256': digest(raw),
+              'seed_size': raw.stat().st_size,
+              'compressed_seed_sha256': digest(dest/'ordax-bootstrap-seed.raw.gz'),
+              'compressed_seed_size': (dest/'ordax-bootstrap-seed.raw.gz').stat().st_size,
+              'symbol_sha256': digest(dest/'ordax-symbol.png'),
+              'theme_sha256': digest(dest/'ordax-design-theme.json'),
+              'trust_sha256': digest(trust),
+              'prototype_manifest_sha256': digest(manifest),
+              'qemu_proof_sha256': digest(proof),
+              'qemu_two_boot_acceptance': True,
+              'physical_hardware_proven': False,
+              'canonical_public_release': False,
+              'private_key_in_package': False,
+              'windows_executable_in_media': False,
           }
-          pathlib.Path(output).write_text(json.dumps(data, indent=2, sort_keys=True) + '\n', encoding='utf-8')
+          (dest/'creator-owner-media.json').write_text(
+              json.dumps(data, sort_keys=True, indent=2)+'\n', encoding='utf-8')
           PY
+          python3 tools/creator/verify_owner_dev_media.py \
+            --directory "$media" --source-commit "$ORDAX_OWNER_SOURCE_COMMIT" \
+            --seed "$seed" --qemu-proof "$RUNNER_TEMP/owner-qemu-offline-handoff.json"
+          if find "$media" -type f -name '*.exe' | grep -q .; then
+            echo 'OS media channel cannot contain a Creator Windows executable' >&2
+            exit 1
+          fi
+          echo 'OWNER_OS_PUBLISHER=VERIFIED_MEDIA_ONLY'
+          echo 'OWNER_CREATOR_BINARY_BUILT_IN_OS=NO'
 
-          echo "OWNER_CREATOR_THEME_SHA256=$theme_sha"
-          echo "OWNER_CREATOR_SYMBOL_SHA256=$symbol_sha"
-          echo "OWNER_BUNDLE_SOURCE=$ORDAX_OWNER_SOURCE_COMMIT"
-          echo "OWNER_BUNDLE_SHA256=$zip_sha"
-          echo "OWNER_SEED_SHA256=$seed_sha"
-          echo 'OWNER_GUI_RAW_BACKEND_LINKED=YES'
-          echo 'OWNER_RAW_HELPER_SEPARATE=NO'
-
-      - name: Verify exact Owner Development ZIP before publication
-        run: |
-          set -euo pipefail
-          release="$GITHUB_WORKSPACE/out/owner-prototype/release"
-          python tools/creator/verify_owner_dev_bundle.py \
-            --archive "$release/OrdaX-Creator-Owner-Prototype.zip" \
-            --metadata "$release/creator-owner-update.json" \
-            --checksums "$release/SHA256SUMS.txt" \
-            --source-commit "$ORDAX_OWNER_SOURCE_COMMIT" \
-            --creator-version "${ORDAX_CREATOR_PRODUCT_VERSION:?}" \
-            --seed "$(cat "$RUNNER_TEMP/owner-prototype-seed-path")"
-
-      - name: Destroy ephemeral private key before publish
+      - name: Destroy ephemeral private key before media publication
         run: |
           set -euo pipefail
           private="$(cat "$RUNNER_TEMP/owner-prototype-private-path")"
+          test -s "$private"
           rm -f "$private"
           test ! -e "$private"
-          rm -f "$RUNNER_TEMP/owner-prototype-trust.json"
-          rm -f out/owner-prototype/ordax-release-signing
+          rm -f "$RUNNER_TEMP/owner-prototype-private-path"
 
-      # PR-only acceptance handoff: immutable tested ZIP, not a rolling release.
-      # The owner must still select/re-enumerate the physical USB and confirm
-      # the destructive action inside the canonical Windows Creator.
-      - name: Retain exact-commit verified USB Dev acceptance bundle
-        if: (github.event_name == 'pull_request' && github.event.pull_request.head.repo.full_name == 'ordaxsystems/ordax-os') || (github.event_name == 'workflow_dispatch' && github.ref != 'refs/heads/main')
-        uses: actions/upload-artifact@b7c566a772e6b6bfb58ed0dc250532a479d7789f # v6
-        with:
-          name: owner-dev-usb-candidate-${{ env.ORDAX_OWNER_SOURCE_COMMIT }}
-          path: |
-            out/owner-prototype/release/OrdaX-Creator-Owner-Prototype.zip
-            out/owner-prototype/release/SHA256SUMS.txt
-            out/owner-prototype/release/creator-owner-update.json
-            out/owner-prototype/release/LEIA-ME.txt
-          if-no-files-found: error
-          retention-days: 3
-
-      - name: Publish development Creator bundle
-        # Only exact main pushes may publish a full proved Creator bundle.
+      - name: Publish verified OS media for independent Creator owner
         if: github.event_name == 'push' && github.ref == 'refs/heads/main'
         env:
-          GH_TOKEN: ${{ github.token }}
+          GH_TOKEN: \${{ github.token }}
         run: |
           set -euo pipefail
-          repo='ordaxsystems/ordax-os'
-          release="$GITHUB_WORKSPACE/out/owner-prototype/release"
-          # Recheck immediately before mutating the rolling channel: main can
-          # advance during a long Creator/QEMU build after the first CI gate.
-          # A newer non-producer-only main revision may reuse the proved USB.
           freshness="$(python3 tools/ci/creator_owner_publish_freshness.py \
             --source "$ORDAX_OWNER_SOURCE_COMMIT")"
           echo "$freshness"
           case "$freshness" in
             'CREATOR_MAIN_FRESHNESS=SKIP '*)
-              echo 'OWNER_CREATOR_PUBLICATION=SKIPPED_SUPERSEDED_SOURCE'
+              echo 'OWNER_MEDIA_PUBLICATION=SKIPPED_SUPERSEDED_SOURCE'
               exit 0
               ;;
             'CREATOR_MAIN_FRESHNESS=ALLOW '*) ;;
             *)
-              echo 'Creator main freshness result is unrecognized: fail closed' >&2
+              echo 'Owner media main freshness cannot be verified' >&2
               exit 1
               ;;
           esac
-          if ! gh release view creator-owner-prototype --repo "$repo" >/dev/null 2>&1; then
-            gh release create creator-owner-prototype --repo "$repo" --target "$ORDAX_OWNER_SOURCE_COMMIT" \
-              --title 'OrdaX Creator - Development Git USB' --prerelease \
-              --notes 'Development-only Git USB.'
+          repo='ordaxsystems/ordax-os'
+          media="$GITHUB_WORKSPACE/out/owner-prototype/media"
+          tag='creator-owner-media'
+          if ! gh release view "$tag" --repo "$repo" >/dev/null 2>&1; then
+            gh release create "$tag" --repo "$repo" \
+              --target "$ORDAX_OWNER_SOURCE_COMMIT" \
+              --title 'OrdaX OS - QEMU verified Owner Dev media' --prerelease \
+              --notes 'Verified OS media only. Creator EXE and updates are published in ordaxsystems/ordax-creator.'
           fi
-          gh release upload creator-owner-prototype \
-            "$release/OrdaX-Creator-Owner-Prototype.zip" "$release/SHA256SUMS.txt" \
-            "$release/LEIA-ME.txt" "$release/creator-owner-update.json" \
+          gh release upload "$tag" \
+            "$media/ordax-bootstrap-seed.raw.gz" "$media/ordax-symbol.png" \
+            "$media/ordax-design-theme.json" --repo "$repo" --clobber
+          # Manifest last: any mixed transition rejects on hashes.
+          gh release upload "$tag" "$media/creator-owner-media.json" \
             --repo "$repo" --clobber
-          gh release delete-asset creator-owner-prototype 'OrdaX-Creator.exe' \
-            --repo "$repo" --yes || true
-          # The tag is the stable address of the Owner/Development channel, not
-          # the source identity of the mutable asset. GitHub may deny release
-          # metadata PATCH (HTTP 403) even when authorized asset upload succeeds.
-          # Never depend on moving the historical tag or updating its target.
-          gh api "repos/$repo/releases/tags/creator-owner-prototype" > "$RUNNER_TEMP/owner-published-release.json"
-          python3 tools/creator/verify_owner_published_release.py \
-            --release "$RUNNER_TEMP/owner-published-release.json" \
-            --archive "$release/OrdaX-Creator-Owner-Prototype.zip" \
-            --metadata "$release/creator-owner-update.json" \
-            --checksums "$release/SHA256SUMS.txt" \
-            --readme "$release/LEIA-ME.txt" \
-            --source-commit "$ORDAX_OWNER_SOURCE_COMMIT"
-          echo 'OWNER_RELEASE_PIPELINE=SINGLE_EXE_ZIP'
-          echo 'OWNER_STANDALONE_EXE_PUBLISHED=NO'
-          echo 'OWNER_SINGLE_EXE_ZIP_PUBLISHED=YES'
-          echo 'OWNER_SPLIT_BUNDLE_PUBLISHED=NO'
+          gh api "repos/$repo/releases/tags/$tag" > "$RUNNER_TEMP/owner-published-media.json"
+          python3 tools/creator/verify_owner_dev_media.py \
+            --directory "$media" --source-commit "$ORDAX_OWNER_SOURCE_COMMIT" \
+            --release-json "$RUNNER_TEMP/owner-published-media.json"
+          echo "OWNER_OS_MEDIA_PUBLISHED=$ORDAX_OWNER_SOURCE_COMMIT"
+          echo 'OWNER_CREATOR_WINDOWS_RELEASE_OWNED_BY=ordaxsystems/ordax-creator'
 
       - name: Cleanup ephemeral private material
         if: ${{ always() }}
