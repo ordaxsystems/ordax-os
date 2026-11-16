@@ -337,6 +337,15 @@ class NativeNetworkManagementTests(unittest.TestCase):
         self.assertIn('self._write_json(503, {"reason": "network-broker-timeout"})', host)
         self.assertIn('self._write_json(503, {"reason": "network-broker-io-failed"})', host)
         self.assertIn('timeout_seconds=42.0 if action in {"connect", "reconnect"}', host)
+        self.assertIn('"dhcp-runtime-unavailable", "scan-failed"', host)
+        self.assertIn('DHCP_NETBOX=/ordax/bootstrap/network/bin/netbox', broker)
+        connect = broker.split("connect_conf() {", 1)[1].split("\n}", 1)[0]
+        self.assertLess(
+            connect.index('if [ ! -x "$DHCP_SCRIPT" ] || [ ! -x "$DHCP_NETBOX" ]; then'),
+            connect.index('if ! stop_wifi "$wifi"; then'),
+            "A missing native DHCP dependency must not terminate an existing WPA connection",
+        )
+        self.assertIn("connect_failure_reason=dhcp-runtime-unavailable", connect)
 
     def test_first_run_wifi_waits_for_wpa_handshake_and_bounded_scan(self):
         text = BROKER.read_text(encoding="utf-8")

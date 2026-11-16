@@ -38,6 +38,7 @@ UDHCPC_BIN=$(command -v udhcpc || true)
 # The Base owns one DHCP lease/route/DNS implementation. Never fall back to
 # BusyBox's build-dependent default.script for Surface Wi-Fi or wired renewal.
 DHCP_SCRIPT=/ordax/bootstrap/network/udhcpc.script
+DHCP_NETBOX=/ordax/bootstrap/network/bin/netbox
 
 [ -n "$IP_BIN" ] && [ -n "$UDHCPC_BIN" ] || {
     echo "ordax-network-broker: IP/DHCP host tools are unavailable" >&2
@@ -224,6 +225,12 @@ connect_conf() {
     conf=$2
     connect_failure_reason=authentication-failed
     [ -s "$conf" ] || return 1
+    # A missing canonical DHCP component must not tear down an already
+    # authenticated WPA session. Check before stopping the current owner.
+    if [ ! -x "$DHCP_SCRIPT" ] || [ ! -x "$DHCP_NETBOX" ]; then
+        connect_failure_reason=dhcp-runtime-unavailable
+        return 1
+    fi
     if ! stop_wifi "$wifi"; then
         connect_failure_reason=network-owner-unavailable
         return 1

@@ -75,6 +75,10 @@ test("native network adapter reports safe WPA/DHCP failures without exposing sec
   const port = await createNativeNetworkManagement(fakeWindow);
   for (const [nextReason, expected] of [["dhcp-failed", "dhcp-failed"],
     ["network-owner-unavailable", "network-owner-unavailable"],
+    ["dhcp-runtime-unavailable", "dhcp-runtime-unavailable"],
+    ["scan-failed", "scan-failed"],
+    ["connect-failed", "connect-failed"],
+    ["reconnect-failed", "reconnect-failed"],
     ["network-broker-unavailable", "network-broker-unavailable"],
     ["network-broker-timeout", "network-broker-timeout"],
     ["network-broker-io-failed", "network-broker-io-failed"],

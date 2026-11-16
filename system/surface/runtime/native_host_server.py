@@ -5450,6 +5450,7 @@ class NativeHostHandler(SimpleHTTPRequestHandler):
                 detail = getattr(exc, "network_detail", "")
                 known = {"authentication-failed", "dhcp-failed", "supplicant-start-failed",
                          "network-owner-unavailable", "connect-failed", "reconnect-failed",
+                         "dhcp-runtime-unavailable", "scan-failed",
                          "wifi-tools-unavailable", "no-wifi-interface",
                          "credential-save-failed"}
                 if detail in known:
