@@ -73,7 +73,7 @@ export function networkManagementFailureMessage(action, error) {
     ownerUnavailable: "O controlador Wi-Fi não respondeu. A conexão anterior foi preservada.",
     dhcpRuntime: "Componentes nativos de DHCP ausentes nesta instalação. A conexão Wi-Fi existente foi preservada.",
     scanFailed: "O adaptador Wi-Fi não conseguiu concluir a busca de redes.",
-    connectFailure: "O controlador Wi-Fi não confirmou a nova conexão. A senha não foi identificada como a causa.",
+    connectFailure: "O controlador Wi-Fi não confirmou a nova conexão. O motivo específico ainda não foi identificado.",
     reconnectFailure: "O controlador Wi-Fi não confirmou a reconexão. A rede salva foi preservada.",
     sessionUnavailable: "A sessão nativa de Wi-Fi não autorizou a ação. Reinicie a etapa de Rede e tente novamente.",
     brokerUnavailable: "O serviço nativo de Wi-Fi não está disponível. Reinicie a Surface para recuperar o controlador.",
