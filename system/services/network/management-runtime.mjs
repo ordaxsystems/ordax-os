@@ -25,12 +25,16 @@ function assertAction(action) {
 
 function failureKind(action, error) {
   assertAction(action);
-  if (["connect", "reconnect"].includes(action) && [409, 503].includes(error?.status)) {
+  if ([409, 503].includes(error?.status)) {
     const reasons = {
       "authentication-failed": "authentication",
       "dhcp-failed": "dhcp",
       "supplicant-start-failed": "supplicant",
       "network-owner-unavailable": "ownerUnavailable",
+      "dhcp-runtime-unavailable": "dhcpRuntime",
+      "scan-failed": "scanFailed",
+      "connect-failed": "connectFailure",
+      "reconnect-failed": "reconnectFailure",
       "network-broker-unavailable": "brokerUnavailable",
       "network-broker-timeout": "brokerTimeout",
       "network-broker-io-failed": "brokerIo",
@@ -67,6 +71,10 @@ export function networkManagementFailureMessage(action, error) {
     dhcp: "O Wi-Fi autenticou, mas o roteador não forneceu um endereço IP (DHCP).",
     supplicant: "O serviço de autenticação Wi-Fi não conseguiu iniciar neste dispositivo.",
     ownerUnavailable: "O controlador Wi-Fi não respondeu. A conexão anterior foi preservada.",
+    dhcpRuntime: "Componentes nativos de DHCP ausentes nesta instalação. A conexão Wi-Fi existente foi preservada.",
+    scanFailed: "O adaptador Wi-Fi não conseguiu concluir a busca de redes.",
+    connectFailure: "O controlador Wi-Fi não confirmou a nova conexão. A senha não foi identificada como a causa.",
+    reconnectFailure: "O controlador Wi-Fi não confirmou a reconexão. A rede salva foi preservada.",
     sessionUnavailable: "A sessão nativa de Wi-Fi não autorizou a ação. Reinicie a etapa de Rede e tente novamente.",
     brokerUnavailable: "O serviço nativo de Wi-Fi não está disponível. Reinicie a Surface para recuperar o controlador.",
     brokerTimeout: "O serviço nativo de Wi-Fi demorou demais para responder. A conexão não foi confirmada.",
