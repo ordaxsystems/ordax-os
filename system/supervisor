@@ -113,6 +113,8 @@ OWNER_POLL_BOOT_FINISHED=0
 OWNER_POLL_BOOT_FILE=$STATE_DIR/native-state/supervisor-boot-witness.json
 # One event loop owns both initial Surface validation and Git discovery.
 OWNER_INITIAL_HEALTH_PENDING=0
+# One non-authoritative Git object import attempt per Supervisor boot.
+OWNER_USB_CACHE_ATTEMPTED=0
 OWNER_INITIAL_HEALTH_RETRIES=0
 OWNER_MANUAL_CHECK=0
 OWNER_INITIAL_NORMAL_SINCE=0
@@ -775,7 +777,26 @@ apply_remote_checkout() {
     # Capture stderr only in /run. Raw Git diagnostics can include URLs or
     # credentials: they must never be copied to persistent state.
     rm -f "$FETCH_ERROR_FILE"
-    if run_bounded_git "$FETCH_TIMEOUT" -C "$WORKTREE" fetch --no-tags origin \
+    # The USB manifest is not signed, so it never selects an update target.
+    # check_for_update() has already read the exact GitHub origin/main SHA
+    # via the canonical TLS remote before invoking this function.
+    owner_cached_objects_approved=0
+    if [ "$DISTRIBUTION_PROFILE" = owner-development ] &&
+       [ "$PRODUCT_MODE" = usb ] &&
+       [ "$BRANCH" = main ] &&
+       [ "$REPO_URL" = https://github.com/ordaxsystems/ordax-os.git ] &&
+       is_sha "$checkout_target_sha"; then
+        owner_cached_sha=$("$GIT_BIN" -C "$WORKTREE" rev-parse refs/ordax/offline/main 2>/dev/null || true)
+        owner_tracking_before=$("$GIT_BIN" -C "$WORKTREE" rev-parse refs/remotes/origin/main 2>/dev/null || true)
+        if [ "$owner_cached_sha" = "$checkout_target_sha" ] &&
+           is_sha "$owner_tracking_before" &&
+           run_bounded_git "$FETCH_TIMEOUT" -C "$WORKTREE" cat-file -e "$checkout_target_sha^{commit}" >/dev/null 2>&1 &&
+           "$GIT_BIN" -C "$WORKTREE" update-ref refs/remotes/origin/main "$checkout_target_sha" "$owner_tracking_before" >>"$UPDATE_LOG" 2>&1; then
+            owner_cached_objects_approved=1
+            log "GitHub main authenticated; reused Owner USB Git objects for $checkout_target_sha"
+        fi
+    fi
+    if [ "$owner_cached_objects_approved" -eq 1 ] || run_bounded_git "$FETCH_TIMEOUT" -C "$WORKTREE" fetch --no-tags origin \
         "+refs/heads/$BRANCH:refs/remotes/origin/$BRANCH" >>"$UPDATE_LOG" 2>"$FETCH_ERROR_FILE"; then
         rm -f "$FETCH_ERROR_FILE" "$FETCH_RETRY_FILE"
     else
@@ -2570,6 +2591,73 @@ handle_portable_candidate_boot() {
     write_update_state "$previous_sha" rolled-back signed-release
     portable_reboot_now "Portable candidate failed cold health; rebooting exact previous release $previous_sha"
 }
+# Non-authoritative transport cache: the running ext4 root's dev_t is the
+# media identity already proven by the fixed Owner initramfs. Never select an
+# arbitrary ORDAX-DATA label from another connected disk.
+owner_usb_data_device() {
+    owner_root_mm=$(/bin/busybox awk '$5 == "/" { print $3; exit }' /proc/self/mountinfo 2>/dev/null || true)
+    case "$owner_root_mm" in *:*) ;; *) return 1 ;; esac
+    owner_root_sys=/sys/dev/block/$owner_root_mm
+    [ -f "$owner_root_sys/partition" ] &&
+    [ "$(/bin/busybox cat "$owner_root_sys/partition" 2>/dev/null)" = 2 ] &&
+    [ "$(/bin/busybox cat "$owner_root_sys/../removable" 2>/dev/null)" = 1 ] || return 1
+    owner_parent_mm=$(/bin/busybox cat "$owner_root_sys/../dev" 2>/dev/null || true)
+    [ -n "$owner_parent_mm" ] || return 1
+    owner_data_count=0
+    owner_data_found=""
+    for owner_data_sys in /sys/class/block/*; do
+        [ -f "$owner_data_sys/partition" ] || continue
+        [ "$(/bin/busybox cat "$owner_data_sys/partition" 2>/dev/null)" = 3 ] || continue
+        [ "$(/bin/busybox cat "$owner_data_sys/../dev" 2>/dev/null)" = "$owner_parent_mm" ] || continue
+        owner_data_name=$(/bin/busybox basename "$owner_data_sys")
+        owner_data_candidate=/dev/$owner_data_name
+        [ -b "$owner_data_candidate" ] || continue
+        owner_data_identity=$(/bin/busybox blkid "$owner_data_candidate" 2>/dev/null || true)
+        case "$owner_data_identity" in *' LABEL="ORDAX-DATA"'*) ;; *) continue ;; esac
+        case "$owner_data_identity" in *' TYPE="exfat"'*) ;; *) continue ;; esac
+        owner_data_count=$((owner_data_count + 1))
+        [ "$owner_data_count" -eq 1 ] || return 1
+        owner_data_found=$owner_data_candidate
+    done
+    [ "$owner_data_count" -eq 1 ] || return 1
+    printf '%s\n' "$owner_data_found"
+}
+
+owner_stage_usb_git_once() {
+    [ "$DISTRIBUTION_PROFILE" = owner-development ] &&
+    [ "$PRODUCT_MODE" = usb ] || return 0
+    [ "$OWNER_USB_CACHE_ATTEMPTED" -eq 0 ] || return 0
+    OWNER_USB_CACHE_ATTEMPTED=1
+    # Missing media/tools must never block healthy local boot.
+    owner_usb_git_bin=/usr/local/bin/ordax-owner-usb-git
+    [ -x "$owner_usb_git_bin" ] && [ ! -L "$owner_usb_git_bin" ] || return 0
+    owner_data_dev=$(owner_usb_data_device) || {
+        log "Owner USB DATA not discoverable on current boot disk; cache skipped"
+        return 0
+    }
+    owner_cache_mount=$UPDATE_RUN_DIR/owner-usb-data
+    [ ! -L "$owner_cache_mount" ] || return 0
+    /bin/busybox mkdir -p "$owner_cache_mount" || return 0
+    if ! /bin/busybox mount -t exfat -o ro,nosuid,nodev,noexec "$owner_data_dev" "$owner_cache_mount" 2>>"$UPDATE_LOG"; then
+        log "Owner USB DATA read-only mount failed; normal runtime preserved"
+        return 0
+    fi
+    owner_bundle_dir=$owner_cache_mount/.ordax/updates/owner-git
+    if [ -d "$owner_bundle_dir" ] && [ ! -L "$owner_bundle_dir" ]; then
+        if ORDAX_DISTRIBUTION_PROFILE=owner-development \
+           ORDAX_WORKTREE="$WORKTREE" ORDAX_UPDATE_RUN_DIR="$UPDATE_RUN_DIR" \
+           /bin/busybox timeout -k 2 90 "$owner_usb_git_bin" stage "$owner_bundle_dir" >>"$UPDATE_LOG" 2>&1; then
+            log "Owner USB Git objects cached; activation still requires verified GitHub main"
+        else
+            log "Owner USB Git cache rejected; active checkout preserved"
+        fi
+    fi
+    if ! /bin/busybox umount "$owner_cache_mount" >>"$UPDATE_LOG" 2>&1; then
+        log "Owner USB DATA read-only mount remains; no writable mount was attempted"
+    fi
+    return 0
+}
+
 check_for_update() {
     current=$(current_sha)
 
@@ -3060,6 +3148,7 @@ while :; do
     else
         recover_stale_surface_if_needed
     fi
+    owner_stage_usb_git_once
     check_for_update
     # One owner and one event loop. Recheck the pinned signed current slot,
     # local consent and the sole Runtime child only after first Surface
