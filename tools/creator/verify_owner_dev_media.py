@@ -16,8 +16,8 @@ ASSETS = frozenset({
     "ordax-symbol.png",
     "ordax-design-theme.json",
 })
-SHA40 = re.compile(r"[0-9a-f]{40}\\Z")
-SHA256 = re.compile(r"[0-9a-f]{64}\\Z")
+SHA40 = re.compile(r"[0-9a-f]{40}\Z")
+SHA256 = re.compile(r"[0-9a-f]{64}\Z")
 
 
 def digest(path: Path) -> tuple[str, int]:
