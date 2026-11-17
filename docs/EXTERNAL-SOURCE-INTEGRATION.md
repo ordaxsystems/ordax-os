@@ -44,11 +44,19 @@ PR aberta, usa a branch determinística
 imutável que passou no gate upstream. Isso evita reutilizar uma branch
 antiga mantida após merge por *squash*: o commit da PR fechada pode não ser
 ancestral da `main`, mesmo com o lock aprovado. Ao encontrar uma branch
-com **o mesmo nome exato** de candidata nova, só permite fast-forward se
-a referência já for ancestral da `main`; caso contrário bloqueia sem
-sobrescrever eventual PR fechada sem merge ou push órfão. Uma única PR
-aberta para o owner continua tendo precedência, mesmo quando sua branch
-foi criada para um commit upstream anterior. Não há force-push, rebase
+com **o mesmo nome exato** de candidata nova, permite fast-forward apenas
+se a referência já for ancestral da `main`. Se o `git push` da candidata
+tiver sido concluído, mas a criação da PR falhou depois, pode recuperar
+**somente aquela branch exata**: commit com pai único ancestral da
+`main`, diff contendo exatamente o lock, conteúdo idêntico ao source
+revalidado, referência remota ainda inalterada e nenhuma PR anterior
+(aberta, fechada ou integrada) para a branch. O único efeito dessa
+recuperação é criar a PR que faltou; não faz novo commit nem force-push.
+Uma branch anteriormente revisada e fechada não é reaberta, mesmo se
+contiver o mesmo lock. Qualquer divergência falha fechada sem reescrever
+branches de terceiros. Uma única PR aberta para o owner continua tendo
+precedência, mesmo quando sua branch foi criada para um commit upstream
+anterior. Não há force-push, rebase
 de histórico de terceiros nem segunda PR simultânea. Caso a main
 upstream tenha sido reescrita, falha em vez de aceitar um force-push como
 atualização. A PR altera **somente um lock**. No caso da Intelligence, todos os
