@@ -390,6 +390,8 @@ fi
         # a remote ref, and an explicit mock of the GitHub PR-history response.
         import os
         workflow = (advance.ROOT / ".github/workflows/external-source-lock-integration.yml").read_text()
+        self.assertIn('if [ "$recovering" != true ]; then', workflow)
+        self.assertLess(workflow.index("recovering=true"), workflow.index('git push origin "HEAD:refs/heads/$branch"'))
         start = '              if ! git merge-base --is-ancestor "$existing_sha" "$main_sha"; then'
         end = '              else\n                echo "::notice::Previously merged owner branch will fast-forward"'
         body = workflow.split(start, 1)[1].split(end, 1)[0]
