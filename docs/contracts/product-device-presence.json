@@ -64,7 +64,14 @@
   },
   "production": {
     "enabled": false,
-    "reason": "control-plane-v3-production-gates-remain-closed"
+    "reason": "control-plane-v3-production-gates-remain-closed",
+    "signedUsbSupervisorSourceReady": true,
+    "nativeDiskActivationAllowed": false,
+    "unsignedDevelopmentFallbackAllowed": false,
+    "signedRuntimeSlotRequired": true,
+    "deviceBoundOwnerConsentRequired": true,
+    "runtimeArtifactAndTrustPromotionPending": true,
+    "clientOAuthAndDeviceGrantsRequiredForActions": true
   },
   "ownerDevelopment": {
     "canaryAllowedAfterAuthenticatedEnrollment": true,
