@@ -86,7 +86,7 @@ class AccountGatewayDestinationDeployTests(unittest.TestCase):
         self.assertIn("ACCOUNT_GATEWAY_OWNER_DEVICE_CONSOLE_SECRET_VALUES_PRINTED=NO", text)
         self.assertIn("ACCOUNT_GATEWAY_OWNER_DEVICE_CONSOLE_ROLLOUT=", text)
         self.assertIn("Only existing-account MCP devices", text)
-        self.assertIn("          default: unchanged", text)
+        self.assertIn("        default: unchanged", text)
         # Existing Project/GitHub release remains independent. A console-only
         # rollout does not introduce a second Account gateway or expand grants.
         console_step=text.split("      - name: Apply independent Owner device MCP console rollout",1)[1].split("      - name: Smoke destination gateway",1)[0]
