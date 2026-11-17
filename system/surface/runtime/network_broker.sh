@@ -23,6 +23,7 @@ RESOLVER_ROOT=${ORDAX_RUNTIME_RESOLVER_ROOT:-}
 RESOLVER_LOG=${ORDAX_RUNTIME_RESOLVER_LOG:-$SESSION_DIR/network-broker.log}
 AUTO_CONNECT_PAUSED=$STATE_DIR/autoconnect-paused
 RECONNECT_INTERVAL=15
+AUTO_RECOVERY_ACTIVE=0
 # Give real WPA2 access points time to finish authentication before DHCP.
 WIFI_HANDSHAKE_ATTEMPTS=18
 
@@ -151,6 +152,11 @@ wait_for_wifi_link() {
     wifi=$1
     attempts=0
     while [ "$attempts" -lt "$WIFI_HANDSHAKE_ATTEMPTS" ]; do
+        # The single broker must service a queued user request before waiting
+        # for an unattended WPA handshake. Never interrupt explicit connect.
+        if [ "$AUTO_RECOVERY_ACTIVE" -eq 1 ] && [ -s "$REQUEST" ]; then
+            return 1
+        fi
         # Association alone is not authentication; DHCP waits for WPA.
         if "$WPA_CLI_BIN" -p "$WPA_CTRL_DIR" -i "$wifi" status 2>/dev/null |
            /bin/busybox grep -q '^wpa_state=COMPLETED$'; then
@@ -302,6 +308,17 @@ restore_saved_network_if_needed() {
     restore_saved_network "$wifi"
 }
 
+# Keep the one existing reconnect scheduler, but do not let its unattended
+# WPA handshake starve a queued first-use status/scan/connect request. The
+# Native host owns REQUEST lifecycle; the broker only checks its presence.
+auto_restore_saved_network_if_needed() {
+    AUTO_RECOVERY_ACTIVE=1
+    if [ ! -s "$REQUEST" ]; then
+        restore_saved_network_if_needed >/dev/null 2>&1 || true
+    fi
+    AUTO_RECOVERY_ACTIVE=0
+}
+
 valid_hex() {
     value=$1
     min_length=$2
@@ -396,7 +413,7 @@ handle_request() {
                 capture_saved_ssid
                 respond "$request_id" error "$wifi" "$failure_reason"
                 if [ ! -e "$AUTO_CONNECT_PAUSED" ]; then
-                    restore_saved_network_if_needed >/dev/null 2>&1 || true
+                    auto_restore_saved_network_if_needed
                 fi
             fi
             ;;
@@ -468,7 +485,7 @@ handle_request() {
 exec 9<>"$CONTROL"
 # Boot and reconnect reuse this IPC owner, never a parallel WPA daemon.
 restore_wired_network_if_needed >/dev/null 2>&1 || true
-restore_saved_network_if_needed >/dev/null 2>&1 || true
+auto_restore_saved_network_if_needed
 sync_runtime_resolver
 while :; do
     signal=""
@@ -476,6 +493,6 @@ while :; do
         [ "$signal" = request ] && handle_request
     else
         restore_wired_network_if_needed >/dev/null 2>&1 || true
-        restore_saved_network_if_needed >/dev/null 2>&1 || true
+        auto_restore_saved_network_if_needed
     fi
 done
