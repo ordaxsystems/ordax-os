@@ -56,42 +56,44 @@ A integração usa os workflows consumidores que o OS **já possui**, com
 workflow_dispatch em SHA de branch quando a PR é criada por GITHUB_TOKEN.
 Não há merge automático que salte CI, gate de hardware, revisão ou rollback.
 
-## Autenticação do job — credencial mínima para PR nova
+## Autenticação do job — GitHub App renovável somente para PR nova
 
-A automação usa a credencial efêmera **GITHUB_TOKEN** para ler e validar
-sources e atualizar uma PR existente que já tenha sido verificada como a
-única PR autorizada para aquele lock. Essa credencial **não pode criar uma PR
-nova**: o workflow exige **ORDAX_INTEGRATION_TOKEN**, emitido por um GitHub
-App de escopo mínimo, antes de publicar uma nova branch ou PR. Sem essa
-credencial, o job falha fechado antes de criar a branch; não tenta atualizar
-a main diretamente nem deixa uma branch órfã.
+A automação já usa o **GITHUB_TOKEN efêmero** para verificar source e atualizar
+uma PR existente, comprovadamente única e limitada ao lock do owner. O token
+nativo não tem autorização para **criar** PRs neste repositório.
 
-Não se copia token de conta ou chave de release no source. O token do App é
-usado somente para a operação que exige eventos GitHub nativos; não usar PAT
-pessoal amplo como atalho. A configuração administrativa que permite a
-Actions criar PRs não substitui esse requisito explícito do workflow.
+Para criar uma PR nova, provisionar **uma única vez** um GitHub App instalado
+somente em `ordaxsystems/ordax-os`, com `Contents: write` e
+`Pull requests: write` (mais a permissão implícita de metadata read).
+Configurar em **Settings → Secrets and variables → Actions** estes dois
+segredos, pertencentes à mesma instalação aprovada:
 
-Quando a atualização usa GITHUB_TOKEN em uma PR já existente, os eventos
-pull_request não são disparados automaticamente. Por isso a própria
-automação dispara via workflow_dispatch **as implementações originais** de
-CI no SHA da branch, sem duplicar código de testes:
+- `ORDAX_INTEGRATION_APP_CLIENT_ID`: Client ID do GitHub App canônico;
+- `ORDAX_INTEGRATION_APP_PRIVATE_KEY`: chave privada PEM desse GitHub App.
+
+**Não armazenar installation access token** como segredo estático: ele expira.
+Quando o workflow verifica uma fonte nova e comprova que nenhuma PR do lock
+está aberta, a action oficial `actions/create-github-app-token` (versão
+imóvel por commit) cria um **installation token de vida curta**, restrito ao
+repositório e às duas permissões acima. A action o revoga ao final do job.
+Se faltar um dos dois segredos, o job falha fechado. Se ambos faltarem,
+o preflight já existente impede `git push` ou criação de branch órfã.
+Não usar PAT amplo, credencial de conta pessoal, nem token de release.
+
+Se a PR única **já estiver aberta**, o workflow continua com `GITHUB_TOKEN`
+e não cria token App nem PR adicional. Como mudanças com `GITHUB_TOKEN`
+não provocam os eventos usuais `pull_request`, ele despacha os workflows
+consumidores **já existentes** no SHA da branch, sem duplicar testes:
 
 - Surface: Foundation, Surface External Source Consumer, Owner Surface Source
   Transaction e Windows Desktop Dev.
 - Intelligence: Foundation, Intelligence cross-repository source gate e
   Owner Intelligence source staging.
 
-Checks adicionais necessários à promoção — como Creator/USB/QEMU e outros
-consumidores sujeitos a gating próprio — continuam exigidos antes de merge.
-Nenhum workflow_dispatch publica Stable ou altera dispositivos físicos.
-
-Com ORDAX_INTEGRATION_TOKEN, o GitHub App dispara os eventos nativos
-pull_request e a CI habitual; nesse caminho o workflow **não** dispara o
-segundo conjunto de verificações. Para atualizações de uma PR existente
-autorizada, GITHUB_TOKEN continua permitido e o workflow_dispatch executa
-os checks originais. Se o App não estiver provisionado, uma source nova não
-é publicada e o operador deve provisionar a credencial de escopo mínimo
-antes de tentar novamente.
+Uma PR recém-criada com o token App provoca a CI nativa e não dispara
+um segundo conjunto de checks. Checks adicionais de Creator/USB/QEMU
+continuam sujeitos aos gates da composição. **Nenhuma credencial, CI verde
+ou PR integrada autoriza escrita física, Stable ou ativação Intelligence**.
 
 ## Ativação após o merge
 
