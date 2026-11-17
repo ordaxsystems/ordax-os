@@ -284,3 +284,57 @@ test("network management port has explicit bounded actions", () => {
   assert.equal(assertNetworkManagementPort(port), port);
   assert.equal("shell" in port, false);
 });
+
+test("Native Wi-Fi keeps a proven live busy controller available after transient first status timeout", async () => {
+  const { createNativeNetworkManagement } = await import("../system/adapters/native/network-management.mjs");
+  const snapshot = { wifiInterface: "wlan0", currentSsid: null, savedSsid: null, networks: [] };
+  const token = "a".repeat(64);
+  let mode = "busy";
+  let reads = 0;
+  let posts = 0;
+  const fakeWindow = {
+    fetch: async (url, options) => {
+      if (url === "/__ordax/native/session") {
+        return { ok: true, json: async () => ({ networkToken: token }) };
+      }
+      if (options.method === "POST") {
+        posts += 1;
+        return { ok: false, status: 503, json: async () => ({ reason: "network-broker-timeout" }) };
+      }
+      reads += 1;
+      if (mode === "busy") {
+        return { ok: false, status: 503, json: async () => ({ reason: "network-broker-timeout" }) };
+      }
+      if (mode === "no-radio") {
+        return { ok: false, status: 503, json: async () => ({ reason: "no-wifi-interface" }) };
+      }
+      if (mode === "unknown") {
+        return { ok: false, status: 503, json: async () => ({ reason: "untrusted-reason" }) };
+      }
+      return { ok: true, json: async () => snapshot };
+    },
+  };
+  const port = await createNativeNetworkManagement(fakeWindow);
+  assert.equal(reads, 1, "a transient initial read is not retried behind the boot curtain");
+  assert.equal(posts, 0);
+  mode = "healthy";
+  assert.deepEqual(await port.status(), snapshot);
+  assert.equal(reads, 2, "the same port reads the recovered real controller");
+  mode = "busy";
+  await assert.rejects(port.connect({ ssid: "Casa", password: "validpassword" }), error => {
+    assert.equal(error.networkReason, "network-broker-timeout");
+    return true;
+  });
+  assert.equal(posts, 1, "a mutating action is never automatically replayed");
+
+  mode = "no-radio";
+  await assert.rejects(createNativeNetworkManagement(fakeWindow), error => {
+    assert.equal(error.networkReason, "no-wifi-interface");
+    return true;
+  });
+  mode = "unknown";
+  await assert.rejects(createNativeNetworkManagement(fakeWindow), error => {
+    assert.equal(error.networkReason, "network-native-failure");
+    return true;
+  });
+});

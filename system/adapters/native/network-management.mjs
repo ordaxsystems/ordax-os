@@ -77,7 +77,8 @@ export async function createNativeNetworkManagement(windowRef = globalThis.windo
     if (!response.ok) {
       const error = new Error(`Native network management request failed: ${response.status}`);
       error.status = response.status;
-      if (method === "POST" && [400, 409, 503].includes(response.status)) {
+      if ([400, 409, 503].includes(response.status) &&
+          (method === "POST" || response.status === 503)) {
         // Only allowlisted, non-secret reason codes cross the Native boundary.
         try {
           const body = await response.json();
@@ -144,11 +145,21 @@ export async function createNativeNetworkManagement(windowRef = globalThis.windo
   };
 
   assertNetworkManagementPort(port);
-  const first = await port.status();
-  // Status is meaningful for diagnostics, but this is not an operational
-  // management capability until a real WLAN control broker exists.
-  if (first.wifiInterface === null) {
-    throw new Error("Native Wi-Fi management unavailable: no WLAN interface");
+  try {
+    const first = await port.status();
+    // A confirmed no-WLAN response must never advertise Wi-Fi management.
+    if (first.wifiInterface === null) {
+      throw new Error("Native Wi-Fi management unavailable: no WLAN interface");
+    }
+  } catch (error) {
+    // A single status timeout is not the absence of the Native Wi-Fi owner.
+    // This exact reason is issued only after the host proved a live broker
+    // and found a real Wi-Fi interface in its independent hardware inventory.
+    // Keep the same port and let subsequent status/actions re-query the owner.
+    // Do not replay a mutating POST or grant capability on an unknown 503.
+    if (error?.status !== 503 || error?.networkReason !== "network-broker-timeout") {
+      throw error;
+    }
   }
   return Object.freeze(port);
 }
