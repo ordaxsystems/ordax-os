@@ -114,6 +114,23 @@ test("network failures distinguish WPA, DHCP and controller issues without secre
   assert.equal(networkManagementFailureMessageId("connect", untrusted), "network.management.error.connectConflict");
 });
 
+test("first-use reports Native transport, missing endpoint and snapshot failures without exposing secrets", () => {
+  for (const [reason, kind, expected] of [
+    ["network-session-unavailable", "sessionUnavailable", "sessão nativa"],
+    ["network-host-unreachable", "hostUnreachable", "serviço nativo"],
+    ["network-endpoint-unavailable", "endpointUnavailable", "não oferece esta operação"],
+    ["network-native-failure", "nativeFailure", "sem informar a etapa"],
+    ["network-snapshot-invalid", "snapshotInvalid", "estado Wi-Fi inválido"],
+  ]) {
+    const error = Object.assign(new Error("secret-should-never-display"), { networkReason: reason });
+    assert.equal(networkManagementFailureMessageId("connect", error), "network.management.error." + kind);
+    assert.equal(networkManagementFailureMessageId("scan", error), "network.management.error." + kind);
+    const message = networkManagementFailureMessage("connect", error);
+    assert.ok(message.includes(expected));
+    assert.equal(message.includes("secret-should-never-display"), false);
+  }
+});
+
 test("shared network management runtime maps bounded failures without secrets", () => {
   const rejected = Object.assign(new Error("server detail that must not surface"), { status: 409 });
   assert.equal(
