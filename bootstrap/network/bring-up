@@ -24,9 +24,19 @@ for path in /sys/class/net/*; do
     [ -e "$path" ] || continue
     iface=${path##*/}
     [ "$iface" = lo ] && continue
-
-    log "trying DHCP on $iface"
+    # Wi-Fi belongs to the first-use WPA owner. An unassociated radio must
+    # never run DHCP in this early wired/USB-tether bootstrap.
+    [ -d "$path/wireless" ] && continue
+    # Match the Native broker: try only Ethernet-like interfaces, and check
+    # carrier *after* raising them because a DOWN NIC may hide its link.
+    net_type=$(cat "$path/type" 2>/dev/null || true)
+    [ "$net_type" = 1 ] || continue
     "$NETBOX" ifconfig "$iface" up >/dev/null 2>&1 || continue
+    if [ -r "$path/carrier" ]; then
+        carrier=$(cat "$path/carrier" 2>/dev/null || true)
+        [ "$carrier" = 1 ] || continue
+    fi
+    log "trying DHCP on $iface"
 
     pidfile="$STATE_DIR/udhcpc-$iface.pid"
     rm -f "$pidfile"
