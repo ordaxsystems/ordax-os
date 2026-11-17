@@ -114,6 +114,19 @@ test("network failures distinguish WPA, DHCP and controller issues without secre
   assert.equal(networkManagementFailureMessageId("connect", untrusted), "network.management.error.connectConflict");
 });
 
+test("first-use differentiates rejected Native HTTP input before WPA or DHCP", () => {
+  for (const [reason, kind, phrase] of [
+    ["network-request-invalid", "requestInvalid", "antes de acessar o Wi-Fi"],
+    ["invalid-credentials", "invalidCredentials", "antes de tentar conectar"],
+    ["network-native-response-invalid", "snapshotInvalid", "estado Wi-Fi inválido"],
+  ]) {
+    const error = Object.assign(new Error("secret-not-for-ui"), { status: reason === "network-native-response-invalid" ? 503 : 400, networkReason: reason });
+    assert.equal(networkManagementFailureMessageId("connect", error), "network.management.error." + kind);
+    assert.ok(networkManagementFailureMessage("connect", error).includes(phrase));
+    assert.equal(networkManagementFailureMessage("connect", error).includes("secret-not-for-ui"), false);
+  }
+});
+
 test("first-use reports Native transport, missing endpoint and snapshot failures without exposing secrets", () => {
   for (const [reason, kind, expected] of [
     ["network-session-unavailable", "sessionUnavailable", "sessão nativa"],
