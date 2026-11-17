@@ -29,11 +29,15 @@ for path in /sys/class/net/*; do
     [ -d "$path/wireless" ] && continue
     # Match the Native broker: try only Ethernet-like interfaces, and check
     # carrier *after* raising them because a DOWN NIC may hide its link.
-    net_type=$(cat "$path/type" 2>/dev/null || true)
+    net_type=""
+    if [ -r "$path/type" ]; then
+        IFS= read -r net_type <"$path/type" || true
+    fi
     [ "$net_type" = 1 ] || continue
     "$NETBOX" ifconfig "$iface" up >/dev/null 2>&1 || continue
     if [ -r "$path/carrier" ]; then
-        carrier=$(cat "$path/carrier" 2>/dev/null || true)
+        carrier=""
+        IFS= read -r carrier <"$path/carrier" || true
         [ "$carrier" = 1 ] || continue
     fi
     log "trying DHCP on $iface"
