@@ -51,6 +51,10 @@ LIGHT_EXACT = {
     "tools/ci/independent_surface_component_cache.py",
     "tools/ci/independent_surface_cutover_audit.py",
     "tools/ci/portable_qemu_impact.py",
+    # These scripts only validate/coordinate immutable external source locks;
+    # neither can alter Buildroot, EROFS contents or the Surface producer.
+    ".github/workflows/external-source-lock-integration.yml",
+    "tests/test_source_integration_advance.py",
     "docs/contracts/ci-supply-chain.json",
 }
 

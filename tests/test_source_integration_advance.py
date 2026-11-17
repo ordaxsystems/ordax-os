@@ -229,8 +229,8 @@ class SourceAdvanceTests(unittest.TestCase):
         root = advance.ROOT
         yaml = (root / ".github/workflows/external-source-lock-integration.yml").read_text()
         start = yaml.index("      - name: Resolve exactly one pending PR")
-        end = yaml.index("      - name: Create or fast-forward", start)
-        body = yaml[start:end].split("        run: |\n", 1)[1]
+        # Extract only this run block; later authentication steps are not Bash.
+        body = yaml[start:].split("        run: |\n", 1)[1].split("\n      - name: ", 1)[0]
         script = "\n".join(line[10:] if line.startswith(" " * 10) else line
                            for line in body.splitlines()) + "\n"
         self.assertIn("gh api --paginate --slurp", script)
@@ -407,10 +407,28 @@ fi
         self.assertEqual(check("false", "false").returncode, 0)
         self.assertNotEqual(check("false", "false", "").returncode, 0)
 
+    def test_new_source_pr_mints_scoped_app_token_only_when_required(self):
+        workflow = (advance.ROOT / ".github/workflows/external-source-lock-integration.yml").read_text()
+        self.assertIn("CLIENT_ID_PRESENT: ${{ secrets.ORDAX_INTEGRATION_APP_CLIENT_ID != '' }}", workflow)
+        self.assertIn("PRIVATE_KEY_PRESENT: ${{ secrets.ORDAX_INTEGRATION_APP_PRIVATE_KEY != '' }}", workflow)
+        self.assertIn('if [ "$CLIENT_ID_PRESENT" != "$PRIVATE_KEY_PRESENT" ]; then', workflow)
+        self.assertIn("if: steps.candidate.outputs.changed == 'true' && steps.pending.outputs.existing == 'false'", workflow)
+        self.assertIn("if: steps.integration_auth.outputs.app == 'true'", workflow)
+        self.assertIn("uses: actions/create-github-app-token@64ab729a6294000f5aa4a4bc0b73d1f32bc45510", workflow)
+        self.assertIn("owner: ordaxsystems", workflow)
+        self.assertIn("repositories: ordax-os", workflow)
+        self.assertIn("permission-contents: write", workflow)
+        self.assertIn("permission-pull-requests: write", workflow)
+        self.assertIn("GH_TOKEN: ${{ steps.integration_app.outputs.token || github.token }}", workflow)
+        self.assertIn("NATIVE_FALLBACK: ${{ steps.integration_app.outputs.token == '' }}", workflow)
+        self.assertLess(workflow.index("Mint short-lived GitHub App installation token"),
+                        workflow.index("Create or fast-forward the single owner lock PR"))
+        self.assertNotIn("secrets.ORDAX_INTEGRATION_TOKEN", workflow)
+        self.assertNotIn("permission-administration: write", workflow)
     def test_native_bot_uses_existing_ci_without_duplicated_release_authority(self):
         root = advance.ROOT
         workflow = (root / ".github/workflows/external-source-lock-integration.yml").read_text()
-        self.assertIn("GH_TOKEN: ${{ secrets.ORDAX_INTEGRATION_TOKEN || github.token }}", workflow)
+        self.assertIn("GH_TOKEN: ${{ steps.integration_app.outputs.token || github.token }}", workflow)
         self.assertIn("if: steps.publish.outputs.changed == 'true' && steps.publish.outputs.native == 'true'", workflow)
         self.assertIn('gh workflow run "$workflow"', workflow)
         self.assertNotIn("gh pr merge", workflow)

@@ -69,6 +69,11 @@
       "uses": "supabase/setup-cli",
       "sha": "45a513f8c64c0bc8e0e3dfe572b5c95be85f6359",
       "version_label": "v3.0.1"
+    },
+    {
+      "uses": "actions/create-github-app-token",
+      "sha": "64ab729a6294000f5aa4a4bc0b73d1f32bc45510",
+      "version_label": "v3.3.0"
     }
   ],
   "workflow_policy": {

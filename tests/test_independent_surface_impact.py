@@ -52,6 +52,8 @@ class IndependentSurfaceImpactTests(unittest.TestCase):
             ".github/workflows/independent-surface-runtime.yml",
             ".github/workflows/portable-v2-qemu-boot-proof.yml",
             ".github/workflows/portable-qemu-impact-contract.yml",
+            ".github/workflows/external-source-lock-integration.yml",
+            "tests/test_source_integration_advance.py",
             "docs/contracts/ci-supply-chain.json",
             "tools/ci/creator_owner_impact.py",
             "tools/ci/independent_surface_impact.py",
