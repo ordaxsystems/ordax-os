@@ -161,6 +161,34 @@ class NativeNetworkManagementTests(unittest.TestCase):
         self.assertIn('timeout_seconds=4.0', get_status)
         self.assertIn('with self.server.network_lock:', get_status)
 
+    def test_cold_boot_broker_restart_exposes_port_only_for_verified_wlan(self):
+        for interfaces, expected in (
+            ([{"name": "wlan0", "kind": "wifi"}], "network-broker-unavailable"),
+            ([{"name": "eth0", "kind": "ethernet"}], "no-wifi-interface"),
+            ([], "no-wifi-interface"),
+        ):
+            with self.subTest(expected=expected, interfaces=interfaces):
+                with mock.patch.object(native_host, "read_network_status", return_value={
+                    "interfaces": interfaces,
+                }):
+                    self.assertEqual(
+                        native_host.network_management_unavailable_reason(), expected
+                    )
+        for malformed in ({"interfaces": "wifi"}, {"interfaces": [None]}):
+            with mock.patch.object(native_host, "read_network_status", return_value=malformed):
+                self.assertEqual(
+                    native_host.network_management_unavailable_reason(),
+                    "network-native-response-invalid",
+                )
+        source = SERVER.read_text(encoding="utf-8")
+        get_status = source.split("if parsed_path == NETWORK_MANAGEMENT_PATH:", 1)[1].split(
+            "if parsed_path == DISPLAY_OUTPUTS_PATH:", 1
+        )[0]
+        self.assertIn('except FileNotFoundError:', get_status)
+        self.assertIn('{"reason": network_management_unavailable_reason()}', get_status)
+        self.assertIn('{"reason": network_management_timeout_reason()}', get_status)
+        self.assertNotIn("queue_network_broker_request(\n", source.split("def network_management_unavailable_reason()", 1)[1].split("\ndef network_broker_paths(", 1)[0])
+
     def test_broker_liveness_requires_private_fifo_with_real_reader(self):
         with tempfile.TemporaryDirectory() as temporary:
             root = Path(temporary)

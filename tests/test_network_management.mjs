@@ -338,3 +338,49 @@ test("Native Wi-Fi keeps a proven live busy controller available after transient
     return true;
   });
 });
+
+test("Native Wi-Fi retains verified WLAN operations across cold-boot broker restart without replaying actions", async () => {
+  const { createNativeNetworkManagement } = await import("../system/adapters/native/network-management.mjs");
+  const snapshot = { wifiInterface: "wlan0", currentSsid: null, savedSsid: null, networks: [] };
+  const token = "c".repeat(64);
+  let mode = "supervisor-restarting";
+  let statusReads = 0;
+  let attemptedWrites = 0;
+  const fakeWindow = {
+    fetch: async (url, options) => {
+      if (url === "/__ordax/native/session") {
+        return { ok: true, json: async () => ({ networkToken: token }) };
+      }
+      if (options.method === "GET") {
+        statusReads++;
+        if (mode === "no-wlan") return { ok: false, status: 503, json: async () => ({ reason: "no-wifi-interface" }) };
+        if (mode === "unknown") return { ok: false, status: 503, json: async () => ({ reason: "untrusted-secret" }) };
+        if (mode === "supervisor-restarting") return { ok: false, status: 503, json: async () => ({ reason: "network-broker-unavailable" }) };
+        return { ok: true, json: async () => snapshot };
+      }
+      attemptedWrites++;
+      return { ok: false, status: 503, json: async () => ({ reason: "network-broker-unavailable", password: "PRIVATE" }) };
+    },
+  };
+  const management = await createNativeNetworkManagement(fakeWindow);
+  assert.equal(statusReads, 1, "bootstrap must not poll or pretend the unavailable broker responded");
+  await assert.rejects(management.connect({ ssid: "Casa", password: "12345678" }), error => {
+    assert.equal(error.networkReason, "network-broker-unavailable");
+    assert.equal(JSON.stringify(error).includes("PRIVATE"), false);
+    return true;
+  });
+  assert.equal(attemptedWrites, 1, "a failed connection must not replay");
+  mode = "ready";
+  assert.deepEqual(await management.status(), snapshot);
+  assert.equal(statusReads, 2, "recovery uses the same Native port, not a parallel owner");
+  for (const [nextMode, expected] of [
+    ["no-wlan", "no-wifi-interface"],
+    ["unknown", "network-native-failure"],
+  ]) {
+    mode = nextMode;
+    await assert.rejects(createNativeNetworkManagement(fakeWindow), error => {
+      assert.equal(error.networkReason, expected);
+      return true;
+    });
+  }
+});
