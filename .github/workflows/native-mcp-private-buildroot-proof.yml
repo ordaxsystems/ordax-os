@@ -1,0 +1,184 @@
+name: Native MCP private Buildroot bootstrap diagnostic
+
+on:
+  workflow_dispatch:
+    inputs:
+      producer_run_id:
+        description: Exact successful OS Independent Base producer run (no rebuilding)
+        required: true
+        type: string
+
+permissions:
+  contents: read
+  actions: read
+
+concurrency:
+  group: native-mcp-private-bootstrap-${{ inputs.producer_run_id }}
+  cancel-in-progress: false
+
+jobs:
+  probe:
+    if: github.ref == 'refs/heads/main'
+    runs-on: ubuntu-24.04
+    timeout-minutes: 25
+    steps:
+      - name: Checkout canonical OrdaX OS source
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
+        with:
+          persist-credentials: false
+      - name: Python for verified source and artifact checks
+        uses: actions/setup-python@ece7cb06caefa5fff74198d8649806c4678c61a1 # v6
+        with:
+          python-version: '3.12'
+      - name: Resolve exact successful private Buildroot producer
+        id: proof
+        env:
+          GH_TOKEN: ${{ github.token }}
+          PRODUCER_RUN: ${{ inputs.producer_run_id }}
+        run: |
+          set -euo pipefail
+          [[ "$PRODUCER_RUN" =~ ^[1-9][0-9]{6,14}$ ]] || { echo "invalid producer id" >&2; exit 1; }
+          gh api "repos/${GITHUB_REPOSITORY}/actions/runs/${PRODUCER_RUN}" > "$RUNNER_TEMP/native-producer.json"
+          gh api "repos/${GITHUB_REPOSITORY}/actions/runs/${PRODUCER_RUN}/artifacts?per_page=100" > "$RUNNER_TEMP/native-artifacts.json"
+          python3 - <<'PY'
+          import json, os, re
+          from pathlib import Path
+          t=Path(os.environ["RUNNER_TEMP"])
+          run=json.loads((t/"native-producer.json").read_text())
+          artifacts=json.loads((t/"native-artifacts.json").read_text())["artifacts"]
+          expected=int(os.environ["PRODUCER_RUN"])
+          if (run.get("id")!=expected or run.get("status")!="completed"
+              or run.get("conclusion")!="success"
+              or run.get("path")!=".github/workflows/independent-base-experiment.yml"
+              or (run.get("repository") or {}).get("full_name")!=os.environ["GITHUB_REPOSITORY"]):
+              raise SystemExit("producer provenance or success not verified")
+          found=[a for a in artifacts if a.get("expired") is False
+                 and re.fullmatch(r"ordax-independent-python-abi-[a-f0-9]{40}",a.get("name",""))
+                 and (a.get("workflow_run") or {}).get("id")==expected]
+          if len(found)!=1 or not re.fullmatch(r"sha256:[a-f0-9]{64}",found[0].get("digest","")):
+              raise SystemExit("exact OS-native Python artifact not uniquely verified")
+          with open(os.environ["GITHUB_OUTPUT"],"a") as out:
+              out.write("artifact_id="+str(found[0]["id"])+"\n")
+              out.write("archive_sha256="+found[0]["digest"].split(":",1)[1]+"\n")
+          PY
+      - name: Download and hash-check the official artifact without rebuilding
+        env:
+          GH_TOKEN: ${{ github.token }}
+          ARTIFACT_ID: ${{ steps.proof.outputs.artifact_id }}
+          ARCHIVE_SHA256: ${{ steps.proof.outputs.archive_sha256 }}
+        run: |
+          set -euo pipefail
+          gh api "repos/${GITHUB_REPOSITORY}/actions/artifacts/${ARTIFACT_ID}/zip" > "$RUNNER_TEMP/private-buildroot.zip"
+          echo "${ARCHIVE_SHA256}  $RUNNER_TEMP/private-buildroot.zip" | sha256sum --check --status
+          mkdir -p "$RUNNER_TEMP/private-buildroot"
+          python3 - <<'PY'
+          import os,stat,zipfile
+          from pathlib import Path
+          root=Path(os.environ["RUNNER_TEMP"])
+          allowed={
+              "native-python-provenance.json":65536,
+              "native-python-build-input.rootfs.tar":1073741824,
+              "ordax-native-product-runtime-sdk.tar.gz":1610612736,
+          }
+          with zipfile.ZipFile(root/"private-buildroot.zip") as archive:
+              infos=archive.infolist()
+              if len(infos)!=len(allowed) or {a.filename for a in infos}!=set(allowed):
+                  raise SystemExit("unexpected private OS proof archive structure")
+              for info in infos:
+                  typ=(info.external_attr>>16)&0o170000
+                  if typ not in (0,stat.S_IFREG) or info.is_dir() or not 0<info.file_size<=allowed[info.filename]:
+                      raise SystemExit("unsafe or missing private proof member")
+                  dst=root/"private-buildroot"/info.filename
+                  with archive.open(info) as src, dst.open("xb") as target:
+                      from shutil import copyfileobj
+                      copyfileobj(src,target)
+          PY
+      - name: Verify canonical OS-issued target and same-build SDK
+        run: |
+          set -euo pipefail
+          python3 bootstrap/independent-base/build.py verify-component --out "$RUNNER_TEMP/private-buildroot"
+      - name: Resolve current Runtime source from single OS-owned source lock
+        id: source
+        run: |
+          set -euo pipefail
+          python3 - <<'PY'
+          import json,os,re
+          from pathlib import Path
+          lock=json.loads(Path("system/services/device-agent/studio-runtime-source-lock.json").read_text())
+          revision=lock["source"]["commit"]
+          if (not re.fullmatch(r"[a-f0-9]{40}",revision)
+                  or lock["source"]["repository"]!="ordaxsystems/ordax-runtime"
+                  or lock["distribution"]["source_binding_only"] is not True
+                  or lock["activation"]["dispatch_enabled"] is not False):
+              raise SystemExit("OS Runtime lock is not the expected source-only fail-closed authority")
+          with open(os.environ["GITHUB_OUTPUT"],"a") as out:
+              out.write("revision="+revision+"\n")
+          PY
+      - name: Checkout exact public canonical Runtime without source mirror
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
+        with:
+          repository: ordaxsystems/ordax-runtime
+          ref: ${{ steps.source.outputs.revision }}
+          path: runtime-src
+          persist-credentials: false
+      - name: Reconcile source dependencies against private OS proof
+        run: |
+          set -euo pipefail
+          cd runtime-src
+          python3 tools/ci/audit_independent_python_proof.py \
+            --receipt "$RUNNER_TEMP/private-buildroot/native-python-provenance.json" \
+            --os-source "$GITHUB_WORKSPACE/bootstrap/independent-base/source.json" \
+            --private-target-tar "$RUNNER_TEMP/private-buildroot/native-python-build-input.rootfs.tar" \
+            --private-sdk-tar "$RUNNER_TEMP/private-buildroot/ordax-native-product-runtime-sdk.tar.gz" \
+            > "$RUNNER_TEMP/native-runtime-compatibility.json"
+      - name: Exercise Runtime bootstrap in the exact private OS userspace without network
+        id: bootstrap
+        run: |
+          set -euo pipefail
+          cd runtime-src
+          set +e
+          python3 tools/ci/probe_native_buildroot_agent.py \
+            --receipt "$RUNNER_TEMP/private-buildroot/native-python-provenance.json" \
+            --private-target-tar "$RUNNER_TEMP/private-buildroot/native-python-build-input.rootfs.tar" \
+            --stage-private-target --run-in-private-container \
+            > "$RUNNER_TEMP/native-bootstrap-result.json"
+          status=$?
+          set -e
+          # Missing current dependencies are a valid diagnostic, NEVER promotion.
+          test "$status" -eq 0 -o "$status" -eq 1
+          echo "probe_exit=$status" >> "$GITHUB_OUTPUT"
+      - name: Reject forged success or promotion and summarize blockers
+        env:
+          PROBE_EXIT: ${{ steps.bootstrap.outputs.probe_exit }}
+        run: |
+          set -euo pipefail
+          python3 - <<'PY'
+          import json,os
+          from pathlib import Path
+          root=Path(os.environ["RUNNER_TEMP"])
+          report=json.loads((root/"native-bootstrap-result.json").read_text())
+          audit=json.loads((root/"native-runtime-compatibility.json").read_text())
+          ready=report.get("offline_bootstrap_proven") is True
+          if (report.get("os_target_tar_verified") is not True
+                  or report.get("device_install_authorized") is not False
+                  or report.get("native_runtime_agent_packaged") is not False
+                  or audit.get("device_install_authorized") is not False
+                  or audit.get("runtime_agent_packaged") is not False
+                  or (os.environ["PROBE_EXIT"]=="0")!=ready):
+              raise SystemExit("native runtime diagnostic failed verification")
+          outcome="offline-bootstrap-proven" if ready else "dependency-or-bootstrap-blocked"
+          print("NATIVE_MCP_DIAGNOSTIC="+outcome)
+          print("NATIVE_MCP_BLOCKER="+str(report.get("missing_module",report.get("failure","none"))))
+          print("NATIVE_MCP_DEPENDENCY_MISMATCH_COUNT="+str(len(audit.get("version_mismatches",[]))))
+          print("NATIVE_MCP_INSTALL_AUTHORIZED=false")
+          PY
+      - name: Publish sanitized proof reports only (no binaries or credentials)
+        if: always()
+        uses: actions/upload-artifact@b7c566a772e6b6bfb58ed0dc250532a479d7789f # v6
+        with:
+          name: native-mcp-private-bootstrap-diagnostic-${{ inputs.producer_run_id }}
+          path: |
+            ${{ runner.temp }}/native-bootstrap-result.json
+            ${{ runner.temp }}/native-runtime-compatibility.json
+          if-no-files-found: warn
+          retention-days: 7
