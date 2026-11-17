@@ -29,6 +29,48 @@
 - [ ] **PRs pequenas e coordenadas:** uma fronteira por owner, sem PRs concorrentes nos mesmos arquivos; comparar SHA da `main` antes de editar, preservar histórico com merge commit, medir regressões e atualizar contrato, CI e `docs/CURRENT-STATE.md` na mesma entrega quando o estado factual mudar.
 - [ ] **Segurança e dados continuam fail-closed:** nunca apagar dados de usuário/Owner/Dev ou known-good automaticamente, nem abrir acesso a filesystem/terminal/GUI por conveniência; nada de credenciais em source, ações destrutivas, publicação Stable ou escrita física sem autorização própria. O rollback de uma refatoração deve restaurar commit/artefato íntegro e validado, **não** manter a implementação antiga escondida no binário novo.
 
+## Revisão da composição multirepo — 17/11/2026 (recorte de integração de produto)
+
+**Decisão mantida:** aplicar a ADR-031, não migrar para monorepo e não introduzir um coordenador, registry, updater, manifesto global ou fonte duplicada. Este checkpoint complementa **este FOUNDATION-001 de referência**, não cria fila de execução global nem altera o mapa de owners, o roadmap, os gates de release ou os locks. Diagnóstico realizado nas `main` e em PRs/contratos relevantes dos nove repositórios; **não equivale a varredura exaustiva de todos os arquivos, todas as CI ou provas físicas**.
+
+### Matriz de responsabilidade e adoção (consultar contratos para revisões exatas)
+
+| Fonte/owner | Entrega ou autoridade | Consumo/limite |
+| --- | --- | --- |
+| `ordax-os` | Kernel, boot, serviços Native, Supervisor, contratos, composição e release | Seleciona revisões externas por locks e artefatos verificados; não copia o source pertencente a outros owners |
+| `ordax-surface` | Apresentação visual compartilhada | OS adota pelo único `docs/contracts/surface-source.json`; Desktop/Creator não criam outro pin |
+| `ordax-apps` | Apps, Studio/Forge, pacotes e catálogo | OS/Store consomem pacotes pelo lifecycle existente; UI Surface apenas projeta por ports |
+| `ordax-intelligence` | Source portátil candidato de inferência/router | OS seleciona por `docs/contracts/intelligence-source.json`; ainda `integration-candidate`, sem autorização de ativação/cutover |
+| `ordax-runtime` | Runtime local, controle computacional, adapters e enforcement | Platform autoriza/roteia a parte remota; Native/Windows usam as capacidades existentes, sem segundo executor |
+| `ordax-platform` | OAuth, Device/Owner, grants, roteamento MCP e recibos remotos | Não controla o host local nem substitui Runtime/OS |
+| `ordax-desktop` | Host Electron/NSIS Windows e atualização do shell | Consome a composição OS exata, não a HEAD móvel de Surface/Apps/Intelligence |
+| `ordax-creator` | Creator Core/GUI e verificação/gravação de mídia | Consome mídia OS já verificada; não produz kernel/Base nem constitui autorização de escrita física |
+| `ordax-site` | Apresentação pública, Conta visual e downloads autorizados | Não compõe Native; `contracts/canonical-gateway-source.json` é exceção transitória Dev, não produção |
+
+**Nuance contratual:** `docs/contracts/repository-ownership.json` enumera oito autoridades operacionais; Intelligence é a nona fonte, deliberadamente candidata, definida no seu lock. Não alterar o teste `tests/test_repository_ownership_contract.py` para fazê-la parecer ativa.
+
+### Lacunas verificadas e atribuição sem duplicação
+
+1. **Handoff desatualizado (Runtime):** `ordax-runtime/AGENTS.md` ainda chamava a PR `ordax-os#2400` de aberta/com conflito. A PR foi integrada em 04/11/2026. Corrigir somente o handoff no owner Runtime; não reabrir ponte nem repetir matrícula/grants concluídos.
+2. **Entrega de artefato Surface para OS/Creator:** `ordax-os#2570` permanece aberta e trata fallback de artefato confiável quando cache/R2 não estiverem disponíveis. Preservar essa PR e seus gates; **não** criar espelho da Surface, fallback não verificável ou workflow concorrente.
+3. **Rede Native em paralelo:** `ordax-os#2592` permanece aberta para impedir DHCP Wi-Fi antes da autenticação WPA. O owner de rede resolve ali, não na coordenação de repositórios.
+4. **Gateway do Site:** a materialização de source no host Dev está explicitamente presa ao lock temporário do Site e `production_authorized=false`. Só retirar após gateway same-origin implantado ou artefato versionado do owner, com consumidor migrado e prova de contrato. Não transformar exceção em padrão.
+5. **Intelligence e aceite físico:** `intelligence-source.json` declara `activation_authorized=false` e `cutover_complete=false`. CI de source/lock não valida modelo Native ativado. Desktop instalado, USB/boot, Store e Runtime autenticado exigem seus recibos reais no canal aplicável; nenhuma fonte atual é prova automática de instalação.
+
+### Plano de execução por evento real (sem fila nem builds por hábito)
+
+**A — Higiene imediata, baixo risco.** Atualizar handoff factual obsoleto no Runtime. Reutilizar ADR-031, `docs/DEVELOPMENT-WORKFLOW.md`, `docs/EXTERNAL-SOURCE-INTEGRATION.md`, `docs/contracts/build-autonomy.json` e o contrato de ownership; não criar um novo plano independente nem reabrir estágios históricos. Validar apenas diffs de documentação.
+
+**B — Quando um producer mudar source consumido.** Executar a validação do owner para o commit exato; para Surface/Intelligence, manter `.github/workflows/external-source-lock-integration.yml` (agenda de seis horas e disparo manual), `tools/source-integration/advance.py`, materializadores e **uma única PR por lock**. CI ausente/fracassada, mudança de ancestry ou hashes invalidam a adoção (fail-closed). PR de atualização de lock não ativa produto nem faz merge automático. Para Apps, Runtime e Platform respeitar seus próprios canais/pacotes/contratos, sem inventar pin global.
+
+**C — Quando o OS realmente adotar nova composição.** Alterar somente o lock/manifesto direto no owner correto, validar compatibilidade e a CI consumidora já existente, com artefato imutável, hash e provenance. Se contrato quebrar, migrar consumidores explícitos e retirar o caminho substituído na mesma entrega comprovada. Não sincronizar HEADs por rotina; não disparar kernel, QEMU, Buildroot, Creator ou instalador Desktop por mudança apenas visual/cliente.
+
+**D — Quando for exigida entrega a usuário/dispositivo.** Diferenciar `implementado`, `integrado na main`, `entregável com artefato verificável` e `produto aceito no destino`. Desktop: verificar revisão efetivamente instalada, health, Store/app e rollback. USB/Native: exigir mídia autorizada, boot/health/recovery e consentimento físico. MCP: distinguir presença, readiness local e grants/recibos remotos. Não promover Stable nem afirmar E2E por teste sintético, PR integrada ou CI verde.
+
+**E — Encerramento proporcional.** Fechar o menor fluxo funcional no owner, deixar evidência na autoridade atual (`docs/CURRENT-STATE.md` apenas se o estado factual do OS mudar; recibos no owner do artefato/canal), sem segundo dashboard, versões copiadas para READMEs ou PRs de sincronização. Se a pendência estiver em PR existente, continuá-la, sem duplicar trabalho de outro agente.
+
+**Aceite deste recorte:** ownership sem ambiguidade; fonte/lock/artefato e consumidor direto identificáveis; handoffs não orientam a repetir trabalho concluído; mudança compatível de um owner não produz cascata de PRs ou rebuilds; mudanças incompatíveis falham fechadas até adoção; instalação e ativação só são declaradas com prova específica. **Estado inicial verificado em 17/11:** política e automação de source já presentes; correções de artefato Surface/rede em PRs separadas; Intelligence ainda candidata; instalação física da composição atual não atestada nesta revisão.
+
 ### P0-A — inventário real e fronteiras dos nove repositórios (primeiro gate)
 
 - [ ] Revalidar SHA/branch, PRs abertas, jobs obrigatórios, source locks, manifests e entrypoints em **todos os nove** repositórios: `ordax-os`, `ordax-desktop`, `ordax-surface`, `ordax-apps`, `ordax-runtime`, `ordax-platform`, `ordax-intelligence`, `ordax-creator` e `ordax-site`.
