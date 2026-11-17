@@ -248,13 +248,6 @@ class ProductDeviceIdentityStore:
         canonical = str(uuid.UUID(subject))
         return self._account_connector_subject() == canonical
 
-    def production_visibility_enabled(self) -> bool:
-        """Privileged OS Runtime read of explicit durable device-bound consent.
-
-        The signed-slot and Platform OAuth/grant gates are independent. This
-        boolean never authorizes an action and cannot enable unsigned Runtime.
-        """
-        return self._account_connector_subject() is not None
     def development_visibility_enabled(self) -> bool:
         """DEV USB only: enrolled device presence defaults on without login.
 
