@@ -164,13 +164,39 @@ jobs:
             echo "manual=false" >> "$GITHUB_OUTPUT"
           fi
 
+      - name: Detect scoped GitHub App credentials for a new PR
+        if: steps.candidate.outputs.changed == 'true' && steps.pending.outputs.existing == 'false'
+        id: integration_auth
+        env:
+          CLIENT_ID_PRESENT: ${{ secrets.ORDAX_INTEGRATION_APP_CLIENT_ID != '' }}
+          PRIVATE_KEY_PRESENT: ${{ secrets.ORDAX_INTEGRATION_APP_PRIVATE_KEY != '' }}
+        run: |
+          set -euo pipefail
+          # Never pass an incomplete App identity to the action or fall back silently.
+          if [ "$CLIENT_ID_PRESENT" != "$PRIVATE_KEY_PRESENT" ]; then
+            echo "::error::GitHub App credentials must be configured as a pair"
+            exit 1
+          fi
+          echo "app=$CLIENT_ID_PRESENT" >> "$GITHUB_OUTPUT"
+      - name: Mint short-lived GitHub App installation token for a new PR
+        if: steps.integration_auth.outputs.app == 'true'
+        id: integration_app
+        uses: actions/create-github-app-token@64ab729a6294000f5aa4a4bc0b73d1f32bc45510 # v3.3.0
+        with:
+          client-id: ${{ secrets.ORDAX_INTEGRATION_APP_CLIENT_ID }}
+          private-key: ${{ secrets.ORDAX_INTEGRATION_APP_PRIVATE_KEY }}
+          owner: ordaxsystems
+          repositories: ordax-os
+          permission-contents: write
+          permission-pull-requests: write
+          # Revocation on job completion is the action's default.
       - name: Create or fast-forward the single owner lock PR
         id: publish
         if: steps.candidate.outputs.changed == 'true'
         working-directory: os
         env:
-          GH_TOKEN: ${{ secrets.ORDAX_INTEGRATION_TOKEN || github.token }}
-          NATIVE_FALLBACK: ${{ secrets.ORDAX_INTEGRATION_TOKEN == '' }}
+          GH_TOKEN: ${{ steps.integration_app.outputs.token || github.token }}
+          NATIVE_FALLBACK: ${{ steps.integration_app.outputs.token == '' }}
           EXISTING: ${{ steps.pending.outputs.existing }}
           MANUAL: ${{ steps.pending.outputs.manual }}
           PR_NUMBER: ${{ steps.pending.outputs.number }}
