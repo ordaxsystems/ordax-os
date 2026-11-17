@@ -51,7 +51,7 @@ class CanonicalPublicHostTests(unittest.TestCase):
 
     def test_host_scoped_web_proxy_precedes_public_account_proxy_without_overlap(self):
         rewrites = self.config["rewrites"]
-        self.assertEqual(len(rewrites), 7)
+        self.assertEqual(len(rewrites), 10)
 
         expected_web = [
             ("/auth/:path*", "/api/web-account-proxy?ordax_path=/auth/:path*"),
@@ -62,16 +62,34 @@ class CanonicalPublicHostTests(unittest.TestCase):
             self.assertEqual((rule["source"], rule["destination"]), expected)
             self.assertEqual(rule.get("has"), [{"type": "host", "value": {"pre": "web."}}])
 
+        # Vercel's public wildcard rewrite drops the original query values
+        # when the destination also includes ordax_path. Preserve only the
+        # three Owner UUID selectors at the routing boundary; the canonical
+        # proxy still validates their exact paths, IDs and allowed methods.
+        # These rules occur AFTER Web-host routes and BEFORE public fallback.
+        self.assertEqual(rewrites[3], {
+            "source": "/oauth/consent", "destination": "/api/oauth-consent",
+        })
+        for rule, (key, capture) in zip(rewrites[4:7], [
+            ("device_id", "ordaxDeviceId"),
+            ("client_id", "ordaxClientId"),
+            ("challenge_id", "ordaxChallengeId"),
+        ]):
+            self.assertEqual(rule["source"], "/account/:path*")
+            self.assertEqual(rule["has"], [{
+                "type": "query", "key": key, "value": f"(?<{capture}>[^&]{{1,200}})",
+            }])
+            self.assertEqual(rule["destination"],
+                f"/api/account-proxy?ordax_path=/account/:path*&{key}=:{capture}")
         self.assertEqual(
-            [(r["source"], r["destination"]) for r in rewrites[3:]],
+            [(r["source"], r["destination"]) for r in rewrites[7:]],
             [
-                ("/oauth/consent", "/api/oauth-consent"),
                 ("/auth/:path*", "/api/account-proxy?ordax_path=/auth/:path*"),
                 ("/sync/:path*", "/api/account-proxy?ordax_path=/sync/:path*"),
                 ("/account/:path*", "/api/account-proxy?ordax_path=/account/:path*"),
             ],
         )
-        for rule in rewrites[3:]:
+        for rule in [rewrites[3], *rewrites[7:]]:
             self.assertNotIn("has", rule)
 
         web_proxy = (ROOT / "api/web-account-proxy.mjs").read_text(encoding="utf-8")
