@@ -77,7 +77,7 @@ export async function createNativeNetworkManagement(windowRef = globalThis.windo
     if (!response.ok) {
       const error = new Error(`Native network management request failed: ${response.status}`);
       error.status = response.status;
-      if (method === "POST" && [409, 503].includes(response.status)) {
+      if (method === "POST" && [400, 409, 503].includes(response.status)) {
         // Only allowlisted, non-secret reason codes cross the Native boundary.
         try {
           const body = await response.json();
@@ -88,12 +88,19 @@ export async function createNativeNetworkManagement(windowRef = globalThis.windo
                "network-broker-unavailable",
                "network-broker-timeout", "network-broker-io-failed",
                "wifi-tools-unavailable", "no-wifi-interface",
-               "credential-save-failed"].includes(body?.reason)) {
+               "credential-save-failed",
+               "network-request-invalid", "invalid-credentials",
+               "network-native-response-invalid"].includes(body?.reason)) {
             error.networkReason = body.reason;
           }
         } catch {
           // A legacy empty response remains a bounded generic failure.
         }
+      }
+      if (!error.networkReason && response.status === 400) {
+        // Old/empty Native error bodies still mean the request was rejected
+        // before the broker. Never invent a WPA or password failure.
+        error.networkReason = "network-request-invalid";
       }
       if (!error.networkReason && response.status === 503) {
         error.networkReason = "network-native-failure";

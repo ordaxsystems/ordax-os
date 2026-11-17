@@ -96,6 +96,44 @@ test("native network adapter reports safe WPA/DHCP failures without exposing sec
   }
 });
 
+test("Native Wi-Fi preserves bounded HTTP 400 input reasons before touching WPA", async () => {
+  const { createNativeNetworkManagement } = await import("../system/adapters/native/network-management.mjs");
+  const token = "a".repeat(64);
+  const snapshot = { wifiInterface: "wlan0", currentSsid: null, savedSsid: null, networks: [] };
+  let reason = "network-request-invalid";
+  let attempts = 0;
+  const fakeWindow = {
+    fetch: async (url, options) => {
+      if (url === "/__ordax/native/session") {
+        return { ok: true, json: async () => ({ networkToken: token }) };
+      }
+      if (options.method === "GET") return { ok: true, json: async () => snapshot };
+      attempts++;
+      if (reason === "empty") return { ok: false, status: 400, json: async () => { throw new SyntaxError("empty"); } };
+      if (reason === "network-native-response-invalid") {
+        return { ok: false, status: 503, json: async () => ({ reason }) };
+      }
+      return { ok: false, status: 400, json: async () => ({ reason, password: "PRIVATE_VALUE" }) };
+    },
+  };
+  const port = await createNativeNetworkManagement(fakeWindow);
+  for (const [next, expected] of [
+    ["network-request-invalid", "network-request-invalid"],
+    ["invalid-credentials", "invalid-credentials"],
+    ["empty", "network-request-invalid"],
+    ["network-native-response-invalid", "network-native-response-invalid"],
+  ]) {
+    reason = next;
+    const prior = attempts;
+    await assert.rejects(port.connect({ ssid: "Casa", password: "validpassword" }), (error) => {
+      assert.equal(error.networkReason, expected);
+      assert.equal(JSON.stringify(error).includes("PRIVATE_VALUE"), false);
+      return true;
+    });
+    assert.equal(attempts, prior + 1, "a rejected POST cannot be automatically replayed");
+  }
+});
+
 test("Native Wi-Fi reconnects to a rotated host grant without repeating accepted writes", async () => {
   const { createNativeNetworkManagement } = await import("../system/adapters/native/network-management.mjs");
   const a = "a".repeat(64);

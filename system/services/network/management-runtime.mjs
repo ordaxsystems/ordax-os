@@ -29,6 +29,9 @@ function failureKind(action, error) {
   // network: they identify a missing Native response without blaming WPA.
   const nativeFailureKinds = {
     "network-session-unavailable": "sessionUnavailable",
+    "network-request-invalid": "requestInvalid",
+    "invalid-credentials": "invalidCredentials",
+    "network-native-response-invalid": "snapshotInvalid",
     "network-host-unreachable": "hostUnreachable",
     "network-endpoint-unavailable": "endpointUnavailable",
     "network-native-failure": "nativeFailure",
@@ -89,6 +92,8 @@ export function networkManagementFailureMessage(action, error) {
     connectFailure: "O controlador Wi-Fi não confirmou a nova conexão. O motivo específico ainda não foi identificado.",
     reconnectFailure: "O controlador Wi-Fi não confirmou a reconexão. A rede salva foi preservada.",
     noSavedNetwork: "Não há uma rede Wi-Fi salva para reconectar. Escolha uma rede e informe a senha.",
+    requestInvalid: "O serviço nativo rejeitou a solicitação de conexão antes de acessar o Wi-Fi. Não é uma falha de autenticação WPA.",
+    invalidCredentials: "O serviço nativo rejeitou os dados da rede antes de tentar conectar. Verifique SSID e tamanho da senha.",
     sessionUnavailable: "A sessão nativa de Wi-Fi não está disponível. A solicitação não foi confirmada; tente novamente após reiniciar a etapa de Rede.",
     hostUnreachable: "Não foi possível comunicar com o serviço nativo de Wi-Fi. A conexão não foi confirmada; verifique se a Surface continua ativa.",
     endpointUnavailable: "O serviço nativo de gerenciamento Wi-Fi não oferece esta operação. A conexão não foi confirmada.",
