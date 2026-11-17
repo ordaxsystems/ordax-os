@@ -107,7 +107,9 @@ jobs:
           lock=json.loads(Path("system/services/device-agent/studio-runtime-source-lock.json").read_text())
           revision=lock["source"]["commit"]
           if (not re.fullmatch(r"[a-f0-9]{40}",revision)
-                  or lock["source"]["repository"]!="ordaxsystems/ordax-runtime"
+                  or lock["source"]["repository"]!="https://github.com/ordaxsystems/ordax-runtime"
+                  or lock["distribution"]["runtime_packaged_in_stable"] is not False
+                  or lock["distribution"]["signed_runtime_slot_available"] is not False
                   or lock["distribution"]["source_binding_only"] is not True
                   or lock["activation"]["dispatch_enabled"] is not False):
               raise SystemExit("OS Runtime lock is not the expected source-only fail-closed authority")
