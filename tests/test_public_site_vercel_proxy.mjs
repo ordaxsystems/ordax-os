@@ -280,6 +280,36 @@ test("Owner Vercel query captures are forwarded only to matching exact MCP reads
   }
 });
 
+test("missing Owner selector emits only bounded routing categories, never input values", async () => {
+  const original = console.warn;
+  const events = [];
+  console.warn = (...parts) => events.push(parts);
+  try {
+    const req = new Request(PUBLIC_ORIGIN +
+      "/api/account-proxy?ordax_path=%2Faccount%2Fmcp%2Fcentral-targets" +
+      "&untrusted_source=SENSITIVE_PRIVATE_INPUT_123", {
+        headers: {"x-forwarded-for":"203.0.113.15"},
+      });
+    const response = await proxyPublicAccountRequest(req,options());
+    assert.equal(response.status,404);
+    assert.equal(events.length,1);
+    assert.equal(events[0][0],"ordax.public_proxy.owner_query_denied");
+    const data = JSON.parse(events[0][1]);
+    assert.deepEqual(data,{
+      kind:"central",queryInRewrite:false,queryInEmbeddedPath:false,
+      unexpectedRewriteKey:true,repeatedRewritePath:false,
+      otherSelectorInRewrite:false,rewriteKeyCount:2,
+    });
+    assert.equal(JSON.stringify(events).includes("SENSITIVE_PRIVATE_INPUT_123"),false);
+    const arbitrary = await proxyPublicAccountRequest(
+      new Request(PUBLIC_ORIGIN + "/api/account-proxy?ordax_path=/account/unknown"),options());
+    assert.equal(arbitrary.status,404);
+    assert.equal(events.length,1,"do not log arbitrary user-supplied unknown routes");
+  } finally {
+    console.warn = original;
+  }
+});
+
 test("gateway configuration is strict https and exact public account gateway path", () => {
   assert.equal(normalizeGatewayUrl(GATEWAY)?.origin, "https://example.supabase.co");
   for (const invalid of [
