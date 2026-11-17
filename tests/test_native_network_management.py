@@ -11,6 +11,7 @@ ROOT = Path(__file__).resolve().parents[1]
 SERVER = ROOT / "system" / "surface" / "runtime" / "native_host_server.py"
 BROKER = ROOT / "system" / "surface" / "runtime" / "network_broker.sh"
 BOOT_NETWORK = ROOT / "bootstrap" / "dev-base" / "ordax-network"
+WIRED_BOOTSTRAP = ROOT / "bootstrap" / "network" / "bring-up"
 SURFACE_LAUNCHER = ROOT / "system" / "surface" / "bin" / "ordax-surface"
 CONTRACT = ROOT / "system" / "contracts" / "network-management.mjs"
 ADAPTER = ROOT / "system" / "adapters" / "native" / "network-management.mjs"
@@ -252,6 +253,36 @@ class NativeNetworkManagementTests(unittest.TestCase):
         self.assertIn("DHCP_SCRIPT=/ordax/bootstrap/network/udhcpc.script", broker)
         self.assertIn('-i "$wifi" -s "$DHCP_SCRIPT"', broker)
         self.assertIn('[ -x "$DHCP_SCRIPT" ] || return 1', broker)
+
+    def test_early_bootstrap_never_dhcps_unassociated_wifi(self):
+        # This boot helper previously tried DHCP on *all* NICs, including the
+        # Wi-Fi radio before its canonical WPA owner had authenticated.
+        # Keep this wired/USB-only bootstrap consistent with the live broker.
+        boot = WIRED_BOOTSTRAP.read_text(encoding="utf-8")
+        subprocess.run(["sh", "-n", str(WIRED_BOOTSTRAP)], check=True)
+        broker = BROKER.read_text(encoding="utf-8")
+        wired = broker.split("restore_wired_network_if_needed() {", 1)[1].split("\n}\n", 1)[0]
+        self.assertIn('[ -d "$path/wireless" ] && continue', boot)
+        self.assertIn('[ "$net_type" = 1 ] || continue', boot)
+        self.assertIn('[ "$carrier" = 1 ] || continue', boot)
+        self.assertIn('[ -d "$netpath/wireless" ] && continue', wired)
+        self.assertIn('[ "$net_type" = 1 ] || continue', wired)
+        self.assertLess(
+            boot.index('[ -d "$path/wireless" ] && continue'),
+            boot.index('"$NETBOX" udhcpc '),
+        )
+        self.assertLess(
+            boot.index('[ "$net_type" = 1 ] || continue'),
+            boot.index('"$NETBOX" ifconfig "$iface" up'),
+        )
+        self.assertLess(
+            boot.index('"$NETBOX" ifconfig "$iface" up'),
+            boot.index('if [ -r "$path/carrier" ]; then'),
+        )
+        self.assertLess(
+            boot.index('[ "$carrier" = 1 ] || continue'),
+            boot.index('"$NETBOX" udhcpc '),
+        )
 
     def test_wired_carrier_is_read_only_after_interface_is_raised(self):
         # A DOWN NIC can expose an unreadable or 0 carrier. Skipping it
