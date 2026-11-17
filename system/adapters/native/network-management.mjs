@@ -152,12 +152,13 @@ export async function createNativeNetworkManagement(windowRef = globalThis.windo
       throw new Error("Native Wi-Fi management unavailable: no WLAN interface");
     }
   } catch (error) {
-    // A single status timeout is not the absence of the Native Wi-Fi owner.
-    // This exact reason is issued only after the host proved a live broker
-    // and found a real Wi-Fi interface in its independent hardware inventory.
-    // Keep the same port and let subsequent status/actions re-query the owner.
-    // Do not replay a mutating POST or grant capability on an unknown 503.
-    if (error?.status !== 503 || error?.networkReason !== "network-broker-timeout") {
+    // A live broker can be busy or temporarily between supervisor restarts.
+    // Native returns either typed reason ONLY after checking real WLAN hardware.
+    // Keep the same port, but never invent success, replay POST or accept
+    // unverified 503/absent hardware as a management capability.
+    if (error?.status !== 503 || ![
+      "network-broker-timeout", "network-broker-unavailable",
+    ].includes(error?.networkReason)) {
       throw error;
     }
   }

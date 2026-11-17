@@ -2033,23 +2033,34 @@ def parse_iw_scan(text: str, *, current_ssid: str | None, saved_ssid: str | None
     )[:MAX_NETWORKS]
 
 
-def network_management_timeout_reason() -> str:
-    """Classify a busy live broker without claiming a missing Wi-Fi radio works.
+def network_management_wlan_failure_reason(verified_reason: str) -> str:
+    """Keep a Native WLAN capability observable through broker restarts.
 
-    queue_network_broker_request first proves a private FIFO with a reader.
-    On a delayed *read-only* status response, the existing hardware inventory
-    independently confirms whether a real WLAN exists. Never use this
-    classification to retry mutating connect/disconnect requests.
+    For a read-only GET, independently verify real WLAN hardware before
+    reporting a transient broker failure. A missing adapter or invalid
+    inventory never grants management. No action is retried or acknowledged.
     """
     try:
         interfaces = read_network_status()["interfaces"]
+        if not isinstance(interfaces, list) or not all(
+            isinstance(interface, dict) for interface in interfaces
+        ):
+            return "network-native-response-invalid"
     except (OSError, ValueError, KeyError, TypeError):
         return "network-native-response-invalid"
     return (
-        "network-broker-timeout"
+        verified_reason
         if any(interface.get("kind") == "wifi" for interface in interfaces)
         else "no-wifi-interface"
     )
+
+
+def network_management_timeout_reason() -> str:
+    return network_management_wlan_failure_reason("network-broker-timeout")
+
+
+def network_management_unavailable_reason() -> str:
+    return network_management_wlan_failure_reason("network-broker-unavailable")
 
 
 def network_broker_paths(session_dir: str) -> dict[str, str]:
@@ -4249,7 +4260,13 @@ class NativeHostHandler(SimpleHTTPRequestHandler):
                 # Prove a real WLAN before reporting that transient state.
                 self._write_json(503, {"reason": network_management_timeout_reason()})
                 return
-            except (FileNotFoundError, PermissionError, OSError, RuntimeError, ValueError) as exc:
+            except FileNotFoundError:
+                # A supervised broker may be between restarts at cold boot.
+                # Never claim a real WLAN until the independent Native
+                # hardware inventory confirms it; actions remain unavailable.
+                self._write_json(503, {"reason": network_management_unavailable_reason()})
+                return
+            except (PermissionError, OSError, RuntimeError, ValueError) as exc:
                 print(f"ordax-native-host: network management status unavailable: {type(exc).__name__}", file=sys.stderr, flush=True)
                 self._empty(503)
                 return
