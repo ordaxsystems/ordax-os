@@ -86,6 +86,9 @@ test("native network adapter reports safe WPA/DHCP failures without exposing sec
     ["wifi-tools-unavailable", "wifi-tools-unavailable"],
     ["no-wifi-interface", "no-wifi-interface"],
     ["credential-save-failed", "credential-save-failed"],
+    ["disconnect-state-failed", "disconnect-state-failed"],
+    ["credential-delete-failed", "credential-delete-failed"],
+    ["reconnect-state-failed", "reconnect-state-failed"],
     ["untrusted-secret", undefined]]) {
     reason = nextReason;
     await assert.rejects(port.connect({ ssid: "Casa", password: "validpassword" }), (error) => {

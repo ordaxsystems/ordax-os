@@ -96,6 +96,9 @@ test("network failures distinguish WPA, DHCP and controller issues without secre
     ["wifi-tools-unavailable", 503, "wifiTools", "ferramentas Wi-Fi"],
     ["no-wifi-interface", 503, "noInterface", "interface Wi-Fi"],
     ["credential-save-failed", 503, "credentialSave", "não pôde ser salva"],
+    ["disconnect-state-failed", 503, "disconnectState", "registro da desconexão"],
+    ["credential-delete-failed", 503, "credentialDelete", "exclusão da credencial"],
+    ["reconnect-state-failed", 503, "reconnectState", "reativação da reconexão"],
   ]) {
     const error = Object.assign(new Error("private"), { status, networkReason: reason });
     assert.equal(networkManagementFailureMessageId("connect", error), "network.management.error." + kind);
