@@ -13,6 +13,12 @@
 
 **Execução causal, não lista de microtarefas:** em cada owner, avançar a próxima lacuna real até produto observável; só aguardar outro repo quando o próximo passo consumir de fato seu contrato/artefato. Uma falha independente não bloqueia implementação sem dependência causal; nenhuma falha é mascarada por estado de UI. A entrega é medida por experiência funcional no destino, não por quantidade de PRs integradas.
 
+## Native Product MCP — integração e source pin em 17/11/2026
+
+A autoridade de source Native do Runtime é o `ordax-runtime/main` no commit `1453f0bd97404bad575cae0516a9c53c1d802f59`, consumido pelo OS através do único `system/services/device-agent/studio-runtime-source-lock.json`. A candidata Linux do workflow `44184055813`, artifact `14371684909`, está vinculada a esse mesmo commit, com SHA-256 do arquivo de Actions `8ce21a2520443a87ec5778a210b0391cd9d5daf375f8d247ddebbfef3a91df89` e hash do executável `004792b4b4b6fdae785c61b3382faee5264bae61f00a80809032a6a9913faed3`. A identidade de compatibilidade vem do contrato upstream, sem segundo executor ou pin transiente na Surface/Desktop.
+
+**Limite:** a candidata permanece `ci-only-unsigned`, com `independent_base_abi_ready=false` (interpreter musl, bibliotecas externas, origem Alpine no builder e closure Python sem prova). Não foi assinada, instalada nem homologada no notebook. A política `runtime-component-trust-policy.json` continua sem cerimônia de trust concluída, e `source_binding_only=true` / `dispatch_enabled=false` preservam os gates de produção. As PRs OS #2606/#2609 e Runtime #370/#371 implementam consentimento vinculado a conta/dispositivo e Supervisor de Stable/MVP assinado, sem habilitar ações locais quando não existe um port Native de permissões atestado. Snapshot de source, **não** prova de instalação ou autorização de lançamento.
+
 ## Cutover Buildroot integrado à fonte — atualização de 13/11/2026, após PR #2243
 
 A [PR #2243](https://github.com/ordaxsystems/ordax-os/pull/2243) foi **integrada à `main` em 13/11/2026 às 20:27:49 UTC**, merge `d885f365ab9d9d630d1a200b391197e04848b655`. A checagem da `main` após esse merge confirmou que `bootstrap/dev-base/build.py` e `bootstrap/stable-base/build.py` **não existem mais**, e que `system/surface/bin/ordax-surface` não contém mais o provisionamento gráfico dinâmico via APK: usa caminho de runtime offline EROFS/overlay. **O diagnóstico anterior deste documento, feito antes do merge na mesma data, foi superado; não reintroduzir esses builders Alpine por instrução de snapshots antigos.**
