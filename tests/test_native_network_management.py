@@ -413,6 +413,27 @@ class NativeNetworkManagementTests(unittest.TestCase):
         )
         self.assertIn("connect_failure_reason=dhcp-runtime-unavailable", connect)
 
+    def test_native_connect_rejects_bad_http_inputs_before_wpa_with_bounded_reason(self):
+        host = SERVER.read_text(encoding="utf-8")
+        post = host.rsplit("if self.path == NETWORK_MANAGEMENT_PATH:", 1)[1].split(
+            "if parsed_path == KEYBOARD_LAYOUT_APPLY_PATH:", 1
+        )[0]
+        self.assertIn('self._write_json(400, {"reason": "network-request-invalid"})', post)
+        self.assertIn('self._write_json(400, {"reason": "invalid-credentials"})', post)
+        self.assertIn('self._write_json(503, {"reason": "network-native-response-invalid"})', post)
+        self.assertIn('expected = {"action", "ssid", "password"} if action == "connect" else {"action"}', post)
+        self.assertIn('if set(payload) != expected:', post)
+        self.assertLess(
+            post.index('if set(payload) != expected:'),
+            post.index('with self.server.network_lock:'),
+        )
+        self.assertLess(
+            post.index('not valid_wifi_password(payload.get("password"))'),
+            post.index('with self.server.network_lock:'),
+        )
+        self.assertNotIn('{"reason": payload', post)
+        self.assertNotIn('{"password":', post)
+
     def test_first_run_wifi_waits_for_wpa_handshake_and_bounded_scan(self):
         text = BROKER.read_text(encoding="utf-8")
         self.assertIn('WPA_CLI_BIN=$(command -v wpa_cli || true)', text)
