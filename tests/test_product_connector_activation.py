@@ -36,6 +36,32 @@ class ProductConnectorActivationTests(unittest.TestCase):
         self.addCleanup(self.tmp.cleanup)
         self.store = ProductDeviceIdentityStore(self.tmp.name)
 
+    def test_signed_runtime_needs_exact_device_bound_owner_consent(self):
+        self.assertFalse(self.store.signed_runtime_visibility_enabled())
+        self.store.commit_enrollment(SUBJECT)
+        self.assertFalse(self.store.signed_runtime_visibility_enabled())
+        # DEV visibility defaults on, but is never signed-runtime consent.
+        self.assertTrue(self.store.development_visibility_enabled())
+        self.store.set_connector_visibility(True, SUBJECT)
+        self.assertTrue(self.store.signed_runtime_visibility_enabled())
+        self.store.commit_enrollment(OTHER_SUBJECT)
+        self.assertFalse(self.store.signed_runtime_visibility_enabled())
+        self.store.set_connector_visibility(True, OTHER_SUBJECT)
+        self.assertTrue(self.store.signed_runtime_visibility_enabled())
+        self.store.set_connector_visibility(False)
+        self.assertFalse(self.store.signed_runtime_visibility_enabled())
+
+    def test_signed_runtime_rejects_development_policy_and_legacy_consent(self):
+        self.store.commit_enrollment(SUBJECT)
+        self.store.set_development_connector_visibility(True)
+        self.assertFalse(self.store.signed_runtime_visibility_enabled())
+        self.store.connector_visibility_path.write_text(json.dumps({
+            "schema": "ordax.product-connector-visibility/1",
+            "enabled": True,
+            "subject": SUBJECT,
+        }))
+        self.store.connector_visibility_path.chmod(0o600)
+        self.assertFalse(self.store.signed_runtime_visibility_enabled())
     def test_private_opt_in_defaults_off_and_fails_closed(self):
         self.assertFalse(self.store.connector_visibility_enabled(SUBJECT))
         self.store.commit_enrollment(SUBJECT)
