@@ -385,6 +385,88 @@ fi
         self.assertIn("refuse overwrite", workflow)
         self.assertNotIn("git push --force", workflow)
 
+    def test_stranded_source_lock_push_is_recovered_only_without_prior_review(self):
+        # Exercise the exact recovery guard with real Git ancestry, lock bytes,
+        # a remote ref, and an explicit mock of the GitHub PR-history response.
+        import os
+        workflow = (advance.ROOT / ".github/workflows/external-source-lock-integration.yml").read_text()
+        start = '              if ! git merge-base --is-ancestor "$existing_sha" "$main_sha"; then'
+        end = '              else\n                echo "::notice::Previously merged owner branch will fast-forward"'
+        body = workflow.split(start, 1)[1].split(end, 1)[0]
+        guard = 'set -euo pipefail\n' + start.strip() + '\n' + '\n'.join(
+            line[16:] if line.startswith(" " * 16) else line
+            for line in body.splitlines()
+        ) + '\nfi\n'
+        root = Path(self.tmp.name)
+        remote = root / "bare.git"
+        work = root / "local"
+        work.mkdir()
+        subprocess.run(["git", "init", "--bare", str(remote)], check=True, capture_output=True)
+        subprocess.run(["git", "init", "-b", "main", str(work)], check=True, capture_output=True)
+        def git(*args):
+            return subprocess.run(["git", "-C", str(work), *args],
+                                  check=True, capture_output=True, text=True).stdout.strip()
+        git("config", "user.name", "Owner Test")
+        git("config", "user.email", "owner@example.invalid")
+        git("remote", "add", "origin", str(remote))
+        lock = Path("docs/contracts/surface-source.json")
+        target = work / lock
+        target.parent.mkdir(parents=True)
+        target.write_text('{"source_commit":"old"}\n')
+        git("add", str(lock))
+        git("commit", "-m", "canonical main")
+        main_sha = git("rev-parse", "HEAD")
+        git("push", "origin", "main")
+        branch = "automation/advance-surface-" + "a" * 40
+        git("switch", "-c", "source-candidate")
+        verified = '{"source_commit":"verified"}\n'
+        target.write_text(verified)
+        git("add", str(lock))
+        git("commit", "-m", "verified source-lock candidate")
+        existing_sha = git("rev-parse", "HEAD")
+        git("push", "origin", "HEAD:refs/heads/" + branch)
+        git("switch", "main")
+        candidate = root / "candidate.json"
+        candidate.write_text(verified)
+        bin_dir = root / "bin"
+        bin_dir.mkdir()
+        gh = bin_dir / "gh"
+        gh.write_text('#!/usr/bin/env bash\nprintf "%s\\n" "$TEST_HISTORY"\n')
+        gh.chmod(0o755)
+
+        def run(history, *, candidate_text=verified, head=existing_sha, ref=branch):
+            candidate.write_text(candidate_text)
+            env = dict(os.environ,
+                       PATH=str(bin_dir) + os.pathsep + os.environ["PATH"],
+                       TEST_HISTORY=json.dumps([history]),
+                       existing_sha=head, main_sha=main_sha,
+                       branch=ref, LOCK=str(lock),
+                       GITHUB_REPOSITORY="ordaxsystems/ordax-os",
+                       candidate_lock=str(candidate))
+            return subprocess.run(["bash", "-c", guard],
+                                  cwd=work, capture_output=True, text=True, env=env)
+        recovered = run([])
+        self.assertEqual(recovered.returncode, 0, recovered.stderr)
+        self.assertIn("Recovered only the exact stranded source-lock branch", recovered.stdout)
+        reviewed = run([{"head": {"repo": {"full_name": "ordaxsystems/ordax-os"}, "ref": branch}}])
+        self.assertNotEqual(reviewed.returncode, 0)
+        self.assertIn("PR history", reviewed.stdout)
+        altered = run([], candidate_text='{"source_commit":"forged"}\n')
+        self.assertNotEqual(altered.returncode, 0)
+        self.assertIn("differs from verified lock", altered.stdout)
+        # A matching lock is insufficient if another file was pushed.
+        rogue_branch = "automation/advance-surface-" + "b" * 40
+        git("switch", "-c", "rogue", "main")
+        target.write_text(verified)
+        (work / "rogue.txt").write_text("not owned")
+        git("add", str(lock), "rogue.txt")
+        git("commit", "-m", "forged extra change")
+        rogue_sha = git("rev-parse", "HEAD")
+        git("push", "origin", "HEAD:refs/heads/" + rogue_branch)
+        rogue = run([], head=rogue_sha, ref=rogue_branch)
+        self.assertNotEqual(rogue.returncode, 0)
+        self.assertIn("differs from verified lock", rogue.stdout)
+
     def test_new_source_owner_pr_denies_native_token_before_branch_push(self):
         # Reproduce the repository's disabled GitHub Actions PR-creation policy.
         # Authentication preflight must reject an orphan push while continuing
