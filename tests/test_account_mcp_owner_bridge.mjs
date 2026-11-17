@@ -99,6 +99,9 @@ test("MCP Owner routes remain exact and never publicly preactivated",()=>{
 test("Gateway Owner routes keep Supabase cookie authorization and fail-closed rollout",()=>{
   const source=readFileSync(new URL("../infra/supabase/functions/ordax-account-gateway/index.ts",import.meta.url),"utf8");
   assert.match(source,/ORDAX_MCP_OWNER_ACCOUNT_ENABLED/);
+  assert.match(source,/const PUBLIC_SITE_ACCOUNT_ENABLED = false;/);
+  assert.match(source,/const ACCOUNT_REGISTRATION_ENABLED = false;/);
+  assert.match(source,/isPublicMcpOwnerPreActivationRoute\(req.method, path,\s*Deno.env.get\("ORDAX_MCP_OWNER_ACCOUNT_ENABLED"\) === "1"\)/);
   assert.match(source,/await authenticated\(req\)/);
   assert.match(source,/verifyTrustedPublicRequestContext\(req\)\.ok/);
   assert.doesNotMatch(source,/origin\.host\.toLowerCase\(\) === forwardedHost/);
