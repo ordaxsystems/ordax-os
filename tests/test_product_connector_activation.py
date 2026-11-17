@@ -98,6 +98,71 @@ class ProductConnectorActivationTests(unittest.TestCase):
         path.symlink_to(actual)
         self.assertFalse(self.store.connector_visibility_enabled(SUBJECT))
 
+    def test_stable_signed_precondition_requires_private_owner_opt_in(self):
+        from product_device_enrollment import EnrollmentReceipt
+
+        class Client:
+            def __init__(self):
+                self.calls = []
+
+            def enroll(self, **kwargs):
+                self.calls.append(kwargs)
+                return EnrollmentReceipt(device_id=SUBJECT, protocol="cloudflare-v3")
+
+        self.store.commit_enrollment(SUBJECT)
+        client = Client()
+        with (
+            patch("product_device_runtime.ProductDeviceIdentityStore", return_value=self.store),
+            patch("product_device_runtime.ProductDeviceEnrollmentClient", return_value=client),
+            patch("product_device_runtime.ProductDevicePresenceWorker") as worker,
+        ):
+            coordinator = ProductDevicePostLoginCoordinator(
+                Gateway(), distribution_profile="stable-mvp", product_mode="usb",
+                stable_signed_product_ready=True,
+                control_plane_origin="https://cp.example", state_dir=self.tmp.name,
+            )
+            self.assertFalse(coordinator.development_discovery)
+            self.assertEqual(coordinator.after_authenticated_login(
+                {"displayName": "Stable"}, subject=SUBJECT,
+            ).status, "inactive")
+            worker.return_value.start.assert_not_called()
+            self.assertEqual(client.calls, [])
+            proxy = ProductDeviceAccountGatewayProxy(
+                Gateway(), coordinator, lambda: {"displayName": "Stable"},
+            )
+            self.assertFalse(proxy.connector_status()["enabled"])
+            self.assertEqual(client.calls, [])
+            enabled = proxy.configure_connector_visibility(True)
+            self.assertTrue(enabled["enabled"])
+            self.assertTrue(self.store.signed_runtime_visibility_enabled())
+            self.assertFalse(enabled["remoteActionsEnabled"])
+            self.assertEqual(client.calls, [{
+                "device_name": "Stable", "device_kind": "laptop",
+                "channel": "stable",
+            }])
+            worker.return_value.start.assert_called_once()
+            disabled = proxy.configure_connector_visibility(False)
+            self.assertFalse(disabled["enabled"])
+            self.assertFalse(self.store.signed_runtime_visibility_enabled())
+            worker.return_value.stop.assert_called_once_with(wait=False)
+
+    def test_stable_without_signed_precondition_cannot_create_gateway(self):
+        with (
+            patch("product_device_runtime.ProductDeviceIdentityStore") as store,
+            patch("product_device_runtime.ProductDeviceEnrollmentClient") as client,
+        ):
+            gateway = Gateway()
+            from product_device_runtime import compose_product_device_account_gateway
+            same = compose_product_device_account_gateway(
+                gateway, distribution_profile="stable-mvp",
+                product_mode="usb", control_plane_origin="https://cp.example",
+                device_profile_reader=lambda: {"displayName": "Stable"},
+                state_dir=self.tmp.name,
+            )
+            self.assertIs(same, gateway)
+            store.assert_not_called()
+            client.assert_not_called()
+
     def test_login_without_owner_opt_in_does_not_start_presence(self):
         self.store.commit_enrollment(SUBJECT)
         profile = {"displayName": "OrdaX USB"}
