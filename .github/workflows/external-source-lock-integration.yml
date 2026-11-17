@@ -243,6 +243,7 @@ jobs:
           git config user.name "ordax-source-integration[bot]"
           git config user.email "ordax-source-integration@users.noreply.github.com"
           gh auth setup-git
+          recovering=false
           if [ "$EXISTING" = true ]; then
             branch="$PR_BRANCH"
             git restore -- "$LOCK"
@@ -260,14 +261,12 @@ jobs:
               exit 0
             fi
           else
-            # The closed PR may have been squash-merged while its old branch
-            # remains on origin. Use the exact verified candidate identity for
-            # each new owner PR; never overwrite an unrelated retained branch.
+            # Each upstream candidate has one immutable branch identity.
+            # A failed gh pr create after git push may leave that branch
+            # without a PR. Recover only an exact verified, never-reviewed
+            # single-lock commit; do not reopen rejected/closed PRs.
             branch="automation/advance-$OWNER-$SOURCE_SHA"
             git switch -c "$branch"
-            # The repo may retain a branch after its PR was merged.
-            # Reuse it only if the remote SHA is already an ancestor of main.
-            # git push below remains ordinary fast-forward, never force-push.
             existing_tip="$(git ls-remote --heads origin "refs/heads/$branch")"
             if [ -n "$existing_tip" ]; then
               existing_sha="$(printf '%s\n' "$existing_tip" | cut -f1)"
@@ -275,18 +274,52 @@ jobs:
               test "$existing_ref" = "refs/heads/$branch"
               git fetch --no-tags origin "refs/heads/$branch"
               if ! git merge-base --is-ancestor "$existing_sha" "$main_sha"; then
-                echo "::error::Owner branch exists but is not merged into current main; refuse overwrite"
-                exit 1
+                # Exact single-parent ancestry and exact lock bytes are
+                # mandatory before recovering a stranded bot push.
+                parents="$(git rev-list --parents -n 1 "$existing_sha")"
+                if [ "$(wc -w <<< "$parents")" -ne 2 ]; then
+                  echo "::error::Unmerged owner branch is not a single-parent commit; refuse recovery"
+                  exit 1
+                fi
+                parent_sha="$(awk '{print $2}' <<< "$parents")"
+                if ! git merge-base --is-ancestor "$parent_sha" "$main_sha" \
+                    || [ "$(git diff --name-only "$parent_sha" "$existing_sha")" != "$LOCK" ] \
+                    || ! git show "$existing_sha:$LOCK" | cmp - "$candidate_lock"; then
+                  echo "::error::Unmerged owner branch differs from verified lock/ancestry; refuse recovery"
+                  exit 1
+                fi
+                # Closed/unmerged and already-merged PR heads must not be
+                # silently recreated. Server-side head filter plus pagination.
+                prior_count="$(gh api --paginate --slurp -X GET \
+                  "repos/$GITHUB_REPOSITORY/pulls" -f state=all \
+                  -f head="ordaxsystems:$branch" -f per_page=100 | \
+                  jq -er --arg repo "$GITHUB_REPOSITORY" --arg branch "$branch" \
+                    '[.[][] | select(.head.repo.full_name == $repo and .head.ref == $branch)] | length')"
+                if [ "$prior_count" -ne 0 ]; then
+                  echo "::error::Owner branch has PR history; refuse re-creation of a reviewed branch"
+                  exit 1
+                fi
+                remote_tip="$(git ls-remote --heads origin "refs/heads/$branch" | cut -f1)"
+                if [ "$remote_tip" != "$existing_sha" ]; then
+                  echo "::error::Owner recovery branch moved during verification"
+                  exit 1
+                fi
+                recovering=true
+                echo "::notice::Recovered only the exact stranded source-lock branch; creating its missing PR"
+              else
+                echo "::notice::Previously merged owner branch will fast-forward"
               fi
-              echo "::notice::Previously merged owner branch will fast-forward"
             fi
           fi
-          git add -- "$LOCK"
-          test "$(git diff --cached --name-only)" = "$LOCK"
-          git commit -m "chore($OWNER): integrate source ${SOURCE_SHA:0:12}"
-          # Fast-forward only. Never force-push, overwrite a different branch,
-          # or create a second PR when a valid owner PR already exists.
-          git push origin "HEAD:refs/heads/$branch"
+          if [ "$recovering" != true ]; then
+            git add -- "$LOCK"
+            test "$(git diff --cached --name-only)" = "$LOCK"
+            git commit -m "chore($OWNER): integrate source ${SOURCE_SHA:0:12}"
+            # Only a normal fast-forward is permitted; no force-push.
+            git push origin "HEAD:refs/heads/$branch"
+          fi
+          # A recovered branch was already pushed; only the missing PR is
+          # created after verifying no past PR ever used that exact head.
           printf -v body 'Owner: %s@%s\n\nOnly %s changed. Exact upstream main CI and existing OS materializer passed. No physical update, Stable release, Intelligence activation or second updater.\n\nMerge only after OS consumer tests, health and rollback gates pass.' \
             "$SOURCE_REPO" "$SOURCE_SHA" "$LOCK"
           if [ "$EXISTING" = true ]; then
