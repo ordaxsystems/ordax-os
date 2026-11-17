@@ -51,8 +51,8 @@ class NativeProductLifecycleTests(unittest.TestCase):
             "      printf 'NATIVE_PRODUCT_LOCAL_ACCESS=ENABLED\\n'; exit 0\n"
             "    fi\n"
             "    printf 'NATIVE_PRODUCT_LOCAL_ACCESS=DISABLED\\n'; exit 3 ;;\n"
-            "  --run)\n"            "    printf '%s\\n' \"$*\" > \"$NATIVE_TEST_ARGS\"\n"
-
+            "  --run)\n"
+            "    printf '%s\\n' \"$*\" > \"$NATIVE_TEST_ARGS\"\n"
             "    printf '%s\\n' \"$$\" >> \"$NATIVE_TEST_STARTED\"\n"
             "    trap 'exit 0' TERM INT\n"
             "    while :; do sleep 1; done ;;\n"
@@ -204,6 +204,7 @@ class NativeProductLifecycleTests(unittest.TestCase):
         )
         self.assertEqual(result.returncode, 0, result.stderr)
         self.assertFalse(self.started.exists())
+
     def test_owner_dev_buildroot_runtime_starts_only_after_local_consent(self):
         self.install_private_buildroot_runtime_fixture()
         result = self.run_lifecycle(
