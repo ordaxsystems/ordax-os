@@ -9,6 +9,8 @@ import {
   forwardPublicConfirmationQuery,
   forwardPublicRecoveryQuery,
   forwardOwnerMcpAuthorityQuery,
+  forwardOwnerMcpCentralQuery,
+  forwardOwnerMcpGithubCandidateQuery,
   normalizeProductPath,
   normalizePublicOrigin,
   normalizeTrustedEdgeAddress,
@@ -251,6 +253,30 @@ test("Owner device authority query survives Vercel rewrite with no arbitrary pas
     assert.equal(forwarded,null);
   } finally {
     globalThis.fetch = original;
+  }
+});
+
+test("Owner Vercel query captures are forwarded only to matching exact MCP reads", async () => {
+  const client = "3529fbb0-c72a-4f79-bf4c-4f1243939a78";
+  const device = "51ad4baf-7805-499e-9c48-b89f52af1953";
+  const options = [
+    ["/account/mcp/central-targets","client_id",client,forwardOwnerMcpCentralQuery],
+    ["/account/mcp/central-selections","client_id",client,forwardOwnerMcpCentralQuery],
+    ["/account/mcp/authority","device_id",device,forwardOwnerMcpAuthorityQuery],
+    ["/account/mcp/project-onboarding","device_id",device,forwardOwnerMcpAuthorityQuery],
+    ["/account/mcp/github/repository-candidates","challenge_id",client,
+      forwardOwnerMcpGithubCandidateQuery],
+  ];
+  for (const [path,key,uuid,forward] of options) {
+    const query = new URLSearchParams({ordax_path:path,[key]:uuid});
+    assert.equal(forward(path,query),path+"?"+key+"="+uuid);
+    assert.equal(forward(path+"?"+key+"="+uuid,query),path+"?"+key+"="+uuid);
+    for (const bad of [
+      new URLSearchParams({ordax_path:path}),
+      new URLSearchParams({ordax_path:path,[key]:"not-a-uuid"}),
+      new URLSearchParams({ordax_path:path,[key]:uuid,owner_id:uuid}),
+      new URLSearchParams("ordax_path="+path+"&"+key+"="+uuid+"&"+key+"=11111111-1111-4111-8111-111111111111"),
+    ]) assert.equal(forward(path,bad),null);
   }
 });
 
