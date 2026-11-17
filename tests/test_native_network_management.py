@@ -443,6 +443,70 @@ class NativeNetworkManagementTests(unittest.TestCase):
                 self.assertEqual(result.returncode, 0, result.stderr)
                 self.assertEqual(result.stdout, expected)
 
+    def test_unattended_wpa_recovery_yields_to_pending_first_use_request(self):
+        # Execute the checked-in WPA wait and auto-restoration functions with
+        # fake commands. Requests from the Native host must outrank automatic
+        # reconnection, without interrupting the user's own connect attempt.
+        broker = BROKER.read_text(encoding="utf-8")
+        wait_body = broker.split("wait_for_wifi_link() {", 1)[1].split("\n}\n", 1)[0]
+        restore_body = broker.split("auto_restore_saved_network_if_needed() {", 1)[1].split("\n}\n", 1)[0]
+        self.assertIn("auto_restore_saved_network_if_needed", broker.split('exec 9<>"$CONTROL"', 1)[1])
+        connect_action = broker.split("        connect)\n", 1)[1].split("        disconnect)", 1)[0]
+        self.assertIn("auto_restore_saved_network_if_needed", connect_action)
+        with tempfile.TemporaryDirectory() as temporary:
+            root = Path(temporary)
+            request = root / "network-request"
+            wpa = root / "wpa-cli"
+            wpa.write_text("#!/bin/sh\nprintf '%s\\n' 'wpa_state=COMPLETED'\n", encoding="utf-8")
+            wpa.chmod(0o700)
+            env = {
+                **os.environ,
+                "NETWORK_TEST_REQUEST": str(request),
+                "NETWORK_TEST_WPA_CLI": str(wpa),
+            }
+            wait_script = (
+                "set -eu\n"
+                'WPA_CLI_BIN=$NETWORK_TEST_WPA_CLI\n'
+                'WPA_CTRL_DIR=/run/test-wpa\n'
+                'REQUEST=$NETWORK_TEST_REQUEST\n'
+                'WIFI_HANDSHAKE_ATTEMPTS=18\n'
+                'wait_for_wifi_link() {' + wait_body + "\n}\n"
+                "wait_for_wifi_link wlan0\n"
+            )
+            for active, pending, expected_rc in (
+                ("1", True, 1),
+                ("0", True, 0),
+                ("1", False, 0),
+            ):
+                request.write_text("pending\n" if pending else "", encoding="utf-8")
+                result = subprocess.run(
+                    ["/bin/sh", "-c", wait_script],
+                    env={**env, "AUTO_RECOVERY_ACTIVE": active},
+                    capture_output=True, text=True, timeout=5, check=False,
+                )
+                self.assertEqual(expected_rc, result.returncode, result.stderr)
+
+            restored = root / "restored"
+            wrapper_script = (
+                "set -eu\n"
+                'REQUEST=$NETWORK_TEST_REQUEST\n'
+                'AUTO_RECOVERY_ACTIVE=0\n'
+                'restore_saved_network_if_needed() { printf "restored\\n" >>"$NETWORK_TEST_RESTORED"; }\n'
+                'auto_restore_saved_network_if_needed() {' + restore_body + "\n}\n"
+                'auto_restore_saved_network_if_needed\n'
+                'test "$AUTO_RECOVERY_ACTIVE" -eq 0\n'
+            )
+            for pending in (True, False):
+                request.write_text("pending\n" if pending else "", encoding="utf-8")
+                restored.unlink(missing_ok=True)
+                result = subprocess.run(
+                    ["/bin/sh", "-c", wrapper_script],
+                    env={**env, "NETWORK_TEST_RESTORED": str(restored)},
+                    capture_output=True, text=True, timeout=5, check=False,
+                )
+                self.assertEqual(0, result.returncode, result.stderr)
+                self.assertEqual(restored.exists(), not pending)
+
     def test_broker_failure_reasons_are_bounded_and_have_enough_wpa_time(self):
         broker = BROKER.read_text(encoding="utf-8")
         host = SERVER.read_text(encoding="utf-8")
