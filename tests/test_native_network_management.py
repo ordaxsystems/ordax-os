@@ -388,6 +388,61 @@ class NativeNetworkManagementTests(unittest.TestCase):
         self.assertNotIn('echo "$ssid_hex"', text)
         self.assertNotIn("logger", text)
 
+    def test_dhcp_timeout_reports_lost_wpa_link_as_authentication_failure(self):
+        # Exercise the checked-in connect_conf shell body with fake WPA/DHCP
+        # commands. No host interface or credentials are changed.
+        broker = BROKER.read_text(encoding="utf-8")
+        body = broker.split("connect_conf() {", 1)[1].split("\n}\n", 1)[0]
+        with tempfile.TemporaryDirectory() as temporary:
+            root = Path(temporary)
+            for name in ("udhcpc.script", "netbox", "candidate.conf"):
+                path = root / name
+                path.write_text("fixture\n", encoding="utf-8")
+                path.chmod(0o700)
+            wpa_cli = root / "fake-wpa-cli"
+            wpa_cli.write_text(
+                "#!/bin/sh\n"
+                'if [ "$NETWORK_TEST_WPA_COMPLETED" = 1 ]; then\n'
+                '  printf "%s\\n" "wpa_state=COMPLETED"\n'
+                'else\n'
+                '  printf "%s\\n" "wpa_state=DISCONNECTED"\n'
+                'fi\n',
+                encoding="utf-8",
+            )
+            wpa_cli.chmod(0o700)
+            script = (
+                "set -eu\n"
+                "stop_wifi() { :; }\n"
+                "wait_for_wifi_link() { return 0; }\n"
+                "try_dhcp() { return 1; }\n"
+                "sync_runtime_resolver() { :; }\n"
+                "connect_conf() {" + body + "\n}\n"
+                'connect_conf wlan0 "$NETWORK_TEST_CANDIDATE" || '
+                'printf "%s\\n" "$connect_failure_reason"\n'
+            )
+            for completed, expected in (
+                ("1", "dhcp-failed\n"),
+                ("0", "authentication-failed\n"),
+            ):
+                env = {
+                    **os.environ,
+                    "DHCP_SCRIPT": str(root / "udhcpc.script"),
+                    "DHCP_NETBOX": str(root / "netbox"),
+                    "WPA_CTRL_DIR": str(root / "wpa"),
+                    "WPA_PID_FILE": str(root / "wpa.pid"),
+                    "WPA_BIN": "/bin/true",
+                    "WPA_CLI_BIN": str(wpa_cli),
+                    "NETWORK_TEST_CANDIDATE": str(root / "candidate.conf"),
+                    "NETWORK_TEST_WPA_COMPLETED": completed,
+                }
+                result = subprocess.run(
+                    ["/bin/sh", "-c", script],
+                    env=env, text=True, capture_output=True,
+                    timeout=6, check=False,
+                )
+                self.assertEqual(result.returncode, 0, result.stderr)
+                self.assertEqual(result.stdout, expected)
+
     def test_broker_failure_reasons_are_bounded_and_have_enough_wpa_time(self):
         broker = BROKER.read_text(encoding="utf-8")
         host = SERVER.read_text(encoding="utf-8")

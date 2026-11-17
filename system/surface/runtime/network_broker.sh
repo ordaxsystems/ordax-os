@@ -253,7 +253,15 @@ connect_conf() {
     # the SAME runtime resolver immediately, without restarting or simulating
     # an Account provider.
     if ! try_dhcp "$wifi"; then
-        connect_failure_reason=dhcp-failed
+        # DHCP may time out because the WPA association disappeared during
+        # lease acquisition. Do not misdiagnose a lost wireless link as a
+        # DHCP-server failure (same rule as the canonical first-run CLI).
+        if "$WPA_CLI_BIN" -p "$WPA_CTRL_DIR" -i "$wifi" status 2>/dev/null |
+            /bin/busybox grep -q '^wpa_state=COMPLETED$'; then
+            connect_failure_reason=dhcp-failed
+        else
+            connect_failure_reason=authentication-failed
+        fi
         stop_wifi "$wifi" || true
         return 1
     fi
