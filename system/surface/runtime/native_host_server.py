@@ -5423,11 +5423,25 @@ class NativeHostHandler(SimpleHTTPRequestHandler):
                 return
             payload = self._read_json_body(MAX_NETWORK_ACTION_BODY)
             if payload is None:
-                self._empty(400)
+                # A missing/malformed HTTP envelope must be distinguishable
+                # from WPA or DHCP failure before the broker is ever called.
+                self._write_json(400, {"reason": "network-request-invalid"})
                 return
             action = payload.get("action")
             if action not in {"scan", "connect", "disconnect", "forget", "reconnect"}:
-                self._empty(400)
+                self._write_json(400, {"reason": "network-request-invalid"})
+                return
+            expected = {"action", "ssid", "password"} if action == "connect" else {"action"}
+            if set(payload) != expected:
+                self._write_json(400, {"reason": "network-request-invalid"})
+                return
+            if action == "connect" and (
+                not valid_wifi_ssid(payload.get("ssid"))
+                or not valid_wifi_password(payload.get("password"))
+            ):
+                # A credential-boundary failure is not evidence of failed WPA.
+                # Never echo submitted SSID, password or derived PSK.
+                self._write_json(400, {"reason": "invalid-credentials"})
                 return
             try:
                 with self.server.network_lock:
@@ -5442,7 +5456,9 @@ class NativeHostHandler(SimpleHTTPRequestHandler):
                         timeout_seconds=42.0 if action in {"connect", "reconnect"} else (20.0 if action == "scan" else 12.0),
                     )
             except ValueError:
-                self._empty(400)
+                # The HTTP and credential contracts were already validated;
+                # a later ValueError is an invalid Native/broker response.
+                self._write_json(503, {"reason": "network-native-response-invalid"})
                 return
             except RuntimeError as exc:
                 # Only bounded, non-secret reasons cross the Native boundary.
