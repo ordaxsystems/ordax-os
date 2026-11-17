@@ -229,8 +229,8 @@ class SourceAdvanceTests(unittest.TestCase):
         root = advance.ROOT
         yaml = (root / ".github/workflows/external-source-lock-integration.yml").read_text()
         start = yaml.index("      - name: Resolve exactly one pending PR")
-        end = yaml.index("      - name: Create or fast-forward", start)
-        body = yaml[start:end].split("        run: |\n", 1)[1]
+        # Extract only this run block; later authentication steps are not Bash.
+        body = yaml[start:].split("        run: |\n", 1)[1].split("\n      - name: ", 1)[0]
         script = "\n".join(line[10:] if line.startswith(" " * 10) else line
                            for line in body.splitlines()) + "\n"
         self.assertIn("gh api --paginate --slurp", script)
