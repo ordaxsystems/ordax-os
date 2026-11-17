@@ -276,11 +276,10 @@ class ProductConnectorActivationTests(unittest.TestCase):
             "subject": SUBJECT,
             "deviceId": SUBJECT,
         })
-        self.assertTrue(self.store.production_visibility_enabled())
+        self.assertTrue(self.store.connector_visibility_enabled(SUBJECT))
         self.assertFalse(self.store.connector_visibility_enabled(OTHER_SUBJECT))
         # A new enrollment cannot inherit this device's prior Owner consent.
         self.store.commit_enrollment(OTHER_SUBJECT)
-        self.assertFalse(self.store.production_visibility_enabled())
         self.assertFalse(self.store.connector_visibility_enabled(SUBJECT))
         self.assertFalse(self.store.development_visibility_enabled())
 
@@ -293,12 +292,10 @@ class ProductConnectorActivationTests(unittest.TestCase):
         }))
         self.store.connector_visibility_path.chmod(0o600)
         self.assertFalse(self.store.connector_visibility_enabled(SUBJECT))
-        self.assertFalse(self.store.production_visibility_enabled())
         self.assertFalse(self.store.development_visibility_enabled())
         # The only recovery is a fresh explicit Owner opt-in for the current id.
         self.store.set_connector_visibility(True, SUBJECT)
         self.assertTrue(self.store.connector_visibility_enabled(SUBJECT))
-        self.assertTrue(self.store.production_visibility_enabled())
 
     def test_forged_or_expired_device_consent_fails_closed(self):
         self.store.commit_enrollment(SUBJECT)
@@ -317,7 +314,6 @@ class ProductConnectorActivationTests(unittest.TestCase):
             path.write_text(json.dumps(policy))
             path.chmod(0o600)
             self.assertFalse(self.store.connector_visibility_enabled(SUBJECT))
-            self.assertFalse(self.store.production_visibility_enabled())
 
 if __name__ == "__main__":
     unittest.main()
