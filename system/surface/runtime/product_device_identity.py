@@ -248,6 +248,14 @@ class ProductDeviceIdentityStore:
         canonical = str(uuid.UUID(subject))
         return self._account_connector_subject() == canonical
 
+    def signed_runtime_visibility_enabled(self) -> bool:
+        """Private OS-only eligibility for an already verified signed Runtime.
+
+        The authenticated Owner's consent is bound to the same enrolled device.
+        This is not a signature assertion or a grant: Supervisor still verifies
+        the signed slot and Platform checks every remote capability.
+        """
+        return self._account_connector_subject() is not None
     def development_visibility_enabled(self) -> bool:
         """DEV USB only: enrolled device presence defaults on without login.
 
