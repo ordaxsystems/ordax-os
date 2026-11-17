@@ -33,7 +33,7 @@ jobs:
   source-candidates:
     if: github.event_name != 'pull_request'
     # Native GITHUB_TOKEN may update an existing owner PR and dispatch its CI;
-    # a new PR requires the dedicated authorized integration credential.
+    # a new PR requires a short-lived token minted from the scoped GitHub App.
     # Do not publish an orphan branch when Actions PR creation is disabled.
     permissions:
       contents: write
@@ -214,7 +214,7 @@ jobs:
           # switch/commit/push, so a missing integration credential never
           # leaves another orphan automation/advance-* branch behind.
           if [ "$EXISTING" != true ] && [ "$NATIVE_FALLBACK" = true ]; then
-            echo "::error::New source-lock PR requires ORDAX_INTEGRATION_TOKEN; GitHub Actions PR creation is disabled for this repository. No branch was pushed."
+            echo "::error::New source-lock PR requires ORDAX_INTEGRATION_APP_CLIENT_ID and ORDAX_INTEGRATION_APP_PRIVATE_KEY; native GitHub Actions cannot create PRs. No branch was pushed."
             exit 1
           fi
           candidate_lock="$RUNNER_TEMP/ordax-owner-$OWNER-candidate-lock.json"
