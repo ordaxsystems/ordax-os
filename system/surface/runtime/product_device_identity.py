@@ -218,20 +218,43 @@ class ProductDeviceIdentityStore:
             os.close(descriptor)
         return payload if isinstance(payload, dict) else None
 
-    def connector_visibility_enabled(self, subject: str | None = None) -> bool:
-        """Read account-bound opt-in for the login-gated discovery policy."""
-        if not isinstance(subject, str) or not UUID_RE.fullmatch(subject):
-            return False
-        subject = str(uuid.UUID(subject))
-        payload = self._read_connector_visibility()
-        return (
-            isinstance(payload, dict)
-            and set(payload) == {"schema", "enabled", "subject"}
-            and payload["schema"] == "ordax.product-connector-visibility/1"
-            and payload["enabled"] is True
-            and payload["subject"] == subject
-        )
+    def _account_connector_subject(self) -> str | None:
+        """Read one device-bound Owner consent; the credential is the SSOT.
 
+        An account-only legacy policy is never sufficient: after re-enrollment,
+        another device must not inherit an old Owner's opt-in. This is local
+        discoverability, never an OAuth grant or remote action authorization.
+        """
+        credential = self.read_enrolled_credential()
+        if credential is None:
+            return None
+        payload = self._read_connector_visibility()
+        if (not isinstance(payload, dict)
+                or set(payload) != {"schema", "enabled", "subject", "deviceId"}
+                or payload.get("schema") != "ordax.product-connector-visibility/2"
+                or payload.get("enabled") is not True
+                or payload.get("deviceId") != credential["device_id"]):
+            return None
+        subject = payload.get("subject")
+        if not isinstance(subject, str) or UUID_RE.fullmatch(subject) is None:
+            return None
+        canonical = str(uuid.UUID(subject))
+        return canonical if subject == canonical else None
+
+    def connector_visibility_enabled(self, subject: str | None = None) -> bool:
+        """Only the authenticated account and enrolled device may opt in."""
+        if not isinstance(subject, str) or UUID_RE.fullmatch(subject) is None:
+            return False
+        canonical = str(uuid.UUID(subject))
+        return self._account_connector_subject() == canonical
+
+    def production_visibility_enabled(self) -> bool:
+        """Privileged OS Runtime read of explicit durable device-bound consent.
+
+        The signed-slot and Platform OAuth/grant gates are independent. This
+        boolean never authorizes an action and cannot enable unsigned Runtime.
+        """
+        return self._account_connector_subject() is not None
     def development_visibility_enabled(self) -> bool:
         """DEV USB only: enrolled device presence defaults on without login.
 
@@ -249,11 +272,9 @@ class ProductDeviceIdentityStore:
         if payload.get("schema") == "ordax.product-connector-development-visibility/1":
             return (set(payload) == {"schema", "enabled", "deviceId"}
                     and payload["deviceId"] == credential["device_id"])
-        # Preserve existing enabled policies while migrating this DEV device.
-        return (set(payload) == {"schema", "enabled", "subject"}
-                and payload.get("schema") == "ordax.product-connector-visibility/1"
-                and isinstance(payload.get("subject"), str)
-                and UUID_RE.fullmatch(payload["subject"]) is not None)
+        # Old account-only consent is not device-bound. Reauthorization must
+        # write the exact current Product device id before discovery resumes.
+        return self._account_connector_subject() is not None
 
     def set_development_connector_visibility(self, enabled: bool) -> None:
         if type(enabled) is not bool:
@@ -271,13 +292,20 @@ class ProductDeviceIdentityStore:
         })
 
     def set_connector_visibility(self, enabled: bool, subject: str | None = None) -> None:
-        """Persist only device discoverability, never OAuth or action grants."""
+        """Persist only device-bound discoverability, never OAuth/action grants."""
         if type(enabled) is not bool:
             raise TypeError("connector visibility must be a boolean")
         if enabled and (not isinstance(subject, str) or not UUID_RE.fullmatch(subject)):
             raise ValueError("connector requires an authenticated account subject")
+        device_id = None
+        if enabled:
+            credential = self.read_enrolled_credential()
+            if credential is None:
+                raise ProductDeviceIdentityError("device-enrollment-required")
+            device_id = credential["device_id"]
         self._atomic_write(self.connector_visibility_path, {
-            "schema": "ordax.product-connector-visibility/1",
+            "schema": "ordax.product-connector-visibility/2",
             "enabled": enabled,
             "subject": str(uuid.UUID(subject)) if enabled else None,
+            "deviceId": device_id,
         })
