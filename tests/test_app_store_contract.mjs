@@ -427,7 +427,11 @@ test("Store never reactivates a stale lifecycle request after catalog replacemen
   assert.match(source, /let pendingRequest = null;/);
   // Both catalog-change guards are equivalent: an inequality block and an
   // early return on equality. Keep the per-candidate cancellation checks below.
-  assert.match(source, /if \\(fingerprint (?:!== catalogFingerprint\\) \\{|=== catalogFingerprint\\) return;)/);
+  assert.ok(
+    source.includes("if (fingerprint !== catalogFingerprint) {")
+      || source.includes("if (fingerprint === catalogFingerprint) return;"),
+    "A catalog refresh must be guarded before reconciling lifecycle requests",
+  );
   assert.match(source, /catalogFingerprint = fingerprint;/);
   assert.match(source, /pendingRequest !== null && !sameLifecycleCandidate\(verified/);
   assert.match(source, /pendingRequest = null;\s*requestMessageId = null;\s*requestReason = null;/);
