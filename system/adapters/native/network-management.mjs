@@ -88,7 +88,8 @@ export async function createNativeNetworkManagement(windowRef = globalThis.windo
                "network-broker-unavailable",
                "network-broker-timeout", "network-broker-io-failed",
                "wifi-tools-unavailable", "no-wifi-interface",
-               "credential-save-failed",
+               "credential-save-failed", "disconnect-state-failed",
+               "credential-delete-failed", "reconnect-state-failed",
                "network-request-invalid", "invalid-credentials",
                "network-native-response-invalid"].includes(body?.reason)) {
             error.networkReason = body.reason;

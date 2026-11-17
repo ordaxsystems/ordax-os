@@ -57,6 +57,9 @@ function failureKind(action, error) {
       "wifi-tools-unavailable": "wifiTools",
       "no-wifi-interface": "noInterface",
       "credential-save-failed": "credentialSave",
+      "disconnect-state-failed": "disconnectState",
+      "credential-delete-failed": "credentialDelete",
+      "reconnect-state-failed": "reconnectState",
     };
     if (Object.hasOwn(reasons, error?.networkReason)) return reasons[error.networkReason];
   }
@@ -105,6 +108,9 @@ export function networkManagementFailureMessage(action, error) {
     wifiTools: "As ferramentas Wi-Fi necessárias não estão disponíveis no sistema.",
     noInterface: "Nenhuma interface Wi-Fi foi detectada pelo sistema. Verifique o adaptador sem fio.",
     credentialSave: "A conexão Wi-Fi foi iniciada, mas a configuração não pôde ser salva.",
+    disconnectState: "Não foi possível confirmar o registro da desconexão no armazenamento. O controlador não recebeu o comando de desconectar.",
+    credentialDelete: "Não foi possível confirmar a exclusão da credencial Wi-Fi no armazenamento. Verifique o estado da rede salva antes de repetir.",
+    reconnectState: "Não foi possível confirmar a reativação da reconexão no armazenamento. Nenhuma nova tentativa de conexão foi iniciada.",
     reconnectConflict: "A rede salva não pôde ser reconectada. A configuração salva foi preservada.",
     validation: "SSID ou senha fora dos limites aceitos para esta rede Wi-Fi.",
     generic: "A ação de Wi-Fi não pôde ser concluída. A rede anterior foi preservada quando aplicável.",

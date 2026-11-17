@@ -563,6 +563,16 @@ class NativeNetworkManagementTests(unittest.TestCase):
         )
         self.assertIn("connect_failure_reason=dhcp-runtime-unavailable", connect)
 
+    def test_broker_persistence_failures_are_preserved_across_native_http(self):
+        broker = BROKER.read_text(encoding="utf-8")
+        host = SERVER.read_text(encoding="utf-8")
+        exposed = host.rsplit("known = {", 1)[1].split("}", 1)[0]
+        for reason in ("disconnect-state-failed", "credential-delete-failed",
+                       "reconnect-state-failed"):
+            self.assertIn(f'respond "$request_id" error "$wifi" {reason}', broker)
+            self.assertIn(f'"{reason}"', exposed,
+                          f"Native must retain the broker reason: {reason}")
+
     def test_native_connect_rejects_bad_http_inputs_before_wpa_with_bounded_reason(self):
         host = SERVER.read_text(encoding="utf-8")
         post = host.rsplit("if self.path == NETWORK_MANAGEMENT_PATH:", 1)[1].split(

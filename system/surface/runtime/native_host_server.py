@@ -5469,7 +5469,8 @@ class NativeHostHandler(SimpleHTTPRequestHandler):
                          "dhcp-runtime-unavailable", "scan-failed",
                          "saved-network-unavailable",
                          "wifi-tools-unavailable", "no-wifi-interface",
-                         "credential-save-failed"}
+                         "credential-save-failed", "disconnect-state-failed",
+                         "credential-delete-failed", "reconnect-state-failed"}
                 if detail in known:
                     status = 409 if detail in {"authentication-failed", "dhcp-failed",
                                               "connect-failed", "reconnect-failed",
