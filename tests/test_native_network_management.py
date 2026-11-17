@@ -6,6 +6,7 @@ from pathlib import Path
 import subprocess
 import tempfile
 import unittest
+from unittest import mock
 
 ROOT = Path(__file__).resolve().parents[1]
 SERVER = ROOT / "system" / "surface" / "runtime" / "native_host_server.py"
@@ -131,6 +132,35 @@ class NativeNetworkManagementTests(unittest.TestCase):
                 self.assertNotIn(forbidden, flattened)
 
     @unittest.skipUnless(hasattr(os, "mkfifo"), "FIFO requires POSIX")
+    def test_busy_initial_status_requires_real_wlan_before_recoverable_reason(self):
+        with mock.patch.object(native_host, "read_network_status", return_value={
+            "interfaces": [{"name": "wlan0", "kind": "wifi", "state": "disconnected"}],
+        }):
+            self.assertEqual(
+                native_host.network_management_timeout_reason(),
+                "network-broker-timeout",
+            )
+        with mock.patch.object(native_host, "read_network_status", return_value={
+            "interfaces": [{"name": "eth0", "kind": "ethernet", "state": "connected"}],
+        }):
+            self.assertEqual(
+                native_host.network_management_timeout_reason(),
+                "no-wifi-interface",
+            )
+        with mock.patch.object(native_host, "read_network_status", side_effect=ValueError("private")):
+            self.assertEqual(
+                native_host.network_management_timeout_reason(),
+                "network-native-response-invalid",
+            )
+        host = SERVER.read_text(encoding="utf-8")
+        get_status = host.split("if parsed_path == NETWORK_MANAGEMENT_PATH:", 1)[1].split(
+            "if parsed_path == DISPLAY_OUTPUTS_PATH:", 1
+        )[0]
+        self.assertIn('except TimeoutError:', get_status)
+        self.assertIn('{"reason": network_management_timeout_reason()}', get_status)
+        self.assertIn('timeout_seconds=4.0', get_status)
+        self.assertIn('with self.server.network_lock:', get_status)
+
     def test_broker_liveness_requires_private_fifo_with_real_reader(self):
         with tempfile.TemporaryDirectory() as temporary:
             root = Path(temporary)
