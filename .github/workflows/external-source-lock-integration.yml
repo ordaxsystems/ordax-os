@@ -260,7 +260,10 @@ jobs:
               exit 0
             fi
           else
-            branch="automation/advance-$OWNER"
+            # The closed PR may have been squash-merged while its old branch
+            # remains on origin. Use the exact verified candidate identity for
+            # each new owner PR; never overwrite an unrelated retained branch.
+            branch="automation/advance-$OWNER-$SOURCE_SHA"
             git switch -c "$branch"
             # The repo may retain a branch after its PR was merged.
             # Reuse it only if the remote SHA is already an ancestor of main.

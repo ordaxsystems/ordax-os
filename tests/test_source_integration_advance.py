@@ -307,7 +307,15 @@ fi
         self.assertIn('if [ "$(git rev-parse HEAD)" != "$PR_HEAD_SHA" ]; then', workflow)
         self.assertIn('git push origin "HEAD:refs/heads/$branch"', workflow)
         self.assertIn('gh pr edit "$PR_NUMBER"', workflow)
-        self.assertIn('branch="automation/advance-$OWNER"', workflow)
+        self.assertIn('branch="automation/advance-$OWNER-$SOURCE_SHA"', workflow)
+        # Future source commits cannot reuse an old candidate branch retained
+        # after a squash merge, regardless of the repository deletion policy.
+        first = "automation/advance-surface-" + "a" * 40
+        second = "automation/advance-surface-" + "b" * 40
+        self.assertNotEqual(first, second)
+        self.assertIn('if [ "$EXISTING" = true ]; then', workflow)
+        self.assertIn('branch="$PR_BRANCH"', workflow)
+        self.assertIn('if ! git merge-base --is-ancestor "$existing_sha" "$main_sha"; then', workflow)
         self.assertNotIn("git push --force", workflow)
         self.assertNotIn("git push -f", workflow)
         self.assertNotIn("gh pr merge", workflow)
