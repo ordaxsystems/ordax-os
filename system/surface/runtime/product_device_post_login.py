@@ -26,14 +26,22 @@ def enroll_product_device_after_login(
     *,
     distribution_profile: str,
     product_mode: str,
+    stable_enrollment_authorized: bool = False,
 ) -> PostLoginDeviceResult:
     """Best-effort enrollment for an already-authenticated Native session.
 
-    Only Owner/Development USB is activated in this increment. Stable/MVP and Native
-    disk remain inactive until their production authority/policy is promoted separately.
+    Owner/Development USB retains automatic post-login enrollment. Stable/MVP
+    enrollment is available only from an explicitly authorized, signed-component
+    opt-in path, never from passive session refresh or account login.
     """
 
-    if distribution_profile != "owner-development" or product_mode != "usb":
+    if product_mode != "usb":
+        return PostLoginDeviceResult(status="inactive")
+    if distribution_profile == "owner-development":
+        channel = "development"
+    elif distribution_profile == "stable-mvp" and stable_enrollment_authorized is True:
+        channel = "stable"
+    else:
         return PostLoginDeviceResult(status="inactive")
 
     if not isinstance(device_profile, dict):
@@ -46,7 +54,7 @@ def enroll_product_device_after_login(
         receipt = enrollment_client.enroll(
             device_name=name,
             device_kind="laptop",
-            channel="development",
+            channel=channel,
         )
     except (NativeAccountGatewayError, ProductDeviceEnrollmentError) as exc:
         code = getattr(exc, "code", "device-enrollment-failed")
