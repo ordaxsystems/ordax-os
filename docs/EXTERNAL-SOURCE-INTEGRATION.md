@@ -39,13 +39,17 @@ fast-forward, com CI novamente vinculada ao novo head. O inventário percorre
 todas as páginas de PRs, exige repositório de origem correto, base main e
 diff contendo **exatamente um lock**; duas PRs concorrentes, mudança simultânea
 de main ou branch alterada durante a operação falham fechadas. Se não existir
-PR aberta, usa a branch estável `automation/advance-<owner>`. Como a opção
-`delete_branch_on_merge` está desabilitada no repositório, uma branch
-remanescente de PR **já integrada** poderá ser reaproveitada apenas se o seu
-SHA exato for ancestral da `main` atualmente verificada; o novo commit
-avança essa branch exclusivamente por fast-forward. Uma branch fechada sem
-merge não é sobrescrita e causa falha fechada, sem abrir uma segunda branch.
-Não há force-push, rebase de histórico de terceiros ou segunda PR em paralelo. Caso a main
+PR aberta, usa a branch determinística
+`automation/advance-<owner>-<source_sha_completo>`, vinculada ao commit
+imutável que passou no gate upstream. Isso evita reutilizar uma branch
+antiga mantida após merge por *squash*: o commit da PR fechada pode não ser
+ancestral da `main`, mesmo com o lock aprovado. Ao encontrar uma branch
+com **o mesmo nome exato** de candidata nova, só permite fast-forward se
+a referência já for ancestral da `main`; caso contrário bloqueia sem
+sobrescrever eventual PR fechada sem merge ou push órfão. Uma única PR
+aberta para o owner continua tendo precedência, mesmo quando sua branch
+foi criada para um commit upstream anterior. Não há force-push, rebase
+de histórico de terceiros nem segunda PR simultânea. Caso a main
 upstream tenha sido reescrita, falha em vez de aceitar um force-push como
 atualização. A PR altera **somente um lock**. No caso da Intelligence, todos os
 módulos `src/*.mjs` e o builder técnico fixado contam como código consumido;
