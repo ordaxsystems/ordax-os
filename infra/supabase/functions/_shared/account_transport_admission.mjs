@@ -67,6 +67,17 @@ export function isPublicBridgeRoute(method, pathname) {
   return PUBLIC_ALLOWED_PREFIXES.some(prefix => pathname.startsWith(prefix));
 }
 
+// The Owner MCP console may be released for *existing, authenticated*
+// accounts without enabling public account registration or unrelated Account
+// features. Derive the exact route/method list from the ONE public bridge
+// catalog, and require the separate Owner release flag at the caller.
+export function isPublicMcpOwnerPreActivationRoute(method, pathname, ownerEnabled) {
+  return ownerEnabled === true
+    && typeof pathname === "string"
+    && pathname.startsWith("/account/mcp/")
+    && isPublicBridgeRoute(method, pathname);
+}
+
 export function isPublicAccountPreActivationRoute(method, pathname) {
   const route = PUBLIC_ACCOUNT_ROUTES.get(pathname);
   return Boolean(route && route.method === method && route.preActivation === true);

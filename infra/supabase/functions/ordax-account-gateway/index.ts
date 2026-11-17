@@ -10,7 +10,7 @@ import { ACCOUNT_MCP_USAGE_PATH, readAccountMcpUsage } from "../_shared/account_
 import { ACCOUNT_MCP_DEVICES_PATH, ACCOUNT_MCP_AUTHORITY_PATH, ACCOUNT_MCP_REVOKE_PATH, ACCOUNT_MCP_REAUTHORIZE_PATH, ACCOUNT_MCP_PROJECT_GRANTS_PATH, ACCOUNT_MCP_CENTRAL_TARGETS_PATH, ACCOUNT_MCP_CENTRAL_SELECTIONS_PATH, ACCOUNT_MCP_PROJECT_ONBOARDING_PATH, ACCOUNT_MCP_PROJECTS_PATH, ACCOUNT_MCP_PROJECT_BINDING_INTENTS_PATH, ACCOUNT_MCP_GITHUB_CHALLENGES_PATH, ACCOUNT_MCP_GITHUB_CALLBACK_PATH, ACCOUNT_MCP_GITHUB_CANDIDATES_PATH, ACCOUNT_MCP_GITHUB_SELECTIONS_PATH, isOwnerUuid, readAccountOwnerDevices, readAccountOwnerAuthority, revokeAccountOwnerGrant, parseAccountOwnerRevoke, reauthorizeAccountOwnerGrant, parseAccountOwnerProfileReauthorization, createAccountOwnerProjectGrant, parseAccountOwnerProjectGrant, readAccountOwnerCentralTargets, readAccountOwnerCentralSelections, selectAccountOwnerCentralDevice, parseAccountOwnerCentralSelection, readAccountOwnerProjectOnboarding, createAccountOwnerProject, parseAccountOwnerProjectCreate, createAccountOwnerProjectBindingIntent, parseAccountOwnerProjectBindingIntent, startAccountOwnerGithubAuthorization, parseAccountOwnerGithubAuthorizationStart, completeAccountOwnerGithubAuthorization, parseAccountOwnerGithubCallback, readAccountOwnerGithubCandidates, selectAccountOwnerGithubRepository, parseAccountOwnerGithubSelection } from "../_shared/account_mcp_owner.mjs";
 import { verifyTrustedPublicRequestContext } from "../ordax-public-account-gateway/public_request_context.mjs";
 import { accountPrivilegedRpc } from "../_shared/account_privileged_rpc.mjs";
-import { authorizeAccountTransport, accountGatewayRoutePath, isPublicAccountPreActivationRoute } from "../_shared/account_transport_admission.mjs";
+import { authorizeAccountTransport, accountGatewayRoutePath, isPublicAccountPreActivationRoute, isPublicMcpOwnerPreActivationRoute } from "../_shared/account_transport_admission.mjs";
 import { parseSpaceCreateRequest, projectSpaceCreateResult, spaceCreateRpcArgs } from "../_shared/space_create_contract.mjs";
 import { PUBLIC_CONFIRMATION_PATH, PUBLIC_SIGNUP_REDIRECT, PUBLIC_RECOVERY_VERIFY_PATH, PUBLIC_RECOVERY_VERIFY_URL, parseSignupConfirmation, parseRecoveryLink } from "../_shared/account_email_confirmation.mjs";
 
@@ -1187,9 +1187,16 @@ Deno.serve(async (req: Request) => {
     return error(503, "public-network-access-disabled", "A Rede OrdaX pública ainda não foi ativada.");
   }
 
+  // Existing Owner MCP capability can be released independently of the
+  // public Account/registration cutover. Method and path inherit the shared
+  // public transport allowlist and require the existing Owner release flag.
+  // Signed service transport, Account session, Owner grants and CSRF are
+  // still checked by their original owners below.
   if (publicSiteRequest(req) && !PUBLIC_SITE_ACCOUNT_ENABLED
     && !(PUBLIC_WEB_AUTH_ENABLED && PUBLIC_WEB_AUTH_ROUTES.has(req.method + " " + path))
-    && !isPublicAccountPreActivationRoute(req.method, path)) {
+    && !isPublicAccountPreActivationRoute(req.method, path)
+    && !isPublicMcpOwnerPreActivationRoute(req.method, path,
+      Deno.env.get("ORDAX_MCP_OWNER_ACCOUNT_ENABLED") === "1")) {
     if (path === "/auth/login" && req.method === "GET") return redirectResponse("/login/");
     if (path === "/auth/register" && req.method === "GET") return redirectResponse("/cadastro/");
     if (path === "/auth/logout" && req.method === "POST") {
