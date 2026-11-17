@@ -49,7 +49,17 @@ class SettingsCanonicalNavigationTests(unittest.TestCase):
         # Network tray remains the always-on owner; Settings must not duplicate reads
         # while another Settings section is selected.
         self.assertIn('findSlot()?.closest(SETTINGS_WINDOW_SELECTOR)', controls)
-        self.assertIn('activeSection !== "network" || !windowNode', controls)
+        # The same visibility gate can be expressed inline or through the
+        # canonical networkWindowIsActive helper; both stop background reads.
+        legacy_gate = 'activeSection !== "network" || !windowNode' in controls
+        focused_gate = (
+            "const networkWindowIsActive = () =>" in controls
+            and 'activeSection === "network" && windowNode' in controls
+            and '!windowNode.hidden && windowNode.dataset.active === "true"' in controls
+            and "if (!networkWindowIsActive()) return;" in controls
+            and "Boolean(networkWindowIsActive())" in controls
+        )
+        self.assertTrue(legacy_gate or focused_gate)
         self.assertIn('windowNode.hidden', controls)
         self.assertIn('windowNode.dataset.active !== "true"', controls)
         self.assertIn("setInterval(refreshActiveNetwork, 5000)", controls)

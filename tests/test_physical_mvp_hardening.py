@@ -52,7 +52,16 @@ class PhysicalMvpHardeningTests(unittest.TestCase):
     def test_new_product_windows_open_maximized_without_removing_window_controls(self):
         text = SURFACE_STATE.read_text(encoding="utf-8")
         launch = text[text.index('case "app.launch"'):text.index('case "app.target"')]
-        self.assertIn("maximized: true", launch)
+        # Both the unconditional default and the explicitly configurable
+        # default-to-true window policy open ordinary product windows maximized.
+        # Preserve explicit max/unmax handling instead of pinning one syntax.
+        default_maximized = "maximized: true" in launch
+        optional_maximized = (
+            "const initialMaximized = action.maximized === undefined ? true : action.maximized;" in launch
+            and "maximized: initialMaximized" in launch
+            and 'typeof initialMaximized !== "boolean"' in launch
+        )
+        self.assertTrue(default_maximized or optional_maximized)
         self.assertIn('case "window.maximize"', text)
 
     def test_first_run_footer_remains_in_its_own_visible_layout_row(self):
