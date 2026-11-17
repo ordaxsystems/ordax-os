@@ -48,7 +48,9 @@ com **o mesmo nome exato** de candidata nova, permite fast-forward apenas
 se a referência já for ancestral da `main`. Se o `git push` da candidata
 tiver sido concluído, mas a criação da PR falhou depois, pode recuperar
 **somente aquela branch exata**: commit com pai único ancestral da
-`main`, diff contendo exatamente o lock, conteúdo idêntico ao source
+`main`, comprovado pelo endpoint `compare` do GitHub (`ahead` ou
+`identical`) para evitar falsos negativos do checkout raso de CI
+(`fetch-depth: 1`), diff contendo exatamente o lock, conteúdo idêntico ao source
 revalidado, referência remota ainda inalterada e nenhuma PR anterior
 (aberta, fechada ou integrada) para a branch. O único efeito dessa
 recuperação é criar a PR que faltou; não faz novo commit nem force-push.
