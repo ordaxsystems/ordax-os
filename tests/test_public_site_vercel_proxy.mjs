@@ -271,6 +271,22 @@ test("Owner Vercel query captures are forwarded only to matching exact MCP reads
     const query = new URLSearchParams({ordax_path:path,[key]:uuid});
     assert.equal(forward(path,query),path+"?"+key+"="+uuid);
     assert.equal(forward(path+"?"+key+"="+uuid,query),path+"?"+key+"="+uuid);
+    const capture = key === "client_id" ? "ordaxClientId"
+      : key === "device_id" ? "ordaxDeviceId" : "ordaxChallengeId";
+    const wildcard = path.slice("/account/".length);
+    const vercel = new URLSearchParams({ordax_path:path,[key]:uuid,
+      path:wildcard,[capture]:uuid});
+    assert.equal(forward(path,vercel),path+"?"+key+"="+uuid,
+      "valid Vercel route captures are transport metadata, never another grant");
+    assert.equal(forward(path,new URLSearchParams({ordax_path:path,[key]:uuid,
+      path:path,[capture]:uuid})),path+"?"+key+"="+uuid);
+    for(const forged of [
+      new URLSearchParams({ordax_path:path,[key]:uuid,path:"mcp/other",[capture]:uuid}),
+      new URLSearchParams({ordax_path:path,[key]:uuid,path:wildcard,[capture]:"11111111-1111-4111-8111-111111111111"}),
+      new URLSearchParams({ordax_path:path,[key]:uuid,path:wildcard,[capture]:uuid,owner_id:uuid}),
+      new URLSearchParams({ordax_path:path,[key]:uuid,path:wildcard,[capture]:uuid,
+        "request-path":"middleware"}),
+    ]) assert.equal(forward(path,forged),null,"unverified or unrelated route metadata must fail");
     for (const bad of [
       new URLSearchParams({ordax_path:path}),
       new URLSearchParams({ordax_path:path,[key]:"not-a-uuid"}),
@@ -299,6 +315,7 @@ test("missing Owner selector emits only bounded routing categories, never input 
       kind:"central",queryInRewrite:false,queryInEmbeddedPath:false,
       unexpectedRewriteKey:true,repeatedRewritePath:false,
       otherSelectorInRewrite:false,rewriteKeyCount:2,
+      hasWildcardCapture:false,hasNamedSelectorCapture:false,hasRequestPathMetadata:false,
     });
     assert.equal(JSON.stringify(events).includes("SENSITIVE_PRIVATE_INPUT_123"),false);
     const arbitrary = await proxyPublicAccountRequest(
