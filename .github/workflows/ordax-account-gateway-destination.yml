@@ -13,6 +13,15 @@ on:
         description: 'Type DEPLOY_ACCOUNT_GATEWAY_PRODUCTION after Owner E2E and release approval'
         required: true
         type: string
+      owner_device_console_rollout:
+        description: 'Only existing-account MCP devices and signed Owner conversation selection; never Project or GitHub'
+        required: true
+        type: choice
+        default: unchanged
+        options:
+          - unchanged
+          - enable
+          - disable
       owner_project_rollout:
         description: 'Project MCP Owner rollout after deploying the reviewed gateway bundle'
         required: true
@@ -144,6 +153,32 @@ jobs:
             "ORDAX_MCP_OWNER_PROJECT_GRANT_ENABLED=${VALUE}"
           echo "ACCOUNT_GATEWAY_OWNER_PROJECT_ROLLOUT=${{ inputs.owner_project_rollout }}"
           echo 'ACCOUNT_GATEWAY_OWNER_PROJECT_SECRET_VALUES_PRINTED=NO'
+
+      - name: Apply independent Owner device MCP console rollout
+        # This is NOT a public signup rollout and never changes Project/GitHub
+        # permissions. If both rollout inputs are used, the explicit console
+        # choice is final for the shared Account Owner gate.
+        if: >-
+          steps.credential.outputs.enabled == 'true'
+          && inputs.owner_device_console_rollout != 'unchanged'
+        shell: bash
+        env:
+          SUPABASE_ACCESS_TOKEN: ${{ secrets.SUPABASE_ACCESS_TOKEN }}
+        run: |
+          set -euo pipefail
+          case "${{ inputs.owner_device_console_rollout }}" in
+            enable) VALUE=1 ;;
+            disable) VALUE=0 ;;
+            *) echo '::error::Invalid Owner device MCP console rollout'; exit 2 ;;
+          esac
+          # Keep the existing Owner identity, Device and central-session
+          # authorities. Both gates must match for the only Owner UI path to
+          # create and confirm a conversation's exact challenge.
+          supabase secrets set --project-ref "${SUPABASE_PROJECT_REF}" \
+            "ORDAX_MCP_OWNER_ACCOUNT_ENABLED=${VALUE}" \
+            "ORDAX_MCP_OWNER_CENTRAL_SELECTION_ENABLED=${VALUE}"
+          echo "ACCOUNT_GATEWAY_OWNER_DEVICE_CONSOLE_ROLLOUT=${{ inputs.owner_device_console_rollout }}"
+          echo 'ACCOUNT_GATEWAY_OWNER_DEVICE_CONSOLE_SECRET_VALUES_PRINTED=NO'
 
       - name: Smoke destination gateway without changing Auth cutover
         if: steps.credential.outputs.enabled == 'true'
