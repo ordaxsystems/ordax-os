@@ -181,6 +181,55 @@ test("Native Wi-Fi does not replay a rejected WPA/DHCP broker action", async () 
   assert.equal(sessionReads, 1);
 });
 
+test("Native Wi-Fi classifies localhost failure and malformed successful response without replay", async () => {
+  const { createNativeNetworkManagement } = await import("../system/adapters/native/network-management.mjs");
+  const token = "a".repeat(64);
+  const snapshot = { wifiInterface: "wlan0", currentSsid: null, savedSsid: null, networks: [] };
+  let mode = "transport";
+  let attempts = 0;
+  const fakeWindow = {
+    fetch: async (url, options) => {
+      if (url === "/__ordax/native/session") {
+        return { ok: true, json: async () => ({ networkToken: token }) };
+      }
+      if (options.method === "GET") return { ok: true, json: async () => snapshot };
+      attempts += 1;
+      if (mode === "transport") throw new TypeError("private transport exception");
+      if (mode === "invalid-snapshot") return { ok: true, json: async () => ({ password: "secret" }) };
+      if (mode === "missing-endpoint") return { ok: false, status: 404 };
+      return { ok: false, status: 503, json: async () => { throw new SyntaxError("missing body"); } };
+    },
+  };
+  const port = await createNativeNetworkManagement(fakeWindow);
+  for (const [nextMode, reason] of [
+    ["transport", "network-host-unreachable"],
+    ["invalid-snapshot", "network-snapshot-invalid"],
+    ["missing-endpoint", "network-endpoint-unavailable"],
+    ["native-503", "network-native-failure"],
+  ]) {
+    mode = nextMode;
+    const before = attempts;
+    await assert.rejects(port.connect({ ssid: "Casa", password: "validpassword" }), (error) => {
+      assert.equal(error.networkReason, reason);
+      assert.equal(String(error.message).includes("secret"), false);
+      assert.equal(String(error.message).includes("private"), false);
+      return true;
+    });
+    assert.equal(attempts, before + 1, "a possibly accepted POST cannot be replayed");
+  }
+});
+
+test("Native Wi-Fi identifies an unavailable session without leaking its contents", async () => {
+  const { createNativeNetworkManagement } = await import("../system/adapters/native/network-management.mjs");
+  const fakeWindow = {
+    fetch: async () => ({ ok: false, status: 503 }),
+  };
+  await assert.rejects(createNativeNetworkManagement(fakeWindow), (error) => {
+    assert.equal(error.networkReason, "network-session-unavailable");
+    return true;
+  });
+});
+
 test("network management port has explicit bounded actions", () => {
   const port = {
     schema: NETWORK_MANAGEMENT_SCHEMA,
