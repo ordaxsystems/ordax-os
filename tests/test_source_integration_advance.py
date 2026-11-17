@@ -382,7 +382,8 @@ fi
         workflow = (advance.ROOT / ".github/workflows/external-source-lock-integration.yml").read_text()
         self.assertIn('existing_tip="$(git ls-remote --heads origin "refs/heads/$branch")"', workflow)
         self.assertIn('git merge-base --is-ancestor "$existing_sha" "$main_sha"', workflow)
-        self.assertIn("refuse overwrite", workflow)
+        self.assertIn("refuse recovery", workflow)
+        self.assertIn("PR history; refuse re-creation", workflow)
         self.assertNotIn("git push --force", workflow)
 
     def test_stranded_source_lock_push_is_recovered_only_without_prior_review(self):
