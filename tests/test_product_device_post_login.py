@@ -64,6 +64,33 @@ class ProductDevicePostLoginTests(unittest.TestCase):
             self.assertEqual(result.status, "inactive")
             self.assertEqual(client.calls, [])
 
+    def test_stable_enrollment_requires_explicit_verified_opt_in(self):
+        device = {"displayName": "Notebook Stable"}
+        client = FakeEnrollmentClient()
+        for permitted in (False, None, 1, "yes"):
+            result = post_login.enroll_product_device_after_login(
+                client, device, distribution_profile="stable-mvp",
+                product_mode="usb", stable_enrollment_authorized=permitted,
+            )
+            self.assertEqual(result.status, "inactive")
+        self.assertEqual(client.calls, [])
+        result = post_login.enroll_product_device_after_login(
+            client, device, distribution_profile="stable-mvp",
+            product_mode="usb", stable_enrollment_authorized=True,
+        )
+        self.assertEqual(result.status, "enrolled")
+        self.assertEqual(client.calls, [{
+            "device_name": "Notebook Stable", "device_kind": "laptop",
+            "channel": "stable",
+        }])
+        for mode in ("native-disk", "remote", ""):
+            result = post_login.enroll_product_device_after_login(
+                client, device, distribution_profile="stable-mvp",
+                product_mode=mode, stable_enrollment_authorized=True,
+            )
+            self.assertEqual(result.status, "inactive")
+        self.assertEqual(len(client.calls), 1)
+
     def test_enrollment_failure_never_escapes_to_login_flow(self):
         client = FakeEnrollmentClient(
             error=ProductDeviceEnrollmentError("control-plane-unreachable")
