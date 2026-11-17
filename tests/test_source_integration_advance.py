@@ -418,7 +418,7 @@ fi
         target.write_text('{"source_commit":"old"}\n')
         git("add", str(lock))
         git("commit", "-m", "canonical main")
-        main_sha = git("rev-parse", "HEAD")
+        original_main_sha = git("rev-parse", "HEAD")
         git("push", "origin", "main")
         branch = "automation/advance-surface-" + "a" * 40
         git("switch", "-c", "source-candidate")
@@ -429,28 +429,60 @@ fi
         existing_sha = git("rev-parse", "HEAD")
         git("push", "origin", "HEAD:refs/heads/" + branch)
         git("switch", "main")
+        # Advance main independently after the orphan was pushed. A depth-1
+        # checkout cannot prove the former main ancestry using merge-base.
+        for i in range(2):
+            (work / f"unrelated-{i}.txt").write_text("new main state")
+            git("add", f"unrelated-{i}.txt")
+            git("commit", "-m", f"unrelated main commit {i}")
+        main_sha = git("rev-parse", "HEAD")
+        git("push", "origin", "main")
+        shallow = root / "shallow"
+        subprocess.run(["git", "clone", "--quiet", "--depth=1", "--branch", "main",
+                        remote.as_uri(), str(shallow)], check=True, capture_output=True)
+        subprocess.run(["git", "-C", str(shallow), "fetch", "--quiet", "--no-tags",
+                        "origin", "refs/heads/" + branch], check=True, capture_output=True)
+        local_ancestry = subprocess.run(
+            ["git", "-C", str(shallow), "merge-base", "--is-ancestor",
+             original_main_sha, main_sha], capture_output=True,
+        )
+        self.assertNotEqual(local_ancestry.returncode, 0,
+                            "regression must model an actually shallow main")
         candidate = root / "candidate.json"
         candidate.write_text(verified)
         bin_dir = root / "bin"
         bin_dir.mkdir()
         gh = bin_dir / "gh"
-        gh.write_text('#!/usr/bin/env bash\nprintf "%s\\n" "$TEST_HISTORY"\n')
+        gh.write_text('#!/usr/bin/env bash\n'
+                      'if [[ "$*" == *"/compare/"* ]]; then\n'
+                      '  [ "$TEST_ANCESTRY" = error ] && exit 22\n'
+                      '  printf "%s\\n" "$TEST_ANCESTRY"\n'
+                      'else\n'
+                      '  printf "%s\\n" "$TEST_HISTORY"\n'
+                      'fi\n')
         gh.chmod(0o755)
 
-        def run(history, *, candidate_text=verified, head=existing_sha, ref=branch):
+        def run(history, *, candidate_text=verified, head=existing_sha,
+                ref=branch, ancestry="ahead"):
             candidate.write_text(candidate_text)
             env = dict(os.environ,
                        PATH=str(bin_dir) + os.pathsep + os.environ["PATH"],
                        TEST_HISTORY=json.dumps([history]),
+                       TEST_ANCESTRY=ancestry,
                        existing_sha=head, main_sha=main_sha,
                        branch=ref, LOCK=str(lock),
                        GITHUB_REPOSITORY="ordaxsystems/ordax-os",
                        candidate_lock=str(candidate))
             return subprocess.run(["bash", "-c", guard],
-                                  cwd=work, capture_output=True, text=True, env=env)
+                                  cwd=shallow, capture_output=True, text=True, env=env)
         recovered = run([])
         self.assertEqual(recovered.returncode, 0, recovered.stderr)
         self.assertIn("Recovered only the exact stranded source-lock branch", recovered.stdout)
+        for invalid in ("behind", "diverged", "error"):
+            with self.subTest(ancestry=invalid):
+                rejected = run([], ancestry=invalid)
+                self.assertNotEqual(rejected.returncode, 0)
+                self.assertNotIn("Recovered only the exact", rejected.stdout)
         reviewed = run([{"head": {"repo": {"full_name": "ordaxsystems/ordax-os"}, "ref": branch}}])
         self.assertNotEqual(reviewed.returncode, 0)
         self.assertIn("PR history", reviewed.stdout)
@@ -466,6 +498,9 @@ fi
         git("commit", "-m", "forged extra change")
         rogue_sha = git("rev-parse", "HEAD")
         git("push", "origin", "HEAD:refs/heads/" + rogue_branch)
+        subprocess.run(["git", "-C", str(shallow), "fetch", "--quiet", "--no-tags",
+                        "origin", "refs/heads/" + rogue_branch],
+                       check=True, capture_output=True)
         rogue = run([], head=rogue_sha, ref=rogue_branch)
         self.assertNotEqual(rogue.returncode, 0)
         self.assertIn("differs from verified lock", rogue.stdout)
