@@ -282,8 +282,17 @@ jobs:
                   exit 1
                 fi
                 parent_sha="$(awk '{print $2}' <<< "$parents")"
-                if ! git merge-base --is-ancestor "$parent_sha" "$main_sha" \
-                    || [ "$(git diff --name-only "$parent_sha" "$existing_sha")" != "$LOCK" ] \
+                # Checkout is intentionally shallow (fetch-depth: 1).
+                # A valid former main can be absent from the local ancestry
+                # after unrelated merges. Ask GitHub to prove exact ancestry
+                # without fetching the complete OS history.
+                ancestry_status="$(gh api -X GET \
+                  "repos/$GITHUB_REPOSITORY/compare/$parent_sha...$main_sha" --jq '.status')"
+                if [ "$ancestry_status" != ahead ] && [ "$ancestry_status" != identical ]; then
+                  echo "::error::Orphan source-lock parent is not an ancestor of current main"
+                  exit 1
+                fi
+                if [ "$(git diff --name-only "$parent_sha" "$existing_sha")" != "$LOCK" ] \
                     || ! git show "$existing_sha:$LOCK" | cmp - "$candidate_lock"; then
                   echo "::error::Unmerged owner branch differs from verified lock/ancestry; refuse recovery"
                   exit 1
