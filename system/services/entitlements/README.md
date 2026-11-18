@@ -18,7 +18,7 @@ The current product backend adapter is Supabase. The quota contract intentionall
 
 ## Authenticated subscription state — first backend slice
 
-The Account subscription is separate from entitlement grants and the public reference catalog. The single bounded projection in subscription.mjs accepts only verified, owner-matched rows. It never infers Free or a paid plan from an empty database, a logged-in session, a UI-selected offer or an entitlement.
+The Account subscription is separate from entitlement grants and the public reference catalog. The single bounded gateway projection in infra/supabase/functions/_shared/account_subscription.mjs accepts only verified, owner-matched rows. It never infers Free or a paid plan from an empty database, a logged-in session, a UI-selected offer or an entitlement.
 
 The migration 20261118000000_account_commerce_subscription_read_v1.sql introduces a private evidence-backed subscription ledger, a unique subject row, immutable provider event identifiers and an exact own-subject read RPC. No user is silently enrolled. The Account gateway owns GET /account/subscription after normal activation, returning ordax.account-subscription-view/1. It does not grant quota, authorize actions, create payments, reconcile invoices or provide checkout.
 
