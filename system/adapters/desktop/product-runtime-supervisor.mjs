@@ -358,14 +358,26 @@ export function createDesktopProductRuntimeSupervisor({
     // Do not start a replacement while the prior owned child may still be
     // executing. It is reaped only by its own exit/error event, never by PID.
     if(!owned.stopRequested){
-      owned.stopRequested=true;
-      // Do not terminate only the frozen executable bootloader: it owns a
-      // separate Python Runtime child. Taskkill /T addresses the exact owned
-      // PID and its descendants synchronously before the host itself exits.
-      let treeStopped=false;
-      if(platform==="win32"&&Number.isSafeInteger(owned.child.pid))
+      // The real Windows PyInstaller executable is a bootloader with a
+      // separate child. If taskkill /T fails, child.kill() would terminate
+      // only the bootloader, leaving the Runtime connected and unsupervised.
+      // Retain exact-PID ownership and permit a later stop attempt instead.
+      // Injected synthetic children without a Windows tree owner keep their
+      // ordinary signal contract for the cross-platform unit tests.
+      const windowsTreeRequired=platform==="win32"&&
+        Number.isSafeInteger(owned.child.pid)&&owned.child.pid>0&&
+        (spawnImpl===spawn||stopTreeImpl!==null);
+      if(windowsTreeRequired){
+        let treeStopped=false;
         try{treeStopped=stopOwnedTree(owned.child.pid)===true}catch{}
-      if(!treeStopped)try{owned.child.kill("SIGTERM")}catch{}
+        if(!treeStopped){
+          log("Product Runtime exact owned Windows process-tree termination failed");
+          return false;
+        }
+      }else{
+        try{owned.child.kill("SIGTERM")}catch{}
+      }
+      owned.stopRequested=true;
     }
     return false;
   };
