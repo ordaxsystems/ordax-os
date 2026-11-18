@@ -1,3 +1,4 @@
+import errno
 import hashlib
 import importlib.util
 import json
@@ -207,6 +208,34 @@ class NativeNetworkManagementTests(unittest.TestCase):
             self.assertFalse(native_host.network_broker_available(
                 {**paths, "control": str(linked)}
             ))
+
+    def test_broker_exits_between_liveness_and_fifo_write_without_replaying_action(self):
+        # Simulate a supervisor restart between the checked reader and FIFO
+        # delivery. No real networking, physical devices or credentials.
+        with tempfile.TemporaryDirectory() as temporary:
+            paths = native_host.network_broker_paths(temporary)
+            original_open = os.open
+            for code in (errno.ENXIO, errno.ENOENT, errno.EACCES, errno.EIO):
+                with self.subTest(errno=code):
+                    def fail_control_open(path, flags, *args, **kwargs):
+                        if path == paths["control"]:
+                            raise OSError(code, "simulated FIFO open failure")
+                        return original_open(path, flags, *args, **kwargs)
+
+                    with mock.patch.object(native_host, "network_broker_available", return_value=True):
+                        with mock.patch.object(native_host.os, "open", side_effect=fail_control_open):
+                            with self.assertRaises(OSError) as caught:
+                                native_host.queue_network_broker_request(
+                                    paths, "status", timeout_seconds=0.1,
+                                )
+                    if code in (errno.ENXIO, errno.ENOENT):
+                        self.assertIsInstance(caught.exception, FileNotFoundError)
+                        self.assertEqual(str(caught.exception), "network broker unavailable")
+                    else:
+                        self.assertNotIsInstance(caught.exception, FileNotFoundError)
+                        self.assertEqual(caught.exception.errno, code)
+                    self.assertFalse(Path(paths["request"]).exists(),
+                                     "failed FIFO open must clear its private request")
 
     def test_first_run_wifi_handoff_has_one_wpa_owner_and_broker_recovery(self):
         broker = BROKER.read_text(encoding="utf-8")

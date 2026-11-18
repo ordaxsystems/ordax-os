@@ -2171,13 +2171,22 @@ def queue_network_broker_request(
         except FileNotFoundError:
             pass
 
-        descriptor = os.open(
-            paths["control"],
-            os.O_WRONLY
-            | getattr(os, "O_NONBLOCK", 0)
-            | getattr(os, "O_CLOEXEC", 0)
-            | getattr(os, "O_NOFOLLOW", 0),
-        )
+        try:
+            descriptor = os.open(
+                paths["control"],
+                os.O_WRONLY
+                | getattr(os, "O_NONBLOCK", 0)
+                | getattr(os, "O_CLOEXEC", 0)
+                | getattr(os, "O_NOFOLLOW", 0),
+            )
+        except OSError as exc:
+            # The broker may close its FIFO reader or remove the FIFO after
+            # the liveness check but before this second, nonblocking open.
+            # No command reached it. Preserve all other I/O failures and
+            # never replay a mutating action.
+            if exc.errno in {errno.ENOENT, errno.ENXIO}:
+                raise FileNotFoundError("network broker unavailable") from exc
+            raise
         try:
             metadata = os.fstat(descriptor)
             if (
