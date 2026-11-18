@@ -10,6 +10,7 @@ import { ACCOUNT_MCP_USAGE_PATH, readAccountMcpUsage } from "../_shared/account_
 import { ACCOUNT_MCP_DEVICES_PATH, ACCOUNT_MCP_AUTHORITY_PATH, ACCOUNT_MCP_REVOKE_PATH, ACCOUNT_MCP_REAUTHORIZE_PATH, ACCOUNT_MCP_PROJECT_GRANTS_PATH, ACCOUNT_MCP_CENTRAL_TARGETS_PATH, ACCOUNT_MCP_CENTRAL_SELECTIONS_PATH, ACCOUNT_MCP_PROJECT_ONBOARDING_PATH, ACCOUNT_MCP_PROJECTS_PATH, ACCOUNT_MCP_PROJECT_BINDING_INTENTS_PATH, ACCOUNT_MCP_GITHUB_CHALLENGES_PATH, ACCOUNT_MCP_GITHUB_CALLBACK_PATH, ACCOUNT_MCP_GITHUB_CANDIDATES_PATH, ACCOUNT_MCP_GITHUB_SELECTIONS_PATH, isOwnerUuid, readAccountOwnerDevices, readAccountOwnerAuthority, revokeAccountOwnerGrant, parseAccountOwnerRevoke, reauthorizeAccountOwnerGrant, parseAccountOwnerProfileReauthorization, createAccountOwnerProjectGrant, parseAccountOwnerProjectGrant, readAccountOwnerCentralTargets, readAccountOwnerCentralSelections, selectAccountOwnerCentralDevice, parseAccountOwnerCentralSelection, readAccountOwnerProjectOnboarding, createAccountOwnerProject, parseAccountOwnerProjectCreate, createAccountOwnerProjectBindingIntent, parseAccountOwnerProjectBindingIntent, startAccountOwnerGithubAuthorization, parseAccountOwnerGithubAuthorizationStart, completeAccountOwnerGithubAuthorization, parseAccountOwnerGithubCallback, readAccountOwnerGithubCandidates, selectAccountOwnerGithubRepository, parseAccountOwnerGithubSelection } from "../_shared/account_mcp_owner.mjs";
 import { verifyTrustedPublicRequestContext } from "../ordax-public-account-gateway/public_request_context.mjs";
 import { accountPrivilegedRpc } from "../_shared/account_privileged_rpc.mjs";
+import { revokeSupabaseLocalSession } from "../_shared/account_local_signout.mjs";
 import { projectAccountSubscription } from "../_shared/account_subscription.mjs";
 import { authorizeAccountTransport, accountGatewayRoutePath, isPublicAccountPreActivationRoute, isPublicMcpOwnerPreActivationRoute } from "../_shared/account_transport_admission.mjs";
 import { parseSpaceCreateRequest, projectSpaceCreateResult, spaceCreateRpcArgs } from "../_shared/space_create_contract.mjs";
@@ -380,11 +381,14 @@ async function hasRegistrationLegalReceipt(userId: unknown) {
   return data;
 }
 
-async function revokeCurrentSession(accessToken: string) {
+async function revokeCurrentSession(accessToken: string): Promise<boolean> {
   try {
-    await client(accessToken).auth.signOut({ scope: "local" });
+    const { url, key } = config();
+    return await revokeSupabaseLocalSession({ url, key, accessToken });
   } catch {
-    // The session is never returned to the caller; cookie clearing still wins.
+    // Rejected signups/legal receipts never return session tokens to the user.
+    // An explicit user logout below must instead fail when revocation fails.
+    return false;
   }
 }
 
@@ -564,6 +568,32 @@ function authenticated(req: Request) {
     sessionVerificationCache.set(req, result);
   }
   return result;
+}
+
+// An explicit logout cannot claim success if the Auth server has not
+// acknowledged local refresh-session revocation. Anonymous logout is idempotent.
+async function logoutCurrentAccountSession(req: Request): Promise<Response> {
+  const cookies = parseCookies(req);
+  const hasCredential = Boolean(
+    cookies.get(ACCESS_COOKIE) || cookies.get(REFRESH_COOKIE)
+    || bearerUserToken(req)
+  );
+  if (hasCredential) {
+    let session;
+    try {
+      session = await authenticated(req);
+    } catch {
+      return error(503, "account-logout-revocation-unconfirmed",
+        "Não foi possível confirmar a saída. Tente novamente.");
+    }
+    if (!session.user || !session.access || !await revokeCurrentSession(session.access)) {
+      return error(503, "account-logout-revocation-unconfirmed",
+        "Não foi possível confirmar a saída. Tente novamente.");
+    }
+  }
+  return wantsJson(req)
+    ? json(200, { signedOut: true }, [...clearCookies(), ...clearRecoveryCookies()])
+    : redirectResponse("/", [...clearCookies(), ...clearRecoveryCookies()]);
 }
 
 function safeAccountDisplayName(value: unknown): string | null {
@@ -1237,9 +1267,7 @@ Deno.serve(async (req: Request) => {
     if (path === "/auth/login" && req.method === "GET") return redirectResponse("/login/");
     if (path === "/auth/register" && req.method === "GET") return redirectResponse("/cadastro/");
     if (path === "/auth/logout" && req.method === "POST") {
-      return wantsJson(req)
-        ? json(200, { signedOut: true }, clearCookies())
-        : redirectResponse("/", clearCookies());
+      return logoutCurrentAccountSession(req);
     }
     if (path === "/auth/registration-policy" && req.method === "GET") {
       try {
@@ -1329,15 +1357,7 @@ Deno.serve(async (req: Request) => {
   if (path === "/auth/recover/complete" && req.method === "POST") return updateRecoveryPassword(req);
 
   if (path === "/auth/logout" && req.method === "POST") {
-    try {
-      const access = parseCookies(req).get(ACCESS_COOKIE);
-      if (access) await client(access).auth.signOut({ scope: "local" });
-    } catch {
-      // Idempotent logout: cookie removal still wins.
-    }
-    return wantsJson(req)
-      ? json(200, { signedOut: true }, [...clearCookies(), ...clearRecoveryCookies()])
-      : redirectResponse("/", [...clearCookies(), ...clearRecoveryCookies()]);
+    return logoutCurrentAccountSession(req);
   }
 
 
