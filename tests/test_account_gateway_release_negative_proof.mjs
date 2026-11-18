@@ -1,5 +1,6 @@
 import test from "node:test";
 import assert from "node:assert/strict";
+import { readFileSync } from "node:fs";
 import {
   RELEASE_NEGATIVE_CASES,
   proveAccountGatewayNegativeBoundary,
@@ -101,4 +102,25 @@ test("no change to release authorizations or public Account rollout flags",()=>{
     method==="POST"&&path==="/account/preferences/communications"),true);
   assert.equal(RELEASE_NEGATIVE_CASES.public.some(([method,path])=>
     method==="POST"&&path==="/account/preferences/locale"),true);
+});
+
+
+test("both owner release workflows preserve manual approval and execute only no-credential proofs",()=>{
+  const root=new URL("../",import.meta.url);
+  for(const [path,marker] of [
+    [".github/workflows/ordax-account-gateway-destination.yml","internal"],
+    [".github/workflows/ordax-public-account-gateway-destination.yml","public"],
+  ]){
+    const workflow=readFileSync(new URL(path,root),"utf8");
+    assert.match(workflow,/workflow_dispatch:/);
+    assert.match(workflow,/inputs\.approved_sha == github\.sha/);
+    assert.match(workflow,/refs\/heads\/main/);
+    assert.match(workflow,/cancel-in-progress: false/);
+    assert.match(workflow,/node --test tests\/test_account_gateway_release_negative_proof\.mjs/);
+    assert.ok(workflow.includes("node tools/account/prove_gateway_negative_boundary.mjs "+marker));
+    assert.ok(workflow.indexOf("node tools/account/prove_gateway_negative_boundary.mjs "+marker)
+      >workflow.indexOf("supabase functions deploy "), "negative proof must run after approved deployment");
+    assert.match(workflow,/DEPLOY_(?:PUBLIC_)?ACCOUNT_GATEWAY_PRODUCTION/);
+    assert.doesNotMatch(workflow,/SUPABASE_SERVICE_ROLE_KEY.*prove_gateway_negative_boundary/);
+  }
 });
