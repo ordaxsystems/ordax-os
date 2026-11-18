@@ -176,6 +176,49 @@ class CreatorOwnerImpactTests(unittest.TestCase):
         self.assertTrue(required)
         self.assertEqual(reason, "real-or-unknown-usb-producer:system/supervisor")
 
+    def test_remote_account_subscription_slice_skips_physical_usb_only_when_exact(self):
+        # The actual 2026-11-18 remote Account/Gateway delta was previously
+        # classified as an unknown USB producer and rebuilt Buildroot.
+        # Exact cloud owner files, docs and quota workflow cannot change the
+        # Creator media; anything executable/unknown stays heavy.
+        base = self.commit(WORKFLOW.read_text(encoding="utf-8"), VISUAL)
+        remote_only = (
+            ".github/workflows/service-quota-contract.yml",
+            "00-PLANOS-PRIORITARIOS/plans/COMMERCE-001-SUBSCRIPTIONS-AND-BENEFITS.md",
+            "infra/supabase/functions/_shared/account_subscription.mjs",
+            "infra/supabase/functions/_shared/account_transport_admission.mjs",
+            "infra/supabase/functions/ordax-account-gateway/index.ts",
+            "infra/supabase/product/migrations/20261118000000_account_commerce_subscription_read_v1.sql",
+            "system/services/entitlements/README.md",
+            "tests/sql/test_account_commerce_subscription_read_v1.sql",
+            "tests/test_account_subscription_projection.mjs",
+            "tests/test_account_transport_admission.mjs",
+        )
+        head = base
+        for path in remote_only:
+            head = self.commit(path=path)
+        self.assertEqual(
+            impact.classify(base, head, root=self.root, event="push"),
+            (False, "nonproducer-contract-only"),
+        )
+        self.assertEqual(
+            impact.classify(base, head, root=self.root, event="pull_request"),
+            (False, "nonproducer-contract-only"),
+        )
+        # Never broaden the exemption to Native quota logic, boot or newly
+        # introduced remote files with unknown producer dependencies.
+        for path in (
+            "system/services/entitlements/quota.mjs",
+            "system/supervisor",
+            "bootstrap/dev-base/ordax-network",
+            "infra/supabase/functions/_shared/unclassified_new_owner.mjs",
+            ".github/workflows/unclassified-new-publisher.yml",
+        ):
+            with self.subTest(path=path):
+                changed = self.commit(path=path)
+                required, reason = impact.classify(base, changed, root=self.root)
+                self.assertTrue(required, reason)
+
     def test_boot_and_unknown_owner_changes_require_real_usb(self):
         base = self.commit(WORKFLOW.read_text(encoding="utf-8"), VISUAL)
         for path in ("bootstrap/initramfs/build.py", "bootstrap/surface-runtime/build.py",
