@@ -163,6 +163,73 @@ class OwnerQemuHandoffTests(unittest.TestCase):
             opened.assert_not_called()
             wrote.assert_not_called()
 
+    def test_qemu_webkit_module_maps_are_bounded_redacted_and_never_physical(self):
+        # GTK3 WebKit2 4.1 exposes no WebProcess PID on its WebView. Only an
+        # explicitly opted-in Owner/QEMU probe may inspect /proc module maps.
+        # Compile the self-contained helper without requiring GTK on CI.
+        source = ROOT / "system/surface/runtime/ordax_browser_host.py"
+        parsed = ast.parse(source.read_text(encoding="utf-8"), filename=str(source))
+        functions = [
+            node for node in parsed.body
+            if isinstance(node, ast.FunctionDef)
+            and node.name == "owner_qemu_webkit_executable_maps"
+        ]
+        self.assertEqual(len(functions), 1)
+        scope = {"os": os, "re": re}
+        exec(compile(ast.Module(body=functions, type_ignores=[]),
+                     str(source), "exec"), scope)
+        get_maps = scope["owner_qemu_webkit_executable_maps"]
+        with tempfile.TemporaryDirectory() as tmp:
+            proc = Path(tmp)
+            wrong = proc / "11"
+            wrong.mkdir()
+            (wrong / "comm").write_text("other-process\n")
+            process = proc / "42"
+            process.mkdir()
+            (process / "comm").write_text("WebKitWebProces\n")
+            (process / "maps").write_text(
+                "7f1234000000-7f1234010000 r-xp 00001000 08:01 123 /usr/lib/libJavaScriptCoreGTK-4.1.so.0\n"
+                "7f1234010000-7f1234020000 r-xp 00000000 08:01 123 /usr/lib/libwebkit2gtk-4.1.so.0\n"
+                "7f1234020000-7f1234030000 rw-p 00000000 08:01 123 /usr/lib/libsecret.so\n"
+                "7f1234030000-7f1234040000 r-xp 00000000 08:01 123 /home/private/Documents/token.so\n"
+                "7f1234050000-7f1234060000 r-xp 00000000 08:01 123 [vdso]\n"
+            )
+            mapping = get_maps(str(proc))
+            self.assertEqual(mapping, (
+                "ORDAX_OWNER_WEBKIT_EXEC_MAP=pid:42;"
+                "range:7f1234000000-7f1234010000;offset:00001000;"
+                "module:libJavaScriptCoreGTK-4.1.so.0",
+                "ORDAX_OWNER_WEBKIT_EXEC_MAP=pid:42;"
+                "range:7f1234010000-7f1234020000;offset:00000000;"
+                "module:libwebkit2gtk-4.1.so.0",
+            ))
+            self.assertNotIn("/usr/", "\n".join(mapping))
+            self.assertNotIn("/home/", "\n".join(mapping))
+            self.assertNotIn("secret", "\n".join(mapping))
+            (process / "maps").unlink()
+            self.assertEqual(get_maps(str(proc)), ())
+            (process / "comm").write_text("malicious-other\n")
+            self.assertEqual(get_maps(str(proc)), ())
+            (process / "comm").write_text("WebKitWebProces\n")
+            (process / "maps").write_text(
+                "".join(
+                    f"{0x7f0000000000 + i*4096:012x}-"
+                    f"{0x7f0000001000 + i*4096:012x} r-xp "
+                    f"00000000 08:01 1 /usr/lib/libtest{i}.so\n"
+                    for i in range(210)
+                )
+            )
+            self.assertEqual(len(get_maps(str(proc))), 192)
+
+        # No background loop, Browser API change, or GTK/JS readiness shortcut.
+        browser = source.read_text(encoding="utf-8")
+        self.assertIn("if not self.owner_graphics_probe_enabled or self.owner_webkit_exec_maps_recorded:", browser)
+        self.assertIn("self.owner_webkit_exec_maps_recorded = True", browser)
+        self.assertIn("GLib.timeout_add_seconds(3, self.emit_owner_webkit_exec_map_evidence)", browser)
+        self.assertIn("GLib.timeout_add_seconds(12, self.emit_owner_webkit_exec_map_evidence)", browser)
+        self.assertIn("self.owner_webkit_exec_maps_recorded = False", browser)
+        self.assertIn('self.surface_web_process_failed = True', browser)
+
     def test_native_component_probation_is_gated_on_real_surface_ready(self):
         source = ROOT / "system/surface/runtime/ordax_browser_host.py"
         parsed = ast.parse(source.read_text(encoding="utf-8"), filename=str(source))
