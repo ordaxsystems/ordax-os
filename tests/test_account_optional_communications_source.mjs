@@ -1,11 +1,11 @@
 import test from "node:test";
 import assert from "node:assert/strict";
-import { readFileSync } from "node:fs";
+import { readSourceText } from "./read-source-text.mjs";
 
 const root=new URL("../",import.meta.url);
-const gateway=readFileSync(new URL("infra/supabase/functions/ordax-account-gateway/index.ts",root),"utf8");
-const transport=readFileSync(new URL("infra/supabase/functions/_shared/account_transport_admission.mjs",root),"utf8");
-const migration=readFileSync(new URL("infra/supabase/product/migrations/20261118151000_account_optional_communications_v1.sql",root),"utf8");
+const gateway=readSourceText(new URL("infra/supabase/functions/ordax-account-gateway/index.ts",root));
+const transport=readSourceText(new URL("infra/supabase/functions/_shared/account_transport_admission.mjs",root));
+const migration=readSourceText(new URL("infra/supabase/product/migrations/20261118151000_account_optional_communications_v1.sql",root));
 
 test("paired optional choices are optional, never inferred as marketing consent",()=>{
   assert.match(migration,/add column communications_product_digest boolean/);
