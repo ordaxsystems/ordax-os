@@ -21,6 +21,17 @@ RETIRED_DESKTOP_ROOT = "tools/windows-desktop/"
 
 LIGHT_EXACT = frozenset({
     "docs/BUILD-AUTONOMY.md",
+    # Remote Account/subscription delivery never enters Owner USB media.
+    # These exact paths have their own Supabase/quota CI authority; keep
+    # system/services/entitlements executable files and unknown infra files
+    # fail-closed as potential producers.
+    ".github/workflows/service-quota-contract.yml",
+    "00-PLANOS-PRIORITARIOS/plans/COMMERCE-001-SUBSCRIPTIONS-AND-BENEFITS.md",
+    "infra/supabase/functions/_shared/account_subscription.mjs",
+    "infra/supabase/functions/_shared/account_transport_admission.mjs",
+    "infra/supabase/functions/ordax-account-gateway/index.ts",
+    "infra/supabase/product/migrations/20261118000000_account_commerce_subscription_read_v1.sql",
+    "system/services/entitlements/README.md",
     # Desktop-only owner cutover documentation and isolated contract regressions.
     "docs/EXTERNAL-SOURCE-INTEGRATION.md",
     "tests/test_desktop_source_owner.py",
