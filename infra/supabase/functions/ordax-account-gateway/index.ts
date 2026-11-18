@@ -1266,6 +1266,7 @@ Deno.serve(async (req: Request) => {
         email: session.user.email ?? null,
         ...(displayName ? { displayName } : {}),
         accountCloseEnabled: ACCOUNT_CLOSE_ENABLED,
+        profileEditEnabled: !publicSiteRequest(req) || PUBLIC_SITE_ACCOUNT_ENABLED,
       }, session.cookies);
     } catch {
       return error(503, "identity-provider-unavailable", "O serviço de identidade OrdaX está indisponível.");
@@ -2074,6 +2075,54 @@ Deno.serve(async (req: Request) => {
       return json(200, { schema: SPACE_MEMBERSHIP_ACTION_RESULT_SCHEMA, spaceId: result.space_id, targetUserId: result.target_user_id, role: result.role, state: result.state, removed: result.removed, changed: result.changed }, session.cookies);
     } catch {
       return error(503, "space-membership-action-unavailable", "A administração de membros está temporariamente indisponível.");
+    }
+  }
+
+  // The Account table already owns display_name. RLS controls the row,
+  // column-level SQL privileges restrict mutations, and Auth owns the subject.
+  // No identity fields, metadata, payment or entitlement can be submitted here.
+  if (path === "/account/profile/display-name") {
+    if (req.method !== "POST") return error(405, "method-not-allowed", "Método não permitido.");
+    let session;
+    try { session = await authenticated(req); }
+    catch { return error(503, "identity-provider-unavailable", "A identidade está indisponível."); }
+    if (!session.user || !session.access) {
+      return json(401, {
+        $schema: ERROR_SCHEMA, error: "authentication-required",
+        message: "Entre na Conta OrdaX para alterar seu nome.",
+      }, session.cookies);
+    }
+    if ((req.headers.get("content-type") ?? "").split(";", 1)[0].trim().toLowerCase() !== "application/json")
+      return error(415, "unsupported-media-type", "A alteração exige JSON.");
+    let input: unknown;
+    try { input = JSON.parse(await boundedBody(req)); }
+    catch { return error(400, "invalid-display-name", "Nome de exibição inválido."); }
+    const payload = input as Record<string, unknown>;
+    if (!payload || typeof payload !== "object" || Array.isArray(payload)
+        || !exactObjectKeys(payload, ["display_name"])
+        || typeof payload.display_name !== "string") {
+      return error(400, "invalid-display-name", "Nome de exibição inválido.");
+    }
+    const name = safeAccountDisplayName(payload.display_name);
+    if (!name || name !== payload.display_name) {
+      return error(400, "invalid-display-name", "Use de 1 a 120 caracteres sem caracteres de controle.");
+    }
+    try {
+      const { data, error: accountError } = await client(session.access)
+        .from("ordax_accounts")
+        .update({ display_name: name })
+        .eq("user_id", session.user.id)
+        .select("display_name")
+        .maybeSingle();
+      if (accountError || !data || data.display_name !== name)
+        return error(503, "profile-update-unconfirmed", "Não foi possível confirmar a alteração do perfil.");
+      return json(200, {
+        schema: "ordax.account-display-name-update/1",
+        displayName: name,
+        updated: true,
+      }, session.cookies);
+    } catch {
+      return error(503, "profile-update-unavailable", "O serviço de perfil está indisponível.");
     }
   }
 
