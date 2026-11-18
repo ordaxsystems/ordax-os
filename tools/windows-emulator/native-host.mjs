@@ -4,7 +4,7 @@ import { join } from "node:path";
 import { randomUUID, timingSafeEqual, randomBytes } from "node:crypto";
 import { readDesktopNetworkStatus } from "../../system/adapters/desktop/network-status.mjs";
 import { readDesktopSystemMetrics } from "../../system/adapters/desktop/system-metrics.mjs";
-import { readDesktopPowerStatus } from "../../system/adapters/desktop/power-status.mjs";
+import { createDesktopPowerStatusObservation } from "../../system/adapters/desktop/power-status.mjs";
 import { readDesktopUpdateStatus, readDesktopUpdateHistory } from "../../system/adapters/desktop/update-observation.mjs";
 import { readDesktopRecovery } from "../../system/adapters/desktop/recovery-observation.mjs";
 import { createDesktopBuiltAssetsMiddleware } from "./desktop-built-assets.mjs";
@@ -223,6 +223,11 @@ export function nativeEmulatorPlugin(stateDirectory, { desktopHost = false, acco
     name: "ordax-native-emulator-host",
     configureServer(server) {
       const userData=process.env.ORDAX_DESKTOP_UPDATE_USER_DATA;
+      const powerObservation=process.platform==="win32"
+        ? createDesktopPowerStatusObservation():null;
+      // Start the exact Windows provider during Native bootstrap, before
+      // Surface's first read. No persistent helper or duplicate authority.
+      if(desktopHost)powerObservation?.warm();
       const localSession=desktopHost && process.platform==="win32" && userData
         ? createDesktopLocalSessionMiddleware(userData, {
             token:process.env.ORDAX_DESKTOP_LOCAL_SESSION_TOKEN,
@@ -442,10 +447,14 @@ export function nativeEmulatorPlugin(stateDirectory, { desktopHost = false, acco
               return;
             }
             if (path === "/__ordax/native/power-status") {
-              void readDesktopPowerStatus().then(respond).catch(() => {
-                response.statusCode = 503;
-                response.end(JSON.stringify({error:"Windows power status unavailable"}));
-              });
+              void (powerObservation?.read() ?? Promise.reject(
+                new Error("Windows power provider requires Windows")))
+                .then(respond).catch(error => {
+                  console.warn("runtime: Windows power status unavailable: "+
+                    String(error?.message??"unknown"));
+                  response.statusCode = 503;
+                  response.end(JSON.stringify({error:"Windows power status unavailable"}));
+                });
               return;
             }
             if (path === "/__ordax/native/metrics") {
