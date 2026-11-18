@@ -1,6 +1,6 @@
 import test from "node:test";
 import assert from "node:assert/strict";
-import { projectWindowsPowerStatus,readDesktopPowerStatus } from "../system/adapters/desktop/power-status.mjs";
+import { projectWindowsPowerStatus,readDesktopPowerStatus,createDesktopPowerStatusObservation } from "../system/adapters/desktop/power-status.mjs";
 
 test("Win32 desktop without battery reports real AC but no fictional battery",()=>{
   assert.deepEqual(projectWindowsPowerStatus({acLineStatus:1,batteryFlag:128,batteryPercent:255}),
@@ -28,10 +28,54 @@ test("Native service only uses real Win32 result and is bounded",async()=>{
     observed={file,args,options};return {stdout:"1,128,255\r\n"};
   }});
   assert.equal(observed.file,"powershell.exe");
-  assert.equal(observed.options.timeout,7000);
+  assert.equal(observed.options.timeout,12000);
   const script=observed.args.at(-1);
   assert.match(script,/System\.Windows\.Forms\.SystemInformation/);
   assert.doesNotMatch(script,/Add-Type -TypeDefinition|DllImport|New-Object OrdaXPowerStatus/);
   assert.match(script,/BatteryChargeStatus/);
   assert.deepEqual(reading,{battery:null,externalPower:true});
+});
+
+test("Windows power bootstrap starts one real sample for simultaneous consumers",async()=>{
+  let now=1000, calls=0, complete;
+  const observer=createDesktopPowerStatusObservation({
+    readSnapshot:()=>{calls++;return new Promise(resolve=>{complete=resolve;});},
+    now:()=>now,maxAgeMs:2000,
+  });
+  observer.warm();
+  const first=observer.read(), second=observer.read();
+  await Promise.resolve();
+  assert.equal(calls,1,"boot warmup and concurrent Surface GETs share one subprocess");
+  complete({battery:null,externalPower:true});
+  assert.deepEqual(await first,{battery:null,externalPower:true});
+  assert.deepEqual(await second,{battery:null,externalPower:true});
+  assert.deepEqual(await observer.read(),{battery:null,externalPower:true});
+  assert.equal(calls,1,"validated sample stays fresh for at most two seconds");
+  now+=2001;
+  const changed=observer.read();
+  await Promise.resolve();
+  assert.equal(calls,2,"expired telemetry always fetches a real new observation");
+  complete({battery:{percent:66,state:"charging"},externalPower:true});
+  assert.deepEqual(await changed,{battery:{percent:66,state:"charging"},externalPower:true});
+});
+
+test("Windows power failures and invalid samples are never cached",async()=>{
+  let calls=0, now=0;
+  const observer=createDesktopPowerStatusObservation({
+    readSnapshot:async()=>{
+      calls++;
+      if(calls===1)throw new Error("Powershell unavailable");
+      if(calls===2)return {battery:{percent:250,state:"charging"},externalPower:true};
+      return {battery:null,externalPower:null};
+    },now:()=>now,maxAgeMs:2000,
+  });
+  await assert.rejects(observer.read(),/Powershell unavailable/);
+  await assert.rejects(observer.read(),/percent|power|battery|Invalid/i);
+  assert.equal(calls,2);
+  assert.deepEqual(await observer.read(),{battery:null,externalPower:null});
+  assert.equal(calls,3,"unknown telemetry is valid but never invented");
+  now=2001;
+  assert.deepEqual(await observer.read(),{battery:null,externalPower:null});
+  assert.equal(calls,4);
+  assert.throws(()=>createDesktopPowerStatusObservation({maxAgeMs:10001}),TypeError);
 });
