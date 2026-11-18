@@ -18,9 +18,36 @@ condições e os respectivos serviços reais não estiverem fechados.
 
 ## Avanço de implementação — 18/11/2026
 
-O incremento iniciado nesta frente preserva todas as áreas existentes da Conta e introduz o primeiro read model comercial independente dos benefícios e da medição. A projeção server-authoritative de assinatura distingue ausência de registro, Free explicitamente registrado e plano pago com evento de provedor verificado; não implica checkout nem concede entitlements. Migration privada e rota da Conta estão propostas em branch de implementação. Não declarar aplicado no Supabase, publicado, homologado ou cobrável antes das provas correspondentes.
+O incremento preserva as 12 áreas da Conta e introduz a consulta de
+assinatura separada dos benefícios, do catálogo de referência e da medição.
 
-Critérios de aceite: SQL aplicado apenas no projeto/ambiente correto com papéis verificados, contrato de leitura autenticada E2E, rejeição de outro subject, janela vencida, resposta falsa ou sessão trocada e integridade do payload no domínio público após ativação explícita. Eventos de compra, faturamento, invoice e revogação ficam para o incremento seguinte no mesmo owner comercial. O provedor de pagamento ainda não foi selecionado; não inserir eventos de teste em produção nem promover preços de referência a cobrança.
+**Estado comprovado:**
+- Código backend integrado à `ordax-os/main` pela PR #2621
+  (`0a6dd38c`), com oito workflows aprovados.
+- Código frontend integrado à `ordax-site/main` pela PR #50
+  (`7af4f97c`), com Site Candidate e Chrome aprovados.
+- Migration privada `account_commerce_subscription_read_v1` **aplicada**
+  no Supabase `ordax-platform` em 18/11/2026, versão de histórico
+  `20261118051243`. As duas tabelas têm RLS; `authenticated` não possui
+  acesso SQL direto; `anon` não executa a RPC; leitura autenticada só
+  é possível por RPC que filtra o próprio sujeito.
+- Consultas de verificação após aplicar a migration encontraram
+  **zero assinaturas e zero eventos**. A ausência de registro é
+  `unverified`, nunca Free, compra, cancelamento ou autorização paga.
+
+**Ainda não liberado:** o gateway Supabase em produção não recebeu este
+novo bundle pela esteira de implantação Owner, a liberação pública da Conta
+continua sujeita a E2E autenticado e aos gates de segurança. O deployment
+do domínio canônico não consome automaticamente a nova revisão Site.
+Portanto, fonte integrada e migration aplicada **não equivalem** a
+`/account/subscription` funcional no site público, billing ou assinatura
+comercial homologada.
+
+O próximo incremento implementa eventos autenticados por provedor real,
+reconciliação idempotente, faturas, cancelamento, downgrade e alocação de
+entitlements transacional, respeitando o checkout e os gates do produto.
+O provedor de pagamento ainda não foi selecionado; não inserir eventos
+fictícios em produção nem transformar preço de referência em cobrança.
 
 ## Incrementos
 
