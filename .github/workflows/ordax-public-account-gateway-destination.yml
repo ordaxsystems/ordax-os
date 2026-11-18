@@ -100,6 +100,15 @@ jobs:
         with:
           version: 2.121.0
 
+      - name: Prove prior deployed public Account source is readable before replacement
+        shell: bash
+        env:
+          SUPABASE_ACCESS_TOKEN: ${{ secrets.SUPABASE_ACCESS_TOKEN }}
+        run: |
+          set -euo pipefail
+          python tools/account/prove_gateway_deployed_source_parity.py \
+            --function ordax-public-account-gateway --mode preflight
+
       - name: Deploy exact public account gateway bundle
         shell: bash
         env:
@@ -124,3 +133,11 @@ jobs:
         run: |
           set -euo pipefail
           node tools/account/prove_gateway_negative_boundary.mjs public
+      - name: Verify deployed public Account source parity against approved main
+        shell: bash
+        env:
+          SUPABASE_ACCESS_TOKEN: ${{ secrets.SUPABASE_ACCESS_TOKEN }}
+        run: |
+          set -euo pipefail
+          python tools/account/prove_gateway_deployed_source_parity.py \
+            --function ordax-public-account-gateway --mode verify
