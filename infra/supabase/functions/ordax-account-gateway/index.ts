@@ -585,16 +585,28 @@ function safeAccountAuthTimestamp(value: unknown): string | null {
   return new Date(time).toISOString();
 }
 
-async function readAccountDisplayName(access: string, userId: string): Promise<string | null> {
+function safeAccountPreferredLocale(value: unknown): "pt-BR" | "en-US" | null {
+  return value === "pt-BR" || value === "en-US" ? value : null;
+}
+
+type AccountPublicProfile = {
+  displayName: string | null;
+  preferredLocale: "pt-BR" | "en-US" | null;
+};
+
+// Reuse the existing Account row and user-JWT RLS for both profile fields;
+// the site never accesses Supabase tables or raw session tokens.
+async function readAccountProfile(access: string, userId: string): Promise<AccountPublicProfile | null> {
   try {
-    // Use the user's access token and owner-scoped RLS. Profile-read failure
-    // must not invalidate the authenticated session.
     const { data, error: profileError } = await client(access)
       .from("ordax_accounts")
-      .select("display_name")
+      .select("display_name,preferred_locale")
       .eq("user_id", userId)
       .maybeSingle();
-    return profileError ? null : safeAccountDisplayName(data?.display_name);
+    return profileError || !data ? null : {
+      displayName: safeAccountDisplayName(data.display_name),
+      preferredLocale: safeAccountPreferredLocale(data.preferred_locale),
+    };
   } catch {
     return null;
   }
@@ -1264,8 +1276,8 @@ Deno.serve(async (req: Request) => {
           accountCloseEnabled: false,
         }, session.cookies);
       }
-      const displayName = session.access
-        ? await readAccountDisplayName(session.access, session.user.id)
+      const profile = session.access
+        ? await readAccountProfile(session.access, session.user.id)
         : null;
       const registeredAt = safeAccountAuthTimestamp(session.user.created_at);
       const lastSignInAt = safeAccountAuthTimestamp(session.user.last_sign_in_at);
@@ -1276,12 +1288,14 @@ Deno.serve(async (req: Request) => {
         status: "authenticated",
         subject: session.user.id,
         email: session.user.email ?? null,
-        ...(displayName ? { displayName } : {}),
+        ...(profile?.displayName ? { displayName: profile.displayName } : {}),
+        ...(profile?.preferredLocale ? { preferredLocale: profile.preferredLocale } : {}),
         ...(registeredAt ? { registeredAt } : {}),
         ...(lastSignInAt ? { lastSignInAt } : {}),
         accountCloseEnabled: ACCOUNT_CLOSE_ENABLED,
         profileEditEnabled: !publicSiteRequest(req) || PUBLIC_SITE_ACCOUNT_ENABLED,
         dataExportEnabled: !publicSiteRequest(req) || PUBLIC_SITE_ACCOUNT_ENABLED,
+        localePreferenceEditEnabled: !publicSiteRequest(req) || PUBLIC_SITE_ACCOUNT_ENABLED,
       }, session.cookies);
     } catch {
       return error(503, "identity-provider-unavailable", "O serviço de identidade OrdaX está indisponível.");
@@ -2090,6 +2104,50 @@ Deno.serve(async (req: Request) => {
       return json(200, { schema: SPACE_MEMBERSHIP_ACTION_RESULT_SCHEMA, spaceId: result.space_id, targetUserId: result.target_user_id, role: result.role, state: result.state, removed: result.removed, changed: result.changed }, session.cookies);
     } catch {
       return error(503, "space-membership-action-unavailable", "A administração de membros está temporariamente indisponível.");
+    }
+  }
+
+  // Locale is a preference, never an identity, grant or entitlement claim.
+  // Persist on the same Account row with owner-RLS and column-only UPDATE.
+  if (path === "/account/preferences/locale") {
+    if (req.method !== "POST") return error(405, "method-not-allowed", "Método não permitido.");
+    let session;
+    try { session = await authenticated(req); }
+    catch { return error(503, "identity-provider-unavailable", "A identidade está indisponível."); }
+    if (!session.user || !session.access) {
+      return json(401, {
+        $schema: ERROR_SCHEMA, error: "authentication-required",
+        message: "Entre na Conta OrdaX para salvar o idioma.",
+      }, session.cookies);
+    }
+    if ((req.headers.get("content-type") ?? "").split(";", 1)[0].trim().toLowerCase() !== "application/json")
+      return error(415, "unsupported-media-type", "A alteração exige JSON.");
+    let input: unknown;
+    try { input = JSON.parse(await boundedBody(req)); }
+    catch { return error(400, "invalid-locale", "Idioma inválido."); }
+    const payload = input as Record<string, unknown>;
+    if (!payload || typeof payload !== "object" || Array.isArray(payload)
+        || !exactObjectKeys(payload, ["preferred_locale"])) {
+      return error(400, "invalid-locale", "Somente o idioma é aceito.");
+    }
+    const locale = safeAccountPreferredLocale(payload.preferred_locale);
+    if (!locale) return error(400, "invalid-locale", "Idioma não suportado.");
+    try {
+      const { data, error: profileError } = await client(session.access)
+        .from("ordax_accounts")
+        .update({ preferred_locale: locale })
+        .eq("user_id", session.user.id)
+        .select("preferred_locale")
+        .maybeSingle();
+      if (profileError || !data || data.preferred_locale !== locale)
+        return error(503, "locale-update-unconfirmed", "Não foi possível confirmar o idioma da conta.");
+      return json(200, {
+        schema: "ordax.account-preferred-locale-update/1",
+        preferredLocale: locale,
+        updated: true,
+      }, session.cookies);
+    } catch {
+      return error(503, "locale-update-unavailable", "As preferências estão indisponíveis.");
     }
   }
 
