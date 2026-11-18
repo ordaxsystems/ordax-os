@@ -239,3 +239,16 @@ test("public and internal Account boundaries share exact Edge path normalization
   assert.equal(stripEdgeFunctionPrefix("/auth/login", "__proto__"), null);
   assert.equal(stripEdgeFunctionPrefix("/ordax-account-gateway/auth/session", "ordax-public-account-gateway"), null);
 });
+
+test("commercial subscription admits exact GET only and does not bypass Account activation", async () => {
+  assert.equal(isPublicBridgeRoute("GET", "/account/subscription"), true);
+  assert.equal(isPublicBridgeRoute("POST", "/account/subscription"), false);
+  assert.equal(isPublicBridgeRoute("GET", "/account/subscription?user_id=other"), false);
+  assert.equal(isPublicBridgeRoute("GET", "/account/subscription/other"), false);
+  assert.equal(isPublicAccountPreActivationRoute("GET", "/account/subscription"), false);
+  assert.deepEqual(await authorizeAccountTransport(
+    make("/account/subscription", "GET", {
+      "x-ordax-public-site": "1", apikey: bridgeKey,
+    }), "/account/subscription", {rawBridgeSecretKeys: bridgeEnv}
+  ), {ok:true,mode:"service"});
+});
