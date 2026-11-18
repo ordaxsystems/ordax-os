@@ -51,6 +51,7 @@ const PUBLIC_ACCOUNT_ROUTES = new Map([
   ["/account/space-actor-capability", Object.freeze({ method: "GET", preActivation: true })],
   ["/account/space-membership-actions", Object.freeze({ method: "POST", preActivation: false })],
   ["/account/profile/display-name", Object.freeze({ method: "POST", preActivation: false })],
+  ["/account/preferences/locale", Object.freeze({ method: "POST", preActivation: false })],
   ["/account/subscription", Object.freeze({ method: "GET", preActivation: false })],
   ["/account/entitlements/memory-cloud", Object.freeze({ method: "GET", preActivation: false })],
   ["/account/close", Object.freeze({ method: "POST", preActivation: false })],

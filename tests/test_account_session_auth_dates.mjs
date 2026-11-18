@@ -4,7 +4,7 @@ import { readFileSync } from "node:fs";
 
 const source = readFileSync(new URL("../infra/supabase/functions/ordax-account-gateway/index.ts", import.meta.url), "utf8");
 const start = source.indexOf("function safeAccountAuthTimestamp(value: unknown): string | null {");
-const end = source.indexOf("\n}\n\nasync function readAccountDisplayName(", start);
+const end = source.indexOf("\n}\n\n", start);
 assert.ok(start > 0 && end > start, "canonical Auth timestamp validator required");
 const implementation = source.slice(start, end + 2)
   .replace("value: unknown): string | null", "value)");
