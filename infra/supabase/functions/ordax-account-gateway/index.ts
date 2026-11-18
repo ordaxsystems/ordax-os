@@ -578,17 +578,21 @@ async function logoutCurrentAccountSession(req: Request): Promise<Response> {
     cookies.get(ACCESS_COOKIE) || cookies.get(REFRESH_COOKIE)
     || bearerUserToken(req)
   );
+  // If Auth rotates the refresh token while resolving an expired access JWT,
+  // return that same fresh cookie on a failed revoke so the user can retry.
+  const unconfirmed = (sessionCookies: string[] = []) => json(503, {
+    $schema: ERROR_SCHEMA, error: "account-logout-revocation-unconfirmed",
+    message: "Não foi possível confirmar a saída. Tente novamente.",
+  }, sessionCookies);
   if (hasCredential) {
     let session;
     try {
       session = await authenticated(req);
     } catch {
-      return error(503, "account-logout-revocation-unconfirmed",
-        "Não foi possível confirmar a saída. Tente novamente.");
+      return unconfirmed();
     }
     if (!session.user || !session.access || !await revokeCurrentSession(session.access)) {
-      return error(503, "account-logout-revocation-unconfirmed",
-        "Não foi possível confirmar a saída. Tente novamente.");
+      return unconfirmed(session.cookies);
     }
   }
   return wantsJson(req)
