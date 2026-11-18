@@ -86,6 +86,59 @@ class OwnerQemuHandoffTests(unittest.TestCase):
         self.assertFalse(PROOF.observed("Checkout local verificado: " + "b" * 40, "a" * 40)["exact_local_checkout"])
         self.assertFalse(PROOF.observed("ordax-dev-bootstrap: entering local recovery shell", "a" * 40)["recovery_not_entered"])
 
+    def test_webkit_segfault_resolution_is_same_pid_same_boot_and_fail_closed(self):
+        # Exact kernel crash line, never infer a module from address alone.
+        crash = (
+            "[   80.932340] WebKitWebProces[1102]: segfault at 80 "
+            "ip 00007fb3823cfb4e sp 00007fff3f494820 error 4"
+        )
+        good = (
+            "ORDAX_OWNER_WEBKIT_EXEC_MAP=pid:1102;"
+            "range:00007fb3823cf000-00007fb3823d1000;"
+            "offset:00005000;module:libwebkit2gtk-4.1.so.0.21.8"
+        )
+        wrong_pid = good.replace("pid:1102", "pid:2202")
+        source = "a" * 40
+        expected = {
+            "status": "module-attributed",
+            "module": "libwebkit2gtk-4.1.so.0.21.8",
+            "elf_file_offset": "0x5b4e",
+            "pid": "1102",
+        }
+        self.assertEqual(PROOF.webkit_crash_attribution(good + "\n" + crash), expected)
+        self.assertFalse(
+            PROOF.observed(good + "\n" + crash, source)["webkit_process_not_failed"]
+        )
+        self.assertEqual(
+            PROOF.webkit_crash_attribution(good),
+            {"status": "not-observed"},
+        )
+        for no_match in (
+            crash,
+            wrong_pid + "\n" + crash,
+            good.replace("00007fb3823d1000", "00007fb3823cfb4e") + "\n" + crash,
+            good.replace("libwebkit2gtk-4.1.so.0.21.8",
+                         "../../home/private-token") + "\n" + crash,
+        ):
+            self.assertEqual(
+                PROOF.webkit_crash_attribution(no_match),
+                {"status": "unattributed", "reason": "matching-map-missing"},
+            )
+        ambiguous = (
+            good + "\n" + good.replace("libwebkit2gtk-4.1.so.0.21.8",
+                                       "libJavaScriptCoreGTK-4.1.so.0") + "\n" + crash
+        )
+        self.assertEqual(
+            PROOF.webkit_crash_attribution(ambiguous),
+            {"status": "unattributed", "reason": "ambiguous-map"},
+        )
+        self.assertEqual(
+            PROOF.webkit_crash_attribution(good + "\n" + crash + "\n" + crash),
+            {"status": "unattributed", "reason": "multiple-crashes"},
+        )
+        self.assertNotIn("/home/", repr(expected))
+        self.assertNotIn("token", repr(expected))
+
     def test_failure_uses_redacted_native_receipt_only(self):
         source = "a" * 40
         valid = json.dumps({

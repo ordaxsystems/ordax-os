@@ -51,6 +51,17 @@ WEBKIT_FATAL_MARKERS = (
 )
 
 
+WEBKIT_SEGFAULT_RE = re.compile(
+    r"WebKitWebProces\[(?P<pid>[1-9][0-9]{0,7})\]: "
+    r"segfault at [0-9a-f]{1,16} ip (?P<ip>[0-9a-f]{8,16})(?:\s|$)"
+)
+WEBKIT_EXEC_MAP_RE = re.compile(
+    r"ORDAX_OWNER_WEBKIT_EXEC_MAP=pid:(?P<pid>[1-9][0-9]{0,7});"
+    r"range:(?P<start>[0-9a-f]{8,16})-(?P<end>[0-9a-f]{8,16});"
+    r"offset:(?P<offset>[0-9a-f]{1,16});"
+    r"module:(?P<module>[A-Za-z0-9_.+-]{1,80})"
+)
+
 class ProofError(RuntimeError):
     pass
 
@@ -144,6 +155,39 @@ def webkit_page_loaded(text: str) -> bool:
     return False
 
 
+def webkit_crash_attribution(serial_text: str) -> dict[str, str]:
+    """Resolve a kernel WebKit crash against the SAME boot's QEMU-only maps.
+
+    Return bounded redacted evidence only. The result is a module + ELF file
+    offset, NOT a function or stack trace. Missing or ambiguous maps fail
+    closed as unattributed; never correlate addresses across cold boots (ASLR).
+    """
+    crashes = list(WEBKIT_SEGFAULT_RE.finditer(serial_text))
+    if not crashes:
+        return {"status": "not-observed"}
+    if len(crashes) != 1:
+        return {"status": "unattributed", "reason": "multiple-crashes"}
+    pid = crashes[0].group("pid")
+    instruction_pointer = int(crashes[0].group("ip"), 16)
+    modules: set[tuple[str, int]] = set()
+    for line in serial_text.splitlines():
+        mapping = WEBKIT_EXEC_MAP_RE.fullmatch(line)
+        if mapping is None or mapping.group("pid") != pid:
+            continue
+        start = int(mapping.group("start"), 16)
+        end = int(mapping.group("end"), 16)
+        if start <= instruction_pointer < end:
+            offset = int(mapping.group("offset"), 16)
+            modules.add((mapping.group("module"), offset + instruction_pointer - start))
+            if len(modules) > 1:
+                return {"status": "unattributed", "reason": "ambiguous-map"}
+    if not modules:
+        return {"status": "unattributed", "reason": "matching-map-missing"}
+    module, offset = next(iter(modules))
+    return {"status": "module-attributed", "module": module,
+            "elf_file_offset": f"0x{offset:x}", "pid": pid}
+
+
 def observed(text: str, source: str) -> dict[str, bool]:
     return {
         "dev_base_started": MARKER_BASE in text,
@@ -153,7 +197,8 @@ def observed(text: str, source: str) -> dict[str, bool]:
         "privileged_webkit_page_loaded": webkit_page_loaded(text),
         "welcome_screen_rendered": WELCOME_RENDERED_EVENT in text,
         "virtual_drm_transport_selected": MARKER_VIRTIO_WEBKIT in text,
-        "webkit_process_not_failed": not any(item in text for item in WEBKIT_FATAL_MARKERS),
+        "webkit_process_not_failed": (not any(item in text for item in WEBKIT_FATAL_MARKERS)
+                                      and WEBKIT_SEGFAULT_RE.search(text) is None),
         "recovery_not_entered": not any(item in text for item in RECOVERY),
         "no_surface_restart_or_failure": not any(item in text for item in BAD_SURFACE),
     }
@@ -359,13 +404,17 @@ def prove_guest_boot(
                     or not checks["webkit_process_not_failed"]):
                 raise ProofError(
                     "Owner USB entered recovery or Surface failed during offline QEMU boot; "
-                    f"checks={checks}; serial-tail={text[-3500:]!r}"
+                    f"checks={checks}; "
+                    f"webkit_crash={webkit_crash_attribution(text)}; "
+                    f"serial-tail={text[-3500:]!r}"
                 )
             if (checks["privileged_webkit_page_loaded"] and checks["native_surface_heartbeat"]
                     and not checks["virtual_drm_transport_selected"]):
                 raise ProofError(
                     "Owner QEMU active virtio DRM renderer was not selected; "
-                    f"checks={checks}; serial-tail={text[-3500:]!r}"
+                    f"checks={checks}; "
+                    f"webkit_crash={webkit_crash_attribution(text)}; "
+                    f"serial-tail={text[-3500:]!r}"
                 )
             if all(checks.values()):
                 if healthy_since is None:
@@ -378,15 +427,19 @@ def prove_guest_boot(
                 errors = guest.stderr.read(1500).decode("utf-8", "replace") if guest.stderr else ""
                 raise ProofError(
                     "QEMU exited before offline Surface handoff; "
-                    f"returncode={guest.returncode}; serial-tail={text[-3500:]!r}; "
+                    f"returncode={guest.returncode}; "
+                    f"webkit_crash={webkit_crash_attribution(text)}; "
+                    f"serial-tail={text[-3500:]!r}; "
                     f"qemu-stderr={errors!r}"
                 )
             time.sleep(1)
         if (not checks or not all(checks.values()) or healthy_since is None
                 or time.monotonic() - healthy_since < STABLE_SECONDS):
-            detail = serial.read_text(encoding="utf-8", errors="replace")[-3500:] if serial.exists() else ""
+            full_serial = serial.read_text(encoding="utf-8", errors="replace") if serial.exists() else ""
+            detail = full_serial[-3500:]
             raise ProofError(
-                f"Owner USB offline rendered-health check timed out; checks={checks}; serial-tail={detail!r}"
+                f"Owner USB offline rendered-health check timed out; checks={checks}; "
+                f"webkit_crash={webkit_crash_attribution(full_serial)}; serial-tail={detail!r}"
             )
         framebuffer = capture_qmp_framebuffer(qmp_socket, framebuffer_out)
         if acpi_shutdown:
