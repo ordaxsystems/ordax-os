@@ -39,6 +39,11 @@ test("stale paid period never displays verified status", () => {
   assert.equal(projectAccountSubscription({ accountId: id, row: { ...paid(),
     current_period_end: "2026-11-18T11:00:00.000Z" }, asOf: now }).status, "stale");
 });
+test("future paid period remains stale until it starts", () => {
+  const future = { ...paid(), current_period_start: "2026-12-01T00:00:00.000Z",
+    current_period_end: "2027-01-01T00:00:00.000Z" };
+  assert.equal(projectAccountSubscription({ accountId: id, row: future, asOf: now }).status, "stale");
+});
 test("cancellation and past-due are faithfully surfaced without inventing paid authority", () => {
   const view = projectAccountSubscription({ accountId: id, row: {
     ...paid(), lifecycle: "past_due", cancel_at_period_end: true,
