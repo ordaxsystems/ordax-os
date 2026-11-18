@@ -18,6 +18,9 @@ on:
       - 'tests/test_account_optional_communications_source.mjs'
       - 'tools/account/prove_gateway_negative_boundary.mjs'
       - 'tests/test_account_gateway_release_negative_proof.mjs'
+      - 'tools/account/prove_gateway_deployed_source_parity.py'
+      - 'tests/test_account_gateway_deployed_source_parity.py'
+      - '.github/workflows/ordax-public-account-gateway-destination.yml'
       - 'tests/test_account_logout_confirmed_revocation.mjs'
       - 'infra/supabase/functions/_shared/account_local_signout.mjs'
       - '.github/workflows/ordax-account-gateway-destination.yml'
@@ -57,6 +60,9 @@ on:
       - 'tests/test_account_optional_communications_source.mjs'
       - 'tools/account/prove_gateway_negative_boundary.mjs'
       - 'tests/test_account_gateway_release_negative_proof.mjs'
+      - 'tools/account/prove_gateway_deployed_source_parity.py'
+      - 'tests/test_account_gateway_deployed_source_parity.py'
+      - '.github/workflows/ordax-public-account-gateway-destination.yml'
       - 'tests/test_account_logout_confirmed_revocation.mjs'
       - 'infra/supabase/functions/_shared/account_local_signout.mjs'
       - '.github/workflows/ordax-account-gateway-destination.yml'
@@ -135,6 +141,7 @@ jobs:
           node --test tests/test_account_optional_communications_source.mjs
           node --test tests/test_account_export_preferences_source.mjs
           node --test tests/test_account_gateway_release_negative_proof.mjs
+          python -m unittest tests.test_account_gateway_deployed_source_parity -v
           node --test tests/test_account_logout_confirmed_revocation.mjs
           python3 -m unittest tests.test_service_quota_ledger
 
