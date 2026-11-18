@@ -13,7 +13,7 @@ test("one account owner, one RLS profile read for both name and locale",()=>{
   const owner=gateway.slice(a,b);
   assert.match(owner,/client\(access\)/);
   assert.match(owner,/\.from\("ordax_accounts"\)/);
-  assert.match(owner,/\.select\("display_name,preferred_locale"\)/);
+  assert.match(owner,/\.select\("display_name,preferred_locale,communications_product_digest,communications_news"\)/);
   assert.match(owner,/\.eq\("user_id", userId\)/);
   assert.match(owner,/\.maybeSingle\(\)/);
   assert.doesNotMatch(owner,/adminConfig|service_role|app_metadata|user_metadata/);
