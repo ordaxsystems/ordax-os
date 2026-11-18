@@ -575,6 +575,16 @@ function safeAccountDisplayName(value: unknown): string | null {
   return displayName;
 }
 
+// Auth.getUser is the only registration/login timestamp authority. A stale,
+// malformed or future timestamp must not become verified Account history.
+function safeAccountAuthTimestamp(value: unknown): string | null {
+  if (typeof value !== "string" || value.length > 40
+    || !/^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}(?:\.\d{1,6})?(?:Z|[+-]\d{2}:\d{2})$/.test(value)) return null;
+  const time = Date.parse(value);
+  if (!Number.isFinite(time) || time <= 0 || time > Date.now() + 300000) return null;
+  return new Date(time).toISOString();
+}
+
 async function readAccountDisplayName(access: string, userId: string): Promise<string | null> {
   try {
     // Use the user's access token and owner-scoped RLS. Profile-read failure
@@ -1257,6 +1267,8 @@ Deno.serve(async (req: Request) => {
       const displayName = session.access
         ? await readAccountDisplayName(session.access, session.user.id)
         : null;
+      const registeredAt = safeAccountAuthTimestamp(session.user.created_at);
+      const lastSignInAt = safeAccountAuthTimestamp(session.user.last_sign_in_at);
       return json(200, {
         $schema: SESSION_SCHEMA,
         authenticated: true,
@@ -1265,6 +1277,8 @@ Deno.serve(async (req: Request) => {
         subject: session.user.id,
         email: session.user.email ?? null,
         ...(displayName ? { displayName } : {}),
+        ...(registeredAt ? { registeredAt } : {}),
+        ...(lastSignInAt ? { lastSignInAt } : {}),
         accountCloseEnabled: ACCOUNT_CLOSE_ENABLED,
         profileEditEnabled: !publicSiteRequest(req) || PUBLIC_SITE_ACCOUNT_ENABLED,
         dataExportEnabled: !publicSiteRequest(req) || PUBLIC_SITE_ACCOUNT_ENABLED,
