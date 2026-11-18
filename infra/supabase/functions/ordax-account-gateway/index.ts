@@ -589,10 +589,21 @@ function safeAccountPreferredLocale(value: unknown): "pt-BR" | "en-US" | null {
   return value === "pt-BR" || value === "en-US" ? value : null;
 }
 
+type AccountOptionalCommunications = {
+  productDigest: boolean;
+  news: boolean;
+};
+
 type AccountPublicProfile = {
   displayName: string | null;
   preferredLocale: "pt-BR" | "en-US" | null;
+  optionalCommunications: AccountOptionalCommunications | null;
 };
+
+function safeAccountOptionalCommunications(productDigest: unknown, news: unknown): AccountOptionalCommunications | null {
+  return typeof productDigest === "boolean" && typeof news === "boolean"
+    ? { productDigest, news } : null;
+}
 
 // Reuse the existing Account row and user-JWT RLS for both profile fields;
 // the site never accesses Supabase tables or raw session tokens.
@@ -600,12 +611,15 @@ async function readAccountProfile(access: string, userId: string): Promise<Accou
   try {
     const { data, error: profileError } = await client(access)
       .from("ordax_accounts")
-      .select("display_name,preferred_locale")
+      .select("display_name,preferred_locale,communications_product_digest,communications_news")
       .eq("user_id", userId)
       .maybeSingle();
     return profileError || !data ? null : {
       displayName: safeAccountDisplayName(data.display_name),
       preferredLocale: safeAccountPreferredLocale(data.preferred_locale),
+      optionalCommunications: safeAccountOptionalCommunications(
+        data.communications_product_digest, data.communications_news,
+      ),
     };
   } catch {
     return null;
@@ -1290,12 +1304,15 @@ Deno.serve(async (req: Request) => {
         email: session.user.email ?? null,
         ...(profile?.displayName ? { displayName: profile.displayName } : {}),
         ...(profile?.preferredLocale ? { preferredLocale: profile.preferredLocale } : {}),
+        ...(profile?.optionalCommunications
+          ? { optionalCommunications: profile.optionalCommunications } : {}),
         ...(registeredAt ? { registeredAt } : {}),
         ...(lastSignInAt ? { lastSignInAt } : {}),
         accountCloseEnabled: ACCOUNT_CLOSE_ENABLED,
         profileEditEnabled: !publicSiteRequest(req) || PUBLIC_SITE_ACCOUNT_ENABLED,
         dataExportEnabled: !publicSiteRequest(req) || PUBLIC_SITE_ACCOUNT_ENABLED,
         localePreferenceEditEnabled: !publicSiteRequest(req) || PUBLIC_SITE_ACCOUNT_ENABLED,
+        communicationsPreferenceEditEnabled: !publicSiteRequest(req) || PUBLIC_SITE_ACCOUNT_ENABLED,
       }, session.cookies);
     } catch {
       return error(503, "identity-provider-unavailable", "O serviço de identidade OrdaX está indisponível.");
@@ -2104,6 +2121,57 @@ Deno.serve(async (req: Request) => {
       return json(200, { schema: SPACE_MEMBERSHIP_ACTION_RESULT_SCHEMA, spaceId: result.space_id, targetUserId: result.target_user_id, role: result.role, state: result.state, removed: result.removed, changed: result.changed }, session.cookies);
     } catch {
       return error(503, "space-membership-action-unavailable", "A administração de membros está temporariamente indisponível.");
+    }
+  }
+
+  // Record only optional choices, never alter required security/account
+  // notices or infer permission to send email. All writes use the current
+  // verified Supabase Auth user and own-subject column-only RLS.
+  if (path === "/account/preferences/communications") {
+    if (req.method !== "POST") return error(405, "method-not-allowed", "Método não permitido.");
+    let session;
+    try { session = await authenticated(req); }
+    catch { return error(503, "identity-provider-unavailable", "A identidade está indisponível."); }
+    if (!session.user || !session.access) {
+      return json(401, {
+        $schema: ERROR_SCHEMA, error: "authentication-required",
+        message: "Entre na Conta OrdaX para salvar as comunicações opcionais.",
+      }, session.cookies);
+    }
+    if ((req.headers.get("content-type") ?? "").split(";", 1)[0].trim().toLowerCase() !== "application/json")
+      return error(415, "unsupported-media-type", "A alteração exige JSON.");
+    let input: unknown;
+    try { input = JSON.parse(await boundedBody(req)); }
+    catch { return error(400, "invalid-communications", "Preferências inválidas."); }
+    const payload = input as Record<string, unknown>;
+    if (!payload || typeof payload !== "object" || Array.isArray(payload)
+        || !exactObjectKeys(payload, ["product_digest", "news"])) {
+      return error(400, "invalid-communications", "Somente preferências opcionais são aceitas.");
+    }
+    const choices = safeAccountOptionalCommunications(payload.product_digest, payload.news);
+    if (!choices) return error(400, "invalid-communications", "Use valores booleanos.");
+    try {
+      const { data, error: writeError } = await client(session.access)
+        .from("ordax_accounts")
+        .update({
+          communications_product_digest: choices.productDigest,
+          communications_news: choices.news,
+        })
+        .eq("user_id", session.user.id)
+        .select("communications_product_digest,communications_news")
+        .maybeSingle();
+      if (writeError || !data
+          || data.communications_product_digest !== choices.productDigest
+          || data.communications_news !== choices.news)
+        return error(503, "communications-update-unconfirmed", "Não foi possível confirmar as preferências.");
+      return json(200, {
+        schema: "ordax.account-optional-communications-update/1",
+        productDigest: choices.productDigest,
+        news: choices.news,
+        updated: true,
+      }, session.cookies);
+    } catch {
+      return error(503, "communications-update-unavailable", "As preferências estão indisponíveis.");
     }
   }
 
