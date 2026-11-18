@@ -1,6 +1,6 @@
 import test from "node:test";
 import assert from "node:assert/strict";
-import { ACCOUNT_SUBSCRIPTION_VIEW_SCHEMA, projectAccountSubscription } from "../system/services/entitlements/subscription.mjs";
+import { ACCOUNT_SUBSCRIPTION_VIEW_SCHEMA, projectAccountSubscription } from "../infra/supabase/functions/_shared/account_subscription.mjs";
 
 const id = "8bce09bf-963b-4ccb-8f67-e1b02e44a873";
 const other = "33f58c01-65f2-4e2f-b3cd-179b76a5469b";
