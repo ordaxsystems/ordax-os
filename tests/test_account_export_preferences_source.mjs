@@ -1,11 +1,11 @@
 import test from "node:test";
 import assert from "node:assert/strict";
-import { readFileSync } from "node:fs";
+import { readSourceText } from "./read-source-text.mjs";
 
 const root=new URL("../",import.meta.url);
-const prior=readFileSync(new URL("infra/supabase/product/migrations/20261015153000_space_semantics_v1.sql",root),"utf8");
-const next=readFileSync(new URL("infra/supabase/product/migrations/20261118163000_account_export_preferences_v1.sql",root),"utf8");
-const gateway=readFileSync(new URL("infra/supabase/functions/ordax-account-gateway/index.ts",root),"utf8");
+const prior=readSourceText(new URL("infra/supabase/product/migrations/20261015153000_space_semantics_v1.sql",root));
+const next=readSourceText(new URL("infra/supabase/product/migrations/20261118163000_account_export_preferences_v1.sql",root));
+const gateway=readSourceText(new URL("infra/supabase/functions/ordax-account-gateway/index.ts",root));
 const functionSource=(s)=>{
   const start=s.indexOf("create or replace function public.ordax_account_export_v1()");
   const end=s.indexOf("\n$$;",start);

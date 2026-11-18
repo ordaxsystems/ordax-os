@@ -1,11 +1,11 @@
 import test from "node:test";
 import assert from "node:assert/strict";
-import { readFileSync } from "node:fs";
+import { readSourceText } from "./read-source-text.mjs";
 
 const root = new URL("../",import.meta.url);
-const gateway=readFileSync(new URL("infra/supabase/functions/ordax-account-gateway/index.ts",root),"utf8");
-const transport=readFileSync(new URL("infra/supabase/functions/_shared/account_transport_admission.mjs",root),"utf8");
-const migration=readFileSync(new URL("infra/supabase/product/migrations/20261118074500_account_preferred_locale_v1.sql",root),"utf8");
+const gateway=readSourceText(new URL("infra/supabase/functions/ordax-account-gateway/index.ts",root));
+const transport=readSourceText(new URL("infra/supabase/functions/_shared/account_transport_admission.mjs",root));
+const migration=readSourceText(new URL("infra/supabase/product/migrations/20261118074500_account_preferred_locale_v1.sql",root));
 test("one account owner, one RLS profile read for both name and locale",()=>{
   const a=gateway.indexOf("async function readAccountProfile(");
   const b=gateway.indexOf("\n}\n\n",a);
