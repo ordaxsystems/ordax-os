@@ -65,7 +65,12 @@ class AccountGatewayDestinationDeployTests(unittest.TestCase):
         self.assertNotIn("exit 0", missing_credential_step)
 
         self.assertIn("enabled=true", text)
-        self.assertEqual(text.count("if: steps.credential.outputs.enabled == 'true'"), 5)
+        # The sixth guarded step validates old remote bundle readability
+        # before any replacement. No other release gate is weakened.
+        self.assertEqual(text.count("if: steps.credential.outputs.enabled == 'true'"), 6)
+        self.assertIn("Prove prior deployed Account source is readable before replacement", text)
+        self.assertIn("--mode preflight", text)
+        self.assertIn("--mode verify", text)
         self.assertNotIn("SUPABASE_ACCESS_TOKEN repository secret is required.", text)
         self.assertIn("supabase functions deploy ordax-account-gateway", text)
         self.assertIn('--project-ref "${SUPABASE_PROJECT_REF}"', text)
