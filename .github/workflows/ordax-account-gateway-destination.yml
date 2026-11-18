@@ -118,6 +118,7 @@ jobs:
           test -f infra/supabase/functions/_shared/account_mcp_owner.mjs
           grep -Fq 'ORDAX_MCP_OWNER_ACCOUNT_ENABLED' infra/supabase/functions/ordax-account-gateway/index.ts
           node --test tests/test_account_mcp_owner_bridge.mjs
+          node --test tests/test_account_gateway_release_negative_proof.mjs
           test "${ORDAX_ACCOUNT_GATEWAY_DESTINATION}" = "ordax-platform"
 
       - name: Deploy exact account gateway bundle to destination
@@ -223,3 +224,8 @@ jobs:
           assert "entries" not in value and "subject" not in value
           print("ACCOUNT_GATEWAY_MCP_USAGE_UNAUTH=PASS")
           PY
+      - name: Prove deployed private Account routes deny uncredentialed requests
+        shell: bash
+        run: |
+          set -euo pipefail
+          node tools/account/prove_gateway_negative_boundary.mjs internal
