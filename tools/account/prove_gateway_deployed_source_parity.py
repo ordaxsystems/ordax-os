@@ -105,7 +105,7 @@ def extract_files(raw: bytes) -> dict[str, bytes]:
         if not isinstance(files, list) or len(files) > MAX_FILES:
             raise ParityFailure("remote-file-list-invalid")
         for item in files:
-            if not isinstance(item, dict) or set(item) < {"name", "content"}:
+            if not isinstance(item, dict) or not {"name", "content"}.issubset(item):
                 raise ParityFailure("remote-file-entry-invalid")
             key = safe_path(item["name"])
             value = item["content"]
@@ -153,23 +153,32 @@ def prove(function: str, raw: bytes, *, mode: str, root: Path = SOURCE_ROOT) -> 
     remote_source = {path: body for path, body in remote.items()
                      if PurePosixPath(path).suffix in ALLOWED_SUFFIXES}
     required = set(canonical)
-    if not required.issubset(remote_source):
-        raise ParityFailure("deployed-import-missing")
-    if mode == "verify":
+    if mode == "preflight":
+        # The *old* release must be readable before we replace it. Its
+        # import graph is expected to differ from main and must not be
+        # rejected merely because a new file has not been deployed yet.
+        prior_baseline = {function + "/index.ts", "_shared/account_transport_admission.mjs"}
+        if not prior_baseline.issubset(remote_source):
+            raise ParityFailure("prior-deployment-unreadable")
+        inventory = set(remote_source)
+    elif mode == "verify":
+        if not required.issubset(remote_source):
+            raise ParityFailure("deployed-import-missing")
         if set(remote_source) != required:
             raise ParityFailure("deployed-import-inventory-drift")
         if any(remote_source[path] != content for path, content in canonical.items()):
             raise ParityFailure("deployed-source-content-drift")
-    elif mode != "preflight":
+        inventory = required
+    else:
         raise ParityFailure("proof-mode-invalid")
     digest = hashlib.sha256()
-    for path in sorted(required):
+    for path in sorted(inventory):
         encoded = path.encode("utf-8")
         data = remote_source[path]
         digest.update(len(encoded).to_bytes(4, "big") + encoded)
         digest.update(len(data).to_bytes(8, "big") + data)
     return {"schema": "ordax.account-gateway-deployed-source-parity/1",
-            "function": function, "mode": mode, "files": len(required),
+            "function": function, "mode": mode, "files": len(inventory),
             "status": "pass", "source_sha256": digest.hexdigest(),
             "subject_data_accessed": False, "deployment_mutated": False}
 
