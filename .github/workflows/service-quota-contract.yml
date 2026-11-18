@@ -18,6 +18,8 @@ on:
       - 'tests/test_account_optional_communications_source.mjs'
       - 'tools/account/prove_gateway_negative_boundary.mjs'
       - 'tests/test_account_gateway_release_negative_proof.mjs'
+      - 'tests/test_account_logout_confirmed_revocation.mjs'
+      - 'infra/supabase/functions/_shared/account_local_signout.mjs'
       - '.github/workflows/ordax-account-gateway-destination.yml'
       - 'tests/sql/test_account_preferred_locale_v1.sql'
       - 'tests/test_account_locale_gateway_source.mjs'
@@ -55,6 +57,8 @@ on:
       - 'tests/test_account_optional_communications_source.mjs'
       - 'tools/account/prove_gateway_negative_boundary.mjs'
       - 'tests/test_account_gateway_release_negative_proof.mjs'
+      - 'tests/test_account_logout_confirmed_revocation.mjs'
+      - 'infra/supabase/functions/_shared/account_local_signout.mjs'
       - '.github/workflows/ordax-account-gateway-destination.yml'
       - 'tests/sql/test_account_preferred_locale_v1.sql'
       - 'tests/test_account_locale_gateway_source.mjs'
@@ -131,6 +135,7 @@ jobs:
           node --test tests/test_account_optional_communications_source.mjs
           node --test tests/test_account_export_preferences_source.mjs
           node --test tests/test_account_gateway_release_negative_proof.mjs
+          node --test tests/test_account_logout_confirmed_revocation.mjs
           python3 -m unittest tests.test_service_quota_ledger
 
       - name: Prove quota ledger on PostgreSQL 16
