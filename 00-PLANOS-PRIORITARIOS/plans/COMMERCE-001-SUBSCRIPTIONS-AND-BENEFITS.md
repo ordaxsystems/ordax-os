@@ -16,6 +16,12 @@ Valores numéricos vivem exclusivamente no contrato. Capacidade de membros de
 Space não é quantidade de assentos pagos. Não contratar planos enquanto essas
 condições e os respectivos serviços reais não estiverem fechados.
 
+## Avanço de implementação — 18/11/2026
+
+O incremento iniciado nesta frente preserva todas as áreas existentes da Conta e introduz o primeiro read model comercial independente dos benefícios e da medição. A projeção server-authoritative de assinatura distingue ausência de registro, Free explicitamente registrado e plano pago com evento de provedor verificado; não implica checkout nem concede entitlements. Migration privada e rota da Conta estão propostas em branch de implementação. Não declarar aplicado no Supabase, publicado, homologado ou cobrável antes das provas correspondentes.
+
+Critérios de aceite: SQL aplicado apenas no projeto/ambiente correto com papéis verificados, contrato de leitura autenticada E2E, rejeição de outro subject, janela vencida, resposta falsa ou sessão trocada e integridade do payload no domínio público após ativação explícita. Eventos de compra, faturamento, invoice e revogação ficam para o incremento seguinte no mesmo owner comercial. O provedor de pagamento ainda não foi selecionado; não inserir eventos de teste em produção nem promover preços de referência a cobrança.
+
 ## Incrementos
 
 1. **Catálogo e apresentação — implementado neste incremento:** ofertas de

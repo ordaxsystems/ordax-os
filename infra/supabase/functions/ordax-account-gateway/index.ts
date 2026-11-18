@@ -10,6 +10,7 @@ import { ACCOUNT_MCP_USAGE_PATH, readAccountMcpUsage } from "../_shared/account_
 import { ACCOUNT_MCP_DEVICES_PATH, ACCOUNT_MCP_AUTHORITY_PATH, ACCOUNT_MCP_REVOKE_PATH, ACCOUNT_MCP_REAUTHORIZE_PATH, ACCOUNT_MCP_PROJECT_GRANTS_PATH, ACCOUNT_MCP_CENTRAL_TARGETS_PATH, ACCOUNT_MCP_CENTRAL_SELECTIONS_PATH, ACCOUNT_MCP_PROJECT_ONBOARDING_PATH, ACCOUNT_MCP_PROJECTS_PATH, ACCOUNT_MCP_PROJECT_BINDING_INTENTS_PATH, ACCOUNT_MCP_GITHUB_CHALLENGES_PATH, ACCOUNT_MCP_GITHUB_CALLBACK_PATH, ACCOUNT_MCP_GITHUB_CANDIDATES_PATH, ACCOUNT_MCP_GITHUB_SELECTIONS_PATH, isOwnerUuid, readAccountOwnerDevices, readAccountOwnerAuthority, revokeAccountOwnerGrant, parseAccountOwnerRevoke, reauthorizeAccountOwnerGrant, parseAccountOwnerProfileReauthorization, createAccountOwnerProjectGrant, parseAccountOwnerProjectGrant, readAccountOwnerCentralTargets, readAccountOwnerCentralSelections, selectAccountOwnerCentralDevice, parseAccountOwnerCentralSelection, readAccountOwnerProjectOnboarding, createAccountOwnerProject, parseAccountOwnerProjectCreate, createAccountOwnerProjectBindingIntent, parseAccountOwnerProjectBindingIntent, startAccountOwnerGithubAuthorization, parseAccountOwnerGithubAuthorizationStart, completeAccountOwnerGithubAuthorization, parseAccountOwnerGithubCallback, readAccountOwnerGithubCandidates, selectAccountOwnerGithubRepository, parseAccountOwnerGithubSelection } from "../_shared/account_mcp_owner.mjs";
 import { verifyTrustedPublicRequestContext } from "../ordax-public-account-gateway/public_request_context.mjs";
 import { accountPrivilegedRpc } from "../_shared/account_privileged_rpc.mjs";
+import { projectAccountSubscription } from "../_shared/account_subscription.mjs";
 import { authorizeAccountTransport, accountGatewayRoutePath, isPublicAccountPreActivationRoute, isPublicMcpOwnerPreActivationRoute } from "../_shared/account_transport_admission.mjs";
 import { parseSpaceCreateRequest, projectSpaceCreateResult, spaceCreateRpcArgs } from "../_shared/space_create_contract.mjs";
 import { PUBLIC_CONFIRMATION_PATH, PUBLIC_SIGNUP_REDIRECT, PUBLIC_RECOVERY_VERIFY_PATH, PUBLIC_RECOVERY_VERIFY_URL, parseSignupConfirmation, parseRecoveryLink } from "../_shared/account_email_confirmation.mjs";
@@ -2073,6 +2074,37 @@ Deno.serve(async (req: Request) => {
       return json(200, { schema: SPACE_MEMBERSHIP_ACTION_RESULT_SCHEMA, spaceId: result.space_id, targetUserId: result.target_user_id, role: result.role, state: result.state, removed: result.removed, changed: result.changed }, session.cookies);
     } catch {
       return error(503, "space-membership-action-unavailable", "A administração de membros está temporariamente indisponível.");
+    }
+  }
+
+  // A subscription is a verified commercial record, not inferred from the
+  // reference catalog, entitlement rows or an authenticated session.
+  if (path === "/account/subscription") {
+    if (req.method !== "GET") return error(405, "method-not-allowed", "Método não permitido.");
+    let session;
+    try { session = await authenticated(req); }
+    catch { return error(503, "identity-provider-unavailable", "A identidade está indisponível."); }
+    if (!session.user || !session.access) {
+      return json(401, {
+        $schema: ERROR_SCHEMA, error: "authentication-required",
+        message: "Entre na Conta OrdaX para consultar sua assinatura.",
+      }, session.cookies);
+    }
+    try {
+      // Uses the current user's JWT, never a browser-supplied subject or
+      // service-role query. RPC returns one own-subject row or null.
+      const { data, error: rpcError } = await client(session.access)
+        .rpc("ordax_read_account_subscription_row_v1");
+      if (rpcError) throw new Error("commerce-rpc-unavailable");
+      const view = projectAccountSubscription({
+        accountId: session.user.id,
+        row: data ?? null,
+        asOf: Date.now(),
+      });
+      return json(200, view, session.cookies);
+    } catch {
+      return error(503, "account-subscription-unavailable",
+        "Não foi possível confirmar a assinatura neste momento.");
     }
   }
 
