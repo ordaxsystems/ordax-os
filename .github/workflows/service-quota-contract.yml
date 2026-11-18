@@ -10,6 +10,10 @@ on:
       - 'infra/supabase/functions/ordax-account-gateway/index.ts'
       - 'infra/supabase/product/migrations/*commerce_subscription*'
       - 'infra/supabase/product/migrations/*display_name_column_write*'
+      - 'infra/supabase/product/migrations/*preferred_locale*'
+      - 'tests/sql/test_account_preferred_locale_v1.sql'
+      - 'tests/test_account_locale_gateway_source.mjs'
+      - 'tests/test_account_session_display_name_source.mjs'
       - 'tests/test_account_display_name_gateway_source.mjs'
       - 'tests/test_account_export_session_flag.mjs'
       - 'tests/test_account_session_auth_dates.mjs'
@@ -35,6 +39,10 @@ on:
       - 'infra/supabase/functions/ordax-account-gateway/index.ts'
       - 'infra/supabase/product/migrations/*commerce_subscription*'
       - 'infra/supabase/product/migrations/*display_name_column_write*'
+      - 'infra/supabase/product/migrations/*preferred_locale*'
+      - 'tests/sql/test_account_preferred_locale_v1.sql'
+      - 'tests/test_account_locale_gateway_source.mjs'
+      - 'tests/test_account_session_display_name_source.mjs'
       - 'tests/test_account_display_name_gateway_source.mjs'
       - 'tests/test_account_export_session_flag.mjs'
       - 'tests/test_account_session_auth_dates.mjs'
@@ -103,6 +111,7 @@ jobs:
           node --test tests/test_account_display_name_gateway_source.mjs
           node --test tests/test_account_export_session_flag.mjs
           node --test tests/test_account_session_auth_dates.mjs
+          node --test tests/test_account_locale_gateway_source.mjs tests/test_account_session_display_name_source.mjs
           python3 -m unittest tests.test_service_quota_ledger
 
       - name: Prove quota ledger on PostgreSQL 16
@@ -112,4 +121,5 @@ jobs:
           psql -v ON_ERROR_STOP=1 -f tests/sql/test_service_quota_usage_reduction_v1.sql
           psql -v ON_ERROR_STOP=1 -f tests/sql/test_account_commerce_subscription_read_v1.sql
           psql -v ON_ERROR_STOP=1 -f tests/sql/test_account_display_name_write_v1.sql
+          psql -v ON_ERROR_STOP=1 -f tests/sql/test_account_preferred_locale_v1.sql
           bash tests/test_service_quota_ledger_concurrency.sh
