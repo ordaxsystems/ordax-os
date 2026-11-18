@@ -13,7 +13,7 @@ test("account display name comes from the authenticated user's RLS row", () => {
   const owner = match[0];
   assert.match(owner, /client\(access\)/);
   assert.match(owner, /\.from\("ordax_accounts"\)/);
-  assert.match(owner, /\.select\("display_name,preferred_locale"\)/);
+  assert.match(owner, /\.select\("display_name,preferred_locale,communications_product_digest,communications_news"\)/);
   assert.match(owner, /\.eq\("user_id", userId\)/);
   assert.match(owner, /\.maybeSingle\(\)/);
   assert.match(owner, /safeAccountDisplayName\(data\.display_name\)/);
