@@ -3,22 +3,12 @@
 // Unknown values remain unknown; the app cannot infer them from a desktop PC.
 import { execFile } from "node:child_process";
 import { promisify } from "node:util";
+import { basename, isAbsolute } from "node:path";
 import { validatePowerStatusSnapshot } from "../../contracts/power-status.mjs";
 const execute = promisify(execFile);
-// Use the Windows Forms wrapper over Win32 power telemetry instead of
-// compiling a C# P/Invoke class on every GET. Runtime Add-Type compilation
-// competed with Native Surface cold-start and could exceed the bounded probe.
-const nativeScript = String.raw`
-$ErrorActionPreference='Stop'
-Add-Type -AssemblyName System.Windows.Forms
-$state=[System.Windows.Forms.SystemInformation]::PowerStatus
-$life=[double]$state.BatteryLifePercent
-$percent=255
-if($life -ge 0.0 -and $life -le 1.0){
-  $percent=[int][Math]::Round($life*100.0,[MidpointRounding]::AwayFromZero)
-}
-Write-Output (([int]$state.PowerLineStatus).ToString()+','+([int]$state.BatteryChargeStatus).ToString()+','+$percent.ToString())
-`;
+// The installed Desktop shell provides an attested, short-lived Win32 reader.
+// No PowerShell, Node native addon or runtime compilation. The OS remains the
+// sole owner of interpreting raw AC/battery telemetry into the public contract.
 export function projectWindowsPowerStatus({acLineStatus,batteryFlag,batteryPercent}) {
   if (![acLineStatus,batteryFlag,batteryPercent].every(x=>Number.isInteger(x) && x>=0 && x<=255)) {
     throw new TypeError("Invalid Win32 power telemetry");
@@ -35,11 +25,20 @@ export function projectWindowsPowerStatus({acLineStatus,batteryFlag,batteryPerce
   } : null;
   return validatePowerStatusSnapshot({battery,externalPower});
 }
-export async function readDesktopPowerStatus({run=execute,platform=process.platform}={}) {
+export async function readDesktopPowerStatus({
+  run=execute,platform=process.platform,
+  helperPath=process.env.ORDAX_DESKTOP_POWER_HELPER,
+}={}) {
   if(platform!=="win32") throw new Error("Windows power service requires Windows");
-  const {stdout}=await run("powershell.exe",
-    ["-NoLogo","-NoProfile","-NonInteractive","-Command",nativeScript],
-    {timeout:12000,windowsHide:true,maxBuffer:4096});
+  // Set solely by the installed Electron owner after its stage-manifest check.
+  // A missing helper must remain unavailable, never become a synthetic battery
+  // or silently start a PowerShell interpreter on the user's desktop.
+  if(typeof helperPath!=="string"||!isAbsolute(helperPath)||
+     basename(helperPath).toLowerCase()!=="ordax-win32-power.exe")
+    throw new Error("Verified Desktop Win32 power helper unavailable");
+  const {stdout}=await run(helperPath,[],{
+    timeout:8000,windowsHide:true,shell:false,maxBuffer:128,
+  });
   const match=String(stdout).trim().match(/^(\d{1,3}),(\d{1,3}),(\d{1,3})$/);
   if(!match)throw new Error("Windows power status output invalid");
   return projectWindowsPowerStatus({
@@ -48,7 +47,7 @@ export async function readDesktopPowerStatus({run=execute,platform=process.platf
 }
 
 // One owner for concurrent Surface observations. Starting the first sample
-// before the renderer mounts avoids several expensive PowerShell cold starts
+// before the renderer mounts avoids competing Win32 helper cold starts
 // competing on Windows. Only a fresh, validated sample is reusable; failures
 // never become an invented battery or an indefinitely stale response.
 export function createDesktopPowerStatusObservation({
