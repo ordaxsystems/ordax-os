@@ -11,6 +11,7 @@ on:
       - 'infra/supabase/product/migrations/*commerce_subscription*'
       - 'infra/supabase/product/migrations/*display_name_column_write*'
       - 'tests/test_account_display_name_gateway_source.mjs'
+      - 'tests/test_account_export_session_flag.mjs'
       - 'tests/sql/test_account_display_name_write_v1.sql'
       - 'tests/test_account_subscription_projection.mjs'
       - 'tests/test_account_transport_admission.mjs'
@@ -34,6 +35,7 @@ on:
       - 'infra/supabase/product/migrations/*commerce_subscription*'
       - 'infra/supabase/product/migrations/*display_name_column_write*'
       - 'tests/test_account_display_name_gateway_source.mjs'
+      - 'tests/test_account_export_session_flag.mjs'
       - 'tests/sql/test_account_display_name_write_v1.sql'
       - 'tests/test_account_subscription_projection.mjs'
       - 'tests/test_account_transport_admission.mjs'
@@ -97,6 +99,7 @@ jobs:
           node --check infra/supabase/functions/_shared/account_subscription.mjs
           node --test tests/test_account_subscription_projection.mjs tests/test_account_transport_admission.mjs
           node --test tests/test_account_display_name_gateway_source.mjs
+          node --test tests/test_account_export_session_flag.mjs
           python3 -m unittest tests.test_service_quota_ledger
 
       - name: Prove quota ledger on PostgreSQL 16
