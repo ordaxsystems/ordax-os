@@ -5,6 +5,13 @@ on:
     paths:
       - 'system/contracts/service-quota.mjs'
       - 'system/services/entitlements/**'
+      - 'infra/supabase/functions/_shared/account_subscription.mjs'
+      - 'infra/supabase/functions/_shared/account_transport_admission.mjs'
+      - 'infra/supabase/functions/ordax-account-gateway/index.ts'
+      - 'infra/supabase/product/migrations/*commerce_subscription*'
+      - 'tests/test_account_subscription_projection.mjs'
+      - 'tests/test_account_transport_admission.mjs'
+      - 'tests/sql/test_account_commerce_subscription_read_v1.sql'
       - 'docs/contracts/service-quotas.json'
       - 'infra/supabase/product/migrations/*service_quota*'
       - 'tests/test_service_quota.mjs'
@@ -18,6 +25,13 @@ on:
     paths:
       - 'system/contracts/service-quota.mjs'
       - 'system/services/entitlements/**'
+      - 'infra/supabase/functions/_shared/account_subscription.mjs'
+      - 'infra/supabase/functions/_shared/account_transport_admission.mjs'
+      - 'infra/supabase/functions/ordax-account-gateway/index.ts'
+      - 'infra/supabase/product/migrations/*commerce_subscription*'
+      - 'tests/test_account_subscription_projection.mjs'
+      - 'tests/test_account_transport_admission.mjs'
+      - 'tests/sql/test_account_commerce_subscription_read_v1.sql'
       - 'docs/contracts/service-quotas.json'
       - 'infra/supabase/product/migrations/*service_quota*'
       - 'tests/test_service_quota.mjs'
@@ -74,6 +88,8 @@ jobs:
           }
           NODE
           node --test tests/test_service_quota.mjs
+          node --check infra/supabase/functions/_shared/account_subscription.mjs
+          node --test tests/test_account_subscription_projection.mjs tests/test_account_transport_admission.mjs
           python3 -m unittest tests.test_service_quota_ledger
 
       - name: Prove quota ledger on PostgreSQL 16
@@ -81,4 +97,5 @@ jobs:
           set -euo pipefail
           psql -v ON_ERROR_STOP=1 -f tests/sql/test_service_quota_ledger_v1.sql
           psql -v ON_ERROR_STOP=1 -f tests/sql/test_service_quota_usage_reduction_v1.sql
+          psql -v ON_ERROR_STOP=1 -f tests/sql/test_account_commerce_subscription_read_v1.sql
           bash tests/test_service_quota_ledger_concurrency.sh
