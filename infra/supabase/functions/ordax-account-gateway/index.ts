@@ -1267,6 +1267,7 @@ Deno.serve(async (req: Request) => {
         ...(displayName ? { displayName } : {}),
         accountCloseEnabled: ACCOUNT_CLOSE_ENABLED,
         profileEditEnabled: !publicSiteRequest(req) || PUBLIC_SITE_ACCOUNT_ENABLED,
+        dataExportEnabled: !publicSiteRequest(req) || PUBLIC_SITE_ACCOUNT_ENABLED,
       }, session.cookies);
     } catch {
       return error(503, "identity-provider-unavailable", "O serviço de identidade OrdaX está indisponível.");
