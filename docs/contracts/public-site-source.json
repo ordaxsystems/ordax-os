@@ -2,7 +2,7 @@
   "$schema": "prototype-ordax.external-public-site-source/1",
   "status": "development-source-repoint",
   "repository": "ordaxsystems/ordax-site",
-  "commit": "49ad92f1cbbcc887c452e9bf4a20b913dda63536",
+  "commit": "fa8e7fa1b07ffdca64483a2e608366da62d65331",
   "source_subdirectory": "site",
   "render_helper": "scripts/public_html_render.py",
   "production_deployment_activated": false
