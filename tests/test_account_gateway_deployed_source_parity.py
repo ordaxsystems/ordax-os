@@ -147,7 +147,7 @@ class DeployedAccountSourceParityTests(unittest.TestCase):
                 content.index("supabase functions deploy " + name),
             )
             self.assertIn("tools/account/prove_gateway_deployed_source_parity.py", content)
-            self.assertIn("SUPABASE_ACCESS_TOKEN: \${{ secrets.SUPABASE_ACCESS_TOKEN }}", content)
+            self.assertIn("SUPABASE_ACCESS_TOKEN: ${{ secrets.SUPABASE_ACCESS_TOKEN }}", content)
             self.assertIn("source parity", content.lower())
 
 
