@@ -941,19 +941,30 @@ test("a supervised Windows Product Runtime stops its full tree without orphaning
   assert.equal(sup.status().state,"stopped");
 });
 
-test("failed native Windows tree termination falls back only to owned Runtime child",async t=>{
+test("failed Windows tree termination retains owned bootloader and retries exact PID",async t=>{
   const f=fixture(t,{approved:false});
   stagePinnedDesktopDevCandidate(f);
   const proc=child();
   proc.pid=27183;
   let treeCalls=0;
+  const log=[];
   const sup=createDesktopProductRuntimeSupervisor({
     systemRoot:f.systemRoot,userData:f.userData,platform:"win32",
     developmentCandidate:true,spawnImpl:()=>proc,
-    stopTreeImpl:()=>{treeCalls++;return false},
+    log:message=>log.push(message),
+    stopTreeImpl:pid=>{
+      assert.equal(pid,27183);
+      return ++treeCalls===2;
+    },
   });
   assert.equal((await sup.reconcile()).state,"running");
-  sup.stop();
+  assert.equal(sup.stop().state,"stopping");
   assert.equal(treeCalls,1);
-  assert.deepEqual(proc.kills,["SIGTERM"]);
+  assert.deepEqual(proc.kills,[],"never kill only the PyInstaller bootloader");
+  assert.ok(log.some(message=>message.includes("process-tree termination failed")));
+  assert.equal((await sup.reconcile()).state,"stopping");
+  assert.equal(treeCalls,2,"subsequent stop retries the exact owned tree");
+  assert.deepEqual(proc.kills,[]);
+  proc.exitCode=0;proc.emit("exit",0,null);
+  assert.equal(sup.status().state,"stopped");
 });
