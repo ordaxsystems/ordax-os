@@ -55,11 +55,12 @@ export function projectAccountSubscription({ accountId, row = null, asOf } = {})
     throw new TypeError("account-subscription-row-invalid");
   }
   const periodExpired = row.current_period_end !== null && iso(row.current_period_end) <= asOf;
+  const periodNotStarted = row.current_period_start !== null && iso(row.current_period_start) > asOf;
   // A stale paid period is not a confirmed paid entitlement or an active subscription.
   return Object.freeze({
     schema: ACCOUNT_SUBSCRIPTION_VIEW_SCHEMA,
     source: "server",
-    status: periodExpired ? "stale" : "verified",
+    status: periodExpired || periodNotStarted ? "stale" : "verified",
     planId: row.plan_id,
     lifecycle: row.lifecycle,
     currentPeriodEnd: row.current_period_end,
