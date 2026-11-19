@@ -85,7 +85,7 @@ function readDesktopDevCandidateGate(systemRoot){
   try {
     selection=JSON.parse(readRegular(join(systemRoot,"docs","contracts",
       "desktop-runtime-dev-candidate.json"),4096).toString("utf8"));
-    if(selection?.$schema!=="ordax.desktop-runtime-dev-candidate-selection/1"||
+    if(selection?.$schema!=="prototype-ordax.desktop-runtime-dev-candidate-selection/1"||
        Object.keys(selection).length!==2||
        typeof selection.evidence_file!=="string"||
        !/^desktop-runtime-windows-candidate-[0-9]{4}-[0-9]{2}-[0-9]{2}\.json$/.test(selection.evidence_file))
