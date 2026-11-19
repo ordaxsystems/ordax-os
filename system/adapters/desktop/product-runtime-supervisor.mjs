@@ -4,7 +4,7 @@
 // AND a signed, source-bound Windows executable have both been verified.
 import {spawn,execFile} from "node:child_process";
 import {createHash,randomBytes} from "node:crypto";
-import {lstatSync,readFileSync,realpathSync,unlinkSync} from "node:fs";
+import {lstatSync,readFileSync,realpathSync,unlinkSync,renameSync,existsSync} from "node:fs";
 import {isAbsolute,join,relative,sep} from "node:path";
 import ownedProcessTree from "./owned-process-tree.cjs";
 const {stopOwnedWindowsProcessTree}=ownedProcessTree;
@@ -139,6 +139,64 @@ function readDesktopDevCandidate(userData,gate){
     if(hash!==gate.sha256)return null;
     return {executable:resolved,sourceCommit:gate.sourceCommit,dev:true};
   } catch {return null}
+}
+
+// DEV materialization is owned by THIS Supervisor. Neither the Runtime
+// artifact nor a command from the MCP can authorize installation. The only
+// accepted input is the fixed, local staging filename whose bytes match the
+// current OS-pinned and physically verified DEV evidence. Production never
+// calls this path. Stop a previously owned child before staging; Windows
+// rejects renaming an executable while an unowned process still uses it.
+const DEV_PENDING="ordax-product-agent.pending.exe";
+const DEV_PREVIOUS="ordax-product-agent.previous.exe";
+function materializePinnedDevCandidate(userData,gate){
+  if(gate?.dev!==true||!SHA256.test(gate.sha256??"")||
+     !Number.isSafeInteger(gate.sizeBytes)||gate.sizeBytes<512||
+     gate.sizeBytes>32*1024*1024)return false;
+  try{
+    const root=realpathSync(userData);
+    const parent=join(root,"native-state");
+    const directory=join(parent,"product-runtime-dev");
+    if(!isSafeDirectory(root)||!isSafeDirectory(parent)||!isSafeDirectory(directory)||
+       !isWithin(root,realpathSync(parent))||
+       !isWithin(realpathSync(parent),realpathSync(directory)))return false;
+    const pending=join(directory,DEV_PENDING);
+    const active=join(directory,"ordax-product-agent.exe");
+    const previous=join(directory,DEV_PREVIOUS);
+    // A pending symlink, unexpected size, hash or retained previous revision
+    // always blocks promotion. Never follow arbitrary archive paths.
+    const bytes=readRegular(pending,32*1024*1024);
+    if(bytes.length!==gate.sizeBytes||
+       createHash("sha256").update(bytes).digest("hex")!==gate.sha256||
+       existsSync(previous))return false;
+    let hadActive=false;
+    try{
+      const current=lstatSync(active);
+      if(!current.isFile()||current.isSymbolicLink()||
+         current.size>32*1024*1024)return false;
+      hadActive=true;
+    }catch(error){if(error?.code!=="ENOENT")return false;}
+    // Use the same on-volume directory, so each individual rename is atomic.
+    // If activation fails, restore the last known-good byte-for-byte.
+    if(hadActive)renameSync(active,previous);
+    try{
+      renameSync(pending,active);
+      if(createHash("sha256").update(readRegular(active,32*1024*1024))
+          .digest("hex")!==gate.sha256)throw Error("promoted DEV hash mismatch");
+    }catch{
+      try{if(existsSync(active))renameSync(active,pending)}catch{}
+      if(hadActive){try{renameSync(previous,active)}catch{}}
+      return false;
+    }
+    return true;
+  }catch{return false}
+}
+function retirePreviousDevCandidate(userData){
+  const previous=join(userData,"native-state","product-runtime-dev",DEV_PREVIOUS);
+  try{
+    const st=lstatSync(previous);
+    if(st.isFile()&&!st.isSymbolicLink())unlinkSync(previous);
+  }catch{}
 }
 
 // The Product component-channel Go helper already defines the seven-field
@@ -338,6 +396,7 @@ export function createDesktopProductRuntimeSupervisor({
     if(raw.local_dispatch_ready===true&&!ready)
       return current=snapshot("running","runtime_readiness_invalid",true,
         owned.deviceId);
+    if(ready&&owned.dev===true)retirePreviousDevCandidate(userData);
     return current=snapshot("running",ready?"product_dispatch_ready":
       "product_dispatch_not_ready",true,owned.deviceId,{
         productDispatchReady:ready,capabilityDigest:digest,
@@ -437,6 +496,15 @@ export function createDesktopProductRuntimeSupervisor({
     let plan=null;
     if(prepared.gate.dev){
       plan=readDesktopDevCandidate(userData,prepared.gate);
+      if(!plan&&active){
+        const ended=stopActive();
+        return current=snapshot(ended?"blocked":"stopping",
+          "dev_candidate_unavailable",true);
+      }
+      if(!plan){
+        materializePinnedDevCandidate(userData,prepared.gate);
+        plan=readDesktopDevCandidate(userData,prepared.gate);
+      }
     }else{
       let receipt;
       try{receipt=await verifiedHandoff({
@@ -539,6 +607,7 @@ export function createDesktopProductRuntimeSupervisor({
       return current=snapshot("blocked","runtime_spawn_failed",true);
     }
     active={key,child,stopRequested:false,startedAt:clock(),
+      dev:prepared.gate.dev===true,
       tokenFingerprint:prepared.identity.tokenFingerprint,
       deviceId:prepared.identity.deviceId,launchNonce,handoffPath};
     child.once?.("error",()=>{
