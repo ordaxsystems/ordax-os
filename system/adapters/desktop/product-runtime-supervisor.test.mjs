@@ -262,6 +262,85 @@ test("DEV candidate selection is a single strict path pin, never a filesystem es
   sup.stop();
 });
 
+test("new OS-pinned DEV candidate materializes from fixed staging filename only",async t=>{
+  const f=fixture(t,{approved:false});
+  const prior=stagePinnedDesktopDevCandidate(f);
+  const newBytes=Buffer.alloc(720);
+  newBytes.write("MZ",0,"ascii");
+  newBytes.write("exact-new-owner-dev-runtime",32,"ascii");
+  const hash=createHash("sha256").update(newBytes).digest("hex");
+  const pending=join(f.userData,"native-state","product-runtime-dev",
+    "ordax-product-agent.pending.exe");
+  const previous=join(f.userData,"native-state","product-runtime-dev",
+    "ordax-product-agent.previous.exe");
+  prior.evidence.candidate.sha256=hash;
+  prior.evidence.candidate.size_bytes=newBytes.length;
+  prior.evidence.physical_offline_proof.executable_sha256=hash;
+  writeFileSync(prior.path,JSON.stringify(prior.evidence));
+  writeFileSync(pending,newBytes);
+  let launches=0;
+  const sup=createDesktopProductRuntimeSupervisor({
+    systemRoot:f.systemRoot,userData:f.userData,platform:"win32",
+    developmentCandidate:true,
+    spawnImpl:file=>{
+      launches++;
+      assert.equal(file,prior.executable);
+      assert.deepEqual(readFileSync(file),newBytes);
+      return child();
+    },
+  });
+  assert.equal((await sup.reconcile()).reason,"runtime_readiness_pending");
+  assert.equal(launches,1);
+  assert.deepEqual(readFileSync(previous),prior.payload,
+    "last known good is held until Runtime readiness");
+  assert.deepEqual(readFileSync(prior.executable),newBytes);
+  assert.equal(existsSync(pending),false);
+  assert.equal((await sup.reconcile()).state,"running");
+  assert.equal(launches,1,"staged promotion never overlaps a live Runtime");
+  sup.stop();
+});
+test("tampered or wrong-size staged DEV Runtime never replaces known-good bytes",async t=>{
+  const f=fixture(t,{approved:false});
+  const prior=stagePinnedDesktopDevCandidate(f);
+  const candidate=Buffer.alloc(700,0x31);
+  const expected=Buffer.alloc(700,0x32);
+  const pending=join(f.userData,"native-state","product-runtime-dev",
+    "ordax-product-agent.pending.exe");
+  const previous=join(f.userData,"native-state","product-runtime-dev",
+    "ordax-product-agent.previous.exe");
+  const hash=createHash("sha256").update(expected).digest("hex");
+  prior.evidence.candidate.sha256=hash;
+  prior.evidence.candidate.size_bytes=expected.length;
+  prior.evidence.physical_offline_proof.executable_sha256=hash;
+  writeFileSync(prior.path,JSON.stringify(prior.evidence));
+  writeFileSync(pending,candidate);
+  let launches=0;
+  const sup=createDesktopProductRuntimeSupervisor({
+    systemRoot:f.systemRoot,userData:f.userData,platform:"win32",
+    developmentCandidate:true,spawnImpl:()=>{launches++;return child()},
+  });
+  assert.equal((await sup.reconcile()).reason,"dev_candidate_unavailable");
+  assert.equal(launches,0);
+  assert.deepEqual(readFileSync(prior.executable),prior.payload);
+  assert.equal(existsSync(previous),false);
+  assert.deepEqual(readFileSync(pending),candidate);
+  sup.stop();
+});
+test("DEV staged materialization never runs without explicit opt-in",async t=>{
+  const f=fixture(t,{approved:false});
+  const candidate=stagePinnedDesktopDevCandidate(f);
+  const pending=join(f.userData,"native-state","product-runtime-dev",
+    "ordax-product-agent.pending.exe");
+  writeFileSync(pending,Buffer.alloc(700,0x42));
+  const sup=createDesktopProductRuntimeSupervisor({
+    systemRoot:f.systemRoot,userData:f.userData,platform:"win32",
+    spawnImpl:()=>{throw Error("no DEV opt-in")},
+  });
+  assert.equal((await sup.reconcile()).reason,"component_trust_not_authorized");
+  assert.deepEqual(readFileSync(candidate.executable),candidate.payload);
+  assert.equal(existsSync(pending),true);
+  sup.stop();
+});
 test("DEV candidate requires explicit opt-in; unsigned bytes alone grant nothing",async t=>{
   const f=fixture(t,{approved:false});
   stagePinnedDesktopDevCandidate(f);
