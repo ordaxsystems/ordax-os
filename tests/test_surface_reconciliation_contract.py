@@ -53,8 +53,21 @@ class SurfaceReconciliationContractTests(unittest.TestCase):
         self.assertIn("windowNode.dataset.windowAreaId = area.id", surface)
         self.assertIn("windowNode.dataset.windowId = windowState.id", surface)
         self.assertIn("node.dataset.windowAreaId === area.id", surface)
-        self.assertIn("node.dataset.windowId === windowState.id", surface)
-        self.assertIn("node.dataset.appId === app.id", surface)
+        # Older revisions scan matching DOM nodes; the optimized Surface
+        # indexes windows once per active area, then verifies app ownership.
+        # Both must reject stale identity before retaining the same window.
+        direct_identity = (
+            "node.dataset.windowId === windowState.id" in surface
+            and "node.dataset.appId === app.id" in surface
+        )
+        indexed_identity = (
+            "const existingWindows = new Map();" in surface
+            and "node.dataset.windowAreaId === area.id && !existingWindows.has(node.dataset.windowId)" in surface
+            and "existingWindows.set(node.dataset.windowId, node)" in surface
+            and "const existing = existingWindows.get(windowState.id);" in surface
+            and "existing?.dataset.appId === app.id ? existing : null" in surface
+        )
+        self.assertTrue(direct_identity or indexed_identity)
         self.assertIn("if (!retained.has(staleWindow)) staleWindow.remove();", surface)
 
     def test_area_control_selector_is_not_reused_by_window_identity(self):
@@ -85,14 +98,33 @@ class SurfaceReconciliationContractTests(unittest.TestCase):
 
     def test_launcher_dock_and_area_controls_keep_stable_nodes(self):
         surface = self.read_surface()
-        self.assertIn("button.hidden = !matches", surface)
+        self.assertTrue(
+            "button.hidden = !matches" in surface
+            or (
+                "syncHidden(button, !matches)" in surface
+                and "if (node.hidden !== value) node.hidden = value;" in surface
+            ),
+            "Launcher visibility must track search without replacing its buttons",
+        )
         self.assertIn(
             "const focusedLauncherApp = root.ownerDocument.activeElement?.dataset?.launchApp ?? null",
             surface,
         )
         self.assertIn("focusedButton.hidden || focusedButton.disabled", surface)
-        self.assertIn('child.dataset?.openWindow === windowState.id', surface)
-        self.assertIn('child.dataset?.areaId === area.id', surface)
+        direct_dock_identity = 'child.dataset?.openWindow === windowState.id' in surface
+        indexed_dock_identity = (
+            "const existingRunningButtons = new Map();" in surface
+            and "existingRunningButtons.set(child.dataset.openWindow, child)" in surface
+            and "existingRunningButtons.get(windowState.id)" in surface
+        )
+        self.assertTrue(direct_dock_identity or indexed_dock_identity)
+        direct_area_identity = 'child.dataset?.areaId === area.id' in surface
+        indexed_area_identity = (
+            "const existingButtons = new Map();" in surface
+            and "existingButtons.set(child.dataset.areaId, child)" in surface
+            and "existingButtons.get(area.id)" in surface
+        )
+        self.assertTrue(direct_area_identity or indexed_area_identity)
         self.assertIn('button:not(:disabled):not([hidden])', surface)
 
 

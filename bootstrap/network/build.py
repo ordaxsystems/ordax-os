@@ -5,6 +5,7 @@ from __future__ import annotations
 
 import argparse
 import hashlib
+import importlib.util
 import json
 import os
 from pathlib import Path, PurePosixPath
@@ -16,6 +17,12 @@ import tarfile
 import urllib.request
 
 ROOT = Path(__file__).resolve().parents[2]
+PINNED_BUSYBOX_SPEC = importlib.util.spec_from_file_location(
+    "ordax_pinned_busybox_network", ROOT / "bootstrap/pinned_busybox.py")
+if PINNED_BUSYBOX_SPEC is None or PINNED_BUSYBOX_SPEC.loader is None:
+    raise RuntimeError("canonical BusyBox source module unavailable")
+PINNED_BUSYBOX = importlib.util.module_from_spec(PINNED_BUSYBOX_SPEC)
+PINNED_BUSYBOX_SPEC.loader.exec_module(PINNED_BUSYBOX)
 HERE = ROOT / "bootstrap" / "network"
 CONTRACT = HERE / "source.json"
 SHA256_RE = re.compile(r"^[0-9a-f]{64}$")
@@ -129,25 +136,11 @@ def run(argv: list[str], cwd: Path, env: dict[str, str]) -> None:
 
 
 def download(contract: dict, directory: Path) -> Path:
-    bb = contract["busybox"]
-    directory.mkdir(parents=True, exist_ok=True)
-    archive = directory / f"busybox-{bb['version']}.tar.bz2"
-    if archive.is_file() and sha256_file(archive) == bb["archive_sha256"]:
-        return archive
-    partial = archive.with_suffix(archive.suffix + ".part")
-    partial.unlink(missing_ok=True)
     try:
-        with urllib.request.urlopen(bb["archive_url"], timeout=120) as response, partial.open("wb") as output:
-            shutil.copyfileobj(response, output, length=1024 * 1024)
-    except Exception as exc:
-        partial.unlink(missing_ok=True)
-        raise BuildError(f"BusyBox download failed: {exc}") from exc
-    actual = sha256_file(partial)
-    if actual != bb["archive_sha256"]:
-        partial.unlink(missing_ok=True)
-        raise BuildError(f"BusyBox digest mismatch: {actual}")
-    partial.replace(archive)
-    return archive
+        return PINNED_BUSYBOX.download(contract["busybox"], directory)
+    except PINNED_BUSYBOX.PinnedBusyBoxSourceError as exc:
+        raise BuildError(str(exc)) from exc
+
 
 
 def extract(archive: Path, directory: Path, version: str) -> Path:
@@ -248,7 +241,7 @@ def build(work_dir: Path, out_dir: Path, jobs: int) -> dict:
     work_dir.mkdir(parents=True)
     out_dir.mkdir(parents=True)
 
-    archive = download(contract, work_dir / "cache")
+    archive = download(contract, ROOT / "out" / "upstream" / "busybox")
     source = extract(archive, work_dir / "source", contract["busybox"]["version"])
     env = dict(os.environ)
     env.update(FIXED_ENV)

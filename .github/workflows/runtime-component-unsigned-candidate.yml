@@ -9,6 +9,8 @@ on:
       - 'tests/test_runtime_component_unsigned_candidate.py'
       - 'docs/contracts/external-unsigned-candidate-interop.json'
       - 'docs/contracts/runtime-component-package.json'
+      - 'docs/contracts/runtime-component-trust-policy.json'
+      - 'system/trust/runtime-components-ed25519.json'
       - '.github/workflows/runtime-component-unsigned-candidate.yml'
   pull_request:
     paths:
@@ -17,6 +19,8 @@ on:
       - 'tests/test_runtime_component_unsigned_candidate.py'
       - 'docs/contracts/external-unsigned-candidate-interop.json'
       - 'docs/contracts/runtime-component-package.json'
+      - 'docs/contracts/runtime-component-trust-policy.json'
+      - 'system/trust/runtime-components-ed25519.json'
       - '.github/workflows/runtime-component-unsigned-candidate.yml'
   workflow_dispatch:
 

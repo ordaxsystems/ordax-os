@@ -7,10 +7,12 @@ import {
 } from "../_shared/auth_rate_limit.mjs";
 import { readBoundedBody } from "../_shared/bounded_body.mjs";
 import { ACCOUNT_MCP_USAGE_PATH, readAccountMcpUsage } from "../_shared/account_mcp_usage.mjs";
-import { ACCOUNT_MCP_DEVICES_PATH, ACCOUNT_MCP_AUTHORITY_PATH, ACCOUNT_MCP_REVOKE_PATH, ACCOUNT_MCP_PROJECT_GRANTS_PATH, ACCOUNT_MCP_CENTRAL_TARGETS_PATH, ACCOUNT_MCP_CENTRAL_SELECTIONS_PATH, ACCOUNT_MCP_PROJECT_ONBOARDING_PATH, ACCOUNT_MCP_PROJECTS_PATH, ACCOUNT_MCP_PROJECT_BINDING_INTENTS_PATH, ACCOUNT_MCP_GITHUB_CHALLENGES_PATH, ACCOUNT_MCP_GITHUB_CALLBACK_PATH, ACCOUNT_MCP_GITHUB_CANDIDATES_PATH, ACCOUNT_MCP_GITHUB_SELECTIONS_PATH, isOwnerUuid, readAccountOwnerDevices, readAccountOwnerAuthority, revokeAccountOwnerGrant, parseAccountOwnerRevoke, createAccountOwnerProjectGrant, parseAccountOwnerProjectGrant, readAccountOwnerCentralTargets, readAccountOwnerCentralSelections, selectAccountOwnerCentralDevice, parseAccountOwnerCentralSelection, readAccountOwnerProjectOnboarding, createAccountOwnerProject, parseAccountOwnerProjectCreate, createAccountOwnerProjectBindingIntent, parseAccountOwnerProjectBindingIntent, startAccountOwnerGithubAuthorization, parseAccountOwnerGithubAuthorizationStart, completeAccountOwnerGithubAuthorization, parseAccountOwnerGithubCallback, readAccountOwnerGithubCandidates, selectAccountOwnerGithubRepository, parseAccountOwnerGithubSelection } from "../_shared/account_mcp_owner.mjs";
+import { ACCOUNT_MCP_DEVICES_PATH, ACCOUNT_MCP_AUTHORITY_PATH, ACCOUNT_MCP_REVOKE_PATH, ACCOUNT_MCP_REAUTHORIZE_PATH, ACCOUNT_MCP_PROJECT_GRANTS_PATH, ACCOUNT_MCP_CENTRAL_TARGETS_PATH, ACCOUNT_MCP_CENTRAL_SELECTIONS_PATH, ACCOUNT_MCP_PROJECT_ONBOARDING_PATH, ACCOUNT_MCP_PROJECTS_PATH, ACCOUNT_MCP_PROJECT_BINDING_INTENTS_PATH, ACCOUNT_MCP_GITHUB_CHALLENGES_PATH, ACCOUNT_MCP_GITHUB_CALLBACK_PATH, ACCOUNT_MCP_GITHUB_CANDIDATES_PATH, ACCOUNT_MCP_GITHUB_SELECTIONS_PATH, isOwnerUuid, readAccountOwnerDevices, readAccountOwnerAuthority, revokeAccountOwnerGrant, parseAccountOwnerRevoke, reauthorizeAccountOwnerGrant, parseAccountOwnerProfileReauthorization, createAccountOwnerProjectGrant, parseAccountOwnerProjectGrant, readAccountOwnerCentralTargets, readAccountOwnerCentralSelections, selectAccountOwnerCentralDevice, parseAccountOwnerCentralSelection, readAccountOwnerProjectOnboarding, createAccountOwnerProject, parseAccountOwnerProjectCreate, createAccountOwnerProjectBindingIntent, parseAccountOwnerProjectBindingIntent, startAccountOwnerGithubAuthorization, parseAccountOwnerGithubAuthorizationStart, completeAccountOwnerGithubAuthorization, parseAccountOwnerGithubCallback, readAccountOwnerGithubCandidates, selectAccountOwnerGithubRepository, parseAccountOwnerGithubSelection } from "../_shared/account_mcp_owner.mjs";
 import { verifyTrustedPublicRequestContext } from "../ordax-public-account-gateway/public_request_context.mjs";
 import { accountPrivilegedRpc } from "../_shared/account_privileged_rpc.mjs";
-import { authorizeAccountTransport, accountGatewayRoutePath, isPublicAccountPreActivationRoute } from "../_shared/account_transport_admission.mjs";
+import { revokeSupabaseLocalSession } from "../_shared/account_local_signout.mjs";
+import { projectAccountSubscription } from "../_shared/account_subscription.mjs";
+import { authorizeAccountTransport, accountGatewayRoutePath, isPublicAccountPreActivationRoute, isPublicMcpOwnerPreActivationRoute } from "../_shared/account_transport_admission.mjs";
 import { parseSpaceCreateRequest, projectSpaceCreateResult, spaceCreateRpcArgs } from "../_shared/space_create_contract.mjs";
 import { PUBLIC_CONFIRMATION_PATH, PUBLIC_SIGNUP_REDIRECT, PUBLIC_RECOVERY_VERIFY_PATH, PUBLIC_RECOVERY_VERIFY_URL, parseSignupConfirmation, parseRecoveryLink } from "../_shared/account_email_confirmation.mjs";
 
@@ -379,11 +381,14 @@ async function hasRegistrationLegalReceipt(userId: unknown) {
   return data;
 }
 
-async function revokeCurrentSession(accessToken: string) {
+async function revokeCurrentSession(accessToken: string): Promise<boolean> {
   try {
-    await client(accessToken).auth.signOut({ scope: "local" });
+    const { url, key } = config();
+    return await revokeSupabaseLocalSession({ url, key, accessToken });
   } catch {
-    // The session is never returned to the caller; cookie clearing still wins.
+    // Rejected signups/legal receipts never return session tokens to the user.
+    // An explicit user logout below must instead fail when revocation fails.
+    return false;
   }
 }
 
@@ -565,6 +570,36 @@ function authenticated(req: Request) {
   return result;
 }
 
+// An explicit logout cannot claim success if the Auth server has not
+// acknowledged local refresh-session revocation. Anonymous logout is idempotent.
+async function logoutCurrentAccountSession(req: Request): Promise<Response> {
+  const cookies = parseCookies(req);
+  const hasCredential = Boolean(
+    cookies.get(ACCESS_COOKIE) || cookies.get(REFRESH_COOKIE)
+    || bearerUserToken(req)
+  );
+  // If Auth rotates the refresh token while resolving an expired access JWT,
+  // return that same fresh cookie on a failed revoke so the user can retry.
+  const unconfirmed = (sessionCookies: string[] = []) => json(503, {
+    $schema: ERROR_SCHEMA, error: "account-logout-revocation-unconfirmed",
+    message: "Não foi possível confirmar a saída. Tente novamente.",
+  }, sessionCookies);
+  if (hasCredential) {
+    let session;
+    try {
+      session = await authenticated(req);
+    } catch {
+      return unconfirmed();
+    }
+    if (!session.user || !session.access || !await revokeCurrentSession(session.access)) {
+      return unconfirmed(session.cookies);
+    }
+  }
+  return wantsJson(req)
+    ? json(200, { signedOut: true }, [...clearCookies(), ...clearRecoveryCookies()])
+    : redirectResponse("/", [...clearCookies(), ...clearRecoveryCookies()]);
+}
+
 function safeAccountDisplayName(value: unknown): string | null {
   if (typeof value !== "string") return null;
   const displayName = value.trim();
@@ -574,16 +609,52 @@ function safeAccountDisplayName(value: unknown): string | null {
   return displayName;
 }
 
-async function readAccountDisplayName(access: string, userId: string): Promise<string | null> {
+// Auth.getUser is the only registration/login timestamp authority. A stale,
+// malformed or future timestamp must not become verified Account history.
+function safeAccountAuthTimestamp(value: unknown): string | null {
+  if (typeof value !== "string" || value.length > 40
+    || !/^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}(?:\.\d{1,6})?(?:Z|[+-]\d{2}:\d{2})$/.test(value)) return null;
+  const time = Date.parse(value);
+  if (!Number.isFinite(time) || time <= 0 || time > Date.now() + 300000) return null;
+  return new Date(time).toISOString();
+}
+
+function safeAccountPreferredLocale(value: unknown): "pt-BR" | "en-US" | null {
+  return value === "pt-BR" || value === "en-US" ? value : null;
+}
+
+type AccountOptionalCommunications = {
+  productDigest: boolean;
+  news: boolean;
+};
+
+type AccountPublicProfile = {
+  displayName: string | null;
+  preferredLocale: "pt-BR" | "en-US" | null;
+  optionalCommunications: AccountOptionalCommunications | null;
+};
+
+function safeAccountOptionalCommunications(productDigest: unknown, news: unknown): AccountOptionalCommunications | null {
+  return typeof productDigest === "boolean" && typeof news === "boolean"
+    ? { productDigest, news } : null;
+}
+
+// Reuse the existing Account row and user-JWT RLS for both profile fields;
+// the site never accesses Supabase tables or raw session tokens.
+async function readAccountProfile(access: string, userId: string): Promise<AccountPublicProfile | null> {
   try {
-    // Use the user's access token and owner-scoped RLS. Profile-read failure
-    // must not invalidate the authenticated session.
     const { data, error: profileError } = await client(access)
       .from("ordax_accounts")
-      .select("display_name")
+      .select("display_name,preferred_locale,communications_product_digest,communications_news")
       .eq("user_id", userId)
       .maybeSingle();
-    return profileError ? null : safeAccountDisplayName(data?.display_name);
+    return profileError || !data ? null : {
+      displayName: safeAccountDisplayName(data.display_name),
+      preferredLocale: safeAccountPreferredLocale(data.preferred_locale),
+      optionalCommunications: safeAccountOptionalCommunications(
+        data.communications_product_digest, data.communications_news,
+      ),
+    };
   } catch {
     return null;
   }
@@ -1187,15 +1258,20 @@ Deno.serve(async (req: Request) => {
     return error(503, "public-network-access-disabled", "A Rede OrdaX pública ainda não foi ativada.");
   }
 
+  // Existing Owner MCP capability can be released independently of the
+  // public Account/registration cutover. Method and path inherit the shared
+  // public transport allowlist and require the existing Owner release flag.
+  // Signed service transport, Account session, Owner grants and CSRF are
+  // still checked by their original owners below.
   if (publicSiteRequest(req) && !PUBLIC_SITE_ACCOUNT_ENABLED
     && !(PUBLIC_WEB_AUTH_ENABLED && PUBLIC_WEB_AUTH_ROUTES.has(req.method + " " + path))
-    && !isPublicAccountPreActivationRoute(req.method, path)) {
+    && !isPublicAccountPreActivationRoute(req.method, path)
+    && !isPublicMcpOwnerPreActivationRoute(req.method, path,
+      Deno.env.get("ORDAX_MCP_OWNER_ACCOUNT_ENABLED") === "1")) {
     if (path === "/auth/login" && req.method === "GET") return redirectResponse("/login/");
     if (path === "/auth/register" && req.method === "GET") return redirectResponse("/cadastro/");
     if (path === "/auth/logout" && req.method === "POST") {
-      return wantsJson(req)
-        ? json(200, { signedOut: true }, clearCookies())
-        : redirectResponse("/", clearCookies());
+      return logoutCurrentAccountSession(req);
     }
     if (path === "/auth/registration-policy" && req.method === "GET") {
       try {
@@ -1246,9 +1322,11 @@ Deno.serve(async (req: Request) => {
           accountCloseEnabled: false,
         }, session.cookies);
       }
-      const displayName = session.access
-        ? await readAccountDisplayName(session.access, session.user.id)
+      const profile = session.access
+        ? await readAccountProfile(session.access, session.user.id)
         : null;
+      const registeredAt = safeAccountAuthTimestamp(session.user.created_at);
+      const lastSignInAt = safeAccountAuthTimestamp(session.user.last_sign_in_at);
       return json(200, {
         $schema: SESSION_SCHEMA,
         authenticated: true,
@@ -1256,8 +1334,17 @@ Deno.serve(async (req: Request) => {
         status: "authenticated",
         subject: session.user.id,
         email: session.user.email ?? null,
-        ...(displayName ? { displayName } : {}),
+        ...(profile?.displayName ? { displayName: profile.displayName } : {}),
+        ...(profile?.preferredLocale ? { preferredLocale: profile.preferredLocale } : {}),
+        ...(profile?.optionalCommunications
+          ? { optionalCommunications: profile.optionalCommunications } : {}),
+        ...(registeredAt ? { registeredAt } : {}),
+        ...(lastSignInAt ? { lastSignInAt } : {}),
         accountCloseEnabled: ACCOUNT_CLOSE_ENABLED,
+        profileEditEnabled: !publicSiteRequest(req) || PUBLIC_SITE_ACCOUNT_ENABLED,
+        dataExportEnabled: !publicSiteRequest(req) || PUBLIC_SITE_ACCOUNT_ENABLED,
+        localePreferenceEditEnabled: !publicSiteRequest(req) || PUBLIC_SITE_ACCOUNT_ENABLED,
+        communicationsPreferenceEditEnabled: !publicSiteRequest(req) || PUBLIC_SITE_ACCOUNT_ENABLED,
       }, session.cookies);
     } catch {
       return error(503, "identity-provider-unavailable", "O serviço de identidade OrdaX está indisponível.");
@@ -1274,15 +1361,7 @@ Deno.serve(async (req: Request) => {
   if (path === "/auth/recover/complete" && req.method === "POST") return updateRecoveryPassword(req);
 
   if (path === "/auth/logout" && req.method === "POST") {
-    try {
-      const access = parseCookies(req).get(ACCESS_COOKIE);
-      if (access) await client(access).auth.signOut({ scope: "local" });
-    } catch {
-      // Idempotent logout: cookie removal still wins.
-    }
-    return wantsJson(req)
-      ? json(200, { signedOut: true }, [...clearCookies(), ...clearRecoveryCookies()])
-      : redirectResponse("/", [...clearCookies(), ...clearRecoveryCookies()]);
+    return logoutCurrentAccountSession(req);
   }
 
 
@@ -1318,6 +1397,7 @@ Deno.serve(async (req: Request) => {
   if ((path === ACCOUNT_MCP_DEVICES_PATH && req.method === "GET")
       || (path === ACCOUNT_MCP_AUTHORITY_PATH && req.method === "GET")
       || (path === ACCOUNT_MCP_REVOKE_PATH && req.method === "POST")
+      || (path === ACCOUNT_MCP_REAUTHORIZE_PATH && req.method === "POST")
       || (path === ACCOUNT_MCP_PROJECT_GRANTS_PATH && req.method === "POST")
       || (path === ACCOUNT_MCP_CENTRAL_TARGETS_PATH && req.method === "GET")
       || (path === ACCOUNT_MCP_CENTRAL_SELECTIONS_PATH && ["GET","POST"].includes(req.method))
@@ -1455,6 +1535,41 @@ Deno.serve(async (req: Request) => {
         // separate and the next explicit onboarding read reconciles state.
         return error(503, "mcp-owner-project-binding-intent-unconfirmed",
           "O pedido de vínculo não foi confirmado. Consulte o projeto antes de tentar novamente.");
+      }
+    }
+
+    if (path === ACCOUNT_MCP_REAUTHORIZE_PATH) {
+      // Reauthorization can only refresh a device-scoped grant that already
+      // exists. Browser never submits profile_key, capabilities, scope or expiry;
+      // those are derived from the canonical grant read before the one mutation.
+      if (!publicSiteRequest(req) || !verifyTrustedPublicRequestContext(req).ok) {
+        return error(403, "mcp-owner-csrf-denied",
+          "Origem da reautorização MCP não autorizada.");
+      }
+      if (url.search !== ""
+          || (req.headers.get("content-type") ?? "").split(";")[0].trim().toLowerCase()
+            !== "application/json") {
+        return error(400, "mcp-owner-reauthorize-invalid", "Solicitação inválida.");
+      }
+      let reauthorization;
+      try {
+        const raw=await boundedBody(req);
+        if (raw.length>1024) throw new Error("mcp-owner-reauthorize-too-large");
+        reauthorization=JSON.parse(raw);
+      } catch {
+        return error(400, "mcp-owner-reauthorize-invalid", "Solicitação inválida.");
+      }
+      if (!parseAccountOwnerProfileReauthorization(reauthorization)) {
+        return error(400, "mcp-owner-reauthorize-invalid",
+          "Confirme exatamente a autorização existente.");
+      }
+      try {
+        return json(200,await reauthorizeAccountOwnerGrant(
+          session.access,reauthorization,
+        ),session.cookies);
+      } catch {
+        return error(503, "mcp-owner-reauthorize-unconfirmed",
+          "A reautorização não foi confirmada. Consulte as autorizações antes de tentar novamente.");
       }
     }
 
@@ -2030,6 +2145,180 @@ Deno.serve(async (req: Request) => {
       return json(200, { schema: SPACE_MEMBERSHIP_ACTION_RESULT_SCHEMA, spaceId: result.space_id, targetUserId: result.target_user_id, role: result.role, state: result.state, removed: result.removed, changed: result.changed }, session.cookies);
     } catch {
       return error(503, "space-membership-action-unavailable", "A administração de membros está temporariamente indisponível.");
+    }
+  }
+
+  // Record only optional choices, never alter required security/account
+  // notices or infer permission to send email. All writes use the current
+  // verified Supabase Auth user and own-subject column-only RLS.
+  if (path === "/account/preferences/communications") {
+    if (req.method !== "POST") return error(405, "method-not-allowed", "Método não permitido.");
+    let session;
+    try { session = await authenticated(req); }
+    catch { return error(503, "identity-provider-unavailable", "A identidade está indisponível."); }
+    if (!session.user || !session.access) {
+      return json(401, {
+        $schema: ERROR_SCHEMA, error: "authentication-required",
+        message: "Entre na Conta OrdaX para salvar as comunicações opcionais.",
+      }, session.cookies);
+    }
+    if ((req.headers.get("content-type") ?? "").split(";", 1)[0].trim().toLowerCase() !== "application/json")
+      return error(415, "unsupported-media-type", "A alteração exige JSON.");
+    let input: unknown;
+    try { input = JSON.parse(await boundedBody(req)); }
+    catch { return error(400, "invalid-communications", "Preferências inválidas."); }
+    const payload = input as Record<string, unknown>;
+    if (!payload || typeof payload !== "object" || Array.isArray(payload)
+        || !exactObjectKeys(payload, ["product_digest", "news"])) {
+      return error(400, "invalid-communications", "Somente preferências opcionais são aceitas.");
+    }
+    const choices = safeAccountOptionalCommunications(payload.product_digest, payload.news);
+    if (!choices) return error(400, "invalid-communications", "Use valores booleanos.");
+    try {
+      const { data, error: writeError } = await client(session.access)
+        .from("ordax_accounts")
+        .update({
+          communications_product_digest: choices.productDigest,
+          communications_news: choices.news,
+        })
+        .eq("user_id", session.user.id)
+        .select("communications_product_digest,communications_news")
+        .maybeSingle();
+      if (writeError || !data
+          || data.communications_product_digest !== choices.productDigest
+          || data.communications_news !== choices.news)
+        return error(503, "communications-update-unconfirmed", "Não foi possível confirmar as preferências.");
+      return json(200, {
+        schema: "ordax.account-optional-communications-update/1",
+        productDigest: choices.productDigest,
+        news: choices.news,
+        updated: true,
+      }, session.cookies);
+    } catch {
+      return error(503, "communications-update-unavailable", "As preferências estão indisponíveis.");
+    }
+  }
+
+  // Locale is a preference, never an identity, grant or entitlement claim.
+  // Persist on the same Account row with owner-RLS and column-only UPDATE.
+  if (path === "/account/preferences/locale") {
+    if (req.method !== "POST") return error(405, "method-not-allowed", "Método não permitido.");
+    let session;
+    try { session = await authenticated(req); }
+    catch { return error(503, "identity-provider-unavailable", "A identidade está indisponível."); }
+    if (!session.user || !session.access) {
+      return json(401, {
+        $schema: ERROR_SCHEMA, error: "authentication-required",
+        message: "Entre na Conta OrdaX para salvar o idioma.",
+      }, session.cookies);
+    }
+    if ((req.headers.get("content-type") ?? "").split(";", 1)[0].trim().toLowerCase() !== "application/json")
+      return error(415, "unsupported-media-type", "A alteração exige JSON.");
+    let input: unknown;
+    try { input = JSON.parse(await boundedBody(req)); }
+    catch { return error(400, "invalid-locale", "Idioma inválido."); }
+    const payload = input as Record<string, unknown>;
+    if (!payload || typeof payload !== "object" || Array.isArray(payload)
+        || !exactObjectKeys(payload, ["preferred_locale"])) {
+      return error(400, "invalid-locale", "Somente o idioma é aceito.");
+    }
+    const locale = safeAccountPreferredLocale(payload.preferred_locale);
+    if (!locale) return error(400, "invalid-locale", "Idioma não suportado.");
+    try {
+      const { data, error: profileError } = await client(session.access)
+        .from("ordax_accounts")
+        .update({ preferred_locale: locale })
+        .eq("user_id", session.user.id)
+        .select("preferred_locale")
+        .maybeSingle();
+      if (profileError || !data || data.preferred_locale !== locale)
+        return error(503, "locale-update-unconfirmed", "Não foi possível confirmar o idioma da conta.");
+      return json(200, {
+        schema: "ordax.account-preferred-locale-update/1",
+        preferredLocale: locale,
+        updated: true,
+      }, session.cookies);
+    } catch {
+      return error(503, "locale-update-unavailable", "As preferências estão indisponíveis.");
+    }
+  }
+
+  // The Account table already owns display_name. RLS controls the row,
+  // column-level SQL privileges restrict mutations, and Auth owns the subject.
+  // No identity fields, metadata, payment or entitlement can be submitted here.
+  if (path === "/account/profile/display-name") {
+    if (req.method !== "POST") return error(405, "method-not-allowed", "Método não permitido.");
+    let session;
+    try { session = await authenticated(req); }
+    catch { return error(503, "identity-provider-unavailable", "A identidade está indisponível."); }
+    if (!session.user || !session.access) {
+      return json(401, {
+        $schema: ERROR_SCHEMA, error: "authentication-required",
+        message: "Entre na Conta OrdaX para alterar seu nome.",
+      }, session.cookies);
+    }
+    if ((req.headers.get("content-type") ?? "").split(";", 1)[0].trim().toLowerCase() !== "application/json")
+      return error(415, "unsupported-media-type", "A alteração exige JSON.");
+    let input: unknown;
+    try { input = JSON.parse(await boundedBody(req)); }
+    catch { return error(400, "invalid-display-name", "Nome de exibição inválido."); }
+    const payload = input as Record<string, unknown>;
+    if (!payload || typeof payload !== "object" || Array.isArray(payload)
+        || !exactObjectKeys(payload, ["display_name"])
+        || typeof payload.display_name !== "string") {
+      return error(400, "invalid-display-name", "Nome de exibição inválido.");
+    }
+    const name = safeAccountDisplayName(payload.display_name);
+    if (!name || name !== payload.display_name) {
+      return error(400, "invalid-display-name", "Use de 1 a 120 caracteres sem caracteres de controle.");
+    }
+    try {
+      const { data, error: accountError } = await client(session.access)
+        .from("ordax_accounts")
+        .update({ display_name: name })
+        .eq("user_id", session.user.id)
+        .select("display_name")
+        .maybeSingle();
+      if (accountError || !data || data.display_name !== name)
+        return error(503, "profile-update-unconfirmed", "Não foi possível confirmar a alteração do perfil.");
+      return json(200, {
+        schema: "ordax.account-display-name-update/1",
+        displayName: name,
+        updated: true,
+      }, session.cookies);
+    } catch {
+      return error(503, "profile-update-unavailable", "O serviço de perfil está indisponível.");
+    }
+  }
+
+  // A subscription is a verified commercial record, not inferred from the
+  // reference catalog, entitlement rows or an authenticated session.
+  if (path === "/account/subscription") {
+    if (req.method !== "GET") return error(405, "method-not-allowed", "Método não permitido.");
+    let session;
+    try { session = await authenticated(req); }
+    catch { return error(503, "identity-provider-unavailable", "A identidade está indisponível."); }
+    if (!session.user || !session.access) {
+      return json(401, {
+        $schema: ERROR_SCHEMA, error: "authentication-required",
+        message: "Entre na Conta OrdaX para consultar sua assinatura.",
+      }, session.cookies);
+    }
+    try {
+      // Uses the current user's JWT, never a browser-supplied subject or
+      // service-role query. RPC returns one own-subject row or null.
+      const { data, error: rpcError } = await client(session.access)
+        .rpc("ordax_read_account_subscription_row_v1");
+      if (rpcError) throw new Error("commerce-rpc-unavailable");
+      const view = projectAccountSubscription({
+        accountId: session.user.id,
+        row: data ?? null,
+        asOf: Date.now(),
+      });
+      return json(200, view, session.cookies);
+    } catch {
+      return error(503, "account-subscription-unavailable",
+        "Não foi possível confirmar a assinatura neste momento.");
     }
   }
 

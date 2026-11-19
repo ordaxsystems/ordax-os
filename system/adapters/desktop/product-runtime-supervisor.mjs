@@ -3,8 +3,8 @@
 // Release activation is forbidden until the OS canonical component trust gates
 // AND a signed, source-bound Windows executable have both been verified.
 import {spawn,execFile} from "node:child_process";
-import {createHash} from "node:crypto";
-import {lstatSync,readFileSync,realpathSync} from "node:fs";
+import {createHash,randomBytes} from "node:crypto";
+import {lstatSync,readFileSync,realpathSync,unlinkSync,renameSync,existsSync} from "node:fs";
 import {isAbsolute,join,relative,sep} from "node:path";
 import ownedProcessTree from "./owned-process-tree.cjs";
 const {stopOwnedWindowsProcessTree}=ownedProcessTree;
@@ -78,8 +78,21 @@ function readReleaseGate(systemRoot){
 function readDesktopDevCandidateGate(systemRoot){
   const policy=JSON.parse(readRegular(join(systemRoot,"docs","contracts",
     "runtime-component-trust-policy.json"),65536).toString("utf8"));
-  const evidence=JSON.parse(readRegular(join(systemRoot,"docs","evidence",
-    "desktop-runtime-windows-candidate-2026-10-31.json"),65536).toString("utf8"));
+  // The Owner/Development candidate pin is the OS-owned selector. Historical
+  // CI/physical evidence stays immutable; promoting a newer DEV candidate only
+  // changes the one pointer after independently verifying its exact bytes.
+  let selection,evidence;
+  try {
+    selection=JSON.parse(readRegular(join(systemRoot,"docs","contracts",
+      "desktop-runtime-dev-candidate.json"),4096).toString("utf8"));
+    if(selection?.$schema!=="prototype-ordax.desktop-runtime-dev-candidate-selection/1"||
+       Object.keys(selection).length!==2||
+       typeof selection.evidence_file!=="string"||
+       !/^desktop-runtime-windows-candidate-[0-9]{4}-[0-9]{2}-[0-9]{2}\.json$/.test(selection.evidence_file))
+      return null;
+    evidence=JSON.parse(readRegular(join(systemRoot,"docs","evidence",
+      selection.evidence_file),65536).toString("utf8"));
+  } catch { return null; }
   const candidate=evidence.candidate,proof=evidence.physical_offline_proof;
   if(policy.$schema!==POLICY_SCHEMA||policy.trust_domain!=="runtime-components"||
      policy.status!=="operator-ceremony-pending"||
@@ -126,6 +139,64 @@ function readDesktopDevCandidate(userData,gate){
     if(hash!==gate.sha256)return null;
     return {executable:resolved,sourceCommit:gate.sourceCommit,dev:true};
   } catch {return null}
+}
+
+// DEV materialization is owned by THIS Supervisor. Neither the Runtime
+// artifact nor a command from the MCP can authorize installation. The only
+// accepted input is the fixed, local staging filename whose bytes match the
+// current OS-pinned and physically verified DEV evidence. Production never
+// calls this path. Stop a previously owned child before staging; Windows
+// rejects renaming an executable while an unowned process still uses it.
+const DEV_PENDING="ordax-product-agent.pending.exe";
+const DEV_PREVIOUS="ordax-product-agent.previous.exe";
+function materializePinnedDevCandidate(userData,gate){
+  if(gate?.dev!==true||!SHA256.test(gate.sha256??"")||
+     !Number.isSafeInteger(gate.sizeBytes)||gate.sizeBytes<512||
+     gate.sizeBytes>32*1024*1024)return false;
+  try{
+    const root=realpathSync(userData);
+    const parent=join(root,"native-state");
+    const directory=join(parent,"product-runtime-dev");
+    if(!isSafeDirectory(root)||!isSafeDirectory(parent)||!isSafeDirectory(directory)||
+       !isWithin(root,realpathSync(parent))||
+       !isWithin(realpathSync(parent),realpathSync(directory)))return false;
+    const pending=join(directory,DEV_PENDING);
+    const active=join(directory,"ordax-product-agent.exe");
+    const previous=join(directory,DEV_PREVIOUS);
+    // A pending symlink, unexpected size, hash or retained previous revision
+    // always blocks promotion. Never follow arbitrary archive paths.
+    const bytes=readRegular(pending,32*1024*1024);
+    if(bytes.length!==gate.sizeBytes||
+       createHash("sha256").update(bytes).digest("hex")!==gate.sha256||
+       existsSync(previous))return false;
+    let hadActive=false;
+    try{
+      const current=lstatSync(active);
+      if(!current.isFile()||current.isSymbolicLink()||
+         current.size>32*1024*1024)return false;
+      hadActive=true;
+    }catch(error){if(error?.code!=="ENOENT")return false;}
+    // Use the same on-volume directory, so each individual rename is atomic.
+    // If activation fails, restore the last known-good byte-for-byte.
+    if(hadActive)renameSync(active,previous);
+    try{
+      renameSync(pending,active);
+      if(createHash("sha256").update(readRegular(active,32*1024*1024))
+          .digest("hex")!==gate.sha256)throw Error("promoted DEV hash mismatch");
+    }catch{
+      try{if(existsSync(active))renameSync(active,pending)}catch{}
+      if(hadActive){try{renameSync(previous,active)}catch{}}
+      return false;
+    }
+    return true;
+  }catch{return false}
+}
+function retirePreviousDevCandidate(userData){
+  const previous=join(userData,"native-state","product-runtime-dev",DEV_PREVIOUS);
+  try{
+    const st=lstatSync(previous);
+    if(st.isFile()&&!st.isSymbolicLink())unlinkSync(previous);
+  }catch{}
 }
 
 // The Product component-channel Go helper already defines the seven-field
@@ -210,19 +281,30 @@ export function createDesktopSignedRuntimeHandoff({
 export function stopOwnedDesktopWindowsTree(pid,options){
   return stopOwnedWindowsProcessTree(pid,options);
 }
-function snapshot(state,reason,identity){
+function snapshot(state,reason,identity,deviceId=null,observation={}){
+  const exposedDeviceId=typeof deviceId==="string"&&UUID.test(deviceId)?deviceId:null;
+  const digest=typeof observation.capabilityDigest==="string"&&
+    SHA256.test(observation.capabilityDigest)?observation.capabilityDigest:null;
+  const productDispatchReady=observation.productDispatchReady===true&&
+    state==="running"&&identity===true&&digest!==null;
   return Object.freeze({
     schema:SCHEMA,host:HOST,state,reason,
-    enrolled:identity,processRunning:state==="running"||state==="stopping",
-    // Process presence must never be displayed as an attested MCP session.
-    mcpReady:false,capabilityDigest:null,centralSessionAttested:false,
+    enrolled:identity,deviceId:exposedDeviceId,
+    processRunning:state==="running"||state==="stopping",
+    // Product dispatch readiness is a local observation of this exact Runtime.
+    // It is NOT the persistent conversation binding or a client grant; those
+    // remain Platform-owned. Legacy fields stay false to prevent old clients
+    // from interpreting readiness as a Central-session attestation.
+    productDispatchReady,capabilityDigest:digest,
+    mcpReady:false,centralSessionAttested:false,
   });
 }
 export function createDesktopProductRuntimeSupervisor({
   systemRoot,userData,verifiedHandoff=null,developmentCandidate=false,spawnImpl=spawn,
   platform=process.platform,env=process.env,log=()=>{},nativeBridge=null,
   stopTreeImpl=null,clock=Date.now,setTimeoutImpl=setTimeout,
-  clearTimeoutImpl=clearTimeout,
+  clearTimeoutImpl=clearTimeout,fetchImpl=globalThis.fetch,
+  randomBytesImpl=randomBytes,
 }={}){
   if(typeof systemRoot!=="string"||!isAbsolute(systemRoot)||
      typeof userData!=="string"||!isAbsolute(userData)||
@@ -232,7 +314,8 @@ export function createDesktopProductRuntimeSupervisor({
      (nativeBridge!==null&&typeof nativeBridge!=="function")||
      (stopTreeImpl!==null&&typeof stopTreeImpl!=="function")||
      typeof clock!=="function"||typeof setTimeoutImpl!=="function"||
-     typeof clearTimeoutImpl!=="function")
+     typeof clearTimeoutImpl!=="function"||typeof fetchImpl!=="function"||
+     typeof randomBytesImpl!=="function")
     throw TypeError("OrdaX Supervisor requires OS-owned roots and verifier");
   const stopOwnedTree=stopTreeImpl??(spawnImpl===spawn
     ? pid=>stopOwnedDesktopWindowsTree(pid,{windowsRoot:env.SystemRoot})
@@ -252,6 +335,72 @@ export function createDesktopProductRuntimeSupervisor({
   };
   const resetRetry=()=>{
     cancelRetry();retryAt=0;retryKey=null;failureCount=0;
+  };
+  const cleanupHandoff=owned=>{
+    if(!owned?.handoffPath)return;
+    try{unlinkSync(owned.handoffPath)}catch{}
+  };
+  const readRuntimeHandoff=owned=>{
+    try{
+      const raw=JSON.parse(readRegular(owned.handoffPath,4096).toString("utf8"));
+      if(raw?.schema!=="ordax.desktop-runtime-status-handoff/1"||
+         raw.launch_nonce!==owned.launchNonce||
+         !Number.isSafeInteger(raw.runtime_pid)||raw.runtime_pid<1||
+         !Number.isSafeInteger(raw.port)||raw.port<1||raw.port>65535)
+        return null;
+      return raw;
+    }catch{return null}
+  };
+  const observeActive=async owned=>{
+    if(!owned||active!==owned||owned.stopRequested||
+       owned.child.exitCode!==null||owned.child.signalCode!==null)
+      return current;
+    const handoff=readRuntimeHandoff(owned);
+    if(!handoff)
+      return current=snapshot("running","runtime_readiness_pending",true,
+        owned.deviceId);
+    let response,raw;
+    try{
+      const options={method:"GET",redirect:"error",cache:"no-store"};
+      if(typeof globalThis.AbortSignal?.timeout==="function")
+        options.signal=globalThis.AbortSignal.timeout(1500);
+      response=await fetchImpl("http://127.0.0.1:"+handoff.port+"/readiness",options);
+      if(response?.status!==200||
+         !String(response.headers?.get?.("content-type")??"")
+           .toLowerCase().includes("application/json"))
+        throw Error("Runtime readiness endpoint unavailable");
+      raw=await response.json();
+    }catch{
+      if(active!==owned)return current;
+      return current=snapshot("running","runtime_readiness_unavailable",true,
+        owned.deviceId);
+    }
+    if(active!==owned)return current;
+    const runtime=raw?.runtime;
+    const digest=typeof runtime?.capabilities_digest==="string"&&
+      SHA256.test(runtime.capabilities_digest)?runtime.capabilities_digest:null;
+    const baseValid=typeof raw?.local_dispatch_ready==="boolean"&&
+      raw.client_authorization==="not_verified_by_local_readiness"&&
+      runtime&&typeof runtime==="object"&&
+      typeof runtime.product_dispatch_ready==="boolean"&&
+      runtime.product_dispatch_ready===raw.local_dispatch_ready&&
+      typeof runtime.product_readiness_code==="string"&&
+      typeof runtime.state==="string"&&typeof runtime.transport_state==="string";
+    if(!baseValid)
+      return current=snapshot("running","runtime_readiness_invalid",true,
+        owned.deviceId);
+    const ready=raw.local_dispatch_ready===true&&digest!==null&&
+      runtime.product_readiness_code==="ready"&&
+      (runtime.state==="ready"||runtime.state==="busy")&&
+      runtime.transport_state==="connected";
+    if(raw.local_dispatch_ready===true&&!ready)
+      return current=snapshot("running","runtime_readiness_invalid",true,
+        owned.deviceId);
+    if(ready&&owned.dev===true)retirePreviousDevCandidate(userData);
+    return current=snapshot("running",ready?"product_dispatch_ready":
+      "product_dispatch_not_ready",true,owned.deviceId,{
+        productDispatchReady:ready,capabilityDigest:digest,
+      });
   };
   const scheduleRecovery=(key,startedAt,requestedRestart=false)=>{
     if(closed)return;
@@ -281,14 +430,26 @@ export function createDesktopProductRuntimeSupervisor({
     // Do not start a replacement while the prior owned child may still be
     // executing. It is reaped only by its own exit/error event, never by PID.
     if(!owned.stopRequested){
-      owned.stopRequested=true;
-      // Do not terminate only the frozen executable bootloader: it owns a
-      // separate Python Runtime child. Taskkill /T addresses the exact owned
-      // PID and its descendants synchronously before the host itself exits.
-      let treeStopped=false;
-      if(platform==="win32"&&Number.isSafeInteger(owned.child.pid))
+      // The real Windows PyInstaller executable is a bootloader with a
+      // separate child. If taskkill /T fails, child.kill() would terminate
+      // only the bootloader, leaving the Runtime connected and unsupervised.
+      // Retain exact-PID ownership and permit a later stop attempt instead.
+      // Injected synthetic children without a Windows tree owner keep their
+      // ordinary signal contract for the cross-platform unit tests.
+      const windowsTreeRequired=platform==="win32"&&
+        Number.isSafeInteger(owned.child.pid)&&owned.child.pid>0&&
+        (spawnImpl===spawn||stopTreeImpl!==null);
+      if(windowsTreeRequired){
+        let treeStopped=false;
         try{treeStopped=stopOwnedTree(owned.child.pid)===true}catch{}
-      if(!treeStopped)try{owned.child.kill("SIGTERM")}catch{}
+        if(!treeStopped){
+          log("Product Runtime exact owned Windows process-tree termination failed");
+          return false;
+        }
+      }else{
+        try{owned.child.kill("SIGTERM")}catch{}
+      }
+      owned.stopRequested=true;
     }
     return false;
   };
@@ -335,6 +496,15 @@ export function createDesktopProductRuntimeSupervisor({
     let plan=null;
     if(prepared.gate.dev){
       plan=readDesktopDevCandidate(userData,prepared.gate);
+      if(!plan&&active){
+        const ended=stopActive();
+        return current=snapshot(ended?"blocked":"stopping",
+          "dev_candidate_unavailable",true);
+      }
+      if(!plan){
+        materializePinnedDevCandidate(userData,prepared.gate);
+        plan=readDesktopDevCandidate(userData,prepared.gate);
+      }
     }else{
       let receipt;
       try{receipt=await verifiedHandoff({
@@ -386,7 +556,7 @@ export function createDesktopProductRuntimeSupervisor({
       bridgeDigest;
     if(retryKey!==null&&retryKey!==key)resetRetry();
     if(active?.key===key&&!active.stopRequested&&active.child.exitCode===null&&active.child.signalCode===null)
-      return current=snapshot("running",plan.dev?"dev_remote_attestation_pending":"remote_attestation_pending",true);
+      return await observeActive(active);
     if(!stopActive()){
       return current=snapshot("stopping","previous_instance_still_running",true);
     }
@@ -404,11 +574,19 @@ export function createDesktopProductRuntimeSupervisor({
         continue;
       childEnv[name]=value;
     }
+    let launchNonce;
+    try{launchNonce=randomBytesImpl(32).toString("hex")}catch{}
+    if(typeof launchNonce!=="string"||!TOKEN.test(launchNonce))
+      return current=snapshot("blocked","runtime_status_nonce_unavailable",true,
+        prepared.identity.deviceId);
+    const handoffPath=join(prepared.identity.directory,
+      "runtime-status-"+launchNonce+".json");
     Object.assign(childEnv,{
       ORDAX_RUNTIME_HOST_PROFILE:"ordax-desktop",
       ORDAX_DESKTOP_USER_DATA:userData,
       ORDAX_AGENT_STATE_DIR:prepared.identity.directory,
       ORDAX_PRODUCT_MCP_URL:prepared.identity.transport,
+      ORDAX_RUNTIME_STATUS_NONCE:launchNonce,
       PYTHONNOUSERSITE:"1",
     });
     if(bridge){
@@ -429,7 +607,9 @@ export function createDesktopProductRuntimeSupervisor({
       return current=snapshot("blocked","runtime_spawn_failed",true);
     }
     active={key,child,stopRequested:false,startedAt:clock(),
-      tokenFingerprint:prepared.identity.tokenFingerprint};
+      dev:prepared.gate.dev===true,
+      tokenFingerprint:prepared.identity.tokenFingerprint,
+      deviceId:prepared.identity.deviceId,launchNonce,handoffPath};
     child.once?.("error",()=>{
       if(active?.child!==child)return;
       const owned=active;
@@ -443,6 +623,8 @@ export function createDesktopProductRuntimeSupervisor({
         return;
       }
       // Spawn failed before the OS assigned a PID: no child can outlive us.
+      // Remove any launch handoff that appeared before the asynchronous error.
+      cleanupHandoff(owned);
       active=null;
       if(!owned.stopRequested&&!closed)
         scheduleRecovery(owned.key,owned.startedAt);
@@ -451,6 +633,7 @@ export function createDesktopProductRuntimeSupervisor({
     child.once?.("exit",(code)=>{
       if(active?.child===child){
         const owned=active;
+        cleanupHandoff(owned);
         // An exit code is safe to publish; never log stderr, tokens, paths or
         // the remote control-plane payload as part of lifecycle diagnostics.
         log("Product Runtime exit code="+(Number.isInteger(code)?code:"signal"));
@@ -472,8 +655,9 @@ export function createDesktopProductRuntimeSupervisor({
               : snapshot("stopped","runtime_exited",true);
       }
     });
-    log("OrdaX product runtime process owned by Native host; remote session not attested");
-    return current=snapshot("running",plan.dev?"dev_remote_attestation_pending":"remote_attestation_pending",true);
+    log("OrdaX product runtime process owned by Native host; Platform binding remains independent");
+    return current=snapshot("running","runtime_readiness_pending",true,
+      prepared.identity.deviceId);
   }
   function reconcile(){
     const op=transition.then(actuallyReconcile,actuallyReconcile);
@@ -482,6 +666,7 @@ export function createDesktopProductRuntimeSupervisor({
   }
   return Object.freeze({
     status(){return current},
+    async observe(){return active?observeActive(active):current},
     reconcile,
     stop(){
       closed=true;

@@ -9,6 +9,8 @@ import {
   forwardPublicConfirmationQuery,
   forwardPublicRecoveryQuery,
   forwardOwnerMcpAuthorityQuery,
+  forwardOwnerMcpCentralQuery,
+  forwardOwnerMcpGithubCandidateQuery,
   normalizeProductPath,
   normalizePublicOrigin,
   normalizeTrustedEdgeAddress,
@@ -251,6 +253,77 @@ test("Owner device authority query survives Vercel rewrite with no arbitrary pas
     assert.equal(forwarded,null);
   } finally {
     globalThis.fetch = original;
+  }
+});
+
+test("Owner Vercel query captures are forwarded only to matching exact MCP reads", async () => {
+  const client = "3529fbb0-c72a-4f79-bf4c-4f1243939a78";
+  const device = "51ad4baf-7805-499e-9c48-b89f52af1953";
+  const options = [
+    ["/account/mcp/central-targets","client_id",client,forwardOwnerMcpCentralQuery],
+    ["/account/mcp/central-selections","client_id",client,forwardOwnerMcpCentralQuery],
+    ["/account/mcp/authority","device_id",device,forwardOwnerMcpAuthorityQuery],
+    ["/account/mcp/project-onboarding","device_id",device,forwardOwnerMcpAuthorityQuery],
+    ["/account/mcp/github/repository-candidates","challenge_id",client,
+      forwardOwnerMcpGithubCandidateQuery],
+  ];
+  for (const [path,key,uuid,forward] of options) {
+    const query = new URLSearchParams({ordax_path:path,[key]:uuid});
+    assert.equal(forward(path,query),path+"?"+key+"="+uuid);
+    assert.equal(forward(path+"?"+key+"="+uuid,query),path+"?"+key+"="+uuid);
+    const capture = key === "client_id" ? "ordaxClientId"
+      : key === "device_id" ? "ordaxDeviceId" : "ordaxChallengeId";
+    const wildcard = path.slice("/account/".length);
+    const vercel = new URLSearchParams({ordax_path:path,[key]:uuid,
+      path:wildcard,[capture]:uuid});
+    assert.equal(forward(path,vercel),path+"?"+key+"="+uuid,
+      "valid Vercel route captures are transport metadata, never another grant");
+    assert.equal(forward(path,new URLSearchParams({ordax_path:path,[key]:uuid,
+      path:path,[capture]:uuid})),path+"?"+key+"="+uuid);
+    for(const forged of [
+      new URLSearchParams({ordax_path:path,[key]:uuid,path:"mcp/other",[capture]:uuid}),
+      new URLSearchParams({ordax_path:path,[key]:uuid,path:wildcard,[capture]:"11111111-1111-4111-8111-111111111111"}),
+      new URLSearchParams({ordax_path:path,[key]:uuid,path:wildcard,[capture]:uuid,owner_id:uuid}),
+      new URLSearchParams({ordax_path:path,[key]:uuid,path:wildcard,[capture]:uuid,
+        "request-path":"middleware"}),
+    ]) assert.equal(forward(path,forged),null,"unverified or unrelated route metadata must fail");
+    for (const bad of [
+      new URLSearchParams({ordax_path:path}),
+      new URLSearchParams({ordax_path:path,[key]:"not-a-uuid"}),
+      new URLSearchParams({ordax_path:path,[key]:uuid,owner_id:uuid}),
+      new URLSearchParams("ordax_path="+path+"&"+key+"="+uuid+"&"+key+"=11111111-1111-4111-8111-111111111111"),
+    ]) assert.equal(forward(path,bad),null);
+  }
+});
+
+test("missing Owner selector emits only bounded routing categories, never input values", async () => {
+  const original = console.warn;
+  const events = [];
+  console.warn = (...parts) => events.push(parts);
+  try {
+    const req = new Request(PUBLIC_ORIGIN +
+      "/api/account-proxy?ordax_path=%2Faccount%2Fmcp%2Fcentral-targets" +
+      "&untrusted_source=SENSITIVE_PRIVATE_INPUT_123", {
+        headers: {"x-forwarded-for":"203.0.113.15"},
+      });
+    const response = await proxyPublicAccountRequest(req,options());
+    assert.equal(response.status,404);
+    assert.equal(events.length,1);
+    assert.equal(events[0][0],"ordax.public_proxy.owner_query_denied");
+    const data = JSON.parse(events[0][1]);
+    assert.deepEqual(data,{
+      kind:"central",queryInRewrite:false,queryInEmbeddedPath:false,
+      unexpectedRewriteKey:true,repeatedRewritePath:false,
+      otherSelectorInRewrite:false,rewriteKeyCount:2,
+      hasWildcardCapture:false,hasNamedSelectorCapture:false,hasRequestPathMetadata:false,
+    });
+    assert.equal(JSON.stringify(events).includes("SENSITIVE_PRIVATE_INPUT_123"),false);
+    const arbitrary = await proxyPublicAccountRequest(
+      new Request(PUBLIC_ORIGIN + "/api/account-proxy?ordax_path=/account/unknown"),options());
+    assert.equal(arbitrary.status,404);
+    assert.equal(events.length,1,"do not log arbitrary user-supplied unknown routes");
+  } finally {
+    console.warn = original;
   }
 });
 

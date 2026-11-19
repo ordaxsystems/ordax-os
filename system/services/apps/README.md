@@ -186,7 +186,7 @@ Native metadata refresh is bounded and revocable: at most four `current` reads r
 
 The Store's informational **AI Models** section is not an app-catalog identity and must not synthesize an `appId` or reuse app lifecycle requests. Model metadata may be projected from the Local AI source lock and bounded hardware observations, but installation/update becomes authoritative only through a future signed component channel with its own verified state. Do not create a second Store, installer, trust root or updater for models.
 
-For Windows Desktop transport, the OS-side adapter boundary is documented in [`docs/STORE-WINDOWS-VERIFIED-CATALOG-BOUNDARY.md`](../../../docs/STORE-WINDOWS-VERIFIED-CATALOG-BOUNDARY.md). That transport consumes this service's verified projection and canonical component lifecycle; it does not own a parallel catalog or installed-state database.
+For Windows Desktop transport, the OS-side adapter boundary is documented in the canonical [Desktop adapter README](../../adapters/desktop/README.md). That transport consumes this service's verified projection and canonical component lifecycle; it does not own a parallel catalog or installed-state database.
 
 ## First-party utilities in the verified Store boundary
 

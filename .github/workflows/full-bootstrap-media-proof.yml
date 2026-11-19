@@ -17,18 +17,14 @@ on:
       - 'bootstrap/trust/**'
       - 'bootstrap/config/**'
       - 'bootstrap/entrypoint'
-      - 'tools/creator/core/**'
-      - 'tools/creator/cmd/ordax-creator/**'
       - 'tools/creator/assemble.py'
       - 'tools/creator/proof/**'
-      - 'tools/creator/go.mod'
-      - 'tools/creator/go.sum'
       - 'docs/contracts/minimal-bootstrap.json'
       - 'docs/contracts/physical-media.json'
       - '.github/workflows/full-bootstrap-media-proof.yml'
       - '.github/actions/resolve-creator-source/**'
       - 'docs/contracts/native-release-assembly.json'
-      - 'tests/test_creator_full_media_external_source.py'
+  # Test-only changes are validated by Foundation's Python suite on PRs e pushes de código.
   pull_request:
     types: [opened, synchronize, reopened, ready_for_review]
     paths:
@@ -45,18 +41,13 @@ on:
       - 'bootstrap/trust/**'
       - 'bootstrap/config/**'
       - 'bootstrap/entrypoint'
-      - 'tools/creator/core/**'
-      - 'tools/creator/cmd/ordax-creator/**'
       - 'tools/creator/assemble.py'
       - 'tools/creator/proof/**'
-      - 'tools/creator/go.mod'
-      - 'tools/creator/go.sum'
       - 'docs/contracts/minimal-bootstrap.json'
       - 'docs/contracts/physical-media.json'
       - '.github/workflows/full-bootstrap-media-proof.yml'
       - '.github/actions/resolve-creator-source/**'
       - 'docs/contracts/native-release-assembly.json'
-      - 'tests/test_creator_full_media_external_source.py'
   workflow_dispatch:
 
 permissions:

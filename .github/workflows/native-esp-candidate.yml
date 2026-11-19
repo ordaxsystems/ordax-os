@@ -17,16 +17,12 @@ on:
       - 'docs/contracts/native-qemu-boot-proof.json'
       - 'docs/contracts/native-initramfs-build-environment.json'
       - 'docs/contracts/storage-architecture.json'
-      - 'tools/creator/core/native_boot_entries.go'
-      - 'tools/creator/cmd/ordax-creator/**'
       - 'tools/creator/proof/native_esp.py'
       - 'tools/creator/proof/native_qemu_boot.py'
-      - 'tests/test_native_qemu_boot_readiness.py'
-      - 'tests/test_native_qemu_boot_proof_contract.py'
       - '.github/workflows/native-esp-candidate.yml'
       - '.github/actions/resolve-creator-source/**'
       - 'docs/contracts/native-release-assembly.json'
-      - 'tests/test_native_esp_proof_contract.py'
+  # Test-only changes are validated by Foundation's Python suite on PRs e pushes de código.
   pull_request:
     types: [opened, synchronize, reopened, ready_for_review]
     paths:
@@ -43,16 +39,11 @@ on:
       - 'docs/contracts/native-qemu-boot-proof.json'
       - 'docs/contracts/native-initramfs-build-environment.json'
       - 'docs/contracts/storage-architecture.json'
-      - 'tools/creator/core/native_boot_entries.go'
-      - 'tools/creator/cmd/ordax-creator/**'
       - 'tools/creator/proof/native_esp.py'
       - 'tools/creator/proof/native_qemu_boot.py'
-      - 'tests/test_native_qemu_boot_readiness.py'
-      - 'tests/test_native_qemu_boot_proof_contract.py'
       - '.github/workflows/native-esp-candidate.yml'
       - '.github/actions/resolve-creator-source/**'
       - 'docs/contracts/native-release-assembly.json'
-      - 'tests/test_native_esp_proof_contract.py'
   workflow_dispatch:
 
 permissions:

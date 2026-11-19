@@ -166,7 +166,7 @@
     "delete_only_after": [
       "studio-canonical-in-ordax-apps",
       "runtime-canonical-in-ordax-runtime",
-      "control-plane-canonical-in-ordax-control-plane",
+      "control-plane-canonical-in-ordax-platform",
       "production-and-windows-packaging-repointed",
       "chatgpt-control-plane-runtime-e2e-green",
       "no-functional-build-deploy-launch-reference"

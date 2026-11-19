@@ -321,6 +321,22 @@ de devices, GitHub installation ou estado de projeto paralelos.
 
 As rotas Owner gerais permanecem fechadas enquanto
 `ORDAX_MCP_OWNER_ACCOUNT_ENABLED` não estiver explicitamente em `1`.
+
+A publicação do **console de dispositivos MCP para contas existentes**, sem
+liberar Project/GitHub ou cadastro público, possui agora o input
+`owner_device_console_rollout=enable` no workflow manual
+`.github/workflows/ordax-account-gateway-destination.yml`. Esse input
+atualiza no **mesmo** Supabase canônico `ORDAX_MCP_OWNER_ACCOUNT_ENABLED=1`
+e `ORDAX_MCP_OWNER_CENTRAL_SELECTION_ENABLED=1`; `disable` recoloca ambos
+em 0, e `unchanged` preserva o estado real. Não modifica grants, JWT,
+instalação, Runtime, nem chaves de transporte. O workflow continua exigindo
+`approved_sha` igual à `main` atual e
+`release_confirmation=DEPLOY_ACCOUNT_GATEWAY_PRODUCTION`, seguido de
+prova autenticada pelo Owner do GET de dispositivos, seleção exata e atestação
+Device. O input `owner_project_rollout` continua independente; se ambos
+forem configurados, a decisão explícita de console é aplicada por último
+para o gate compartilhado.
+
 Seleção central exige também `ORDAX_MCP_OWNER_CENTRAL_SELECTION_ENABLED=1`;
 Project onboarding exige `ORDAX_MCP_OWNER_PROJECT_ONBOARDING_ENABLED=1`;
 o request de binding exige separadamente

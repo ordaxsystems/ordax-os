@@ -5,18 +5,24 @@ import {randomBytes,timingSafeEqual} from "node:crypto";
 export const DESKTOP_SURFACE_BRIDGE_PATH = "/__ordax/native/desktop-surface-state";
 export const DESKTOP_SURFACE_COMMAND_PATH = "/__ordax/native/desktop-surface-command";
 export const DESKTOP_SURFACE_RECEIPT_PATH = "/__ordax/native/desktop-surface-receipt";
+export const DESKTOP_PROJECT_LINKS_PATH = "/__ordax/native/desktop-project-links";
 const TOKEN = /^[0-9a-f]{64}$/;
 const APP_ID = /^[a-z][a-z0-9-]{0,63}$/;
 const REQUEST_ID = /^[0-9a-f]{32}$/;
+const LOCAL_PROJECT_ID = /^project-[1-9][0-9]*$/;
+const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/;
 const ALLOWED_NATIVE_APPS = new Set(["account","settings","system","store"]);
 const LOOPBACK = new Set(["127.0.0.1","::1","::ffff:127.0.0.1"]);
 const MAX_REPORT_BYTES = 512;
+const MAX_PROJECT_LINKS_BYTES = 16 * 1024;
+const MAX_PROJECT_LINKS = 32;
 const MAX_COMMAND_BYTES = 256;
 const MAX_AGE_MS = 15000;
 const COMMAND_DEADLINE_MS = 4500;
 const COMMAND_WAIT_MS = 1800; // Authenticated local-only command notification.
 const SCHEMA = "ordax.desktop-surface-state/1";
 const COMMAND_SCHEMA = "ordax.desktop-surface-command/1";
+const PROJECT_LINKS_SCHEMA = "ordax.desktop-project-links/1";
 
 export function createDesktopSurfaceRuntimeBridge({
   reportToken,runtimeToken,now=Date.now,onFirstReport=()=>{},
@@ -31,6 +37,8 @@ export function createDesktopSurfaceRuntimeBridge({
   let current=null;
   let receivedAt=0;
   let acceptedReportRevision=0;
+  let currentProjectLinks=null;
+  let projectLinksReceivedAt=0;
   let pending=null;
   let commandPollAuthenticated=false;
   let waitingCommandPoll=null;
@@ -49,6 +57,8 @@ export function createDesktopSurfaceRuntimeBridge({
       timingSafeEqual(key,Buffer.from(value,"hex"));
   };
   const fresh=()=>current&&(now()-receivedAt>=0)&&(now()-receivedAt<=MAX_AGE_MS);
+  const freshProjectLinks=()=>currentProjectLinks&&
+    (now()-projectLinksReceivedAt>=0)&&(now()-projectLinksReceivedAt<=MAX_AGE_MS);
   const readBody=async(request,maxBytes)=>{
     let size=0;
     const chunks=[];
@@ -66,11 +76,41 @@ export function createDesktopSurfaceRuntimeBridge({
   const strict=(data,schema,keys)=>data&&typeof data==="object"&&
     !Array.isArray(data)&&data.schema===schema&&
     Object.keys(data).every(k=>keys.includes(k));
+  const exact=(data,schema,keys)=>strict(data,schema,keys)&&
+    Object.keys(data).length===keys.length&&keys.every(key=>key in data);
+  const validatedProjectLinks=(data)=>{
+    if(!exact(data,PROJECT_LINKS_SCHEMA,["schema","persistence","links"])||
+       !["device","session"].includes(data.persistence)||
+       !Array.isArray(data.links)||data.links.length>MAX_PROJECT_LINKS)
+      return null;
+    // Session-backed links are never Runtime authority. The renderer may only
+    // use this form to withdraw a previously durable projection immediately.
+    if(data.persistence==="session")
+      return data.links.length===0?Object.freeze({persistence:"session",links:[]}):null;
+    const localIds=new Set(),cloudIds=new Set(),links=[];
+    for(const raw of data.links){
+      if(!raw||typeof raw!=="object"||Array.isArray(raw)||
+         Object.keys(raw).length!==3||
+         !["localProjectId","cloudProjectId","spaceId"].every(key=>key in raw)||
+         !LOCAL_PROJECT_ID.test(raw.localProjectId??"")||
+         !UUID.test(raw.cloudProjectId??"")||!UUID.test(raw.spaceId??"")||
+         localIds.has(raw.localProjectId)||cloudIds.has(raw.cloudProjectId))
+        return null;
+      localIds.add(raw.localProjectId);cloudIds.add(raw.cloudProjectId);
+      links.push(Object.freeze({
+        localProjectId:raw.localProjectId,
+        cloudProjectId:raw.cloudProjectId,
+        spaceId:raw.spaceId,
+      }));
+    }
+    return Object.freeze({persistence:"device",links:Object.freeze(links)});
+  };
 
   function middleware(request,response,next){
     const route=(request.url??"").split("?")[0];
     if(![DESKTOP_SURFACE_BRIDGE_PATH,DESKTOP_SURFACE_COMMAND_PATH,
-      DESKTOP_SURFACE_RECEIPT_PATH].includes(route))return next();
+      DESKTOP_SURFACE_RECEIPT_PATH,DESKTOP_PROJECT_LINKS_PATH].includes(route))
+      return next();
     if(request.url!==route||!LOOPBACK.has(request.socket?.remoteAddress))
       return reply(response,403,{error:"Native Surface bridge denied"});
     if(route===DESKTOP_SURFACE_BRIDGE_PATH){
@@ -101,6 +141,38 @@ export function createDesktopSurfaceRuntimeBridge({
         if(first)try{onFirstReport()}catch{}
         reply(response,200,{ok:true});
       })().catch(()=>reply(response,503,{error:"Surface report unavailable"}));
+      return;
+    }
+    if(route===DESKTOP_PROJECT_LINKS_PATH){
+      if(request.method==="GET"){
+        if(!auth(request,"x-ordax-product-bridge-token",runtimeKey))
+          return reply(response,401,{error:"Product Runtime grant required"});
+        if(!freshProjectLinks())
+          return reply(response,503,{error:"Durable Project links unavailable"});
+        return reply(response,200,currentProjectLinks);
+      }
+      if(request.method!=="POST")
+        return reply(response,405,{error:"Unsupported Project links bridge method"});
+      if(!auth(request,"x-ordax-surface-report-token",reportKey))
+        return reply(response,401,{error:"Surface reporter grant required"});
+      if(!jsonContent(request))return reply(response,415,{error:"Expected JSON"});
+      void(async()=>{
+        const {data,error}=await readBody(request,MAX_PROJECT_LINKS_BYTES);
+        if(error)return reply(response,error,{error:"Invalid Project links report"});
+        const accepted=validatedProjectLinks(data);
+        if(!accepted)return reply(response,400,{error:"Invalid Project links report"});
+        if(accepted.persistence!=="device"){
+          currentProjectLinks=null;
+          projectLinksReceivedAt=0;
+          return reply(response,200,{ok:true,state:"withdrawn"});
+        }
+        currentProjectLinks=Object.freeze({
+          schema:PROJECT_LINKS_SCHEMA,host:"ordax-desktop",
+          persistence:"device",links:accepted.links,
+        });
+        projectLinksReceivedAt=now();
+        return reply(response,200,{ok:true,state:"published"});
+      })().catch(()=>reply(response,503,{error:"Project links report unavailable"}));
       return;
     }
     if(route===DESKTOP_SURFACE_COMMAND_PATH&&request.method==="GET"){

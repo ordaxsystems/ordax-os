@@ -49,13 +49,33 @@ class SettingsCanonicalNavigationTests(unittest.TestCase):
         # Network tray remains the always-on owner; Settings must not duplicate reads
         # while another Settings section is selected.
         self.assertIn('findSlot()?.closest(SETTINGS_WINDOW_SELECTOR)', controls)
-        self.assertIn('activeSection !== "network" || !windowNode', controls)
+        # The same visibility gate can be expressed inline or through the
+        # canonical networkWindowIsActive helper; both stop background reads.
+        legacy_gate = 'activeSection !== "network" || !windowNode' in controls
+        focused_gate = (
+            "const networkWindowIsActive = () =>" in controls
+            and 'activeSection === "network" && windowNode' in controls
+            and '!windowNode.hidden && windowNode.dataset.active === "true"' in controls
+            and "if (!networkWindowIsActive()) return;" in controls
+            and "Boolean(networkWindowIsActive())" in controls
+        )
+        self.assertTrue(legacy_gate or focused_gate)
         self.assertIn('windowNode.hidden', controls)
         self.assertIn('windowNode.dataset.active !== "true"', controls)
         self.assertIn("setInterval(refreshActiveNetwork, 5000)", controls)
         self.assertEqual(controls.count("setInterval(refreshActiveNetwork, 5000)"), 1)
         self.assertNotIn("networkManagementPoll", controls)
-        self.assertIn("if (sectionChanged) refreshActiveNetwork()", controls)
+        # Entering Network must immediately read the canonical ports, either
+        # through the previous explicit section change or the scoped poll
+        # activation path. Do not require an outdated source spelling.
+        old_initial_refresh = "if (sectionChanged) refreshActiveNetwork()" in controls
+        active_poll_refresh = (
+            "renderView(sectionChanged);\n    syncNetworkPoll();" in controls
+            and "if (shouldPoll && networkPoll === null) {" in controls
+            and "networkPoll = setInterval(refreshActiveNetwork, 5000)" in controls
+            and "refreshActiveNetwork();" in controls
+        )
+        self.assertTrue(old_initial_refresh or active_poll_refresh)
         self.assertIn("networkReadInFlight", controls)
         self.assertIn("networkManagementReadInFlight", controls)
         self.assertIn("networkReadInFlight = false", controls)

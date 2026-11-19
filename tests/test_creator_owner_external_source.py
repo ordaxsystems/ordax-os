@@ -21,12 +21,18 @@ class CreatorOwnerExternalSourceTests(unittest.TestCase):
         w = self.workflow
         self.assertEqual(self.source["repository"], "ordaxsystems/ordax-creator")
         self.assertEqual(self.source["publisher_authority"], "ordaxsystems/ordax-os")
+        self.assertEqual(self.source["windows_app_publisher"], "ordaxsystems/ordax-creator")
         self.assertIs(self.source["physical_apply_authorized"], False)
         self.assertEqual(w.count("uses: ./.github/actions/resolve-creator-source"), 1)
         self.assertIn('git -C "$creator" rev-parse HEAD', w)
         self.assertIn("rev-parse 'HEAD^{tree}'", w)
         self.assertIn('ORDAX_OS_CONTRACTS_DIR="$GITHUB_WORKSPACE/docs/contracts" go test', w)
-        self.assertIn('pushd "$ORDAX_CREATOR_NATIVE_SOURCE"', w)
+        self.assertIn('creator="${ORDAX_CREATOR_NATIVE_SOURCE:?missing independent Creator source}"', w)
+        self.assertIn('cd "$creator"', w)
+        self.assertIn('go build -trimpath -buildvcs=false -ldflags=\'-s -w\'', w)
+        self.assertIn('-o "$RUNNER_TEMP/owner-creator-cli/ordax-creator" ./cmd/ordax-creator', w)
+        self.assertNotIn('GOOS=windows', w)
+        self.assertNotIn('OrdaX-Creator.exe', w)
         self.assertNotIn("cd tools/creator && go test", w)
         self.assertNotIn("pushd tools/creator", w)
         self.assertNotIn("go run ./cmd/ordax-creator", w)
@@ -46,9 +52,9 @@ class CreatorOwnerExternalSourceTests(unittest.TestCase):
         self.assertIn("invalid independently pinned Creator version", w)
         self.assertIn('ORDAX_CREATOR_PRODUCT_VERSION', w)
         self.assertNotIn("tools/creator/version.json", w)
-        self.assertIn("'creator_source_repository': os.environ['ORDAX_CREATOR_SOURCE_REPOSITORY']", w)
-        self.assertIn("'creator_source_commit': os.environ['ORDAX_CREATOR_SOURCE_COMMIT']", w)
-        self.assertIn("'creator_source_tree': os.environ['ORDAX_CREATOR_SOURCE_TREE']", w)
+        self.assertIn("'assembly_creator_source_commit': os.environ['ORDAX_CREATOR_SOURCE_COMMIT']", w)
+        self.assertIn("'source_repository': 'ordaxsystems/ordax-os'", w)
+        self.assertIn("'source_commit': os.environ['ORDAX_OWNER_SOURCE_COMMIT']", w)
 
 
     def test_visual_only_surface_updates_do_not_require_creator_usb_build(self):
@@ -93,13 +99,12 @@ class CreatorOwnerExternalSourceTests(unittest.TestCase):
             "bash tools/creator/owner_dev_stage.sh",
             "tools/creator/owner_dev_raw.py",
             "tools/creator/proof/owner_qemu_offline_boot.py",
-            "tools/creator/verify_owner_dev_bundle.py",
+            "tools/creator/verify_owner_dev_media.py",
             "system/services/surface-source/owner-stage.sh ready",
-            "gh release upload creator-owner-prototype",
+            "Publish verified OS media for independent Creator owner",
             "if: github.event_name == 'push' && github.ref == 'refs/heads/main'",
-            "-tags 'ordax_raw_backend'",
-            "-tags 'ordax_owner_prototype'",
-            "-X main.buildStorageProfile=owner-development",
+            "OWNER_CREATOR_BINARY_BUILT_IN_OS=NO",
+            "OWNER_CREATOR_WINDOWS_RELEASE_OWNED_BY=ordaxsystems/ordax-creator",
         ):
             self.assertIn(marker, w)
         for marker in (
@@ -109,7 +114,8 @@ class CreatorOwnerExternalSourceTests(unittest.TestCase):
         ):
             self.assertIn(marker, self.stage)
         self.assertIn("tools/creator/proof/disposable_media.py", self.raw)
-        self.assertEqual(w.count("gh release upload creator-owner-prototype"), 1)
+        self.assertEqual(w.count("gh release upload creator-owner-prototype"), 0)
+        self.assertNotIn("go build -trimpath -buildvcs=false \\\n              -tags 'ordax_owner_prototype", w)
         self.assertIn(".github/actions/resolve-creator-source/**", w)
         self.assertIn("docs/contracts/native-release-assembly.json", w)
 

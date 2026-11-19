@@ -4,7 +4,7 @@ import { join } from "node:path";
 import { randomUUID, timingSafeEqual, randomBytes } from "node:crypto";
 import { readDesktopNetworkStatus } from "../../system/adapters/desktop/network-status.mjs";
 import { readDesktopSystemMetrics } from "../../system/adapters/desktop/system-metrics.mjs";
-import { readDesktopPowerStatus } from "../../system/adapters/desktop/power-status.mjs";
+import { createDesktopPowerStatusObservation } from "../../system/adapters/desktop/power-status.mjs";
 import { readDesktopUpdateStatus, readDesktopUpdateHistory } from "../../system/adapters/desktop/update-observation.mjs";
 import { readDesktopRecovery } from "../../system/adapters/desktop/recovery-observation.mjs";
 import { createDesktopBuiltAssetsMiddleware } from "./desktop-built-assets.mjs";
@@ -204,7 +204,7 @@ export function createEmulatorNativeHost({
 // diagnostics. A malformed SHA must never become an HMR exemption.
 export function selectDesktopDiagnosticSessionMode({
   desktopHost=false, platform=process.platform, userData="",
-  renderedSha="", localDevelopment=false, assetsRoot="",
+  renderedSha="", unversionedSourceSession=false, assetsRoot="",
 }={}) {
   if(!desktopHost || platform!=="win32" ||
      typeof userData!=="string" || !userData ||
@@ -212,7 +212,7 @@ export function selectDesktopDiagnosticSessionMode({
   if(/^[0-9a-f]{40}$/.test(renderedSha))return Object.freeze({
     sourceSha:renderedSha,allowUnversionedDevelopmentSession:false,
   });
-  if(renderedSha==="" && localDevelopment===true && !assetsRoot)return Object.freeze({
+  if(renderedSha==="" && unversionedSourceSession===true && !assetsRoot)return Object.freeze({
     sourceSha:null,allowUnversionedDevelopmentSession:true,
   });
   return null;
@@ -223,6 +223,11 @@ export function nativeEmulatorPlugin(stateDirectory, { desktopHost = false, acco
     name: "ordax-native-emulator-host",
     configureServer(server) {
       const userData=process.env.ORDAX_DESKTOP_UPDATE_USER_DATA;
+      const powerObservation=process.platform==="win32"
+        ? createDesktopPowerStatusObservation():null;
+      // Start the exact Windows provider during Native bootstrap, before
+      // Surface's first read. No persistent helper or duplicate authority.
+      if(desktopHost)powerObservation?.warm();
       const localSession=desktopHost && process.platform==="win32" && userData
         ? createDesktopLocalSessionMiddleware(userData, {
             token:process.env.ORDAX_DESKTOP_LOCAL_SESSION_TOKEN,
@@ -232,7 +237,8 @@ export function nativeEmulatorPlugin(stateDirectory, { desktopHost = false, acco
       const diagnosticMode=selectDesktopDiagnosticSessionMode({
         desktopHost,platform:process.platform,userData,
         renderedSha:process.env.ORDAX_DESKTOP_RENDERED_SOURCE_SHA??"",
-        localDevelopment:process.env.ORDAX_DESKTOP_LOCAL_DEV==="1",
+        unversionedSourceSession:
+          process.env.ORDAX_DESKTOP_UNVERSIONED_SOURCE_SESSION==="1",
         assetsRoot:process.env.ORDAX_DESKTOP_ASSETS_ROOT??"",
       });
       const diagnostics=diagnosticMode
@@ -405,14 +411,17 @@ export function nativeEmulatorPlugin(stateDirectory, { desktopHost = false, acco
           // A Vite config reload closes this HTTP server without exiting
           // the Node host. Its old Runtime must end before a new owner starts.
           server.httpServer?.once?.("close",stopProductRuntime);
-          server.middlewares.use((request,response,next) => {
+          server.middlewares.use(async (request,response,next) => {
             if (request.url?.split("?")[0]!=="/__ordax/native/product-runtime-status")
               return next();
             // The preceding shared observation middleware already verified
             // loopback, the per-launch Electron grant, GET and exact URL.
+            // Observe the SAME supervised Runtime's launch-bound loopback
+            // readiness; never infer a Platform binding from process presence.
+            const observation=await productRuntime.observe().catch(()=>productRuntime.status());
             response.writeHead(200,{"Content-Type":"application/json",
               "Cache-Control":"no-store","X-Content-Type-Options":"nosniff"});
-            response.end(JSON.stringify(productRuntime.status()));
+            response.end(JSON.stringify(observation));
           });
         }
         // Genuine Windows host observation under the canonical Native port.
@@ -438,10 +447,14 @@ export function nativeEmulatorPlugin(stateDirectory, { desktopHost = false, acco
               return;
             }
             if (path === "/__ordax/native/power-status") {
-              void readDesktopPowerStatus().then(respond).catch(() => {
-                response.statusCode = 503;
-                response.end(JSON.stringify({error:"Windows power status unavailable"}));
-              });
+              void (powerObservation?.read() ?? Promise.reject(
+                new Error("Windows power provider requires Windows")))
+                .then(respond).catch(error => {
+                  console.warn("runtime: Windows power status unavailable: "+
+                    String(error?.message??"unknown"));
+                  response.statusCode = 503;
+                  response.end(JSON.stringify({error:"Windows power status unavailable"}));
+                });
               return;
             }
             if (path === "/__ordax/native/metrics") {

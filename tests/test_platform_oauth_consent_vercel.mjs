@@ -81,3 +81,24 @@ test("Vercel has exactly one first-party OAuth consent rewrite, isolated from ac
   assert.ok(config.rewrites.some(x=>x.source==="/auth/:path*"));
   assert.ok(config.rewrites.some(x=>x.source==="/account/:path*"));
 });
+
+test("OAuth workflow watches shared account origin on both PR and main push", async () => {
+  const workflow = (await readFile(
+    new URL("../.github/workflows/platform-oauth-consent.yml", import.meta.url), "utf8"
+  )).replaceAll("\r\n", "\n");
+  const source = await readFile(new URL("../api/oauth-consent.mjs", import.meta.url), "utf8");
+  assert.match(
+    source,
+    /import \{ PUBLIC_ACCOUNT_ORIGIN \} from "\.\.\/infra\/supabase\/functions\/_shared\/account_email_confirmation\.mjs"/
+  );
+  const pr = workflow.split("  pull_request:\n    paths:\n")[1]?.split("  push:\n")[0];
+  const push = workflow.split("  push:\n    branches: [main]\n    paths:\n")[1]?.split("  workflow_dispatch:\n")[0];
+  assert.ok(pr && push, "both PR and main push must be defined");
+  const paths = (block) => block.split("\n").map((line) => line.trim()).filter((line) => line.startsWith("- "));
+  assert.deepEqual(paths(pr), paths(push), "shared OAuth dependencies must trigger on both events");
+  assert.ok(paths(push).includes(
+    '      - "infra/supabase/functions/_shared/account_email_confirmation.mjs"'.trim()
+  ));
+  assert.match(workflow, /node --test tests\/test_platform_oauth_consent_vercel\.mjs/);
+  assert.match(workflow, /python -m unittest tests\.test_live_oauth_consent_probe/);
+});

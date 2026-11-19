@@ -213,6 +213,9 @@ test("Linux still probes display at bootstrap and Windows scope is explicit", as
   const {readFileSync}=await import("node:fs");
   const composition=readFileSync(new URL("../system/composition/native/main.mjs",import.meta.url),"utf8");
   assert.match(composition,/createNativeDisplayOutputs\(window, \{\s*deferInitialRead: windowsDesktopHost,/);
+  assert.match(composition,
+    /windowsDesktopHost \? Promise\.resolve\(null\) : optionalNativeProbe\(\s*"OrdaX native audio output controls unavailable"/,
+    "Windows must not probe the Linux-only audio provider");
   assert.ok(!composition.includes("setInterval(() => createNativeDisplayOutputs"),
     "display bootstrap must not introduce a second polling owner");
 });

@@ -23,6 +23,9 @@ RESOLVER_ROOT=${ORDAX_RUNTIME_RESOLVER_ROOT:-}
 RESOLVER_LOG=${ORDAX_RUNTIME_RESOLVER_LOG:-$SESSION_DIR/network-broker.log}
 AUTO_CONNECT_PAUSED=$STATE_DIR/autoconnect-paused
 RECONNECT_INTERVAL=15
+AUTO_RECOVERY_ACTIVE=0
+# Give real WPA2 access points time to finish authentication before DHCP.
+WIFI_HANDSHAKE_ATTEMPTS=18
 
 umask 077
 mkdir -p "$STATE_DIR" "$SESSION_DIR"
@@ -33,6 +36,10 @@ IW_BIN=$(command -v iw || true)
 WPA_BIN=$(command -v wpa_supplicant || true)
 WPA_CLI_BIN=$(command -v wpa_cli || true)
 UDHCPC_BIN=$(command -v udhcpc || true)
+# The Base owns one DHCP lease/route/DNS implementation. Never fall back to
+# BusyBox's build-dependent default.script for Surface Wi-Fi or wired renewal.
+DHCP_SCRIPT=/ordax/bootstrap/network/udhcpc.script
+DHCP_NETBOX=/ordax/bootstrap/network/bin/netbox
 
 [ -n "$IP_BIN" ] && [ -n "$UDHCPC_BIN" ] || {
     echo "ordax-network-broker: IP/DHCP host tools are unavailable" >&2
@@ -144,7 +151,12 @@ stop_wifi() {
 wait_for_wifi_link() {
     wifi=$1
     attempts=0
-    while [ "$attempts" -lt 8 ]; do
+    while [ "$attempts" -lt "$WIFI_HANDSHAKE_ATTEMPTS" ]; do
+        # The single broker must service a queued user request before waiting
+        # for an unattended WPA handshake. Never interrupt explicit connect.
+        if [ "$AUTO_RECOVERY_ACTIVE" -eq 1 ] && [ -s "$REQUEST" ]; then
+            return 1
+        fi
         # Association alone is not authentication; DHCP waits for WPA.
         if "$WPA_CLI_BIN" -p "$WPA_CTRL_DIR" -i "$wifi" status 2>/dev/null |
            /bin/busybox grep -q '^wpa_state=COMPLETED$'; then
@@ -186,6 +198,9 @@ restore_wired_network_if_needed() {
             [ "$carrier" = 1 ] || continue
         fi
         if try_dhcp "$iface"; then
+            # The Native chroot keeps its own resolver snapshot. A wired
+            # reconnection must refresh it just like a Wi-Fi reconnection.
+            sync_runtime_resolver
             return 0
         fi
     done
@@ -195,7 +210,8 @@ restore_wired_network_if_needed() {
 try_dhcp() {
     wifi=$1
     "$IP_BIN" link set "$wifi" up >/dev/null 2>&1 || return 1
-    /bin/busybox timeout -k 1 8 "$UDHCPC_BIN" -n -q -t 2 -T 2 -i "$wifi" >/dev/null 2>&1 || return 1
+    [ -x "$DHCP_SCRIPT" ] || return 1
+    /bin/busybox timeout -k 1 8 "$UDHCPC_BIN" -n -q -t 2 -T 2 -i "$wifi" -s "$DHCP_SCRIPT" >/dev/null 2>&1 || return 1
     have_ipv4 "$wifi"
 }
 
@@ -213,12 +229,28 @@ sync_runtime_resolver() {
 connect_conf() {
     wifi=$1
     conf=$2
+    connect_failure_reason=authentication-failed
     [ -s "$conf" ] || return 1
-    stop_wifi "$wifi" || return 1
-    mkdir -p "$WPA_CTRL_DIR" || return 1
-    chmod 700 "$WPA_CTRL_DIR"
-    "$WPA_BIN" -B -P"$WPA_PID_FILE" -O"$WPA_CTRL_DIR" -i "$wifi" -c "$conf" >/dev/null 2>&1 || return 1
+    # A missing canonical DHCP component must not tear down an already
+    # authenticated WPA session. Check before stopping the current owner.
+    if [ ! -x "$DHCP_SCRIPT" ] || [ ! -x "$DHCP_NETBOX" ]; then
+        connect_failure_reason=dhcp-runtime-unavailable
+        return 1
+    fi
+    if ! stop_wifi "$wifi"; then
+        connect_failure_reason=network-owner-unavailable
+        return 1
+    fi
+    if ! mkdir -p "$WPA_CTRL_DIR" || ! chmod 700 "$WPA_CTRL_DIR"; then
+        connect_failure_reason=supplicant-start-failed
+        return 1
+    fi
+    if ! "$WPA_BIN" -B -P"$WPA_PID_FILE" -O"$WPA_CTRL_DIR" -i "$wifi" -c "$conf" >/dev/null 2>&1; then
+        connect_failure_reason=supplicant-start-failed
+        return 1
+    fi
     if ! wait_for_wifi_link "$wifi"; then
+        connect_failure_reason=authentication-failed
         stop_wifi "$wifi" || true
         return 1
     fi
@@ -227,8 +259,19 @@ connect_conf() {
     # the SAME runtime resolver immediately, without restarting or simulating
     # an Account provider.
     if ! try_dhcp "$wifi"; then
+        # DHCP may time out because the WPA association disappeared during
+        # lease acquisition. Do not misdiagnose a lost wireless link as a
+        # DHCP-server failure (same rule as the canonical first-run CLI).
+        if "$WPA_CLI_BIN" -p "$WPA_CTRL_DIR" -i "$wifi" status 2>/dev/null |
+            /bin/busybox grep -q '^wpa_state=COMPLETED$'; then
+            connect_failure_reason=dhcp-failed
+        else
+            connect_failure_reason=authentication-failed
+        fi
+        stop_wifi "$wifi" || true
         return 1
     fi
+    connect_failure_reason=""
     sync_runtime_resolver
     return 0
 }
@@ -263,6 +306,17 @@ restore_saved_network_if_needed() {
         return 1
     fi
     restore_saved_network "$wifi"
+}
+
+# Keep the one existing reconnect scheduler, but do not let its unattended
+# WPA handshake starve a queued first-use status/scan/connect request. The
+# Native host owns REQUEST lifecycle; the broker only checks its presence.
+auto_restore_saved_network_if_needed() {
+    AUTO_RECOVERY_ACTIVE=1
+    if [ ! -s "$REQUEST" ]; then
+        restore_saved_network_if_needed >/dev/null 2>&1 || true
+    fi
+    AUTO_RECOVERY_ACTIVE=0
 }
 
 valid_hex() {
@@ -348,13 +402,19 @@ handle_request() {
                 capture_saved_ssid
                 respond "$request_id" ok "$wifi" connected
             else
+                # Keep this attempt's reason even if restoring a saved network
+                # changes the broker's shared connection state.
+                failure_reason=$connect_failure_reason
+                [ -n "$failure_reason" ] || failure_reason=connect-failed
                 rm -f "$CANDIDATE"
-                if [ ! -e "$AUTO_CONNECT_PAUSED" ]; then
-                    restore_saved_network_if_needed >/dev/null 2>&1 || true
-                fi
+                # Report the true failure before potentially slow saved-network
+                # recovery so the Native HTTP timeout never hides WPA/DHCP errors.
                 capture_link "$wifi"
                 capture_saved_ssid
-                respond "$request_id" error "$wifi" connect-failed
+                respond "$request_id" error "$wifi" "$failure_reason"
+                if [ ! -e "$AUTO_CONNECT_PAUSED" ]; then
+                    auto_restore_saved_network_if_needed
+                fi
             fi
             ;;
         disconnect)
@@ -394,10 +454,18 @@ handle_request() {
             respond "$request_id" ok "$wifi" forgotten
             ;;
         reconnect)
+            # Without an actual saved credential, there is nothing to restore.
+            # Do not unpause the network or read an unset failure reason:
+            # under set -u that would terminate the single Wi-Fi broker.
+            if [ ! -s "$WPA_CONF" ] || [ -L "$WPA_CONF" ]; then
+                respond "$request_id" error "$wifi" saved-network-unavailable
+                return 0
+            fi
             if ! rm -f "$AUTO_CONNECT_PAUSED" || ! /bin/busybox sync; then
                 respond "$request_id" error "$wifi" reconnect-state-failed
                 return 0
             fi
+            connect_failure_reason=reconnect-failed
             if restore_saved_network_if_needed; then
                 capture_link "$wifi"
                 capture_saved_ssid
@@ -405,7 +473,7 @@ handle_request() {
             else
                 capture_link "$wifi"
                 capture_saved_ssid
-                respond "$request_id" error "$wifi" reconnect-failed
+                respond "$request_id" error "$wifi" "${connect_failure_reason:-reconnect-failed}"
             fi
             ;;
         *)
@@ -417,7 +485,7 @@ handle_request() {
 exec 9<>"$CONTROL"
 # Boot and reconnect reuse this IPC owner, never a parallel WPA daemon.
 restore_wired_network_if_needed >/dev/null 2>&1 || true
-restore_saved_network_if_needed >/dev/null 2>&1 || true
+auto_restore_saved_network_if_needed
 sync_runtime_resolver
 while :; do
     signal=""
@@ -425,6 +493,6 @@ while :; do
         [ "$signal" = request ] && handle_request
     else
         restore_wired_network_if_needed >/dev/null 2>&1 || true
-        restore_saved_network_if_needed >/dev/null 2>&1 || true
+        auto_restore_saved_network_if_needed
     fi
 done

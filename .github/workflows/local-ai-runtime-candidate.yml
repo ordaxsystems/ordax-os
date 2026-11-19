@@ -22,10 +22,8 @@ on:
       - '!tools/release-signing/promote_public_trust.py'
       - '!tools/release-signing/cmd/ordax-physical-release-signing/**'
       - '!tools/release-signing/README.md'
-      - 'tests/test_portable_v4_real_materialization_contract.py'
-      - 'tests/test_local_ai_contract.py'
-      - 'tests/test_local_ai_runtime_builder.py'
       - '.github/workflows/local-ai-runtime-candidate.yml'
+  # Test-only changes are validated by Foundation's Python suite on PRs de código.
   workflow_dispatch:
 
 permissions:

@@ -14,33 +14,37 @@ repo="$GITHUB_REPOSITORY"
 command -v gh >/dev/null || { echo 'GitHub CLI is required for artifact reuse' >&2; exit 1; }
 scratch=$(mktemp -d "$RUNNER_TEMP/ordax-surface-handoff.XXXXXXXX")
 trap 'rm -rf -- "$scratch"' EXIT
-gh api --method GET "repos/$repo/actions/workflows/independent-surface-runtime.yml/runs" \
-  -f branch="$branch" -f event=workflow_dispatch -f per_page=100 > "$scratch/runs.json"
-python3 - "$scratch/runs.json" "$commit" "$branch" "$repo" > "$scratch/candidates" <<'PY'
+gh api --method GET "repos/$repo/actions/workflows/independent-surface-runtime.yml/runs"   -f event=workflow_dispatch -f per_page=100 > "$scratch/runs.json"
+python3 - "$scratch/runs.json" "$branch" "$repo" > "$scratch/candidates" <<'PY'
 import json
 from pathlib import Path
 import re
-import subprocess
 import sys
 
-source, commit, branch, repo = sys.argv[1:]
+source, preferred_branch, repo = sys.argv[1:]
 items = json.loads(Path(source).read_text(encoding="utf-8"))["workflow_runs"]
+candidates = []
 for item in items:
     sha = item.get("head_sha", "")
     if not isinstance(sha, str) or not re.fullmatch(r"[0-9a-f]{40}", sha):
         continue
-    if item.get("head_branch") != branch or item.get("event") != "workflow_dispatch":
+    if item.get("event") != "workflow_dispatch":
         continue
     if (item.get("head_repository") or {}).get("full_name") != repo:
         continue
-    if item.get("status") not in ("in_progress", "completed"):
-        continue
-    if subprocess.run(["git", "merge-base", "--is-ancestor", sha, commit],
-                      stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL).returncode:
+    if item.get("status") != "completed" or item.get("conclusion") != "success":
         continue
     run_id = item.get("id")
     if type(run_id) is int and run_id > 0:
-        print(run_id)
+        candidates.append((item.get("head_branch") == preferred_branch, run_id))
+
+# Prefer the caller's branch when available, but permit a trusted manual
+# producer from another branch after squash/merge. Acceptance is decided only
+# by the content-addressed verifier below against current inputs/environment.
+for preferred in (True, False):
+    for same_branch, run_id in candidates:
+        if same_branch is preferred:
+            print(run_id)
 PY
 while IFS= read -r run_id; do
   name="ordax-independent-surface-runtime-$run_id"

@@ -131,13 +131,33 @@ def sha256_file(path: Path) -> str:
     return digest.hexdigest()
 
 
+def _redirected_path(path: Path) -> bool:
+    # Inspect the leaf and its parents before resolve() can hide redirects.
+    # An uninspectable Windows mount is unsafe, not a valid cache authority.
+    if ".." in path.parts:
+        return True
+    for candidate in (path, *path.parents):
+        try:
+            if candidate.is_symlink() or getattr(candidate, "is_junction", lambda: False)():
+                return True
+        except OSError:
+            return True
+    return False
+
+
+def _verified_output_dir(path: Path) -> Path:
+    if _redirected_path(path) or not path.is_dir():
+        raise CacheError("component output directory is missing or unsafe")
+    return path.resolve()
+
+
 def _safe_repo_path(root: Path, relative: str) -> Path:
     if not isinstance(relative, str) or not relative or Path(relative).is_absolute():
         raise CacheError(f"unsafe repository input path: {relative!r}")
     root = root.resolve()
     lexical = root / relative
-    if lexical.is_symlink():
-        raise CacheError(f"component input must not be a symlink: {relative}")
+    if _redirected_path(lexical):
+        raise CacheError(f"component input must not be a symlink, junction or unsafe path: {relative}")
     path = lexical.resolve()
     if path != root and root not in path.parents:
         raise CacheError(f"repository input escapes root: {relative}")
@@ -145,7 +165,7 @@ def _safe_repo_path(root: Path, relative: str) -> Path:
 
 
 def _add_input(files: dict[str, Path], root: Path, path: Path) -> None:
-    if path.is_symlink() or not path.is_file():
+    if _redirected_path(path) or not path.is_file():
         try:
             relative = path.relative_to(root).as_posix()
         except ValueError:
@@ -169,9 +189,9 @@ def _iter_input_files(root: Path, component: str) -> list[Path]:
         if not path.is_dir():
             raise CacheError(f"component input is missing: {relative}")
         for candidate in sorted(path.rglob("*"), key=lambda item: item.as_posix()):
-            if candidate.is_symlink():
+            if _redirected_path(candidate):
                 raise CacheError(
-                    f"component input tree contains symlink: {candidate.relative_to(root).as_posix()}"
+                    f"component input tree contains symlink or junction: {candidate.relative_to(root).as_posix()}"
                 )
             if not candidate.is_file():
                 continue
@@ -249,15 +269,13 @@ def component_fingerprint(component: str, root: Path = ROOT) -> str:
 
 
 def _artifact_entries(out_dir: Path) -> dict[str, dict[str, object]]:
-    if out_dir.is_symlink():
-        raise CacheError("component output directory must not be a symlink")
-    out_dir = out_dir.resolve()
+    out_dir = _verified_output_dir(out_dir)
     if not out_dir.is_dir():
         raise CacheError("component output directory is missing or unsafe")
     result: dict[str, dict[str, object]] = {}
     for path in sorted(out_dir.rglob("*"), key=lambda item: item.as_posix()):
-        if path.is_symlink():
-            raise CacheError(f"component output contains symlink: {path}")
+        if _redirected_path(path):
+            raise CacheError(f"component output contains symlink or junction: {path}")
         if not path.is_file() or path.name == CACHE_MANIFEST:
             continue
         relative = path.relative_to(out_dir).as_posix()
@@ -295,7 +313,7 @@ def _verify_hardware_base_payload(out_dir: Path, provenance: dict, component: st
         expected = declared.get(name)
         path = out_dir / name
         if (not isinstance(expected, str) or SHA256_RE.fullmatch(expected) is None
-                or path.is_symlink() or not path.is_file()
+                or _redirected_path(path) or not path.is_file()
                 or sha256_file(path) != expected):
             raise CacheError(f"cached hardware base provenance artifact mismatch: {name}")
 
@@ -305,7 +323,7 @@ def _component_provenance_commit(component: str, out_dir: Path) -> str | None:
     if name is None:
         return None
     path = out_dir / name
-    if path.is_symlink() or not path.is_file():
+    if _redirected_path(path) or not path.is_file():
         raise CacheError(f"component provenance is missing or unsafe: {name}")
     try:
         provenance = json.loads(path.read_text(encoding="utf-8"))
@@ -318,9 +336,7 @@ def _component_provenance_commit(component: str, out_dir: Path) -> str | None:
 
 def record_component(component: str, out_dir: Path, source_commit: str, root: Path = ROOT) -> dict:
     source_commit = _exact_commit(source_commit, "source commit")
-    if out_dir.is_symlink():
-        raise CacheError("component output directory must not be a symlink")
-    out_dir = out_dir.resolve()
+    out_dir = _verified_output_dir(out_dir)
     provenance_commit = _component_provenance_commit(component, out_dir)
     if provenance_commit is not None and provenance_commit != source_commit:
         raise CacheError("fresh component provenance is not bound to the exact source commit")
@@ -342,7 +358,7 @@ def record_component(component: str, out_dir: Path, source_commit: str, root: Pa
 
 def _load_manifest(out_dir: Path) -> dict:
     path = out_dir.resolve() / CACHE_MANIFEST
-    if path.is_symlink() or not path.is_file():
+    if _redirected_path(path) or not path.is_file():
         raise CacheError("component cache manifest is missing or unsafe")
     try:
         value = json.loads(path.read_text(encoding="utf-8"))
@@ -363,9 +379,7 @@ def verify_component(
     root: Path = ROOT,
 ) -> dict:
     integration_commit = _exact_commit(integration_commit, "integration commit")
-    if out_dir.is_symlink():
-        raise CacheError("component output directory must not be a symlink")
-    out_dir = out_dir.resolve()
+    out_dir = _verified_output_dir(out_dir)
     manifest = _load_manifest(out_dir)
     if manifest.get("component") != component:
         raise CacheError("cached component identity mismatch")
@@ -414,6 +428,8 @@ def verify_component(
         "artifacts": actual,
         "provenance_rewritten": False,
     }
+    if _redirected_path(receipt):
+        raise CacheError("component receipt destination is unsafe")
     receipt = receipt.resolve()
     receipt.parent.mkdir(parents=True, exist_ok=True)
     receipt.write_text(json.dumps(receipt_value, indent=2, sort_keys=True) + "\n", encoding="utf-8")

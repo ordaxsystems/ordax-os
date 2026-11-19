@@ -1,5 +1,15 @@
 // Native CURRENT remains the only installation authority. The Store subscription
 // is a notification, never a substitute for re-reading the verified slot.
+// Both cold boot and subsequent refresh must treat partially mounted verified
+// CURRENT apps as retryable, never as a fully reconciled signed observation.
+export function hasUnreconciledVerifiedCurrentMounts(installed, mountedIds) {
+  if (!Array.isArray(installed) || !(mountedIds instanceof Set)
+    || installed.some(entry => !entry || typeof entry.component?.id !== "string")) {
+    throw new TypeError("Verified CURRENT reconciliation requires canonical installed entries and mounted IDs");
+  }
+  return installed.some(entry => !mountedIds.has(entry.component.id));
+}
+
 export function createNativeVerifiedInstalledAppRefresh({
   initialMounts = null,
   discover, createCatalog, mount, publish, onError = null,
@@ -69,7 +79,7 @@ export function createNativeVerifiedInstalledAppRefresh({
       // Keep other verified mounts visible, but do not cache this generation
       // as fully reconciled: a subsequent signed observation must retry it.
       if (!destroyed && request === generation
-        && verified.installed.some(entry => !mountedIds.has(entry.component.id))) {
+        && hasUnreconciledVerifiedCurrentMounts(verified.installed, mountedIds)) {
         onError?.(new Error("One or more verified CURRENT apps could not be mounted"));
       }
     }).catch((error) => {

@@ -73,6 +73,9 @@ class OwnerQemuHandoffTests(unittest.TestCase):
         self.assertTrue(PROOF.observed(PROOF.MARKER_VIRTIO_WEBKIT, "a" * 40)["virtual_drm_transport_selected"])
         callbacks = "\n".join(PROOF.WEBKIT_EVENT_PREFIX + event for event in PROOF.WEBKIT_LOAD_ORDER)
         self.assertTrue(PROOF.observed(callbacks, "a" * 40)["privileged_webkit_page_loaded"])
+        self.assertFalse(PROOF.observed(callbacks, "a" * 40)["welcome_screen_rendered"])
+        welcome = callbacks + "\n" + PROOF.WELCOME_RENDERED_EVENT
+        self.assertTrue(PROOF.observed(welcome, "a" * 40)["welcome_screen_rendered"])
         self.assertFalse(PROOF.observed("\n".join(reversed(callbacks.splitlines())), "a" * 40)["privileged_webkit_page_loaded"])
         self.assertFalse(PROOF.observed(callbacks.replace(PROOF.WEBKIT_EVENT_PREFIX, "untrusted-prefix:"), "a" * 40)["privileged_webkit_page_loaded"])
         self.assertFalse(PROOF.observed(PROOF.WEBKIT_FATAL_MARKERS[0], "a" * 40)["webkit_process_not_failed"])
@@ -82,6 +85,59 @@ class OwnerQemuHandoffTests(unittest.TestCase):
         self.assertEqual(PROOF.STABLE_SECONDS, 15)
         self.assertFalse(PROOF.observed("Checkout local verificado: " + "b" * 40, "a" * 40)["exact_local_checkout"])
         self.assertFalse(PROOF.observed("ordax-dev-bootstrap: entering local recovery shell", "a" * 40)["recovery_not_entered"])
+
+    def test_webkit_segfault_resolution_is_same_pid_same_boot_and_fail_closed(self):
+        # Exact kernel crash line, never infer a module from address alone.
+        crash = (
+            "[   80.932340] WebKitWebProces[1102]: segfault at 80 "
+            "ip 00007fb3823cfb4e sp 00007fff3f494820 error 4"
+        )
+        good = (
+            "ORDAX_OWNER_WEBKIT_EXEC_MAP=pid:1102;"
+            "range:00007fb3823cf000-00007fb3823d1000;"
+            "offset:00005000;module:libwebkit2gtk-4.1.so.0.21.8"
+        )
+        wrong_pid = good.replace("pid:1102", "pid:2202")
+        source = "a" * 40
+        expected = {
+            "status": "module-attributed",
+            "module": "libwebkit2gtk-4.1.so.0.21.8",
+            "elf_file_offset": "0x5b4e",
+            "pid": "1102",
+        }
+        self.assertEqual(PROOF.webkit_crash_attribution(good + "\n" + crash), expected)
+        self.assertFalse(
+            PROOF.observed(good + "\n" + crash, source)["webkit_process_not_failed"]
+        )
+        self.assertEqual(
+            PROOF.webkit_crash_attribution(good),
+            {"status": "not-observed"},
+        )
+        for no_match in (
+            crash,
+            wrong_pid + "\n" + crash,
+            good.replace("00007fb3823d1000", "00007fb3823cfb4e") + "\n" + crash,
+            good.replace("libwebkit2gtk-4.1.so.0.21.8",
+                         "../../home/private-token") + "\n" + crash,
+        ):
+            self.assertEqual(
+                PROOF.webkit_crash_attribution(no_match),
+                {"status": "unattributed", "reason": "matching-map-missing"},
+            )
+        ambiguous = (
+            good + "\n" + good.replace("libwebkit2gtk-4.1.so.0.21.8",
+                                       "libJavaScriptCoreGTK-4.1.so.0") + "\n" + crash
+        )
+        self.assertEqual(
+            PROOF.webkit_crash_attribution(ambiguous),
+            {"status": "unattributed", "reason": "ambiguous-map"},
+        )
+        self.assertEqual(
+            PROOF.webkit_crash_attribution(good + "\n" + crash + "\n" + crash),
+            {"status": "unattributed", "reason": "multiple-crashes"},
+        )
+        self.assertNotIn("/home/", repr(expected))
+        self.assertNotIn("token", repr(expected))
 
     def test_failure_uses_redacted_native_receipt_only(self):
         source = "a" * 40
@@ -159,6 +215,73 @@ class OwnerQemuHandoffTests(unittest.TestCase):
             emit(True, "Error", "secret.json:1:2")
             opened.assert_not_called()
             wrote.assert_not_called()
+
+    def test_qemu_webkit_module_maps_are_bounded_redacted_and_never_physical(self):
+        # GTK3 WebKit2 4.1 exposes no WebProcess PID on its WebView. Only an
+        # explicitly opted-in Owner/QEMU probe may inspect /proc module maps.
+        # Compile the self-contained helper without requiring GTK on CI.
+        source = ROOT / "system/surface/runtime/ordax_browser_host.py"
+        parsed = ast.parse(source.read_text(encoding="utf-8"), filename=str(source))
+        functions = [
+            node for node in parsed.body
+            if isinstance(node, ast.FunctionDef)
+            and node.name == "owner_qemu_webkit_executable_maps"
+        ]
+        self.assertEqual(len(functions), 1)
+        scope = {"os": os, "re": re}
+        exec(compile(ast.Module(body=functions, type_ignores=[]),
+                     str(source), "exec"), scope)
+        get_maps = scope["owner_qemu_webkit_executable_maps"]
+        with tempfile.TemporaryDirectory() as tmp:
+            proc = Path(tmp)
+            wrong = proc / "11"
+            wrong.mkdir()
+            (wrong / "comm").write_text("other-process\n")
+            process = proc / "42"
+            process.mkdir()
+            (process / "comm").write_text("WebKitWebProces\n")
+            (process / "maps").write_text(
+                "7f1234000000-7f1234010000 r-xp 00001000 08:01 123 /usr/lib/libJavaScriptCoreGTK-4.1.so.0\n"
+                "7f1234010000-7f1234020000 r-xp 00000000 08:01 123 /usr/lib/libwebkit2gtk-4.1.so.0\n"
+                "7f1234020000-7f1234030000 rw-p 00000000 08:01 123 /usr/lib/libsecret.so\n"
+                "7f1234030000-7f1234040000 r-xp 00000000 08:01 123 /home/private/Documents/token.so\n"
+                "7f1234050000-7f1234060000 r-xp 00000000 08:01 123 [vdso]\n"
+            )
+            mapping = get_maps(str(proc))
+            self.assertEqual(mapping, (
+                "ORDAX_OWNER_WEBKIT_EXEC_MAP=pid:42;"
+                "range:7f1234000000-7f1234010000;offset:00001000;"
+                "module:libJavaScriptCoreGTK-4.1.so.0",
+                "ORDAX_OWNER_WEBKIT_EXEC_MAP=pid:42;"
+                "range:7f1234010000-7f1234020000;offset:00000000;"
+                "module:libwebkit2gtk-4.1.so.0",
+            ))
+            self.assertNotIn("/usr/", "\n".join(mapping))
+            self.assertNotIn("/home/", "\n".join(mapping))
+            self.assertNotIn("secret", "\n".join(mapping))
+            (process / "maps").unlink()
+            self.assertEqual(get_maps(str(proc)), ())
+            (process / "comm").write_text("malicious-other\n")
+            self.assertEqual(get_maps(str(proc)), ())
+            (process / "comm").write_text("WebKitWebProces\n")
+            (process / "maps").write_text(
+                "".join(
+                    f"{0x7f0000000000 + i*4096:012x}-"
+                    f"{0x7f0000001000 + i*4096:012x} r-xp "
+                    f"00000000 08:01 1 /usr/lib/libtest{i}.so\n"
+                    for i in range(210)
+                )
+            )
+            self.assertEqual(len(get_maps(str(proc))), 192)
+
+        # No background loop, Browser API change, or GTK/JS readiness shortcut.
+        browser = source.read_text(encoding="utf-8")
+        self.assertIn("if not self.owner_graphics_probe_enabled or self.owner_webkit_exec_maps_recorded:", browser)
+        self.assertIn("self.owner_webkit_exec_maps_recorded = True", browser)
+        self.assertIn("GLib.timeout_add_seconds(3, self.emit_owner_webkit_exec_map_evidence)", browser)
+        self.assertIn("GLib.timeout_add_seconds(12, self.emit_owner_webkit_exec_map_evidence)", browser)
+        self.assertIn("self.owner_webkit_exec_maps_recorded = False", browser)
+        self.assertIn('self.surface_web_process_failed = True', browser)
 
     def test_native_component_probation_is_gated_on_real_surface_ready(self):
         source = ROOT / "system/surface/runtime/ordax_browser_host.py"
@@ -271,6 +394,9 @@ class OwnerQemuHandoffTests(unittest.TestCase):
         self.assertIn('self.surface_view.connect("load-failed", self.on_surface_load_failed)', browser)
         self.assertIn('self.surface_view.connect("web-process-terminated", self.on_surface_web_process_terminated)', browser)
         self.assertIn('emit_owner_graphics_probe(self.owner_graphics_probe_enabled, event)', browser)
+        self.assertIn('.ordax-first-run[data-first-run-step=', browser)
+        self.assertIn('firstRunWelcome', browser)
+        self.assertIn('surface-first-run-welcome-rendered', browser)
         self.assertIn("self.surface_web_process_failed = True", browser)
         self.assertIn("if host.surface_web_process_failed:", browser)
 
@@ -368,7 +494,7 @@ class OwnerQemuHandoffTests(unittest.TestCase):
         workflow = (ROOT / ".github/workflows/creator-owner-dev-git.yml").read_text(encoding="utf-8")
         materialize = workflow.index("- name: Materialize and verify RAW development seed")
         qemu = workflow.index("- name: Prove actual Owner USB offline handoff in QEMU")
-        bundle = workflow.index("- name: Build split Windows Creator bundle")
+        bundle = workflow.index("- name: Package QEMU-proven Owner USB media without compiling Creator")
         self.assertLess(materialize, qemu)
         self.assertLess(qemu, bundle)
         self.assertIn("owner_qemu_offline_boot.py", workflow)
@@ -384,6 +510,9 @@ class OwnerQemuHandoffTests(unittest.TestCase):
         self.assertIn("ORDAX_OWNER_SOURCE_COMMIT", workflow)
         self.assertIn('--framebuffer-out "$RUNNER_TEMP/owner-qemu-framebuffer.ppm"', workflow)
         self.assertIn("proof['graphical_framebuffer_varied_proven'] is True", workflow)
+        self.assertIn("proof['welcome_screen_rendered_proven'] is True", workflow)
+        self.assertIn("proof['checks']['welcome_screen_rendered'] is True", workflow)
+        self.assertIn("proof['second_boot']['checks']['welcome_screen_rendered'] is True", workflow)
         self.assertIn("actions/upload-artifact@", workflow)
 
 

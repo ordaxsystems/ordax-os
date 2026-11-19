@@ -36,38 +36,43 @@ No perfil Owner, os receipts externos de módulos e firmware são copiados byte 
 ## Limites importantes
 
 - Os builders Alpine Development e Stable anteriores foram retirados da `main` pela PR #2243. A homologação dos artefatos e o uso físico continuam sujeitos às provas e autorizações dos canais.
-- A branch `integration/dev-usb-buildroot-surface-20261024` pode alterar consumidores e contratos somente para provar a substituição; nenhum desses bytes é automaticamente Stable ou gravável em mídia física.
+- Os contratos e candidatos Buildroot seguem sujeitos a provas separadas. Nenhum commit de PR, execução manual ou artefato de CI autoriza automaticamente assinatura Stable ou gravação de mídia física.
 - O perfil `minimal` permanece sem Git, Wi-Fi de notebook e firmware Owner. O perfil `owner-development` já passou pela compilação e pelo QEMU da Base; o USB completo e a prova física ainda são gates separados e obrigatórios.
 - A inicialização `ordax-independent-probe-init` é exclusivamente um programa de **teste QEMU**, não substitui `bootstrap/initramfs/portable_init.sh`, os verificadores de release, seleção de slots ou serviços atuais.
 - **Não** se pode distribuir, assinar, instalar, ligar ao Creator, ativar Base Update, substituir `stable-base.erofs` ou modificar USB com este artefato enquanto os gates de promoção permanecerem fechados.
 - O teste QEMU usa o kernel **real** `bootstrap/kernel/build.py` e valida seu provenance. Testa montagem EROFS somente-leitura e escrita rejeitada, imagem ext4 descartável persistente, DHCP e falha segura de EROFS inválido. O QEMU usa `snapshot=on` para permitir emulação IDE com backend COW descartável sem modificar os bytes originais de EROFS, cuja integridade é novamente verificada por SHA-256.
 - Exige execução de CI Linux; nenhum passo pertence à estação de trabalho do usuário.
 
-## Política de CI da migração
+## Política de CI vigente (após o merge da migração)
 
-O loop de desenvolvimento e a prova de plataforma são deliberadamente diferentes:
+A migração Alpine → Buildroot já foi integrada à `main`; a antiga branch
+de integração de outubro não é mais a autoridade operacional. Os caminhos
+de `push` exclusivos daquela branch também foram aposentados; apenas PRs
+e despacho manual disparam as provas dos candidatos. O antigo gate isolado de remoção do Alpine foi incorporado
+aos **owners existentes**, sem criar novo produtor:
 
-```text
-push em integration/dev-usb-buildroot-surface-20261024
- -> .github/workflows/remove-alpine-fast.yml
- -> contratos + unitários + sintaxe + Kconfig real dos perfis minimal, Owner e Stable candidato
- -> sem compilar rootfs/kernel/full USB
+- **`.github/workflows/independent-base-experiment.yml`**: o job
+  `independent-base-contract` testa os três perfis `minimal`,
+  `owner-development` e `stable-mvp` antes da prova pesada. Em PR
+  `draft`, o contrato rápido permanece disponível e Buildroot/QEMU
+  aguardam candidatura ou despacho explícito; a seleção de um único perfil
+  continua válida para o artefato/prova pesada.
+- **`.github/workflows/independent-surface-runtime.yml`**: o job
+  `contract` observa somente a **presença booleana** das quatro variáveis
+  do produtor Surface, sem revelar valores ou segredos, e confirma o contexto
+  de runner hospedado. Isso não atesta runner persistente nem autoriza
+  compilação em máquina privada para PRs públicos.
+- **`.github/workflows/foundation.yml`**: preserva
+  `tools/verify/github_actions_supply_chain.py` e, no fluxo completo de
+  regressão, `tests/test_github_actions_supply_chain.py`. Nenhuma
+  dispensa de assinatura, proveniência ou supply-chain decorre dessa
+  consolidação.
 
-marco estrutural / integração final
- -> .github/workflows/independent-base-experiment.yml
- -> kernel canônico verificado/cacheado
- -> Buildroot real no perfil selecionado
- -> módulos + firmware + receipts vinculados
- -> QEMU + evidência/provenance
-```
-
-O workflow pesado aceita seleção manual `minimal|owner-development`. Em PR vindo de `integration/dev-usb-buildroot-surface-20261024`, a prova usa `owner-development`; PRs comuns preservam `minimal`. O kernel é construído somente em cache miss, verificado antes de o rootfs Owner consumir seu archive de módulos e nunca recompilado pelo post-build.
-
-Na branch de integração, um push só inicia a prova `stable-mvp` quando a mensagem de commit contém `[stable-mvp-proof]`. Use esse marcador apenas quando o fingerprint Stable mudou e ainda não existe componente verificado para a revisão; não o use para documentação, código client-only ou rerun cosmético.
-
-O gate rápido `remove-alpine-fast` deve concluir seus contratos e testes antes de consumir horas de Buildroot; se ele falhar, corrigir a causa no mesmo owner e deixar o produtor pesado abortado, sem reruns cosméticos.
-
-O gate rápido não substitui o pesado. Ele existe para evitar recompilar a plataforma inteira após mudanças que ainda podem ser rejeitadas por testes baratos. Mudanças normais em `system/`, Surface, apps, contas, Spaces e Web continuam independentes quando seus owners não alteram a base.
+Os jobs pesados continuam selecionados por impacto, revisão exata,
+provenance, caches verificáveis e gates de saúde/boot/QEMU aplicáveis.
+Evidência CI **não** equivale a mídia física, atualização ativada ou
+promoção Stable/MVP. Para conferir a antiga sequência da migração,
+consultar o [snapshot imutável anterior à consolidação](https://github.com/ordaxsystems/ordax-os/blob/55e512b227c3ec666746615cb784d5fe0d01e10b/bootstrap/independent-base/README.md).
 
 ## Uso de recursos no builder
 

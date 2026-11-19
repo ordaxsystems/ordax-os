@@ -1,7 +1,7 @@
 import assert from "node:assert/strict";
 import test from "node:test";
 
-import { NETWORK_MANAGEMENT_SCHEMA } from "../system/contracts/network-management.mjs";
+import { NETWORK_MANAGEMENT_SCHEMA, WifiCredentialsValidationError } from "../system/contracts/network-management.mjs";
 import {
   networkManagementActionMessage,
   networkManagementActionMessageId,
@@ -66,9 +66,85 @@ test("shared network management runtime exposes locale-neutral presentation ids"
     "network.management.error.connectConflict",
   );
   assert.equal(
-    networkManagementFailureMessageId("disconnect", new TypeError("invalid secret input")),
+    networkManagementFailureMessageId("disconnect", new TypeError("invalid native snapshot")),
+    "network.management.error.generic",
+  );
+  assert.equal(
+    networkManagementFailureMessageId("connect", new WifiCredentialsValidationError("invalid credentials")),
     "network.management.error.validation",
   );
+  assert.equal(
+    networkManagementFailureMessage("connect", new TypeError("native snapshot invalid")),
+    "A ação de Wi-Fi não pôde ser concluída. A rede anterior foi preservada quando aplicável.",
+  );
+});
+
+test("network failures distinguish WPA, DHCP and controller issues without secrets", () => {
+  for (const [reason, status, kind, phrase] of [
+    ["authentication-failed", 409, "authentication", "autenticação WPA"],
+    ["dhcp-failed", 409, "dhcp", "DHCP"],
+    ["supplicant-start-failed", 503, "supplicant", "serviço de autenticação"],
+    ["network-owner-unavailable", 503, "ownerUnavailable", "controlador Wi-Fi"],
+    ["dhcp-runtime-unavailable", 503, "dhcpRuntime", "Componentes nativos de DHCP"],
+    ["scan-failed", 503, "scanFailed", "busca de redes"],
+    ["connect-failed", 409, "connectFailure", "O motivo específico"],
+    ["reconnect-failed", 409, "reconnectFailure", "rede salva"],
+    ["saved-network-unavailable", 409, "noSavedNetwork", "Não há uma rede Wi-Fi salva"],
+    ["network-broker-unavailable", 503, "brokerUnavailable", "serviço nativo"],
+    ["network-broker-timeout", 503, "brokerTimeout", "demorou demais"],
+    ["network-broker-io-failed", 503, "brokerIo", "falhou ao acessar"],
+    ["wifi-tools-unavailable", 503, "wifiTools", "ferramentas Wi-Fi"],
+    ["no-wifi-interface", 503, "noInterface", "interface Wi-Fi"],
+    ["credential-save-failed", 503, "credentialSave", "não pôde ser salva"],
+    ["disconnect-state-failed", 503, "disconnectState", "registro da desconexão"],
+    ["credential-delete-failed", 503, "credentialDelete", "exclusão da credencial"],
+    ["reconnect-state-failed", 503, "reconnectState", "reativação da reconexão"],
+  ]) {
+    const error = Object.assign(new Error("private"), { status, networkReason: reason });
+    assert.equal(networkManagementFailureMessageId("connect", error), "network.management.error." + kind);
+    assert.equal(networkManagementFailureMessageId("reconnect", error), "network.management.error." + kind);
+    const message = networkManagementFailureMessage("connect", error);
+    assert.ok(message.includes(phrase));
+    assert.equal(message.includes("private"), false);
+  }
+  const expired = Object.assign(new Error("private"), { status: 403 });
+  assert.equal(networkManagementFailureMessageId("connect", expired), "network.management.error.sessionUnavailable");
+  assert.ok(networkManagementFailureMessage("connect", expired).includes("sessão nativa"));
+  const scan = Object.assign(new Error("private"), { status: 503, networkReason: "scan-failed" });
+  assert.equal(networkManagementFailureMessageId("scan", scan), "network.management.error.scanFailed");
+  assert.equal(networkManagementFailureMessage("scan", scan).includes("private"), false);
+  const untrusted = Object.assign(new Error("private"), { status: 409, networkReason: "raw-wpa-secret" });
+  assert.equal(networkManagementFailureMessageId("connect", untrusted), "network.management.error.connectConflict");
+});
+
+test("first-use differentiates rejected Native HTTP input before WPA or DHCP", () => {
+  for (const [reason, kind, phrase] of [
+    ["network-request-invalid", "requestInvalid", "antes de acessar o Wi-Fi"],
+    ["invalid-credentials", "invalidCredentials", "antes de tentar conectar"],
+    ["network-native-response-invalid", "snapshotInvalid", "estado Wi-Fi inválido"],
+  ]) {
+    const error = Object.assign(new Error("secret-not-for-ui"), { status: reason === "network-native-response-invalid" ? 503 : 400, networkReason: reason });
+    assert.equal(networkManagementFailureMessageId("connect", error), "network.management.error." + kind);
+    assert.ok(networkManagementFailureMessage("connect", error).includes(phrase));
+    assert.equal(networkManagementFailureMessage("connect", error).includes("secret-not-for-ui"), false);
+  }
+});
+
+test("first-use reports Native transport, missing endpoint and snapshot failures without exposing secrets", () => {
+  for (const [reason, kind, expected] of [
+    ["network-session-unavailable", "sessionUnavailable", "sessão nativa"],
+    ["network-host-unreachable", "hostUnreachable", "serviço nativo"],
+    ["network-endpoint-unavailable", "endpointUnavailable", "não oferece esta operação"],
+    ["network-native-failure", "nativeFailure", "sem informar a etapa"],
+    ["network-snapshot-invalid", "snapshotInvalid", "estado Wi-Fi inválido"],
+  ]) {
+    const error = Object.assign(new Error("secret-should-never-display"), { networkReason: reason });
+    assert.equal(networkManagementFailureMessageId("connect", error), "network.management.error." + kind);
+    assert.equal(networkManagementFailureMessageId("scan", error), "network.management.error." + kind);
+    const message = networkManagementFailureMessage("connect", error);
+    assert.ok(message.includes(expected));
+    assert.equal(message.includes("secret-should-never-display"), false);
+  }
 });
 
 test("shared network management runtime maps bounded failures without secrets", () => {

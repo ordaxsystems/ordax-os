@@ -21,6 +21,17 @@ RETIRED_DESKTOP_ROOT = "tools/windows-desktop/"
 
 LIGHT_EXACT = frozenset({
     "docs/BUILD-AUTONOMY.md",
+    # Remote Account/subscription delivery never enters Owner USB media.
+    # These exact paths have their own Supabase/quota CI authority; keep
+    # system/services/entitlements executable files and unknown infra files
+    # fail-closed as potential producers.
+    ".github/workflows/service-quota-contract.yml",
+    "00-PLANOS-PRIORITARIOS/plans/COMMERCE-001-SUBSCRIPTIONS-AND-BENEFITS.md",
+    "infra/supabase/functions/_shared/account_subscription.mjs",
+    "infra/supabase/functions/_shared/account_transport_admission.mjs",
+    "infra/supabase/functions/ordax-account-gateway/index.ts",
+    "infra/supabase/product/migrations/20261118000000_account_commerce_subscription_read_v1.sql",
+    "system/services/entitlements/README.md",
     # Desktop-only owner cutover documentation and isolated contract regressions.
     "docs/EXTERNAL-SOURCE-INTEGRATION.md",
     "tests/test_desktop_source_owner.py",
@@ -42,6 +53,7 @@ LIGHT_EXACT = frozenset({
     "docs/README.md",
     "docs/SPACES-AND-PROFILES.md",
     "README.md",
+    "URGENTE-CONSOLIDACAO-ORDAX.md",
     # Removed Profile plan is only eligible through a verified deletion.
     "00-PLANOS-PRIORITARIOS/REGISTRY.md",
     "00-PLANOS-PRIORITARIOS/README.md",
@@ -69,6 +81,8 @@ LIGHT_EXACT = frozenset({
     "tools/surface-web/browser-smoke.mjs",
     "tests/test_windows_desktop_local_ai_host.mjs",
     "tests/test_creator_owner_external_source.py",
+    # Another CI impact policy cannot alter the installed Owner USB payload.
+    "tools/ci/independent_surface_impact.py",
     "tools/ci/portable_qemu_impact.py",
     "tests/test_portable_qemu_impact.py",
     "tools/ci/creator_owner_impact.py",
@@ -140,9 +154,9 @@ WINDOWS_PRODUCT_SHARED_ADDITIONS = {
     ),
 }
 WINDOWS_PRODUCT_PINNED_BLOBS = {
-    "docs/evidence/desktop-runtime-windows-candidate-2026-10-31.json": "5f26c8d88b579fcaed95baceab0d197fdea31441",
-    "system/adapters/native/desktop-product-runtime-status.mjs": "1aa2dfb66bbb60ea3feab0c28ec5cc076dd29da1",
-    "system/adapters/native/desktop-surface-state-report.mjs": "175f000801fd7953cec693e441a7ceb5107e9227",
+    "docs/evidence/desktop-runtime-windows-candidate-2026-11-14.json": "c2a612880e4e5e96c0db9f3299c83bebd53eb15a",
+    "system/adapters/native/desktop-product-runtime-status.mjs": "2e4b3f7aaaea1210cccac346c7f895fe7f576b35",
+    "system/adapters/native/desktop-surface-state-report.mjs": "08ce3a0588383b2fe30997e99a972396887d2246",
 }
 
 # The installed Linux Git updater is a source file, not a Creator build dependency.
@@ -226,17 +240,30 @@ EXPECTED_IMPACT_JOB = """
 # The current Buildroot Owner branch retains its lightweight contract job.
 # Adding main's exact impact classifier must not delete that job or trigger
 # expensive Creator builds for draft PRs.
+# The Creator's existing artifact consumer has an exact job permission
+# boundary. It belongs to BOTH comparison baselines: migration of the
+# causal impact gate never adds or widens any permission. Unknown changes
+# to this block still fail closed as real/unknown USB producer deltas.
+CREATOR_ARTIFACT_READ_PERMISSION_BLOCK = (
+    "    # Read only canonical Surface producer artifacts; release publishing keeps\n"
+    "    # its existing contents write permission and other jobs stay unchanged.\n"
+    "    permissions:\n"
+    "      contents: write\n"
+    "      actions: read\n"
+)
 BUILD_GUARD_OLD = (
     "\n  build-and-publish:\n"
     "    needs: owner-dev-contract\n"
-    "    # Draft PRs use fast contracts; full USB/QEMU only for a release candidate.\n"
+    + CREATOR_ARTIFACT_READ_PERMISSION_BLOCK
+    + "    # Draft PRs use fast contracts; full USB/QEMU only for a release candidate.\n"
     "    # workflow_dispatch and main push remain explicit/full delivery entrypoints.\n"
     "    if: github.event_name != 'pull_request' || !github.event.pull_request.draft\n"
 )
 BUILD_GUARD_NEW = (
     "\n  build-and-publish:\n"
     "    needs: [owner-dev-contract, impact]\n"
-    "    # Draft PRs use fast contracts; full USB/QEMU only for a release candidate.\n"
+    + CREATOR_ARTIFACT_READ_PERMISSION_BLOCK
+    + "    # Draft PRs use fast contracts; full USB/QEMU only for a release candidate.\n"
     "    # workflow_dispatch and main push remain explicit/full delivery entrypoints.\n"
     "    if: needs.impact.outputs.required == 'true' && (github.event_name != 'pull_request' || !github.event.pull_request.draft)\n"
 )
@@ -347,28 +374,27 @@ def verified_creator_freshness_wiring_only(base, head, *, root=ROOT):
             ),
             (
                 """          repo='ordaxsystems/ordax-os'
-          release="$GITHUB_WORKSPACE/out/owner-prototype/release"
-          if ! gh release view creator-owner-prototype --repo "$repo" >/dev/null 2>&1; then""",
-                r"""          repo='ordaxsystems/ordax-os'
-          release="$GITHUB_WORKSPACE/out/owner-prototype/release"
-          # Recheck immediately before mutating the rolling channel: main can
-          # advance during a long Creator/QEMU build after the first CI gate.
-          # A newer non-producer-only main revision may reuse the proved USB.
-          freshness="$(python3 tools/ci/creator_owner_publish_freshness.py \
+          media="$GITHUB_WORKSPACE/out/owner-prototype/media"
+          tag='creator-owner-media'
+          if ! gh release view "$tag" --repo "$repo" >/dev/null 2>&1; then""",
+                r"""          freshness="$(python3 tools/ci/creator_owner_publish_freshness.py \
             --source "$ORDAX_OWNER_SOURCE_COMMIT")"
           echo "$freshness"
           case "$freshness" in
             'CREATOR_MAIN_FRESHNESS=SKIP '*)
-              echo 'OWNER_CREATOR_PUBLICATION=SKIPPED_SUPERSEDED_SOURCE'
+              echo 'OWNER_MEDIA_PUBLICATION=SKIPPED_SUPERSEDED_SOURCE'
               exit 0
               ;;
             'CREATOR_MAIN_FRESHNESS=ALLOW '*) ;;
             *)
-              echo 'Creator main freshness result is unrecognized: fail closed' >&2
+              echo 'Owner media main freshness cannot be verified' >&2
               exit 1
               ;;
           esac
-          if ! gh release view creator-owner-prototype --repo "$repo" >/dev/null 2>&1; then""",
+          repo='ordaxsystems/ordax-os'
+          media="$GITHUB_WORKSPACE/out/owner-prototype/media"
+          tag='creator-owner-media'
+          if ! gh release view "$tag" --repo "$repo" >/dev/null 2>&1; then""",
             ),
         )
         for old, new in replacements:
@@ -386,11 +412,13 @@ def changed_paths(base, head, *, root=ROOT):
     if any(not re.fullmatch(r"[0-9a-f]{40}", x or "") or x == "0" * 40
            for x in (base, head)):
         raise ValueError("invalid Git revision")
+    # -z returns exact paths. The default quoted Git output can turn an
+    # accented Markdown filename into an unknown, unnecessarily heavy input.
     out = subprocess.run(
-        ["git", "-C", str(root), "diff", "--name-only", "--no-renames", base, head, "--"],
-        check=True, capture_output=True, text=True, timeout=30,
+        ["git", "-C", str(root), "diff", "--name-only", "-z", "--no-renames", base, head, "--"],
+        check=True, capture_output=True, timeout=30,
     ).stdout
-    return tuple(x for x in out.splitlines() if x)
+    return tuple(path for path in out.decode("utf-8").split("\0") if path)
 
 
 def verified_windows_product_additions(base, head, path, *, root=ROOT):
@@ -413,32 +441,44 @@ def verified_windows_product_additions(base, head, path, *, root=ROOT):
 
 
 def verified_windows_semantic_surface_mount(base, head, *, root=ROOT):
-    """Prove only the existing Windows-guarded call uses Surface's read port.
+    """Prove one exact Windows-guarded Surface reporter wiring transition.
 
     No Native/Linux entrypoint, import, branch, boot path or other byte may
-    change under this exception. Unknown Native changes still require USB.
+    change under this exception. Each accepted transition is byte-exact and
+    remains guarded by windowsDesktopHost; unknown Native changes require USB.
     """
     path = "system/composition/native/main.mjs"
-    original_call = (
+    legacy_call = (
         "  const desktopSurfaceReporter = windowsDesktopHost\n"
         "    ? mountNativeDesktopSurfaceStateReport(window, root, surface, appActivation)\n"
         "    : null;"
     )
-    semantic_call = (
+    read_port_call = (
         "  const desktopSurfaceReporter = windowsDesktopHost\n"
         "    ? mountNativeDesktopSurfaceStateReport(window, surface, appActivation)\n"
         "    : null;"
     )
+    project_links_call = (
+        "  const desktopSurfaceReporter = windowsDesktopHost\n"
+        "    ? mountNativeDesktopSurfaceStateReport(\n"
+        "        window, surface, appActivation, projectCloudLinksReader,\n"
+        "      )\n"
+        "    : null;"
+    )
+    transitions = (
+        (legacy_call, read_port_call),
+        (read_port_call, project_links_call),
+    )
     try:
         before = _git_show(base, path, root)
         after = _git_show(head, path, root)
-        return before.count(original_call) == 1 and (
-            after == before.replace(original_call, semantic_call)
+        return any(
+            before.count(original) == 1
+            and after == before.replace(original, replacement)
+            for original, replacement in transitions
         )
     except (OSError, UnicodeError, ValueError, subprocess.SubprocessError):
         return False
-
-
 def verified_windows_product_blob(head, path, *, root=ROOT):
     """Pin actual Native sidecar and DEV evidence bytes, not a filename claim."""
     expected = WINDOWS_PRODUCT_PINNED_BLOBS.get(path)
@@ -577,11 +617,13 @@ def main():
     event = os.environ.get("GITHUB_EVENT_NAME", "push")
     required, reason = ((True, "manual-dispatch-producer-proof") if args.force
                         else classify(args.base, args.head, event=event))
-    result = f"required={'true' if required else 'false'}\nreason={reason}\n"
+    # Preserve a single reason= record even if a Git pathname contains LF/CR.
+    safe_reason = reason.replace("\r", "\\r").replace("\n", "\\n")
+    result = f"required={'true' if required else 'false'}\nreason={safe_reason}\n"
     if os.environ.get("GITHUB_OUTPUT"):
         with open(os.environ["GITHUB_OUTPUT"], "a", encoding="utf-8") as output:
             output.write(result)
-    print("CREATOR_OWNER_USB_REQUIRED=" + ("YES" if required else "NO") + " reason=" + reason)
+    print("CREATOR_OWNER_USB_REQUIRED=" + ("YES" if required else "NO") + " reason=" + safe_reason)
     return 0
 
 

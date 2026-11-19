@@ -9,7 +9,10 @@ export function validateDesktopProductRuntimeStatus(raw) {
       raw.host !== "ordax-desktop" || !STATES.has(raw.state) ||
       typeof raw.reason !== "string" || raw.reason.length > 100 ||
       typeof raw.enrolled !== "boolean" ||
+      !(raw.deviceId === null || (typeof raw.deviceId === "string" &&
+        /^[a-f0-9]{8}-(?:[a-f0-9]{4}-){3}[a-f0-9]{12}$/i.test(raw.deviceId))) ||
       typeof raw.processRunning !== "boolean" ||
+      typeof raw.productDispatchReady !== "boolean" ||
       typeof raw.mcpReady !== "boolean" ||
       typeof raw.centralSessionAttested !== "boolean" ||
       !(raw.capabilityDigest === null ||
@@ -18,23 +21,24 @@ export function validateDesktopProductRuntimeStatus(raw) {
     throw new Error("Invalid Product Runtime observation");
   if (raw.processRunning !== (raw.state === "running" || raw.state === "stopping"))
     throw new Error("Inconsistent Product Runtime process state");
-  // A running process, heartbeat or unverified digest must never be
-  // presented as a centrally attested action-capable MCP connection.
-  if (raw.centralSessionAttested && (
-      raw.state !== "running" || !raw.enrolled ||
+  // The legacy fields are intentionally pinned false: local Runtime
+  // readiness is never a proof of the persistent Platform conversation binding
+  // or a client grant. New code consumes productDispatchReady explicitly.
+  if (raw.mcpReady !== false || raw.centralSessionAttested !== false)
+    throw new Error("Local Product readiness cannot attest a client session");
+  if (raw.productDispatchReady && (
+      raw.state !== "running" || !raw.enrolled || raw.deviceId === null ||
       typeof raw.capabilityDigest !== "string" ||
       !/^[a-f0-9]{64}$/.test(raw.capabilityDigest)))
-    throw new Error("Inconsistent Product MCP attestation");
-  if (raw.mcpReady && (!raw.centralSessionAttested ||
-      raw.state !== "running" || !raw.enrolled ||
-      typeof raw.capabilityDigest !== "string" ||
-      !/^[a-f0-9]{64}$/.test(raw.capabilityDigest)))
-    throw new Error("Product MCP cannot be ready without attested capabilities");
+    throw new Error("Product dispatch readiness requires live Runtime capabilities");
   return Object.freeze({
     schema: SCHEMA, host: "ordax-desktop",
     state: raw.state, reason: raw.reason, enrolled: raw.enrolled,
-    processRunning: raw.processRunning, mcpReady: raw.mcpReady,
-    centralSessionAttested: raw.centralSessionAttested,
+    deviceId: raw.deviceId,
+    processRunning: raw.processRunning,
+    productDispatchReady: raw.productDispatchReady,
+    // Compatibility only; never reinterpret these as Runtime readiness.
+    mcpReady: false, centralSessionAttested: false,
     capabilityDigest: raw.capabilityDigest,
   });
 }

@@ -55,12 +55,13 @@
   },
   "creator_source": {
     "repository": "ordaxsystems/ordax-creator",
-    "commit": "a85d2d0ccbbbc7aedd962acf043459b84065a353",
-    "tree": "eb5f34334c6d4f650a0f91149322ea96e161861e",
+    "commit": "0636f85d0dcad0243523eae86e55e2eef2f3d05e",
+    "tree": "e569722a7f9b9edb512d7ec84defcd78cd97a583",
     "module": "github.com/ordaxsystems/ordax-creator",
     "helper_package": "./cmd/ordax-creator-native-targets",
     "physical_apply_authorized": false,
-    "publisher_authority": "ordaxsystems/ordax-os"
+    "publisher_authority": "ordaxsystems/ordax-os",
+    "windows_app_publisher": "ordaxsystems/ordax-creator"
   },
   "intelligence_source_candidate": {
     "owner": "ordaxsystems/ordax-intelligence",

@@ -7,6 +7,7 @@ import {
   isNativeBootstrapRoute,
   isPublicBridgeRoute,
   isPublicAccountPreActivationRoute,
+  isPublicMcpOwnerPreActivationRoute,
 } from "../infra/supabase/functions/_shared/account_transport_admission.mjs";
 
 const bridgeName = "ordax_account_public_bridge";
@@ -82,6 +83,35 @@ test("pre-activation public Account capability is exact and read-only", () => {
   assert.equal(isPublicAccountPreActivationRoute("GET", "/account/spaces"), true);
   for (const [method, path] of [["POST", "/account/spaces"], ["GET", "/account/export"], ["GET", "/account/entitlements/memory-cloud"], ["POST", "/account/close"], ["GET", "/sync/snapshot"], ["GET", "/account/spaces/other"]]) {
     assert.equal(isPublicAccountPreActivationRoute(method, path), false, method + " " + path);
+  }
+});
+
+test("pre-activation Owner MCP release is exact, separately gated and never opens public Account", () => {
+  const allowed = [
+    ["GET", "/account/mcp/devices"],
+    ["GET", "/account/mcp/authority"],
+    ["POST", "/account/mcp/revoke"],
+    ["GET", "/account/mcp/central-targets"],
+    ["GET", "/account/mcp/central-selections"],
+    ["POST", "/account/mcp/central-selections"],
+  ];
+  for (const [method,path] of allowed) {
+    assert.equal(isPublicBridgeRoute(method,path),true);
+    assert.equal(isPublicMcpOwnerPreActivationRoute(method,path,true),true);
+    assert.equal(isPublicMcpOwnerPreActivationRoute(method,path,false),false);
+    assert.equal(isPublicMcpOwnerPreActivationRoute(method,path,undefined),false);
+    assert.equal(isPublicAccountPreActivationRoute(method,path),false);
+  }
+  for (const [method,path] of [
+    ["GET","/account/export"],["GET","/account/spaces"],
+    ["POST","/auth/login"],["GET","/sync/snapshot"],
+    ["POST","/account/close"],["GET","/account/usage/mcp"],
+    ["GET","/account/mcp/devices/another"],["POST","/account/mcp/devices"],
+    ["POST","/account/mcp/central-targets"],["PUT","/account/mcp/central-selections"],
+    ["GET","/account/mcp/central-selections?client_id=test"],
+    ["GET","/account/mcp/admin"],["GET","/other/account/mcp/devices"],
+  ]) {
+    assert.equal(isPublicMcpOwnerPreActivationRoute(method,path,true),false,method+" "+path);
   }
 });
 
@@ -208,4 +238,17 @@ test("public and internal Account boundaries share exact Edge path normalization
   assert.equal(stripEdgeFunctionPrefix("/auth/login", "bad/name"), null);
   assert.equal(stripEdgeFunctionPrefix("/auth/login", "__proto__"), null);
   assert.equal(stripEdgeFunctionPrefix("/ordax-account-gateway/auth/session", "ordax-public-account-gateway"), null);
+});
+
+test("commercial subscription admits exact GET only and does not bypass Account activation", async () => {
+  assert.equal(isPublicBridgeRoute("GET", "/account/subscription"), true);
+  assert.equal(isPublicBridgeRoute("POST", "/account/subscription"), false);
+  assert.equal(isPublicBridgeRoute("GET", "/account/subscription?user_id=other"), false);
+  assert.equal(isPublicBridgeRoute("GET", "/account/subscription/other"), false);
+  assert.equal(isPublicAccountPreActivationRoute("GET", "/account/subscription"), false);
+  assert.deepEqual(await authorizeAccountTransport(
+    make("/account/subscription", "GET", {
+      "x-ordax-public-site": "1", apikey: bridgeKey,
+    }), "/account/subscription", {rawBridgeSecretKeys: bridgeEnv}
+  ), {ok:true,mode:"service"});
 });

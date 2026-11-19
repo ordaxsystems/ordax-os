@@ -4,9 +4,6 @@ on:
   push:
     branches: [main]
     paths:
-      - 'tools/creator/core/native_*.go'
-      - 'tools/creator/core/storage_*.go'
-      - 'tools/creator/cmd/ordax-creator/**'
       - 'tools/creator/proof/native_disposable.py'
       - 'docs/contracts/native-installation.json'
       - 'docs/contracts/native-disposable-proof.json'
@@ -18,9 +15,6 @@ on:
       - 'tests/test_creator_native_disposable_external_source.py'
   pull_request:
     paths:
-      - 'tools/creator/core/native_*.go'
-      - 'tools/creator/core/storage_*.go'
-      - 'tools/creator/cmd/ordax-creator/**'
       - 'tools/creator/proof/native_disposable.py'
       - 'docs/contracts/native-installation.json'
       - 'docs/contracts/native-disposable-proof.json'

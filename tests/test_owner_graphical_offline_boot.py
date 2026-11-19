@@ -9,6 +9,7 @@ NETWORK = (ROOT / "bootstrap/dev-base/ordax-network").read_text(encoding="utf-8"
 SUPERVISOR = (ROOT / "system/supervisor").read_text(encoding="utf-8")
 WATCHER = (ROOT / "bootstrap/dev-base/ordax-main-watch").read_text(encoding="utf-8")
 SURFACE = (ROOT / "system/surface/bin/ordax-surface").read_text(encoding="utf-8")
+BROWSER_HOST = (ROOT / "system/surface/runtime/ordax_browser_host.py").read_text(encoding="utf-8")
 
 
 class OwnerGraphicalOfflineBootTests(unittest.TestCase):
@@ -86,6 +87,17 @@ class OwnerGraphicalOfflineBootTests(unittest.TestCase):
         self.assertEqual(SURFACE.count("LIBGL_ALWAYS_SOFTWARE=1"), 1)
         self.assertEqual(SURFACE.count("WEBKIT_DISABLE_DMABUF_RENDERER=1"), 1)
         self.assertLess(end, SURFACE.index('START_URI="http://127.0.0.1:8765/'))
+
+    def test_owner_virtio_cage_renderer_overrides_do_not_leak_into_webkit(self):
+        self.assertIn('os.environ.get("LIBGL_ALWAYS_SOFTWARE") == "1"', BROWSER_HOST)
+        self.assertIn('os.environ.get("WLR_RENDERER") == "pixman"', BROWSER_HOST)
+        self.assertIn('os.environ.get("WEBKIT_DISABLE_DMABUF_RENDERER") == "1"', BROWSER_HOST)
+        self.assertIn('os.environ.pop("LIBGL_ALWAYS_SOFTWARE", None)', BROWSER_HOST)
+        self.assertIn('os.environ.pop("WLR_RENDERER", None)', BROWSER_HOST)
+        self.assertNotIn('os.environ.pop("WEBKIT_DISABLE_DMABUF_RENDERER"', BROWSER_HOST)
+        cleanup = BROWSER_HOST.index("\n_scope_owner_virtio_compositor_environment()\n")
+        webkit_import = BROWSER_HOST.index("\nimport gi\n")
+        self.assertLess(cleanup, webkit_import)
 
     def test_durable_first_run_state_blocks_both_update_owners(self):
         marker = "$STATE_DIR/native-state/first-run.json"

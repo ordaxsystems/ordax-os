@@ -4,6 +4,8 @@ on:
   push:
     branches: [main]
     paths:
+      # Source UI is external: test the immutable owner pin, not retired OS paths.
+      - 'docs/contracts/surface-source.json'
       - 'system/composition/native/component-workspace-ports.mjs'
       - 'system/services/components/verified-host-context.mjs'
       - 'system/apps/projects/**'
@@ -33,7 +35,6 @@ on:
       - 'system/contracts/verified-app-store-catalog.mjs'
       - 'system/services/apps/delivery-policy.mjs'
       - 'system/services/apps/first-run-selection.mjs'
-      - 'system/surface/ui/first-run.mjs'
       - 'system/services/i18n/first-run.mjs'
       - 'tests/test_first_run_contract.py'
       - 'tests/test_first_run_selection.mjs'
@@ -74,6 +75,8 @@ on:
       - '.github/workflows/first-party-app-delivery.yml'
   pull_request:
     paths:
+      # Source UI is external: test the immutable owner pin, not retired OS paths.
+      - 'docs/contracts/surface-source.json'
       - 'system/composition/native/component-workspace-ports.mjs'
       - 'system/services/components/verified-host-context.mjs'
       - 'system/apps/projects/**'
@@ -103,16 +106,17 @@ on:
       - 'system/contracts/verified-app-store-catalog.mjs'
       - 'system/services/apps/delivery-policy.mjs'
       - 'system/services/apps/first-run-selection.mjs'
-      - 'system/surface/ui/first-run.mjs'
       - 'system/services/i18n/first-run.mjs'
       - 'tests/test_first_run_contract.py'
       - 'tests/test_first_run_selection.mjs'
       - 'docs/APP-PORTFOLIO-AND-PREINSTALL.md'
       - 'system/services/apps/external-first-party-policy.mjs'
+      - 'tools/app-policy/render_external_first_party_policy.py'
       - 'tools/app-policy/render_native_store_metadata_policy.py'
       - 'system/surface/runtime/native_store_metadata_policy.py'
       - 'system/surface/runtime/native_component_slots.py'
       - 'tests/test_native_component_slots.py'
+      - 'docs/contracts/runtime-component-package.json'
       - 'system/services/apps/store-lifecycle-request-service.mjs'
       - 'system/services/apps/store-update-request-batch.mjs'
       - 'tests/test_store_update_request_batch.mjs'

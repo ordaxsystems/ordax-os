@@ -227,21 +227,33 @@ native_product_run_selected() {
 native_product_local_enabled() {
     [ -n "$NATIVE_PRODUCT_PLAN_KIND" ] || return 1
     native_product_consent=$(native_product_run_selected \
-        --local-access-status --distribution-profile owner-development \
-        --product-mode usb --system-root "$SYSTEM_ROOT" \
+        --local-access-status --distribution-profile "$DISTRIBUTION_PROFILE" \
+        --product-mode "$PRODUCT_MODE" --system-root "$SYSTEM_ROOT" \
         --state-root "$STATE_DIR/native-state" --workspace "$WORKTREE" 2>/dev/null) || return 1
     [ "$native_product_consent" = "NATIVE_PRODUCT_LOCAL_ACCESS=ENABLED" ]
 }
 
 native_product_reconcile() {
     native_product_reap_if_exited
-    if [ "$DISTRIBUTION_PROFILE" != owner-development ] || [ "$PRODUCT_MODE" != usb ]; then
+    # Stable/MVP is USB-only until the separate native-disk promotion gate.
+    # A stable device cannot use Owner/Development's unsigned Buildroot path.
+    if [ "$PRODUCT_MODE" != usb ] || {
+        [ "$DISTRIBUTION_PROFILE" != owner-development ] &&
+        [ "$DISTRIBUTION_PROFILE" != stable-mvp ]
+    }; then
         native_product_stop || return 1
         return 0
     fi
     # Everything below is optional. Fail closed for remote actions, but never
     # degrade OS boot, update, graphics or local filesystem operations.
     if ! native_product_resolve_plan; then
+        native_product_stop || return 1
+        return 0
+    fi
+    # The signed component channel is the sole Stable/MVP launch authority.
+    # An unsigned development fallback must never run on a stable device.
+    if [ "$DISTRIBUTION_PROFILE" = stable-mvp ] &&
+        [ "$NATIVE_PRODUCT_PLAN_KIND" != signed ]; then
         native_product_stop || return 1
         return 0
     fi
@@ -266,10 +278,17 @@ native_product_reconcile() {
         ! native_product_local_enabled; then
         return 0
     fi
-    native_product_run_selected \
-        --run --full-access --distribution-profile owner-development --product-mode usb \
-        --system-root "$SYSTEM_ROOT" --state-root "$STATE_DIR/native-state" \
-        --workspace "$WORKTREE" --status-port 8766 >/dev/null 2>&1 &
+    set -- --run --distribution-profile "$DISTRIBUTION_PROFILE" \
+        --product-mode "$PRODUCT_MODE" --system-root "$SYSTEM_ROOT" \
+        --state-root "$STATE_DIR/native-state" --workspace "$WORKTREE" \
+        --status-port 8766
+    if [ "$DISTRIBUTION_PROFILE" = owner-development ]; then
+        set -- --run --full-access --distribution-profile "$DISTRIBUTION_PROFILE" \
+            --product-mode "$PRODUCT_MODE" --system-root "$SYSTEM_ROOT" \
+            --state-root "$STATE_DIR/native-state" --workspace "$WORKTREE" \
+            --status-port 8766
+    fi
+    native_product_run_selected "$@" >/dev/null 2>&1 &
     NATIVE_PRODUCT_PID=$!
     NATIVE_PRODUCT_ACTIVE_IDENTITY=$NATIVE_PRODUCT_VERIFIED_PLAN
 }

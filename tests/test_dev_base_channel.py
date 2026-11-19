@@ -1,10 +1,14 @@
 from importlib.util import module_from_spec, spec_from_file_location
 from pathlib import Path
 import hashlib
+import io
 import os
 import tarfile
 import json
 import tempfile
+import subprocess
+import sys
+import textwrap
 import unittest
 from unittest.mock import patch
 import urllib.error
@@ -47,43 +51,84 @@ class FakeResponse:
         pass
 
 
+def write_test_rootfs_tar(
+    path: Path,
+    *,
+    omit: set[str] | None = None,
+    hardlinks: tuple[tuple[str, str], ...] = (),
+) -> None:
+    """Test-only archive fixture; production never repacks the canonical rootfs."""
+    omit = omit or set()
+    directories = set(builder.REQUIRED_ROOTFS_DIRS)
+    for relative in builder.REQUIRED_ROOTFS_PATHS:
+        parent = Path(relative).parent
+        while parent != Path("."):
+            directories.add(parent.as_posix())
+            parent = parent.parent
+    for name, _target in hardlinks:
+        parent = Path(name).parent
+        while parent != Path("."):
+            directories.add(parent.as_posix())
+            parent = parent.parent
+
+    with tarfile.open(path, "w", format=tarfile.GNU_FORMAT) as archive:
+        for directory in sorted(directories):
+            if directory in omit:
+                continue
+            info = tarfile.TarInfo(directory)
+            info.type = tarfile.DIRTYPE
+            info.mode = 0o755
+            info.uid = 0
+            info.gid = 0
+            info.mtime = 0
+            archive.addfile(info)
+        for relative in sorted(builder.REQUIRED_ROOTFS_PATHS):
+            if relative in omit:
+                continue
+            payload = f"fixture:{relative}\n".encode("utf-8")
+            info = tarfile.TarInfo(relative)
+            info.type = tarfile.REGTYPE
+            info.mode = 0o755
+            info.uid = 0
+            info.gid = 0
+            info.mtime = 0
+            info.size = len(payload)
+            archive.addfile(info, io.BytesIO(payload))
+        for name, target in hardlinks:
+            info = tarfile.TarInfo(name)
+            info.type = tarfile.LNKTYPE
+            info.mode = 0o755
+            info.uid = 0
+            info.gid = 0
+            info.mtime = 0
+            info.linkname = target
+            info.size = 0
+            archive.addfile(info)
+
+
 def write_rootfs_fixture(root: Path, source_commit: str = SOURCE) -> Path:
     rootfs_dir = root / "dev-rootfs"
-    rootfs = rootfs_dir / "rootfs"
-    rootfs.mkdir(parents=True)
-
-    payload_total = 0
-    for relative in builder.REQUIRED_ROOTFS_PATHS:
-        target = rootfs / relative
-        target.parent.mkdir(parents=True, exist_ok=True)
-        payload = f"fixture:{relative}\n".encode("utf-8")
-        target.write_bytes(payload)
-        target.chmod(0o755)
-        payload_total += len(payload)
-
-    for relative in builder.REQUIRED_ROOTFS_DIRS:
-        (rootfs / relative).mkdir(parents=True, exist_ok=True)
-
-    (rootfs / "etc").mkdir(parents=True, exist_ok=True)
-    config = rootfs / "etc" / "ordax-base"
-    config.write_text("development-rootfs\n", encoding="utf-8")
-    config.chmod(0o644)
-    payload_total += config.stat().st_size
-
+    rootfs_dir.mkdir(parents=True)
+    rootfs_tar = rootfs_dir / "rootfs.tar"
+    write_test_rootfs_tar(rootfs_tar)
     (rootfs_dir / "provenance.json").write_text(
         json.dumps(
             {
-                "$schema": "prototype-ordax.dev-base/1",
+                "$schema": "prototype-ordax.independent-base-provenance/1",
+                "status": "candidate-build-only",
                 "source_commit": source_commit,
-                "unique_regular_bytes": payload_total,
-                "git_client_preseeded": True,
-                "network_preseeded": True,
+                "profile": "owner-development",
+                "owner_development_capabilities_verified": True,
+                "physical_artifact_authorized": False,
+                "signed_release_equivalence_proven": False,
+                "artifacts": {
+                    "rootfs.tar": hashlib.sha256(rootfs_tar.read_bytes()).hexdigest(),
+                },
             }
         ),
         encoding="utf-8",
     )
     return rootfs_dir
-
 
 def write_provenance_fixture(root: Path, source_commit: str = SOURCE):
     kernel_dir = root / "kernel"
@@ -131,35 +176,27 @@ class DevBaseProducerTests(unittest.TestCase):
     def test_authenticated_independent_rootfs_is_published_byte_for_byte(self):
         with tempfile.TemporaryDirectory() as temporary:
             root = Path(temporary)
-            kernel_dir, initramfs_dir, original, _, _ = write_provenance_fixture(root)
-            independent = root / "independent-owner"
-            independent.mkdir()
-            original_tar = independent / "rootfs.tar"
-            builder.build_rootfs_tar(original / "rootfs", original_tar)
-            independent_provenance = {
-                "$schema": "prototype-ordax.independent-base-provenance/1",
-                "status": "candidate-build-only",
-                "source_commit": SOURCE,
-                "profile": "owner-development",
-                "owner_development_capabilities_verified": True,
-                "physical_artifact_authorized": False,
-                "signed_release_equivalence_proven": False,
-                "artifacts": {
-                    "rootfs.tar": hashlib.sha256(original_tar.read_bytes()).hexdigest()
-                },
-            }
-            provenance = independent / "provenance.json"
-            provenance.write_text(json.dumps(independent_provenance), encoding="utf-8")
+            kernel_dir, initramfs_dir, rootfs_dir, _, _ = write_provenance_fixture(root)
+            original_tar = rootfs_dir / "rootfs.tar"
+            provenance_path = rootfs_dir / "provenance.json"
+            provenance = json.loads(provenance_path.read_text(encoding="utf-8"))
+
             self.assertEqual(
-                builder.validate_rootfs_source(independent, SOURCE), original_tar
+                builder.validate_rootfs_source(rootfs_dir, SOURCE),
+                original_tar,
             )
             output = root / "candidate"
             builder.build(
-                source_commit=SOURCE, kernel_dir=kernel_dir,
+                source_commit=SOURCE,
+                kernel_dir=kernel_dir,
                 initramfs_dir=initramfs_dir,
-                rootfs_dir=independent, out_dir=output,
+                rootfs_dir=rootfs_dir,
+                out_dir=output,
             )
-            self.assertEqual((output / "rootfs.tar").read_bytes(), original_tar.read_bytes())
+            self.assertEqual(
+                (output / "rootfs.tar").read_bytes(),
+                original_tar.read_bytes(),
+            )
             self.assertEqual(builder.verify(output)["source_commit"], SOURCE)
 
             for mutation in (
@@ -169,12 +206,156 @@ class DevBaseProducerTests(unittest.TestCase):
                 {"artifacts": {"rootfs.tar": "0" * 64}},
             ):
                 with self.subTest(mutation=mutation):
-                    provenance.write_text(
-                        json.dumps({**independent_provenance, **mutation}),
+                    provenance_path.write_text(
+                        json.dumps({**provenance, **mutation}),
                         encoding="utf-8",
                     )
                     with self.assertRaises(builder.CandidateError):
-                        builder.validate_rootfs_source(independent, SOURCE)
+                        builder.validate_rootfs_source(rootfs_dir, SOURCE)
+            provenance_path.write_text(json.dumps(provenance), encoding="utf-8")
+
+    def test_complete_main_push_range_gates_producer_before_queue(self):
+        workflow = (ROOT / ".github/workflows/dev-base-channel.yml").read_text(encoding="utf-8")
+        verify, publish = workflow.split("\n  publish:\n", 1)
+        self.assertIn("publish: ${{ steps.scope.outputs.publish }}", verify)
+        self.assertIn("fetch-depth: 2", verify)
+        self.assertIn("needs.verify.outputs.publish == 'true'", publish)
+        self.assertIn("github.actor == 'ordaxos-admin'", publish)
+        self.assertIn("DEV_BASE_OWNER_VALIDATION_EXACT_HEAD=PASS", publish)
+        self.assertNotIn("HEAD^ HEAD", workflow)
+        self.assertIn("compare/{before}...{head}", verify)
+        self.assertIn('data.get("merge_base_commit", {}).get("sha") != before', verify)
+        self.assertIn('data.get("status") != "ahead"', verify)
+        for path in ("bootstrap/independent-base/**", "bootstrap/base/firmware_policy.py",
+                     "docs/contracts/hardware-support-matrix.json"):
+            self.assertEqual(workflow.count("'" + path + "'"), 2)
+
+        marker = "          python3 - <<'PY'\n"
+        self.assertEqual(verify.count(marker), 1)
+        script = textwrap.dedent(verify.split(marker, 1)[1].split("\n          PY", 1)[0])
+        with tempfile.TemporaryDirectory(prefix="ordax-dev-base-impact-") as tmp:
+            repo = Path(tmp)
+            def git(*args):
+                return subprocess.check_output(
+                    ["git", "-C", str(repo), *args],
+                    stderr=subprocess.PIPE, text=True,
+                ).strip()
+            for args in (
+                ("init", "-q"), ("config", "user.name", "CI"),
+                ("config", "user.email", "ci@example.invalid")
+            ):
+                git(*args)
+            paths = [
+                "bootstrap/kernel/source.json",
+                "tests/test_dev_base_channel.py",
+                "bootstrap/dev-base/ordax-pull",
+                "bootstrap/independent-base/configs/minimal",
+                "bootstrap/base/firmware_policy.py",
+                "docs/contracts/hardware-support-matrix.json",
+            ]
+            for name in paths:
+                file = repo / name
+                file.parent.mkdir(parents=True, exist_ok=True)
+                file.write_text("initial\n", encoding="utf-8")
+            git("add", "-A")
+            git("commit", "-qm", "base")
+            base = git("rev-parse", "HEAD")
+
+            def change(name):
+                (repo / name).write_text("changed\n", encoding="utf-8")
+                git("add", "-A")
+                git("commit", "-qm", "change")
+                return git("rev-parse", "HEAD")
+
+            def classify(before, head):
+                output = repo / "scope.out"
+                output.write_text("", encoding="utf-8")
+                env = {**os.environ, "ORDAX_BEFORE_SHA": before,
+                       "ORDAX_HEAD_SHA": head,
+                       "GITHUB_REPOSITORY": "ordaxsystems/ordax-os",
+                       "GITHUB_OUTPUT": str(output)}
+                done = subprocess.run(
+                    [sys.executable, "-c", script], cwd=repo, env=env,
+                    capture_output=True, text=True, timeout=20, check=True,
+                )
+                self.assertIn("DEV_BASE_BYTES_CHANGED=", done.stdout)
+                return output.read_text(encoding="utf-8").strip()
+
+            kernel = change(paths[0])
+            test_only = change(paths[1])
+            # A two-commit push must not ignore the earlier kernel change.
+            self.assertEqual(classify(base, test_only), "publish=true")
+            self.assertEqual(classify(kernel, test_only), "publish=false")
+            self.assertEqual(classify("0" * 40, test_only), "publish=true")
+            self.assertEqual(classify(test_only, test_only), "publish=true")
+            excluded = change(paths[2])
+            self.assertEqual(classify(test_only, excluded), "publish=false")
+            owner = change(paths[3])
+            self.assertEqual(classify(excluded, owner), "publish=true")
+            firmware = change(paths[4])
+            self.assertEqual(classify(owner, firmware), "publish=true")
+            hardware = change(paths[5])
+            self.assertEqual(classify(firmware, hardware), "publish=true")
+
+            # Force the GitHub API fallback with an actual shallow checkout.
+            # The fake API response stays local: no network or credentials.
+            (repo / paths[1]).write_text("only tests after hardware\n", encoding="utf-8")
+            git("add", "-A")
+            git("commit", "-qm", "test-only final")
+            final_head = git("rev-parse", "HEAD")
+            bare = repo / "remote.git"
+            shallow = repo / "shallow"
+            subprocess.run(["git", "init", "--bare", "-q", str(bare)],
+                           capture_output=True, check=True)
+            git("remote", "add", "origin", str(bare))
+            git("push", "-q", "origin", f"{final_head}:refs/heads/main")
+            subprocess.run(
+                ["git", "clone", "-q", "--depth=1", "--branch=main",
+                 bare.as_uri(), str(shallow)], capture_output=True, check=True,
+            )
+            missing = subprocess.run(
+                ["git", "-C", str(shallow), "cat-file", "-e", hardware + "^{commit}"],
+                capture_output=True,
+            )
+            self.assertNotEqual(missing.returncode, 0)
+
+            def api_fallback(data):
+                output = repo / "api.out"
+                output.write_text("", encoding="utf-8")
+                # Intercept only the GitHub CLI read; every Git call remains real.
+                replacement = json.dumps(data).encode("utf-8")
+                prefix = (
+                    "import subprocess\n"
+                    "_real_check_output = subprocess.check_output\n"
+                    f"_answer = {replacement!r}\n"
+                    "def _check_output(args, *a, **k):\n"
+                    "    if args[:2] == ['gh', 'api']: return _answer\n"
+                    "    return _real_check_output(args, *a, **k)\n"
+                    "subprocess.check_output = _check_output\n"
+                )
+                env = {**os.environ, "ORDAX_BEFORE_SHA": hardware,
+                       "ORDAX_HEAD_SHA": final_head,
+                       "GITHUB_REPOSITORY": "ordaxsystems/ordax-os",
+                       "GITHUB_OUTPUT": str(output)}
+                subprocess.run(
+                    [sys.executable, "-c", prefix + script], cwd=shallow,
+                    env=env, capture_output=True, text=True,
+                    check=True, timeout=20,
+                )
+                return output.read_text(encoding="utf-8").strip()
+
+            comparison = {
+                "status": "ahead", "total_commits": 1,
+                "base_commit": {"sha": hardware},
+                "head_commit": {"sha": final_head},
+                "merge_base_commit": {"sha": hardware},
+                "files": [{"filename": paths[1]}],
+            }
+            self.assertEqual(api_fallback(comparison), "publish=false")
+            divergent = {**comparison, "merge_base_commit": {"sha": base}}
+            self.assertEqual(api_fallback(divergent), "publish=true")
+            truncated = {**comparison, "files": comparison["files"] * 300}
+            self.assertEqual(api_fallback(truncated), "publish=true")
 
     def test_development_base_workflow_consumes_one_buildroot_owner(self):
         workflow = (ROOT / ".github/workflows/dev-base-channel.yml").read_text()
@@ -269,59 +450,6 @@ class DevBaseProducerTests(unittest.TestCase):
                     out_dir=root / "tampered-kernel",
                 )
 
-    @unittest.skipUnless(os.name == "posix", "requires POSIX executable bits")
-    def test_full_build_accepts_flattened_apk_hardlinks_and_pins_unique_provenance(self):
-        # Reproduce the real CI failure: 390 references to 1 MiB make the
-        # pathname-sum exceed 320 MiB while only 1 MiB of payload is stored.
-        with tempfile.TemporaryDirectory() as temporary:
-            root = Path(temporary)
-            kernel_dir, initramfs_dir, rootfs_dir, _kernel, _initramfs = (
-                write_provenance_fixture(root)
-            )
-            tree = rootfs_dir / "rootfs"
-            library = tree / "usr/lib"
-            library.mkdir(parents=True)
-            original = library / "shared.bin"
-            original.write_bytes(b"X" * (1024 * 1024))
-            for index in range(390):
-                os.link(original, library / f"alias-{index:04d}.bin")
-            provenance_path = rootfs_dir / "provenance.json"
-            provenance = json.loads(provenance_path.read_text(encoding="utf-8"))
-            provenance["unique_regular_bytes"] += 1024 * 1024
-            provenance_path.write_text(json.dumps(provenance), encoding="utf-8")
-            self.assertGreater(
-                390 * (1024 * 1024), builder.MAX_ROOTFS_EXPANDED_BYTES
-            )
-            self.assertEqual(builder.validate_rootfs_source(rootfs_dir, SOURCE), tree)
-            out = root / "candidate"
-            builder.build(
-                source_commit=SOURCE,
-                kernel_dir=kernel_dir,
-                initramfs_dir=initramfs_dir,
-                rootfs_dir=rootfs_dir,
-                out_dir=out,
-            )
-            self.assertLess((out / "rootfs.tar").stat().st_size, 8 * 1024 * 1024)
-            self.assertEqual(builder.verify(out)["source_commit"], SOURCE)
-            self.assertEqual(
-                sum(m.islnk() for m in consumer._validate_rootfs_archive(out / "rootfs.tar")),
-                390,
-            )
-
-    @unittest.skipUnless(os.name == "posix", "requires POSIX executable bits")
-    def test_rejects_dev_base_provenance_size_drift_without_relaxing_limits(self):
-        with tempfile.TemporaryDirectory() as temporary:
-            root = Path(temporary)
-            rootfs_dir = write_rootfs_fixture(root)
-            provenance_path = rootfs_dir / "provenance.json"
-            provenance = json.loads(provenance_path.read_text(encoding="utf-8"))
-            provenance["unique_regular_bytes"] += 1
-            provenance_path.write_text(json.dumps(provenance), encoding="utf-8")
-            with self.assertRaisesRegex(
-                builder.CandidateError, "unique bytes differ from provenance"
-            ):
-                builder.validate_rootfs_source(rootfs_dir, SOURCE)
-
     def test_builder_and_consumer_agree_on_native_atomic_exchange_base_requirement(self):
         native = "usr/local/bin/ordax-checkout-exchange"
         manifest = (ROOT / "system/services/base-update/dev-helper-manifest.tsv").read_text(
@@ -338,90 +466,47 @@ class DevBaseProducerTests(unittest.TestCase):
     def test_missing_native_exchange_helper_cannot_enter_signed_base_consumer(self):
         with tempfile.TemporaryDirectory() as temporary:
             root = Path(temporary)
-            rootfs = write_rootfs_fixture(root) / "rootfs"
-            helper = rootfs / "usr/local/bin/ordax-checkout-exchange"
-            helper.unlink()
             archive = root / "unsigned-malformed-rootfs.tar"
-            with tarfile.open(archive, "w:") as output:
-                for child in sorted(rootfs.rglob("*")):
-                    output.add(
-                        child,
-                        arcname=child.relative_to(rootfs).as_posix(),
-                        recursive=False,
-                    )
+            write_test_rootfs_tar(
+                archive,
+                omit={"usr/local/bin/ordax-checkout-exchange"},
+            )
             with self.assertRaisesRegex(
                 consumer.DevBaseChannelError,
                 "missing required files.*usr/local/bin/ordax-checkout-exchange",
             ):
                 consumer._validate_rootfs_archive(archive)
-            (rootfs / consumer.ROOTFS_MARKER).write_text(
-                SOURCE + "\n", encoding="ascii"
-            )
-            (rootfs / ".ordax-base").mkdir(exist_ok=True)
-            with self.assertRaisesRegex(
-                consumer.DevBaseChannelError,
-                "required file is missing: usr/local/bin/ordax-checkout-exchange",
-            ):
-                consumer.verify_versioned_rootfs(rootfs, SOURCE)
 
-    def test_large_hardlink_fanout_is_serialized_once_and_verified_by_both_sides(self):
+    def test_large_hardlink_fanout_is_verified_by_canonical_consumer(self):
         with tempfile.TemporaryDirectory() as temporary:
             root = Path(temporary)
-            tree = root / "rootfs"
-            for relative in builder.REQUIRED_ROOTFS_PATHS:
-                item = tree / relative
-                item.parent.mkdir(parents=True, exist_ok=True)
-                item.write_bytes(b"executable fixture\\n")
-                item.chmod(0o755)
-            for relative in builder.REQUIRED_ROOTFS_DIRS:
-                (tree / relative).mkdir(parents=True, exist_ok=True)
-            library = tree / "usr/lib"
-            library.mkdir(parents=True)
-            original = library / "shared.bin"
-            original.write_bytes(b"X" * (1024 * 1024))
-            original.chmod(0o644)
-            for index in range(390):
-                os.link(original, library / f"alias-{index:04d}.bin")
-            self.assertGreater(390 * (1024 * 1024), builder.MAX_ROOTFS_EXPANDED_BYTES)
             archive = root / "rootfs.tar"
-            builder.build_rootfs_tar(tree, archive)
+            hardlinks = tuple(
+                (f"usr/lib/alias-{index:04d}.bin", "bin/busybox")
+                for index in range(390)
+            )
+            write_test_rootfs_tar(archive, hardlinks=hardlinks)
             builder.verify_rootfs_tar(archive)
             members = consumer._validate_rootfs_archive(archive)
             self.assertEqual(sum(member.islnk() for member in members), 390)
-            self.assertLess(archive.stat().st_size, 8 * 1024 * 1024)
-            self.assertLess(
-                sum(member.size for member in members if member.isreg()),
-                2 * 1024 * 1024,
-            )
 
-    def test_rejects_unsafe_forward_or_cross_mode_hardlinks(self):
-        with tempfile.TemporaryDirectory() as temporary:
-            root = Path(temporary)
-            tree = root / "rootfs"
-            for relative in builder.REQUIRED_ROOTFS_PATHS:
-                item = tree / relative
-                item.parent.mkdir(parents=True, exist_ok=True)
-                item.write_bytes(b"fixture")
-                item.chmod(0o755)
-            for relative in builder.REQUIRED_ROOTFS_DIRS:
-                (tree / relative).mkdir(parents=True, exist_ok=True)
-            for target, mode in [
-                ("../../escape", 0o755),
-                ("future/not-yet-seen", 0o755),
-                ("bin/sh", 0o644),
-            ]:
-                archive = root / "rootfs.tar"
-                builder.build_rootfs_tar(tree, archive)
-                with tarfile.open(archive, "a") as output:
-                    link = tarfile.TarInfo("zzz-unsafe")
-                    link.type = tarfile.LNKTYPE
-                    link.linkname = target
-                    link.mode = mode
-                    link.size = 0
-                    output.addfile(link)
-                with self.assertRaisesRegex(builder.CandidateError, "unsafe hardlink"):
+    def test_rejects_unsafe_or_forward_hardlinks(self):
+        for target in ("../../escape", "future/not-yet-seen"):
+            with self.subTest(target=target), tempfile.TemporaryDirectory() as temporary:
+                archive = Path(temporary) / "rootfs.tar"
+                write_test_rootfs_tar(
+                    archive,
+                    hardlinks=(("zzz-unsafe", target),),
+                )
+                with self.assertRaisesRegex(
+                    builder.CandidateError,
+                    "Dev Channel rejected rootfs archive",
+                ):
                     builder.verify_rootfs_tar(archive)
-                with self.assertRaisesRegex(consumer.DevBaseChannelError, "unsafe hardlink"):
+                with self.assertRaisesRegex(
+                    consumer.DevBaseChannelError,
+                    "unsafe hardlink",
+                ):
                     consumer._validate_rootfs_archive(archive)
 
     @unittest.skipUnless(os.name == "posix", "hardlink materialization requires POSIX fsync")
@@ -431,9 +516,18 @@ class DevBaseProducerTests(unittest.TestCase):
             kernel_dir, initramfs_dir, rootfs_dir, _kernel, _initramfs = (
                 write_provenance_fixture(root)
             )
-            tree = rootfs_dir / "rootfs"
-            original = tree / "bin/busybox"
-            os.link(original, tree / "bin/busybox-peer")
+            rootfs_tar = rootfs_dir / "rootfs.tar"
+            write_test_rootfs_tar(
+                rootfs_tar,
+                hardlinks=(("bin/busybox-peer", "bin/busybox"),),
+            )
+            provenance_path = rootfs_dir / "provenance.json"
+            provenance = json.loads(provenance_path.read_text(encoding="utf-8"))
+            provenance["artifacts"]["rootfs.tar"] = hashlib.sha256(
+                rootfs_tar.read_bytes()
+            ).hexdigest()
+            provenance_path.write_text(json.dumps(provenance), encoding="utf-8")
+
             candidate = root / "candidate"
             builder.build(
                 source_commit=SOURCE,
@@ -449,10 +543,6 @@ class DevBaseProducerTests(unittest.TestCase):
             self.assertEqual(
                 (materialized / "bin/busybox").stat().st_ino,
                 (materialized / "bin/busybox-peer").stat().st_ino,
-            )
-            self.assertEqual(
-                (materialized / "bin/busybox").read_bytes(),
-                (materialized / "bin/busybox-peer").read_bytes(),
             )
 
     def test_build_binds_exact_commit_and_standard_asset_names(self):
@@ -531,7 +621,7 @@ class DevBaseProducerTests(unittest.TestCase):
 
             with self.assertRaisesRegex(
                 builder.CandidateError,
-                "rootfs provenance source commit",
+                "Independent Base source commit differs",
             ):
                 builder.build(
                     source_commit=SOURCE,

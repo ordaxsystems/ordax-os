@@ -425,7 +425,7 @@ class IndependentSurfaceRuntimeTests(unittest.TestCase):
         self.assertNotIn('--work-dir "$ORDAX_SURFACE_PERSISTENT_WORK_ROOT/', build_step)
 
     def test_fast_gate_reports_producer_variable_presence_without_exposing_values(self):
-        gate = (ROOT / ".github/workflows/remove-alpine-fast.yml").read_text(encoding="utf-8")
+        gate = (ROOT / ".github/workflows/independent-surface-runtime.yml").read_text(encoding="utf-8")
         self.assertIn("Diagnose durable Surface producer configuration without building", gate)
         diagnostic = gate.split("      - name: Diagnose durable Surface producer configuration without building", 1)[1].split("      - name: Prove authenticated runner context reaches Shell", 1)[0]
         for variable in (
@@ -506,7 +506,7 @@ class IndependentSurfaceRuntimeTests(unittest.TestCase):
     def test_public_pr_cannot_select_private_persistent_surface_runner(self):
         workflow = WORKFLOW_PATH.read_text(encoding="utf-8")
         build = workflow.split("  buildroot-surface:", 1)[1].split("\n  portable-qemu:", 1)[0]
-        trusted = "github.event_name == 'workflow_dispatch' && github.ref == 'refs/heads/integration/dev-usb-buildroot-surface-20261024'"
+        trusted = "github.event_name == 'workflow_dispatch' && github.ref == 'refs/heads/main'"
         self.assertIn("runs-on: ${{ " + trusted + " && vars.ORDAX_SURFACE_RUNNER_LABEL || 'ubuntu-24.04' }}", build)
         self.assertIn("ORDAX_SURFACE_PERSISTENT_WORK_ROOT: ${{ " + trusted + " && vars.ORDAX_SURFACE_PERSISTENT_WORK_ROOT || '' }}", build)
         self.assertIn("ORDAX_SURFACE_BUILD_WORK_ROOT: ${{ " + trusted + " && vars.ORDAX_SURFACE_BUILD_WORK_ROOT || '' }}", build)

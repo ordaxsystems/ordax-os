@@ -3,6 +3,7 @@ import test from "node:test";
 
 import {
   NETWORK_MANAGEMENT_SCHEMA,
+  WifiCredentialsValidationError,
   assertNetworkManagementPort,
   validateNetworkManagementSnapshot,
   validateWifiCredentials,
@@ -37,7 +38,8 @@ test("network management credentials stay input-only", () => {
 });
 
 test("network management rejects duplicates and invalid credentials", () => {
-  assert.throws(() => validateWifiCredentials({ ssid: "Casa", password: "curta" }));
+  assert.throws(() => validateWifiCredentials({ ssid: "Casa", password: "curta" }), WifiCredentialsValidationError);
+  assert.throws(() => validateWifiCredentials({ ssid: "", password: "12345678" }), WifiCredentialsValidationError);
   assert.throws(() => validateNetworkManagementSnapshot({
     wifiInterface: "wlan0",
     currentSsid: null,
@@ -56,6 +58,219 @@ test("network management enforces real SSID and WPA passphrase byte limits", () 
   assert.throws(() => validateWifiCredentials({ ssid: "Casa", password: "senha\ninvalida" }));
 });
 
+test("native network adapter reports safe WPA/DHCP failures without exposing secrets", async () => {
+  const { createNativeNetworkManagement } = await import("../system/adapters/native/network-management.mjs");
+  const snapshot = { wifiInterface: "wlan0", currentSsid: null, savedSsid: null, networks: [] };
+  let reason = "dhcp-failed";
+  const fakeWindow = {
+    fetch: async (url, options) => {
+      if (url === "/__ordax/native/session") {
+        return { ok: true, json: async () => ({ networkToken: "012345678901234567890123456789ab" }) };
+      }
+      if (options.method === "GET") return { ok: true, json: async () => snapshot };
+      return { ok: false, status: reason === "dhcp-failed" || reason === "untrusted-secret" ? 409 : 503,
+        json: async () => ({ reason, password: "PRIVATE_VALUE" }) };
+    },
+  };
+  const port = await createNativeNetworkManagement(fakeWindow);
+  for (const [nextReason, expected] of [["dhcp-failed", "dhcp-failed"],
+    ["network-owner-unavailable", "network-owner-unavailable"],
+    ["dhcp-runtime-unavailable", "dhcp-runtime-unavailable"],
+    ["scan-failed", "scan-failed"],
+    ["connect-failed", "connect-failed"],
+    ["reconnect-failed", "reconnect-failed"],
+    ["saved-network-unavailable", "saved-network-unavailable"],
+    ["network-broker-unavailable", "network-broker-unavailable"],
+    ["network-broker-timeout", "network-broker-timeout"],
+    ["network-broker-io-failed", "network-broker-io-failed"],
+    ["wifi-tools-unavailable", "wifi-tools-unavailable"],
+    ["no-wifi-interface", "no-wifi-interface"],
+    ["credential-save-failed", "credential-save-failed"],
+    ["disconnect-state-failed", "disconnect-state-failed"],
+    ["credential-delete-failed", "credential-delete-failed"],
+    ["reconnect-state-failed", "reconnect-state-failed"],
+    ["untrusted-secret", undefined]]) {
+    reason = nextReason;
+    await assert.rejects(port.connect({ ssid: "Casa", password: "validpassword" }), (error) => {
+      assert.equal(error.networkReason, expected);
+      assert.equal(JSON.stringify(error).includes("PRIVATE_VALUE"), false);
+      return true;
+    });
+  }
+});
+
+test("Native Wi-Fi preserves bounded HTTP 400 input reasons before touching WPA", async () => {
+  const { createNativeNetworkManagement } = await import("../system/adapters/native/network-management.mjs");
+  const token = "a".repeat(64);
+  const snapshot = { wifiInterface: "wlan0", currentSsid: null, savedSsid: null, networks: [] };
+  let reason = "network-request-invalid";
+  let attempts = 0;
+  const fakeWindow = {
+    fetch: async (url, options) => {
+      if (url === "/__ordax/native/session") {
+        return { ok: true, json: async () => ({ networkToken: token }) };
+      }
+      if (options.method === "GET") return { ok: true, json: async () => snapshot };
+      attempts++;
+      if (reason === "empty") return { ok: false, status: 400, json: async () => { throw new SyntaxError("empty"); } };
+      if (reason === "network-native-response-invalid") {
+        return { ok: false, status: 503, json: async () => ({ reason }) };
+      }
+      return { ok: false, status: 400, json: async () => ({ reason, password: "PRIVATE_VALUE" }) };
+    },
+  };
+  const port = await createNativeNetworkManagement(fakeWindow);
+  for (const [next, expected] of [
+    ["network-request-invalid", "network-request-invalid"],
+    ["invalid-credentials", "invalid-credentials"],
+    ["empty", "network-request-invalid"],
+    ["network-native-response-invalid", "network-native-response-invalid"],
+  ]) {
+    reason = next;
+    const prior = attempts;
+    await assert.rejects(port.connect({ ssid: "Casa", password: "validpassword" }), (error) => {
+      assert.equal(error.networkReason, expected);
+      assert.equal(JSON.stringify(error).includes("PRIVATE_VALUE"), false);
+      return true;
+    });
+    assert.equal(attempts, prior + 1, "a rejected POST cannot be automatically replayed");
+  }
+});
+
+test("Native Wi-Fi reconnects to a rotated host grant without repeating accepted writes", async () => {
+  const { createNativeNetworkManagement } = await import("../system/adapters/native/network-management.mjs");
+  const a = "a".repeat(64);
+  const b = "b".repeat(64);
+  const snapshot = { wifiInterface: "wlan0", currentSsid: null, savedSsid: null, networks: [] };
+  let hostToken = a;
+  let sessionReads = 0;
+  let accepted = 0;
+  const requests = [];
+  const fakeWindow = {
+    fetch: async (url, options) => {
+      if (url === "/__ordax/native/session") {
+        sessionReads += 1;
+        return { ok: true, json: async () => ({ networkToken: hostToken }) };
+      }
+      requests.push({ method: options.method, token: options.headers["X-OrdaX-Network-Token"] });
+      if (options.headers["X-OrdaX-Network-Token"] !== hostToken) {
+        return { ok: false, status: 403 };
+      }
+      if (options.method === "GET") return { ok: true, json: async () => snapshot };
+      accepted += 1;
+      return { ok: true, json: async () => snapshot };
+    },
+  };
+  const port = await createNativeNetworkManagement(fakeWindow);
+  hostToken = b; // Native host restarted after First Run loaded its network port.
+  await port.connect({ ssid: "Casa", password: "validpassword" });
+  assert.equal(sessionReads, 2);
+  assert.equal(accepted, 1);
+  assert.deepEqual(requests.slice(-2).map((entry) => entry.token), [a, b]);
+
+  await port.reconnect();
+  assert.equal(sessionReads, 2, "refreshed grant remains shared by subsequent actions");
+  assert.equal(accepted, 2);
+});
+
+test("Native Wi-Fi never retries a denied action without a rotated token", async () => {
+  const { createNativeNetworkManagement } = await import("../system/adapters/native/network-management.mjs");
+  const token = "a".repeat(64);
+  const snapshot = { wifiInterface: "wlan0", currentSsid: null, savedSsid: null, networks: [] };
+  let postRequests = 0;
+  const fakeWindow = {
+    fetch: async (url, options) => {
+      if (url === "/__ordax/native/session") {
+        return { ok: true, json: async () => ({ networkToken: token }) };
+      }
+      if (options.method === "GET") return { ok: true, json: async () => snapshot };
+      postRequests += 1;
+      return { ok: false, status: 403 };
+    },
+  };
+  const port = await createNativeNetworkManagement(fakeWindow);
+  await assert.rejects(port.connect({ ssid: "Casa", password: "validpassword" }), (error) => {
+    assert.equal(error.status, 403);
+    return true;
+  });
+  assert.equal(postRequests, 1, "403 with the same token must remain denied");
+});
+
+test("Native Wi-Fi does not replay a rejected WPA/DHCP broker action", async () => {
+  const { createNativeNetworkManagement } = await import("../system/adapters/native/network-management.mjs");
+  const token = "a".repeat(64);
+  const snapshot = { wifiInterface: "wlan0", currentSsid: null, savedSsid: null, networks: [] };
+  let postRequests = 0;
+  let sessionReads = 0;
+  const fakeWindow = {
+    fetch: async (url, options) => {
+      if (url === "/__ordax/native/session") {
+        sessionReads += 1;
+        return { ok: true, json: async () => ({ networkToken: token }) };
+      }
+      if (options.method === "GET") return { ok: true, json: async () => snapshot };
+      postRequests += 1;
+      return { ok: false, status: 409, json: async () => ({ reason: "authentication-failed" }) };
+    },
+  };
+  const port = await createNativeNetworkManagement(fakeWindow);
+  await assert.rejects(port.connect({ ssid: "Casa", password: "validpassword" }), (error) => {
+    assert.equal(error.networkReason, "authentication-failed");
+    return true;
+  });
+  assert.equal(postRequests, 1);
+  assert.equal(sessionReads, 1);
+});
+
+test("Native Wi-Fi classifies localhost failure and malformed successful response without replay", async () => {
+  const { createNativeNetworkManagement } = await import("../system/adapters/native/network-management.mjs");
+  const token = "a".repeat(64);
+  const snapshot = { wifiInterface: "wlan0", currentSsid: null, savedSsid: null, networks: [] };
+  let mode = "transport";
+  let attempts = 0;
+  const fakeWindow = {
+    fetch: async (url, options) => {
+      if (url === "/__ordax/native/session") {
+        return { ok: true, json: async () => ({ networkToken: token }) };
+      }
+      if (options.method === "GET") return { ok: true, json: async () => snapshot };
+      attempts += 1;
+      if (mode === "transport") throw new TypeError("private transport exception");
+      if (mode === "invalid-snapshot") return { ok: true, json: async () => ({ password: "secret" }) };
+      if (mode === "missing-endpoint") return { ok: false, status: 404 };
+      return { ok: false, status: 503, json: async () => { throw new SyntaxError("missing body"); } };
+    },
+  };
+  const port = await createNativeNetworkManagement(fakeWindow);
+  for (const [nextMode, reason] of [
+    ["transport", "network-host-unreachable"],
+    ["invalid-snapshot", "network-snapshot-invalid"],
+    ["missing-endpoint", "network-endpoint-unavailable"],
+    ["native-503", "network-native-failure"],
+  ]) {
+    mode = nextMode;
+    const before = attempts;
+    await assert.rejects(port.connect({ ssid: "Casa", password: "validpassword" }), (error) => {
+      assert.equal(error.networkReason, reason);
+      assert.equal(String(error.message).includes("secret"), false);
+      assert.equal(String(error.message).includes("private"), false);
+      return true;
+    });
+    assert.equal(attempts, before + 1, "a possibly accepted POST cannot be replayed");
+  }
+});
+
+test("Native Wi-Fi identifies an unavailable session without leaking its contents", async () => {
+  const { createNativeNetworkManagement } = await import("../system/adapters/native/network-management.mjs");
+  const fakeWindow = {
+    fetch: async () => ({ ok: false, status: 503 }),
+  };
+  await assert.rejects(createNativeNetworkManagement(fakeWindow), (error) => {
+    assert.equal(error.networkReason, "network-session-unavailable");
+    return true;
+  });
+});
+
 test("network management port has explicit bounded actions", () => {
   const port = {
     schema: NETWORK_MANAGEMENT_SCHEMA,
@@ -68,4 +283,104 @@ test("network management port has explicit bounded actions", () => {
   };
   assert.equal(assertNetworkManagementPort(port), port);
   assert.equal("shell" in port, false);
+});
+
+test("Native Wi-Fi keeps a proven live busy controller available after transient first status timeout", async () => {
+  const { createNativeNetworkManagement } = await import("../system/adapters/native/network-management.mjs");
+  const snapshot = { wifiInterface: "wlan0", currentSsid: null, savedSsid: null, networks: [] };
+  const token = "a".repeat(64);
+  let mode = "busy";
+  let reads = 0;
+  let posts = 0;
+  const fakeWindow = {
+    fetch: async (url, options) => {
+      if (url === "/__ordax/native/session") {
+        return { ok: true, json: async () => ({ networkToken: token }) };
+      }
+      if (options.method === "POST") {
+        posts += 1;
+        return { ok: false, status: 503, json: async () => ({ reason: "network-broker-timeout" }) };
+      }
+      reads += 1;
+      if (mode === "busy") {
+        return { ok: false, status: 503, json: async () => ({ reason: "network-broker-timeout" }) };
+      }
+      if (mode === "no-radio") {
+        return { ok: false, status: 503, json: async () => ({ reason: "no-wifi-interface" }) };
+      }
+      if (mode === "unknown") {
+        return { ok: false, status: 503, json: async () => ({ reason: "untrusted-reason" }) };
+      }
+      return { ok: true, json: async () => snapshot };
+    },
+  };
+  const port = await createNativeNetworkManagement(fakeWindow);
+  assert.equal(reads, 1, "a transient initial read is not retried behind the boot curtain");
+  assert.equal(posts, 0);
+  mode = "healthy";
+  assert.deepEqual(await port.status(), snapshot);
+  assert.equal(reads, 2, "the same port reads the recovered real controller");
+  mode = "busy";
+  await assert.rejects(port.connect({ ssid: "Casa", password: "validpassword" }), error => {
+    assert.equal(error.networkReason, "network-broker-timeout");
+    return true;
+  });
+  assert.equal(posts, 1, "a mutating action is never automatically replayed");
+
+  mode = "no-radio";
+  await assert.rejects(createNativeNetworkManagement(fakeWindow), error => {
+    assert.equal(error.networkReason, "no-wifi-interface");
+    return true;
+  });
+  mode = "unknown";
+  await assert.rejects(createNativeNetworkManagement(fakeWindow), error => {
+    assert.equal(error.networkReason, "network-native-failure");
+    return true;
+  });
+});
+
+test("Native Wi-Fi retains verified WLAN operations across cold-boot broker restart without replaying actions", async () => {
+  const { createNativeNetworkManagement } = await import("../system/adapters/native/network-management.mjs");
+  const snapshot = { wifiInterface: "wlan0", currentSsid: null, savedSsid: null, networks: [] };
+  const token = "c".repeat(64);
+  let mode = "supervisor-restarting";
+  let statusReads = 0;
+  let attemptedWrites = 0;
+  const fakeWindow = {
+    fetch: async (url, options) => {
+      if (url === "/__ordax/native/session") {
+        return { ok: true, json: async () => ({ networkToken: token }) };
+      }
+      if (options.method === "GET") {
+        statusReads++;
+        if (mode === "no-wlan") return { ok: false, status: 503, json: async () => ({ reason: "no-wifi-interface" }) };
+        if (mode === "unknown") return { ok: false, status: 503, json: async () => ({ reason: "untrusted-secret" }) };
+        if (mode === "supervisor-restarting") return { ok: false, status: 503, json: async () => ({ reason: "network-broker-unavailable" }) };
+        return { ok: true, json: async () => snapshot };
+      }
+      attemptedWrites++;
+      return { ok: false, status: 503, json: async () => ({ reason: "network-broker-unavailable", password: "PRIVATE" }) };
+    },
+  };
+  const management = await createNativeNetworkManagement(fakeWindow);
+  assert.equal(statusReads, 1, "bootstrap must not poll or pretend the unavailable broker responded");
+  await assert.rejects(management.connect({ ssid: "Casa", password: "12345678" }), error => {
+    assert.equal(error.networkReason, "network-broker-unavailable");
+    assert.equal(JSON.stringify(error).includes("PRIVATE"), false);
+    return true;
+  });
+  assert.equal(attemptedWrites, 1, "a failed connection must not replay");
+  mode = "ready";
+  assert.deepEqual(await management.status(), snapshot);
+  assert.equal(statusReads, 2, "recovery uses the same Native port, not a parallel owner");
+  for (const [nextMode, expected] of [
+    ["no-wlan", "no-wifi-interface"],
+    ["unknown", "network-native-failure"],
+  ]) {
+    mode = nextMode;
+    await assert.rejects(createNativeNetworkManagement(fakeWindow), error => {
+      assert.equal(error.networkReason, expected);
+      return true;
+    });
+  }
 });

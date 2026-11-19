@@ -44,7 +44,8 @@ OWNER_BUSYBOX_FRAGMENT_CONFIG = (
     'owner-development.busybox.fragment"'
 )
 BUSYBOX_HANDOFF_SYMBOLS = ("CONFIG_STAT=y", "CONFIG_FEATURE_STAT_FORMAT=y", "CONFIG_TIMEOUT=y", "CONFIG_FLOCK=y", "CONFIG_MKTEMP=y")
-OWNER_BUSYBOX_SYMBOLS = ("CONFIG_NTPD=y", "CONFIG_NSLOOKUP=y", "CONFIG_WGET=y")
+OWNER_BUSYBOX_SYMBOLS = ("CONFIG_NTPD=y", "CONFIG_NSLOOKUP=y", "CONFIG_WGET=y",
+                         "CONFIG_BLKID=y", "CONFIG_FEATURE_VOLUMEID_EXFAT=y")
 SUPPORTED_PROFILES = ("minimal", "owner-development", "stable-mvp")
 # Component-private Python must not change any canonical OS boot profile.
 NATIVE_COMPONENT_PROFILE = "native-product-runtime"
@@ -796,6 +797,7 @@ def verify_owner_target(target: Path) -> None:
         "sbin/ordax-dev-init": ROOT / "bootstrap/dev-base/ordax-dev-init",
         "usr/local/bin/ordax-network": ROOT / "bootstrap/dev-base/ordax-network",
         "usr/local/bin/ordax-pull": ROOT / "bootstrap/dev-base/ordax-pull",
+        "usr/local/bin/ordax-owner-usb-git": ROOT / "bootstrap/dev-base/ordax-owner-usb-git",
         "usr/local/bin/ordax-checkout-exchange": None,
         "usr/local/bin/ordax-usb-mountattr": None,
         "usr/local/bin/ordax-rollback": ROOT / "bootstrap/dev-base/ordax-rollback",
@@ -860,7 +862,7 @@ def verify_target(target: Path, profile: str) -> dict:
         required_applets.update({
             "awk", "date", "df", "dirname", "head", "killall", "mv", "ntpd",
             "pivot_root", "reboot", "rm", "sed", "setsid", "stty", "tail",
-            "test", "touch", "wc", "nslookup", "wget",
+            "test", "touch", "wc", "nslookup", "wget", "blkid",
         })
     missing = required_applets - applets
     if missing:

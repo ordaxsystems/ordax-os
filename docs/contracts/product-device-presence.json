@@ -64,7 +64,14 @@
   },
   "production": {
     "enabled": false,
-    "reason": "control-plane-v3-production-gates-remain-closed"
+    "reason": "control-plane-v3-production-gates-remain-closed",
+    "signedUsbSupervisorSourceReady": true,
+    "nativeDiskActivationAllowed": false,
+    "unsignedDevelopmentFallbackAllowed": false,
+    "signedRuntimeSlotRequired": true,
+    "deviceBoundOwnerConsentRequired": true,
+    "runtimeArtifactAndTrustPromotionPending": true,
+    "clientOAuthAndDeviceGrantsRequiredForActions": true
   },
   "ownerDevelopment": {
     "canaryAllowedAfterAuthenticatedEnrollment": true,
@@ -79,6 +86,10 @@
     "connectorSettingsPath": "/__ordax/native/product-connector",
     "settingsOwnedBy": "system/surface/runtime/product_device_runtime.py",
     "persistentVisibilityPolicy": "/state/ordax/native-state/device-agent/product-connector-visibility.json",
+    "accountScopedVisibilitySchema": "ordax.product-connector-visibility/2",
+    "accountVisibilityBoundToEnrolledDeviceId": true,
+    "legacyAccountOnlyConsentAuthorized": false,
+    "productionRuntimeStillRequiresSignedComponent": true,
     "requiresValidAccountSessionToEnable": false,
     "offlineDisableAlwaysAllowed": true,
     "discoveryOptInBoundToAccountSubject": false,

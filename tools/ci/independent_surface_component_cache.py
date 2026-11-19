@@ -130,10 +130,15 @@ def redirected_path(path: Path) -> bool:
     # junctions on Windows, rather than trusting the resolved destination.
     if ".." in path.parts:
         return True
-    return any(
-        candidate.is_symlink() or getattr(candidate, "is_junction", lambda: False)()
-        for candidate in (path, *path.parents)
-    )
+    for candidate in (path, *path.parents):
+        try:
+            if candidate.is_symlink() or getattr(candidate, "is_junction", lambda: False)():
+                return True
+        except OSError:
+            # Windows can reject traversing an untrusted junction/mount.
+            # An uninspectable path must never become a cache authority.
+            return True
+    return False
 
 
 def verified_output_dir(path: Path) -> Path:

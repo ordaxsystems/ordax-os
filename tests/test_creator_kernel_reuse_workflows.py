@@ -141,15 +141,30 @@ class CreatorKernelReuseWorkflowTests(unittest.TestCase):
             "Derive development Git bootstrap manifest",
             "Assemble boot payload and overlay Git development base",
             "Materialize and verify RAW development seed",
-            "Build split Windows Creator bundle",
-            "Verify exact Owner Development ZIP before publication",
+            "Package QEMU-proven Owner USB media without compiling Creator",
+            "Publish verified OS media for independent Creator owner",
         ):
             block = self.step_block(workflow, step)
             self.assertNotIn("cache-hit", block)
 
     def test_dev_base_channel_skips_helper_only_publication_and_reuses_kernel(self):
         workflow = self.assert_verified_kernel_reuse(DEV_BASE_CHANNEL)
-        detector = self.step_block(workflow, "Detect Base-byte changes")
+        # The impact decision belongs to the lightweight verify job, before
+        # the 120-minute producer enters its serialized queue. Keep the
+        # multi-commit push comparison and fail-closed API fallback intact.
+        self.assertIn("needs: verify", workflow)
+        self.assertIn("needs.verify.outputs.publish == 'true'", workflow)
+        self.assertIn("publish: ${{ steps.scope.outputs.publish }}", workflow)
+        detector = self.step_block(
+            workflow, "Classify complete main push before entering the heavy producer queue"
+        )
+        self.assertIn("if: github.event_name == 'push'", detector)
+        self.assertIn('ORDAX_BEFORE_SHA: ${{ github.event.before }}', detector)
+        self.assertIn('ORDAX_HEAD_SHA: ${{ github.sha }}', detector)
+        self.assertIn('"--no-renames", before, head', detector)
+        self.assertIn("compare/{before}...{head}", detector)
+        self.assertIn('data.get("merge_base_commit", {}).get("sha") != before', detector)
+        self.assertIn("publish = True", detector)
         for helper in (
             "bootstrap/dev-base/ordax-dev-init",
             "bootstrap/dev-base/ordax-network",
@@ -184,7 +199,11 @@ class CreatorKernelReuseWorkflowTests(unittest.TestCase):
             build,
         )
         self.assertIn("owner_validation_pr", workflow)
-        self.assertIn("DEV_BASE_OWNER_VALIDATION_EXACT_HEAD=PASS", detector)
+        authority = self.step_block(
+            workflow, "Authorize exact Owner validation dispatch or confirmed main push"
+        )
+        self.assertIn("DEV_BASE_OWNER_VALIDATION_EXACT_HEAD=PASS", authority)
+        self.assertIn('test "$(jq -r \'.head.sha\' <<<"$pr_json")" = "$GITHUB_SHA"', authority)
         self.assertIn("github.actor == 'ordaxos-admin'", workflow)
 
     def test_retired_diagnose_cannot_build_and_live_owners_use_canonical_kernel_uapi(self):
@@ -245,43 +264,37 @@ class CreatorKernelReuseWorkflowTests(unittest.TestCase):
         # A verified hit skips Buildroot, not signing, offline boot or rollback.
         self.assertIn("Prove actual Owner USB offline handoff in QEMU", cases[0][0])
 
-    def test_review_candidate_is_byte_verified_pr_only_not_a_release(self):
+    def test_review_candidate_is_qemu_verified_before_media_and_not_windows_creator_release(self):
         workflow = self.workflow(OWNER_DEV)
-        verify = workflow.index("      - name: Verify exact Owner Development ZIP before publication")
-        key_cleanup = workflow.index("      - name: Destroy ephemeral private key before publish")
-        retain = workflow.index("      - name: Retain exact-commit verified USB Dev acceptance bundle")
-        publish = workflow.index("      - name: Publish development Creator bundle")
-        self.assertLess(verify, key_cleanup)
-        self.assertLess(key_cleanup, retain)
-        self.assertLess(retain, publish)
+        materialize = workflow.index("      - name: Materialize and verify RAW development seed")
+        qemu = workflow.index("      - name: Prove actual Owner USB offline handoff in QEMU")
+        package = workflow.index("      - name: Package QEMU-proven Owner USB media without compiling Creator")
+        key_cleanup = workflow.index("      - name: Destroy ephemeral private key before media publication")
+        publish = workflow.index("      - name: Publish verified OS media for independent Creator owner")
+        self.assertLess(materialize, qemu)
+        self.assertLess(qemu, package)
+        self.assertLess(package, key_cleanup)
+        self.assertLess(key_cleanup, publish)
 
-        artifact = self.step_block(
-            workflow, "Retain exact-commit verified USB Dev acceptance bundle"
+        media = self.step_block(
+            workflow, "Package QEMU-proven Owner USB media without compiling Creator"
         )
-        self.assertIn(
-            "if: (github.event_name == 'pull_request' && github.event.pull_request.head.repo.full_name == 'ordaxsystems/ordax-os')",
-            artifact,
+        self.assertIn("tools/creator/verify_owner_dev_media.py", media)
+        self.assertIn("qemu_two_boot_acceptance", media)
+        self.assertIn("windows_executable_in_media", media)
+        self.assertIn("find \"$media\" -type f -name '*.exe'", media)
+        self.assertNotIn("gh release", media)
+        self.assertNotIn("OrdaX-Creator.exe", media)
+
+        publish_block = self.step_block(
+            workflow, "Publish verified OS media for independent Creator owner"
         )
-        self.assertIn(
-            "name: owner-dev-usb-candidate-${{ env.ORDAX_OWNER_SOURCE_COMMIT }}",
-            artifact,
-        )
-        self.assertIn(
-            "(github.event_name == 'workflow_dispatch' && github.ref != 'refs/heads/main')",
-            artifact,
-        )
-        # A dispatch on a feature branch retains test bytes but may not publish.
         self.assertIn(
             "if: github.event_name == 'push' && github.ref == 'refs/heads/main'",
-            self.step_block(workflow, "Publish development Creator bundle"),
+            publish_block,
         )
-        self.assertIn("out/owner-prototype/release/OrdaX-Creator-Owner-Prototype.zip", artifact)
-        self.assertIn("out/owner-prototype/release/SHA256SUMS.txt", artifact)
-        self.assertIn("out/owner-prototype/release/creator-owner-update.json", artifact)
-        self.assertIn("if-no-files-found: error", artifact)
-        self.assertNotIn("gh release", artifact)
-        self.assertNotIn("private.pem", artifact)
-        self.assertNotIn("ordax-bootstrap-seed.raw", artifact)
+        self.assertIn("tag='creator-owner-media'", publish_block)
+        self.assertIn("OWNER_CREATOR_WINDOWS_RELEASE_OWNED_BY=ordaxsystems/ordax-creator", publish_block)
 
     def test_owner_dev_publication_remains_main_only(self):
         workflow = self.workflow(OWNER_DEV)
@@ -290,13 +303,21 @@ class CreatorKernelReuseWorkflowTests(unittest.TestCase):
         # Non-publishing PRs can prove the actual Owner USB payload. Promotion
         # remains restricted to an exact push of main, never a PR or dispatch.
         self.assertIn("  pull_request:", trigger)
-        publish = self.step_block(workflow, "Publish development Creator bundle")
+        publish = self.step_block(
+            workflow, "Publish verified OS media for independent Creator owner"
+        )
         self.assertIn(
             "if: github.event_name == 'push' && github.ref == 'refs/heads/main'",
             publish,
         )
-        self.assertIn("gh release upload creator-owner-prototype", publish)
-        self.assertEqual(workflow.count("gh release upload creator-owner-prototype"), 1)
+        self.assertIn("tag='creator-owner-media'", publish)
+        self.assertEqual(publish.count('gh release upload "$tag"'), 2)
+        self.assertIn("OWNER_OS_MEDIA_PUBLISHED=", publish)
+        self.assertIn(
+            "OWNER_CREATOR_WINDOWS_RELEASE_OWNED_BY=ordaxsystems/ordax-creator",
+            publish,
+        )
+        self.assertNotIn("OrdaX-Creator.exe", publish)
 
 
 if __name__ == "__main__":

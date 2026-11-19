@@ -59,6 +59,7 @@ jobs:
         run: |
           set -euo pipefail
           node --test tests/test_public_proxy_vercel_oidc.mjs
+          node --test tests/test_account_gateway_release_negative_proof.mjs
           python -m unittest tests.test_public_account_bridge_provisioning -v
           grep -Fq 'owner:ordaxsystems:project:ordax-os-public:environment:production' \
             infra/supabase/functions/ordax-public-account-gateway/vercel_oidc.mjs
@@ -99,6 +100,15 @@ jobs:
         with:
           version: 2.121.0
 
+      - name: Prove prior deployed public Account source is readable before replacement
+        shell: bash
+        env:
+          SUPABASE_ACCESS_TOKEN: ${{ secrets.SUPABASE_ACCESS_TOKEN }}
+        run: |
+          set -euo pipefail
+          python tools/account/prove_gateway_deployed_source_parity.py \
+            --function ordax-public-account-gateway --mode preflight
+
       - name: Deploy exact public account gateway bundle
         shell: bash
         env:
@@ -118,3 +128,16 @@ jobs:
           set -euo pipefail
           echo 'PUBLIC_ACCOUNT_GATEWAY_DEPLOY=PASS'
           echo "PUBLIC_ACCOUNT_GATEWAY_SOURCE_COMMIT=${GITHUB_SHA}"
+      - name: Prove deployed public Account OIDC boundary denies untrusted callers
+        shell: bash
+        run: |
+          set -euo pipefail
+          node tools/account/prove_gateway_negative_boundary.mjs public
+      - name: Verify deployed public Account source parity against approved main
+        shell: bash
+        env:
+          SUPABASE_ACCESS_TOKEN: ${{ secrets.SUPABASE_ACCESS_TOKEN }}
+        run: |
+          set -euo pipefail
+          python tools/account/prove_gateway_deployed_source_parity.py \
+            --function ordax-public-account-gateway --mode verify

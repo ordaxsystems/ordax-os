@@ -11,13 +11,16 @@ import unittest
 ROOT = Path(__file__).resolve().parents[1] / ".github" / "workflows"
 TARGETS = {
     "creator-owner-dev-git.yml": ("build-and-publish:", "if: needs.impact.outputs.required == 'true' && (github.event_name != 'pull_request' || !github.event.pull_request.draft)"),
+    "creator-payload-candidate.yml": ("creator-payload:", "if: needs.creator-payload-contract.outputs.required == 'true' && (github.event_name != 'pull_request' || !github.event.pull_request.draft)"),
     "independent-surface-runtime.yml": ("buildroot-surface:", "if: needs.impact.outputs.required == 'true' && (github.event_name != 'pull_request' || !github.event.pull_request.draft)"),
     "portable-v2-qemu-boot-proof.yml": ("qemu-portable-v2:", "if: needs.impact.outputs.required == 'true' && (github.event_name != 'pull_request' || !github.event.pull_request.draft)"),
-    "independent-base-experiment.yml": ("buildroot-qemu:", "if: " + chr(36) + "{{ github.event_name == 'workflow_dispatch' || (github.event_name == 'pull_request' && !github.event.pull_request.draft) || (github.event_name == 'push' && github.ref == 'refs/heads/integration/dev-usb-buildroot-surface-20261024' && contains(github.event.head_commit.message, '[stable-mvp-proof]')) }}"),
-    "independent-portable-v2-integration.yml": ("independent-real-portable-qemu:", "if: " + chr(36) + "{{ github.event_name == 'workflow_dispatch' || (github.event_name == 'pull_request' && !github.event.pull_request.draft) || (github.event_name == 'push' && github.ref == 'refs/heads/integration/dev-usb-buildroot-surface-20261024' && contains(github.event.head_commit.message, '[stable-mvp-signed-boot]')) }}"),
+    "independent-base-experiment.yml": ("buildroot-qemu:", "if: " + chr(36) + "{{ github.event_name == 'workflow_dispatch' || (github.event_name == 'pull_request' && !github.event.pull_request.draft) }}"),
+    "independent-portable-v2-integration.yml": ("independent-real-portable-qemu:", "if: " + chr(36) + "{{ github.event_name == 'workflow_dispatch' || (github.event_name == 'pull_request' && !github.event.pull_request.draft) }}"),
     "native-esp-candidate.yml": ("native-esp:", "if: github.event_name != 'pull_request' || !github.event.pull_request.draft"),
     "kernel-candidate.yml": ("kernel:", "if: github.event_name != 'pull_request' || !github.event.pull_request.draft"),
     "kernel-pinned-environment.yml": ("prove-pinned-environment:", "if: github.event_name != 'pull_request' || !github.event.pull_request.draft"),
+    "kernel-tpm2-staged-candidate.yml": ("staged-tpm2:", "if: github.event_name != 'pull_request' || !github.event.pull_request.draft"),
+    "kernel-lts-candidate.yml": ("proposed-kernel-build:", "if: needs.proposed-kernel-contract.outputs.available == 'true' && (github.event_name != 'pull_request' || !github.event.pull_request.draft)"),
     "full-bootstrap-media-proof.yml": ("full-bootstrap-media-proof:", "if: github.event_name != 'pull_request' || !github.event.pull_request.draft"),
     "local-ai-runtime-candidate.yml": ("candidate:", "if: github.event_name != 'pull_request' || !github.event.pull_request.draft"),
     "native-initramfs-candidate.yml": ("candidate:", "if: github.event_name != 'pull_request' || !github.event.pull_request.draft"),
@@ -43,6 +46,41 @@ class ReleaseCandidateGateTests(unittest.TestCase):
                 first = "\n" + re.split(r"(?m)^  [A-Za-z][\w-]*:\s*$", section, maxsplit=1)[0]
                 self.assertIn("\n    " + guard + "\n", first)
                 self.assertNotIn("cancel-in-progress: true", text)
+
+    def test_tpm2_draft_checks_overlay_before_any_kernel_build(self):
+        text = (ROOT / "kernel-tpm2-staged-candidate.yml").read_text(encoding="utf-8")
+        contract = text.split("\n  contract:\n", 1)[1].split("\n  staged-tpm2:\n", 1)[0]
+        heavy = text.split("\n  staged-tpm2:\n", 1)[1]
+        self.assertIn("python bootstrap/kernel/build.py check --config-overlay", contract)
+        self.assertIn("test_kernel_tpm2_staged_overlay.py", contract)
+        self.assertNotIn("bootstrap/kernel/build.py build", contract)
+        self.assertNotIn("sudo apt-get", contract)
+        self.assertIn("needs: contract", heavy)
+        self.assertIn("bootstrap/kernel/build.py build", heavy)
+        self.assertIn("ORDAX_SOURCE_COMMIT:", heavy)
+        self.assertIn("physical_artifact_authorized", heavy)
+
+    def test_lts_source_selection_is_unique_and_heavy_requires_available_candidate(self):
+        text = (ROOT / "kernel-lts-candidate.yml").read_text(encoding="utf-8")
+        contract = text.split("\n  proposed-kernel-contract:\n", 1)[1].split(
+            "\n  proposed-kernel-build:\n", 1
+        )[0]
+        heavy = text.split("\n  proposed-kernel-build:\n", 1)[1]
+        self.assertEqual(text.count("candidate_pipeline.py select --github-output"), 1)
+        self.assertIn("available: ${{ steps.candidate.outputs.available }}", contract)
+        self.assertIn("source_contract: ${{ steps.candidate.outputs.source_contract }}", contract)
+        for test in ("test_kernel_candidate_pipeline.py", "test_kernel_update_engine.py",
+                     "test_kernel_candidate_ci_scope.py"):
+            self.assertIn(test, contract)
+            self.assertNotIn(test, heavy)
+        self.assertNotIn("bootstrap/kernel/build.py build", contract)
+        self.assertNotIn("sudo apt-get", contract)
+        self.assertIn("needs: proposed-kernel-contract", heavy)
+        self.assertIn("needs.proposed-kernel-contract.outputs.available == 'true'", heavy)
+        self.assertIn("needs.proposed-kernel-contract.outputs.source_contract", heavy)
+        self.assertIn("needs.proposed-kernel-contract.outputs.version", heavy)
+        self.assertNotIn("steps.candidate.outputs", heavy)
+        self.assertIn("candidate_pipeline.py prove", heavy)
 
     def test_independent_base_contract_remains_mandatory_in_draft(self):
         text = (ROOT / "independent-base-experiment.yml").read_text(encoding="utf-8")
@@ -178,6 +216,91 @@ class ReleaseCandidateGateTests(unittest.TestCase):
                 # Default queue: single silently replaces another pending job.
                 # queue: max is mandatory for the three shared producers.
                 self.assertIn("      cancel-in-progress: false\n      queue: max\n", section)
+
+    def test_test_only_deltas_do_not_queue_media_esp_or_local_ai_builds(self):
+        # A test-only change never changes the physical-media, ESP or AI
+        # producer inputs. Foundation must still validate those exact tests.
+        foundation = (ROOT / "foundation.yml").read_text(encoding="utf-8")
+        self.assertIn("  pull_request:\n", foundation)
+        self.assertIn("  push:\n    branches: [main]", foundation)
+        self.assertIn("python -m unittest discover -s tests -p 'test_*.py' -v", foundation)
+        self.assertIn("if: steps.impact.outputs.full != 'false'", foundation)
+        for workflow, excluded_tests, required_sources in (
+            (
+                "full-bootstrap-media-proof.yml",
+                ("tests/test_creator_full_media_external_source.py",),
+                ("boot/esp/**", "bootstrap/initramfs/**",
+                 "docs/contracts/physical-media.json"),
+            ),
+            (
+                "native-esp-candidate.yml",
+                ("tests/test_native_qemu_boot_readiness.py",
+                 "tests/test_native_qemu_boot_proof_contract.py",
+                 "tests/test_native_esp_proof_contract.py"),
+                ("boot/native/**", "bootstrap/native-initramfs/**",
+                 "docs/contracts/native-esp-proof.json"),
+            ),
+            (
+                "local-ai-runtime-candidate.yml",
+                ("tests/test_portable_v4_real_materialization_contract.py",
+                 "tests/test_local_ai_contract.py",
+                 "tests/test_local_ai_runtime_builder.py"),
+                ("bootstrap/local-ai-runtime/**",
+                 "system/services/local-ai/source-lock.json",
+                 "docs/contracts/local-ai.json"),
+            ),
+        ):
+            text = (ROOT / workflow).read_text(encoding="utf-8")
+            triggers = text.split("\njobs:\n", 1)[0]
+            with self.subTest(workflow=workflow):
+                for file in excluded_tests:
+                    self.assertNotIn(file, triggers)
+                    self.assertTrue((ROOT.parents[1] / file).is_file(), file)
+                for source in required_sources:
+                    self.assertIn(source, triggers)
+                self.assertIn("workflow_dispatch:", triggers)
+                self.assertIn("github.event_name != 'pull_request' || !github.event.pull_request.draft", text)
+                self.assertIn("actions/checkout@", text)
+
+    def test_lts_and_independent_base_test_only_deltas_stay_in_foundation(self):
+        foundation = (ROOT / "foundation.yml").read_text(encoding="utf-8")
+        self.assertIn("  push:\n    branches: [main]", foundation)
+        self.assertIn("  pull_request:\n", foundation)
+        self.assertIn("python -m unittest discover -s tests -p 'test_*.py' -v", foundation)
+        self.assertIn("if: steps.impact.outputs.full != 'false'", foundation)
+        # Foundation treats every test fixture as executable, not a doc-only skip.
+        self.assertIn("scripts, test fixtures and unknown paths must run full Foundation", foundation)
+        for workflow, tests, producer in (
+            (
+                "kernel-lts-candidate.yml",
+                ("test_kernel_build_authentication_gate.py",
+                 "test_kernel_upstream_signature.py",
+                 "test_kernel_module_release_abi.py",
+                 "test_kernel_candidate_pipeline.py",
+                 "test_kernel_update_engine.py",
+                 "test_kernel_candidate_ci_scope.py"),
+                "bootstrap/kernel/candidate_pipeline.py",
+            ),
+            (
+                "independent-base-experiment.yml",
+                ("test_dev_base_symlink_policy.py",
+                 "test_independent_dev_channel_compatibility.py",
+                 "test_independent_rootfs_export.py"),
+                "bootstrap/independent-base/**",
+            ),
+        ):
+            source = (ROOT / workflow).read_text(encoding="utf-8")
+            events = source.split("\njobs:\n", 1)[0]
+            with self.subTest(workflow=workflow):
+                for name in tests:
+                    self.assertTrue((ROOT.parents[1] / "tests" / name).is_file(), name)
+                    self.assertNotIn("      - 'tests/" + name + "'", events)
+                self.assertIn(producer, events)
+                self.assertIn(".github/workflows/" + workflow, events)
+                self.assertIn("ready_for_review", events)
+                self.assertIn("workflow_dispatch:", events)
+                self.assertIn("github.event.pull_request.draft", source)
+                self.assertIn("actions/checkout@", source)
 
     def test_no_heavy_test_waiver_for_release(self):
         for filename, (_, guard) in TARGETS.items():

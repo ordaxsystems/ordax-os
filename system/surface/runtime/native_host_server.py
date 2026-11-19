@@ -2040,6 +2040,36 @@ def parse_iw_scan(text: str, *, current_ssid: str | None, saved_ssid: str | None
     )[:MAX_NETWORKS]
 
 
+def network_management_wlan_failure_reason(verified_reason: str) -> str:
+    """Keep a Native WLAN capability observable through broker restarts.
+
+    For a read-only GET, independently verify real WLAN hardware before
+    reporting a transient broker failure. A missing adapter or invalid
+    inventory never grants management. No action is retried or acknowledged.
+    """
+    try:
+        interfaces = read_network_status()["interfaces"]
+        if not isinstance(interfaces, list) or not all(
+            isinstance(interface, dict) for interface in interfaces
+        ):
+            return "network-native-response-invalid"
+    except (OSError, ValueError, KeyError, TypeError):
+        return "network-native-response-invalid"
+    return (
+        verified_reason
+        if any(interface.get("kind") == "wifi" for interface in interfaces)
+        else "no-wifi-interface"
+    )
+
+
+def network_management_timeout_reason() -> str:
+    return network_management_wlan_failure_reason("network-broker-timeout")
+
+
+def network_management_unavailable_reason() -> str:
+    return network_management_wlan_failure_reason("network-broker-unavailable")
+
+
 def network_broker_paths(session_dir: str) -> dict[str, str]:
     return {
         "control": os.path.join(session_dir, "network-control"),
@@ -2148,13 +2178,22 @@ def queue_network_broker_request(
         except FileNotFoundError:
             pass
 
-        descriptor = os.open(
-            paths["control"],
-            os.O_WRONLY
-            | getattr(os, "O_NONBLOCK", 0)
-            | getattr(os, "O_CLOEXEC", 0)
-            | getattr(os, "O_NOFOLLOW", 0),
-        )
+        try:
+            descriptor = os.open(
+                paths["control"],
+                os.O_WRONLY
+                | getattr(os, "O_NONBLOCK", 0)
+                | getattr(os, "O_CLOEXEC", 0)
+                | getattr(os, "O_NOFOLLOW", 0),
+            )
+        except OSError as exc:
+            # The broker may close its FIFO reader or remove the FIFO after
+            # the liveness check but before this second, nonblocking open.
+            # No command reached it. Preserve all other I/O failures and
+            # never replay a mutating action.
+            if exc.errno in {errno.ENOENT, errno.ENXIO}:
+                raise FileNotFoundError("network broker unavailable") from exc
+            raise
         try:
             metadata = os.fstat(descriptor)
             if (
@@ -4231,8 +4270,20 @@ class NativeHostHandler(SimpleHTTPRequestHandler):
                         "status",
                         timeout_seconds=4.0,
                     )
-            except (FileNotFoundError, PermissionError, TimeoutError, OSError, RuntimeError, ValueError) as exc:
-                print(f"ordax-native-host: network management status unavailable: {exc}", file=sys.stderr, flush=True)
+            except TimeoutError:
+                # A live broker can be busy restoring WPA/DHCP while the
+                # initial Surface probe has only a four-second read budget.
+                # Prove a real WLAN before reporting that transient state.
+                self._write_json(503, {"reason": network_management_timeout_reason()})
+                return
+            except FileNotFoundError:
+                # A supervised broker may be between restarts at cold boot.
+                # Never claim a real WLAN until the independent Native
+                # hardware inventory confirms it; actions remain unavailable.
+                self._write_json(503, {"reason": network_management_unavailable_reason()})
+                return
+            except (PermissionError, OSError, RuntimeError, ValueError) as exc:
+                print(f"ordax-native-host: network management status unavailable: {type(exc).__name__}", file=sys.stderr, flush=True)
                 self._empty(503)
                 return
             self._write_json(200, snapshot)
@@ -5444,11 +5495,25 @@ class NativeHostHandler(SimpleHTTPRequestHandler):
                 return
             payload = self._read_json_body(MAX_NETWORK_ACTION_BODY)
             if payload is None:
-                self._empty(400)
+                # A missing/malformed HTTP envelope must be distinguishable
+                # from WPA or DHCP failure before the broker is ever called.
+                self._write_json(400, {"reason": "network-request-invalid"})
                 return
             action = payload.get("action")
             if action not in {"scan", "connect", "disconnect", "forget", "reconnect"}:
-                self._empty(400)
+                self._write_json(400, {"reason": "network-request-invalid"})
+                return
+            expected = {"action", "ssid", "password"} if action == "connect" else {"action"}
+            if set(payload) != expected:
+                self._write_json(400, {"reason": "network-request-invalid"})
+                return
+            if action == "connect" and (
+                not valid_wifi_ssid(payload.get("ssid"))
+                or not valid_wifi_password(payload.get("password"))
+            ):
+                # A credential-boundary failure is not evidence of failed WPA.
+                # Never echo submitted SSID, password or derived PSK.
+                self._write_json(400, {"reason": "invalid-credentials"})
                 return
             try:
                 with self.server.network_lock:
@@ -5457,18 +5522,44 @@ class NativeHostHandler(SimpleHTTPRequestHandler):
                         action,
                         ssid=payload.get("ssid"),
                         password=payload.get("password"),
-                        timeout_seconds=24.0 if action in {"connect", "reconnect"} else 12.0,
+                        # Native scan must outlive the broker's own 15s iw timeout,
+                        # including signal/IPC receipt overhead. Otherwise a valid
+                        # scan becomes a spurious 503 before the broker replies.
+                        timeout_seconds=42.0 if action in {"connect", "reconnect"} else (20.0 if action == "scan" else 12.0),
                     )
             except ValueError:
-                self._empty(400)
+                # The HTTP and credential contracts were already validated;
+                # a later ValueError is an invalid Native/broker response.
+                self._write_json(503, {"reason": "network-native-response-invalid"})
                 return
             except RuntimeError as exc:
+                # Only bounded, non-secret reasons cross the Native boundary.
+                # SSIDs, passwords, PSKs and WPA logs never enter the response.
                 detail = getattr(exc, "network_detail", "")
-                self._empty(409 if detail in {"connect-failed", "reconnect-failed"} else 503)
+                known = {"authentication-failed", "dhcp-failed", "supplicant-start-failed",
+                         "network-owner-unavailable", "connect-failed", "reconnect-failed",
+                         "dhcp-runtime-unavailable", "scan-failed",
+                         "saved-network-unavailable",
+                         "wifi-tools-unavailable", "no-wifi-interface",
+                         "credential-save-failed", "disconnect-state-failed",
+                         "credential-delete-failed", "reconnect-state-failed"}
+                if detail in known:
+                    status = 409 if detail in {"authentication-failed", "dhcp-failed",
+                                              "connect-failed", "reconnect-failed",
+                                              "saved-network-unavailable"} else 503
+                    self._write_json(status, {"reason": detail})
+                else:
+                    self._empty(503)
                 return
-            except (FileNotFoundError, PermissionError, TimeoutError, OSError) as exc:
-                print(f"ordax-native-host: network management action failed safely: {exc}", file=sys.stderr, flush=True)
-                self._empty(503)
+            except FileNotFoundError:
+                self._write_json(503, {"reason": "network-broker-unavailable"})
+                return
+            except TimeoutError:
+                self._write_json(503, {"reason": "network-broker-timeout"})
+                return
+            except (PermissionError, OSError) as exc:
+                print(f"ordax-native-host: network management IPC failure: {type(exc).__name__}", file=sys.stderr, flush=True)
+                self._write_json(503, {"reason": "network-broker-io-failed"})
                 return
             self._write_json(200, snapshot)
             return

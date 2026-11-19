@@ -10,8 +10,7 @@ on:
       - '!bootstrap/kernel/update_engine.py'
       - '!bootstrap/kernel/module_archive.py'
       - 'docs/contracts/kernel-build-environment.json'
-      - 'tests/test_kernel_build_environment_contract.py'
-      - 'tests/test_kernel_reproducibility_ssot.py'
+      # Test-only deltas belong to Foundation; contract/kernel bytes still prove pinned builds.
       - '.github/workflows/kernel-pinned-environment.yml'
   pull_request:
     types: [opened, synchronize, reopened, ready_for_review]
@@ -22,8 +21,7 @@ on:
       - '!bootstrap/kernel/update_engine.py'
       - '!bootstrap/kernel/module_archive.py'
       - 'docs/contracts/kernel-build-environment.json'
-      - 'tests/test_kernel_build_environment_contract.py'
-      - 'tests/test_kernel_reproducibility_ssot.py'
+      # Test-only deltas belong to Foundation; contract/kernel bytes still prove pinned builds.
       - '.github/workflows/kernel-pinned-environment.yml'
   workflow_dispatch:
 

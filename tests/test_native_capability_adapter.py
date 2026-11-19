@@ -150,7 +150,7 @@ class NativeCapabilityAdapterTests(unittest.TestCase):
         self.assertEqual(
             source.count("createNativeFirstRunCursor(window, { signal: firstRunOptionalReadSignal })"), 1,
         )
-        self.assertIn("AbortSignal.timeout(5000)", source)
+        self.assertIn("const firstRunOptionalReadSignal = AbortSignal.timeout(5000)", source)
         self.assertIn(
             "const deviceProfilePromise = optionalNativeProbe(",
             source,

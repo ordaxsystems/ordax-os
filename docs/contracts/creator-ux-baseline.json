@@ -43,14 +43,16 @@
     "additional_locales_component_scoped": true
   },
   "owner_distribution": {
-    "format": "split-zip-bundle",
+    "format": "single-exe-zip-bundle",
     "artifact": "OrdaX-Creator-Owner-Prototype.zip",
-    "gui_raw_backend_separate": true,
+    "gui_raw_backend_separate": false,
     "standalone_gui_published": false,
-    "bundle_extraction_required": true
+    "bundle_extraction_required": true,
+    "publisher_repository": "ordaxsystems/ordax-creator",
+    "os_media_repository": "ordaxsystems/ordax-os"
   },
   "owner_update": {
-    "manifest_schema": "prototype-ordax.creator-owner-bundle-update/1",
+    "manifest_schema": "prototype-ordax.creator-owner-bundle-update/2",
     "artifact": "OrdaX-Creator-Owner-Prototype.zip",
     "automatic_in_app_update": false,
     "anti_downgrade_check": true,
@@ -82,7 +84,7 @@
     "visuals_follow_guided_state_machine": true,
     "visuals_add_no_network_or_web_runtime_dependency": true,
     "owner_write_package_independent_from_creator_dev": true,
-    "owner_gui_and_raw_writer_are_separate": true,
+    "owner_gui_embeds_privileged_backend": true,
     "physical_write_has_single_uac_elevation_boundary": true,
     "owner_update_detects_published_bundle": true,
     "owner_update_manifest_validates_sha256_and_size_binding": true,

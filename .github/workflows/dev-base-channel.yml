@@ -10,6 +10,9 @@ on:
       - '!bootstrap/kernel/update_engine.py'
       - '!bootstrap/kernel/module_archive.py'
       - 'bootstrap/initramfs/**'
+      - 'bootstrap/independent-base/**'
+      - 'bootstrap/base/firmware_policy.py'
+      - 'docs/contracts/hardware-support-matrix.json'
       - 'bootstrap/dev-base/**'
       - 'bootstrap/recovery/**'
       - 'tools/dev-base-channel/**'
@@ -27,6 +30,9 @@ on:
       - '!bootstrap/kernel/update_engine.py'
       - '!bootstrap/kernel/module_archive.py'
       - 'bootstrap/initramfs/**'
+      - 'bootstrap/independent-base/**'
+      - 'bootstrap/base/firmware_policy.py'
+      - 'docs/contracts/hardware-support-matrix.json'
       - 'bootstrap/dev-base/**'
       - 'bootstrap/recovery/**'
       - 'tools/dev-base-channel/**'
@@ -55,12 +61,15 @@ jobs:
   verify:
     runs-on: ubuntu-24.04
     timeout-minutes: 10
+    outputs:
+      publish: ${{ steps.scope.outputs.publish }}
     steps:
       - name: Checkout
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
         with:
           ref: ${{ github.event.pull_request.head.sha || github.sha }}
           persist-credentials: false
+          fetch-depth: 2
 
       - name: Set up Python
         uses: actions/setup-python@ece7cb06caefa5fff74198d8649806c4678c61a1 # v6
@@ -85,9 +94,106 @@ jobs:
           set -euo pipefail
           sudo bash tools/dev-base-channel/prove-rootfs-selector.sh
 
+      - name: Classify complete main push before entering the heavy producer queue
+        id: scope
+        if: github.event_name == 'push'
+        env:
+          ORDAX_BEFORE_SHA: ${{ github.event.before }}
+          ORDAX_HEAD_SHA: ${{ github.sha }}
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          python3 - <<'PY'
+          import json
+          import os
+          import re
+          import subprocess
+
+          before = os.environ["ORDAX_BEFORE_SHA"]
+          head = os.environ["ORDAX_HEAD_SHA"]
+          publish = True  # Missing history, API truncation or errors fail closed.
+          try:
+              valid = lambda s: re.fullmatch(r"[0-9a-f]{40}", s) and int(s, 16) != 0
+              if not valid(before) or not valid(head):
+                  raise ValueError("invalid push revision")
+              current = subprocess.check_output(["git", "rev-parse", "HEAD"], timeout=10).decode().strip()
+              if current != head:
+                  raise ValueError("checkout differs from push HEAD")
+              probe = subprocess.run(
+                  ["git", "cat-file", "-e", before + "^{commit}"], capture_output=True, timeout=10
+              )
+              if probe.returncode == 0:
+                  output = subprocess.check_output(
+                      ["git", "diff", "--name-only", "-z", "--no-renames", before, head, "--"],
+                      timeout=30,
+                  )
+                  paths = [s for s in output.decode("utf-8").split("\0") if s]
+              else:
+                  # Shallow history: compare the exact push range using the
+                  # authenticated read-only GitHub API, never only HEAD^.
+                  repo = os.environ["GITHUB_REPOSITORY"]
+                  if re.fullmatch(r"[A-Za-z0-9_.-]+/[A-Za-z0-9_.-]+", repo) is None:
+                      raise ValueError("invalid repository")
+                  result = subprocess.check_output(
+                      ["gh", "api", f"repos/{repo}/compare/{before}...{head}"], timeout=40
+                  )
+                  data = json.loads(result.decode("utf-8"))
+                  files = data.get("files")
+                  if (
+                      not isinstance(files, list)
+                      or len(files) >= 300
+                      or not isinstance(data.get("total_commits"), int)
+                      or data["total_commits"] > 250
+                      or data.get("base_commit", {}).get("sha") != before
+                      or data.get("head_commit", {}).get("sha") != head
+                      or data.get("merge_base_commit", {}).get("sha") != before
+                      or data.get("status") != "ahead"
+                  ):
+                      raise ValueError("unverifiable/truncated push comparison")
+                  paths = []
+                  for file in files:
+                      paths.append(file["filename"])
+                      if file.get("previous_filename"):
+                          paths.append(file["previous_filename"])
+              if not paths:
+                  raise ValueError("empty push comparison")
+              ignored = {
+                  "bootstrap/kernel/candidate_pipeline.py",
+                  "bootstrap/kernel/update_engine.py",
+                  "bootstrap/kernel/module_archive.py",
+                  "bootstrap/dev-base/ordax-dev-init",
+                  "bootstrap/dev-base/ordax-diagnose",
+                  "bootstrap/dev-base/ordax-network",
+                  "bootstrap/dev-base/ordax-pull",
+                  "bootstrap/dev-base/ordax-rollback",
+                  "bootstrap/dev-base/ordax-run",
+                  "bootstrap/recovery/entrypoint",
+              }
+              producing = (
+                  "bootstrap/kernel/", "bootstrap/initramfs/",
+                  "bootstrap/dev-base/", "bootstrap/independent-base/",
+                  "bootstrap/recovery/", "tools/dev-base-channel/",
+              )
+              exact = {
+                  "bootstrap/base/firmware_policy.py",
+                  "docs/contracts/hardware-support-matrix.json",
+              }
+              publish = any(
+                  path not in ignored
+                  and not path.startswith("bootstrap/kernel/candidates/")
+                  and (path.startswith(producing) or path in exact)
+                  for path in paths
+              )
+          except (OSError, ValueError, KeyError, TypeError, AttributeError, UnicodeError, subprocess.SubprocessError) as exc:
+              print("DEV_BASE_SCOPE=UNVERIFIABLE:" + type(exc).__name__)
+              publish = True
+          with open(os.environ["GITHUB_OUTPUT"], "a", encoding="utf-8") as stream:
+              stream.write(f"publish={str(publish).lower()}\n")
+          print("DEV_BASE_BYTES_CHANGED=" + str(publish).upper())
+          PY
+
   publish:
     if: >-
-      (github.event_name == 'push' && github.ref == 'refs/heads/main') ||
+      (github.event_name == 'push' && github.ref == 'refs/heads/main' && needs.verify.outputs.publish == 'true') ||
       (github.event_name == 'workflow_dispatch' &&
       inputs.publish_owner_candidate == true &&
       github.actor == 'ordaxos-admin' &&
@@ -107,16 +213,15 @@ jobs:
         with:
           ref: ${{ github.event.pull_request.head.sha || github.sha }}
           persist-credentials: false
-          fetch-depth: 2
+          fetch-depth: 1
 
-      - name: Detect Base-byte changes
+      - name: Authorize exact Owner validation dispatch or confirmed main push
         id: changes
         shell: bash
         env:
           GH_TOKEN: ${{ github.token }}
         run: |
           set -euo pipefail
-          publish=false
           if [ "${GITHUB_EVENT_NAME:-}" = 'workflow_dispatch' ]; then
             test "${GITHUB_ACTOR:-}" = 'ordaxos-admin'
             pr='${{ inputs.owner_validation_pr }}'
@@ -130,25 +235,13 @@ jobs:
             test "$(jq -r '.draft' <<<"$pr_json")" = 'true'
             echo "DEV_BASE_OWNER_VALIDATION_PR=$pr"
             echo 'DEV_BASE_OWNER_VALIDATION_EXACT_HEAD=PASS'
-            publish=true
-          elif ! git rev-parse HEAD^ >/dev/null 2>&1; then
-            publish=true
           else
-            while IFS= read -r path; do
-              case "$path" in
-                bootstrap/kernel/candidates/*|bootstrap/kernel/candidate_pipeline.py|bootstrap/kernel/update_engine.py|bootstrap/kernel/module_archive.py)
-                  ;;
-                bootstrap/dev-base/ordax-dev-init|bootstrap/dev-base/ordax-diagnose|bootstrap/dev-base/ordax-network|bootstrap/dev-base/ordax-pull|bootstrap/dev-base/ordax-rollback|bootstrap/dev-base/ordax-run|bootstrap/recovery/entrypoint)
-                  ;;
-                bootstrap/kernel/*|bootstrap/initramfs/*|bootstrap/dev-base/*|bootstrap/independent-base/*|bootstrap/base/firmware_policy.py|docs/contracts/hardware-support-matrix.json|bootstrap/recovery/*|tools/dev-base-channel/*)
-                  publish=true
-                  break
-                  ;;
-              esac
-            done < <(git diff --name-only HEAD^ HEAD --)
+            test "${GITHUB_EVENT_NAME:-}" = 'push'
+            test "${GITHUB_REF:-}" = 'refs/heads/main'
           fi
-          echo "publish=$publish" >> "$GITHUB_OUTPUT"
-          echo "DEV_BASE_BYTES_CHANGED=$publish"
+          # This job was admitted only after verify's fail-closed range gate.
+          echo 'publish=true' >> "$GITHUB_OUTPUT"
+          echo 'DEV_BASE_BYTES_CHANGED=true'
 
       - name: Set up Python
         if: steps.changes.outputs.publish == 'true'

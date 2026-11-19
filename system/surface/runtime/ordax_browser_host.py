@@ -17,6 +17,24 @@ import sys
 import threading
 from urllib.parse import urlsplit
 
+
+def _scope_owner_virtio_compositor_environment() -> None:
+    """Keep Owner/QEMU Cage renderer overrides out of WebKit child processes."""
+    if (
+        os.environ.get("LIBGL_ALWAYS_SOFTWARE") == "1"
+        and os.environ.get("WLR_RENDERER") == "pixman"
+        and os.environ.get("WEBKIT_DISABLE_DMABUF_RENDERER") == "1"
+    ):
+        # Cage has already consumed its renderer selection before launching this
+        # command. WebKit must retain only the non-DMA-BUF transport policy; a
+        # global Mesa software override forces its WebProcess back into the
+        # softpipe path that the Owner/QEMU transport is intended to avoid.
+        os.environ.pop("LIBGL_ALWAYS_SOFTWARE", None)
+        os.environ.pop("WLR_RENDERER", None)
+
+
+_scope_owner_virtio_compositor_environment()
+
 import gi
 
 gi.require_version("Gtk", "3.0")
@@ -149,6 +167,7 @@ OWNER_GRAPHICS_PROBE_EVENTS = frozenset({
     "surface-boot-ready",
     "surface-boot-missing",
     "surface-boot-probe-unavailable",
+    "surface-first-run-welcome-rendered",
 })
 
 
@@ -174,6 +193,53 @@ def _emit_owner_qemu_serial(enabled: bool, line: str) -> None:
             os.close(descriptor)
     except OSError:
         pass
+
+
+def owner_qemu_webkit_executable_maps(proc_root: str = "/proc") -> tuple[str, ...]:
+    """Capture executable modules for future QEMU-only WebProcess crash attribution.
+
+    The GTK 3/WebKit2 4.1 WebView API does not provide a WebProcess PID.
+    The Owner/QEMU boot starts only the privileged view; identify its Linux
+    WebKitWebProcess by the kernel's bounded comm, never by untrusted content.
+    No address maps, process identifiers, paths or user data leave physical
+    boots. When /proc is inaccessible, no evidence is synthesized.
+    """
+    try:
+        with os.scandir(proc_root) as processes:
+            pids = sorted(int(entry.name) for entry in processes
+                          if entry.name.isdecimal())
+    except OSError:
+        return ()
+    for pid in pids:
+        try:
+            with open(f"{proc_root}/{pid}/comm", encoding="ascii") as proc:
+                if proc.read(32).strip() not in {"WebKitWebProces", "WebKitWebProcess"}:
+                    continue
+            maps: list[str] = []
+            with open(f"{proc_root}/{pid}/maps", encoding="ascii") as proc:
+                for raw in proc:
+                    columns = raw.strip().split(maxsplit=5)
+                    if len(columns) != 6 or not columns[1].startswith("r-x"):
+                        continue
+                    span, offset, full_path = columns[0], columns[2], columns[5]
+                    if not full_path.startswith(("/usr/", "/lib/", "/opt/")):
+                        continue
+                    module = os.path.basename(full_path)
+                    if (re.fullmatch(r"[0-9a-f]{8,16}-[0-9a-f]{8,16}", span) is None
+                            or re.fullmatch(r"[0-9a-f]{1,16}", offset) is None
+                            or re.fullmatch(r"[A-Za-z0-9_.+-]{1,80}", module) is None):
+                        continue
+                    maps.append(
+                        f"ORDAX_OWNER_WEBKIT_EXEC_MAP=pid:{pid};"
+                        f"range:{span};offset:{offset};module:{module}"
+                    )
+                    if len(maps) == 192:
+                        break
+            if maps:
+                return tuple(maps)
+        except (OSError, UnicodeError):
+            continue
+    return ()
 
 
 def emit_owner_graphics_probe(enabled: bool, event: str) -> None:
@@ -241,6 +307,7 @@ class OrdaXBrowserHost(InternetNavigationHost, InternetDownloadHost):
         self.cache_root = os.path.abspath(cache_root)
         self.distribution_profile = distribution_profile
         self.owner_graphics_probe_enabled = owner_qemu_graphics_probe_enabled(distribution_profile)
+        self.owner_webkit_exec_maps_recorded = False
         self.surface_web_process_failed = False
         if self.distribution_profile not in {"owner-development", "stable-mvp"}:
             raise ValueError("invalid OrdaX distribution profile")
@@ -721,6 +788,20 @@ class OrdaXBrowserHost(InternetNavigationHost, InternetDownloadHost):
         print(f"ordax-browser-host: {event}", file=sys.stderr, flush=True)
         emit_owner_graphics_probe(self.owner_graphics_probe_enabled, event)
 
+    def emit_owner_webkit_exec_map_evidence(self) -> bool:
+        """QEMU-only /proc snapshot before a WebKit child can disappear.
+
+        This does not touch WebKit state, promote health, or affect boot gates.
+        """
+        if not self.owner_graphics_probe_enabled or self.owner_webkit_exec_maps_recorded:
+            return False
+        lines = owner_qemu_webkit_executable_maps()
+        if lines:
+            for line in lines:
+                _emit_owner_qemu_serial(True, line)
+            self.owner_webkit_exec_maps_recorded = True
+        return False
+
     def emit_qemu_surface_boot_observation(self) -> bool:
         """QEMU-only, bounded observation of the EXISTING boot overlay.
 
@@ -733,6 +814,7 @@ class OrdaXBrowserHost(InternetNavigationHost, InternetDownloadHost):
 
         def complete(view: object, result: object, _user_data: object) -> None:
             state = "probe-unavailable"
+            welcome_rendered = False
             try:
                 answer = view.run_javascript_finish(result)
                 raw = answer.get_js_value().to_string()
@@ -742,6 +824,7 @@ class OrdaXBrowserHost(InternetNavigationHost, InternetDownloadHost):
                         "loading", "error", "ready", "missing",
                     }:
                         state = value["state"]
+                        welcome_rendered = value.get("firstRunWelcome") is True
                         if state == "error":
                             emit_owner_boot_error_probe(
                                 self.owner_graphics_probe_enabled,
@@ -751,12 +834,19 @@ class OrdaXBrowserHost(InternetNavigationHost, InternetDownloadHost):
             except Exception:
                 pass
             self.record_surface_loading_event(f"surface-boot-{state}")
+            if welcome_rendered:
+                self.record_surface_loading_event("surface-first-run-welcome-rendered")
 
         try:
             self.surface_view.run_javascript(
                 "(function(){const el=document.getElementById('ordax-boot-screen');"
                 "const d=el&&el.dataset;"
-                "return JSON.stringify({state:d&&d.state||'missing',"
+                "const first=document.querySelector('.ordax-first-run[data-first-run-step=\"welcome\"]');"
+                "const title=document.getElementById('ordax-first-run-title');"
+                "const style=first&&getComputedStyle(first);"
+                "const firstRunWelcome=!!(first&&title&&first.isConnected&&title.isConnected&&"
+                "first.getClientRects().length&&style&&style.display!=='none'&&style.visibility!=='hidden');"
+                "return JSON.stringify({state:d&&d.state||'missing',firstRunWelcome,"
                 "errorName:d&&d.errorName||'',source:d&&d.errorSource||''});})()",
                 None, complete, None,
             )
@@ -773,6 +863,7 @@ class OrdaXBrowserHost(InternetNavigationHost, InternetDownloadHost):
             self.component_probation_started = False
             self.component_probation_nonces.clear()
             self.component_probation_rerun_requested.clear()
+            self.owner_webkit_exec_maps_recorded = False
             return
         if load_event == WebKit2.LoadEvent.COMMITTED:
             self.record_surface_loading_event("surface-page-load-committed")
@@ -781,6 +872,10 @@ class OrdaXBrowserHost(InternetNavigationHost, InternetDownloadHost):
             return
         self.record_surface_loading_event("surface-page-load-finished")
         if self.owner_graphics_probe_enabled:
+            # Capture executable module ranges BEFORE a possible WebProcess
+            # crash. The evidence is serial-only under Owner/QEMU boot token.
+            GLib.timeout_add_seconds(3, self.emit_owner_webkit_exec_map_evidence)
+            GLib.timeout_add_seconds(12, self.emit_owner_webkit_exec_map_evidence)
             # Differentiate a JS import/bootstrap failure from a healthy shell
             # whose Native health request is not reaching the Supervisor.
             GLib.timeout_add_seconds(7, self.emit_qemu_surface_boot_observation)

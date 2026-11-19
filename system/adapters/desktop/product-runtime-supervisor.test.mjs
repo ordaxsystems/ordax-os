@@ -1,7 +1,7 @@
 import test from "node:test";
 import assert from "node:assert/strict";
 import {EventEmitter} from "node:events";
-import {mkdtempSync,mkdirSync,writeFileSync,readFileSync,symlinkSync,rmSync} from "node:fs";
+import {mkdtempSync,mkdirSync,writeFileSync,readFileSync,symlinkSync,rmSync,existsSync} from "node:fs";
 import {tmpdir} from "node:os";
 import {join} from "node:path";
 import {createHash} from "node:crypto";
@@ -101,9 +101,14 @@ function stagePinnedDesktopDevCandidate(f){
       remote_action_proven:false,
     },
   };
-  const path=join(evidenceDirectory,"desktop-runtime-windows-candidate-2026-10-31.json");
+  const selectionPath=join(f.systemRoot,"docs","contracts","desktop-runtime-dev-candidate.json");
+  writeFileSync(selectionPath,JSON.stringify({
+    $schema:"prototype-ordax.desktop-runtime-dev-candidate-selection/1",
+    evidence_file:"desktop-runtime-windows-candidate-2026-11-14.json",
+  }));
+  const path=join(evidenceDirectory,"desktop-runtime-windows-candidate-2026-11-14.json");
   writeFileSync(path,JSON.stringify(evidence));
-  return {executable,path,payload,evidence};
+  return {executable,path,payload,evidence,selectionPath};
 }
 test("Runtime credential rejection (exit 43) halts retries until Owner rotates token",async t=>{
   const f=fixture(t,{approved:false});
@@ -132,11 +137,59 @@ test("Runtime credential rejection (exit 43) halts retries until Owner rotates t
   writeFileSync(join(f.state,"device-token.cloudflare-v3.txt"),"c".repeat(64));
   const recovered=await sup.reconcile();
   assert.equal(recovered.state,"running");
-  assert.equal(recovered.reason,"dev_remote_attestation_pending");
+  assert.equal(recovered.reason,"runtime_readiness_pending");
   assert.equal(recovered.mcpReady,false);
   assert.equal(launches,2);
   sup.stop();
 });
+test("launch-bound Runtime readiness exposes dispatch without inventing Platform attestation",async t=>{
+  const f=fixture(t,{approved:false});
+  stagePinnedDesktopDevCandidate(f);
+  const proc=child(),requests=[];
+  let spawnedEnv=null;
+  const digest="d".repeat(64),nonce="11".repeat(32);
+  const sup=createDesktopProductRuntimeSupervisor({
+    systemRoot:f.systemRoot,userData:f.userData,platform:"win32",
+    developmentCandidate:true,
+    randomBytesImpl:()=>Buffer.alloc(32,0x11),
+    spawnImpl:(_executable,_args,options)=>{spawnedEnv=options.env;return proc},
+    fetchImpl:async (url,options)=>{
+      requests.push({url,options});
+      return {status:200,headers:{get:()=> "application/json; charset=utf-8"},
+        json:async()=>({
+          local_dispatch_ready:true,
+          runtime:{state:"ready",transport_state:"connected",
+            product_dispatch_ready:true,product_readiness_code:"ready",
+            capabilities_digest:digest},
+          client_authorization:"not_verified_by_local_readiness",
+        })};
+    },
+  });
+  const started=await sup.reconcile();
+  assert.equal(started.reason,"runtime_readiness_pending");
+  assert.equal(started.productDispatchReady,false);
+  assert.equal(spawnedEnv.ORDAX_RUNTIME_STATUS_NONCE,nonce);
+  const handoff=join(f.state,"runtime-status-"+nonce+".json");
+  writeFileSync(handoff,JSON.stringify({schema:"ordax.desktop-runtime-status-handoff/1",
+    launch_nonce:"00".repeat(32),runtime_pid:9999,port:43210}));
+  const forged=await sup.observe();
+  assert.equal(forged.productDispatchReady,false);
+  assert.equal(forged.reason,"runtime_readiness_pending");
+  assert.equal(requests.length,0);
+  writeFileSync(handoff,JSON.stringify({schema:"ordax.desktop-runtime-status-handoff/1",
+    launch_nonce:nonce,runtime_pid:9999,port:43210}));
+  const ready=await sup.observe();
+  assert.equal(ready.productDispatchReady,true);
+  assert.equal(ready.capabilityDigest,digest);
+  assert.equal(ready.mcpReady,false);
+  assert.equal(ready.centralSessionAttested,false);
+  assert.equal(ready.deviceId,"11111111-1111-4111-8111-111111111111");
+  assert.equal(requests.length,1);
+  assert.equal(requests[0].url,"http://127.0.0.1:43210/readiness");
+  proc.exitCode=0;proc.emit("exit",0,null);
+  assert.equal(existsSync(handoff),false);
+});
+
 test("Runtime requested restart (exit 42) retains prompt but bounded supervised recovery",async t=>{
   const f=fixture(t,{approved:false}),virtual=virtualRestartClock();
   stagePinnedDesktopDevCandidate(f);
@@ -181,6 +234,113 @@ test("credential recovery never bypasses signed production trust gate",async t=>
   sup.stop();
 });
 
+test("DEV candidate selection is a single strict path pin, never a filesystem escape",async t=>{
+  const f=fixture(t,{approved:false});
+  const staged=stagePinnedDesktopDevCandidate(f);
+  const good=JSON.parse(readFileSync(staged.selectionPath,"utf8"));
+  for(const invalid of [
+    {...good,evidence_file:"../../outside.json"},
+    {...good,evidence_file:"desktop-runtime-windows-candidate-current.json"},
+    {...good,evidence_file:"desktop-runtime-windows-candidate-2026-11-14.json", extra:true},
+    {...good,$schema:"unknown"},
+  ]) {
+    writeFileSync(staged.selectionPath,JSON.stringify(invalid));
+    const sup=createDesktopProductRuntimeSupervisor({
+      systemRoot:f.systemRoot,userData:f.userData,platform:"win32",
+      developmentCandidate:true,
+      spawnImpl:()=>{throw Error("invalid DEV selector cannot start a process")},
+    });
+    assert.equal((await sup.reconcile()).reason,"component_trust_not_authorized");
+    sup.stop();
+  }
+  writeFileSync(staged.selectionPath,JSON.stringify(good));
+  const sup=createDesktopProductRuntimeSupervisor({
+    systemRoot:f.systemRoot,userData:f.userData,platform:"win32",
+    developmentCandidate:true,spawnImpl:()=>child(),
+  });
+  assert.equal((await sup.reconcile()).reason,"runtime_readiness_pending");
+  sup.stop();
+});
+
+test("new OS-pinned DEV candidate materializes from fixed staging filename only",async t=>{
+  const f=fixture(t,{approved:false});
+  const prior=stagePinnedDesktopDevCandidate(f);
+  const newBytes=Buffer.alloc(720);
+  newBytes.write("MZ",0,"ascii");
+  newBytes.write("exact-new-owner-dev-runtime",32,"ascii");
+  const hash=createHash("sha256").update(newBytes).digest("hex");
+  const pending=join(f.userData,"native-state","product-runtime-dev",
+    "ordax-product-agent.pending.exe");
+  const previous=join(f.userData,"native-state","product-runtime-dev",
+    "ordax-product-agent.previous.exe");
+  prior.evidence.candidate.sha256=hash;
+  prior.evidence.candidate.size_bytes=newBytes.length;
+  prior.evidence.physical_offline_proof.executable_sha256=hash;
+  writeFileSync(prior.path,JSON.stringify(prior.evidence));
+  writeFileSync(pending,newBytes);
+  let launches=0;
+  const sup=createDesktopProductRuntimeSupervisor({
+    systemRoot:f.systemRoot,userData:f.userData,platform:"win32",
+    developmentCandidate:true,
+    spawnImpl:file=>{
+      launches++;
+      assert.equal(file,prior.executable);
+      assert.deepEqual(readFileSync(file),newBytes);
+      return child();
+    },
+  });
+  assert.equal((await sup.reconcile()).reason,"runtime_readiness_pending");
+  assert.equal(launches,1);
+  assert.deepEqual(readFileSync(previous),prior.payload,
+    "last known good is held until Runtime readiness");
+  assert.deepEqual(readFileSync(prior.executable),newBytes);
+  assert.equal(existsSync(pending),false);
+  assert.equal((await sup.reconcile()).state,"running");
+  assert.equal(launches,1,"staged promotion never overlaps a live Runtime");
+  sup.stop();
+});
+test("tampered or wrong-size staged DEV Runtime never replaces known-good bytes",async t=>{
+  const f=fixture(t,{approved:false});
+  const prior=stagePinnedDesktopDevCandidate(f);
+  const candidate=Buffer.alloc(700,0x31);
+  const expected=Buffer.alloc(700,0x32);
+  const pending=join(f.userData,"native-state","product-runtime-dev",
+    "ordax-product-agent.pending.exe");
+  const previous=join(f.userData,"native-state","product-runtime-dev",
+    "ordax-product-agent.previous.exe");
+  const hash=createHash("sha256").update(expected).digest("hex");
+  prior.evidence.candidate.sha256=hash;
+  prior.evidence.candidate.size_bytes=expected.length;
+  prior.evidence.physical_offline_proof.executable_sha256=hash;
+  writeFileSync(prior.path,JSON.stringify(prior.evidence));
+  writeFileSync(pending,candidate);
+  let launches=0;
+  const sup=createDesktopProductRuntimeSupervisor({
+    systemRoot:f.systemRoot,userData:f.userData,platform:"win32",
+    developmentCandidate:true,spawnImpl:()=>{launches++;return child()},
+  });
+  assert.equal((await sup.reconcile()).reason,"dev_candidate_unavailable");
+  assert.equal(launches,0);
+  assert.deepEqual(readFileSync(prior.executable),prior.payload);
+  assert.equal(existsSync(previous),false);
+  assert.deepEqual(readFileSync(pending),candidate);
+  sup.stop();
+});
+test("DEV staged materialization never runs without explicit opt-in",async t=>{
+  const f=fixture(t,{approved:false});
+  const candidate=stagePinnedDesktopDevCandidate(f);
+  const pending=join(f.userData,"native-state","product-runtime-dev",
+    "ordax-product-agent.pending.exe");
+  writeFileSync(pending,Buffer.alloc(700,0x42));
+  const sup=createDesktopProductRuntimeSupervisor({
+    systemRoot:f.systemRoot,userData:f.userData,platform:"win32",
+    spawnImpl:()=>{throw Error("no DEV opt-in")},
+  });
+  assert.equal((await sup.reconcile()).reason,"component_trust_not_authorized");
+  assert.deepEqual(readFileSync(candidate.executable),candidate.payload);
+  assert.equal(existsSync(pending),true);
+  sup.stop();
+});
 test("DEV candidate requires explicit opt-in; unsigned bytes alone grant nothing",async t=>{
   const f=fixture(t,{approved:false});
   stagePinnedDesktopDevCandidate(f);
@@ -210,8 +370,8 @@ test("opted-in, hash-pinned DEV candidate starts ONE canonical scoped process",a
   });
   const [one,two]=await Promise.all([sup.reconcile(),sup.reconcile()]);
   assert.equal(one.state,"running");
-  assert.equal(one.reason,"dev_remote_attestation_pending");
-  assert.equal(two.reason,"dev_remote_attestation_pending");
+  assert.equal(one.reason,"runtime_readiness_pending");
+  assert.equal(two.reason,"runtime_readiness_pending");
   assert.equal(launches,1);
   assert.equal(one.mcpReady,false);
   assert.equal(one.centralSessionAttested,false);
@@ -366,7 +526,7 @@ test("valid signed plan launches ONE scoped process without inherited Windows pr
  assert.equal(a.state,"running");assert.equal(b.state,"running");
  assert.equal(a.mcpReady,false);
  assert.equal(a.capabilityDigest,null);
- assert.equal(a.reason,"remote_attestation_pending");
+ assert.equal(a.reason,"runtime_readiness_pending");
  assert.equal(settings.env.ORDAX_RUNTIME_HOST_PROFILE,"ordax-desktop");
  assert.equal(settings.env.ORDAX_AGENT_STATE_DIR,f.state);
  assert.equal(settings.env.ORDAX_DESKTOP_USER_DATA,f.userData);
@@ -893,19 +1053,30 @@ test("a supervised Windows Product Runtime stops its full tree without orphaning
   assert.equal(sup.status().state,"stopped");
 });
 
-test("failed native Windows tree termination falls back only to owned Runtime child",async t=>{
+test("failed Windows tree termination retains owned bootloader and retries exact PID",async t=>{
   const f=fixture(t,{approved:false});
   stagePinnedDesktopDevCandidate(f);
   const proc=child();
   proc.pid=27183;
   let treeCalls=0;
+  const log=[];
   const sup=createDesktopProductRuntimeSupervisor({
     systemRoot:f.systemRoot,userData:f.userData,platform:"win32",
     developmentCandidate:true,spawnImpl:()=>proc,
-    stopTreeImpl:()=>{treeCalls++;return false},
+    log:message=>log.push(message),
+    stopTreeImpl:pid=>{
+      assert.equal(pid,27183);
+      return ++treeCalls===2;
+    },
   });
   assert.equal((await sup.reconcile()).state,"running");
-  sup.stop();
+  assert.equal(sup.stop().state,"stopping");
   assert.equal(treeCalls,1);
-  assert.deepEqual(proc.kills,["SIGTERM"]);
+  assert.deepEqual(proc.kills,[],"never kill only the PyInstaller bootloader");
+  assert.ok(log.some(message=>message.includes("process-tree termination failed")));
+  assert.equal((await sup.reconcile()).state,"stopping");
+  assert.equal(treeCalls,2,"subsequent stop retries the exact owned tree");
+  assert.deepEqual(proc.kills,[]);
+  proc.exitCode=0;proc.emit("exit",0,null);
+  assert.equal(sup.status().state,"stopped");
 });

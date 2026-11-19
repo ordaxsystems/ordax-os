@@ -16,6 +16,39 @@ Valores numéricos vivem exclusivamente no contrato. Capacidade de membros de
 Space não é quantidade de assentos pagos. Não contratar planos enquanto essas
 condições e os respectivos serviços reais não estiverem fechados.
 
+## Avanço de implementação — 18/11/2026
+
+O incremento preserva as 12 áreas da Conta e introduz a consulta de
+assinatura separada dos benefícios, do catálogo de referência e da medição.
+
+**Estado comprovado:**
+- Código backend integrado à `ordax-os/main` pela PR #2621
+  (`0a6dd38c`), com oito workflows aprovados.
+- Código frontend integrado à `ordax-site/main` pela PR #50
+  (`7af4f97c`), com Site Candidate e Chrome aprovados.
+- Migration privada `account_commerce_subscription_read_v1` **aplicada**
+  no Supabase `ordax-platform` em 18/11/2026, versão de histórico
+  `20261118051243`. As duas tabelas têm RLS; `authenticated` não possui
+  acesso SQL direto; `anon` não executa a RPC; leitura autenticada só
+  é possível por RPC que filtra o próprio sujeito.
+- Consultas de verificação após aplicar a migration encontraram
+  **zero assinaturas e zero eventos**. A ausência de registro é
+  `unverified`, nunca Free, compra, cancelamento ou autorização paga.
+
+**Ainda não liberado:** o gateway Supabase em produção não recebeu este
+novo bundle pela esteira de implantação Owner, a liberação pública da Conta
+continua sujeita a E2E autenticado e aos gates de segurança. O deployment
+do domínio canônico não consome automaticamente a nova revisão Site.
+Portanto, fonte integrada e migration aplicada **não equivalem** a
+`/account/subscription` funcional no site público, billing ou assinatura
+comercial homologada.
+
+O próximo incremento implementa eventos autenticados por provedor real,
+reconciliação idempotente, faturas, cancelamento, downgrade e alocação de
+entitlements transacional, respeitando o checkout e os gates do produto.
+O provedor de pagamento ainda não foi selecionado; não inserir eventos
+fictícios em produção nem transformar preço de referência em cobrança.
+
 ## Incrementos
 
 1. **Catálogo e apresentação — implementado neste incremento:** ofertas de

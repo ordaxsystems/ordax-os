@@ -57,7 +57,11 @@ class CreatorOwnerImpactTests(unittest.TestCase):
         self.assertIn("if: needs.impact.outputs.required == 'true'", text)
         self.assertIn("CREATOR_OWNER_USB_REQUIRED=", (ROOT / "tools/ci/creator_owner_impact.py").read_text())
         self.assertIn("github.event_name", text)
-        self.assertIn("gh release upload creator-owner-prototype", text)
+        self.assertIn("Publish verified OS media for independent Creator owner", text)
+        self.assertIn("tag='creator-owner-media'", text)
+        self.assertIn('gh release upload "$tag"', text)
+        self.assertIn("OWNER_CREATOR_WINDOWS_RELEASE_OWNED_BY=ordaxsystems/ordax-creator", text)
+        self.assertNotIn("OrdaX-Creator.exe", text)
         self.assertEqual(text.count("build-and-publish:"), 1)
 
     def test_canonical_visual_and_ci_only_changes_skip_real_usb(self):
@@ -83,6 +87,20 @@ class CreatorOwnerImpactTests(unittest.TestCase):
                             "system/adapters/desktop/local-ai-host.mjs")
         self.assertTrue(impact.workflow_trigger_only(base, after, root=self.root))
         self.assertEqual(impact.classify(base, after, root=self.root), (False, "nonproducer-contract-only"))
+
+    def test_creator_artifact_reader_permissions_cannot_be_widened_as_ci_only(self):
+        original = WORKFLOW.read_text(encoding="utf-8")
+        self.assertIn(impact.CREATOR_ARTIFACT_READ_PERMISSION_BLOCK, original)
+        baseline = self.commit(original, VISUAL)
+        widened = original.replace(
+            "      actions: read\n",
+            "      actions: write\n",
+            1,
+        )
+        self.assertNotEqual(widened, original)
+        changed = self.commit(widened)
+        self.assertFalse(impact.workflow_trigger_only(baseline, changed, root=self.root))
+        self.assertTrue(impact.classify(baseline, changed, root=self.root)[0])
 
     def test_push_and_pr_use_same_fail_closed_diff_manual_dispatch_forces_build(self):
         w = WORKFLOW.read_text(encoding="utf-8")
@@ -158,6 +176,49 @@ class CreatorOwnerImpactTests(unittest.TestCase):
         self.assertTrue(required)
         self.assertEqual(reason, "real-or-unknown-usb-producer:system/supervisor")
 
+    def test_remote_account_subscription_slice_skips_physical_usb_only_when_exact(self):
+        # The actual 2026-11-18 remote Account/Gateway delta was previously
+        # classified as an unknown USB producer and rebuilt Buildroot.
+        # Exact cloud owner files, docs and quota workflow cannot change the
+        # Creator media; anything executable/unknown stays heavy.
+        base = self.commit(WORKFLOW.read_text(encoding="utf-8"), VISUAL)
+        remote_only = (
+            ".github/workflows/service-quota-contract.yml",
+            "00-PLANOS-PRIORITARIOS/plans/COMMERCE-001-SUBSCRIPTIONS-AND-BENEFITS.md",
+            "infra/supabase/functions/_shared/account_subscription.mjs",
+            "infra/supabase/functions/_shared/account_transport_admission.mjs",
+            "infra/supabase/functions/ordax-account-gateway/index.ts",
+            "infra/supabase/product/migrations/20261118000000_account_commerce_subscription_read_v1.sql",
+            "system/services/entitlements/README.md",
+            "tests/sql/test_account_commerce_subscription_read_v1.sql",
+            "tests/test_account_subscription_projection.mjs",
+            "tests/test_account_transport_admission.mjs",
+        )
+        head = base
+        for path in remote_only:
+            head = self.commit(path=path)
+        self.assertEqual(
+            impact.classify(base, head, root=self.root, event="push"),
+            (False, "nonproducer-contract-only"),
+        )
+        self.assertEqual(
+            impact.classify(base, head, root=self.root, event="pull_request"),
+            (False, "nonproducer-contract-only"),
+        )
+        # Never broaden the exemption to Native quota logic, boot or newly
+        # introduced remote files with unknown producer dependencies.
+        for path in (
+            "system/services/entitlements/quota.mjs",
+            "system/supervisor",
+            "bootstrap/dev-base/ordax-network",
+            "infra/supabase/functions/_shared/unclassified_new_owner.mjs",
+            ".github/workflows/unclassified-new-publisher.yml",
+        ):
+            with self.subTest(path=path):
+                changed = self.commit(path=path)
+                required, reason = impact.classify(base, changed, root=self.root)
+                self.assertTrue(required, reason)
+
     def test_boot_and_unknown_owner_changes_require_real_usb(self):
         base = self.commit(WORKFLOW.read_text(encoding="utf-8"), VISUAL)
         for path in ("bootstrap/initramfs/build.py", "bootstrap/surface-runtime/build.py",
@@ -226,7 +287,7 @@ class CreatorOwnerImpactTests(unittest.TestCase):
             base, bad, native, root=self.root))
         # A candidate's signature or authority cannot change under a stale
         # content pin, even if its path looks Windows-only.
-        suspect = self.commit(path="docs/evidence/desktop-runtime-windows-candidate-2026-10-31.json")
+        suspect = self.commit(path="docs/evidence/desktop-runtime-windows-candidate-2026-11-14.json")
         self.assertEqual(impact.classify(base, suspect, root=self.root)[0], True)
 
     def test_exact_windows_semantic_surface_mount_is_not_a_usb_producer(self):
@@ -272,6 +333,40 @@ class CreatorOwnerImpactTests(unittest.TestCase):
         unguarded = self.commit()
         self.assertTrue(impact.classify(base, unguarded, root=self.root)[0])
 
+    def test_exact_windows_project_links_reporter_wiring_is_not_a_usb_producer(self):
+        path = "system/composition/native/main.mjs"
+        source = self.root / path
+        source.parent.mkdir(parents=True, exist_ok=True)
+        old = (
+            "const something = true;\n"
+            "  const desktopSurfaceReporter = windowsDesktopHost\n"
+            "    ? mountNativeDesktopSurfaceStateReport(window, surface, appActivation)\n"
+            "    : null;\n"
+        )
+        source.write_text(old, encoding="utf-8")
+        base = self.commit(workflow=WORKFLOW.read_text(encoding="utf-8"), lock=VISUAL)
+        new = old.replace(
+            "    ? mountNativeDesktopSurfaceStateReport(window, surface, appActivation)\n",
+            (
+                "    ? mountNativeDesktopSurfaceStateReport(\n"
+                "        window, surface, appActivation, projectCloudLinksReader,\n"
+                "      )\n"
+            ),
+        )
+        source.write_text(new, encoding="utf-8")
+        head = self.commit()
+        self.assertTrue(impact.verified_windows_semantic_surface_mount(
+            base, head, root=self.root
+        ))
+        self.assertEqual(impact.classify(base, head, root=self.root),
+                         (False, "nonproducer-contract-only"))
+        source.write_text(new + "\nconst unrelatedNativeMutation = true;\n", encoding="utf-8")
+        bad = self.commit()
+        self.assertFalse(impact.verified_windows_semantic_surface_mount(
+            base, bad, root=self.root
+        ))
+        self.assertTrue(impact.classify(base, bad, root=self.root)[0])
+
     def test_unrecognized_native_and_catalog_additions_remain_usb_gated(self):
         native, catalog = tuple(impact.WINDOWS_PRODUCT_SHARED_ADDITIONS)
         for path in (native, catalog):
@@ -297,8 +392,12 @@ class CreatorOwnerImpactTests(unittest.TestCase):
         early = old.index("      # On a queued main push, avoid an expensive build")
         early_end = old.index("  owner-dev-contract:", early)
         old = old[:early] + old[early_end:]
-        late = old.index("          # Recheck immediately before mutating the rolling channel")
-        late_end = old.index("          if ! gh release view creator-owner-prototype", late)
+        publish = old.index("      - name: Publish verified OS media for independent Creator owner")
+        late = old.index(
+            '          freshness="$(python3 tools/ci/creator_owner_publish_freshness.py \\',
+            publish,
+        )
+        late_end = old.index("          repo='ordaxsystems/ordax-os'", late)
         old = old[:late] + old[late_end:]
         base = self.commit(workflow=old, lock=VISUAL)
         head = self.commit(workflow=current, path="tools/ci/creator_owner_publish_freshness.py")
@@ -315,8 +414,8 @@ class CreatorOwnerImpactTests(unittest.TestCase):
         # A changed publisher command, permissions, raw USB producer or unknown
         # extension cannot be smuggled through this exact governance proof.
         tampered = current.replace(
-            "gh release upload creator-owner-prototype",
-            "gh release upload untrusted-owner-prototype")
+            'gh release upload "$tag"',
+            'gh release upload untrusted-owner-media')
         self.assertNotEqual(current, tampered)
         bad = self.commit(workflow=tampered)
         self.assertFalse(impact.verified_creator_freshness_wiring_only(
@@ -446,6 +545,21 @@ class CreatorOwnerImpactTests(unittest.TestCase):
         # Actual boot and USB bytes always trigger Creator.
         actual_boot = self.commit(path="bootstrap/kernel/source.json")
         self.assertTrue(impact.classify(base, actual_boot, root=self.root)[0])
+
+    def test_surface_impact_policy_does_not_rebuild_physical_usb(self):
+        base = self.commit(path="docs/DEV-USB-GIT.md")
+        policy = self.commit(path="tools/ci/independent_surface_impact.py")
+        self.assertEqual(
+            impact.classify(base, policy, root=self.root, event="push"),
+            (False, "nonproducer-contract-only"),
+        )
+        roadmap = self.commit(path="URGENTE-CONSOLIDACAO-ORDAX.md")
+        self.assertEqual(
+            impact.classify(policy, roadmap, root=self.root, event="push"),
+            (False, "nonproducer-contract-only"),
+        )
+        boot = self.commit(path="bootstrap/kernel/source.json")
+        self.assertTrue(impact.classify(roadmap, boot, root=self.root, event="push")[0])
 
     def test_build_autonomy_has_no_creator_dependency_for_web_or_desktop(self):
         contract = json.loads((ROOT / "docs/contracts/build-autonomy.json").read_text(encoding="utf-8"))

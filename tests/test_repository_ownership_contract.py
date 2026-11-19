@@ -59,6 +59,44 @@ class RepositoryOwnershipContractTests(unittest.TestCase):
         self.assertIn("global-memory", repos["platform"]["owns"])
         self.assertIn("native-capability-preflight", repos["platform"]["owns"])
 
+    def test_surface_source_pin_triggers_consumer_contracts_not_retired_ui_source(self):
+        # The OS never owns the visual files; its contract pin is the only
+        # cross-repository change that can change their version in OS builds.
+        owner = self.contract["repositories"]["surface"]
+        self.assertEqual(owner["repo"], "ordaxsystems/ordax-surface")
+        pin = json.loads(
+            (ROOT / "docs/contracts/surface-source.json").read_text(encoding="utf-8")
+        )
+        self.assertEqual(pin["source_repository"], owner["repo"])
+        self.assertTrue(pin["invariants"]["single_visual_source_after_cutover"])
+        for name in (
+            "first-party-app-delivery.yml",
+            "intelligence-foundation.yml",
+            "portable-runtime-foundation.yml",
+        ):
+            with self.subTest(workflow=name):
+                source = (ROOT / ".github/workflows" / name).read_text(encoding="utf-8")
+                events, jobs = source.split("\njobs:\n", 1)
+                self.assertEqual(
+                    events.count("      - 'docs/contracts/surface-source.json'"), 2
+                )
+                self.assertNotIn("      - 'system/surface/ui/", events)
+                self.assertIn("  push:\n", events)
+                self.assertIn("  pull_request:\n", events)
+                self.assertIn(
+                    "uses: ./.github/actions/prepare-verified-surface", jobs
+                )
+                self.assertIn("actions/checkout@", jobs)
+        # Reintroducing visual source into OS must still be detected by the
+        # dedicated owner consumer: do not remove this resurrection sentinel.
+        dedicated = (
+            ROOT / ".github/workflows/surface-source-consumer.yml"
+        ).read_text(encoding="utf-8")
+        self.assertEqual(dedicated.count("      - 'system/surface/ui/**'"), 2)
+        self.assertEqual(
+            dedicated.count("      - 'system/surface/workspace/**'"), 2
+        )
+
     def test_creator_is_independent_consumer_not_os_media_producer(self):
         repos = self.contract["repositories"]
         creator = repos["creator"]
@@ -102,6 +140,14 @@ class RepositoryOwnershipContractTests(unittest.TestCase):
         self.assertEqual(legacy["role"], "incubation-legacy-retirement-only")
         self.assertFalse(legacy["new_features_allowed"])
         self.assertGreaterEqual(len(legacy["delete_only_after"]), 6)
+        control_plane_repo = self.contract["repositories"]["control_plane"]["repo"]
+        self.assertEqual(control_plane_repo, "ordaxsystems/ordax-platform")
+        conditions = legacy["delete_only_after"]
+        self.assertIn(
+            "control-plane-canonical-in-" + control_plane_repo.split("/", 1)[1],
+            conditions,
+        )
+        self.assertNotIn("control-plane-canonical-in-ordax-control-plane", conditions)
 
     def test_current_owner_documentation_matches_canonical_namespace(self):
         document = (ROOT / "docs" / "REPOSITORY-OWNERSHIP.md").read_text(encoding="utf-8")

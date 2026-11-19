@@ -58,28 +58,29 @@ jobs:
           python -m unittest tests.test_creator_single_paint tests.test_creator_ux_external_source tests.test_user_consent_experience -v
           echo 'CREATOR_GUIDED_EXPERIENCE_TESTS=PASS'
 
-      - name: Compile split Windows owner boundaries
+      - name: Compile single Windows Owner EXE without physical media
         run: |
           set -euo pipefail
-          out="$RUNNER_TEMP/ordax-creator-split-smoke"
+          out="$RUNNER_TEMP/ordax-creator-standalone-smoke"
           mkdir -p "$out"
           test -n "${ORDAX_CREATOR_NATIVE_SOURCE:-}"
+          # Build-only synthetic fixtures satisfy go:embed, never authorize USB.
+          embedded="$ORDAX_CREATOR_NATIVE_SOURCE/cmd/ordax-creator-app/owner_payload"
+          mkdir -p "$embedded"
+          printf 'nonbootable-compile-fixture' | gzip -n > "$embedded/ordax-bootstrap-seed.raw.gz"
+          printf '{"status":"compile-only-no-authorization"}\n' > "$embedded/provenance.json"
           pushd "$ORDAX_CREATOR_NATIVE_SOURCE" >/dev/null
           CGO_ENABLED=0 GOOS=windows GOARCH=amd64 \
             go build -trimpath -buildvcs=false \
-              -tags 'ordax_raw_backend' \
-              -o "$out/ordax-creator-physical-test.exe" \
-              ./cmd/ordax-creator-physical-test
-          CGO_ENABLED=0 GOOS=windows GOARCH=amd64 \
-            go build -trimpath -buildvcs=false \
-              -tags 'ordax_owner_prototype' \
+              -tags 'ordax_owner_prototype ordax_single_exe ordax_raw_backend' \
               -ldflags='-H=windowsgui' \
               -o "$out/OrdaX-Creator.exe" \
               ./cmd/ordax-creator-app
           popd >/dev/null
-          test -s "$out/ordax-creator-physical-test.exe"
+          rm -rf "$embedded"
           test -s "$out/OrdaX-Creator.exe"
-          echo 'CREATOR_SPLIT_WINDOWS_CROSS_BUILD=PASS'
+          test "$(find "$out" -maxdepth 1 -type f -name '*.exe' | wc -l)" -eq 1
+          echo 'CREATOR_SINGLE_EXE_WINDOWS_CROSS_BUILD=PASS'
 
       - name: Verify Creator UX contract and implementation anchors
         run: |
@@ -109,14 +110,16 @@ jobs:
               'additional_locales_component_scoped': True,
           }
           assert contract['owner_distribution'] == {
-              'format': 'split-zip-bundle',
+              'format': 'single-exe-zip-bundle',
               'artifact': 'OrdaX-Creator-Owner-Prototype.zip',
-              'gui_raw_backend_separate': True,
+              'gui_raw_backend_separate': False,
               'standalone_gui_published': False,
               'bundle_extraction_required': True,
+              'publisher_repository': 'ordaxsystems/ordax-creator',
+              'os_media_repository': 'ordaxsystems/ordax-os',
           }
           assert contract['owner_update'] == {
-              'manifest_schema': 'prototype-ordax.creator-owner-bundle-update/1',
+              'manifest_schema': 'prototype-ordax.creator-owner-bundle-update/2',
               'artifact': 'OrdaX-Creator-Owner-Prototype.zip',
               'automatic_in_app_update': False,
               'anti_downgrade_check': True,
@@ -150,7 +153,7 @@ jobs:
               'main': [
                   'idLocaleCombo', 'creatorSupportedLocales()', 'saveCreatorLocalePreference(locale)',
                   'renderCreatorLocaleUI()', 'beginUpdateCheck(false)',
-                  'len(state.Targets) == 1', 'cbSetCurSel', 'paintGuidedVisual(hwnd)',
+                  'selection := -1', 'restoredUSBSelectionIndex(', 'cbSetCurSel', 'paintGuidedVisual(hwnd)',
                   'creatorBootHelpText()', 'msgActionCreate',
               ],
               'experience': [
@@ -207,14 +210,14 @@ jobs:
                   'ordax-creator-physical-test.exe', 'ordax-bootstrap-seed.raw', 'provenance.json',
               ],
               'release': [
-                  'name: Creator Owner Development Git USB', "-tags 'ordax_raw_backend'",
-                  "-tags 'ordax_owner_prototype'", 'OrdaX-Creator-Owner-Prototype.zip',
-                  'prototype-ordax.creator-owner-bundle-update/1', "'automatic_in_app_update': False",
-                  "delete-asset creator-owner-prototype 'OrdaX-Creator.exe'",
-                  'OWNER_RELEASE_PIPELINE=SPLIT_BUNDLE', 'OWNER_STANDALONE_EXE_PUBLISHED=NO',
-                  'OWNER_SPLIT_BUNDLE_PUBLISHED=YES',
-              ],
-          }
+                  'name: Creator Owner Development Git USB',
+                  'Package QEMU-proven Owner USB media without compiling Creator',
+                  'prototype-ordax.creator-owner-media/1',
+                  'creator-owner-media.json',
+                  'OWNER_CREATOR_BINARY_BUILT_IN_OS=NO',
+                  'Publish verified OS media for independent Creator owner',
+                  "OWNER_CREATOR_WINDOWS_RELEASE_OWNED_BY=ordaxsystems/ordax-creator",
+              ],          }
           for name, anchors in required.items():
               for anchor in anchors:
                   assert anchor in files[name], f'missing Creator {name} anchor: {anchor}'
@@ -248,8 +251,10 @@ jobs:
 
           release = files['release']
           assert 'workflow_run:' not in release
-          assert 'ordax_single_exe' not in release
-          assert 'owner_payload/ordax-bootstrap-seed.raw.gz' not in release
+          assert 'Package QEMU-proven Owner USB media without compiling Creator' in release
+          assert 'gzip -n -6 -c "$seed" > "$media/ordax-bootstrap-seed.raw.gz"' in release
+          assert 'OrdaX-Creator.exe' not in release
+          assert 'OrdaX-Creator-Owner-Prototype.zip' not in release
           assert '"prepare"' not in files['portable']
           assert '"apply"' not in files['portable']
           assert 'ordax-bootstrap-seed.raw' not in files['portable']
@@ -266,6 +271,6 @@ jobs:
           print('CREATOR_LOCALIZATION_BASELINE=pt-BR,en-US')
           print('CREATOR_USER_REQUIRED_INPUT=usb_target')
           print('CREATOR_OPTIONAL_PREFERENCE=locale')
-          print('CREATOR_RELEASE_PIPELINE=SPLIT_BUNDLE')
+          print('CREATOR_RELEASE_PIPELINE=OS_MEDIA_ONLY')
           print('CREATOR_AUTOMATIC_IN_APP_BUNDLE_UPDATE=NO')
           PY

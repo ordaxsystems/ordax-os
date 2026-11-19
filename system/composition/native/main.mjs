@@ -56,6 +56,7 @@ import { createSameOriginAccountLifecycle } from "../../adapters/web/account-lif
 import { createWebIdentitySession } from "../../adapters/web/identity.mjs";
 import { createWebSpacesCatalog } from "../../adapters/web/spaces.mjs";
 import { createWebSyncTransport } from "../../adapters/web/sync-transport.mjs";
+import { createWebJsonReader } from "../../adapters/web/json-read.mjs";
 import { validateAccountRuntime } from "../../services/account/runtime.mjs";
 import { createAccountConnectivityRecovery } from "../../services/account/connectivity-recovery.mjs";
 import { createAppActivationChannel } from "../../services/apps/activation.mjs";
@@ -73,6 +74,7 @@ import {
 } from "./verified-installed-apps.mjs";
 import {
   createNativeVerifiedInstalledAppRefresh,
+  hasUnreconciledVerifiedCurrentMounts,
   verifiedCurrentInstallationFingerprint,
 } from "./verified-installed-app-refresh.mjs";
 import { listBundledFirstPartyIntelligenceManifests } from "../../apps/intelligence-catalog.mjs";
@@ -81,6 +83,7 @@ import { createRecentFilesRuntime } from "../../services/files/recent-files.mjs"
 import { createNativeProjectCatalogCasRuntime } from "../../services/files/native-project-catalog-runtime.mjs";
 import { createProjectNativeStateMigration } from "../../services/files/native-project-state-migration.mjs";
 import { createProjectCloudLinksRuntime } from "../../services/projects/cloud-links.mjs";
+import { createProjectBindingReviewRuntime } from "../../services/projects/binding-review.mjs";
 import { createProjectCloudLinksReader } from "../../services/projects/cloud-links-reader.mjs";
 import { createProjectWebReferenceRuntime } from "../../services/projects/web-references.mjs";
 import { createProjectContinuityFileSpace } from "../../services/files/project-continuity-file-space.mjs";
@@ -279,11 +282,11 @@ async function start() {
     "OrdaX Profile component inventory unavailable; using empty session inventory",
     () => createNativeProfileComponentInventory(window),
   );
-  // First Run's read-only Device Profile and cursor must not hang the Windows
-  // welcome screen if their optional Native routes stop answering. Use one
-  // shared deadline, not two serial waits; do not bound writes/rename because
-  // they must receive an actual durable acknowledgement from their owner.
-  const firstRunOptionalReadSignal = windowsDesktopHost ? AbortSignal.timeout(5000) : null;
+  // First Run's read-only Device Profile and cursor must not hang any Native
+  // welcome screen if their optional routes stop answering. Use one shared
+  // deadline on Desktop and USB; do not bound writes/rename because they must
+  // receive an actual durable acknowledgement from their owner.
+  const firstRunOptionalReadSignal = AbortSignal.timeout(5000);
   const deviceProfilePromise = optionalNativeProbe(
     "OrdaX native device profile unavailable",
     () => createNativeDeviceProfile(window, { signal: firstRunOptionalReadSignal }),
@@ -364,7 +367,10 @@ async function start() {
         deferInitialRead: windowsDesktopHost,
       }),
     ),
-    optionalNativeProbe(
+    // Linux/USB owns the ALSA/PipeWire audio provider. Windows Desktop
+    // does not have a Native audio owner yet, so do not probe a capability the
+    // host cannot authorize. Keep Settings truthful with a null port.
+    windowsDesktopHost ? Promise.resolve(null) : optionalNativeProbe(
       "OrdaX native audio output controls unavailable",
       () => createNativeAudioOutputs(window),
     ),
@@ -1080,6 +1086,20 @@ async function start() {
         },
       )
     : null;
+  const desktopProductRuntimeStatus = windowsDesktopHost
+    ? createNativeDesktopProductRuntimeStatus(window)
+    : null;
+  const projectBindingReview = windowsDesktopHost
+      && desktopProductRuntimeStatus !== null
+      && projects !== null
+      && projectCloudLinks !== null
+    ? createProjectBindingReviewRuntime({
+        reader: createWebJsonReader(window),
+        productRuntimeStatus: desktopProductRuntimeStatus,
+        projects,
+        projectCloudLinks,
+      })
+    : null;
   const accountOverviewControls = mountAccountOverviewControls(
     root,
     identitySession,
@@ -1101,6 +1121,7 @@ async function start() {
     spaceExperience,
     { isAvailable: hasNativeHostBridge, postMessage: postNativeHostMessage },
     spaceCreatePort,
+    projectBindingReview,
   );
   const homeContinuation = mountHomeContinuation(root, { projects, recentFiles, surfaceLifecycle: surface });
   const homePending = mountHomePending(root, { notifications, syncRuntime: accountSync, surfaceLifecycle: surface });
@@ -1191,9 +1212,6 @@ async function start() {
   // the visible shell from requesting legitimate Surface health.
   let storeCatalog = createUnavailableAppStoreCatalogPort();
   let storeOverviewControls = null;
-  const desktopProductRuntimeStatus = windowsDesktopHost
-    ? createNativeDesktopProductRuntimeStatus(window)
-    : null;
   const systemOverviewControls = mountSystemOverviewControls(
     root,
     host,
@@ -1237,7 +1255,9 @@ async function start() {
   const firstRunPending = !firstRunStateStore.load().completed;
   if (!firstRunPending) bootScreen.ready();
   const desktopSurfaceReporter = windowsDesktopHost
-    ? mountNativeDesktopSurfaceStateReport(window, surface, appActivation)
+    ? mountNativeDesktopSurfaceStateReport(
+        window, surface, appActivation, projectCloudLinksReader,
+      )
     : null;
   componentManager.setCurrentHealth("surface-shell", "healthy");
   void updateWatcher.markHealthy();
@@ -1429,6 +1449,12 @@ async function start() {
     () => mountVerifiedExternalApps(installedAppCatalog?.installed ?? []),
   );
   const mountedExternalIds = new Set(externalAppMounts?.mountedIds ?? []);
+  // A failed cold mount must not poison deduplication: the next verified
+  // CURRENT notification must retry even when its signed revision is unchanged.
+  // Only actually mounted slots enter the published app catalog below.
+  if (hasUnreconciledVerifiedCurrentMounts(installedAppEntries, mountedExternalIds)) {
+    lastInstalledCurrentFingerprint = null;
+  }
   const activeExternalCatalog = createNativeVerifiedInstalledAppCatalog(
     installedAppEntries.filter((entry) => mountedExternalIds.has(entry.component.id)),
   );
@@ -1577,6 +1603,7 @@ async function start() {
       workspaceComponentBootstrap?.destroy();
       void externalAppRefresh?.destroy();
       projectReferences?.destroy();
+      projectBindingReview?.dispose();
       projectCloudLinks?.destroy();
       accountOverviewControls.destroy();
       spaceSwitcherControls.destroy();

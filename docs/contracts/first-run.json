@@ -30,7 +30,7 @@
     "resume_later_steps_at_account": true,
     "completion_receipt_unchanged": true,
     "optional_cursor_does_not_block_boot": true,
-    "windows_read_deadline_ms": 5000
+    "native_read_deadline_ms": 5000
   },
   "windows_critical_bootstrap": {
     "read_deadline_ms": 15000,
@@ -190,7 +190,7 @@
     "rename_must_be_confirmed_before_advancing": true,
     "must_not_enter_first_run_state": true,
     "owner_unavailable_must_not_block_boot": true,
-    "windows_read_deadline_ms": 5000
+    "native_read_deadline_ms": 5000
   },
   "mvp": {
     "runs_from_usb": true,

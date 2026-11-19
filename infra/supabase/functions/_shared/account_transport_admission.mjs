@@ -36,6 +36,7 @@ const PUBLIC_ACCOUNT_ROUTES = new Map([
   ["/account/mcp/devices", Object.freeze({ method: "GET", preActivation: false })],
   ["/account/mcp/authority", Object.freeze({ method: "GET", preActivation: false })],
   ["/account/mcp/revoke", Object.freeze({ method: "POST", preActivation: false })],
+  ["/account/mcp/reauthorize", Object.freeze({ method: "POST", preActivation: false })],
   ["/account/mcp/project-grants", Object.freeze({ method: "POST", preActivation: false })],
   ["/account/mcp/central-targets", Object.freeze({ method: "GET", preActivation: false })],
   ["/account/mcp/central-selections", Object.freeze({ method: "GET", preActivation: false })],
@@ -49,6 +50,10 @@ const PUBLIC_ACCOUNT_ROUTES = new Map([
   ["/account/space-members", Object.freeze({ method: "GET", preActivation: true })],
   ["/account/space-actor-capability", Object.freeze({ method: "GET", preActivation: true })],
   ["/account/space-membership-actions", Object.freeze({ method: "POST", preActivation: false })],
+  ["/account/profile/display-name", Object.freeze({ method: "POST", preActivation: false })],
+  ["/account/preferences/locale", Object.freeze({ method: "POST", preActivation: false })],
+  ["/account/preferences/communications", Object.freeze({ method: "POST", preActivation: false })],
+  ["/account/subscription", Object.freeze({ method: "GET", preActivation: false })],
   ["/account/entitlements/memory-cloud", Object.freeze({ method: "GET", preActivation: false })],
   ["/account/close", Object.freeze({ method: "POST", preActivation: false })],
 ]);
@@ -64,6 +69,17 @@ export function isPublicBridgeRoute(method, pathname) {
   const exactAccountRoute = PUBLIC_ACCOUNT_ROUTES.get(pathname);
   if (exactAccountRoute) return exactAccountRoute.method === method;
   return PUBLIC_ALLOWED_PREFIXES.some(prefix => pathname.startsWith(prefix));
+}
+
+// The Owner MCP console may be released for *existing, authenticated*
+// accounts without enabling public account registration or unrelated Account
+// features. Derive the exact route/method list from the ONE public bridge
+// catalog, and require the separate Owner release flag at the caller.
+export function isPublicMcpOwnerPreActivationRoute(method, pathname, ownerEnabled) {
+  return ownerEnabled === true
+    && typeof pathname === "string"
+    && pathname.startsWith("/account/mcp/")
+    && isPublicBridgeRoute(method, pathname);
 }
 
 export function isPublicAccountPreActivationRoute(method, pathname) {

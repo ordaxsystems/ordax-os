@@ -52,7 +52,16 @@ class PhysicalMvpHardeningTests(unittest.TestCase):
     def test_new_product_windows_open_maximized_without_removing_window_controls(self):
         text = SURFACE_STATE.read_text(encoding="utf-8")
         launch = text[text.index('case "app.launch"'):text.index('case "app.target"')]
-        self.assertIn("maximized: true", launch)
+        # Both the unconditional default and the explicitly configurable
+        # default-to-true window policy open ordinary product windows maximized.
+        # Preserve explicit max/unmax handling instead of pinning one syntax.
+        default_maximized = "maximized: true" in launch
+        optional_maximized = (
+            "const initialMaximized = action.maximized === undefined ? true : action.maximized;" in launch
+            and "maximized: initialMaximized" in launch
+            and 'typeof initialMaximized !== "boolean"' in launch
+        )
+        self.assertTrue(default_maximized or optional_maximized)
         self.assertIn('case "window.maximize"', text)
 
     def test_first_run_footer_remains_in_its_own_visible_layout_row(self):
@@ -75,7 +84,9 @@ class PhysicalMvpHardeningTests(unittest.TestCase):
         self.assertRegex(card, r"min-height\s*:\s*0")
         self.assertRegex(body, r"overflow\s*:\s*auto")
         self.assertRegex(footer, r"flex\s*:\s*0\s+0\s+auto")
-        self.assertRegex(shell, r"height\s*:\s*min\(\d+px,\s*calc\(100dvh\s*-\s*\d+px\)\)")
+        # The shell remains viewport-bounded with a fixed or responsive gutter.
+        self.assertRegex(shell, r"height\s*:\s*min\(\d+px,\s*calc\(100dvh\s*-\s*(?:\d+px|var\(--ordax-first-run-gutter\)(?:\s*-\s*var\(--ordax-first-run-gutter\))?)\)\)")
+        self.assertRegex(shell, r"max-height\s*:\s*calc\(100dvh\s*-")
 
         # USB/native First Run is desktop-only: its Meridian rail and content
         # panel remain the same layout instead of switching to a phone flow.

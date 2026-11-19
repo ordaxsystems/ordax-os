@@ -43,10 +43,18 @@ LIGHT_EXACT = {
     "tests/test_portable_v2_qemu_boot_proof_contract.py",
     "tests/test_portable_component_reuse_workflow.py",
     "tests/test_portable_qemu_impact.py",
+    "tests/test_ci_git_diff_exact_paths.py",
+    "tests/test_creator_owner_impact.py",
+    # Other impact policies only choose CI jobs; they do not change Surface EROFS bytes.
+    "tools/ci/creator_owner_impact.py",
     "tools/ci/independent_surface_impact.py",
     "tools/ci/independent_surface_component_cache.py",
     "tools/ci/independent_surface_cutover_audit.py",
     "tools/ci/portable_qemu_impact.py",
+    # These scripts only validate/coordinate immutable external source locks;
+    # neither can alter Buildroot, EROFS contents or the Surface producer.
+    ".github/workflows/external-source-lock-integration.yml",
+    "tests/test_source_integration_advance.py",
     "docs/contracts/ci-supply-chain.json",
 }
 
@@ -90,20 +98,24 @@ def changed_paths_between(base: str, head: str, *, root: Path = ROOT) -> tuple[s
         raise ValueError("base/head must be exact lowercase 40-hex commits")
     if base == "0" * 40:
         raise ValueError("zero base is not classifiable")
+    # Git's default quoted paths are not repository filenames; use -z and
+    # UTF-8 to preserve accented names and other characters without escapes.
     result = subprocess.run(
-        ["git", "-C", str(root), "diff", "--name-only", "--no-renames", base, head, "--"],
+        ["git", "-C", str(root), "diff", "--name-only", "-z", "--no-renames", base, head, "--"],
         check=True,
-        text=True,
         stdout=subprocess.PIPE,
         stderr=subprocess.PIPE,
+        timeout=30,
     )
-    return tuple(line.strip() for line in result.stdout.splitlines() if line.strip())
+    return tuple(path for path in result.stdout.decode("utf-8").split("\0") if path)
 
 
 def write_output(path: Path, result: ImpactResult) -> None:
+    # Filenames can contain line breaks; never let a reason inject GITHUB_OUTPUT records.
+    reason = ";".join(result.reasons).replace("\r", "\\r").replace("\n", "\\n")
     with path.open("a", encoding="utf-8", newline="\n") as handle:
         handle.write(f"required={'true' if result.required else 'false'}\n")
-        handle.write(f"reason={';'.join(result.reasons)}\n")
+        handle.write(f"reason={reason}\n")
         handle.write(f"changed_count={len(result.changed_paths)}\n")
 
 

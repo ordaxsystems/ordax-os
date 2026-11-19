@@ -65,7 +65,12 @@ class AccountGatewayDestinationDeployTests(unittest.TestCase):
         self.assertNotIn("exit 0", missing_credential_step)
 
         self.assertIn("enabled=true", text)
-        self.assertEqual(text.count("if: steps.credential.outputs.enabled == 'true'"), 4)
+        # The sixth guarded step validates old remote bundle readability
+        # before any replacement. No other release gate is weakened.
+        self.assertEqual(text.count("if: steps.credential.outputs.enabled == 'true'"), 6)
+        self.assertIn("Prove prior deployed Account source is readable before replacement", text)
+        self.assertIn("--mode preflight", text)
+        self.assertIn("--mode verify", text)
         self.assertNotIn("SUPABASE_ACCESS_TOKEN repository secret is required.", text)
         self.assertIn("supabase functions deploy ordax-account-gateway", text)
         self.assertIn('--project-ref "${SUPABASE_PROJECT_REF}"', text)
@@ -80,6 +85,35 @@ class AccountGatewayDestinationDeployTests(unittest.TestCase):
         self.assertIn("ACCOUNT_GATEWAY_MCP_USAGE_UNAUTH=PASS", text)
         self.assertIn('Deno.env.get("ORDAX_MCP_USAGE_READ_ENABLED")', text)
         self.assertIn("node --test tests/test_account_mcp_usage_bridge.mjs", text)
+        self.assertIn("      owner_device_console_rollout:", text)
+        self.assertIn("inputs.owner_device_console_rollout != 'unchanged'", text)
+        self.assertIn("ORDAX_MCP_OWNER_CENTRAL_SELECTION_ENABLED", text)
+        self.assertIn("ACCOUNT_GATEWAY_OWNER_DEVICE_CONSOLE_SECRET_VALUES_PRINTED=NO", text)
+        self.assertIn("ACCOUNT_GATEWAY_OWNER_DEVICE_CONSOLE_ROLLOUT=", text)
+        self.assertIn("Only existing-account MCP devices", text)
+        self.assertIn("        default: unchanged", text)
+        # Existing Project/GitHub release remains independent. A console-only
+        # rollout does not introduce a second Account gateway or expand grants.
+        console_step=text.split("      - name: Apply independent Owner device MCP console rollout",1)[1].split("      - name: Smoke destination gateway",1)[0]
+        self.assertIn("ORDAX_MCP_OWNER_ACCOUNT_ENABLED",console_step)
+        self.assertIn("ORDAX_MCP_OWNER_CENTRAL_SELECTION_ENABLED",console_step)
+        self.assertNotIn("ORDAX_MCP_OWNER_PROJECT_",console_step)
+        self.assertNotIn("ORDAX_MCP_OWNER_GITHUB_",console_step)
+        self.assertIn("      owner_project_rollout:", text)
+        self.assertIn("          - unchanged", text)
+        self.assertIn("          - enable", text)
+        self.assertIn("          - disable", text)
+        self.assertIn("inputs.owner_project_rollout != 'unchanged'", text)
+        self.assertIn("supabase secrets set", text)
+        for key in (
+            "ORDAX_MCP_OWNER_ACCOUNT_ENABLED",
+            "ORDAX_MCP_OWNER_PROJECT_ONBOARDING_ENABLED",
+            "ORDAX_MCP_OWNER_GITHUB_AUTHORIZATION_ENABLED",
+            "ORDAX_MCP_OWNER_PROJECT_DEVICE_BINDING_ENABLED",
+            "ORDAX_MCP_OWNER_PROJECT_GRANT_ENABLED",
+        ):
+            self.assertIn(key, text)
+        self.assertIn("ACCOUNT_GATEWAY_OWNER_PROJECT_SECRET_VALUES_PRINTED=NO", text)
 
     def test_workflow_pins_approved_cli_action_and_version(self):
         text = WORKFLOW.read_text(encoding="utf-8")
@@ -100,6 +134,7 @@ class AccountGatewayDestinationDeployTests(unittest.TestCase):
         self.assertIn("  workflow_dispatch:", text)
         self.assertIn("      approved_sha:", text)
         self.assertIn("      release_confirmation:", text)
+        self.assertIn("      owner_project_rollout:", text)
         self.assertIn("github.event_name == 'workflow_dispatch'", text)
         self.assertIn("github.ref == 'refs/heads/main'", text)
         self.assertIn("inputs.approved_sha == github.sha", text)

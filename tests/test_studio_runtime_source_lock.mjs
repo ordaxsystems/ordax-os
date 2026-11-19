@@ -33,12 +33,12 @@ test("Studio runtime source lock pins the merged headless compatibility contract
   assert.equal(lock.$schema, "prototype-ordax.studio-runtime-source-lock/1");
   assert.equal(lock.source.repository, "https://github.com/ordaxsystems/ordax-runtime");
   assert.match(lock.source.commit, /^[0-9a-f]{40}$/);
-  assert.equal(lock.source.commit, "d3cecce1abfe542a50795b72d98d6a15fa25803a");
+  assert.equal(lock.source.commit, "1453f0bd97404bad575cae0516a9c53c1d802f59");
   assert.deepEqual(lock.source.compatibility_contract, {
     path: "docs/contracts/ordax-os-runtime-compatibility.json",
     schema: "ordax.studio-runtime-compatibility/1",
-    sha256: "34d889808e9f79412580422a5d7fa7c182f5d50e9dba07eb07934af5aff790f8",
-    product_version: "0.4.7",
+    sha256: "38503250b0314ddc83d5c2a0fc5a15da46265b75e9b878afb82b597604698a1f",
+    product_version: "0.4.8",
   });
 
   assert.deepEqual(Object.keys(lock.candidate_evidence_by_target), ["linux-amd64"]);
@@ -224,11 +224,11 @@ test("Owner DEV CI candidate is recorded as evidence, not unsigned installation 
     kind: "ci-only-unsigned",
     source_commit: lock.source.commit,
     platform: "linux-amd64-musl",
-    workflow_run_id: 39732421629,
-    artifact_id: 12406001168,
-    archive_sha256: "2344c035f29755ca445c826060287a62c864dcaf6b1f9bfaf8c749f82bf095e8",
-    executable_sha256: "ecb30cacc2e4be09b6f7dd48768a93943149105bfab9a8339475697f109040e0",
-    executable_size_bytes: 25034544,
+    workflow_run_id: 44184055813,
+    artifact_id: 14371684909,
+    archive_sha256: "8ce21a2520443a87ec5778a210b0391cd9d5daf375f8d247ddebbfef3a91df89",
+    executable_sha256: "004792b4b4b6fdae785c61b3382faee5264bae61f00a80809032a6a9913faed3",
+    executable_size_bytes: 18155816,
     offline_proof_verified: true,
     device_execution_proven: false,
     signed_distribution_authorized: false,
@@ -244,10 +244,10 @@ test("Owner DEV CI candidate is recorded as evidence, not unsigned installation 
     ],
     embedded_elf_inventory: {
       schema: "ordax.native-embedded-elf-inventory/1",
-      native_entry_count: 90,
-      native_uncompressed_bytes: 40611847,
-      inventory_sha256: "16d8553cd00dbebd98eda0ff0ae5553b1c240360a511caa30974d0cd9ef6a108",
-      unprovided_needed_names: ["libc.musl-x86_64.so.1", "libc.so"],
+      native_entry_count: 84,
+      native_uncompressed_bytes: 33140739,
+      inventory_sha256: "4f15b52785727732f829a771895b5ec9433c6a54cf3ee93fec85682c87fe1f60",
+      unprovided_needed_names: ["libc.musl-x86_64.so.1"],
       independent_base_compatibility_proven: false,
       install_authorized: false,
     },

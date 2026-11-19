@@ -1,0 +1,102 @@
+#!/bin/sh
+# Owner Development only. An offline Git bundle is transport, never an
+# independent update engine or authorization to activate a source revision.
+set -eu
+umask 077
+
+fail() { printf 'ordax-owner-usb-git: %s\n' "$*" >&2; exit 2; }
+is_sha() {
+    [ "${#1}" -eq 40 ] || return 1
+    case "$1" in ''|*[!0-9a-f]*) return 1 ;; esac
+}
+is_digest() {
+    [ "${#1}" -eq 64 ] || return 1
+    case "$1" in ''|*[!0-9a-f]*) return 1 ;; esac
+}
+regular() { [ -f "$1" ] && [ ! -L "$1" ]; }
+
+[ "$#" -eq 2 ] || fail 'usage: ordax-owner-usb-git inspect|stage ABSOLUTE_BUNDLE_DIRECTORY'
+action=$1
+source_dir=$2
+case "$action" in inspect|stage) ;; *) fail 'unsupported action' ;; esac
+[ "${ORDAX_DISTRIBUTION_PROFILE:-}" = owner-development ] ||
+    fail 'only Owner Development can receive offline Git objects'
+case "$source_dir" in /*) ;; *) fail 'bundle source must be absolute' ;; esac
+[ -d "$source_dir" ] && [ ! -L "$source_dir" ] ||
+    fail 'bundle directory missing or unsafe'
+physical_dir=$(cd -P "$source_dir" && pwd -P) ||
+    fail 'cannot resolve bundle directory'
+[ "$physical_dir" = "$source_dir" ] ||
+    fail 'bundle directory aliases are not permitted'
+manifest=$source_dir/owner-git-bundle.txt
+bundle=$source_dir/ordax-main.bundle
+regular "$manifest" && regular "$bundle" ||
+    fail 'manifest and Git bundle must be regular files'
+[ "$(wc -l < "$manifest" | tr -d '[:space:]')" = 5 ] ||
+    fail 'manifest must contain exactly five lines'
+line1=$(sed -n '1p' "$manifest")
+line2=$(sed -n '2p' "$manifest")
+line3=$(sed -n '3p' "$manifest")
+line4=$(sed -n '4p' "$manifest")
+line5=$(sed -n '5p' "$manifest")
+[ "$line1" = 'schema=ordax.owner-dev-usb-git/1' ] &&
+    [ "$line2" = 'repository=ordaxsystems/ordax-os' ] ||
+    fail 'manifest source and schema do not match Owner Git'
+case "$line3" in source_commit=*) source_sha=${line3#source_commit=} ;; *) fail 'missing commit' ;; esac
+case "$line4" in bundle_sha256=*) expected_digest=${line4#bundle_sha256=} ;; *) fail 'missing digest' ;; esac
+case "$line5" in bundle_bytes=*) expected_bytes=${line5#bundle_bytes=} ;; *) fail 'missing size' ;; esac
+is_sha "$source_sha" && is_digest "$expected_digest" ||
+    fail 'invalid source SHA or bundle digest'
+case "$expected_bytes" in ''|*[!0-9]*) fail 'invalid bundle size' ;; esac
+[ "$expected_bytes" -gt 0 ] && [ "$expected_bytes" -le 1000000000 ] ||
+    fail 'offline Git bundle exceeds bounded data partition budget'
+[ "$(wc -c < "$bundle" | tr -d '[:space:]')" = "$expected_bytes" ] ||
+    fail 'offline bundle size differs from manifest'
+
+# Pin one private snapshot so USB disconnection or replacement cannot change
+# bytes between hash verification and Git object import.
+run_root=${ORDAX_UPDATE_RUN_DIR:-/run/ordax-update}
+[ -d "$run_root" ] && [ ! -L "$run_root" ] || fail 'private run root missing'
+stage=$(mktemp -d "$run_root/.owner-usb-git.XXXXXXXX") ||
+    fail 'cannot allocate private USB snapshot'
+trap 'rm -rf "$stage"' EXIT
+trap 'exit 129' HUP
+trap 'exit 130' INT
+trap 'exit 143' TERM
+cp "$bundle" "$stage/ordax-main.bundle" ||
+    fail 'offline bundle disappeared before snapshot'
+set -- $(sha256sum "$stage/ordax-main.bundle")
+[ "${1:-}" = "$expected_digest" ] || fail 'offline Git SHA-256 mismatch'
+
+worktree=${ORDAX_WORKTREE:-/workspace/ordax}
+[ -d "$worktree/.git" ] && [ ! -L "$worktree/.git" ] ||
+    fail 'runtime Git checkout unavailable'
+[ "$(git -C "$worktree" remote get-url origin)" = 'https://github.com/ordaxsystems/ordax-os.git' ] ||
+    fail 'runtime origin is not canonical'
+[ -z "$(git -C "$worktree" status --porcelain=v1)" ] ||
+    fail 'runtime checkout contains local changes'
+current_sha=$(git -C "$worktree" rev-parse HEAD) || fail 'cannot identify current Git commit'
+is_sha "$current_sha" || fail 'runtime commit is malformed'
+heads=$(git -C "$worktree" bundle list-heads "$stage/ordax-main.bundle") ||
+    fail 'cannot inspect Git bundle'
+[ "$heads" = "$source_sha refs/heads/main" ] ||
+    fail 'Git bundle must contain exactly one pinned main ref'
+git -C "$worktree" bundle verify "$stage/ordax-main.bundle" >/dev/null 2>&1 ||
+    fail 'Git bundle has invalid objects or unresolved prerequisites'
+if [ "$action" = inspect ]; then
+    printf 'ORDAX_OFFLINE_SOURCE_SHA=%s\n' "$source_sha"
+    exit 0
+fi
+
+# This step only imports objects to a separate reference. Supervisor must
+# still own target selection, live checkout, health checks and rollback.
+git -C "$worktree" fetch --no-tags "$stage/ordax-main.bundle" \
+    '+refs/heads/main:refs/ordax/offline/main' >/dev/null 2>&1 ||
+    fail 'verified bundle import failed; live checkout preserved'
+imported_sha=$(git -C "$worktree" rev-parse refs/ordax/offline/main) ||
+    fail 'cannot inspect imported candidate'
+[ "$imported_sha" = "$source_sha" ] ||
+    fail 'imported Git commit differs from offline provenance'
+git -C "$worktree" merge-base --is-ancestor "$current_sha" "$source_sha" ||
+    fail 'offline candidate is not fast-forward from current; live checkout preserved'
+printf 'ORDAX_OFFLINE_CANDIDATE_SHA=%s\n' "$source_sha"

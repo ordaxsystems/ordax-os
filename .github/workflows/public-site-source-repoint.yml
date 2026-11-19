@@ -8,6 +8,14 @@ on:
       - "docs/contracts/public-site-source.json"
       - "tests/test_external_site_source.py"
       - ".github/workflows/public-site-source-repoint.yml"
+  push:
+    branches: [main]
+    paths:
+      - "tools/vercel/build.py"
+      - "tools/vercel/site_source.py"
+      - "docs/contracts/public-site-source.json"
+      - "tests/test_external_site_source.py"
+      - ".github/workflows/public-site-source-repoint.yml"
   workflow_dispatch:
 
 permissions:

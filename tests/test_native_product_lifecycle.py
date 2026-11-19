@@ -52,6 +52,7 @@ class NativeProductLifecycleTests(unittest.TestCase):
             "    fi\n"
             "    printf 'NATIVE_PRODUCT_LOCAL_ACCESS=DISABLED\\n'; exit 3 ;;\n"
             "  --run)\n"
+            "    printf '%s\\n' \"$*\" > \"$NATIVE_TEST_ARGS\"\n"
             "    printf '%s\\n' \"$$\" >> \"$NATIVE_TEST_STARTED\"\n"
             "    trap 'exit 0' TERM INT\n"
             "    while :; do sleep 1; done ;;\n"
@@ -161,13 +162,47 @@ class NativeProductLifecycleTests(unittest.TestCase):
 
     def test_wrong_profile_never_launches(self):
         self.install_private_buildroot_runtime_fixture()
-        for profile, mode in (("stable-mvp", "usb"), ("owner-development", "native-disk")):
+        for profile, mode in (("stable-mvp", "native-disk"), ("owner-development", "native-disk")):
             with self.subTest(profile=profile, mode=mode):
                 result = self.run_lifecycle(
                     "native_product_reconcile\n[ -z \"$NATIVE_PRODUCT_PID\" ]",
                     profile=profile, mode=mode,
                 )
                 self.assertEqual(result.returncode, 0, result.stderr)
+        self.assertFalse(self.started.exists())
+
+    def test_signed_stable_usb_launches_only_with_verified_slot_and_consent(self):
+        result = self.run_lifecycle(
+            "native_product_reconcile\n"
+            "[ -n \"$NATIVE_PRODUCT_PID\" ] || exit 5\n"
+            "sleep 1\n"
+            "native_product_stop\n"
+            "[ -z \"$NATIVE_PRODUCT_PID\" ]\n",
+            profile="stable-mvp", mode="usb", grant=True,
+        )
+        self.assertEqual(result.returncode, 0, result.stderr)
+        self.assertTrue(self.started.exists())
+        self.assertEqual(len(self.started.read_text().splitlines()), 1)
+        args = (self.root / "runtime-args").read_text()
+        self.assertIn("--run --distribution-profile stable-mvp --product-mode usb", args)
+        self.assertNotIn("--full-access", args)
+
+    def test_stable_usb_rejects_unsigned_dev_fallback_even_if_staged(self):
+        self.install_private_buildroot_runtime_fixture()
+        result = self.run_lifecycle(
+            "native_product_reconcile\n[ -z \"$NATIVE_PRODUCT_PID\" ]",
+            profile="stable-mvp", mode="usb", grant=False,
+        )
+        self.assertEqual(result.returncode, 0, result.stderr)
+        self.assertFalse(self.started.exists())
+
+    def test_stable_usb_respects_local_opt_out_before_any_launch(self):
+        self.consent.write_text("off")
+        result = self.run_lifecycle(
+            "native_product_reconcile\n[ -z \"$NATIVE_PRODUCT_PID\" ]",
+            profile="stable-mvp", mode="usb", grant=True,
+        )
+        self.assertEqual(result.returncode, 0, result.stderr)
         self.assertFalse(self.started.exists())
 
     def test_owner_dev_buildroot_runtime_starts_only_after_local_consent(self):

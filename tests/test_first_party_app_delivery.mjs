@@ -224,3 +224,26 @@ test("invalid delivery observations fail closed", () => {
     /Unknown first-party app delivery id/,
   );
 });
+
+test("First-party app CI validates the same policy sources in PR and main push", async () => {
+  const { readFile } = await import("node:fs/promises");
+  const workflow = (await readFile(
+    new URL("../.github/workflows/first-party-app-delivery.yml", import.meta.url), "utf8"
+  )).replaceAll("\r\n", "\n");
+  const push = workflow.split("  push:\n    branches: [main]\n    paths:\n")[1]?.split("  pull_request:\n")[0];
+  const pr = workflow.split("  pull_request:\n    paths:\n")[1]?.split("  workflow_dispatch:\n")[0];
+  assert.ok(push && pr, "both PR and main-push gates must exist");
+  const paths = (section) => [...new Set(section.split("\n")
+    .map((line) => line.trim())
+    .filter((line) => line.startsWith("- '"))
+    .map((line) => line.slice(3, -1)))].sort();
+  assert.deepEqual(paths(pr), paths(push), "a release input must be validated before merging");
+  for (const required of [
+    "docs/contracts/runtime-component-package.json",
+    "tools/app-policy/render_external_first_party_policy.py",
+    "docs/contracts/surface-source.json",
+  ]) {
+    assert.ok(paths(pr).includes(required), required);
+  }
+  assert.match(workflow, /uses: \.\/\.github\/actions\/prepare-verified-surface/);
+});

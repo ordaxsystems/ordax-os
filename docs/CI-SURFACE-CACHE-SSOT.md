@@ -106,3 +106,36 @@ no runner hospedado. A compilação nova requer o produtor Linux x86_64
 self-hosted confiável, persistência do `O=` e ambiente pinado; a publicação
 somente ocorre depois da verificação de EROFS e recibos. Sem isso, o gate
 permanece vermelho e os consumidores Creator/QEMU não fabricam um artefato.
+
+
+## Operação de CI: gating e retomada sem duplicar produtores
+
+A política de CI é **implementada nos próprios workflows**, não em um plano de
+estágio independente: `.github/workflows/independent-surface-runtime.yml`,
+`creator-owner-dev-git.yml` e `independent-base-experiment.yml`. Em PR
+`draft`, os contratos leves continuam obrigatórios e as compilações caras
+esperam a candidatura, o disparo manual ou o push aplicável. Os três jobs
+pesados usam `queue: max` na concorrência comum para não perder uma prova
+pendente de outro consumidor da mesma revisão. `ready_for_review` volta a
+avaliar o HEAD; nenhum resultado da revisão antiga vale para a nova.
+
+Para recuperar Buildroot de forma **real** no runner persistente, configurar
+em conjunto `ORDAX_SURFACE_RUNNER_LABEL`,
+`ORDAX_SURFACE_PRODUCER_ENVIRONMENT` (identidade versionada com quatro
+segmentos) e `ORDAX_SURFACE_PERSISTENT_WORK_ROOT` (caminho absoluto em
+filesystem permanente). O build usa `O=` estável por fingerprint, recibos
+de inputs e Kconfig/defconfig e lock exclusivo; uma árvore incompleta,
+simbólica ou com identidade divergente falha fechada. Nessa configuração,
+`BR2_CCACHE_DIR` e `BR2_DL_DIR` usam respectivamente `ccache/` e
+`downloads/` sob a raiz persistente, sem transferir esses caches de vários
+GB pelo `actions/cache`. No runner hospedado e descartável, permanecem os
+caches normais e não há promessa de retomada do diretório `O=`.
+
+`ORDAX_SURFACE_BUILD_JOBS` aceita **1 a 64** (padrão 4); aumentar
+paralelismo não dispensa checar RAM. A identidade do produtor deve ser
+consumida sem reetiquetar artefatos antigos, e o EROFS permanece condicionado
+a fingerprint, SHA-256, proveniência e validação de QEMU/boot aplicável.
+A falha histórica do WebKit por timeout de 27/10 e o detalhamento das
+primeiras mudanças draft/Ready ficam no
+[snapshot Git da documentação de CI](https://github.com/ordaxsystems/ordax-os/blob/35bc94fa7402a733afdce7a3b086a9e1e0d2d0c7/docs/CI-TWO-STAGE-RELEASE-GATE-SSOT.md);
+esse snapshot não define gates atuais.

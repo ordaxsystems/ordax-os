@@ -13,6 +13,7 @@ const OWNED_EXACT = new Set([
   "system/apps/component-catalog.mjs",
   "docs/contracts/runtime-component-package.json",
   "docs/contracts/runtime-component-trust-policy.json",
+  "system/trust/runtime-components-ed25519.json",
   "docs/contracts/component-update-compatibility.json",
   "sdk/app-sdk-v1/runtime-component-package-policy.json",
   "system/contracts/component-manifest.mjs",
@@ -65,11 +66,13 @@ function checkedSha(value, label) {
   return value;
 }
 
-function changedPathsBetween(base, head) {
+export function changedPathsBetween(base, head, gitRoot = ROOT) {
   const stdout = execFileSync("git", [
-    "-C", ROOT, "diff", "--name-only", "--no-renames", base, head, "--",
-  ], { encoding: "utf8" });
-  return stdout.split(/\r?\n/u).map((item) => item.trim()).filter(Boolean);
+    "-C", gitRoot, "diff", "--name-only", "-z", "--no-renames", base, head, "--",
+  ]);
+  // Git's line mode quotes non-ASCII paths; NUL mode preserves their real bytes.
+  // Reject invalid UTF-8 instead of silently skipping a changed owner path.
+  return new TextDecoder("utf-8", { fatal: true }).decode(stdout).split("\0").filter(Boolean);
 }
 
 function serviceDirsAt(commit) {
@@ -86,12 +89,14 @@ function serviceDirsAt(commit) {
   return new Set(dirs);
 }
 
-function writeOutput(result) {
-  const reason = result.reasons.join(";");
+export function writeOutput(result, githubOutputPath = process.env.GITHUB_OUTPUT) {
+  // Git permits LF/CR in filenames. Never let a diagnostic path inject a
+  // second required= or reason= record into the GitHub output file.
+  const reason = result.reasons.join(";").replaceAll("\r", "\\r").replaceAll("\n", "\\n");
   process.stdout.write(`SERVICE_UPDATE_CAUSAL_IMPACT=${result.required ? "REQUIRED" : "SKIPPED"}\n`);
   process.stdout.write(`SERVICE_UPDATE_CAUSAL_REASON=${reason}\n`);
-  if (process.env.GITHUB_OUTPUT) {
-    appendFileSync(process.env.GITHUB_OUTPUT,
+  if (githubOutputPath) {
+    appendFileSync(githubOutputPath,
       `required=${result.required ? "true" : "false"}\nreason=${reason}\n`, "utf8");
   }
 }

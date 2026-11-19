@@ -34,6 +34,7 @@ class ProductDevicePostLoginCoordinator:
         control_plane_origin: str,
         state_dir: str = DEFAULT_PRODUCT_DEVICE_STATE_DIR,
         development_discovery: bool = True,
+        stable_signed_product_ready: bool = False,
     ) -> None:
         self.distribution_profile = distribution_profile
         self.product_mode = product_mode
@@ -44,8 +45,18 @@ class ProductDevicePostLoginCoordinator:
             development_discovery is True
             and distribution_profile == "owner-development" and product_mode == "usb"
         )
+        # Private Native-host input only. No renderer, account session or
+        # Product server response may assert a signed runtime is installed.
+        # The caller must first verify the OS-signed component/production gate.
+        self.stable_signed_product_ready = bool(
+            stable_signed_product_ready is True
+            and distribution_profile == "stable-mvp" and product_mode == "usb"
+        )
 
-        if distribution_profile != "owner-development" or product_mode != "usb":
+        if product_mode != "usb" or (
+            distribution_profile != "owner-development"
+            and not self.stable_signed_product_ready
+        ):
             return
         if account_gateway is None or not isinstance(control_plane_origin, str) or not control_plane_origin.strip():
             return
@@ -79,14 +90,20 @@ class ProductDevicePostLoginCoordinator:
             # Optional development connectivity never blocks boot or account use.
             pass
 
-    def after_authenticated_login(self, device_profile: dict, *, subject: str | None = None) -> PostLoginDeviceResult:
+    def after_authenticated_login(
+        self, device_profile: dict, *, subject: str | None = None,
+        explicit_stable_opt_in: bool = False,
+    ) -> PostLoginDeviceResult:
         if self.client is None:
             return PostLoginDeviceResult(status="inactive")
+        enroll_options = {
+            "distribution_profile": self.distribution_profile,
+            "product_mode": self.product_mode,
+        }
+        if self.stable_signed_product_ready and explicit_stable_opt_in is True:
+            enroll_options["stable_enrollment_authorized"] = True
         result = enroll_product_device_after_login(
-            self.client,
-            device_profile,
-            distribution_profile=self.distribution_profile,
-            product_mode=self.product_mode,
+            self.client, device_profile, **enroll_options,
         )
         if result.status == "enrolled" and self.development_discovery:
             self.refresh_development_presence()
@@ -134,7 +151,10 @@ class ProductDevicePostLoginCoordinator:
             if not isinstance(subject, str) or not UUID_RE.fullmatch(subject):
                 raise PermissionError("connector-account-subject-required")
             # Prove enrollment under this authenticated account before opting in.
-            result = self.after_authenticated_login(device_profile, subject=subject)
+            result = self.after_authenticated_login(
+                device_profile, subject=subject,
+                explicit_stable_opt_in=self.stable_signed_product_ready,
+            )
             if result.status != "enrolled":
                 raise RuntimeError("connector-enrollment-unavailable")
             self.identity_store.set_connector_visibility(True, subject)
@@ -321,14 +341,16 @@ def compose_product_device_account_gateway(
     control_plane_origin: str,
     device_profile_reader,
     state_dir: str = DEFAULT_PRODUCT_DEVICE_STATE_DIR,
+    stable_signed_product_ready: bool = False,
 ):
-    """Return the original gateway unless Owner/Development USB can enroll safely."""
+    """Never compose Stable enrollment without trusted signed-product readiness."""
     coordinator = ProductDevicePostLoginCoordinator(
         account_gateway,
         distribution_profile=distribution_profile,
         product_mode=product_mode,
         control_plane_origin=control_plane_origin,
         state_dir=state_dir,
+        stable_signed_product_ready=stable_signed_product_ready,
     )
     if coordinator.client is None:
         return account_gateway

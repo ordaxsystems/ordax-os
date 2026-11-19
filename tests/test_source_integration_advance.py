@@ -229,8 +229,8 @@ class SourceAdvanceTests(unittest.TestCase):
         root = advance.ROOT
         yaml = (root / ".github/workflows/external-source-lock-integration.yml").read_text()
         start = yaml.index("      - name: Resolve exactly one pending PR")
-        end = yaml.index("      - name: Create or fast-forward", start)
-        body = yaml[start:end].split("        run: |\n", 1)[1]
+        # Extract only this run block; later authentication steps are not Bash.
+        body = yaml[start:].split("        run: |\n", 1)[1].split("\n      - name: ", 1)[0]
         script = "\n".join(line[10:] if line.startswith(" " * 10) else line
                            for line in body.splitlines()) + "\n"
         self.assertIn("gh api --paginate --slurp", script)
@@ -307,7 +307,15 @@ fi
         self.assertIn('if [ "$(git rev-parse HEAD)" != "$PR_HEAD_SHA" ]; then', workflow)
         self.assertIn('git push origin "HEAD:refs/heads/$branch"', workflow)
         self.assertIn('gh pr edit "$PR_NUMBER"', workflow)
-        self.assertIn('branch="automation/advance-$OWNER"', workflow)
+        self.assertIn('branch="automation/advance-$OWNER-$SOURCE_SHA"', workflow)
+        # Future source commits cannot reuse an old candidate branch retained
+        # after a squash merge, regardless of the repository deletion policy.
+        first = "automation/advance-surface-" + "a" * 40
+        second = "automation/advance-surface-" + "b" * 40
+        self.assertNotEqual(first, second)
+        self.assertIn('if [ "$EXISTING" = true ]; then', workflow)
+        self.assertIn('branch="$PR_BRANCH"', workflow)
+        self.assertIn('if ! git merge-base --is-ancestor "$existing_sha" "$main_sha"; then', workflow)
         self.assertNotIn("git push --force", workflow)
         self.assertNotIn("git push -f", workflow)
         self.assertNotIn("gh pr merge", workflow)
@@ -374,8 +382,128 @@ fi
         workflow = (advance.ROOT / ".github/workflows/external-source-lock-integration.yml").read_text()
         self.assertIn('existing_tip="$(git ls-remote --heads origin "refs/heads/$branch")"', workflow)
         self.assertIn('git merge-base --is-ancestor "$existing_sha" "$main_sha"', workflow)
-        self.assertIn("refuse overwrite", workflow)
+        self.assertIn("refuse recovery", workflow)
+        self.assertIn("PR history; refuse re-creation", workflow)
         self.assertNotIn("git push --force", workflow)
+
+    def test_stranded_source_lock_push_is_recovered_only_without_prior_review(self):
+        # Exercise the exact recovery guard with real Git ancestry, lock bytes,
+        # a remote ref, and an explicit mock of the GitHub PR-history response.
+        import os
+        workflow = (advance.ROOT / ".github/workflows/external-source-lock-integration.yml").read_text()
+        self.assertIn('if [ "$recovering" != true ]; then', workflow)
+        self.assertLess(workflow.index("recovering=true"), workflow.index('git push origin "HEAD:refs/heads/$branch"'))
+        start = '              if ! git merge-base --is-ancestor "$existing_sha" "$main_sha"; then'
+        end = '              else\n                echo "::notice::Previously merged owner branch will fast-forward"'
+        body = workflow.split(start, 1)[1].split(end, 1)[0]
+        guard = 'set -euo pipefail\n' + start.strip() + '\n' + '\n'.join(
+            line[16:] if line.startswith(" " * 16) else line
+            for line in body.splitlines()
+        ) + '\nfi\n'
+        root = Path(self.tmp.name)
+        remote = root / "bare.git"
+        work = root / "local"
+        work.mkdir()
+        subprocess.run(["git", "init", "--bare", str(remote)], check=True, capture_output=True)
+        subprocess.run(["git", "init", "-b", "main", str(work)], check=True, capture_output=True)
+        def git(*args):
+            return subprocess.run(["git", "-C", str(work), *args],
+                                  check=True, capture_output=True, text=True).stdout.strip()
+        git("config", "user.name", "Owner Test")
+        git("config", "user.email", "owner@example.invalid")
+        git("remote", "add", "origin", str(remote))
+        lock = Path("docs/contracts/surface-source.json")
+        target = work / lock
+        target.parent.mkdir(parents=True)
+        target.write_text('{"source_commit":"old"}\n')
+        git("add", str(lock))
+        git("commit", "-m", "canonical main")
+        original_main_sha = git("rev-parse", "HEAD")
+        git("push", "origin", "main")
+        branch = "automation/advance-surface-" + "a" * 40
+        git("switch", "-c", "source-candidate")
+        verified = '{"source_commit":"verified"}\n'
+        target.write_text(verified)
+        git("add", str(lock))
+        git("commit", "-m", "verified source-lock candidate")
+        existing_sha = git("rev-parse", "HEAD")
+        git("push", "origin", "HEAD:refs/heads/" + branch)
+        git("switch", "main")
+        # Advance main independently after the orphan was pushed. A depth-1
+        # checkout cannot prove the former main ancestry using merge-base.
+        for i in range(2):
+            (work / f"unrelated-{i}.txt").write_text("new main state")
+            git("add", f"unrelated-{i}.txt")
+            git("commit", "-m", f"unrelated main commit {i}")
+        main_sha = git("rev-parse", "HEAD")
+        git("push", "origin", "main")
+        shallow = root / "shallow"
+        subprocess.run(["git", "clone", "--quiet", "--depth=1", "--branch", "main",
+                        remote.as_uri(), str(shallow)], check=True, capture_output=True)
+        subprocess.run(["git", "-C", str(shallow), "fetch", "--quiet", "--no-tags",
+                        "origin", "refs/heads/" + branch], check=True, capture_output=True)
+        local_ancestry = subprocess.run(
+            ["git", "-C", str(shallow), "merge-base", "--is-ancestor",
+             original_main_sha, main_sha], capture_output=True,
+        )
+        self.assertNotEqual(local_ancestry.returncode, 0,
+                            "regression must model an actually shallow main")
+        candidate = root / "candidate.json"
+        candidate.write_text(verified)
+        bin_dir = root / "bin"
+        bin_dir.mkdir()
+        gh = bin_dir / "gh"
+        gh.write_text('#!/usr/bin/env bash\n'
+                      'if [[ "$*" == *"/compare/"* ]]; then\n'
+                      '  [ "$TEST_ANCESTRY" = error ] && exit 22\n'
+                      '  printf "%s\\n" "$TEST_ANCESTRY"\n'
+                      'else\n'
+                      '  printf "%s\\n" "$TEST_HISTORY"\n'
+                      'fi\n')
+        gh.chmod(0o755)
+
+        def run(history, *, candidate_text=verified, head=existing_sha,
+                ref=branch, ancestry="ahead"):
+            candidate.write_text(candidate_text)
+            env = dict(os.environ,
+                       PATH=str(bin_dir) + os.pathsep + os.environ["PATH"],
+                       TEST_HISTORY=json.dumps([history]),
+                       TEST_ANCESTRY=ancestry,
+                       existing_sha=head, main_sha=main_sha,
+                       branch=ref, LOCK=str(lock),
+                       GITHUB_REPOSITORY="ordaxsystems/ordax-os",
+                       candidate_lock=str(candidate))
+            return subprocess.run(["bash", "-c", guard],
+                                  cwd=shallow, capture_output=True, text=True, env=env)
+        recovered = run([])
+        self.assertEqual(recovered.returncode, 0, recovered.stderr)
+        self.assertIn("Recovered only the exact stranded source-lock branch", recovered.stdout)
+        for invalid in ("behind", "diverged", "error"):
+            with self.subTest(ancestry=invalid):
+                rejected = run([], ancestry=invalid)
+                self.assertNotEqual(rejected.returncode, 0)
+                self.assertNotIn("Recovered only the exact", rejected.stdout)
+        reviewed = run([{"head": {"repo": {"full_name": "ordaxsystems/ordax-os"}, "ref": branch}}])
+        self.assertNotEqual(reviewed.returncode, 0)
+        self.assertIn("PR history", reviewed.stdout)
+        altered = run([], candidate_text='{"source_commit":"forged"}\n')
+        self.assertNotEqual(altered.returncode, 0)
+        self.assertIn("differs from verified lock", altered.stdout)
+        # A matching lock is insufficient if another file was pushed.
+        rogue_branch = "automation/advance-surface-" + "b" * 40
+        git("switch", "-c", "rogue", "main")
+        target.write_text(verified)
+        (work / "rogue.txt").write_text("not owned")
+        git("add", str(lock), "rogue.txt")
+        git("commit", "-m", "forged extra change")
+        rogue_sha = git("rev-parse", "HEAD")
+        git("push", "origin", "HEAD:refs/heads/" + rogue_branch)
+        subprocess.run(["git", "-C", str(shallow), "fetch", "--quiet", "--no-tags",
+                        "origin", "refs/heads/" + rogue_branch],
+                       check=True, capture_output=True)
+        rogue = run([], head=rogue_sha, ref=rogue_branch)
+        self.assertNotEqual(rogue.returncode, 0)
+        self.assertIn("differs from verified lock", rogue.stdout)
 
     def test_new_source_owner_pr_denies_native_token_before_branch_push(self):
         # Reproduce the repository's disabled GitHub Actions PR-creation policy.
@@ -407,10 +535,28 @@ fi
         self.assertEqual(check("false", "false").returncode, 0)
         self.assertNotEqual(check("false", "false", "").returncode, 0)
 
+    def test_new_source_pr_mints_scoped_app_token_only_when_required(self):
+        workflow = (advance.ROOT / ".github/workflows/external-source-lock-integration.yml").read_text()
+        self.assertIn("CLIENT_ID_PRESENT: ${{ secrets.ORDAX_INTEGRATION_APP_CLIENT_ID != '' }}", workflow)
+        self.assertIn("PRIVATE_KEY_PRESENT: ${{ secrets.ORDAX_INTEGRATION_APP_PRIVATE_KEY != '' }}", workflow)
+        self.assertIn('if [ "$CLIENT_ID_PRESENT" != "$PRIVATE_KEY_PRESENT" ]; then', workflow)
+        self.assertIn("if: steps.candidate.outputs.changed == 'true' && steps.pending.outputs.existing == 'false'", workflow)
+        self.assertIn("if: steps.integration_auth.outputs.app == 'true'", workflow)
+        self.assertIn("uses: actions/create-github-app-token@64ab729a6294000f5aa4a4bc0b73d1f32bc45510", workflow)
+        self.assertIn("owner: ordaxsystems", workflow)
+        self.assertIn("repositories: ordax-os", workflow)
+        self.assertIn("permission-contents: write", workflow)
+        self.assertIn("permission-pull-requests: write", workflow)
+        self.assertIn("GH_TOKEN: ${{ steps.integration_app.outputs.token || github.token }}", workflow)
+        self.assertIn("NATIVE_FALLBACK: ${{ steps.integration_app.outputs.token == '' }}", workflow)
+        self.assertLess(workflow.index("Mint short-lived GitHub App installation token"),
+                        workflow.index("Create or fast-forward the single owner lock PR"))
+        self.assertNotIn("secrets.ORDAX_INTEGRATION_TOKEN", workflow)
+        self.assertNotIn("permission-administration: write", workflow)
     def test_native_bot_uses_existing_ci_without_duplicated_release_authority(self):
         root = advance.ROOT
         workflow = (root / ".github/workflows/external-source-lock-integration.yml").read_text()
-        self.assertIn("GH_TOKEN: ${{ secrets.ORDAX_INTEGRATION_TOKEN || github.token }}", workflow)
+        self.assertIn("GH_TOKEN: ${{ steps.integration_app.outputs.token || github.token }}", workflow)
         self.assertIn("if: steps.publish.outputs.changed == 'true' && steps.publish.outputs.native == 'true'", workflow)
         self.assertIn('gh workflow run "$workflow"', workflow)
         self.assertNotIn("gh pr merge", workflow)

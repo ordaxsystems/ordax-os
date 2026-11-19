@@ -8,6 +8,8 @@ Repositório oficial e canônico do sistema operacional OrdaX em `ordaxsystems/o
 >
 > `washingtonmsdj/novo-ordax-os` permanece referência histórica, não uma segunda fonte de verdade ou destino de publicação.
 
+**Acesso rápido:** [por onde começar](#leia-primeiro) · [documentação por assunto](docs/README.md) · [estado comprovado](docs/CURRENT-STATE.md) · [owner de cada repositório](docs/REPOSITORY-OWNERSHIP.md) · [planos classificados](00-PLANOS-PRIORITARIOS/REGISTRY.md).
+
 ## Integração dos repositórios
 
 O OrdaX é um produto modular, não um conjunto de forks. Cada repositório possui uma responsabilidade; a composição Native é feita no `ordax-os` por contratos, locks e artefatos verificados. Consumidores não repetem pins transitivos: o Desktop consome uma composição OrdaX/OS, o Creator consome mídia verificada, a Surface consome ports e Apps publica componentes/catálogo.
@@ -28,23 +30,9 @@ Para trabalho em **OrdaX Intelligence**, comece por `docs/INTELLIGENCE.md`, `doc
 
 ## Planejamento e referências históricas
 
-O roteador de planejamento fica em [`00-PLANOS-PRIORITARIOS/`](00-PLANOS-PRIORITARIOS/README.md). Antes de interpretar ou retomar qualquer `PLANO-*`, consulte também:
+A consolidação estrutural está registrada em [`URGENTE-CONSOLIDACAO-ORDAX.md`](URGENTE-CONSOLIDACAO-ORDAX.md). Para localizar planos ativos, adiados ou históricos, consulte o [registro único de planos](00-PLANOS-PRIORITARIOS/REGISTRY.md) e, quando necessário, o [roteiro de planejamento](00-PLANOS-PRIORITARIOS/ROADMAP.md). Os snapshots Git dos planos retirados da árvore ativa permanecem vinculados no registro, sem reproduzir o arquivo histórico nesta entrada.
 
-1. [`00-PLANOS-PRIORITARIOS/ROADMAP.md`](00-PLANOS-PRIORITARIOS/ROADMAP.md);
-2. [`00-PLANOS-PRIORITARIOS/REGISTRY.md`](00-PLANOS-PRIORITARIOS/REGISTRY.md).
-
-Prioridades operacionais não são fixadas neste README. Consulte `MVP.md`, `docs/CURRENT-STATE.md`, PRs/branches atuais e os owners canônicos antes de retomar trabalho. Texto datado em planos, handoffs ou evidências é contexto histórico; não cria fila global nem bloqueia owners independentes. `READY` documental não significa `EXECUTION-ELIGIBLE`.
-
-Os planos antigos da raiz permanecem temporariamente nos caminhos atuais porque ainda possuem referências vivas. Eles são subordinados a `docs/README.md`, `docs/CURRENT-STATE.md`, `MVP.md`, contratos, ADRs e owners canônicos.
-
-- A antiga referência funcional acumulada de Surface/apps foi retirada da árvore ativa e permanece no [snapshot Git histórico](https://github.com/ordaxsystems/ordax-os/blob/3f304b05af33e40658025ff289523560b298153c/PLANO-FUNCIONAL-SURFACE-E-APPS.md); owners atuais estão em `ordax-surface`, `ordax-apps`, contratos e `docs/CURRENT-STATE.md`.
-- [`docs/SOURCE-MIGRATION.md`](docs/SOURCE-MIGRATION.md) é o ledger canônico de decisões de migração/reimplementação; a análise comparativa antiga foi retirada da árvore ativa e permanece no histórico Git.
-- O antigo baseline pré-USB foi retirado da árvore ativa e permanece no [snapshot Git](https://github.com/ordaxsystems/ordax-os/blob/0f8749e8ccfa004628fec2dd59c5218aba331de2/PLANO-03-FECHAMENTO-PRE-USB-NOVA-ORDAX.md); gates vivos estão em `docs/PROMOTION-GATES.md`, contratos e owners canônicos.
-- [docs/SPACES-AND-PROFILES.md](docs/SPACES-AND-PROFILES.md) é a autoridade única de experiência de Spaces e composição profissional; [docs/PROFILE-INTELLIGENCE-ARCHITECTURE.md](docs/PROFILE-INTELLIGENCE-ARCHITECTURE.md) governa conhecimento e Intelligence dos Profiles. O plano duplicado foi retirado do source após migrar seus consumidores.
-- [PLANO-07-PERSONAL-ORDAX-E-TRABALHO-INTELIGENTE.md](PLANO-07-PERSONAL-ORDAX-E-TRABALHO-INTELIGENTE.md) preserva fases futuras; o owner canônico é [`docs/PERSONAL-ORDAX.md`](docs/PERSONAL-ORDAX.md).
-- [PLANO-08-ORDAX-NETWORK-COMUNIDADES-E-MENSAGENS.md](PLANO-08-ORDAX-NETWORK-COMUNIDADES-E-MENSAGENS.md) é referência de produto; qualquer texto histórico de “canônico” não altera a hierarquia documental.
-
-Não criar `v2`, `final`, `novo` ou outro plano paralelo para a mesma responsabilidade. Atualize o owner existente ou registre uma decisão arquitetural.
+Planos não definem estado nem autorizam implementação por si: prevalecem código, contratos, [estado atual](docs/CURRENT-STATE.md), [MVP](MVP.md) e [índice canônico de documentação](docs/README.md). Não criar planos `v2`, `final` ou `novo` para responsabilidades já existentes.
 
 ## Um produto, modos evolutivos
 
@@ -90,25 +78,13 @@ A divisão canônica entre **sistema, apps, runtime e infraestrutura remota** es
 
 ## Leia primeiro
 
-1. `AGENTS.md`
-2. `MVP.md`
-3. `docs/README.md`
-4. `docs/CURRENT-STATE.md`
-5. `docs/ARCHITECTURE.md`
-6. `docs/BUILD-AUTONOMY.md`
-7. `docs/PRODUCT-MODES.md`
-8. `docs/ACCOUNT-SYNC-AND-PLANS.md`
-9. `docs/MINIMAL-USB-BOOTSTRAP.md`
-10. `docs/CREATOR-INSTALLATION.md`
-11. `docs/HOST-INDEPENDENCE.md`
-12. `docs/REMOTE-CONTROL.md`
-13. `docs/PHYSICAL-MEDIA.md`
-14. `docs/DEVELOPMENT-WORKFLOW.md`
-15. `docs/RELEASE-CHANNEL.md`
-16. `docs/SOURCE-MIGRATION.md`
-17. `docs/PROMOTION-GATES.md`
-18. `docs/DECISIONS.md`
-19. `00-PLANOS-PRIORITARIOS/README.md` quando a intenção for planejar/retomar trabalho futuro
+Não existe leitura obrigatória dos 19 documentos para cada alteração. Comece pelo menor conjunto aplicável:
+
+1. [`AGENTS.md`](AGENTS.md) — regras de trabalho e segurança; identifique o **owner** e o contrato afetado.
+2. [`docs/README.md`](docs/README.md) — índice canônico por responsabilidade; abra apenas os documentos do domínio envolvido.
+3. [`docs/CURRENT-STATE.md`](docs/CURRENT-STATE.md) e [`MVP.md`](MVP.md) — consulte para decisões dependentes do estado comprovado, da entrega ou dos gates de lançamento.
+
+Para mudanças entre repositórios, use [`docs/REPOSITORY-OWNERSHIP.md`](docs/REPOSITORY-OWNERSHIP.md) e [`docs/contracts/repository-ownership.json`](docs/contracts/repository-ownership.json). Para planejar, use [`00-PLANOS-PRIORITARIOS/REGISTRY.md`](00-PLANOS-PRIORITARIOS/REGISTRY.md); para consolidar estruturas, use [`URGENTE-CONSOLIDACAO-ORDAX.md`](URGENTE-CONSOLIDACAO-ORDAX.md). Nenhum destes roteadores substitui código, contratos, estado ou gates.
 
 ## Estrutura principal e owners externos
 

@@ -47,7 +47,13 @@ class PublicLoginLegalReceiptGuardTests(unittest.TestCase):
         source = self.edge[start:end]
         self.assertIn("!register && publicSiteRequest(req)", source)
         self.assertIn("hasRegistrationLegalReceipt(result.data.user?.id)", source)
-        self.assertIn('signOut({ scope: "local" })', self.edge)
+        self.assertIn(
+            "await revokeCurrentSession(result.data.session.access_token)", source
+        )
+        self.assertIn(
+            "revokeSupabaseLocalSession({ url, key, accessToken })", self.edge
+        )
+        self.assertNotIn('.auth.signOut({ scope: "local" })', self.edge)
         self.assertIn('"account-legal-receipt-required"', source)
         self.assertIn('"account-legal-receipt-check-unavailable"', source)
         guard = source.index("hasRegistrationLegalReceipt")

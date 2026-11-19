@@ -4,6 +4,8 @@ on:
   push:
     branches: [main]
     paths:
+      # Source UI is external: test the immutable owner pin, not retired OS paths.
+      - 'docs/contracts/surface-source.json'
       - 'system/contracts/portable-runtime-policy.mjs'
       - 'system/contracts/hardware-pack.mjs'
       - 'system/contracts/hardware-inventory.mjs'
@@ -12,7 +14,6 @@ on:
       - 'system/surface/runtime/display_outputs.py'
       - 'system/contracts/display-outputs.mjs'
       - 'system/adapters/native/display-outputs.mjs'
-      - 'system/surface/ui/display-output-controls.mjs'
       - 'tests/test_display_outputs_contract.mjs'
       - 'tests/test_display_outputs_provider.py'
       - 'tests/test_native_display_outputs_host.py'
@@ -67,6 +68,8 @@ on:
       - '.github/workflows/portable-runtime-foundation.yml'
   pull_request:
     paths:
+      # Source UI is external: test the immutable owner pin, not retired OS paths.
+      - 'docs/contracts/surface-source.json'
       - 'system/contracts/portable-runtime-policy.mjs'
       - 'system/contracts/hardware-pack.mjs'
       - 'system/contracts/hardware-inventory.mjs'
@@ -75,7 +78,6 @@ on:
       - 'system/surface/runtime/display_outputs.py'
       - 'system/contracts/display-outputs.mjs'
       - 'system/adapters/native/display-outputs.mjs'
-      - 'system/surface/ui/display-output-controls.mjs'
       - 'tests/test_display_outputs_contract.mjs'
       - 'tests/test_display_outputs_provider.py'
       - 'tests/test_native_display_outputs_host.py'
