@@ -22,6 +22,8 @@ test("Power status cannot silently become Linux mock or accept corrupt data",asy
   assert.throws(()=>projectWindowsPowerStatus({acLineStatus:5,batteryFlag:-1,batteryPercent:257}),TypeError);
   await assert.rejects(()=>readDesktopPowerStatus({platform:"linux"}),/Windows/);
   await assert.rejects(()=>readDesktopPowerStatus({platform:"win32",helperPath:""}),/Verified/);
+  await assert.rejects(()=>readDesktopPowerStatus({platform:"win32",helperPath:TEST_HELPER,timeoutMs:20001}),/bounded/);
+  await assert.rejects(()=>readDesktopPowerStatus({platform:"win32",helperPath:TEST_HELPER,timeoutMs:999}),/bounded/);
   await assert.rejects(()=>readDesktopPowerStatus({platform:"win32",helperPath:resolve("test-fixtures","powershell.exe")}),/Verified/);
   await assert.rejects(()=>readDesktopPowerStatus({platform:"win32",helperPath:TEST_HELPER,run:async()=>({stdout:"not telemetry"})}),/invalid/);
   await assert.rejects(()=>readDesktopPowerStatus({platform:"win32",helperPath:TEST_HELPER,run:async()=>{throw Error("PowerLineStatus unavailable");}}),/PowerLineStatus unavailable/);
@@ -42,14 +44,16 @@ test("Native service only uses real Win32 result and is bounded",async()=>{
 
 test("Windows power bootstrap starts one real sample for simultaneous consumers",async()=>{
   let now=1000, calls=0, complete;
+  const timeouts=[];
   const observer=createDesktopPowerStatusObservation({
-    readSnapshot:()=>{calls++;return new Promise(resolve=>{complete=resolve;});},
+    readSnapshot:({timeoutMs})=>{calls++;timeouts.push(timeoutMs);return new Promise(resolve=>{complete=resolve;});},
     now:()=>now,maxAgeMs:2000,
   });
   observer.warm();
   const first=observer.read(), second=observer.read();
   await Promise.resolve();
   assert.equal(calls,1,"boot warmup and concurrent Surface GETs share one subprocess");
+  assert.deepEqual(timeouts,[20000],"only the first physical Windows cold start gets measured grace");
   complete({battery:null,externalPower:true});
   assert.deepEqual(await first,{battery:null,externalPower:true});
   assert.deepEqual(await second,{battery:null,externalPower:true});
@@ -59,6 +63,7 @@ test("Windows power bootstrap starts one real sample for simultaneous consumers"
   const changed=observer.read();
   await Promise.resolve();
   assert.equal(calls,2,"expired telemetry always fetches a real new observation");
+  assert.deepEqual(timeouts,[20000,8000],"subsequent Windows telemetry retains strict timeout");
   complete({battery:{percent:66,state:"charging"},externalPower:true});
   assert.deepEqual(await changed,{battery:{percent:66,state:"charging"},externalPower:true});
 });

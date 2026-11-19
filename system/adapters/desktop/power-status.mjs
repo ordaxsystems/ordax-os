@@ -28,6 +28,7 @@ export function projectWindowsPowerStatus({acLineStatus,batteryFlag,batteryPerce
 export async function readDesktopPowerStatus({
   run=execute,platform=process.platform,
   helperPath=process.env.ORDAX_DESKTOP_POWER_HELPER,
+  timeoutMs=8000,
 }={}) {
   if(platform!=="win32") throw new Error("Windows power service requires Windows");
   // Set solely by the installed Electron owner after its stage-manifest check.
@@ -36,8 +37,10 @@ export async function readDesktopPowerStatus({
   if(typeof helperPath!=="string"||!isAbsolute(helperPath)||
      basename(helperPath).toLowerCase()!=="ordax-win32-power.exe")
     throw new Error("Verified Desktop Win32 power helper unavailable");
+  if(!Number.isSafeInteger(timeoutMs) || timeoutMs<1000 || timeoutMs>20000)
+    throw new TypeError("Windows power read timeout must be bounded");
   const {stdout}=await run(helperPath,[],{
-    timeout:8000,windowsHide:true,shell:false,maxBuffer:128,
+    timeout:timeoutMs,windowsHide:true,shell:false,maxBuffer:128,
   });
   const match=String(stdout).trim().match(/^(\d{1,3}),(\d{1,3}),(\d{1,3})$/);
   if(!match)throw new Error("Windows power status output invalid");
@@ -47,8 +50,7 @@ export async function readDesktopPowerStatus({
 }
 
 // One owner for concurrent Surface observations. Starting the first sample
-// before the renderer mounts avoids competing Win32 helper cold starts
-// competing on Windows. Only a fresh, validated sample is reusable; failures
+// before the renderer mounts avoids competing Win32 helper cold starts. Only a fresh, validated sample is reusable; failures
 // never become an invented battery or an indefinitely stale response.
 export function createDesktopPowerStatusObservation({
   readSnapshot=readDesktopPowerStatus, now=Date.now, maxAgeMs=2000,
@@ -56,13 +58,18 @@ export function createDesktopPowerStatusObservation({
   if(typeof readSnapshot!=="function" || typeof now!=="function" ||
      !Number.isSafeInteger(maxAgeMs) || maxAgeMs<0 || maxAgeMs>10000)
     throw new TypeError("Windows power observation needs a reader, clock and bounded freshness");
-  let sample=null, inflight=null;
+  let sample=null, inflight=null, firstRead=true;
   const read=()=>{
     const current=now();
     if(sample && current>=sample.at && current-sample.at<=maxAgeMs)
       return Promise.resolve(sample.value);
     if(inflight)return inflight;
-    inflight=Promise.resolve().then(readSnapshot).then(value=>{
+    // Physical cold starts on a heavily loaded Windows PC can take 10-15s
+    // even for unmanaged executables. This one-time 20s grace is measured,
+    // bounded and shared; subsequent observations retain the 8s deadline.
+    const timeoutMs=firstRead?20000:8000;
+    firstRead=false;
+    inflight=Promise.resolve().then(()=>readSnapshot({timeoutMs})).then(value=>{
       const validated=validatePowerStatusSnapshot(value);
       sample={value:validated,at:now()};
       return validated;
