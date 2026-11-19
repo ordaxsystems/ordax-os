@@ -499,7 +499,7 @@ export function createDesktopProductRuntimeSupervisor({
       if(!plan&&active){
         const ended=stopActive();
         return current=snapshot(ended?"blocked":"stopping",
-          "dev_candidate_replacement_waiting_for_exit",true);
+          "dev_candidate_unavailable",true);
       }
       if(!plan){
         materializePinnedDevCandidate(userData,prepared.gate);
