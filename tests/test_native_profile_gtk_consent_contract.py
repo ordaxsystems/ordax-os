@@ -1,3 +1,4 @@
+import ast
 from pathlib import Path
 import unittest
 
@@ -10,6 +11,25 @@ LAUNCHER = ROOT / "system" / "surface" / "bin" / "ordax-surface"
 
 
 class NativeProfileGtkConsentContractTests(unittest.TestCase):
+    def test_native_browser_listener_timeout_handlers_have_resolved_socket_module(self):
+        # Parse source without importing GI/WebKit; CI does not need a graphical session.
+        tree = ast.parse(HOST.read_text(encoding="utf-8"))
+        imports = {
+            alias.name
+            for node in tree.body if isinstance(node, ast.Import)
+            for alias in node.names
+        }
+        timeout_handlers = [
+            node for node in ast.walk(tree)
+            if isinstance(node, ast.ExceptHandler)
+            and isinstance(node.type, ast.Attribute)
+            and isinstance(node.type.value, ast.Name)
+            and node.type.value.id == "socket"
+            and node.type.attr == "timeout"
+        ]
+        self.assertIn("socket", imports)
+        self.assertEqual(len(timeout_handlers), 2)
+
     def test_trusted_dialog_lives_in_native_gtk_host(self):
         host = HOST.read_text(encoding="utf-8")
         self.assertIn("ProfileConsentIpcServer", host)
