@@ -78,8 +78,21 @@ function readReleaseGate(systemRoot){
 function readDesktopDevCandidateGate(systemRoot){
   const policy=JSON.parse(readRegular(join(systemRoot,"docs","contracts",
     "runtime-component-trust-policy.json"),65536).toString("utf8"));
-  const evidence=JSON.parse(readRegular(join(systemRoot,"docs","evidence",
-    "desktop-runtime-windows-candidate-2026-11-14.json"),65536).toString("utf8"));
+  // The Owner/Development candidate pin is the OS-owned selector. Historical
+  // CI/physical evidence stays immutable; promoting a newer DEV candidate only
+  // changes the one pointer after independently verifying its exact bytes.
+  let selection,evidence;
+  try {
+    selection=JSON.parse(readRegular(join(systemRoot,"docs","contracts",
+      "desktop-runtime-dev-candidate.json"),4096).toString("utf8"));
+    if(selection?.$schema!=="ordax.desktop-runtime-dev-candidate-selection/1"||
+       Object.keys(selection).length!==2||
+       typeof selection.evidence_file!=="string"||
+       !/^desktop-runtime-windows-candidate-[0-9]{4}-[0-9]{2}-[0-9]{2}\\.json$/.test(selection.evidence_file))
+      return null;
+    evidence=JSON.parse(readRegular(join(systemRoot,"docs","evidence",
+      selection.evidence_file),65536).toString("utf8"));
+  } catch { return null; }
   const candidate=evidence.candidate,proof=evidence.physical_offline_proof;
   if(policy.$schema!==POLICY_SCHEMA||policy.trust_domain!=="runtime-components"||
      policy.status!=="operator-ceremony-pending"||
