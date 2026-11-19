@@ -103,7 +103,7 @@ function stagePinnedDesktopDevCandidate(f){
   };
   const selectionPath=join(systemRoot,"docs","contracts","desktop-runtime-dev-candidate.json");
   writeFileSync(selectionPath,JSON.stringify({
-    $schema:"ordax.desktop-runtime-dev-candidate-selection/1",
+    $schema:"prototype-ordax.desktop-runtime-dev-candidate-selection/1",
     evidence_file:"desktop-runtime-windows-candidate-2026-11-14.json",
   }));
   const path=join(evidenceDirectory,"desktop-runtime-windows-candidate-2026-11-14.json");
