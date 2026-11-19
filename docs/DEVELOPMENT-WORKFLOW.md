@@ -3,6 +3,21 @@
 Status: CANONICAL FOR PROTOTYPE
 
 
+## Autonomia operacional transversal — Owner/Development (2026-11-19)
+
+**Regra única para todo o ecossistema OrdaX, inclusive novos repositórios.** Enquanto o destino for um dispositivo/instalação **Owner/Development** autorizado, privilegiar operação contínua, implementação imediata e automação real. Esta regra abrange OS, Desktop, Runtime, MCP, Platform, Surface, Apps/Forge, Creator, Site e os serviços do produto. Não significa publicar o perfil DEV nem criar outra autoridade técnica: cada owner implementa seu próprio comportamento pelo contrato existente, sem duplicar a política de execução.
+
+**Experiência DEV esperada:**
+- **Autorização reutilizável:** depois da escolha explícita do proprietário para uma instalação, computador, cliente e escopo, reutilizar o vínculo/grant persistente até revogação ou mudança material de capacidades. Não exigir confirmação por clique, comando, arquivo, tarefa, nova conversa ou reinício quando a operação já está coberta pela autorização; exibir com precisão quando houver uma aprovação realmente nova. Não confundir *presença*, *descoberta* e *permissão de executar*.
+- **Capacidades reais:** oferecer terminal, arquivos, processos, UI, atualização, instalação e diagnóstico que o destino DEV já implementa, pelo executor/contrato canônico. Remover allowlists redundantes e exigências artificiais somente dentro das permissões que o proprietário efetivamente concedeu. Não criar segundo executor, banco, grant, prompt de consentimento ou fallback silencioso para suprir uma lacuna.
+- **Continuidade automática:** iniciar/recuperar Runtime e serviços pelo Supervisor/host correto, preservar configuração e destino atestados e reaproveitar resultados válidos entre sessões. Falhas operacionais recuperáveis devem produzir ação ou erro específico, não solicitação repetitiva de aprovação, simulação de sucesso ou redefinição do dispositivo.
+- **Entrega rápida:** implementar a menor correção funcional no owner correto, usar Git como SSOT de código, reutilizar artefatos e cache, executar apenas testes ligados ao diff e integrar à `main` após os gates aplicáveis. Não converter mudanças client-only em rebuild do kernel, Creator, USB ou QEMU sem dependência real.
+- **Recuperação adequada:** commits e rollback permitem recuperar código e releases verificáveis, mas **Git não recupera** dados de usuário, bancos, credenciais ou mídia física. Operações destrutivas nesses recursos exigem identidade de destino, escopo e preflight próprios; não presumir autorização com base no uso de um computador de desenvolvimento.
+
+**Fronteira obrigatória:** `owner-development` já é o perfil de distribuição canônico em `docs/contracts/distribution-profiles.json`; `stable-mvp` é independente. Este documento é a regra operacional *transversal*, não um grant executável. Platform continua a autoridade de OAuth, vínculo de dispositivo e grants; Runtime/host controla acesso local e valida ações; OS/Supervisor controla lifecycle; cada owner mantém seus contratos de entrega. Autorizações externas do ChatGPT, GitHub, Windows/UAC, provedores e limites legais não podem ser removidas pelo código OrdaX. Não desabilitar segurança/atestado, isolamento entre usuários, integridade, recuperação, proteção da `main` ou gates de publicação. Nunca permitir que uma configuração DEV conceda acesso a ambiente público, contas de terceiros ou instalações não autorizadas.
+
+**Aceitação funcional:** em destino DEV já autorizado, uma sequência de operações normais (ler, editar, compilar/testar o diff, instalar componente e observar resultado) ocorre sem prompts internos redundantes; o estado continua após reinício/nova conversa **quando houver vínculo de destino válido**; erros distinguem ausência de capacidade, Runtime offline, seleção ambígua e grant revogado. A promoção para Stable/MVP nunca herda essa autonomia por padrão.
+
 ## Regra operacional transversal — Evolução Rápida (DEV, 2026-11-04)
 
 **Princípio:** entregar o que foi pedido primeiro; validar o resultado com o menor conjunto suficiente de provas, depois. Esta é uma regra de trabalho para todos os owners/repositórios OrdaX em desenvolvimento, inclusive quando o operador disser apenas `continue`. Não altera limites de segurança, gates obrigatórios de promoção ou autoridade de cada repositório.
