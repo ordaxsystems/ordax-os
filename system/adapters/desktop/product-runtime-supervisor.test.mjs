@@ -101,9 +101,14 @@ function stagePinnedDesktopDevCandidate(f){
       remote_action_proven:false,
     },
   };
+  const selectionPath=join(f.systemRoot,"docs","contracts","desktop-runtime-dev-candidate.json");
+  writeFileSync(selectionPath,JSON.stringify({
+    $schema:"prototype-ordax.desktop-runtime-dev-candidate-selection/1",
+    evidence_file:"desktop-runtime-windows-candidate-2026-11-14.json",
+  }));
   const path=join(evidenceDirectory,"desktop-runtime-windows-candidate-2026-11-14.json");
   writeFileSync(path,JSON.stringify(evidence));
-  return {executable,path,payload,evidence};
+  return {executable,path,payload,evidence,selectionPath};
 }
 test("Runtime credential rejection (exit 43) halts retries until Owner rotates token",async t=>{
   const f=fixture(t,{approved:false});
@@ -226,6 +231,34 @@ test("credential recovery never bypasses signed production trust gate",async t=>
   writeFileSync(join(f.state,"device-token.cloudflare-v3.txt"),"c".repeat(64));
   assert.equal((await sup.reconcile()).reason,"component_trust_not_authorized");
   assert.equal(launches,1);
+  sup.stop();
+});
+
+test("DEV candidate selection is a single strict path pin, never a filesystem escape",async t=>{
+  const f=fixture(t,{approved:false});
+  const staged=stagePinnedDesktopDevCandidate(f);
+  const good=JSON.parse(readFileSync(staged.selectionPath,"utf8"));
+  for(const invalid of [
+    {...good,evidence_file:"../../outside.json"},
+    {...good,evidence_file:"desktop-runtime-windows-candidate-current.json"},
+    {...good,evidence_file:"desktop-runtime-windows-candidate-2026-11-14.json", extra:true},
+    {...good,$schema:"unknown"},
+  ]) {
+    writeFileSync(staged.selectionPath,JSON.stringify(invalid));
+    const sup=createDesktopProductRuntimeSupervisor({
+      systemRoot:f.systemRoot,userData:f.userData,platform:"win32",
+      developmentCandidate:true,
+      spawnImpl:()=>{throw Error("invalid DEV selector cannot start a process")},
+    });
+    assert.equal((await sup.reconcile()).reason,"component_trust_not_authorized");
+    sup.stop();
+  }
+  writeFileSync(staged.selectionPath,JSON.stringify(good));
+  const sup=createDesktopProductRuntimeSupervisor({
+    systemRoot:f.systemRoot,userData:f.userData,platform:"win32",
+    developmentCandidate:true,spawnImpl:()=>child(),
+  });
+  assert.equal((await sup.reconcile()).reason,"runtime_readiness_pending");
   sup.stop();
 });
 
