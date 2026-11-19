@@ -60,7 +60,8 @@ test("Files trusted context binds only the existing typed host ports with projec
   });
   const context = provider("files");
   assert.equal(Object.isFrozen(context), true);
-  assert.deepEqual(Object.keys(context).sort(), ["appActivation", "fileSpace", "projects", "recentFiles"]);
+  assert.deepEqual(Object.keys(context).sort(), ["appActivation", "fileSpace", "projectMutations", "projects", "recentFiles"]);
+  assert.equal(context.projectMutations.schema, "ordax.project-mutations/1");
   assert.strictEqual(context.fileSpace, fileSpace);
   assert.strictEqual(context.recentFiles, recentFiles);
   assert.strictEqual(context.projects, projects);

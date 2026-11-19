@@ -111,6 +111,7 @@ test("Files probation provider installs before bind and creates host only for an
   assert.strictEqual(context.fileSpace, expected.fileSpace);
   assert.strictEqual(context.recentFiles, expected.recentFiles);
   assert.strictEqual(context.projects, expected.projects);
+  assert.equal(context.projectMutations?.schema, "ordax.project-mutations/1");
   assert.strictEqual(context.appActivation, expected.appActivation);
   assert.equal(root.childNodes.length, 1);
   assert.strictEqual(context.root, root.childNodes[0]);
@@ -160,6 +161,7 @@ test("Files pending context cannot bypass the verified-current host-port gate", 
   const pending = await installedProvider("files");
   assert.strictEqual(pending.fileSpace, p.fileSpace);
   assert.strictEqual(pending.projects, p.projects);
+  assert.equal(pending.projectMutations?.schema, "ordax.project-mutations/1");
   bootstrap.destroy();
   await assert.rejects(() => installedProvider("files"), /destroyed/);
   assert.throws(() => current("files"), /verified current Native slot/);
@@ -213,6 +215,7 @@ test("Native Files probation wiring installs before async boot and binds only af
   assert.match(source.slice(bindIndex, currentGateIndex), /fileSpace: filesOwnerSpace/);
   assert.match(source.slice(bindIndex, currentGateIndex), /recentFiles/);
   assert.match(source.slice(bindIndex, currentGateIndex), /projects/);
+  assert.match(source.slice(bindIndex, currentGateIndex), /projectMutations/);
   assert.match(source.slice(bindIndex, currentGateIndex), /appActivation/);
   assert.equal(NATIVE_COMPONENT_PROBATION_IDS.includes("files"), true);
   assert.equal(hasNativeExternalFirstPartyModuleRead("files"), true);

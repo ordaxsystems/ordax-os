@@ -2,7 +2,8 @@ import {
   FILE_SPACE_SCHEMA,
   assertFileSpacePort,
 } from "../../contracts/file-space.mjs";
-import { assertProjectCatalogPort } from "../../contracts/project-catalog.mjs";
+import { assertProjectCatalogPort, assertProjectCatalogReader } from "../../contracts/project-catalog.mjs";
+import { PROJECT_MUTATIONS_SCHEMA, PROJECT_MUTATION_METHODS, assertProjectMutations } from "../../contracts/project-mutations.mjs";
 
 function joinPath(path, name) {
   return path === "/" ? `/${name}` : `${path}/${name}`;
@@ -17,35 +18,50 @@ function reportContinuityError(callback, error) {
   }
 }
 
+function resolveProjectMutations(projects, projectMutations) {
+  if (projectMutations !== null) return assertProjectMutations(projectMutations);
+  const full = assertProjectCatalogPort(projects);
+  return Object.freeze({
+    schema: PROJECT_MUTATIONS_SCHEMA,
+    ...Object.fromEntries(PROJECT_MUTATION_METHODS.map((method) => [
+      method,
+      (...args) => full[method](...args),
+    ])),
+  });
+}
+
 export function createProjectContinuityFileSpace(
   fileSpace,
   projects = null,
-  { onContinuityError = null } = {},
+  { projectMutations = null, onContinuityError = null } = {},
 ) {
   const filePort = assertFileSpacePort(fileSpace);
-  const projectPort = projects === null ? null : assertProjectCatalogPort(projects);
+  const projectReader = projects === null ? null : assertProjectCatalogReader(projects);
+  const mutationPort = projects === null
+    ? null
+    : resolveProjectMutations(projects, projectMutations);
   if (onContinuityError !== null && typeof onContinuityError !== "function") {
     throw new TypeError("Project continuity file-space error reporter must be a function");
   }
-  if (!projectPort) return filePort;
+  if (!projectReader || !mutationPort) return filePort;
 
-  const relocate = (previousPath, nextPath) => {
+  const relocate = async (previousPath, nextPath) => {
     try {
-      projectPort.relocateLastFilePath(previousPath, nextPath);
+      await mutationPort.relocateLastFilePath(previousPath, nextPath);
     } catch (error) {
       reportContinuityError(onContinuityError, error);
     }
   };
 
-  const clearContinuity = (removedPath) => {
+  const clearContinuity = async (removedPath) => {
     try {
-      for (const project of projectPort.getSnapshot().projects) {
+      for (const project of projectReader.getSnapshot().projects) {
         const current = project.lastFilePath;
         if (
           current !== null
           && (current === removedPath || current.startsWith(`${removedPath}/`))
         ) {
-          projectPort.clearLastFile(project.id);
+          await mutationPort.clearLastFile(project.id);
         }
       }
     } catch (error) {
@@ -82,7 +98,7 @@ export function createProjectContinuityFileSpace(
     } : {}),
     async renameEntry(path, name, newName) {
       const result = await filePort.renameEntry(path, name, newName);
-      relocate(joinPath(path, name), joinPath(path, newName));
+      await relocate(joinPath(path, name), joinPath(path, newName));
       return result;
     },
     copyFile(...args) {
@@ -90,12 +106,12 @@ export function createProjectContinuityFileSpace(
     },
     async moveEntry(sourcePath, name, destinationPath) {
       const result = await filePort.moveEntry(sourcePath, name, destinationPath);
-      relocate(joinPath(sourcePath, name), joinPath(destinationPath, name));
+      await relocate(joinPath(sourcePath, name), joinPath(destinationPath, name));
       return result;
     },
     async trashEntry(path, name) {
       const result = await filePort.trashEntry(path, name);
-      clearContinuity(joinPath(path, name));
+      await clearContinuity(joinPath(path, name));
       return result;
     },
     listTrash(...args) {

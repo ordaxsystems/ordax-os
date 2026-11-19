@@ -6,7 +6,7 @@ ROOT = Path(__file__).resolve().parents[1]
 class NativeBrowserProjectBoundaryTests(unittest.TestCase):
     def test_platform_keeps_single_project_runtime_and_reference_store(self):
         native = (ROOT / "system/composition/native/main.mjs").read_text(encoding="utf-8")
-        self.assertIn("createProjectCatalogRuntime", native)
+        self.assertIn("createNativeProjectCatalogCasRuntime", native)
         self.assertIn("createProjectWebReferenceRuntime", native)
         self.assertIn("createNativeProjectWebReferenceStore", native)
         self.assertIn("projectReferences?.destroy()", native)
@@ -27,7 +27,7 @@ class NativeBrowserProjectBoundaryTests(unittest.TestCase):
         self.assertIn('PROJECT_WEB_REFERENCES_SCHEMA = "ordax.project-web-references/1"', contract)
         self.assertIn("MAX_PROJECT_WEB_REFERENCES = 512", contract)
         self.assertIn("PROJECT_WEB_REFERENCE_STORE_SCHEMA", store)
-        self.assertIn("assertProjectCatalogPort(projects)", runtime)
+        self.assertIn("assertProjectCatalogReader(projects)", runtime)
         self.assertIn("removeMissingProjects", runtime)
         self.assertIn("ordax.native.project-web-references.v1", adapter)
 

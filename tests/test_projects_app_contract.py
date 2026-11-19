@@ -40,7 +40,11 @@ class ProjectsPlatformAbsenceTests(unittest.TestCase):
         ):
             self.assertTrue((ROOT / path).is_file(), path)
         native = self.read("system/composition/native/main.mjs")
-        self.assertIn("createProjectCatalogRuntime", native)
+        self.assertIn("createNativeProjectCatalogCasRuntime", native)
+        self.assertIn("createNativeProjectStateTransport", native)
+        self.assertIn("createProjectNativeStateMigration", native)
+        self.assertIn("projectMutations", native)
+        self.assertNotIn("createProjectCatalogRuntime", native)
         self.assertIn("createProjectCloudLinksReader", native)
         self.assertIn("mountHomeContinuation", native)
         self.assertNotIn('componentId: "projects"', native)
