@@ -338,6 +338,13 @@ def inspect_rootfs_tar(rootfs_tar: Path, source: dict) -> dict:
     missing = sorted(required - names)
     if missing:
         raise SurfaceBuildError(f"Buildroot Surface runtime missing required paths: {missing}")
+    python_hashlib = [
+        name for name in names
+        if re.fullmatch(r"usr/lib/python3\.\d+/lib-dynload/_hashlib(?:\.[^/]+)?\.so", name)
+    ]
+    if len(python_hashlib) != 1:
+        raise SurfaceBuildError("Buildroot Surface runtime must contain the Python OpenSSL _hashlib extension")
+    resolve_runtime_file(by_name, python_hashlib[0])
     # Names alone are not proof: resolve required executables and typelibs
     # to nonempty in-image files, including Buildroot's legitimate symlinks.
     for path in required - set(SURFACE_COMPAT_LINKS):
@@ -393,6 +400,7 @@ GRAPHICAL_KCONFIG_REQUIRED = (
         "BR2_PACKAGE_LIBGTK3=y",
         "BR2_PACKAGE_LIBGTK3_WAYLAND=y",
         "BR2_PACKAGE_PYTHON3=y",
+        "BR2_PACKAGE_PYTHON3_SSL=y",
         "BR2_PACKAGE_PYTHON_GOBJECT=y",
         "BR2_PACKAGE_GOBJECT_INTROSPECTION=y",
         "BR2_PACKAGE_XWAYLAND=y",

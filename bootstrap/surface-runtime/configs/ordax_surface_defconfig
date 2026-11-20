@@ -12,6 +12,8 @@ BR2_ROOTFS_DEVICE_CREATION_DYNAMIC_EUDEV=y
 BR2_PACKAGE_EUDEV=y
 BR2_PACKAGE_CA_CERTIFICATES=y
 BR2_PACKAGE_PYTHON3=y
+# Native Wi-Fi derives WPA keys with hashlib.pbkdf2_hmac.
+BR2_PACKAGE_PYTHON3_SSL=y
 BR2_PACKAGE_PYTHON_GOBJECT=y
 BR2_PACKAGE_MESA3D=y
 # Native Intel i915 DRM is not a userspace Mesa driver. Physical laptops
