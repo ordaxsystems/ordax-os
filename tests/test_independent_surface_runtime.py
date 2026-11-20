@@ -14,6 +14,7 @@ BUILDER_PATH = ROOT / "bootstrap/surface-runtime/build.py"
 SOURCE_PATH = ROOT / "bootstrap/surface-runtime/source.json"
 CONFIG_PATH = ROOT / "bootstrap/surface-runtime/configs/ordax_surface_defconfig"
 WORKFLOW_PATH = ROOT / ".github/workflows/independent-surface-runtime.yml"
+PYTHON_HASHLIB_EXTENSION = "usr/lib/python3.14/lib-dynload/_hashlib.cpython-314-x86_64-linux-musl.so"
 
 
 def load_builder():
@@ -57,6 +58,7 @@ class IndependentSurfaceRuntimeTests(unittest.TestCase):
         required.discard("usr/lib/udev/rules.d/60-input-id.rules")
         required.add("usr/bin/udevadm")
         required.add("lib/udev/rules.d/60-input-id.rules")
+        required.add(PYTHON_HASHLIB_EXTENSION)
         required.difference_update(omit)
         required.update(extra)
         return required
@@ -831,6 +833,16 @@ class IndependentSurfaceRuntimeTests(unittest.TestCase):
                 tar_path = self.make_tar(self.buildroot_like_paths(omit={missing}))
                 with self.assertRaisesRegex(self.builder.SurfaceBuildError, "Buildroot eudev did not provide"):
                     self.builder.ensure_surface_runtime_path_compatibility(tar_path)
+
+    def test_surface_runtime_requires_python_openssl_for_native_wifi(self):
+        config = "BR2_PACKAGE_PYTHON3_SSL=y"
+        self.assertIn(config, CONFIG_PATH.read_text(encoding="utf-8").splitlines())
+        self.assertIn(config, self.builder.GRAPHICAL_KCONFIG_REQUIRED)
+
+        tar_path = self.make_tar(self.buildroot_like_paths(omit={PYTHON_HASHLIB_EXTENSION}))
+        self.builder.ensure_surface_runtime_path_compatibility(tar_path)
+        with self.assertRaisesRegex(self.builder.SurfaceBuildError, "Python OpenSSL _hashlib extension"):
+            self.builder.inspect_rootfs_tar(tar_path, self.source)
 
     def test_runtime_rejects_empty_or_nonexecutable_graphical_dependencies(self):
         required = self.buildroot_like_paths()
