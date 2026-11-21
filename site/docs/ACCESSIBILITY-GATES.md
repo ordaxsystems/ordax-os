@@ -1,13 +1,13 @@
 # Protocolo de validação manual de acessibilidade — OrdaX Site
 
-**Status:** gate **PENDENTE**. Este protocolo não é evidência de execução, nem autoriza merge/cutover/deploy. O owner de implementação é `ordax-site`; o backend Identity, os artefatos Surface e a publicação de releases pertencem a seus owners.
+**Status:** gate **PENDENTE**. Este protocolo não é evidência de execução, nem autoriza merge/cutover/deploy. O owner da apresentação é `ordaxsystems/ordax-os/main`, módulo `site/`. Identity compartilhada utiliza exclusivamente a API canônica em `api/` e `lib/` do próprio OS; Platform, Surface e o publicador de releases conservam suas autoridades respectivas. O repositório `ordax-site` é origem histórica, não SSOT do código.
 
 ## Escopo e fontes de verdade
 
-- Rotas: iterar o `contracts/site-routes.json` da **mesma revisão** usada para gerar o build candidato; não manter lista duplicada de rotas neste documento.
-- Build: usar o bundle estático verificado pelo `scripts/build.py` com `--dev-lock contracts/dev-artifact-lock.json`, usando as duas prereleases Dev assinadas do owner Surface. Verificar o manifesto do próprio candidato e registrar o SHA exato; não confundir o deployment protegido `ordax-site-dev` com autorização de publicação pública.
-- Prova automática existente: `scripts/browser_smoke.py` cobre teclado/AX, contraste medível de superfícies planas, reflow, sem JS, `forced-colors`, ampliação **simulada** de texto a 200% e espaçamento WCAG 1.4.12 em PT-BR/EN-US (22 cenários). Os testes `text200` e `spacing` são **regressões parciais de DOM**, não zoom nativo nem aprovação visual/manual.
-- Evidências variáveis do navegador (commit, digest, contagens, falhas e superfícies excluídas) têm um único registro vigente em [`AUDIT.md`](AUDIT.md), junto ao relatório e às capturas do mesmo candidato. Consulte esse registro ao executar o gate; não copie métricas de uma revisão anterior para este protocolo. A prova automatizada continua parcial: zoom nativo, ampliação nativa somente de texto, leitores de tela e contraste de fundos compostos ainda exigem inspeção manual.
+- Rotas: iterar o `site/contracts/site-routes.json` do **mesmo commit `ordax-os/main`** usado para gerar o candidato; não manter lista duplicada de rotas neste documento.
+- Build: executar `site/scripts/build.py` com `--source-commit` igual ao SHA completo de `ordax-os/main` e `--dev-lock site/contracts/dev-artifact-lock.json`, consumindo apenas os artefatos Surface assinados autorizados. Verificar o manifesto do candidato; o preview protegido `ordax-site` não equivale ao deployment de produção nem concede autorização de cadastro/Identity.
+- Prova automática histórica: `site/scripts/browser_smoke.py` já cobriu teclado/AX, contraste de superfícies planas, reflow, sem JS, `forced-colors`, ampliação **simulada** de texto a 200% e espaçamento WCAG 1.4.12. Essas provas antigas permanecem no histórico Git de `ordax-site`; não as atribuir automaticamente à `main` atual. Os testes `text200` e `spacing` são **regressões parciais de DOM**, não zoom nativo nem aprovação visual/manual.
+- Evidência válida exige relatório e capturas **da mesma revisão** do `ordax-os` em avaliação, incluindo commit, digest, browser e exclusões; [`AUDIT.md`](AUDIT.md) descreve o ownership atual, **não** substitui recibos de execução. Não copiar contagens ou screenshots de branches/commits antigos. Zoom nativo, zoom somente de texto, leitores de tela e contraste de fundos compostos exigem inspeção manual.
 - Fonte visual de demonstração `.playground`: avalie-a como conteúdo exibido ao usuário, mas encaminhe ajustes de seus artefatos canônicos ao owner Surface. Não introduza CSS espelho no Site.
 
 ## Evidência obrigatória por rota
@@ -30,7 +30,7 @@ Registre: revisão completa do commit, digest do build candidato, rota do contra
 
 ## 3. Espaçamento de texto — WCAG 1.4.12
 
-A suíte Chrome aplica esses parâmetros ao texto visível do Site na viewport 390 CSS px e exige métricas computadas, ausência de clipping direto em contêineres de texto e ausência de overflow horizontal ([CI](https://github.com/ordaxsystems/ordax-site/actions/runs/40057544890)). **Esse resultado é parcial**. Na inspeção humana, aplicar os mesmos parâmetros e verificar visualmente todas as rotas, estados e idiomas. Parâmetros: altura de linha de pelo menos 1,5 × tamanho da fonte; espaço após parágrafos de pelo menos 2 × tamanho da fonte; espaçamento entre letras de pelo menos 0,12 × tamanho da fonte; espaçamento entre palavras de pelo menos 0,16 × tamanho da fonte. Verificar perda de conteúdo/funcionalidade, tanto em PT-BR quanto em EN-US. Registrar qualquer incompatibilidade antes de emitir PASS.
+A suíte Chrome aplica esses parâmetros ao texto visível do Site na viewport 390 CSS px e exige métricas computadas, ausência de clipping direto em contêineres de texto e ausência de overflow horizontal ([CI histórico da origem](https://github.com/ordaxsystems/ordax-site/actions/runs/40057544890)). **Esse resultado histórico é parcial e não valida automaticamente a revisão atual do monorepo**. Na inspeção humana, aplicar os mesmos parâmetros e verificar visualmente todas as rotas, estados e idiomas. Parâmetros: altura de linha de pelo menos 1,5 × tamanho da fonte; espaço após parágrafos de pelo menos 2 × tamanho da fonte; espaçamento entre letras de pelo menos 0,12 × tamanho da fonte; espaçamento entre palavras de pelo menos 0,16 × tamanho da fonte. Verificar perda de conteúdo/funcionalidade, tanto em PT-BR quanto em EN-US. Registrar qualquer incompatibilidade antes de emitir PASS.
 
 ## 4. Leitor de tela e teclado
 
@@ -41,6 +41,6 @@ A suíte Chrome aplica esses parâmetros ao texto visível do Site na viewport 3
 
 ## Critério de liberação
 
-Este gate é aprovado **somente** com evidências por rota e perfil, bugs bloqueantes resolvidos no owner correto e aprovação humana registrada na PR. A checagem automatizada e este documento não bastam. Permanecem **separados** os gates de artefatos oficiais Surface/Platform, Identity staging, autorização de cutover do OS, domínio e deploy de produção.
+Este gate é aprovado **somente** com evidências por rota e perfil, bugs bloqueantes resolvidos no owner correto e aprovação humana registrada na PR. A checagem automatizada e este documento não bastam. Permanecem **separados** os gates de artefatos oficiais Surface/Platform, Identity staging, vínculo Git definitivo do projeto Vercel existente, domínio e deploy de produção. A prova de preview `dpl_Ad1HRByz2VZ1VJGpqLM4YRLPZ9Kr` foi aprovada para rotas estáticas, mas não substitui o gate humano de acessibilidade nem o E2E de Conta (503 preexistente).
 
 Referência de comportamento de zoom do navegador: https://support.google.com/chrome/answer/96810?hl=pt-BR
