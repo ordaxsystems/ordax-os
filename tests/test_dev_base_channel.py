@@ -819,31 +819,35 @@ class DevBaseConsumerTests(unittest.TestCase):
         annotated = "b" * 40
         forged = "c" * 40
         tag_object = "d" * 40
+
         def stream(*, with_conflict=False):
             records = [
-                f"{artifact}\\trefs/tags/ordax-dev-base-{artifact}",
-                f"{tag_object}\\trefs/tags/ordax-dev-base-{annotated}",
-                f"{annotated}\\trefs/tags/ordax-dev-base-{annotated}^{{}}",
-                f"{forged}\\trefs/tags/ordax-dev-base-{artifact}^{{}}",
-                f"{forged}\\trefs/tags/ordax-dev-base-{forged}^{{}}",
+                f"{artifact}\trefs/tags/ordax-dev-base-{artifact}",
+                f"{tag_object}\trefs/tags/ordax-dev-base-{annotated}",
+                f"{annotated}\trefs/tags/ordax-dev-base-{annotated}^{{}}",
+                f"{forged}\trefs/tags/ordax-dev-base-{artifact}^{{}}",
+                f"{forged}\trefs/tags/ordax-dev-base-{forged}^{{}}",
             ]
             if with_conflict:
-                records.append(f"{forged}\\trefs/tags/ordax-dev-base-{annotated}^{{}}")
-            return ("\\n".join(records) + "\\n").encode("ascii").replace(b"\\\\t", b"\\t").replace(b"\\\\n", b"\\n")
+                records.append(f"{forged}\trefs/tags/ordax-dev-base-{annotated}^{{}}")
+            return ("\n".join(records) + "\n").encode("ascii")
 
         def read_git(_worktree, *args, git_bin):
             if args[:2] == ("remote", "get-url"):
-                return b"https://github.com/ordaxsystems/ordax-os.git\\n"
+                return b"https://github.com/ordaxsystems/ordax-os.git\n"
             self.assertEqual(args[:3], ("ls-remote", "--tags", "origin"))
             self.assertNotIn("--refs", args)
             return stream()
 
         with patch.object(consumer, "_git_bytes", side_effect=read_git):
-            self.assertEqual(consumer._published_source_commits(Path("."), git_bin="git"),
-                             {artifact, annotated})
+            self.assertEqual(
+                consumer._published_source_commits(Path("."), git_bin="git"),
+                {artifact, annotated},
+            )
+
         def conflict(_worktree, *args, git_bin):
             if args[:2] == ("remote", "get-url"):
-                return b"https://github.com/ordaxsystems/ordax-os.git\\n"
+                return b"https://github.com/ordaxsystems/ordax-os.git\n"
             return stream(with_conflict=True)
         with patch.object(consumer, "_git_bytes", side_effect=conflict):
             with self.assertRaisesRegex(consumer.DevBaseChannelError, "ambiguous"):

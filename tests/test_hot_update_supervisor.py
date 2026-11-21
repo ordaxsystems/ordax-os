@@ -255,15 +255,16 @@ class HotUpdateSupervisorContractTests(unittest.TestCase):
             # Truncated/extra-line receipts have no identity binding and
             # must never count as ready (including the old single-line form).
             for payload in (
-                artifact + "\\n", artifact + "\\n" + requested + "\\n" + current + "\\n",
-                artifact + "\\n" + "not-a-sha" + "\\n",
+                artifact + "\n",
+                artifact + "\n" + requested + "\n" + current + "\n",
+                artifact + "\n" + "not-a-sha" + "\n",
             ):
                 with self.subTest(payload=payload):
                     ready.write_text(payload)
                     check = subprocess.run(
-                        ["sh", "-ec", script + '\\n'
-                         'if dev_base_candidate_ready_for "$1"; then printf READY; else printf WAIT; fi\\n'
-                         'derive_base_update_progress "$1"\\n'
+                        ["sh", "-ec", script + '\n'
+                         'if dev_base_candidate_ready_for "$1"; then printf READY; else printf WAIT; fi\n'
+                         'derive_base_update_progress "$1"\n'
                          'printf ":%s" "$BASE_UPDATE_PHASE"',
                          "receipt", requested],
                         env=env, check=True, text=True, capture_output=True,
