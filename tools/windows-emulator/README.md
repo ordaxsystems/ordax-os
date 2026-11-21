@@ -36,6 +36,10 @@ local development serve the code and refresh changed modules. This explicit
 preview stays on loopback and preserves the emulator's separate development
 state. It is not the installed OS/USB runtime or a physical boot proof.
 Missing Surface sources are an error, not a fallback to an obsolete copy.
+Local source preview uses the existing unconfigured Account state by default,
+so offline GUI iteration never waits for the external HTTPS account gateway.
+Set `ORDAX_EMULATOR_ACCOUNT_ONLINE=1` explicitly for real Account integration
+testing. No privileged capability or authenticated session is fabricated.
 
 For a server without automatic Git synchronization:
 

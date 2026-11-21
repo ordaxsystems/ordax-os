@@ -166,11 +166,12 @@ async function stopOwnedWindowsProfile(profile) {
   const safe = p.replaceAll("'", "''");
   const script = [
     "$ErrorActionPreference='Stop'",
+    "$ProgressPreference='SilentlyContinue'",
     "$profile='"+safe+"'",
     "$pattern='(?i)(?:^|\\s)\"?--user-data-dir=\"?'+[regex]::Escape($profile)+'\"?(?=\\s|$)'",
     "$owned={ @(Get-CimInstance Win32_Process -Filter \"Name='chrome.exe' OR Name='msedge.exe'\" | Where-Object { $_.CommandLine -match $pattern }) }",
-    "for($attempt=0;$attempt -lt 3;$attempt++){ $items=@(& $owned); if($items.Count -eq 0){exit 0}; foreach($item in $items){ try{ Stop-Process -Id $item.ProcessId -Force -ErrorAction Stop } catch { if(Get-Process -Id $item.ProcessId -ErrorAction SilentlyContinue){throw} } }; Start-Sleep -Milliseconds 350 }",
-    "if(@(& $owned).Count -gt 0){throw 'Test-owned Chrome processes still running'}",
+    "for($attempt=0;$attempt -lt 8;$attempt++){ $items=@(& $owned); if($items.Count -eq 0){exit 0}; foreach($item in $items){ $live=Get-Process -Id $item.ProcessId -ErrorAction SilentlyContinue; if(!$live){continue}; try{ $live.Kill(); [void]$live.WaitForExit(1000) } catch { if(!$live.HasExited){throw} } }; Start-Sleep -Milliseconds 400 }",
+    "$remaining=@(& $owned | Where-Object { Get-Process -Id $_.ProcessId -ErrorAction SilentlyContinue }); if($remaining.Count -gt 0){throw ('Test-owned Chrome processes still running: '+($remaining.ProcessId -join ','))}",
   ].join('; ');
   const encoded = Buffer.from(script, 'utf16le').toString('base64');
   await new Promise((resolvePromise, reject) => {

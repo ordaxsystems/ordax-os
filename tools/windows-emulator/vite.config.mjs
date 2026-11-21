@@ -16,7 +16,14 @@ const ignoredLogicalSurfaceMounts = localSurface
   ? logicalSurfaceWatchIgnorePaths(repoRoot)
   : [];
 const stateDirectory = process.env.ORDAX_EMULATOR_STATE_DIR ?? resolve(repoRoot, "out/windows-emulator-state");
-const accountGatewayOrigin = readFileSync(resolve(repoRoot, "system/services/account/gateway-base-url"), "utf8").trim();
+// Editable-source preview is local by default. Use the existing unavailable
+// Account gateway contract rather than wait for external services or invent
+// a signed-in session. Explicit integration mode uses the real gateway.
+const localOnlyAccount = process.env.ORDAX_EMULATOR_LOCAL_SOURCE === "1" &&
+  process.env.ORDAX_DESKTOP_HOST !== "1" &&
+  process.env.ORDAX_EMULATOR_ACCOUNT_ONLINE !== "1";
+const accountGatewayOrigin = localOnlyAccount ? "" :
+  readFileSync(resolve(repoRoot, "system/services/account/gateway-base-url"), "utf8").trim();
 
 const emulatorHost = process.env.ORDAX_EMULATOR_HOST ?? "127.0.0.1";
 

@@ -23,6 +23,7 @@ if (localPreview) {
     process.env.ORDAX_DESKTOP_SURFACE_ROOT = resolveLocalSurfaceRoot(REPO_ROOT, args[1]);
     // Editable source preview is loopback-only; no installed product identity.
     process.env.ORDAX_EMULATOR_HOST = '127.0.0.1';
+    process.env.ORDAX_EMULATOR_LOCAL_SOURCE = '1';
   } catch (error) {
     console.error('ordax-emulator: ' + error.message);
     process.exit(2);

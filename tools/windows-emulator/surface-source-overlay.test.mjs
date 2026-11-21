@@ -195,13 +195,13 @@ test("local preview launches the existing Vite child with both editable owners a
   mkdirSync(join(f.os, ".git")); // Would poll origin in ordinary mode.
   const vite = join(f.os, "node_modules/vite/bin");
   mkdirSync(vite, {recursive:true});
-  writeFileSync(join(vite, "vite.js"), 'console.log(JSON.stringify({surface:process.env.ORDAX_DESKTOP_SURFACE_ROOT,host:process.env.ORDAX_EMULATOR_HOST,cwd:process.cwd()}));process.exit(17)');
+  writeFileSync(join(vite, "vite.js"), 'console.log(JSON.stringify({surface:process.env.ORDAX_DESKTOP_SURFACE_ROOT,host:process.env.ORDAX_EMULATOR_HOST,local:process.env.ORDAX_EMULATOR_LOCAL_SOURCE,cwd:process.cwd()}));process.exit(17)');
   const env = {...process.env, ORDAX_DESKTOP_HOST:"0", ORDAX_EMULATOR_HOST:"0.0.0.0", ORDAX_EMULATOR_NO_BROWSER:"1"};
   const result = spawnSync(process.execPath, [join(dir,"dev-supervisor.mjs"), "--local"], {
     cwd:f.os, env, encoding:"utf8", timeout:8000,
   });
   assert.equal(result.status,17,result.stderr);
-  assert.deepEqual(JSON.parse(result.stdout), {surface:f.surface,host:"127.0.0.1",cwd:f.os});
+  assert.deepEqual(JSON.parse(result.stdout), {surface:f.surface,host:"127.0.0.1",local:"1",cwd:f.os});
   assert.match(result.stderr,/Git synchronization disabled/);
   assert.doesNotMatch(result.stderr,/remote main check|watching origin/);
 });
