@@ -954,6 +954,35 @@ def import_verified_candidate(
     return target, False
 
 
+def adopt_published_media(
+    media: Path, source_commit: str, destination_root: Path,
+    *, published_manifest_bytes: bytes,
+) -> tuple[Path, bool]:
+    """Use USB bytes only after the OS authenticated the release over HTTPS.
+
+    The media manifest is untrusted, despite valid self-declared SHA hashes;
+    it must be byte-identical to the canonical published manifest. The copy
+    is verified again after import into private ext4 state, before activation.
+    """
+    candidate_tag(source_commit)
+    trusted = validate_manifest(
+        json.loads(published_manifest_bytes.decode("utf-8")), source_commit,
+    )
+    if media.is_symlink() or not media.is_dir():
+        raise DevBaseChannelError("USB Base candidate is not a safe directory")
+    manifest = media / "dev-base.json"
+    if manifest.is_symlink() or not manifest.is_file():
+        raise DevBaseChannelError("USB Base manifest is not a regular file")
+    if manifest.read_bytes() != published_manifest_bytes:
+        raise DevBaseChannelError("USB Base manifest differs from published authority")
+    if verify_materialized(media, source_commit) != trusted:
+        raise DevBaseChannelError("USB Base content differs from published authority")
+    target, reused = import_verified_candidate(media, source_commit, destination_root)
+    if verify_materialized(target, source_commit) != trusted:
+        raise DevBaseChannelError("imported USB Base differs from published authority")
+    return target, reused
+
+
 def main() -> int:
     parser = argparse.ArgumentParser()
     parser.add_argument("--source-commit", required=True)
@@ -973,6 +1002,8 @@ def main() -> int:
                         help="copy an already acquired candidate as a non-activating transport")
     parser.add_argument("--source-directory", type=Path,
                         help="already verified candidate directory for --import-only")
+    parser.add_argument("--usb-media-root", type=Path,
+                        help="readonly verified same-disk ORDAX-DATA candidate root")
     parser.add_argument("--ready-pair", action="store_true",
                         help="emit verified artifact and requested SHA on two lines for the Base owner")
     parser.add_argument("--git-bin", default="git")
@@ -984,6 +1015,10 @@ def main() -> int:
         parser.error("--resolve-only and --acquire-only are mutually exclusive")
     if args.ready_pair and (args.resolve_only or args.acquire_only or args.import_only):
         parser.error("--ready-pair requires acquisition and rootfs materialization")
+    if args.usb_media_root is not None and (
+        args.import_only or args.resolve_only or args.compatible_worktree is None
+    ):
+        parser.error("--usb-media-root requires canonical compatible worktree and full acquisition")
     if args.import_only:
         if (args.source_directory is None or args.acquire_only or args.resolve_only
                 or args.compatible_worktree is not None or args.version_root is not None):
@@ -1018,9 +1053,19 @@ def main() -> int:
                 "exact_source": requested_commit == artifact_commit,
             }, sort_keys=True))
             return 0
-        path, reused = acquire(
-            artifact_commit, args.destination_root, _manifest_bytes=manifest_bytes,
-        )
+        source = (args.usb_media_root / artifact_commit
+                  if args.usb_media_root is not None else None)
+        if source is not None and (source.exists() or source.is_symlink()):
+            if manifest_bytes is None:
+                manifest_bytes = _published_manifest(artifact_commit, opener=urllib.request.urlopen)
+            path, reused = adopt_published_media(
+                source, artifact_commit, args.destination_root,
+                published_manifest_bytes=manifest_bytes,
+            )
+        else:
+            path, reused = acquire(
+                artifact_commit, args.destination_root, _manifest_bytes=manifest_bytes,
+            )
         if args.acquire_only:
             print(json.dumps({
                 "status": "acquired", "source_commit": artifact_commit,

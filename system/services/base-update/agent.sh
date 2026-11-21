@@ -418,6 +418,75 @@ prepare_efivarfs_preflight_evidence() {
     return 0
 }
 
+# Readonly Base transfer is allowed only from the same removable disk as the
+# verified running ext4 root. Reuse OS ESP identity discovery for partition 3;
+# never search by label alone, and never treat the exFAT manifest as authority.
+OWNER_USB_MEDIA_MOUNTED=0
+OWNER_USB_MEDIA_CHROOT=/mnt/ordax-owner-usb-data
+OWNER_USB_MEDIA_HOST=
+OWNER_USB_MEDIA_ROOT=
+
+mount_owner_usb_base_media() {
+    [ "$DISTRIBUTION_PROFILE" = owner-development ] || return 1
+    [ -n "$PHYSICAL_ROOT_SOURCE" ] && [ -n "$RUNTIME_ROOT" ] || return 1
+    discovery=/srv/ordax-system/services/base-update/esp_discovery.py
+    [ -f "$RUNTIME_ROOT$discovery" ] || return 1
+    receipt=$MOUNT_STAGE_HOST/.owner-usb-data-device.$$
+    if ! /bin/busybox chroot "$RUNTIME_ROOT" /usr/bin/python3 "$discovery" \
+        --kind owner-data --root-source "$PHYSICAL_ROOT_SOURCE" >"$receipt" 2>>"$DEV_BASE_LOG"; then
+        /bin/busybox rm -f "$receipt"
+        return 1
+    fi
+    [ -s "$receipt" ] || { /bin/busybox rm -f "$receipt"; return 1; }
+    data_device=$(/bin/busybox sed -n 's/^[[:space:]]*"data_device": "\(\/dev\/[A-Za-z0-9_.+-]*\)",[[:space:]]*$/\1/p' "$receipt")
+    /bin/busybox rm -f "$receipt"
+    safe_block_source "$data_device" || return 1
+    OWNER_USB_MEDIA_HOST=$RUNTIME_ROOT$OWNER_USB_MEDIA_CHROOT
+    [ ! -L "$OWNER_USB_MEDIA_HOST" ] || return 1
+    /bin/busybox mkdir -p "$OWNER_USB_MEDIA_HOST" || return 1
+    [ -z "$(mount_record_for "$OWNER_USB_MEDIA_HOST")" ] || return 1
+    if ! /bin/busybox mount -t exfat -o ro,nosuid,nodev,noexec "$data_device" "$OWNER_USB_MEDIA_HOST" 2>>"$DEV_BASE_LOG"; then
+        return 1
+    fi
+    OWNER_USB_MEDIA_MOUNTED=1
+    record=$(mount_record_for "$OWNER_USB_MEDIA_HOST")
+    record_root=""
+    record_fstype=""
+    record_source=""
+    old_ifs=$IFS
+    IFS='|'
+    read -r record_root record_fstype record_source <<EOF
+$record
+EOF
+    IFS=$old_ifs
+    if [ "$record_root" != "/" ] || [ "$record_fstype" != exfat ] ||
+       [ "$record_source" != "$data_device" ]; then
+        log "Owner USB Base media mount source differs from verified physical disk"
+        return 1
+    fi
+    mount_options=$(/bin/busybox awk -v target="$OWNER_USB_MEDIA_HOST" '$5 == target { print $6; exit }' "$MOUNTINFO_FILE")
+    for required in ro nosuid nodev noexec; do
+        case ",$mount_options," in
+            *,"$required",*) ;;
+            *) log "Owner USB Base mount is missing $required"; return 1 ;;
+        esac
+    done
+    OWNER_USB_MEDIA_ROOT=$OWNER_USB_MEDIA_CHROOT/.ordax/updates/owner-base
+    [ -d "$RUNTIME_ROOT$OWNER_USB_MEDIA_ROOT" ] &&
+    [ ! -L "$RUNTIME_ROOT$OWNER_USB_MEDIA_ROOT" ]
+}
+
+unmount_owner_usb_base_media() {
+    [ "$OWNER_USB_MEDIA_MOUNTED" -eq 1 ] || return 0
+    if ! /bin/busybox umount "$OWNER_USB_MEDIA_HOST" 2>>"$DEV_BASE_LOG"; then
+        log "Owner USB Base media did not unmount cleanly; refusing candidate receipt"
+        return 1
+    fi
+    OWNER_USB_MEDIA_MOUNTED=0
+    OWNER_USB_MEDIA_ROOT=
+    return 0
+}
+
 prepare_dev_base_candidate() {
     request_sha=$(read_state_value "$DEV_BASE_REQUEST_FILE")
     [ -n "$request_sha" ] || return 0
@@ -445,9 +514,22 @@ prepare_dev_base_candidate() {
 
     destination=$OWNER_STATE_CHROOT/base-update/dev-candidates
     version_root=$OWNER_BASE_ROOT_CHROOT/versions
-    write_state_value "$DEV_BASE_FETCHING_FILE" "$request_sha" || return 0
-    /bin/busybox mkdir -p "${DEV_BASE_LOG%/*}" >/dev/null 2>&1 || true
+    /bin/busybox mkdir -p "${DEV_BASE_LOG%/*}" >/dev/null 2>&1 || return 0
+    # An imported candidate is only a byte cache. The OS release channel
+    # still has to authenticate its exact published manifest before use.
+    media_arg=
+    if mount_owner_usb_base_media; then
+        media_arg=--usb-media-root=$OWNER_USB_MEDIA_ROOT
+    elif ! unmount_owner_usb_base_media; then
+        log "Owner USB Base media teardown failed; no candidate will be prepared"
+        return 0
+    fi
+    write_state_value "$DEV_BASE_FETCHING_FILE" "$request_sha" || {
+        unmount_owner_usb_base_media || true
+        return 0
+    }
     temporary=$(/bin/busybox mktemp "$HOST_STATE_ROOT/.dev-base-ready.XXXXXX") || {
+        unmount_owner_usb_base_media || true
         /bin/busybox rm -f "$DEV_BASE_FETCHING_FILE" >/dev/null 2>&1 || true
         return 0
     }
@@ -458,9 +540,14 @@ prepare_dev_base_candidate() {
         --compatible-worktree /srv/ordax-repo \
         --destination-root "$destination" \
         --version-root "$version_root" \
+        $media_arg \
         --ready-pair \
         >"$temporary" 2>>"$DEV_BASE_LOG"
     then
+        if ! unmount_owner_usb_base_media; then
+            /bin/busybox rm -f "$temporary" "$DEV_BASE_FETCHING_FILE"
+            return 0
+        fi
         artifact_sha=$(read_state_value "$temporary")
         resolved_request=$(/bin/busybox sed -n '2p' "$temporary")
         receipt_lines=$(/bin/busybox awk 'END { print NR }' "$temporary")
@@ -478,6 +565,10 @@ prepare_dev_base_candidate() {
         fi
     else
         rc=$?
+        unmount_owner_usb_base_media || {
+            /bin/busybox rm -f "$temporary" "$DEV_BASE_FETCHING_FILE"
+            return 0
+        }
         if [ "$rc" -eq 2 ]; then
             log "development Base candidate not published yet for $request_sha; request remains armed"
         else

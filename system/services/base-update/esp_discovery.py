@@ -119,9 +119,59 @@ def discover_esp(
     }
 
 
+DATA_SCHEMA = "prototype-ordax.owner-usb-data-discovery/1"
+DATA_LABEL = "ORDAX-DATA"
+
+
+def _partition_number(sys_class_block: Path, name: str) -> int:
+    entry = sys_class_block / name
+    if not entry.is_symlink():
+        raise EspDiscoveryError("partition sysfs entry missing")
+    item = entry.resolve(strict=True) / "partition"
+    if item.is_symlink() or not item.is_file():
+        raise EspDiscoveryError("partition number missing")
+    value = item.read_text(encoding="ascii").strip()
+    if value not in ("1", "2", "3"):
+        raise EspDiscoveryError("unexpected partition number")
+    return int(value)
+
+
+def discover_owner_data(
+    *, root_source: Path,
+    dev_root: Path = DEFAULT_DEV_ROOT,
+    by_label_root: Path = DEFAULT_BY_LABEL_ROOT,
+    sys_class_block: Path = DEFAULT_SYS_CLASS_BLOCK,
+) -> dict:
+    """Identify readonly USB DATA by parent removable disk and GPT order."""
+    root = _direct_block_node(root_source, dev_root, "root")
+    parent = _partition_parent(sys_class_block, root.name, "root")
+    if _partition_number(sys_class_block, root.name) != 2:
+        raise EspDiscoveryError("Owner root is not partition 2")
+    removable = (sys_class_block / parent).resolve(strict=True) / "removable"
+    if (removable.is_symlink() or not removable.is_file()
+            or removable.read_text(encoding="ascii").strip() != "1"):
+        raise EspDiscoveryError("Owner root is not on a removable disk")
+    label = by_label_root / DATA_LABEL
+    if not label.is_symlink():
+        raise EspDiscoveryError("ORDAX-DATA label is missing or unsafe")
+    data = _direct_block_node(label, dev_root, "Owner DATA")
+    if data == root:
+        raise EspDiscoveryError("Owner DATA and root cannot be the same partition")
+    if _partition_parent(sys_class_block, data.name, "Owner DATA") != parent:
+        raise EspDiscoveryError("ORDAX-DATA is not on the running root disk")
+    if _partition_number(sys_class_block, data.name) != 3:
+        raise EspDiscoveryError("ORDAX-DATA is not partition 3")
+    return {"$schema": DATA_SCHEMA, "status": "identified",
+            "root_device": os.fspath(root), "data_device": os.fspath(data),
+            "filesystem_label": DATA_LABEL, "parent_disk": parent,
+            "same_parent_disk": True, "mount_performed": False,
+            "write_authorized": False, "activation_authorized": False}
+
+
 def main() -> int:
     parser = argparse.ArgumentParser()
     parser.add_argument("--root-source", type=Path, required=True)
+    parser.add_argument("--kind", choices=("esp", "owner-data"), default="esp")
     parser.add_argument("--filesystem-label", default=DEFAULT_LABEL)
     parser.add_argument("--dev-root", type=Path, default=DEFAULT_DEV_ROOT)
     parser.add_argument("--by-label-root", type=Path, default=DEFAULT_BY_LABEL_ROOT)
@@ -132,13 +182,23 @@ def main() -> int:
     )
     args = parser.parse_args()
     try:
-        result = discover_esp(
-            root_source=args.root_source,
-            filesystem_label=args.filesystem_label,
-            dev_root=args.dev_root,
-            by_label_root=args.by_label_root,
-            sys_class_block=args.sys_class_block,
-        )
+        if args.kind == "owner-data":
+            if args.filesystem_label != DEFAULT_LABEL:
+                raise EspDiscoveryError("Owner DATA cannot use an alternative label")
+            result = discover_owner_data(
+                root_source=args.root_source,
+                dev_root=args.dev_root,
+                by_label_root=args.by_label_root,
+                sys_class_block=args.sys_class_block,
+            )
+        else:
+            result = discover_esp(
+                root_source=args.root_source,
+                filesystem_label=args.filesystem_label,
+                dev_root=args.dev_root,
+                by_label_root=args.by_label_root,
+                sys_class_block=args.sys_class_block,
+            )
     except EspDiscoveryError as exc:
         print(f"esp-discovery: ERROR: {exc}", file=sys.stderr)
         return 1

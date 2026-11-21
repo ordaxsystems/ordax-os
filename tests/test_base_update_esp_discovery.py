@@ -38,18 +38,20 @@ class EspDiscoveryTests(unittest.TestCase):
         for name in ("sda", "sdb"):
             disk = sys_devices / name
             disk.mkdir(parents=True)
+            (disk / "removable").write_text("1\n" if name == "sda" else "0\n")
             (sys_class / name).symlink_to(disk)
 
-        for disk_name, partitions in (("sda", ("sda1", "sda2")), ("sdb", ("sdb1",))):
+        for disk_name, partitions in (("sda", ("sda1", "sda2", "sda3")), ("sdb", ("sdb1",))):
             disk = sys_devices / disk_name
             for name in partitions:
                 partition = disk / name
                 partition.mkdir()
-                (partition / "partition").write_text("1\n", encoding="ascii")
+                (partition / "partition").write_text(name[-1] + "\n", encoding="ascii")
                 (sys_class / name).symlink_to(partition)
                 (dev / name).write_bytes(b"fixture")
 
         (by_label / "ORDAX-ESP").symlink_to(Path("../../sda1"))
+        (by_label / "ORDAX-DATA").symlink_to(Path("../../sda3"))
         return dev, by_label, sys_class
 
     def test_identifies_same_disk_esp_without_authorizing_write(self):
@@ -75,6 +77,42 @@ class EspDiscoveryTests(unittest.TestCase):
             self.assertFalse(result["activation_authorized"])
             self.assertEqual(Path(result["root_device"]), dev / "sda2")
             self.assertEqual(Path(result["esp_device"]), dev / "sda1")
+
+    def test_owner_data_requires_same_removable_usb_partition_three(self):
+        with tempfile.TemporaryDirectory() as temporary:
+            root = Path(temporary)
+            dev, by_label, sys_class = self.fixture(root)
+            with mock.patch.object(esp, "_is_block_device", return_value=True):
+                result = esp.discover_owner_data(
+                    root_source=dev / "sda2", dev_root=dev,
+                    by_label_root=by_label, sys_class_block=sys_class,
+                )
+            self.assertEqual(Path(result["data_device"]), dev / "sda3")
+            self.assertTrue(result["same_parent_disk"])
+            self.assertFalse(result["write_authorized"])
+            self.assertFalse(result["activation_authorized"])
+
+    def test_owner_data_rejects_other_disk_and_nonremovable_root(self):
+        with tempfile.TemporaryDirectory() as temporary:
+            root = Path(temporary)
+            dev, by_label, sys_class = self.fixture(root)
+            (by_label / "ORDAX-DATA").unlink()
+            (by_label / "ORDAX-DATA").symlink_to(Path("../../sdb1"))
+            with mock.patch.object(esp, "_is_block_device", return_value=True):
+                with self.assertRaisesRegex(esp.EspDiscoveryError, "not on the running root disk"):
+                    esp.discover_owner_data(
+                        root_source=dev / "sda2", dev_root=dev,
+                        by_label_root=by_label, sys_class_block=sys_class,
+                    )
+            (by_label / "ORDAX-DATA").unlink()
+            (by_label / "ORDAX-DATA").symlink_to(Path("../../sda3"))
+            (root / "sys/devices/platform/fake/block/sda/removable").write_text("0\n")
+            with mock.patch.object(esp, "_is_block_device", return_value=True):
+                with self.assertRaisesRegex(esp.EspDiscoveryError, "not on a removable disk"):
+                    esp.discover_owner_data(
+                        root_source=dev / "sda2", dev_root=dev,
+                        by_label_root=by_label, sys_class_block=sys_class,
+                    )
 
     def test_rejects_same_label_on_another_disk(self):
         with tempfile.TemporaryDirectory() as temporary:

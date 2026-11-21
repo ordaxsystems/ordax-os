@@ -836,6 +836,35 @@ pendrive com uma Base antiga não adquire esse consumidor apenas por receber
 os arquivos em exFAT. Não reformatar nem substituir o boot alegando que
 o transporte concluiu a missão.
 
+### Consumo de Base preparada no USB pelo owner do OS (2026-11-21)
+
+O transporte Windows prepara Base e código Git separadamente na partição
+`ORDAX-DATA`. Ao receber `dev-base-request-sha`, o mesmo
+`system/services/base-update/agent.sh` utiliza a descoberta física
+`esp_discovery.py --kind owner-data`, exigindo partição 2 como raiz ext4,
+partição 3 como exFAT e **o mesmo disco removível**. A montagem temporária
+é estritamente `ro,nosuid,nodev,noexec`, com verificação da origem e
+desmontagem antes de publicar qualquer recibo de prontidão.
+
+`dev_channel.py --usb-media-root` localiza o SHA real do artefato de Base
+pelo resolvedor canônico e exige o manifesto HTTPS publicado. O manifesto
+em exFAT não assina nem autentica seus próprios hashes. Se ele for diferente
+do publicado ou algum binário divergir, a atualização é **bloqueada**.
+Somente após confirmação externa a Base é importada para a pasta privada
+de candidatos, sem download redundante dos binários, e o rootfs versionado
+é materializado. Continua sendo o `dev_stage.py` existente que prepara
+o slot inativo, e o armamento/promoção A/B continua exigindo a prova
+física de identidade, EFI e saúde; não há escrita em ESP neste consumidor.
+
+**Limitação atual:** a primeira autenticação de um manifesto da Base
+transportado em mídia não confiável depende da publicação HTTPS, inclusive
+em DEV. Portanto, copiar a Base no Windows **não** a torna inicializável
+offline por si só. Em um USB com Base anterior, o novo consumidor ainda
+precisa chegar ao OS ativo por uma atualização validada ou por uma mídia
+inicial já produzida com esse consumidor. Sem isso, a importação permanece
+pendente, sem reformatar USB nem fabricar sucesso. A prova física no notebook,
+Wi-Fi, troca de slot, reinício e rollback ainda é obrigatória.
+
 ### Resolução de Base publicada compatível (DEV)
 
 O proprietário `system/services/base-update/dev_channel.py` oferece

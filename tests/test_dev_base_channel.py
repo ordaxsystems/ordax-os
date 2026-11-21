@@ -778,6 +778,55 @@ class DevBaseConsumerTests(unittest.TestCase):
             self.assertTrue(reused)
             self.assertEqual(again, target)
 
+    def test_published_media_import_reuses_exact_verified_usb_bytes(self):
+        kernel = b"real-base-kernel\x00\n".replace(b"\x00", b"\x00")
+        initrd = b"published-initrd"
+        rootfs = b"rootfs-payload"
+        manifest = self.descriptor(kernel, initrd, rootfs)
+        authority = (json.dumps(manifest, indent=2, sort_keys=True) + "\n").encode()
+        with tempfile.TemporaryDirectory() as temporary:
+            root = Path(temporary)
+            usb, _ = consumer.acquire(
+                SOURCE, root / "usb",
+                opener=self.opener_for(manifest, kernel, initrd, rootfs),
+            )
+            local, reused = consumer.adopt_published_media(
+                usb, SOURCE, root / "private",
+                published_manifest_bytes=authority,
+            )
+            self.assertFalse(reused)
+            self.assertEqual(consumer.verify_materialized(local, SOURCE), manifest)
+            self.assertEqual((local / "vmlinuz").read_bytes(), kernel)
+            again, reused = consumer.adopt_published_media(
+                usb, SOURCE, root / "private", published_manifest_bytes=authority,
+            )
+            self.assertTrue(reused)
+            self.assertEqual(local, again)
+
+    def test_media_manifest_self_authentication_is_rejected(self):
+        kernel, initrd, rootfs = b"k", b"i", b"r"
+        manifest = self.descriptor(kernel, initrd, rootfs)
+        authority = (json.dumps(manifest, indent=2, sort_keys=True) + "\n").encode()
+        with tempfile.TemporaryDirectory() as temporary:
+            root = Path(temporary)
+            usb, _ = consumer.acquire(
+                SOURCE, root / "usb",
+                opener=self.opener_for(manifest, kernel, initrd, rootfs),
+            )
+            forged = self.descriptor(b"bad", initrd, rootfs)
+            (usb / "vmlinuz").write_bytes(b"bad")
+            (usb / "dev-base.json").write_text(
+                json.dumps(forged, indent=2, sort_keys=True) + "\n",
+                encoding="utf-8",
+            )
+            self.assertEqual(consumer.verify_materialized(usb, SOURCE), forged)
+            with self.assertRaisesRegex(consumer.DevBaseChannelError, "published authority"):
+                consumer.adopt_published_media(
+                    usb, SOURCE, root / "private",
+                    published_manifest_bytes=authority,
+                )
+            self.assertFalse((root / "private" / SOURCE).exists())
+
     def test_acquire_materializes_exact_candidate_and_reuses_it_offline(self):
         kernel = b"kernel-dev-channel\n"
         initramfs = b"initramfs-dev-channel\n"

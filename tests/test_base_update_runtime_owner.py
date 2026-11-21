@@ -744,6 +744,27 @@ class BaseUpdateRuntimeOwnerTests(unittest.TestCase):
         self.assertIn('version_root=$OWNER_BASE_ROOT_CHROOT/versions', agent)
         self.assertNotIn("reboot -f", agent)
 
+    def test_dev_base_owner_consumes_only_readonly_same_disk_usb_data(self):
+        agent = AGENT.read_text(encoding="utf-8")
+        media = agent[agent.index("mount_owner_usb_base_media() {"):
+                      agent.index("prepare_dev_base_candidate() {")]
+        self.assertIn("--kind owner-data", media)
+        self.assertIn("--root-source \"$PHYSICAL_ROOT_SOURCE\"", media)
+        self.assertIn("safe_block_source \"$data_device\"", media)
+        self.assertIn("mount -t exfat -o ro,nosuid,nodev,noexec", media)
+        self.assertIn("mount_record_for \"$OWNER_USB_MEDIA_HOST\"", media)
+        self.assertIn("unmount_owner_usb_base_media()", media)
+        self.assertNotIn("mount -t exfat -o rw", media)
+        prepare = agent[agent.index("prepare_dev_base_candidate() {"):
+                        agent.index("prepare_esp_readonly_preflight() {")]
+        self.assertIn("media_arg=--usb-media-root=$OWNER_USB_MEDIA_ROOT", prepare)
+        self.assertIn("unmount_owner_usb_base_media", prepare)
+        self.assertIn("--ready-pair", prepare)
+        self.assertLess(prepare.index("unmount_owner_usb_base_media"),
+                        prepare.index('artifact_sha=$(read_state_value "$temporary")'))
+        self.assertNotIn("LoaderEntryOneShot", prepare)
+        self.assertNotIn("reboot -f", prepare)
+
     def test_agent_publishes_read_only_esp_discovery_without_blocking_candidate_acquisition(self):
         subprocess.run(["sh", "-n", str(AGENT)], check=True)
         agent = AGENT.read_text(encoding="utf-8")
