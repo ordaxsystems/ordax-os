@@ -275,7 +275,7 @@ try {
   $priorTemplate = $env:ORDAX_DESKTOP_TEST_PACKAGED_TEMPLATE
   try {
     $env:ORDAX_DESKTOP_TEST_PACKAGED_TEMPLATE = Join-Path $resources "runtime-template"
-    & node --test "out/ordax-desktop-source/dev-update-real-build.test.cjs"
+    & node --test "desktop/dev-update-real-build.test.cjs"
     if ($LASTEXITCODE -ne 0) {
       throw "Installed, read-only Windows Dev update Vite toolchain failed"
     }
