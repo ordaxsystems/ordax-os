@@ -171,6 +171,13 @@ IMPACT_POLICY_LIGHT_EXACT = {
 # Dedicated producer owns expensive independent Surface byte validation.
 INDEPENDENT_SURFACE_POLICY_LIGHT_EXACT = {
     ".github/workflows/independent-surface-runtime.yml",
+    # Read-only cache transport/verification and focused tests do not change
+    # the offline EROFS bytes, kernel or boot graph. The dedicated Independent
+    # Surface contracts own these paths; heavy Portable/QEMU remains required
+    # for the actual Buildroot producer, runtime and unknown paths.
+    "tools/ci/independent_surface_component_cache.py",
+    "tools/ci/independent_surface_github_artifact.sh",
+    "tests/test_independent_surface_component_cache.py",
 }
 
 PRODUCT_DEVICE_PRESENCE_LIGHT_EXACT = {

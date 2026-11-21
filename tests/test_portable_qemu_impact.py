@@ -135,6 +135,30 @@ class PortableQemuImpactTests(unittest.TestCase):
         )
         self.assertTrue(unknown.required)
 
+    def test_independent_surface_artifact_handoff_uses_focused_contract_not_qemu(self):
+        paths = [
+            "tools/ci/independent_surface_component_cache.py",
+            "tools/ci/independent_surface_github_artifact.sh",
+            "tests/test_independent_surface_component_cache.py",
+            ".github/workflows/independent-surface-runtime.yml",
+        ]
+        result = impact.classify_paths(paths, root=ROOT)
+        self.assertFalse(result.required, result.reasons)
+        self.assertEqual(result.reasons, ("no-heavy-portable-impact",))
+        # Only transport and verifier are neutral; changing compiled bytes
+        # or the real boot/Surface host never inherits this exemption.
+        for critical in (
+            "bootstrap/surface-runtime/build.py",
+            "bootstrap/surface-runtime/configs/ordax_surface_defconfig",
+            "bootstrap/kernel/build.py",
+            "system/surface/bin/ordax-surface",
+            "system/supervisor",
+            "tools/ci/unclassified-surface-producer.py",
+        ):
+            with self.subTest(critical=critical):
+                candidate = impact.classify_paths(paths + [critical], root=ROOT)
+                self.assertTrue(candidate.required, critical)
+
     def test_app_delivery_policy_changes_use_app_gates_not_portable_boot(self):
         """An app lifecycle policy update must not rebuild unrelated Linux boot."""
         paths = [
