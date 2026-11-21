@@ -226,7 +226,7 @@ class HotUpdateSupervisorContractTests(unittest.TestCase):
         script = "\n".join(function(name) for name in (
             "read_state_value", "is_sha", "dev_base_candidate_ready_for",
             "derive_base_update_progress",
-        )).replace("/bin/busybox sed", "sed")
+        )).replace("/bin/busybox sed", "sed").replace("/bin/busybox awk", "awk")
         with tempfile.TemporaryDirectory() as directory:
             root = Path(directory)
             artifact, requested, current = "a" * 40, "b" * 40, "c" * 40
@@ -252,6 +252,23 @@ class HotUpdateSupervisorContractTests(unittest.TestCase):
                 env=env, check=True, text=True, capture_output=True,
             )
             self.assertEqual(result.stdout, "candidate-ready:" + artifact)
+            # Truncated/extra-line receipts have no identity binding and
+            # must never count as ready (including the old single-line form).
+            for payload in (
+                artifact + "\\n", artifact + "\\n" + requested + "\\n" + current + "\\n",
+                artifact + "\\n" + "not-a-sha" + "\\n",
+            ):
+                with self.subTest(payload=payload):
+                    ready.write_text(payload)
+                    check = subprocess.run(
+                        ["sh", "-ec", script + '\\n'
+                         'if dev_base_candidate_ready_for "$1"; then printf READY; else printf WAIT; fi\\n'
+                         'derive_base_update_progress "$1"\\n'
+                         'printf ":%s" "$BASE_UPDATE_PHASE"',
+                         "receipt", requested],
+                        env=env, check=True, text=True, capture_output=True,
+                    )
+                    self.assertEqual(check.stdout, "WAIT:waiting-candidate")
 
     def test_supervisor_consumes_only_matching_postflight_receipt(self):
         import os

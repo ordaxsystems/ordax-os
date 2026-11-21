@@ -429,7 +429,9 @@ prepare_dev_base_candidate() {
 
     ready_sha=$(read_state_value "$DEV_BASE_READY_FILE")
     ready_request_sha=$(/bin/busybox sed -n '2p' "$DEV_BASE_READY_FILE" 2>/dev/null || true)
-    if is_sha "$ready_sha" && [ "${ready_request_sha:-$ready_sha}" = "$request_sha" ]; then
+    ready_lines=$(/bin/busybox awk 'END { print NR }' "$DEV_BASE_READY_FILE" 2>/dev/null || true)
+    if [ "$ready_lines" = 2 ] && is_sha "$ready_sha" &&
+       is_sha "$ready_request_sha" && [ "$ready_request_sha" = "$request_sha" ]; then
         /bin/busybox rm -f "$DEV_BASE_FETCHING_FILE" >/dev/null 2>&1 || true
         return 0
     fi
@@ -537,7 +539,8 @@ prepare_dev_base_physical_stage() {
     # Only stage the verified artifact associated with the pending request.
     # The physical helper reproves compatibility against the current checkout.
     ready_request_sha=$(/bin/busybox sed -n '2p' "$DEV_BASE_READY_FILE" 2>/dev/null || true)
-    ready_request_sha=${ready_request_sha:-$ready_sha}
+    ready_lines=$(/bin/busybox awk 'END { print NR }' "$DEV_BASE_READY_FILE" 2>/dev/null || true)
+    [ "$ready_lines" = 2 ] || return 0
     is_sha "$ready_request_sha" || return 0
     [ "$(read_state_value "$HOST_STATE_ROOT/boot-refresh-required")" = "$ready_request_sha" ] || return 0
 
@@ -678,7 +681,8 @@ prepare_dev_base_postboot_promotion() {
     ready_sha=$(read_state_value "$DEV_BASE_READY_FILE")
     [ "$ready_sha" = "$staged_sha" ] || return 0
     ready_request_sha=$(/bin/busybox sed -n '2p' "$DEV_BASE_READY_FILE" 2>/dev/null || true)
-    ready_request_sha=${ready_request_sha:-$ready_sha}
+    ready_lines=$(/bin/busybox awk 'END { print NR }' "$DEV_BASE_READY_FILE" 2>/dev/null || true)
+    [ "$ready_lines" = 2 ] || return 0
     is_sha "$ready_request_sha" || return 0
     [ "$(read_state_value "$HOST_STATE_ROOT/boot-refresh-required")" = "$ready_request_sha" ] || return 0
     promoted_sha=$(read_state_value "$DEV_BASE_PROMOTED_FILE")

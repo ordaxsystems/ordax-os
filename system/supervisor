@@ -1116,8 +1116,10 @@ derive_base_update_progress() {
 
     base_progress_ready_sha=$(read_state_value "$DEV_BASE_READY_FILE")
     base_progress_ready_request=$(/bin/busybox sed -n '2p' "$DEV_BASE_READY_FILE" 2>/dev/null || true)
-    if is_sha "$base_progress_ready_sha" &&
-       [ "${base_progress_ready_request:-$base_progress_ready_sha}" = "$base_progress_pending_sha" ]; then
+    base_progress_ready_lines=$(/bin/busybox awk 'END { print NR }' "$DEV_BASE_READY_FILE" 2>/dev/null || true)
+    if [ "$base_progress_ready_lines" = 2 ] &&
+       is_sha "$base_progress_ready_sha" && is_sha "$base_progress_ready_request" &&
+       [ "$base_progress_ready_request" = "$base_progress_pending_sha" ]; then
         # Report the real Base identity, not the head of the code checkout.
         BASE_UPDATE_SHA=$base_progress_ready_sha
         base_progress_readiness_sha=$(read_state_value "$DEV_BASE_ACTIVATION_READINESS_SHA_FILE")
@@ -1213,7 +1215,9 @@ dev_base_candidate_ready_for() {
     [ -s "$DEV_BASE_READY_FILE" ] || return 1
     ready_sha=$(read_state_value "$DEV_BASE_READY_FILE")
     ready_request_sha=$(/bin/busybox sed -n '2p' "$DEV_BASE_READY_FILE" 2>/dev/null || true)
-    is_sha "$ready_sha" && [ "${ready_request_sha:-$ready_sha}" = "$source_sha" ]
+    ready_lines=$(/bin/busybox awk 'END { print NR }' "$DEV_BASE_READY_FILE" 2>/dev/null || true)
+    [ "$ready_lines" = 2 ] && is_sha "$ready_sha" && is_sha "$ready_request_sha" &&
+        [ "$ready_request_sha" = "$source_sha" ]
 }
 
 request_dev_base_candidate() {

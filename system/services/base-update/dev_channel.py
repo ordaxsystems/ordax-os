@@ -669,19 +669,36 @@ def _published_source_commits(worktree: Path, *, git_bin: str) -> set[str]:
     if _git_bytes(worktree, "remote", "get-url", "origin", git_bin=git_bin).decode().strip() != remote:
         raise DevBaseChannelError("development Base resolution origin is not canonical")
     raw = _git_bytes(
-        worktree, "ls-remote", "--tags", "--refs", "origin",
+        worktree, "ls-remote", "--tags", "origin",
         "refs/tags/ordax-dev-base-*", git_bin=git_bin,
     )
     rows = raw.splitlines()
+    # Annotated Git tags have both a tag-object ref and a peeled ^{} commit.
+    # --refs hides the peeled record, incorrectly rejecting valid releases.
     if len(rows) > MAX_PUBLISHED_REFS:
         raise DevBaseChannelError("development Base release discovery exceeds bounded scope")
-    published = set()
+    direct: dict[str, str] = {}
+    peeled: dict[str, str] = {}
     for row in rows:
-        match = re.fullmatch(rb"([0-9a-f]{40})\trefs/tags/ordax-dev-base-([0-9a-f]{40})", row)
-        if match and match.group(1) == match.group(2):
-            published.add(match.group(1).decode("ascii"))
-    return published
+        match = re.fullmatch(
+            rb"([0-9a-f]{40})\trefs/tags/ordax-dev-base-([0-9a-f]{40})(\^\{\})?",
+            row,
+        )
+        if match is None:
+            continue
+        target = match.group(1).decode("ascii")
+        source = match.group(2).decode("ascii")
+        bindings = peeled if match.group(3) is not None else direct
+        if source in bindings and bindings[source] != target:
+            raise DevBaseChannelError("development Base tag discovery is ambiguous")
+        bindings[source] = target
 
+    # The tag name, resolved commit and later exact-commit manifest must agree.
+    # Never trust a peeled record without its corresponding tag reference.
+    return {
+        source for source, target in direct.items()
+        if target == source or peeled.get(source) == source
+    }
 
 def prove_compatible_source(
     worktree: Path,

@@ -818,8 +818,9 @@ compatibilidade quando o manifesto de pré-requisitos nativos mudou.
 verificados sem extrair rootfs. A identidade de origem da entrega não é
 reescrita: `source_commit` é o artefato e `requested_source_commit` é o checkout.
 O adquirente automático do Base owner agora usa esse resolvedor e registra
-atomicamente em `dev-base-ready-sha` duas linhas: primeiro o SHA imutável
-do artefato verificado, depois o SHA solicitado pelo Supervisor. O Supervisor
+atomicamente em `dev-base-ready-sha` exatamente duas linhas: primeiro o SHA
+imutável do artefato verificado, depois o SHA solicitado pelo Supervisor.
+Recibos truncados ou com linhas adicionais não têm autoridade de prontidão. O Supervisor
 reconhece a resolução sem repetir a requisição e apresenta o SHA efetivo
 da Base, independentemente do avanço de código. A aquisição compatível
 materializa a raiz versionada. O stager revalida a compatibilidade entre
