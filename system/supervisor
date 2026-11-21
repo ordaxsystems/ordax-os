@@ -1693,6 +1693,22 @@ restore_dev_helpers_after_rollback() {
     }
 }
 
+# Rollback may run after a long graphical health wait. Never destroy work
+# the developer started during that wait, or rewind an unrelated local HEAD.
+# Git's --keep mode is a second protection against a concurrent local edit.
+reset_owner_rollback_checkout() {
+    rollback_expected=$1
+    rollback_target=$2
+    [ "$(read_state_value "$CURRENT_FILE")" = "$rollback_expected" ] || return 1
+    [ "$("$GIT_BIN" -C "$WORKTREE" rev-parse HEAD 2>>"$UPDATE_LOG")" = "$rollback_expected" ] || return 1
+    rollback_dirty=$("$GIT_BIN" -C "$WORKTREE" status --porcelain 2>>"$UPDATE_LOG") || return 1
+    [ -z "$rollback_dirty" ] || return 1
+    "$GIT_BIN" -C "$WORKTREE" reset --keep "$rollback_target" >>"$UPDATE_LOG" 2>&1 || return 1
+    [ "$("$GIT_BIN" -C "$WORKTREE" rev-parse HEAD 2>>"$UPDATE_LOG")" = "$rollback_target" ] || return 1
+    rollback_dirty=$("$GIT_BIN" -C "$WORKTREE" status --porcelain 2>>"$UPDATE_LOG") || return 1
+    [ -z "$rollback_dirty" ]
+}
+
 rollback_boot_candidate() {
     previous_sha=$1
     failed_sha=$2
@@ -1713,7 +1729,6 @@ rollback_boot_candidate() {
 
     set_update_context rollback "$failed_sha" "" "$reason"
     write_update_state "$failed_sha" applied supervisor-restart
-    append_application_history "$failed_sha" supervisor-restart rolled-back "$(utc_now)"
     log "cold-boot Surface candidate $failed_sha failed health; rolling back to last rendered runtime $previous_sha"
 
     temporary=$REJECTED_FILE.tmp.$$
@@ -1722,12 +1737,14 @@ rollback_boot_candidate() {
     clear_surface_health
     stop_surface
 
-    if ! "$GIT_BIN" -C "$WORKTREE" reset --hard "$previous_sha" >>"$UPDATE_LOG" 2>&1; then
-        log "cold-boot rollback reset to $previous_sha failed"
-        return 1
+    if ! reset_owner_rollback_checkout "$failed_sha" "$previous_sha"; then
+        set_update_context error "$failed_sha" "" "rollback-local-checkout-conflict"
+        write_update_state "$failed_sha" rollback-error supervisor-restart
+        fail_closed "cold-boot rollback blocked: local checkout must be reconciled without discarding edits"
     fi
 
     write_state_value "$CURRENT_FILE" "$previous_sha"
+    append_application_history "$failed_sha" supervisor-restart rolled-back "$(utc_now)"
     restore_dev_helpers_after_rollback "$previous_sha" ||
         fail_closed "cold-boot rollback restored Git but could not restore Base helpers"
     record_runtime_surface_sha "$previous_sha"
@@ -1748,17 +1765,19 @@ rollback_update() {
         record_elapsed_seconds "$attempt_started" "$LAST_APPLY_DURATION_FILE"
         rm -f "$ATTEMPT_STARTED_EPOCH_FILE"
     fi
-    append_application_history "$failed_sha" "$failed_mode" rolled-back "$(utc_now)"
     log "rejecting update $failed_sha: $reason; rolling back to $previous_sha"
     temporary=$REJECTED_FILE.tmp.$$
     printf '%s\n' "$failed_sha" >"$temporary"
     /bin/busybox mv -f "$temporary" "$REJECTED_FILE"
     clear_surface_health
     stop_surface
-    if ! "$GIT_BIN" -C "$WORKTREE" reset --hard "$previous_sha" >>"$UPDATE_LOG" 2>&1; then
-        fail_closed "automatic rollback to $previous_sha failed"
+    if ! reset_owner_rollback_checkout "$failed_sha" "$previous_sha"; then
+        set_update_context error "$failed_sha" "$UPDATE_ATTEMPT_ID" "rollback-local-checkout-conflict"
+        write_update_state "$failed_sha" rollback-error "$failed_mode"
+        fail_closed "automatic rollback blocked: local checkout must be reconciled without discarding edits"
     fi
     write_state_value "$CURRENT_FILE" "$previous_sha"
+    append_application_history "$failed_sha" "$failed_mode" rolled-back "$(utc_now)"
     restore_dev_helpers_after_rollback "$previous_sha" ||
         fail_closed "rollback restored Git but could not restore Base helpers"
     start_surface || fail_closed "rolled-back Surface could not be started"

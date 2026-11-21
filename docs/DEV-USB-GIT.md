@@ -44,6 +44,13 @@ instalados, não modifica o Pull e não substitui os testes offline/USB.
 
 ## Preservação das edições locais DEV
 
+O rollback automático do Supervisor também verifica o HEAD registrado e a
+limpeza do checkout imediatamente antes de restaurar a revisão anterior.
+Usa `git reset --keep`, não `--hard`; alterações iniciadas durante a espera
+de saúde não são descartadas. Em conflito, informa erro de rollback e
+mantém a recuperação bloqueada até reconciliar as edições, sem registrar
+uma restauração bem-sucedida fictícia.
+
 O checkout Git do pendrive não é um cache descartável quando contém
 alterações locais. O Pull conserva os arquivos modificados e não rastreados
 no próprio checkout, registra o diagnóstico existente e interrompe a troca

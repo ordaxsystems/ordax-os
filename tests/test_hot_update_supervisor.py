@@ -683,11 +683,66 @@ class HotUpdateSupervisorContractTests(unittest.TestCase):
         text = SYSTEM_SUPERVISOR.read_text(encoding="utf-8")
         self.assertIn("REJECTED_FILE=$STATE_DIR/rejected-commit", text)
         self.assertIn("rollback_update()", text)
-        self.assertIn('reset --hard "$previous_sha"', text)
+        self.assertIn('reset --keep "$rollback_target"', text)
+        self.assertIn('reset_owner_rollback_checkout "$failed_sha" "$previous_sha"', text)
+        self.assertNotIn('reset --hard "$previous_sha"', text)
         self.assertIn('write_update_state "$previous_sha" rolled-back "$failed_mode"', text)
         self.assertIn('if [ -n "$rejected_sha" ] && [ "$remote_sha" = "$rejected_sha" ]', text)
         self.assertIn('write_update_state "$current" rejected none', text)
         self.assertIn("validate_updated_tree", text)
+
+    def test_automatic_rollback_preserves_dirty_and_unregistered_worktree(self):
+        import os
+        source = SYSTEM_SUPERVISOR.read_text(encoding="utf-8")
+        fn = "reset_owner_rollback_checkout() {" + source.split(
+            "reset_owner_rollback_checkout() {", 1
+        )[1].split("\n}\n", 1)[0] + "\n}"
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            repo = root / "repo"
+            repo.mkdir()
+            def git(*args):
+                return subprocess.run(["git", "-C", str(repo), *args],
+                    check=True, capture_output=True, text=True).stdout.strip()
+            git("init", "-b", "main")
+            git("config", "user.email", "fixture@example.invalid")
+            git("config", "user.name", "Fixture")
+            tracked = repo / "source.txt"
+            tracked.write_text("known good\n")
+            git("add", ".")
+            git("commit", "-m", "good")
+            previous = git("rev-parse", "HEAD")
+            tracked.write_text("failed update\n")
+            git("commit", "-am", "candidate")
+            candidate = git("rev-parse", "HEAD")
+            receipt = root / "current"
+            receipt.write_text(candidate + "\n")
+            env = dict(os.environ, GIT_BIN=shutil.which("git"), WORKTREE=str(repo),
+                       CURRENT_FILE=str(receipt), UPDATE_LOG=str(root / "log"))
+            def reset():
+                return subprocess.run(["sh", "-ec",
+                    'read_state_value() { cat "$1"; }; ' + fn +
+                    '\nreset_owner_rollback_checkout "$1" "$2"', "rollback",
+                    candidate, previous], env=env, capture_output=True, text=True)
+            tracked.write_text("unpublished tracked edit\n")
+            self.assertNotEqual(reset().returncode, 0)
+            self.assertEqual(tracked.read_text(), "unpublished tracked edit\n")
+            self.assertEqual(git("rev-parse", "HEAD"), candidate)
+            git("restore", "source.txt")
+            local = repo / "new-file"
+            local.write_text("untracked edit\n")
+            self.assertNotEqual(reset().returncode, 0)
+            self.assertEqual(local.read_text(), "untracked edit\n")
+            local.unlink()
+            git("commit", "--allow-empty", "-m", "local unpublished commit")
+            unpublished = git("rev-parse", "HEAD")
+            self.assertNotEqual(reset().returncode, 0)
+            self.assertEqual(git("rev-parse", "HEAD"), unpublished)
+            git("reset", "--keep", candidate)
+            self.assertEqual(reset().returncode, 0)
+            self.assertEqual(git("rev-parse", "HEAD"), previous)
+            self.assertEqual(tracked.read_text(), "known good\n")
+            self.assertEqual(git("status", "--porcelain"), "")
 
     def test_distinct_new_main_is_eligible_after_a_rejected_delivery(self):
         # A previously rejected SHA must be retained while main still points
@@ -894,7 +949,9 @@ class HotUpdateSupervisorContractTests(unittest.TestCase):
         self.assertIn("OWNER_INITIAL_PROVISION_SINCE", text)
         self.assertIn('rollback_boot_candidate()', text)
         self.assertIn('validate_candidate_tree "$previous_sha" supervisor-restart', text)
-        self.assertIn('reset --hard "$previous_sha"', text)
+        self.assertIn('reset --keep "$rollback_target"', text)
+        self.assertIn('reset_owner_rollback_checkout "$failed_sha" "$previous_sha"', text)
+        self.assertNotIn('reset --hard "$previous_sha"', text)
         self.assertIn('cold-boot Surface candidate $failed_sha failed health', text)
         self.assertIn('exit 75', text)
         self.assertIn('cold-boot Surface did not become healthy; retrying current checkout once', text)
