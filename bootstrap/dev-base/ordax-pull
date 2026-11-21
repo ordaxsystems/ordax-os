@@ -868,17 +868,20 @@ if [ "$SEED_MODE" -eq 0 ] && [ -z "$EXPECTED_SHA" ] &&
             *"$WORKTREE/system/supervisor"*)
                 request=$RUN_DIR/manual-check-request
                 if [ "$(read_state "$request")" != check-main ]; then
+                    if [ -L "$request" ] || { [ -e "$request" ] && [ ! -f "$request" ]; }; then
+                        echo "ordax-git: caminho do pedido de atualizacao invalido" >&2
+                        exit 1
+                    fi
                     request_tmp=$request.tmp.$$
                     (umask 077; set -C; printf 'check-main\n' >"$request_tmp") || exit 1
-                    # Successful publication is the receipt. The Supervisor
-                    # may consume the request immediately, before a reread.
-                    if ! ln "$request_tmp" "$request" 2>/dev/null &&
-                       [ "$(read_state "$request")" != check-main ]; then
+                    # Every legitimate writer publishes the same idempotent
+                    # wakeup. Rename publishes a complete record atomically;
+                    # no extra rootfs applet or post-consumption read needed.
+                    if ! mv -f "$request_tmp" "$request"; then
                         rm -f "$request_tmp"
                         echo "ordax-git: nao foi possivel solicitar atualizacao ao Supervisor" >&2
                         exit 1
                     fi
-                    rm -f "$request_tmp"
                 fi
                 printf 'ORDAX_PULL_REQUEST=QUEUED\n'
                 echo "ordax-git: atualizacao solicitada ao Supervisor; consulte o estado existente da atualizacao."

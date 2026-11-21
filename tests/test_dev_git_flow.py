@@ -311,6 +311,30 @@ class DevelopmentGitFlowTest(unittest.TestCase):
             "",
         )
 
+    def test_local_run_executes_dirty_source_without_official_promotion(self) -> None:
+        self._script(PULL)
+        source = self.worktree / "system/entrypoint"
+        source.write_text(
+            '#!/bin/sh\nprintf "%s|%s|%s|%s\\n" "$PWD" "$ORDAX_LOCAL_DEVELOPMENT" "${ORDAX_SOURCE_SHA-unset}" "$1"\nexit 17\n'
+        )
+        env = self._env()
+        env.update(ORDAX_SOURCE_SHA=self.commit_v1, ORDAX_DISTRIBUTION_PROFILE="owner-development")
+        before = {f.relative_to(self.state): f.read_bytes()
+                  for f in self.state.rglob("*") if f.is_file()}
+        result = self._run(
+            ["/bin/sh", str(RUN), "--local", "/bin/sh", "system/entrypoint", "test value"],
+            env=env, check=False,
+        )
+        self.assertEqual(result.returncode, 17)
+        self.assertEqual(result.stdout.strip(), f"{self.worktree}|1|unset|test value")
+        self.assertIn("execucao local nao promovida", result.stderr)
+        self.assertNotIn("ORDAX_SOURCE_SHA=", result.stdout)
+        after = {f.relative_to(self.state): f.read_bytes()
+                 for f in self.state.rglob("*") if f.is_file()}
+        self.assertEqual(after, before)
+        self.assertIn("exit 17", source.read_text())
+        self.assertFalse((self.root / "run/ordax-update/guardian.log").exists())
+
     def test_ordax_run_rejects_dirty_or_unregistered_checkout(self) -> None:
         self._script(PULL)
         dirty = self.worktree / "system/local-dirty.txt"

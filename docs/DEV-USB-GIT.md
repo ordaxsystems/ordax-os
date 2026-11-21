@@ -64,6 +64,19 @@ watcher só solicita reinício quando esse recibo limpo diverge da revisão
 Git observada pelo Supervisor e não existe transação em andamento. Uma
 diferença legítima entre `sourceSha` e `runtimeSurfaceSha` não é falha.
 
+### Executar alterações locais sem publicar
+
+O comando explícito `ordax-run --local COMANDO [ARGUMENTOS]` executa o
+comando existente no checkout editável, inclusive com mudanças não
+commitadas. Exemplo: `ordax-run --local sh -n system/supervisor` ou
+`ordax-run --local sh -c 'git diff --stat; git status --short'`.
+O comando devolve a saída e o código de saída reais; não cria cópia do
+checkout, não instala dependências, não inicia outro Guardian e não
+publica recibo de saúde, revisão oficial ou identidade para a Platform.
+Utiliza os interpretadores disponíveis no ambiente local; não constitui
+ainda uma sessão gráfica alternativa de toda a Surface. O boot normal
+`ordax-run` continua verificando a revisão registrada.
+
 ## Atualização neutra sem reinício da Surface
 
 Alterações exclusivamente de documentação, testes ou do helper Git

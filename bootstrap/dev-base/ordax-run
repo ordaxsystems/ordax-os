@@ -238,6 +238,29 @@ start_guardian_tail() {
     TAIL_PID=$!
 }
 
+# Explicit development command: run actual editable source in the one
+# existing checkout, with the caller's authority. Do not start Guardian or
+# publish an official source/health receipt. No copy or build is performed.
+case "${1:-}" in
+    --local)
+        shift
+        [ "$#" -gt 0 ] || fail "uso: ordax-run --local COMANDO [ARGUMENTOS]"
+        local_head=$("$GIT_BIN" -C "$WORKTREE" rev-parse HEAD 2>/dev/null || true)
+        is_sha "$local_head" || fail "checkout Git local indisponivel"
+        cd "$WORKTREE" || fail "checkout local inacessivel"
+        # Do not inherit official runtime identity from a calling service.
+        unset ORDAX_SOURCE_SHA ORDAX_DISTRIBUTION_PROFILE ORDAX_PRODUCT_MODE
+        ORDAX_LOCAL_DEVELOPMENT=1
+        export ORDAX_LOCAL_DEVELOPMENT
+        echo "ordax-run: execucao local nao promovida ($local_head)" >&2
+        exec "$@"
+        ;;
+    "")
+        [ "$#" -eq 0 ] || fail "argumento vazio"
+        ;;
+    *) fail "uso: ordax-run [--local COMANDO [ARGUMENTOS]]" ;;
+esac
+
 # The local checkout must boot without network, including on a pinned rollback.
 # The running supervisor/main watcher already owns automatic recovery after
 # the durable First Run receipt; ordax-run must never pull before the UI starts.
@@ -250,7 +273,7 @@ is_sha "$recorded_sha" || fail "estado current-commit ausente ou invalido; execu
 [ "$recorded_sha" = "$source_sha" ] || fail "checkout diverge do commit registrado; execute ordax-pull para reconciliar"
 checkout_status=$("$GIT_BIN" -C "$WORKTREE" status --porcelain 2>/dev/null) || \
     fail "nao foi possivel validar limpeza do checkout"
-[ -z "$checkout_status" ] || fail "checkout local possui alteracoes; execute ordax-pull para preservar diagnostico e restaurar uma versao limpa"
+[ -z "$checkout_status" ] || fail "checkout local possui alteracoes; use ordax-run --local COMANDO para testar ou resolva as edicoes antes do boot verificado"
 
 prepare_status_log
 resolve_product_control_plane_url
