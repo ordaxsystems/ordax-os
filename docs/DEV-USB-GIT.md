@@ -12,13 +12,13 @@ a atualização Git no Linux, com preflight, saúde e rollback; no Windows, a
 materialização do canal Dev pertence a
 `ordaxsystems/ordax-desktop/dev-update.cjs`, não ao script Linux nem a uma cópia de Desktop dentro do OS.
 
-Mudanças restritas ao script `bootstrap/dev-base/ordax-pull` em uma PR são
+Mudanças restritas ao script `bootstrap/dev-base/ordax-pull` são
 validadas pelo workflow já existente **Owner Development Preflight**,
 com testes de transação/recuperação. O classificador causal evita montar
-uma segunda imagem USB nessa PR. Alterações mistas em Base, boot,
-Supervisor, helper nativo ou entrada desconhecida exigem o gate USB.
-Quando o Pull modificado entra na `main`, a publicação normal do USB
-continua ativa até uma decisão explícita sobre o canal de distribuição.
+uma segunda imagem USB tanto em PR quanto em push na `main`.
+Alterações mistas em Base, boot, Supervisor, helper nativo ou entrada
+desconhecida exigem o gate USB. A produção explícita de nova mídia
+continua disponível por dispatch.
 O contrato normativo está em
 `docs/contracts/build-autonomy.json#owner_dev_pull_ci`; o owner operacional
 está em `docs/contracts/distribution-profiles.json`.

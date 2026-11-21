@@ -44,7 +44,7 @@ jobs:
           # Exact known-document allowlist. All code, contracts, workflows,
           # scripts, test fixtures and unknown paths must run full Foundation.
           docs = {
-              "AGENTS.md", "README.md", "docs/README.md",
+              "AGENTS.md", "README.md", "URGENTE-LEIA.md", "docs/README.md",
               "URGENTE-CONSOLIDACAO-ORDAX.md",
               "docs/DEVELOPMENT-WORKFLOW.md", "docs/DECISIONS.md",
               "docs/BUILD-AUTONOMY.md",

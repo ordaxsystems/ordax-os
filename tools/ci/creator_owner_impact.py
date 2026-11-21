@@ -161,8 +161,8 @@ WINDOWS_PRODUCT_PINNED_BLOBS = {
 }
 
 # The installed Linux Git updater is a source file, not a Creator build dependency.
-# Its PR regressions are covered by Owner Development Preflight. Preserve the
-# actual USB producer on main and on mixed boot/Base/native-helper changes.
+# Its regressions on PR and main are covered by Owner Development Preflight.
+# Preserve the actual USB producer on mixed boot/Base/native-helper changes.
 # Never broad-exclude bootstrap/dev-base/** or any installed native helper.
 PULL_REVIEW_ONLY_PATHS = frozenset({
     "bootstrap/dev-base/ordax-pull",
