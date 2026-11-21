@@ -41,6 +41,11 @@ def safe_path(value: str) -> str:
     # The Management API archive may prefix source/; no traversal is allowed.
     if value.startswith("source/"):
         value = value[len("source/"):]
+    # Supabase Management API returns function source under functions/ after
+    # --use-api deploy. Strip exactly one known transport prefix, never an
+    # arbitrary directory or an untrusted basename.
+    if value.startswith("functions/"):
+        value = value[len("functions/"):]
     path = PurePosixPath(value)
     if path.is_absolute() or ".." in path.parts or any(x in ("", ".") for x in value.split("/")):
         raise ParityFailure("remote-path-invalid")

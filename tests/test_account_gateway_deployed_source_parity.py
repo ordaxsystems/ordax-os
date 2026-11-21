@@ -77,6 +77,25 @@ class DeployedAccountSourceParityTests(unittest.TestCase):
                 self.assertEqual(receipt["deployment_mutated"], False)
                 self.assertEqual(receipt["subject_data_accessed"], False)
 
+    def test_supabase_function_source_prefix_is_normalized_but_traversal_is_rejected(self):
+        for function in MODES:
+            source = canonical_import_graph(function)
+            wrapped = {"functions/" + name: body for name, body in source.items()}
+            self.assertEqual(extract_files(payload(wrapped)), source)
+            receipt = prove(function, payload(wrapped), mode="verify")
+            self.assertEqual(receipt["files"], len(source))
+            mime = "multipart/form-data; boundary=ordax-parity-2026"
+            multipart = _multipart_source_payload(multipart_payload(wrapped), mime)
+            self.assertEqual(extract_files(multipart), source)
+        for bad in (
+            "functions/../evil.ts",
+            "functions/./evil.ts",
+            "source/functions/../../evil.ts",
+            "functions/\\\\evil.ts",
+        ):
+            with self.subTest(bad=bad), self.assertRaises(ParityFailure):
+                extract_files(payload({bad: b"invalid"}))
+
     def test_preflight_accepts_old_deployed_bundle_not_yet_on_main(self):
         for name in MODES:
             graph = canonical_import_graph(name)
