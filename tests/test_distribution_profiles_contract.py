@@ -55,11 +55,11 @@ class DistributionProfilesContractTests(unittest.TestCase):
                          owner["runtime_update_owner"])
         windows = adapters["windows-desktop"]
         self.assertEqual(windows["git_main_materializer"],
-                         "ordaxsystems/ordax-desktop/dev-update.cjs")
+                         "ordaxsystems/ordax-os/desktop/dev-update.cjs")
         self.assertEqual(windows["health_promotion_owner"],
-                         "ordaxsystems/ordax-desktop/dev-update.cjs")
+                         "ordaxsystems/ordax-os/desktop/dev-update.cjs")
         self.assertEqual(windows["application_relaunch_owner"],
-                         "ordaxsystems/ordax-desktop/main.cjs")
+                         "ordaxsystems/ordax-os/desktop/main.cjs")
         self.assertTrue(windows["automatic_idle_activation"])
         self.assertTrue(windows["operates_only_while_electron_is_running"])
         self.assertFalse(windows["electron_shell_self_update_implemented"])
