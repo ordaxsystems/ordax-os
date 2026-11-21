@@ -994,3 +994,17 @@ A homologação Windows inicial da PR #628 identificou uma dependência antiga d
 - **Prova física atual:** além do recibo histórico 8/8, um novo teste Windows Chromium no mesmo HEAD aprovou CSS, adicionar, concluir, remover, persistência após reload, prevenção de injeção HTML e layout mobile. A prévia isolada do Forge também renderizou o `index.html` verificado (`sha256 d09944569cf6b6ae8ac7d0d37d717577d4ac9cba959bcac4d18c1749883f9a82`) sem publicação externa.
 - **Fronteira de certificação preservada:** `work_accept` certifica somente o milestone Git integrado (`verified_integrated_git_milestone`); ele não declara critérios de produto, publicação ou identidade do chat. O E2E final com três conversas GPT Web reais e independentes, exigido no Incremento 10, continua pendente e não é substituído por esta aceitação.
 
+
+### Incremento 12 — proveniência do transporte GPT→MCP (21/11/2026)
+
+**Status: implementado e ativo em `ordaxsystems/ordax-apps/main@f4f8f966`.**
+
+- **Origem remota verificável sem nova autoridade:** o ledger existente agora registra, para `work_claim`, `work_progress`, `work_memory_set` e `work_accept`, se a operação entrou pelo `remote_gateway` com lease realmente iniciado. O mesmo mecanismo de observação que já comprovava `project_file_write` foi generalizado; não foi criado banco, fila, executor ou Store paralelo.
+- **Atribuição pelo recibo canônico:** a Task observada é derivada do recibo SQLite e do binding existente, não de um `taskId` arbitrário enviado pelo modelo. Replays idempotentes não duplicam eventos.
+- **Metadados mínimos:** são persistidos somente `command_id`, projeto, operação, outcome seguro e, quando emitidos privadamente pelo gateway, `gateway_request_id`, `gateway_attempt_id` e `gateway_agent_instance_id`. Prompt, resposta, token de claim, bearer, `lease_id`, conteúdo de memória e rótulo de chat não entram nessa evidência.
+- **Separação de testes in-process:** chamadas diretas ao `OrchestratorService` permanecem com `mcpToolCallObserved:false`; uma chamada real por `tools/call` remoto recebe `mcpIngress:remote_gateway` e prova de lease. Assim testes locais não podem ser apresentados como prova GPT→MCP.
+- **Limite de identidade preservado:** o gateway atual não entrega um identificador confiável de conversa/Run do ChatGPT. Portanto `gptRunIdentityVerified:false` e `chatIdentityVerified:false` permanecem deliberadamente falsos. Os IDs do worker/attempt do gateway nunca são promovidos a identidade de conversa GPT.
+- **Read models alinhados:** `forge_project_handoff` pode expor a proveniência do claim adquirido; a evidência de `work_accept` pode expor a proveniência do recibo de aceite. Ambos mantêm a fronteira entre transporte observado e identidade não comprovada.
+- **Prova de regressão:** suíte focada de observação MCP, aceite Git e contrato desktop terminou **70/70**. Inclui caso explícito em que claim direto in-process não recebe atribuição e claim remoto leased recebe request/attempt/agent IDs sem identidade de chat.
+- **Gate final continua aberto:** essa melhoria permite distinguir chamadas GPT→MCP reais de testes in-process, mas não prova por si só que três chamadas vieram de três conversas GPT Web independentes. A homologação de três chats do Incremento 10 continua obrigatória e fail-closed.
+
