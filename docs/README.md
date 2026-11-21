@@ -4,6 +4,20 @@ Status: CANONICAL DOCUMENTATION ROUTER
 
 This file is the entry point for documentation under `docs/`. Its purpose is to prevent stale plans and historical evidence from competing with current architecture.
 
+## Autoridade documental do ecossistema multi-repositório
+
+Este índice é o **roteador central de autoridade documental** de todo o ecossistema OrdaX, não um depósito de cópias da documentação de cada componente. O SSOT é federado por responsabilidade: [`docs/contracts/repository-ownership.json`](contracts/repository-ownership.json) identifica o owner; cada owner mantém seu source, contratos executáveis, APIs, runbooks e evidências locais. O OS mantém decisões, arquitetura e políticas *transversais*, bem como as referências para as autoridades externas. Um documento não se torna canônico globalmente apenas por estar neste repositório.
+
+**Regras obrigatórias:**
+
+1. Uma responsabilidade normativa = um documento/contrato proprietário; demais repos fazem referência por link, não por cópia ou paráfrase normativa concorrente.
+2. Quando existir contrato executável ou schema, ele prevalece sobre prosa conflitante. O código atual do owner e os testes/recibos determinam o comportamento implementado; planos e handoffs datados não representam status atual.
+3. Os documentos locais de Apps, Runtime, Platform, Desktop, Creator, Surface e Site continuam junto ao source e não dependem de sincronização de commits do OS para mudanças internas. O índice central aponta para seus owners.
+4. Ao alterar contrato compartilhado: atualizar primeiro seu owner, validar consumidores compatíveis e corrigir referências afetadas. Não criar espelhos de contratos, novo repo de docs ou outra fila de migração.
+5. Links para arquivos removidos ou históricos devem ser substituídos pelo índice/estado canônico, sem destruir evidências históricas.
+
+**Diretório de documentação dos owners:** [Apps](https://github.com/ordaxsystems/ordax-apps/tree/main/docs) · [Runtime](https://github.com/ordaxsystems/ordax-runtime) · [Platform](https://github.com/ordaxsystems/ordax-platform) · [Desktop](https://github.com/ordaxsystems/ordax-desktop) · [Creator](https://github.com/ordaxsystems/ordax-creator) · [Surface](https://github.com/ordaxsystems/ordax-surface) · [Site](https://github.com/ordaxsystems/ordax-site).
+
 ## Authority order
 
 When two files disagree, use this order:
