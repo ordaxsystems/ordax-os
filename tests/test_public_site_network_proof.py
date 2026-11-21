@@ -77,7 +77,11 @@ class PublicNetworkProofTests(unittest.TestCase):
             self.assertIn("test_public_site_network_proof.py", content)
         site = (root / ".github/workflows/public-site-candidate.yml").read_text(encoding="utf-8")
         self.assertIn("tests.test_public_site_network_proof", site)
-        self.assertIn("tests.test_external_site_source", site)
+        self.assertIn("python3 -m unittest discover -s site/tests -q", site)
+        self.assertIn("npm ci --workspace=site", site)
+        self.assertIn("node --test site/tests/*.mjs", site)
+        self.assertIn("python3 site/scripts/smoke_static.py --out out/vercel", site)
+        self.assertNotIn("tests.test_external_site_source", site)
         self.assertNotIn("test_public_site_deployment_proof.py", site)
 
     def test_success_proves_pages_anonymous_session_and_www_redirect(self):
