@@ -9,7 +9,7 @@
 | Apps / Aura | O owner `ordax-apps` contém a integração de Aura/recuperação de inferência já incorporada ao seu histórico; a **revisão exata realmente composta/instalada** deve vir do catálogo/lock/proveniência do candidato, não de um SHA copiado neste resumo. | Instalação/ativação física da revisão atual ainda precisa ser provada no candidato correspondente. Forge permanece com outro executor, separado. |
 | Loja Web | `system/composition/web/main.tsx` ainda usa `createUnavailableAppStoreCatalogPort('web-store-transport-unavailable')`. | Não existe transporte Web autorizado conectado nesta composição; UI e contrato isolados não constituem uma Loja utilizável. |
 | Seleção de Space Web | `system/adapters/web/space-selection.mjs` compõe `createWebSpaceSelectionStore()` somente em memória. | Seleção não persiste após recarga; persistência futura deve manter escopo por identidade e revalidar catálogo/permissões, sem criar segunda autoridade de Conta. |
-| Desktop Windows | Há prova física anterior da instalação/boot em `DESKTOP-4UFL03B` para uma revisão mais antiga, registrada abaixo. `ordax-desktop` e `ordax-os` têm fontes independentes. | Não há prova de que o novo conjunto OS/Surface/Apps esteja instalado, de que a Loja instale/execute um app real ou de que atualizações do host e app fechem o ciclo ponta a ponta. |
+| Desktop Windows | Há prova física anterior da instalação/boot em `DESKTOP-4UFL03B` para uma revisão mais antiga, registrada abaixo. O host Windows vive em `ordax-os/desktop/` e compartilha a mesma revisão Git de composição/Surface do OS; isso não comprova que esse pacote já esteja instalado. | Não há prova de que o novo conjunto OS/Surface/Apps esteja instalado, de que a Loja instale/execute um app real ou de que atualizações do host e app fechem o ciclo ponta a ponta. |
 
 **Execução causal, não lista de microtarefas:** em cada owner, avançar a próxima lacuna real até produto observável; só aguardar outro repo quando o próximo passo consumir de fato seu contrato/artefato. Uma falha independente não bloqueia implementação sem dependência causal; nenhuma falha é mascarada por estado de UI. A entrega é medida por experiência funcional no destino, não por quantidade de PRs integradas.
 
@@ -1305,7 +1305,8 @@ ONE_ACCOUNT_MODEL=YES
 ONE_SURFACE_SOURCE=YES
 SURFACE_SOURCE_OWNER=ordaxsystems/ordax-surface
 REMOVABLE_APP_SOURCE_OWNER=ordaxsystems/ordax-apps
-DESKTOP_HOST_OWNER=ordaxsystems/ordax-desktop
+DESKTOP_HOST_OWNER=ordaxsystems/ordax-os
+DESKTOP_HOST_MODULE=desktop/
 CAPABILITY_DIFFERENCES_VIA_ADAPTERS=YES
 SYSTEM_ENTRYPOINT_IMPLEMENTED=YES
 SURFACE_BOOTSTRAP_RUNTIME=YES
