@@ -218,59 +218,27 @@ def write_web_deployment_manifest(source_commit: str) -> None:
 
 
 @contextmanager
-def mounted_vercel_surface():
-    """Verify and mount Surface in the *disposable* Vercel build workspace.
-
-    Use the OS's one canonical Surface Git verifier/materializer. The source
-    never enters the OS Git history and is unmounted even if the build fails.
-    """
+def verified_vercel_surface():
+    """Validate the committed OS Surface; never fetch or mount another source."""
     owner_path = ROOT / "tools/surface-source/materialize.py"
-    spec = importlib.util.spec_from_file_location("_ordax_vercel_surface_materializer", owner_path)
+    spec = importlib.util.spec_from_file_location("_ordax_os_surface_verifier", owner_path)
     if spec is None or spec.loader is None:
-        raise DeploymentBuildError("canonical Surface verifier unavailable")
+        raise DeploymentBuildError("canonical OS Surface verifier unavailable")
     source = importlib.util.module_from_spec(spec)
     spec.loader.exec_module(source)
-    lock = source.load_lock()
-    surface_root = ROOT / "system/surface"
-    if surface_root.is_symlink() or not surface_root.is_dir():
-        raise DeploymentBuildError("Surface mount root is missing or linked")
-    targets = [surface_root / part for part in ("ui", "workspace")]
-    if any(p.exists() or p.is_symlink() for p in targets):
-        raise DeploymentBuildError("OS Vercel build already contains another Surface visual source")
-    (ROOT / "out").mkdir(parents=True, exist_ok=True)
-    with tempfile.TemporaryDirectory(prefix=".ordax-vercel-surface-", dir=ROOT / "out") as temp:
-        root = Path(temp)
-        checkout = root / "checkout"
-        checkout.mkdir()
-        source.git(checkout, "init", "-q")
-        source.git(checkout, "remote", "add", "origin",
-                   "https://github.com/ordaxsystems/ordax-surface.git")
-        source.git(checkout, "fetch", "--depth=1", "--no-tags", "origin", lock["source_commit"])
-        source.git(checkout, "checkout", "--detach", "-q", "FETCH_HEAD")
-        records, receipt = source.verify_source(checkout, lock)
-        staged = root / "stage"
-        source.stage_source(records, receipt, staged)
-        mounted = []
-        try:
-            for part, target in zip(("ui", "workspace"), targets):
-                origin = staged / "system/surface" / part
-                if not origin.is_dir() or origin.is_symlink() or target.exists() or target.is_symlink():
-                    raise DeploymentBuildError("verified Surface mount missing or collision: " + part)
-                origin.rename(target)
-                mounted.append(target)
-            print("VERCEL_SURFACE_SOURCE=VERIFIED commit=" + lock["source_commit"])
-            yield receipt
-        finally:
-            for target in reversed(mounted):
-                if target.is_dir() and not target.is_symlink():
-                    shutil.rmtree(target)
+    lock = source.load_lock(ROOT / "docs/contracts/surface-source.json")
+    records, receipt = source.verify_source(ROOT, lock)
+    if not records or receipt["source_commit"] != subprocess.check_output(
+            ["git", "-C", str(ROOT), "rev-parse", "HEAD"], text=True).strip():
+        raise DeploymentBuildError("unverified OS visual source")
+    yield receipt
 
 
 def build_web(source_commit: str) -> None:
     # Surface UI was extracted from ordax-os Git. Vercel does not execute
     # GitHub's prepare-verified-surface action, so assemble the same pinned
     # source before invoking the existing Web check/build/verify.
-    with mounted_vercel_surface():
+    with verified_vercel_surface():
         run(sys.executable, "tools/surface-web/build.py", "check")
         run(
             sys.executable,

@@ -161,23 +161,26 @@ def validate_source_tree(system_source: Path = SYSTEM, creator_source: Path | No
 
 
 
-def verify_external_surface_system(system_source: Path) -> dict:
-    """A Native release can only extend a fully verified cross-repo source."""
+def verify_same_commit_surface_system(system_source: Path) -> dict:
+    """Native releases must contain the visual tree from the same OS commit."""
     lock_file = ROOT / "docs/contracts/surface-source.json"
     lock = json.loads(lock_file.read_text(encoding="utf-8"))
     receipt_path = system_source / "surface/source-provenance.json"
     if not receipt_path.is_file() or receipt_path.is_symlink():
-        raise AssemblyError("external Native source requires verified Surface provenance")
+        raise AssemblyError("Native source requires same-commit Surface provenance")
     receipt = json.loads(receipt_path.read_text(encoding="utf-8"))
     if (
-        receipt.get("$schema") != "prototype-ordax.surface-assembly/1"
-        or receipt.get("old_os_visual_source_packaged") is not False
+        lock.get("$schema") != "prototype-ordax.surface-source/2"
+        or lock.get("source_ref") != "same-commit"
+        or receipt.get("$schema") != "prototype-ordax.surface-assembly/2"
+        or receipt.get("single_visual_source") is not True
         or receipt.get("os_commit") != git_head()
-        or receipt.get("surface_source_repository") != lock.get("source_repository")
-        or receipt.get("surface_source_commit") != lock.get("source_commit")
+        or receipt.get("surface_source_repository") != "ordaxsystems/ordax-os"
+        or receipt.get("surface_source_commit") != git_head()
+        or receipt.get("user_interface_owner") != "ordaxsystems/ordax-os"
         or receipt.get("visual_paths") != lock.get("visual_source_paths")
     ):
-        raise AssemblyError("external Native source is not bound to current OS/Surface")
+        raise AssemblyError("Native Surface source is not bound to current OS commit")
     fingerprint = hashlib.sha256()
     files = []
     for dirname in ("ui", "workspace"):
@@ -392,7 +395,7 @@ def assemble(destination: Path, system_source: Path = SYSTEM, creator_source: Pa
     verify_external_creator_source(creator_source)
     validate_source_tree(system_source, creator_source)
     if system_source != SYSTEM:
-        verify_external_surface_system(system_source)
+        verify_same_commit_surface_system(system_source)
     intelligence = None
     if require_external_intelligence:
         if system_source == SYSTEM:

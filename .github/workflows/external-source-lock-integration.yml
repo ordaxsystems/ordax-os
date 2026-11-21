@@ -44,7 +44,7 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        owner: [surface, intelligence]
+        owner: [intelligence]
     steps:
       - name: Checkout canonical OS main
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
@@ -60,7 +60,6 @@ jobs:
         run: |
           set -euo pipefail
           case "$OWNER" in
-            surface) lock=docs/contracts/surface-source.json; workflow=validate-source-integration.yml ;;
             intelligence) lock=docs/contracts/intelligence-source.json; workflow=ci.yml ;;
             *) exit 2 ;;
           esac

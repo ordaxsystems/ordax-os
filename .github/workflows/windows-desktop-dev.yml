@@ -377,10 +377,10 @@ jobs:
           if ($stage.desktop_sha -cne $desktopSha -or
               $stage.desktop_owner -cne 'ordaxsystems/ordax-desktop' -or
               $stage.runtime_owner -cne 'ordaxsystems/ordax-os' -or
-              $surface.source_repository -cne 'ordaxsystems/ordax-surface' -or
-              $surface.source_commit -cnotmatch '^[a-f0-9]{40}$' -or
-              $receipt.source_repository -cne $surface.source_repository -or
-              $receipt.source_commit -cne $surface.source_commit) {
+              $surface.source_repository -cne 'ordaxsystems/ordax-os' -or
+              $surface.source_ref -cne 'same-commit' -or
+              $receipt.source_repository -cne 'ordaxsystems/ordax-os' -or
+              $receipt.source_commit -cne $osSha) {
             throw 'Desktop, OS or verified Surface provenance mismatch'
           }
           $version = (Get-Content -LiteralPath 'out/windows-desktop-standalone/shell/package.json' -Raw | ConvertFrom-Json).version
@@ -410,7 +410,7 @@ jobs:
             os_repository = 'ordaxsystems/ordax-os'
             os_source_commit = $osSha
             surface_repository = $surface.source_repository
-            surface_source_commit = $surface.source_commit
+            surface_source_commit = $osSha
             checks = @('desktop-source-contracts', 'canonical-NSIS', 'isolated-NSIS-and-Native-smoke')
             component_trust = 'operator-ceremony-pending'
           }
@@ -419,7 +419,7 @@ jobs:
             "OrdaX Desktop Dev $version - UNSIGNED prerelease. NOT Stable.",
             "Desktop: $desktopSha",
             "OS: $osSha",
-            "Surface: $($surface.source_commit)",
+            "Surface: $osSha",
             "Installer SHA-256: $sha256",
             "CI: $($env:GITHUB_SERVER_URL)/$repo/actions/runs/$($env:GITHUB_RUN_ID)",
             'The canonical NSIS producer passed isolated Windows install/Native verification.',
@@ -478,7 +478,7 @@ jobs:
           Write-Output "ORDAX_DESKTOP_DEV_SHA256=$sha256"
           Write-Output "ORDAX_DESKTOP_DEV_SOURCE_COMMIT=$desktopSha"
           Write-Output "ORDAX_DESKTOP_DEV_OS_COMMIT=$osSha"
-          Write-Output "ORDAX_DESKTOP_DEV_SURFACE_COMMIT=$($surface.source_commit)"
+          Write-Output "ORDAX_DESKTOP_DEV_SURFACE_COMMIT=$osSha"
       # Legacy Actions artifact remains mandatory if no durable Release was requested.
       - uses: actions/upload-artifact@b7c566a772e6b6bfb58ed0dc250532a479d7789f # v6
         if: ${{ !inputs.publish_dev_release }}

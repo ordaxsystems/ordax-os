@@ -84,11 +84,14 @@ def assemble(os_root: Path, output: Path) -> dict:
                 raise source.SurfaceSourceError("missing committed Surface directory: " + part)
         for relative, payload in records:
             dest = tmp.joinpath(*PurePosixPath(relative).parts)
-            if dest.is_symlink() or not dest.is_file() or dest.read_bytes() != payload:
-                raise source.SurfaceSourceError("staged visual differs from OS Git: " + relative)
-            source_mode = stat.S_IMODE((os_root / relative).stat().st_mode)
-            if source_mode not in (0o644, 0o755):
-                raise source.SurfaceSourceError("non-canonical source file mode")
+            if dest.is_symlink() or not dest.is_file():
+                raise source.SurfaceSourceError("missing staged OS visual: " + relative)
+            # Always stage exact committed bytes, irrespective of Windows CRLF.
+            dest.write_bytes(payload)
+            if dest.read_bytes() != payload:
+                raise source.SurfaceSourceError("staged Surface differs from committed OS Git")
+            # Git tree modes were already checked by verify_source().
+            # Windows NTFS mode bits cannot substitute for Git 100644/100755.
 
         receipt = {
             "$schema": "prototype-ordax.surface-assembly/2",

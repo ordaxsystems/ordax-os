@@ -101,11 +101,14 @@ Não é owner de:
 - Runtime local/Computer Control;
 - serviços nativos do OrdaX OS.
 
-### 5. ordaxsystems/ordax-surface
+### 5. Surface ? m?dulo integrado ao ordaxsystems/ordax-os
 
-**Papel:** apresentação visual compartilhada, componentes e área de trabalho da Surface, com histórico e fonte canônicos independentes.
-
-É owner de `system/surface/ui/` e `system/surface/workspace/` (caminhos de montagem do artefato), design tokens, identidade visual e comportamento de interação. Não é owner de serviços nativos, Supervisor, boot, permissões, grants, assinatura, runtime de host ou atualizações do dispositivo. O OS consome um único commit pinado em `docs/contracts/surface-source.json`, preservando os ports e contratos públicos existentes.
+A interface visual compartilhada e o workspace pertencem ao pr?prio OS.
+Sua ?nica fonte edit?vel est? em system/surface/ui/ e system/surface/workspace/
+na MESMA revis?o Git do OS; o host e os servi?os mant?m limites modulares pr?prios.
+N?o existe checkout externo, lock transitivo ou outro dono do c?digo visual.
+O contrato docs/contracts/surface-source.json v2 representa a pol?tica da
+fonte ?nica, e o Supervisor mant?m a ativa??o e rollback da release.
 
 ### 6. ordaxsystems/ordax-desktop
 
@@ -210,7 +213,7 @@ não da existência de um instalador do Creator ou de testes isolados.
 ### Desktop Windows como consumidor da composição
 
 ```text
-ordaxsystems/ordax-surface / ordax-apps / outros producers
+ordax-os/system/surface / ordax-apps / outros producers
   -> ordaxsystems/ordax-os (composição e dependência direta)
   -> candidato OrdaX/OS verificável
   -> ordaxsystems/ordax-desktop (host Electron + NSIS)

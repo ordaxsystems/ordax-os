@@ -30,7 +30,7 @@
       ]
     },
     "surface": {
-      "repo": "ordaxsystems/ordax-surface",
+      "repo": "ordaxsystems/ordax-os",
       "owns": [
         "surface-visual-shell",
         "surface-workspace-ui",

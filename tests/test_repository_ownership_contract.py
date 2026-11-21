@@ -10,13 +10,13 @@ class RepositoryOwnershipContractTests(unittest.TestCase):
     def setUpClass(cls):
         cls.contract = json.loads(CONTRACT.read_text(encoding="utf-8"))
 
-    def test_canonical_repositories_include_separate_surface_visual_owner(self):
+    def test_canonical_modules_include_same_repo_surface_visual_owner(self):
         repos = self.contract["repositories"]
         self.assertEqual(set(repos), {"platform", "surface", "apps", "runtime", "control_plane", "public_site", "creator", "desktop"})
         self.assertEqual(repos["public_site"]["repo"], "ordaxsystems/ordax-site")
         self.assertIn("public-site-static-build-and-i18n", repos["public_site"]["owns"])
         self.assertIn("identity-backend", repos["public_site"]["must_not_own"])
-        self.assertEqual(repos["surface"]["repo"], "ordaxsystems/ordax-surface")
+        self.assertEqual(repos["surface"]["repo"], "ordaxsystems/ordax-os")
         self.assertIn("surface-visual-shell", repos["surface"]["owns"])
         self.assertIn("surface-native-host", repos["platform"]["owns"])
         self.assertNotIn("surface-shell", repos["platform"]["owns"])
@@ -36,10 +36,10 @@ class RepositoryOwnershipContractTests(unittest.TestCase):
         )
         repos = self.contract["repositories"]
         active = {record["repo"] for record in repos.values()}
-        self.assertEqual(len(active), len(repos), "duplicate active repository")
+        self.assertEqual(len(active), len(repos)-1, "Surface and OS must share one repository")
         self.assertEqual(source["source_repository"], "ordaxsystems/ordax-intelligence")
         self.assertNotIn(source["source_repository"], active)
-        self.assertEqual(len(active | {source["source_repository"]}), 9)
+        self.assertEqual(len(active | {source["source_repository"]}), 8)
         self.assertEqual(source["status"], "integration-candidate")
         self.assertIs(source["cutover_complete"], False)
         self.assertIs(source["activation_authorized"], False)
@@ -59,43 +59,20 @@ class RepositoryOwnershipContractTests(unittest.TestCase):
         self.assertIn("global-memory", repos["platform"]["owns"])
         self.assertIn("native-capability-preflight", repos["platform"]["owns"])
 
-    def test_surface_source_pin_triggers_consumer_contracts_not_retired_ui_source(self):
-        # The OS never owns the visual files; its contract pin is the only
-        # cross-repository change that can change their version in OS builds.
+    def test_surface_source_is_same_commit_and_targeted_ci(self):
         owner = self.contract["repositories"]["surface"]
-        self.assertEqual(owner["repo"], "ordaxsystems/ordax-surface")
-        pin = json.loads(
-            (ROOT / "docs/contracts/surface-source.json").read_text(encoding="utf-8")
-        )
-        self.assertEqual(pin["source_repository"], owner["repo"])
-        self.assertTrue(pin["invariants"]["single_visual_source_after_cutover"])
-        for name in (
-            "first-party-app-delivery.yml",
-            "intelligence-foundation.yml",
-            "portable-runtime-foundation.yml",
-        ):
-            with self.subTest(workflow=name):
-                source = (ROOT / ".github/workflows" / name).read_text(encoding="utf-8")
-                events, jobs = source.split("\njobs:\n", 1)
-                self.assertEqual(
-                    events.count("      - 'docs/contracts/surface-source.json'"), 2
-                )
-                self.assertNotIn("      - 'system/surface/ui/", events)
-                self.assertIn("  push:\n", events)
-                self.assertIn("  pull_request:\n", events)
-                self.assertIn(
-                    "uses: ./.github/actions/prepare-verified-surface", jobs
-                )
-                self.assertIn("actions/checkout@", jobs)
-        # Reintroducing visual source into OS must still be detected by the
-        # dedicated owner consumer: do not remove this resurrection sentinel.
-        dedicated = (
-            ROOT / ".github/workflows/surface-source-consumer.yml"
-        ).read_text(encoding="utf-8")
-        self.assertEqual(dedicated.count("      - 'system/surface/ui/**'"), 2)
-        self.assertEqual(
-            dedicated.count("      - 'system/surface/workspace/**'"), 2
-        )
+        self.assertEqual(owner["repo"], "ordaxsystems/ordax-os")
+        policy = json.loads((ROOT / "docs/contracts/surface-source.json").read_text(encoding="utf-8"))
+        self.assertEqual(policy["source_repository"], owner["repo"])
+        self.assertEqual(policy["source_ref"], "same-commit")
+        self.assertEqual(policy["source_policy"], "tracked-git-blobs-only")
+        self.assertNotIn("source_commit", policy)
+        action = (ROOT / ".github/actions/prepare-verified-surface/action.yml").read_text(encoding="utf-8")
+        self.assertIn("materialize.py verify", action)
+        self.assertNotIn("repository: ordaxsystems/ordax-surface", action)
+        workflow = (ROOT / ".github/workflows/surface-source-consumer.yml").read_text(encoding="utf-8")
+        self.assertEqual(workflow.count("      - 'system/surface/ui/**'"), 2)
+        self.assertEqual(workflow.count("      - 'system/surface/workspace/**'"), 2)
 
     def test_creator_is_independent_consumer_not_os_media_producer(self):
         repos = self.contract["repositories"]

@@ -1,4 +1,4 @@
-"""Fail-closed tests for the immutable cross-repository Surface source materializer."""
+"""Fail-closed tests for the same-commit OrdaX Surface source materializer."""
 
 import importlib.util
 import json
@@ -32,10 +32,11 @@ class SurfaceSourceMaterializationTests(unittest.TestCase):
         self.run_git("commit", "-qm", "test: pinned visual fixture")
         self.sha = self.run_git("rev-parse", "HEAD").strip()
         self.lock = {
-            "$schema": "prototype-ordax.surface-source/1",
+            "$schema": "prototype-ordax.surface-source/2",
             "status": "canonical",
-            "source_repository": "ordaxsystems/ordax-surface",
-            "source_commit": self.sha,
+            "source_repository": "ordaxsystems/ordax-os",
+            "source_ref": "same-commit",
+            "source_policy": "tracked-git-blobs-only",
             "visual_source_paths": list(surface.VISUAL_PATHS),
         }
 
@@ -59,14 +60,14 @@ class SurfaceSourceMaterializationTests(unittest.TestCase):
         self.assertEqual(json.loads((output / "surface-source-receipt.json").read_text()), receipt)
         self.assertFalse((self.source / "surface-source-receipt.json").exists())
 
-    def test_rejects_changed_source_revision(self):
-        self.lock["source_commit"] = "0" * 40
-        with self.assertRaisesRegex(surface.SurfaceSourceError, "not pinned"):
+    def test_rejects_foreign_source_ref(self):
+        self.lock["source_ref"] = "external"
+        with self.assertRaisesRegex(surface.SurfaceSourceError, "OS SHA"):
             surface.verify_source(self.source, self.lock)
 
     def test_rejects_dirty_source_bytes(self):
         (self.source / "system/surface/ui/view.mjs").write_text("tampered", encoding="utf-8")
-        with self.assertRaisesRegex(surface.SurfaceSourceError, "modified"):
+        with self.assertRaisesRegex(surface.SurfaceSourceError, "differs"):
             surface.verify_source(self.source, self.lock)
 
     def test_refuses_to_overwrite_staged_source(self):
@@ -81,11 +82,15 @@ class SurfaceSourceMaterializationTests(unittest.TestCase):
 
     def test_rejects_symlink_in_tracked_visual_tree(self):
         link = self.source / "system/surface/ui/sneaky.mjs"
-        link.symlink_to("view.mjs")
+        try:
+            link.symlink_to("view.mjs")
+        except OSError as exc:
+            if getattr(exc, "winerror", None) == 1314:
+                self.skipTest("Windows symlink privilege unavailable")
+            raise
         self.run_git("add", "system/surface/ui/sneaky.mjs")
         self.run_git("commit", "-qm", "test: symlink")
-        self.lock["source_commit"] = self.run_git("rev-parse", "HEAD").strip()
-        with self.assertRaisesRegex(surface.SurfaceSourceError, "unsafe source mode"):
+        with self.assertRaisesRegex(surface.SurfaceSourceError, "unsafe visual Git entry"):
             surface.verify_source(self.source, self.lock)
 
     def test_rejects_retired_integration_candidate_before_materialization(self):
@@ -99,7 +104,7 @@ class SurfaceSourceMaterializationTests(unittest.TestCase):
     def test_validates_contract_boundary(self):
         lock_file = self.root / "surface-source.json"
         lock_file.write_text(json.dumps(self.lock), encoding="utf-8")
-        self.assertEqual(surface.load_lock(lock_file)["source_commit"], self.sha)
+        self.assertEqual(surface.load_lock(lock_file)["source_ref"], "same-commit")
         self.lock["visual_source_paths"] = ["system/surface/runtime"]
         lock_file.write_text(json.dumps(self.lock), encoding="utf-8")
         with self.assertRaisesRegex(surface.SurfaceSourceError, "public mount boundary"):

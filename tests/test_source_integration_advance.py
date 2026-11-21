@@ -21,7 +21,7 @@ class SourceAdvanceTests(unittest.TestCase):
         self.source = Path(self.tmp.name) / "upstream"
         (self.root / "docs/contracts").mkdir(parents=True)
         self.source.mkdir()
-        for name in ("surface", "intelligence"):
+        for name in ("intelligence",):
             relative = advance.OWNERS[name]["module"]
             dest = self.root / relative
             dest.parent.mkdir(parents=True, exist_ok=True)
@@ -49,35 +49,6 @@ class SourceAdvanceTests(unittest.TestCase):
         path = self.root / advance.OWNERS[owner]["lock"]
         path.write_text(json.dumps(data, indent=2) + "\n")
         return path
-
-    def test_surface_only_visual_changes_advance_and_keep_policy(self):
-        self.write("system/surface/ui/index.js", "old")
-        self.write("system/surface/workspace/index.js", "old")
-        original = self.commit()
-        path = self.lock("surface", {
-            "$schema": "prototype-ordax.surface-source/1",
-            "status": "canonical",
-            "source_repository": "ordaxsystems/ordax-surface",
-            "source_commit": original,
-            "visual_source_paths": ["system/surface/ui", "system/surface/workspace"],
-            "physical_disk_write_allowed": False,
-        })
-        self.write("README.md", "docs only")
-        self.commit()
-        self.assertEqual(advance.advance(self.root, "surface", self.source, True)["reason"], "no-owned-source-change")
-        self.assertEqual(json.loads(path.read_text())["source_commit"], original)
-        self.write("system/surface/ui/index.js", "new")
-        new = self.commit()
-        self.assertTrue(advance.advance(self.root, "surface", self.source)["changed"])
-        self.assertEqual(json.loads(path.read_text())["source_commit"], original)
-        self.assertTrue(advance.advance(self.root, "surface", self.source, True)["changed"])
-        updated = json.loads(path.read_text())
-        self.assertEqual(updated["source_commit"], new)
-        self.assertIs(updated["physical_disk_write_allowed"], False)
-        self.assertFalse(advance.advance(self.root, "surface", self.source, True)["changed"])
-        self.git("checkout", "--detach", original)
-        with self.assertRaisesRegex(advance.SourceAdvanceError, "does not descend"):
-            advance.advance(self.root, "surface", self.source, True)
 
     def test_intelligence_updates_complete_portable_graph_without_activation(self):
         paths = (
@@ -141,44 +112,6 @@ class SourceAdvanceTests(unittest.TestCase):
         )
         self.assertNotIn("tools/inference-builder/windows-candidate.py", final["source_paths"])
 
-    def test_surface_selects_verified_main_source_sha_before_docs_tail(self):
-        self.write("system/surface/ui/index.js", "initial")
-        self.write("system/surface/workspace/index.js", "initial")
-        old = self.commit()
-        lock = {
-            "$schema": "prototype-ordax.surface-source/1",
-            "status": "canonical",
-            "source_repository": "ordaxsystems/ordax-surface",
-            "source_commit": old,
-            "visual_source_paths": ["system/surface/ui", "system/surface/workspace"],
-        }
-        path = self.lock("surface", lock)
-        self.write("system/surface/ui/index.js", "updated")
-        source_sha = self.commit("main visual change")
-        self.write("docs/README.md", "documentation-only merge after green Surface CI")
-        self.commit("docs only")
-        self.assertEqual(
-            advance.select_source_commit(self.root, "surface", self.source),
-            source_sha,
-        )
-        self.git("checkout", "--detach", source_sha)
-        result = advance.advance(self.root, "surface", self.source, True)
-        self.assertTrue(result["changed"])
-        self.assertEqual(json.loads(path.read_text())["source_commit"], source_sha)
-        self.git("checkout", "main")
-        self.assertEqual(
-            advance.select_source_commit(self.root, "surface", self.source),
-            source_sha,
-        )
-        # Even if the existing OS pin was a later nonvisual main commit, the
-        # selector must refuse to move the lock backwards.
-        lock["source_commit"] = self.git("rev-parse", "HEAD")
-        path.write_text(json.dumps(lock))
-        self.assertEqual(
-            advance.select_source_commit(self.root, "surface", self.source),
-            lock["source_commit"],
-        )
-
     def test_intelligence_ignores_windows_builder_and_docs_when_selecting_ci_sha(self):
         paths = (
             "src/index.mjs", "src/contract-bindings.mjs",
@@ -222,7 +155,7 @@ class SourceAdvanceTests(unittest.TestCase):
         linked = Path(self.tmp.name) / "linked"
         linked.symlink_to(self.source, target_is_directory=True)
         with self.assertRaisesRegex(advance.SourceAdvanceError, "real Git checkout"):
-            advance.advance(self.root, "surface", linked, True)
+            advance.advance(self.root, "intelligence", linked, True)
 
     def test_pending_pr_selection_is_paginated_owner_scoped_and_fail_closed(self):
         import os
@@ -252,7 +185,7 @@ fi
                 return {"number": number, "head": {
                     "repo": {"full_name": repo}, "ref": branch,
                     "sha": "a" * 40}, "base": {"ref": base}}
-            def run(pages, files=None, owner="surface"):
+            def run(pages, files=None, owner="intelligence"):
                 out = folder / "out"
                 out.write_text("")
                 env = dict(os.environ, PATH=str(folder) + os.pathsep + os.environ["PATH"],
@@ -265,21 +198,21 @@ fi
                 result = subprocess.run(["bash", "-e"], input=script, text=True,
                                         env=env, capture_output=True)
                 return result, out.read_text()
-            no_matches, output = run([[pr(8, "automation/advance-surface", repo="other/fork")], []])
+            no_matches, output = run([[pr(8, "automation/advance-intelligence", repo="other/fork")], []])
             self.assertEqual(no_matches.returncode, 0, no_matches.stderr)
             self.assertIn("existing=false", output)
             one, output = run([
                 [pr(8, "some-other-branch")],
-                [pr(9, "automation/advance-surface"), pr(10, "automation/advance-intelligence")],
+                [pr(9, "automation/advance-intelligence"), pr(10, "automation/advance-unknown")],
             ])
             self.assertEqual(one.returncode, 0, one.stderr)
             self.assertIn("existing=true", output)
             self.assertIn("number=9", output)
-            self.assertIn("branch=automation/advance-surface", output)
+            self.assertIn("branch=automation/advance-intelligence", output)
             self.assertIn("manual=false", output)
             manual, output = run([[
                 pr(21, "fix/intelligence-source-lock-91de8cd-20261104"),
-                pr(22, "automation/advance-surface"),
+                pr(22, "automation/advance-intelligence"),
             ]], owner="intelligence")
             self.assertEqual(manual.returncode, 0, manual.stderr)
             self.assertIn("existing=true", output)
@@ -292,12 +225,12 @@ fi
             self.assertNotEqual(competing.returncode, 0)
             self.assertIn("Multiple owner integration PRs", competing.stdout)
             duplicate, _ = run([[
-                pr(9, "automation/advance-surface"),
-                pr(10, "automation/advance-surface-deadbeef1234"),
+                pr(9, "automation/advance-intelligence"),
+                pr(10, "automation/advance-intelligence-deadbeef1234"),
             ]])
             self.assertNotEqual(duplicate.returncode, 0)
             self.assertIn("Multiple owner integration PRs", duplicate.stdout)
-            foreign_files, _ = run([[pr(9, "automation/advance-surface")]],
+            foreign_files, _ = run([[pr(9, "automation/advance-intelligence")]],
                                    {"files": [{"path": "system/supervisor"}]})
             self.assertNotEqual(foreign_files.returncode, 0)
 
@@ -310,8 +243,8 @@ fi
         self.assertIn('branch="automation/advance-$OWNER-$SOURCE_SHA"', workflow)
         # Future source commits cannot reuse an old candidate branch retained
         # after a squash merge, regardless of the repository deletion policy.
-        first = "automation/advance-surface-" + "a" * 40
-        second = "automation/advance-surface-" + "b" * 40
+        first = "automation/advance-intelligence-" + "a" * 40
+        second = "automation/advance-intelligence-" + "b" * 40
         self.assertNotEqual(first, second)
         self.assertIn('if [ "$EXISTING" = true ]; then', workflow)
         self.assertIn('branch="$PR_BRANCH"', workflow)
@@ -348,14 +281,14 @@ fi
         git("add", "lock.json")
         git("commit", "-m", "initial")
         git("push", "origin", "main")
-        git("switch", "-c", "automation/advance-surface")
+        git("switch", "-c", "automation/advance-intelligence")
         (work / "lock.json").write_text('{"version":1}')
         git("add", "lock.json")
         git("commit", "-m", "first owner PR")
-        git("push", "origin", "HEAD:refs/heads/automation/advance-surface")
+        git("push", "origin", "HEAD:refs/heads/automation/advance-intelligence")
         original = git("rev-parse", "HEAD").stdout.strip()
         git("switch", "main")
-        git("merge", "--no-ff", "-m", "merge first PR", "automation/advance-surface")
+        git("merge", "--no-ff", "-m", "merge first PR", "automation/advance-intelligence")
         git("push", "origin", "main")
         main_sha = git("rev-parse", "HEAD").stdout.strip()
         self.assertEqual(git("merge-base", "--is-ancestor", original, main_sha).returncode, 0)
@@ -363,9 +296,9 @@ fi
         (work / "lock.json").write_text('{"version":2}')
         git("add", "lock.json")
         git("commit", "-m", "second owner PR")
-        git("push", "origin", "HEAD:refs/heads/automation/advance-surface")
+        git("push", "origin", "HEAD:refs/heads/automation/advance-intelligence")
         updated = git("rev-parse", "HEAD").stdout.strip()
-        remote_tip = git("ls-remote", "--heads", "origin", "refs/heads/automation/advance-surface").stdout
+        remote_tip = git("ls-remote", "--heads", "origin", "refs/heads/automation/advance-intelligence").stdout
         self.assertIn(updated, remote_tip)
         # No implicit forced update of a closed but *unmerged* PR.
         git("switch", "main")
@@ -420,7 +353,7 @@ fi
         git("commit", "-m", "canonical main")
         original_main_sha = git("rev-parse", "HEAD")
         git("push", "origin", "main")
-        branch = "automation/advance-surface-" + "a" * 40
+        branch = "automation/advance-intelligence-" + "a" * 40
         git("switch", "-c", "source-candidate")
         verified = '{"source_commit":"verified"}\n'
         target.write_text(verified)
@@ -490,7 +423,7 @@ fi
         self.assertNotEqual(altered.returncode, 0)
         self.assertIn("differs from verified lock", altered.stdout)
         # A matching lock is insufficient if another file was pushed.
-        rogue_branch = "automation/advance-surface-" + "b" * 40
+        rogue_branch = "automation/advance-intelligence-" + "b" * 40
         git("switch", "-c", "rogue", "main")
         target.write_text(verified)
         (work / "rogue.txt").write_text("not owned")

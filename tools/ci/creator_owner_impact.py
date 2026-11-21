@@ -6,10 +6,6 @@ from pathlib import Path
 import re
 import subprocess
 
-if __package__:
-    from .portable_qemu_impact import verified_surface_visual_source_lock_delta
-else:
-    from portable_qemu_impact import verified_surface_visual_source_lock_delta
 
 ROOT = Path(__file__).resolve().parents[2]
 WORKFLOW = ".github/workflows/creator-owner-dev-git.yml"
@@ -584,8 +580,7 @@ def classify(base, head, *, root=ROOT, event="push"):
                         or verified_creator_freshness_wiring_only(base, head, root=root)):
                     return True, "creator-workflow-producer-or-unknown-change"
             elif path == SURFACE_LOCK:
-                if not verified_surface_visual_source_lock_delta(base, head, root=root):
-                    return True, "surface-lock-not-proven-visual-only"
+                return True, "same-commit-surface-source-policy-change"
             elif path == DESKTOP_TRIGGER_WORKFLOW:
                 if not verified_desktop_trigger_detachment(base, head, root=root):
                     return True, "desktop-trigger-detachment-unverified"

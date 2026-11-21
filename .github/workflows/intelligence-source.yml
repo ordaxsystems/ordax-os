@@ -117,7 +117,7 @@ jobs:
           surface=module.verify_external_surface_system(candidate)
           assert receipt["source_repository"] == "ordaxsystems/ordax-intelligence"
           assert receipt["activation_authorized"] is False
-          assert surface["old_os_visual_source_packaged"] is False
+          assert surface["single_visual_source"] is True
           print("NATIVE_INTELLIGENCE_SOURCE_PROOF=PASS")
           PY
       - name: Prove Native components use external source without bundled legacy bodies

@@ -68,9 +68,12 @@ def preseed(repo: Path, assembled: Path, rootfs: Path, sha: str) -> dict:
     if lock.get("status") != "canonical":
         raise PreseedError("offline Owner preload is only valid after canonical visual cutover")
     if (receipt.get("os_commit") != sha
-            or receipt.get("surface_source_commit") != lock.get("source_commit")
-            or receipt.get("surface_source_repository") != lock.get("source_repository")
-            or receipt.get("old_os_visual_source_packaged") is not False):
+            or lock.get("$schema") != "prototype-ordax.surface-source/2"
+            or lock.get("source_ref") != "same-commit"
+            or receipt.get("$schema") != "prototype-ordax.surface-assembly/2"
+            or receipt.get("surface_source_commit") != sha
+            or receipt.get("surface_source_repository") != "ordaxsystems/ordax-os"
+            or receipt.get("single_visual_source") is not True):
         raise PreseedError("assembled Surface source receipt does not match exact OS lock")
     checkout = rootfs / "workspace/ordax"
     if not checkout.is_dir() or git_head(checkout) != sha:
@@ -162,11 +165,11 @@ def preseed(repo: Path, assembled: Path, rootfs: Path, sha: str) -> dict:
             (stage / ".intelligence-source-sha").write_text(pinned["source_commit"] + "\n", encoding="ascii")
         (stage / ".surface-file-hashes").write_text("".join(lines), encoding="utf-8")
         (stage / ".sha").write_text(sha + "\n", encoding="ascii")
-        (stage / ".surface-source-sha").write_text(lock["source_commit"] + "\n", encoding="ascii")
+        (stage / ".surface-source-sha").write_text(sha + "\n", encoding="ascii")
         (stage / ".ready").write_text("ready\n", encoding="ascii")
         regular_tree(stage)
         os.rename(stage, slot)
-        return {"os_commit": sha, "surface_commit": lock["source_commit"],
+        return {"os_commit": sha, "surface_commit": sha,
                 "intelligence_commit": pinned["source_commit"] if intelligence is not None else None,
                 "intelligence_files": len(pinned["source_paths"]) if intelligence is not None else 0,
                 "visual_files": count, "target": str(slot), "physical_device_written": False}

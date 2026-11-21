@@ -1,6 +1,9 @@
 # Surface
 
-The visual Surface source is independently versioned in `ordaxsystems/ordax-surface`. This OS folder remains the **native host/runtime boundary**. The exact external visual revision is pinned by `docs/contracts/surface-source.json` and supplied to the composed `system/surface/{ui,workspace}` release tree, not duplicated as Git-tracked OS source.
+The canonical visual source is committed in this repository under
+system/surface/ui/ and system/surface/workspace/. The visual modules
+and Native host share the same OS Git SHA, with no external visual source
+or independent source-pin revision.
 
 The same product Surface serves every applicable execution mode:
 
@@ -16,7 +19,9 @@ Those modes may host/render the Surface differently, but they do not own separat
 
 ## Visual source
 
-The graphical modules live under the **external Surface owner** at `system/surface/ui/` and `system/surface/workspace/` for compatible release-layout paths. They are mounted only into verified staging/build trees; `ordax-os` does not keep a second visual source.
+The editable graphical modules are verified against the committed OS
+Git blobs by tools/surface-source/materialize.py. Release packaging uses
+a disposable tree and never modifies the running OS checkout.
 
 `surface-state.mjs` keeps interaction state independent from DOM rendering. `surface.mjs` mounts the shared UI against the platform-neutral `ordax.surface-host/1` contract. Design tokens and responsive behavior remain shared CSS.
 

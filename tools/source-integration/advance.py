@@ -2,7 +2,7 @@
 """Advance only the OS-owned immutable source lock of an approved external owner.
 
 This does not publish a release, change activation policy, or update a device.
-The existing Surface/Intelligence materializers remain the only byte verifiers.
+The Intelligence materializer remains the source-graph byte verifier.
 """
 from __future__ import annotations
 
@@ -15,11 +15,6 @@ import subprocess
 
 ROOT = Path(__file__).resolve().parents[2]
 OWNERS = {
-    "surface": {
-        "lock": "docs/contracts/surface-source.json",
-        "module": "tools/surface-source/materialize.py",
-        "paths": ("system/surface/ui", "system/surface/workspace"),
-    },
     "intelligence": {
         "lock": "docs/contracts/intelligence-source.json",
         "module": "tools/intelligence-source/materialize.py",

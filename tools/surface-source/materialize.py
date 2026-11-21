@@ -9,6 +9,8 @@ from __future__ import annotations
 
 import argparse
 import hashlib
+import io
+import tarfile
 import json
 import os
 from pathlib import Path, PurePosixPath
@@ -57,48 +59,65 @@ def git_blob_sha(content: bytes) -> str:
 
 
 def verify_source(source: Path, lock: dict) -> tuple[list[tuple[str, bytes]], dict]:
+    """Verify committed visual tree once, using batched Git operations."""
     source = source.resolve(strict=True)
     if not source.is_dir() or source.is_symlink():
-        raise SurfaceSourceError("Surface checkout must be a directory")
+        raise SurfaceSourceError("OS checkout must be a directory")
     head = git(source, "rev-parse", "HEAD").decode("ascii").strip()
     if not SHA40.fullmatch(head) or lock.get("source_ref") != "same-commit":
-        raise SurfaceSourceError("Surface identity must be the canonical OS SHA")
-    dirty = git(source, "status", "--porcelain", "--untracked-files=all", "--", *VISUAL_PATHS)
-    if dirty:
-        raise SurfaceSourceError("Surface OS source tree is modified")
-    raw = git(source, "ls-tree", "-rz", "HEAD", "--", *VISUAL_PATHS)
-    records = []
-    fingerprint = hashlib.sha256()
-    for entry in raw.split(b"\0"):
-        if not entry:
+        raise SurfaceSourceError("Surface identity must equal the OS SHA")
+    if git(source, "status", "--porcelain", "--untracked-files=all", "--", *VISUAL_PATHS):
+        raise SurfaceSourceError("Surface worktree differs from the committed OS tree")
+    listing = git(source, "ls-tree", "-rz", head, "--", *VISUAL_PATHS)
+    expected: dict[str, str] = {}
+    for record in listing.split(b"\0"):
+        if not record:
             continue
         try:
-            meta, name = entry.split(b"\t", 1)
-            mode, kind, expected = meta.decode("ascii").split()
+            meta, name = record.split(b"\t", 1)
+            mode, kind, sha = meta.decode("ascii").split()
             relative = name.decode("utf-8")
         except (ValueError, UnicodeDecodeError) as exc:
-            raise SurfaceSourceError("malformed source Git tree") from exc
-        normalized = PurePosixPath(relative)
-        if (mode not in {"100644", "100755"} or kind != "blob" or
-            str(normalized) != relative or normalized.is_absolute() or
-            not any(relative.startswith(prefix + "/") for prefix in VISUAL_PATHS) or
-            ".." in normalized.parts):
-            raise SurfaceSourceError("unsafe source mode or path: " + relative)
-        path = source.joinpath(*normalized.parts)
+            raise SurfaceSourceError("malformed Git visual inventory") from exc
+        parsed = PurePosixPath(relative)
+        if (mode not in {"100644", "100755"} or kind != "blob"
+                or str(parsed) != relative or parsed.is_absolute()
+                or ".." in parsed.parts or relative in expected
+                or not any(relative.startswith(prefix + "/") for prefix in VISUAL_PATHS)):
+            raise SurfaceSourceError("unsafe visual Git entry: " + relative)
+        path = source.joinpath(*parsed.parts)
         if path.is_symlink() or not path.is_file():
-            raise SurfaceSourceError("source file is absent or linked: " + relative)
-        payload = path.read_bytes()
-        if git_blob_sha(payload) != expected:
-            raise SurfaceSourceError("source bytes differ from pinned Git blob: " + relative)
-        fingerprint.update(relative.encode("utf-8") + b"\0")
+            raise SurfaceSourceError("missing or linked visual source: " + relative)
+        expected[relative] = sha
+    if not expected or not all(any(p.startswith(prefix + "/") for p in expected) for prefix in VISUAL_PATHS):
+        raise SurfaceSourceError("missing committed Surface subtree")
+    archive = git(source, "-c", "core.autocrlf=false", "archive", "--format=tar", head, *VISUAL_PATHS)
+    recovered: dict[str, bytes] = {}
+    try:
+        with tarfile.open(fileobj=io.BytesIO(archive), mode="r:") as bundle:
+            for item in bundle:
+                if item.isdir():
+                    continue
+                name = item.name
+                if not item.isfile() or name not in expected or name in recovered:
+                    raise SurfaceSourceError("unsafe or untracked entry in Surface Git archive")
+                stream = bundle.extractfile(item)
+                if stream is None:
+                    raise SurfaceSourceError("unreadable Git Surface blob")
+                content = stream.read()
+                if len(content) != item.size or git_blob_sha(content) != expected[name]:
+                    raise SurfaceSourceError("Git Surface archive differs from committed blob: " + name)
+                recovered[name] = content
+    except (OSError, tarfile.TarError) as exc:
+        raise SurfaceSourceError("unreadable canonical Surface archive") from exc
+    if set(recovered) != set(expected):
+        raise SurfaceSourceError("Surface archive missing committed source")
+    records = sorted(recovered.items())
+    fingerprint = hashlib.sha256()
+    for name, payload in records:
+        fingerprint.update(name.encode("utf-8") + b"\0")
         fingerprint.update(hashlib.sha256(payload).digest())
-        records.append((relative, payload))
-    if not records:
-        raise SurfaceSourceError("pinned Surface contains no visual sources")
-    for prefix in VISUAL_PATHS:
-        if not any(p.startswith(prefix + "/") for p, _ in records):
-            raise SurfaceSourceError("missing visual source subtree: " + prefix)
-    receipt = {
+    return records, {
         "$schema": "ordax.surface-source-materialization/2",
         "source_repository": lock["source_repository"],
         "source_commit": head,
@@ -108,7 +127,6 @@ def verify_source(source: Path, lock: dict) -> tuple[list[tuple[str, bytes]], di
         "source_only": True,
         "live_os_mutated": False,
     }
-    return records, receipt
 
 
 def stage_source(records: list[tuple[str, bytes]], receipt: dict, output: Path) -> None:

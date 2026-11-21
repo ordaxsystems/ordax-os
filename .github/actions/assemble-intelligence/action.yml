@@ -62,7 +62,7 @@ runs:
         intel=mod.verify_external_intelligence_system(root/"system")
         visual=mod.verify_external_surface_system(root/"system")
         assert intel["activation_authorized"] is False
-        assert visual["old_os_visual_source_packaged"] is False
+        assert visual["single_visual_source"] is True
         assert (root/"system/intelligence-source/tools/inference-builder/build.py").is_file()
         print("ORDAX_SURFACE_INTELLIGENCE_SOURCE_VERIFIED=PASS")
         PY

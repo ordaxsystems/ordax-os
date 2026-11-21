@@ -915,9 +915,9 @@ jobs:
               path = "system/surface/source-provenance.json"
               assert names.count(path) == 1
               receipt = json.load(archive.extractfile(path))
-              assert receipt["surface_source_commit"] == pin["source_commit"]
+              assert receipt["surface_source_commit"] == receipt["os_commit"]
               assert receipt["surface_source_repository"] == pin["source_repository"]
-              assert receipt["old_os_visual_source_packaged"] is False
+              assert receipt["single_visual_source"] is True
               for visual in (
                   "system/surface/ui/surface.mjs",
                   "system/surface/workspace/presentation.mjs",
