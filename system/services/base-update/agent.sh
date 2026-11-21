@@ -732,7 +732,7 @@ prepare_dev_base_postboot_promotion() {
             if /bin/busybox mv -f "$temporary" "$DEV_BASE_PROMOTION_RESULT_FILE"; then
                 # Publish the artifact/request pair only after postflight.
                 # Supervisor, the request owner, clears the matching marker.
-                promotion_receipt=$DEV_BASE_PROMOTED_FILE.tmp.$
+                promotion_receipt=$DEV_BASE_PROMOTED_FILE.tmp.$$
                 if printf '%s\n%s\n' "$staged_sha" "$ready_request_sha" >"$promotion_receipt" &&
                    /bin/busybox chmod 600 "$promotion_receipt" &&
                    /bin/busybox mv -f "$promotion_receipt" "$DEV_BASE_PROMOTED_FILE"; then
