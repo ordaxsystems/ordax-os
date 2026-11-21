@@ -210,6 +210,10 @@ class CreatorKernelReuseWorkflowTests(unittest.TestCase):
         self.assertIn("owner_validation_pr", workflow)
         self.assertIn("DEV_BASE_OWNER_MAIN_BACKFILL=$GITHUB_SHA", workflow)
         self.assertIn("DEV_BASE_OWNER_BACKFILL=ALREADY_PUBLISHED", workflow)
+        self.assertIn("DEV_BASE_OWNER_BACKFILL=PARTIAL_RELEASE_REVERIFY", workflow)
+        self.assertIn("Existing Base release has unsafe identity or assets", workflow)
+        self.assertIn('((.digest // "") | test("^sha256:[0-9a-f]{64}$"))', workflow)
+        self.assertIn("all($names[];", workflow)
         self.assertIn('current_main="$(gh api "repos/$GITHUB_REPOSITORY/git/ref/heads/main"', workflow)
         authority = self.step_block(
             workflow, "Authorize exact Owner validation dispatch or confirmed main push"

@@ -228,10 +228,34 @@ jobs:
               current_main="$(gh api "repos/$GITHUB_REPOSITORY/git/ref/heads/main" --jq '.object.sha')"
               test "$current_main" = "$GITHUB_SHA"
               tag="ordax-dev-base-$GITHUB_SHA"
-              if gh api "repos/$GITHUB_REPOSITORY/releases/tags/$tag" >/dev/null 2>&1; then
-                echo 'DEV_BASE_OWNER_BACKFILL=ALREADY_PUBLISHED'
-                echo 'publish=false' >> "$GITHUB_OUTPUT"
-                exit 0
+              if release_json="$(gh api "repos/$GITHUB_REPOSITORY/releases/tags/$tag" 2>/dev/null)"; then
+                # A release shell can exist before all four immutable assets
+                # finish uploading. Never mistake that partial state for a
+                # complete Base or force another costly build unnecessarily.
+                if ! jq -e '
+                  (.draft == false) and (.prerelease == true) and
+                  (.target_commitish == env.GITHUB_SHA) and
+                  (.assets | type == "array") and
+                  ([.assets[].name] as $names |
+                    (($names | length) == ($names | unique | length)) and
+                    all($names[]; . == "dev-base.json" or . == "vmlinuz" or
+                                   . == "initrd.gz" or . == "rootfs.tar"))
+                ' <<<"$release_json" >/dev/null; then
+                  echo "::error::Existing Base release has unsafe identity or assets" >&2
+                  exit 1
+                fi
+                if jq -e '
+                  ([.assets[].name] | sort) ==
+                    (["dev-base.json", "vmlinuz", "initrd.gz", "rootfs.tar"] | sort) and
+                  all(.assets[];
+                    .state == "uploaded" and .size > 0 and
+                    ((.digest // "") | test("^sha256:[0-9a-f]{64}$")))
+                ' <<<"$release_json" >/dev/null; then
+                  echo 'DEV_BASE_OWNER_BACKFILL=ALREADY_PUBLISHED'
+                  echo 'publish=false' >> "$GITHUB_OUTPUT"
+                  exit 0
+                fi
+                echo 'DEV_BASE_OWNER_BACKFILL=PARTIAL_RELEASE_REVERIFY'
               fi
               echo "DEV_BASE_OWNER_MAIN_BACKFILL=$GITHUB_SHA"
               echo 'DEV_BASE_OWNER_VALIDATION_EXACT_HEAD=PASS'
