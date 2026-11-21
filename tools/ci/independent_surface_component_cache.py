@@ -192,6 +192,36 @@ def record(out_dir: Path, source_commit: str, root: Path = ROOT) -> dict:
     return value
 
 
+def manifest_identity(out_dir: Path) -> tuple[dict, str, str]:
+    out_dir = verified_output_dir(out_dir)
+    manifest_path = out_dir / MANIFEST
+    if manifest_path.is_symlink() or not manifest_path.is_file():
+        raise CacheError("Surface cache manifest is missing or unsafe")
+    try:
+        manifest = json.loads(manifest_path.read_text(encoding="utf-8"))
+    except (OSError, json.JSONDecodeError) as exc:
+        raise CacheError(f"cannot read Surface cache manifest: {exc}") from exc
+    if not isinstance(manifest, dict) or manifest.get("$schema") != SCHEMA or manifest.get("fingerprint_version") != FINGERPRINT_VERSION:
+        raise CacheError("Surface cache manifest schema/version mismatch")
+    build_environment = validated_environment(
+        str(manifest.get("execution_environment", "")),
+        "manifest build environment",
+    )
+    manifest_fingerprint = str(manifest.get("input_fingerprint", ""))
+    if SHA256.fullmatch(manifest_fingerprint) is None:
+        raise CacheError("invalid Surface input fingerprint")
+    return manifest, build_environment, manifest_fingerprint
+
+
+def compatible_input_identity(out_dir: Path, root: Path = ROOT) -> bool:
+    """Cheap candidate selection only; does not authorize artifact bytes."""
+    _, build_environment, manifest_fingerprint = manifest_identity(out_dir)
+    configured_producer = os.environ.get("ORDAX_SURFACE_PRODUCER_ENVIRONMENT", "").strip()
+    if configured_producer and build_environment != environment():
+        return False
+    return manifest_fingerprint == fingerprint(root, build_environment=build_environment)
+
+
 def verify(
     out_dir: Path,
     integration_commit: str,
@@ -203,25 +233,15 @@ def verify(
 ) -> dict:
     integration_commit = exact_commit(integration_commit, "integration commit")
     out_dir = verified_output_dir(out_dir)
-    manifest_path = out_dir / MANIFEST
-    if manifest_path.is_symlink() or not manifest_path.is_file():
-        raise CacheError("Surface cache manifest is missing or unsafe")
-    try:
-        manifest = json.loads(manifest_path.read_text(encoding="utf-8"))
-    except (OSError, json.JSONDecodeError) as exc:
-        raise CacheError(f"cannot read Surface cache manifest: {exc}") from exc
-    if manifest.get("$schema") != SCHEMA or manifest.get("fingerprint_version") != FINGERPRINT_VERSION:
-        raise CacheError("Surface cache manifest schema/version mismatch")
-    build_environment = validated_environment(
-        str(manifest.get("execution_environment", "")),
-        "manifest build environment",
-    )
+    manifest, build_environment, manifest_fingerprint = manifest_identity(out_dir)
     verification_environment = environment()
-    if not consumer and build_environment != verification_environment:
+    # A hosted consumer may differ from its producer, but an explicitly
+    # pinned producer identity must never silently drift.
+    producer_pinned = bool(os.environ.get("ORDAX_SURFACE_PRODUCER_ENVIRONMENT", "").strip())
+    if (not consumer or producer_pinned) and build_environment != verification_environment:
         raise CacheError("cached Surface execution environment changed")
     fingerprint_environment = build_environment if consumer else None
     expected_fingerprint = fingerprint(root, build_environment=fingerprint_environment)
-    manifest_fingerprint = str(manifest.get("input_fingerprint", ""))
     if manifest_fingerprint != expected_fingerprint:
         raise CacheError("cached Surface build inputs changed")
     build_commit = exact_commit(str(manifest.get("build_source_commit", "")), "build source commit")
@@ -268,6 +288,9 @@ def main() -> int:
     sub = parser.add_subparsers(dest="command", required=True)
     fp = sub.add_parser("fingerprint")
     fp.add_argument("--github-output", type=Path)
+    sub.add_parser("list-inputs")
+    compatibility = sub.add_parser("compatible-inputs")
+    compatibility.add_argument("--out", required=True, type=Path)
     rec = sub.add_parser("record")
     rec.add_argument("--out", required=True, type=Path)
     rec.add_argument("--source-commit", required=True)
@@ -285,6 +308,12 @@ def main() -> int:
             if args.github_output:
                 with args.github_output.open("a", encoding="utf-8", newline="\n") as handle:
                     handle.write(f"fingerprint={value}\n")
+        elif args.command == "list-inputs":
+            print("\n".join(INPUTS))
+        elif args.command == "compatible-inputs":
+            # 3 is a well-formed, different identity. A malformed receipt
+            # or unreadable source is still an error and must stop reuse.
+            return 0 if compatible_input_identity(args.out) else 3
         elif args.command == "record":
             print(json.dumps(record(args.out, args.source_commit), sort_keys=True))
         else:

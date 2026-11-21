@@ -273,6 +273,35 @@ class IndependentSurfaceComponentCacheTests(unittest.TestCase):
             self.assertEqual(receipt["execution_environment"], "Linux/X64/ubuntu24/image-v1")
             self.assertEqual(receipt["verification_environment"], "Linux/X64/ubuntu24/image-v2")
 
+    def test_candidate_compatibility_rejects_stale_inputs_without_authorizing_bytes(self):
+        with tempfile.TemporaryDirectory() as td:
+            temp = Path(td)
+            root = self.make_root(temp / "repo")
+            out = self.make_output(temp / "out", "1" * 40)
+            self.mod.record(out, "1" * 40, root)
+            self.assertTrue(self.mod.compatible_input_identity(out, root))
+            (out / "native-surface-runtime.erofs").write_bytes(b"tampered")
+            self.assertTrue(self.mod.compatible_input_identity(out, root))
+            with self.assertRaisesRegex(self.mod.CacheError, "cached Surface bytes changed"):
+                self.mod.verify(out, "2" * 40, temp / "receipt.json",
+                                cache_hit=True, consumer=True, root=root)
+            (root / self.mod.INPUTS[0]).write_text("different", encoding="utf-8")
+            self.assertFalse(self.mod.compatible_input_identity(out, root))
+
+    def test_pinned_producer_identity_remains_required_for_consumer(self):
+        with tempfile.TemporaryDirectory() as td:
+            temp = Path(td)
+            root = self.make_root(temp / "repo")
+            out = self.make_output(temp / "out", "1" * 40)
+            self.mod.record(out, "1" * 40, root)
+            with mock.patch.dict(os.environ, {
+                "ORDAX_SURFACE_PRODUCER_ENVIRONMENT": "Linux/X64/ubuntu24/other-producer",
+            }):
+                self.assertFalse(self.mod.compatible_input_identity(out, root))
+                with self.assertRaisesRegex(self.mod.CacheError, "execution environment changed"):
+                    self.mod.verify(out, "2" * 40, temp / "receipt.json",
+                                    cache_hit=True, consumer=True, root=root)
+
     def test_retired_materialized_fingerprint_is_rejected_without_rewrite(self):
         # A rendered Kconfig must never substitute for the checked-in source
         # fingerprint. Cache misses require the canonical producer, not a
@@ -706,6 +735,13 @@ with Path(os.environ["SURFACE_MOCK_CURL_LOG"]).open("a") as log:
         self.assertIn('item.get("head_branch") == preferred_branch', script)
         self.assertIn('independent_surface_component_cache.py verify', script)
         self.assertIn('--cache-hit true --consumer', script)
+        self.assertIn("independent_surface_component_cache.py list-inputs", script)
+        self.assertIn('git diff --quiet "$producer_sha" "$commit"', script)
+        self.assertIn('compatible-inputs --out "$stage"', script)
+        self.assertLess(script.index("git diff --quiet"),
+                        script.index('gh run download'))
+        self.assertLess(script.index("compatible-inputs --out"),
+                        script.index("independent_surface_component_cache.py verify"))
 
     def test_durable_publication_is_immutable_and_credentials_are_not_hardcoded(self):
         workflow = WORKFLOW.read_text(encoding="utf-8")

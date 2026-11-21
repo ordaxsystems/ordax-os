@@ -36,17 +36,38 @@ for item in items:
         continue
     run_id = item.get("id")
     if type(run_id) is int and run_id > 0:
-        candidates.append((item.get("head_branch") == preferred_branch, run_id))
+        candidates.append((item.get("head_branch") == preferred_branch, run_id, sha))
 
 # Prefer the caller's branch when available, but permit a trusted manual
 # producer from another branch after squash/merge. Acceptance is decided only
 # by the content-addressed verifier below against current inputs/environment.
 for preferred in (True, False):
-    for same_branch, run_id in candidates:
+    for same_branch, run_id, sha in candidates:
         if same_branch is preferred:
-            print(run_id)
+            print(run_id, sha)
 PY
-while IFS= read -r run_id; do
+# Use the canonical input list, not a second copy of the fingerprint policy.
+python3 tools/ci/independent_surface_component_cache.py list-inputs > "$scratch/inputs"
+mapfile -t producer_inputs < "$scratch/inputs"
+test "${#producer_inputs[@]}" -gt 0
+while read -r run_id producer_sha; do
+  # A known producer whose build inputs differ cannot supply the current
+  # EROFS. Skip before artifact listing/download. Unknown Git history
+  # (e.g. squashed branch) still gets the original content verification.
+  if git cat-file -e "$producer_sha^{commit}" 2>/dev/null &&
+     git cat-file -e "$commit^{commit}" 2>/dev/null; then
+    if git diff --quiet "$producer_sha" "$commit" -- "${producer_inputs[@]}"; then
+      :
+    else
+      rc=$?
+      if [ "$rc" -ne 1 ]; then
+        echo 'Unable to compare known Surface producer inputs' >&2
+        exit "$rc"
+      fi
+      echo "Skipping producer $run_id: build inputs differ"
+      continue
+    fi
+  fi
   name="ordax-independent-surface-runtime-$run_id"
   gh api --method GET "repos/$repo/actions/runs/$run_id/artifacts" \
     -f per_page=100 > "$scratch/artifacts.json"
@@ -69,6 +90,19 @@ PY
     echo 'Canonical Surface producer archive has no expected directory' >&2
     exit 1
   }
+  if python3 tools/ci/independent_surface_component_cache.py compatible-inputs --out "$stage"; then
+    :
+  else
+    rc=$?
+    if [ "$rc" -ne 3 ]; then
+      exit "$rc"
+    fi
+    # An older, well-formed but incompatible producer is not corruption
+    # of the requested artifact. Try the next candidate without publishing it.
+    rm -rf -- "$scratch/artifact"
+    echo "Skipping producer $run_id: cached identity differs"
+    continue
+  fi
   python3 tools/ci/independent_surface_component_cache.py verify \
     --out "$stage" --integration-commit "$commit" --cache-hit true --consumer \
     --receipt "$scratch/verified-before-move.json" >/dev/null
