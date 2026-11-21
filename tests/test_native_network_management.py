@@ -924,5 +924,35 @@ class NativeNetworkManagementTests(unittest.TestCase):
             self.assertNotIn(forbidden, (contract + adapter).lower())
 
 
+class RegulatoryDatabaseReloadTests(unittest.TestCase):
+    """The existing Native broker owns late cfg80211 regulatory reload."""
+
+    def test_regdb_reload_is_single_broker_boot_action_before_wifi_work(self):
+        broker = BROKER.read_text(encoding="utf-8")
+        source = broker.split("exec 9<>\"$CONTROL\"", 1)[1]
+        self.assertEqual(broker.count("reload_regulatory_db_after_rootfs() {"), 1)
+        self.assertEqual(source.count("reload_regulatory_db_after_rootfs\n"), 1)
+        self.assertLess(
+            source.index("reload_regulatory_db_after_rootfs\n"),
+            source.index("auto_restore_saved_network_if_needed\n"),
+        )
+        self.assertLess(
+            source.index("reload_regulatory_db_after_rootfs\n"),
+            source.index("while :; do"),
+        )
+
+    def test_regdb_reload_requires_signed_files_and_does_not_guess_a_country(self):
+        broker = BROKER.read_text(encoding="utf-8")
+        body = broker.split("reload_regulatory_db_after_rootfs() {", 1)[1].split("\n}\n", 1)[0]
+        self.assertIn("/lib/firmware/regulatory.db.p7s", body)
+        self.assertIn("/lib/firmware/regulatory.db", body)
+        self.assertIn('[ ! -s "$file" ] || [ -L "$file" ]', body)
+        self.assertIn('/bin/busybox timeout -k 1 3 "$IW_BIN" reg reload', body)
+        self.assertNotIn("reg set", body)
+        self.assertNotIn("country=", body)
+        self.assertNotIn("export COUNTRY", body)
+        self.assertIn("retaining kernel default", body)
+
+
 if __name__ == "__main__":
     unittest.main()

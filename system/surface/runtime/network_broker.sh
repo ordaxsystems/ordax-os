@@ -50,6 +50,27 @@ if [ -n "$IW_BIN" ] && [ -n "$WPA_BIN" ] && [ -n "$WPA_CLI_BIN" ]; then
     WIFI_TOOLS_READY=1
 fi
 
+reload_regulatory_db_after_rootfs() {
+    # cfg80211 is built into the kernel and can request regulatory.db before
+    # the rootfs is mounted. The signed upstream Buildroot regdb appears only
+    # after boot handoff. Reload through nl80211 instead of guessing a country
+    # or installing a second regulatory owner.
+    [ -n "$IW_BIN" ] || return 0
+    for file in /lib/firmware/regulatory.db /lib/firmware/regulatory.db.p7s; do
+        if [ ! -s "$file" ] || [ -L "$file" ]; then
+            echo "ordax-network-broker: signed wireless regulatory database unavailable; retaining kernel default" >&2
+            return 0
+        fi
+    done
+    if /bin/busybox timeout -k 1 3 "$IW_BIN" reg reload >/dev/null 2>&1; then
+        # A successful netlink request is not a claim that every radio
+        # accepted the policy: the kernel verifies the signature independently.
+        echo "ordax-network-broker: requested signed regulatory database reload" >&2
+    else
+        echo "ordax-network-broker: regulatory database reload unavailable; retaining kernel default" >&2
+    fi
+}
+
 cleanup() {
     rm -f "$CONTROL" "$REQUEST" "$RESPONSE" "$SCAN_RAW" "$LINK_RAW" "$SAVED_SSID_LINE" "$CANDIDATE"
 }
@@ -483,6 +504,9 @@ handle_request() {
 }
 
 exec 9<>"$CONTROL"
+# One reload per broker lifecycle, before any saved-WPA auto-restoration or
+# user-facing native Wi-Fi request. Never change the regulatory country.
+reload_regulatory_db_after_rootfs
 # Boot and reconnect reuse this IPC owner, never a parallel WPA daemon.
 restore_wired_network_if_needed >/dev/null 2>&1 || true
 auto_restore_saved_network_if_needed
