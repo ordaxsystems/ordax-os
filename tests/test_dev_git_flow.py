@@ -552,7 +552,7 @@ class DevelopmentGitFlowTest(unittest.TestCase):
         code = (
             'WORKTREE=$ORDAX_WORKTREE; RUN_DIR=$ORDAX_UPDATE_RUN_DIR\n'
             'CURRENT_FILE=$ORDAX_STATE_DIR/current-commit; UPDATE_STATE=$RUN_DIR/state.json\n'
-            'log() { :; }\nkill() { printf "RESTART:%s\\n" "$*"; }\n'
+            'log() { :; }\nkill() { printf "RESTART:%s\\n" "$*" >>"$RUN_DIR/test-restart"; }\n'
             + function("read_state_value") + function("is_sha")
             + function("handoff_runtime_drift_if_needed")
             + "handoff_runtime_drift_if_needed 1234\n"
@@ -562,7 +562,10 @@ class DevelopmentGitFlowTest(unittest.TestCase):
                 "sourceSha": source_sha, "runtimeSurfaceSha": self.commit_v1,
                 "status": "running", "phase": phase,
             }, separators=(",", ":")) + "\n")
-            return self._run(["sh", "-ec", code], env=env).stdout
+            marker = run_dir / "test-restart"
+            marker.unlink(missing_ok=True)
+            self._run(["sh", "-ec", code], env=env)
+            return marker.read_text() if marker.exists() else ""
         self.assertEqual(observe(new_sha), "")
         self.assertEqual(observe(self.commit_v1, "health-wait"), "")
         self.assertIn("RESTART:-TERM 1234", observe(self.commit_v1))
