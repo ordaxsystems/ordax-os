@@ -12,7 +12,8 @@ LOCK_PID_FILE=$LOCK_DIR/pid
 PINNED_FILE=$STATE_DIR/pinned-commit
 BOOT_REJECTED_FILE=$STATE_DIR/boot-rejected-commit
 SUPERVISOR_HEARTBEAT_FILE=$RUN_DIR/supervisor-heartbeat
-RUNTIME_SURFACE_SHA_FILE=$STATE_DIR/runtime-surface-sha
+CURRENT_FILE=$STATE_DIR/current-commit
+UPDATE_STATE=$RUN_DIR/state.json
 OWNER_STATE=""
 SLEEP_PID=""
 
@@ -146,12 +147,28 @@ active_supervisor_pid() {
 handoff_runtime_drift_if_needed() {
     pid=$1
     checkout_sha=$(git -C "$WORKTREE" rev-parse HEAD 2>/dev/null || true)
-    runtime_sha=$(read_state_value "$RUNTIME_SURFACE_SHA_FILE")
+    recorded_sha=$(read_state_value "$CURRENT_FILE")
     is_sha "$checkout_sha" || return 0
-    is_sha "$runtime_sha" || return 0
-    [ "$checkout_sha" != "$runtime_sha" ] || return 0
-
-    log "checkout $checkout_sha difere da Surface $runtime_sha; solicitando refresh do supervisor $pid"
+    [ "$checkout_sha" = "$recorded_sha" ] || return 0
+    # The Supervisor may intentionally retain an older verified graphical slot.
+    # Compare its checkout receipt, never runtimeSurfaceSha. Do not interrupt
+    # a transaction or a local edit, even when the checkout is newer.
+    [ ! -e "$RUN_DIR/pull.lock" ] && [ ! -L "$RUN_DIR/pull.lock" ] || return 0
+    snapshot=$(read_state_value "$UPDATE_STATE")
+    supervisor_sha=$(printf '%s\n' "$snapshot" | sed -n 's/^{"sourceSha":"\([0-9a-f]*\)".*/\1/p')
+    is_sha "$supervisor_sha" || return 0
+    [ "$checkout_sha" != "$supervisor_sha" ] || return 0
+    case "$snapshot" in
+        *'"phase":"idle"'*|*'"phase":"blocked"'*|*'"phase":"error"'*) ;;
+        *) return 0 ;;
+    esac
+    checkout_status=$(git -C "$WORKTREE" status --porcelain 2>/dev/null) || return 0
+    [ -z "$checkout_status" ] || return 0
+    # A direct, completed Pull can still advance the checkout while the
+    # Supervisor is alive. Recheck its receipt and lock before handing off.
+    [ "$(read_state_value "$UPDATE_STATE")" = "$snapshot" ] || return 0
+    [ ! -e "$RUN_DIR/pull.lock" ] && [ ! -L "$RUN_DIR/pull.lock" ] || return 0
+    log "checkout $checkout_sha difere do checkout supervisionado $supervisor_sha; solicitando refresh do supervisor $pid"
     kill -TERM "$pid" >/dev/null 2>&1 || true
 }
 

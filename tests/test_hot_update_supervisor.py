@@ -563,6 +563,20 @@ class HotUpdateSupervisorContractTests(unittest.TestCase):
                     )
                     self.assertEqual(result.stdout, expected)
 
+    def test_supervisor_local_edit_gate_precedes_remote_and_helper_activity(self):
+        text = SYSTEM_SUPERVISOR.read_text(encoding="utf-8")
+        body = text.split("check_for_update() {", 1)[1].split("\n}\n", 1)[0]
+        gate = body.split('    registered_sha=$(read_state_value "$CURRENT_FILE")', 1)[1].split(
+            "    record_owner_poll_boot_stage git-remote-started", 1
+        )[0]
+        gate = '    registered_sha=$(read_state_value "$CURRENT_FILE")' + gate
+        for error in ("local-commit-unregistered", "local-checkout-unreadable", "local-edits-pending"):
+            self.assertIn(error, gate)
+        self.assertIn('write_update_state "$registered_sha" running none', gate)
+        self.assertLess(body.index("local-edits-pending"), body.index("ls-remote"))
+        self.assertLess(body.index("local-edits-pending"), body.index('refresh_dev_helpers "$current"'))
+        self.assertIn('status --porcelain', gate)
+
     def test_git_owned_development_helpers_refresh_without_base_candidate(self):
         text = SYSTEM_SUPERVISOR.read_text(encoding="utf-8")
         classification = text.split("classify_changes() {", 1)[1].split(

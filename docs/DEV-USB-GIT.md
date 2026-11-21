@@ -51,6 +51,14 @@ conseguir ler alterações locais, o Pull as preserva antes de consultar a rede.
 ainda exige uma revisão limpa registrada; uma sessão de teste com fonte
 local não deve ser confundida com promoção de uma revisão oficial.
 
+Enquanto o checkout estiver editado ou o HEAD local não coincidir com
+`current-commit`, o Supervisor preserva a Surface já verificada e não
+consulta a main nem instala helpers. Após publicar um commit local na main,
+`ordax-pull` explícito valida a revisão canônica e atualiza o recibo. O
+watcher só solicita reinício quando esse recibo limpo diverge da revisão
+Git observada pelo Supervisor e não existe transação em andamento. Uma
+diferença legítima entre `sourceSha` e `runtimeSurfaceSha` não é falha.
+
 ## Atualização neutra sem reinício da Surface
 
 Alterações exclusivamente de documentação, testes ou do helper Git

@@ -537,6 +537,42 @@ class DevelopmentGitFlowTest(unittest.TestCase):
             "",
         )
 
+    def test_watcher_distinguishes_neutral_update_from_external_pull(self) -> None:
+        self._script(PULL)
+        new_sha = self._commit_runtime("runtime-v2")
+        self._script(PULL)
+        watcher = ROOT / "bootstrap/dev-base/ordax-main-watch"
+        source = watcher.read_text(encoding="utf-8")
+        def function(name):
+            body = source.split(name + "() {", 1)[1].split("\n}\n", 1)[0]
+            return name + "() {" + body + "\n}\n"
+        run_dir = self.root / "run/ordax-update"
+        state_json = run_dir / "state.json"
+        env = self._env()
+        code = (
+            'WORKTREE=$ORDAX_WORKTREE; RUN_DIR=$ORDAX_UPDATE_RUN_DIR\n'
+            'CURRENT_FILE=$ORDAX_STATE_DIR/current-commit; UPDATE_STATE=$RUN_DIR/state.json\n'
+            'log() { :; }\nkill() { printf "RESTART:%s\\n" "$*"; }\n'
+            + function("read_state_value") + function("is_sha")
+            + function("handoff_runtime_drift_if_needed")
+            + "handoff_runtime_drift_if_needed 1234\n"
+        )
+        def observe(source_sha, phase="idle"):
+            state_json.write_text(json.dumps({
+                "sourceSha": source_sha, "runtimeSurfaceSha": self.commit_v1,
+                "status": "running", "phase": phase,
+            }, separators=(",", ":")) + "\n")
+            return self._run(["sh", "-ec", code], env=env).stdout
+        self.assertEqual(observe(new_sha), "")
+        self.assertEqual(observe(self.commit_v1, "health-wait"), "")
+        self.assertIn("RESTART:-TERM 1234", observe(self.commit_v1))
+        marker = self.worktree / "system/local-edit.txt"
+        marker.write_text("edited\n")
+        self.assertEqual(observe(self.commit_v1), "")
+        marker.unlink()
+        (self.state / "current-commit").write_text(self.commit_v1 + "\n")
+        self.assertEqual(observe(self.commit_v1), "")
+
     def test_watcher_fallback_pulls_main_only_after_first_run(self) -> None:
         """Run the real polling watcher against a disposable Git remote.
 

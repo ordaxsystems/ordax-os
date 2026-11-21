@@ -2730,6 +2730,29 @@ check_for_update() {
         return 0
     fi
     record_owner_poll_boot_stage first-run-verified
+
+    # Edits and unpublished local commits must not trigger a remote fetch,
+    # staging, helper installation or a false health receipt for the new HEAD.
+    # Keep the active verified runtime alive. An explicit Pull may register a
+    # clean local commit after it actually becomes canonical remote main.
+    registered_sha=$(read_state_value "$CURRENT_FILE")
+    if is_sha "$registered_sha"; then
+        if [ "$current" != "$registered_sha" ]; then
+            set_update_context blocked "" "" "local-commit-unregistered"
+            write_update_state "$registered_sha" running none
+            return 0
+        fi
+        if ! local_checkout_status=$("$GIT_BIN" -C "$WORKTREE" status --porcelain 2>>"$UPDATE_LOG"); then
+            set_update_context blocked "" "" "local-checkout-unreadable"
+            write_update_state "$registered_sha" running none
+            return 0
+        fi
+        if [ -n "$local_checkout_status" ]; then
+            set_update_context blocked "" "" "local-edits-pending"
+            write_update_state "$registered_sha" running none
+            return 0
+        fi
+    fi
     record_owner_poll_boot_stage git-remote-started
 
     # Do not enter a command substitution around a blocking Git operation:
