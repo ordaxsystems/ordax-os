@@ -1317,9 +1317,16 @@ class DevelopmentGitFlowTest(unittest.TestCase):
         result = self._script(PULL, env=env, check=False)
 
         self.assertNotEqual(result.returncode, 0)
+        self.assertIn("edicoes preservadas", result.stderr)
+        self.assertNotIn("main remota indisponivel", result.stderr)
+        self.assertEqual(marker.read_text(encoding="utf-8"), "keep-me\n")
+        # With no edits, the same offline request retains the original
+        # remote-failure diagnostic and last known local revision.
+        marker.unlink()
+        result = self._script(PULL, env=env, check=False)
+        self.assertNotEqual(result.returncode, 0)
         self.assertIn("main remota indisponivel", result.stderr)
         self.assertIn(f"atualizacao falhou; usando versao local {before}", result.stderr)
-        self.assertTrue(marker.is_file())
         self.assertEqual(
             self._run(["git", "-C", str(self.worktree), "rev-parse", "HEAD"]).stdout.strip(),
             before,

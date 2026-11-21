@@ -897,7 +897,7 @@ fi
 # Do not spend time discovering/fetching remote main, or replace a checkout
 # with broken origin/branch metadata, while it still contains readable edits.
 # This guard also protects manually edited assets during normal offline DEV.
-if [ -d "$WORKTREE/.git" ] && [ ! -L "$WORKTREE/.git" ] &&
+if [ -z "$EXPECTED_SHA" ] && [ -d "$WORKTREE/.git" ] && [ ! -L "$WORKTREE/.git" ] &&
    early_status=$(git -C "$WORKTREE" status --porcelain 2>/dev/null) &&
    [ -n "$early_status" ]; then
     PULL_PHASE=preflight
