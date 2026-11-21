@@ -227,7 +227,7 @@ class RepositoryOwnershipContractTests(unittest.TestCase):
         index = (ROOT / "docs" / "README.md").read_text(encoding="utf-8")
         self.assertIn("## Autoridade documental do ecossistema multi-repositório", index)
         self.assertIn("## Regra de publicação documental — SSOT central, sem espelhos", index)
-        self.assertIn("Decisões globais", index) if "Decisões globais" in index else self.assertIn("Mudança transversal", index)
+        self.assertIn("**Mudança transversal:**", index)
         self.assertIn("forge/docs/FORGE-GPT-FIRST-ADMINISTRADOR-ROADMAP.md", index)
         self.assertIn("(contracts/repository-ownership.json)", index)
         self.assertIn("Uma responsabilidade normativa = um documento/contrato proprietário", index)
