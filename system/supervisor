@@ -683,7 +683,8 @@ stage_candidate_release() {
     # The same Owner Supervisor owns the exact cross-repository candidate.
     # Noncanonical Surface locks are rejected; a failed fetch or mismatched
     # Git SHA rejects this candidate BEFORE the live checkout is changed.
-    if ! ORDAX_GIT_BIN="$GIT_BIN" /bin/sh "$OWNER_SURFACE_STAGE_HELPER" stage "$WORKTREE" "$candidate_sha" "$stage_dir" >>"$UPDATE_LOG" 2>&1; then
+    reuse_surface_sha=$(read_state_value "$RUNTIME_SURFACE_SHA_FILE")
+    if ! ORDAX_GIT_BIN="$GIT_BIN" /bin/sh "$OWNER_SURFACE_STAGE_HELPER" stage "$WORKTREE" "$candidate_sha" "$stage_dir" "$reuse_surface_sha" >>"$UPDATE_LOG" 2>&1; then
         log "pinned external Surface staging failed for $candidate_sha; keeping current checkout"
         rm -rf "$stage_dir"
         record_elapsed_seconds "$stage_started" "$LAST_STAGE_DURATION_FILE"

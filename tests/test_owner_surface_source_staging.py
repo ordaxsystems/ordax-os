@@ -79,9 +79,12 @@ class OwnerSurfaceSourceTests(unittest.TestCase):
         git(self.os_root, "commit", "-qm", "fixture OS lock")
         self.os_sha = git(self.os_root, "rev-parse", "HEAD")
 
-    def call(self, command: str, check=False):
+    def call(self, command: str, check=False, reuse_sha=None):
+        arguments = ["/bin/sh", str(HELPER), command, str(self.os_root), self.os_sha, str(self.slot)]
+        if reuse_sha is not None:
+            arguments.append(reuse_sha)
         p = subprocess.run(
-            ["/bin/sh", str(HELPER), command, str(self.os_root), self.os_sha, str(self.slot)],
+            arguments,
             env=self.env, text=True, capture_output=True,
         )
         if check and p.returncode:
@@ -101,6 +104,44 @@ class OwnerSurfaceSourceTests(unittest.TestCase):
         self.call("ready", check=True)
         self.make_file(self.slot / ".surface-source-sha", "0" * 40 + "\n")
         self.assertNotEqual(self.call("ready").returncode, 0)
+
+    def test_surface_reuses_previous_verified_slot_offline_when_lock_unchanged(self):
+        self.call("stage", check=True)
+        old_sha = self.os_sha
+        self.make_file(self.slot / ".sha", old_sha + "\n")
+        self.make_file(self.slot / ".ready", "ready\n")
+        self.call("ready", check=True)
+        old_slot = self.root / old_sha
+        self.slot.rename(old_slot)
+        self.make_file(self.os_root / "docs/README.md", "documentation only\n")
+        git(self.os_root, "add", ".")
+        git(self.os_root, "commit", "-qm", "neutral OS source update")
+        self.os_sha = git(self.os_root, "rev-parse", "HEAD")
+        self.make_file(self.slot_system / "surface/entrypoint", "#!/bin/sh\n")
+        (self.slot_system / "surface/entrypoint").chmod(0o755)
+        self.surface_root.rename(self.root / "unavailable-external-surface")
+        result = self.call("stage", check=True, reuse_sha=old_sha)
+        self.assertIn("PINNED_OWNER_SURFACE_REUSED=", result.stdout)
+        self.assertEqual((self.slot_system / "surface/ui/surface.mjs").read_text(), "NEW_VISUAL\n")
+        self.make_file(self.slot / ".sha", self.os_sha + "\n")
+        self.make_file(self.slot / ".ready", "ready\n")
+        self.call("ready", check=True)
+
+        # Cache corruption and a different source lock cannot be accepted.
+        shutil.rmtree(self.slot)
+        self.make_file(self.slot_system / "surface/entrypoint", "#!/bin/sh\n")
+        (self.slot_system / "surface/entrypoint").chmod(0o755)
+        content = old_slot / "system/surface/ui/surface.mjs"
+        content.write_text("tampered\n")
+        self.assertNotEqual(self.call("stage", reuse_sha=old_sha).returncode, 0)
+        self.assertFalse((self.slot / ".surface-source-sha").exists())
+        shutil.rmtree(self.slot)
+        content.write_text("NEW_VISUAL\n")
+        self.make_file(self.slot_system / "surface/entrypoint", "#!/bin/sh\n")
+        (self.slot_system / "surface/entrypoint").chmod(0o755)
+        self.set_lock("canonical", source_sha="f" * 40)
+        self.assertNotEqual(self.call("stage", reuse_sha=old_sha).returncode, 0)
+        self.assertFalse((self.slot / ".surface-source-sha").exists())
 
     def test_ready_does_not_write_into_immutable_release_slot(self):
         # Ready is a read-only verifier, not a second stage writer. This is

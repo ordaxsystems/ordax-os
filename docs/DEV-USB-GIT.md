@@ -61,6 +61,11 @@ alterar `runtimeSurfaceSha`. Quando um reinício for efetivamente necessário,
 o Supervisor inicia o slot canônico atual e confirma seu heartbeat antes
 de registrar sua identidade. Alterações reais de runtime, locks externos,
 Base ou caminhos desconhecidos continuam no fluxo de validação existente.
+Ao preparar um slot por reinício ou atualização, o Supervisor reaproveita
+os bytes visuais do slot anterior se o lock externo for idêntico e o slot
+passar na verificação de integridade existente. O adapter verifica também
+os bytes copiados antes de registrar a revisão visual. Não há novo
+cache persistente nem download quando o slot anterior é válido.
 
 ## Repetição inteligente após falhas de checkout
 

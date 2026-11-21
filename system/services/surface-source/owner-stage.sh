@@ -2,14 +2,17 @@
 # OS-owned adapter, invoked only by the existing Supervisor transaction.
 set -eu
 
-usage() { echo "surface-source: status|stage|ready WORKTREE SHA [STAGE_DIR]" >&2; exit 2; }
-[ "$#" -ge 3 ] && [ "$#" -le 4 ] || usage
+usage() { echo "surface-source: status|stage|ready WORKTREE SHA [STAGE_DIR [REUSE_SHA]]" >&2; exit 2; }
+[ "$#" -ge 3 ] && [ "$#" -le 5 ] || usage
 command=$1
 worktree=$2
 os_sha=$3
 stage_dir=""
+reuse_sha=""
 [ "$#" -eq 3 ] || stage_dir=$4
+[ "$#" -ne 5 ] || reuse_sha=$5
 case "$command" in status|stage|ready) ;; *) usage ;; esac
+if [ "$#" -eq 5 ] && [ "$command" != stage ]; then usage; fi
 case "$os_sha" in ''|*[!0-9a-f]*) exit 2 ;; esac
 [ "${#os_sha}" -eq 40 ] || exit 2
 case "$worktree" in /*) ;; *) exit 2 ;; esac
@@ -126,6 +129,29 @@ archive=$stage_dir/.surface-source.tar
 [ ! -e "$git_root" ] && [ ! -L "$git_root" ] || exit 2
 [ ! -e "$archive" ] && [ ! -L "$archive" ] || exit 2
 fetch_seconds=90
+
+# Reuse only a previous verified slot that is bound to the very same
+# immutable Surface source lock. No new cache/owner and no trust in a
+# mutable checkout or unverified visual manifest from another revision.
+case "$reuse_sha" in
+    ''|*[!0-9a-f]*) reuse_sha="" ;;
+esac
+if [ "${#reuse_sha}" -eq 40 ] && [ "$reuse_sha" != "$os_sha" ]; then
+    reuse_dir=${stage_dir%/*}/$reuse_sha
+    reuse_lock=$("$git_bin" -C "$worktree" rev-parse "$reuse_sha:docs/contracts/surface-source.json" 2>/dev/null || true)
+    target_lock=$("$git_bin" -C "$worktree" rev-parse "$os_sha:docs/contracts/surface-source.json" 2>/dev/null || true)
+    if [ -n "$reuse_lock" ] && [ "$reuse_lock" = "$target_lock" ] &&
+       [ -d "$reuse_dir" ] && [ ! -L "$reuse_dir" ] &&
+       /bin/sh "$0" ready "$worktree" "$reuse_sha" "$reuse_dir"; then
+        rm -rf "$surface_root/ui" "$surface_root/workspace" || exit 1
+        /bin/busybox cp -a "$reuse_dir/system/surface/ui" "$reuse_dir/system/surface/workspace" "$surface_root/" || exit 1
+        /bin/busybox cp "$reuse_dir/.surface-file-hashes" "$stage_dir/.surface-file-hashes" || exit 1
+        source_integrity || exit 1
+        printf '%s\n' "$visual_sha" >"$stage_dir/.surface-source-sha"
+        printf 'PINNED_OWNER_SURFACE_REUSED=%s\n' "$visual_sha"
+        exit 0
+    fi
+fi
 
 # One immutable source fetch inside the Supervisor candidate stage. Failure
 # leaves the active checkout and previous release unchanged.
