@@ -1,12 +1,15 @@
 import test from "node:test";
 import assert from "node:assert/strict";
 import {
-  mkdtempSync, mkdirSync, writeFileSync, rmSync,
+  mkdtempSync, mkdirSync, writeFileSync, rmSync, copyFileSync,
 } from "node:fs";
 import { tmpdir } from "node:os";
 import { dirname, join, resolve } from "node:path";
+import { spawnSync } from "node:child_process";
+import { fileURLToPath } from "node:url";
 import {
   createLocalSurfaceOverlayPlugin,
+  resolveLocalSurfaceRoot,
   logicalSurfaceWatchIgnorePaths,
   virtualSurfaceAssetRedirect,
   SURFACE_OVERLAY_PREFIX,
@@ -27,6 +30,7 @@ function fixture(t) {
   const view = put(surface, "system/surface/ui/view.mjs",
     "import { owner } from '../../contracts/example.mjs';\nexport { owner };\n");
   const sibling = put(surface, "system/surface/ui/sibling.mjs", "export const sibling=true;\n");
+  put(surface, "system/surface/ui/tokens.css", ":root {}");
   const css = put(surface, "system/surface/ui/view.css", ".x{background:url('./brand/mark.png')}\n");
   const asset = put(surface, "system/surface/ui/brand/mark.png", "asset");
   const workspace = put(surface, "system/surface/workspace/components/ui/button.tsx",
@@ -173,4 +177,38 @@ test("virtual-module image URL redirects to Vite existing allowlisted filesystem
   const rejected={ statusCode:200, setHeader(){throw Error("Must not redirect")}, end(){throw Error("Must not respond")} };
   middleware({ method:"POST",url },rejected,()=>{nextCalled=true});
   assert.equal(nextCalled,true);
+});
+
+test("local preview launches the existing Vite child with both editable owners and no Git sync", t => {
+  const f = fixture(t);
+  assert.equal(resolveLocalSurfaceRoot(f.os), f.surface);
+  assert.equal(resolveLocalSurfaceRoot(f.os, f.surface), f.surface);
+  assert.throws(() => resolveLocalSurfaceRoot(f.os, f.os), /separate/);
+  assert.throws(() => resolveLocalSurfaceRoot(f.os, f.surface + "-absent"), /incomplete/);
+  const dir = join(f.os, "tools/windows-emulator");
+  mkdirSync(dir, {recursive:true});
+  for (const name of ["dev-supervisor.mjs", "dev-restart-policy.mjs", "surface-source-overlay.mjs"]) {
+    copyFileSync(fileURLToPath(new URL(name, import.meta.url)), join(dir, name));
+  }
+  mkdirSync(join(f.os, ".git")); // Would poll origin in ordinary mode.
+  const vite = join(f.os, "node_modules/vite/bin");
+  mkdirSync(vite, {recursive:true});
+  writeFileSync(join(vite, "vite.js"), 'console.log(JSON.stringify({surface:process.env.ORDAX_DESKTOP_SURFACE_ROOT,host:process.env.ORDAX_EMULATOR_HOST,cwd:process.cwd()}));process.exit(17)');
+  const env = {...process.env, ORDAX_DESKTOP_HOST:"0", ORDAX_EMULATOR_HOST:"0.0.0.0", ORDAX_EMULATOR_NO_BROWSER:"1"};
+  const result = spawnSync(process.execPath, [join(dir,"dev-supervisor.mjs"), "--local"], {
+    cwd:f.os, env, encoding:"utf8", timeout:8000,
+  });
+  assert.equal(result.status,17,result.stderr);
+  assert.deepEqual(JSON.parse(result.stdout), {surface:f.surface,host:"127.0.0.1",cwd:f.os});
+  assert.match(result.stderr,/Git synchronization disabled/);
+  assert.doesNotMatch(result.stderr,/remote main check|watching origin/);
+});
+
+test("missing explicit Surface source cannot fall through to stale OS visual copies", t => {
+  const f = fixture(t);
+  const stale = join(f.os,"system/surface/ui/missing.mjs");
+  mkdirSync(dirname(stale),{recursive:true});
+  writeFileSync(stale,"export const stale=true;");
+  const plugin = createLocalSurfaceOverlayPlugin({repoRoot:f.os,localSurface:f.surface});
+  assert.throws(() => plugin.resolveId("../../surface/ui/missing.mjs",f.main), /Surface overlay source missing/);
 });

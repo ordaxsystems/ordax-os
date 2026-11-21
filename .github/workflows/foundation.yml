@@ -133,4 +133,4 @@ jobs:
 
       - name: Validate dual update transport selection policy
         if: steps.impact.outputs.full != 'false'
-        run: node --test tests/test_update_transport_selection.mjs tests/test_update_status.mjs
+        run: node --test tests/test_update_transport_selection.mjs tests/test_update_status.mjs tools/windows-emulator/surface-source-overlay.test.mjs

@@ -77,7 +77,12 @@ O comando devolve a saída e o código de saída reais; não cria cópia do
 checkout, não instala dependências, não inicia outro Guardian e não
 publica recibo de saúde, revisão oficial ou identidade para a Platform.
 Utiliza os interpretadores disponíveis no ambiente local; não constitui
-ainda uma sessão gráfica alternativa de toda a Surface. O boot normal
+ainda uma sessão gráfica alternativa de toda a Surface no USB físico.
+No computador de desenvolvimento com Node/Vite já instalados, a visualização
+gráfica do código dos dois owners usa o emulador Native já existente:
+`npm run emulator:windows -- --local`, com os checkouts OS e Surface
+vizinhos. O mesmo overlay atende alterações locais sem consultar a main,
+sem build de USB e sem ativar uma versão oficial. O boot normal
 `ordax-run` continua verificando a revisão registrada.
 
 ## Atualização neutra sem reinício da Surface

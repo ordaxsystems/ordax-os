@@ -20,6 +20,23 @@ The existing development supervisor watches origin/main and applies only a clean
 fast-forward. Local edits pause Git updates; Vite continues serving the checkout.
 Network failure or divergence never causes reset/discard of source work.
 
+### Direct graphical development from both owner checkouts
+
+With `ordax-os` and `ordax-surface` checked out next to each other:
+
+```bash
+npm run emulator:windows -- --local
+```
+
+An optional absolute Surface path may follow `--local`. This runs the
+existing Vite/Native emulator using the actual editable Surface checkout and
+OS composition, without copying visual source, updating Git, building the
+OS, or publishing a commit. The same overlay and watcher used by Desktop
+local development serve the code and refresh changed modules. This explicit
+preview stays on loopback and preserves the emulator's separate development
+state. It is not the installed OS/USB runtime or a physical boot proof.
+Missing Surface sources are an error, not a fallback to an obsolete copy.
+
 For a server without automatic Git synchronization:
 
 ```bash

@@ -4,9 +4,30 @@ import { existsSync } from 'node:fs';
 import { fileURLToPath } from 'node:url';
 import { dirname, resolve } from 'node:path';
 import { nextLocalViteRestart } from './dev-restart-policy.mjs';
+import { resolveLocalSurfaceRoot } from './surface-source-overlay.mjs';
 
 const HERE = dirname(fileURLToPath(import.meta.url));
 const REPO_ROOT = resolve(HERE, '../..');
+const args = process.argv.slice(2);
+const localPreview = args[0] === '--local';
+if ((localPreview && args.length > 2) || (!localPreview && args.length)) {
+  console.error('usage: npm run emulator:windows -- [--local [surface-checkout]]');
+  process.exit(2);
+}
+if (localPreview) {
+  if (process.env.ORDAX_DESKTOP_HOST === '1') {
+    console.error('Local emulator is not a packaged Desktop launch');
+    process.exit(2);
+  }
+  try {
+    process.env.ORDAX_DESKTOP_SURFACE_ROOT = resolveLocalSurfaceRoot(REPO_ROOT, args[1]);
+    // Editable source preview is loopback-only; no installed product identity.
+    process.env.ORDAX_EMULATOR_HOST = '127.0.0.1';
+  } catch (error) {
+    console.error('ordax-emulator: ' + error.message);
+    process.exit(2);
+  }
+}
 const HAS_GIT = existsSync(resolve(REPO_ROOT, '.git'));
 const BRANCH = process.env.ORDAX_REPO_BRANCH ?? 'main';
 const UPDATE_INTERVAL_MS = Math.max(5, Number.parseInt(process.env.ORDAX_UPDATE_INTERVAL_SECONDS ?? '5', 10) || 5) * 1000;
@@ -192,7 +213,9 @@ launchVite();
 process.once('SIGINT', () => stop('SIGINT'));
 process.once('SIGTERM', () => stop('SIGTERM'));
 
-if (HAS_GIT && process.env.ORDAX_DESKTOP_HOST !== '1') {
+if (localPreview) {
+  log('local source preview; Git synchronization disabled, Vite serves the editable OS and Surface checkouts');
+} else if (HAS_GIT && process.env.ORDAX_DESKTOP_HOST !== '1') {
   log(`local-first session started; watching origin/${BRANCH} every ${UPDATE_INTERVAL_MS / 1000}s`);
   syncMainOnce();
   timer = setInterval(syncMainOnce, UPDATE_INTERVAL_MS);

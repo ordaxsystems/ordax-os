@@ -111,6 +111,19 @@ export function virtualSurfaceAssetRedirect(surfaceRoot, requestUrl) {
   return "/@fs/" + encodeURI(absolute).replaceAll("#", "%23").replaceAll("?", "%3F");
 }
 
+// Explicit developer preview consumes the owner's actual visual checkout,
+// not a copied or pinned delivery. It never changes either Git worktree.
+export function resolveLocalSurfaceRoot(repoRoot, explicitRoot) {
+  const root = resolve(repoRoot);
+  const surface = explicitRoot ? resolve(explicitRoot) : resolve(root, "../ordax-surface");
+  if (surface === root || inside(root, surface) || inside(surface, root))
+    throw new Error("Surface checkout must be separate from the OS checkout");
+  if (!regular(resolve(surface, "system/surface/ui/tokens.css")) ||
+      !lstatSync(resolve(surface, "system/surface/workspace"), { throwIfNoEntry: false })?.isDirectory())
+    throw new Error("local Surface checkout is incomplete: " + surface);
+  return surface;
+}
+
 export function logicalSurfaceWatchIgnorePaths(repoRoot) {
   if (typeof repoRoot !== "string" || !isAbsolute(repoRoot))
     throw new TypeError("Surface overlay repoRoot must be absolute");
@@ -193,7 +206,7 @@ export function createLocalSurfaceOverlayPlugin({ repoRoot, localSurface }) {
       const logicalRelative = visualRelative(root, resolved.target);
       if (logicalRelative !== null) {
         const found = resolveSurfaceFile(surface, logicalRelative);
-        if (!found) return null;
+        if (!found) throw new Error("Surface overlay source missing: " + logicalRelative);
         if (!SOURCE_EXTENSIONS.has(extname(found.physical)))
           return found.physical + resolved.query;
         return overlayId(found.logicalRelative, resolved.query);
