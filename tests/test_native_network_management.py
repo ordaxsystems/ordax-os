@@ -226,7 +226,10 @@ class NativeNetworkManagementTests(unittest.TestCase):
                 try:
                     time.sleep(0.15)
                     os.mkfifo(paths["control"], 0o600)
-                    descriptor = os.open(paths["control"], os.O_RDONLY | os.O_NONBLOCK)
+                    # Production broker uses exec 9<>"$CONTROL" (O_RDWR).
+                    # O_RDONLY alone reports persistent HUP before writer
+                    # attaches, which is not the real broker's lifecycle.
+                    descriptor = os.open(paths["control"], os.O_RDWR | os.O_NONBLOCK)
                     deadline = time.monotonic() + 2
                     while time.monotonic() < deadline:
                         if not select.select([descriptor], [], [], 0.08)[0]:
