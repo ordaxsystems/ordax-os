@@ -1,90 +1,45 @@
-name: Assemble verified OrdaX Surface
-description: "Materialize the one pinned external Surface into a disposable OS release source without touching the OS checkout"
+name: Assemble canonical OrdaX Surface
+description: Assemble the Surface from the same committed OS Git tree, without external checkout
 inputs:
   out-root:
-    description: "New absolute disposable directory where assembled system/ will be created"
+    description: New absolute disposable release source directory
     required: true
   source-root:
-    description: OS source checkout containing the canonical Surface lock
+    description: OS source checkout
     required: false
     default: '.'
 outputs:
   root:
-    description: "Validated disposable OS release root"
+    description: Verified release root
     value: ${{ steps.assemble.outputs.root }}
 runs:
   using: composite
   steps:
-    - name: Resolve exact Surface commit from OS source lock
-      id: surface-lock
-      shell: bash
-      working-directory: ${{ inputs.source-root }}
-      run: |
-        set -euo pipefail
-        source_sha=$(python3 - <<'PY'
-        from pathlib import Path
-        import json
-        path = Path("docs/contracts/surface-source.json")
-        data = json.loads(path.read_text(encoding="utf-8"))
-        assert data["source_repository"] == "ordaxsystems/ordax-surface"
-        print(data["source_commit"])
-        PY
-        )
-        [[ "$source_sha" =~ ^[0-9a-f]{40}$ ]] || { echo "::error::Surface source lock SHA invalid" >&2; exit 1; }
-        printf 'commit=%s\n' "$source_sha" >> "$GITHUB_OUTPUT"
-
-    - name: Checkout immutable Surface source through official GitHub action
-      uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
-      with:
-        repository: ordaxsystems/ordax-surface
-        ref: ${{ steps.surface-lock.outputs.commit }}
-        path: .ordax-verified-surface-source
-        fetch-depth: 1
-        persist-credentials: false
-
-    - name: Assemble source-bound disposable release
+    - name: Assemble same-commit OS and Surface
       id: assemble
       shell: bash
       working-directory: ${{ inputs.source-root }}
       env:
         ORDAX_OUTPUT_ROOT: ${{ inputs.out-root }}
-        ORDAX_SURFACE_SOURCE_SHA: ${{ steps.surface-lock.outputs.commit }}
       run: |
         set -euo pipefail
         case "$ORDAX_OUTPUT_ROOT" in
           /*) ;;
-          *) echo "::error::Release staging requires an absolute output path"; exit 1 ;;
+          *) echo "::error::absolute staging path required" >&2; exit 1 ;;
         esac
-        source_dir="$GITHUB_WORKSPACE/.ordax-verified-surface-source"
-        test -d "$source_dir" && test ! -L "$source_dir"
-        test "$(git -C "$source_dir" rev-parse HEAD)" = "$ORDAX_SURFACE_SOURCE_SHA"
-        test -z "$(git -C "$source_dir" status --porcelain)"
-        python3 tools/surface-source/assemble.py \
-          --os-root "$PWD" \
-          --surface-root "$source_dir" \
-          --out-root "$ORDAX_OUTPUT_ROOT"
+        python3 tools/surface-source/materialize.py verify --os-root "$PWD"
+        python3 tools/surface-source/assemble.py --os-root "$PWD" --out-root "$ORDAX_OUTPUT_ROOT"
         python3 - "$ORDAX_OUTPUT_ROOT" <<'PY'
-        import json
-        import sys
-        from pathlib import Path
-        root = Path(sys.argv[1])
-        manifest = json.loads((root / "system/surface/source-provenance.json").read_text())
-        if manifest["old_os_visual_source_packaged"] is not False:
-            raise SystemExit("assembled release includes legacy OS visual source")
-        if not (root / "system/entrypoint").is_file():
-            raise SystemExit("assembled release lacks OS entrypoint")
-        print("ONE_SURFACE_SOURCE=VERIFIED")
+        import json, pathlib, subprocess, sys
+        root=pathlib.Path(sys.argv[1])
+        receipt=json.loads((root/"system/surface/source-provenance.json").read_text())
+        sha=subprocess.check_output(["git","rev-parse","HEAD"],text=True).strip()
+        assert receipt["os_commit"] == sha
+        assert receipt["surface_source_commit"] == sha
+        assert receipt["surface_source_repository"] == "ordaxsystems/ordax-os"
+        assert receipt["single_visual_source"] is True
+        assert (root/"system/surface/ui/surface.mjs").is_file()
+        assert (root/"system/surface/workspace").is_dir()
+        print("SAME_COMMIT_SURFACE=VERIFIED",sha)
         PY
         echo "root=$ORDAX_OUTPUT_ROOT" >> "$GITHUB_OUTPUT"
-
-    - name: Remove disposable Surface checkout
-      if: always()
-      shell: bash
-      run: |
-        set -euo pipefail
-        test -n "${GITHUB_WORKSPACE:-}"
-        target="$GITHUB_WORKSPACE/.ordax-verified-surface-source"
-        if [ -e "$target" ]; then
-          test -d "$target" && test ! -L "$target"
-          rm -rf -- "$target"
-        fi

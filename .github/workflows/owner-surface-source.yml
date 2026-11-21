@@ -1,4 +1,4 @@
-name: Owner Surface Source Transaction
+name: OrdaX Same-Commit Surface Transaction
 
 on:
   workflow_dispatch: # Run existing consumer validation on immutable bot PR branches
@@ -24,7 +24,7 @@ permissions:
   contents: read
 
 jobs:
-  owner-pinned-source:
+  owner-same-commit-source:
     runs-on: ubuntu-24.04
     timeout-minutes: 20
     steps:
@@ -43,7 +43,7 @@ jobs:
           test -x /bin/busybox
           command -v git
 
-      - name: Prepare verified external Surface for Supervisor regression test source reads
+      - name: Verify local Surface source for Supervisor regression tests
         uses: ./.github/actions/prepare-verified-surface
 
       - name: Verify shell syntax and stage-only contract

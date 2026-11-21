@@ -27,7 +27,7 @@ jobs:
           VERCEL_PROJECT_ID: prj_ftACluUqk6i9DoD9GPIwmgURwckP
           VERCEL_GIT_COMMIT_SHA: ${{ github.sha }}
         run: python3 tools/vercel/build.py
-      - name: Verify both external owners and no staged UI left behind
+      - name: Verify independent Site and same-commit Surface
         run: |
           python3 - <<'PY'
           import json
@@ -41,9 +41,10 @@ jobs:
           assert manifest["site_source_commit"] == site_pin["commit"]
           assert (root / "out/vercel/web-client-manifest.json").is_file()
           assert (root / "out/vercel/login/index.html").is_file()
-          assert not (root / "system/surface/ui").exists()
-          assert not (root / "system/surface/workspace").exists()
-          assert surface_pin["source_repository"] == "ordaxsystems/ordax-surface"
+          assert (root / "system/surface/ui/surface.mjs").is_file()
+          assert (root / "system/surface/workspace").is_dir()
+          assert surface_pin["source_repository"] == "ordaxsystems/ordax-os"
+          assert surface_pin["source_ref"] == "same-commit"
           assert manifest["files"]
-          print("VERCEL_WEB_INDEPENDENT_SITE_AND_SURFACE=PASS")
+          print("VERCEL_WEB_SITE_AND_OS_SURFACE=PASS")
           PY

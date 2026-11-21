@@ -41,9 +41,7 @@ __pycache__/
 .venv/
 venv/
 
-# Canonical Surface is mounted from the external owner only in local dev
-/system/surface/ui/
-/system/surface/workspace/
+# Surface is versioned here with the OS host and lifecycle.
 
 # Node/tool caches
 node_modules/

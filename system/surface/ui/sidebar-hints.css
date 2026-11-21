@@ -1,0 +1,17 @@
+.ordax-sidebar-hint {
+  position: fixed;
+  z-index: 1000;
+  max-width: min(240px, calc(100vw - 16px));
+  padding: 8px 12px;
+  border: 1px solid var(--ordax-border);
+  border-radius: var(--ordax-radius-sm);
+  background: var(--ordax-panel);
+  color: var(--ordax-text);
+  box-shadow: var(--ordax-shadow-soft);
+  font: 500 .75rem/1.4 var(--ordax-font);
+  overflow-wrap: anywhere;
+  pointer-events: none;
+}
+.ordax-sidebar-hint[hidden] { display: none; }
+
+[data-sidebar-hint-host] { display: contents; }

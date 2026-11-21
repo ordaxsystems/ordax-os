@@ -1,9 +1,8 @@
 #!/usr/bin/env python3
-"""Verify and stage a pinned Surface source tree without changing a live OS checkout.
+"""Verify Surface Git blobs from this same OS commit without changing a live checkout.
 
-This OS-owned build utility intentionally does NOT fetch a branch, update a device,
-overwrite an active Surface, or implement a second UI. The caller supplies an
-immutable checkout and consumes its verified, disposable staging directory.
+The single canonical source lives in system/surface/{ui,workspace}.
+Only committed OS Git blobs may be materialized into disposable staging.
 """
 
 from __future__ import annotations
@@ -34,20 +33,20 @@ def git(source: Path, *args: str) -> bytes:
         check=False, capture_output=True,
     )
     if result.returncode:
-        raise SurfaceSourceError("pinned Surface Git source unavailable or invalid")
+        raise SurfaceSourceError("OS Git source unavailable or invalid")
     return result.stdout
 
 
 def load_lock(path: Path = LOCK_PATH) -> dict:
     raw = json.loads(path.read_text(encoding="utf-8"))
-    if raw.get("$schema") != "prototype-ordax.surface-source/1":
+    if raw.get("$schema") != "prototype-ordax.surface-source/2":
         raise SurfaceSourceError("unrecognized Surface source lock schema")
     if raw.get("status") != "canonical":
         raise SurfaceSourceError("Surface source lock is not canonical")
-    if raw.get("source_repository") != "ordaxsystems/ordax-surface":
+    if raw.get("source_repository") != "ordaxsystems/ordax-os":
         raise SurfaceSourceError("untrusted Surface source repository")
-    if not isinstance(raw.get("source_commit"), str) or not SHA40.fullmatch(raw["source_commit"]):
-        raise SurfaceSourceError("Surface source commit must be an exact Git SHA")
+    if raw.get("source_ref") != "same-commit" or raw.get("source_policy") != "tracked-git-blobs-only":
+        raise SurfaceSourceError("Surface must derive from the same committed OS source")
     if raw.get("visual_source_paths") != list(VISUAL_PATHS):
         raise SurfaceSourceError("Surface source paths do not match the public mount boundary")
     return raw
@@ -62,11 +61,11 @@ def verify_source(source: Path, lock: dict) -> tuple[list[tuple[str, bytes]], di
     if not source.is_dir() or source.is_symlink():
         raise SurfaceSourceError("Surface checkout must be a directory")
     head = git(source, "rev-parse", "HEAD").decode("ascii").strip()
-    if head != lock["source_commit"]:
-        raise SurfaceSourceError("Surface checkout revision is not pinned source_commit")
+    if not SHA40.fullmatch(head) or lock.get("source_ref") != "same-commit":
+        raise SurfaceSourceError("Surface identity must be the canonical OS SHA")
     dirty = git(source, "status", "--porcelain", "--untracked-files=all", "--", *VISUAL_PATHS)
     if dirty:
-        raise SurfaceSourceError("Surface source checkout is modified")
+        raise SurfaceSourceError("Surface OS source tree is modified")
     raw = git(source, "ls-tree", "-rz", "HEAD", "--", *VISUAL_PATHS)
     records = []
     fingerprint = hashlib.sha256()
@@ -100,7 +99,7 @@ def verify_source(source: Path, lock: dict) -> tuple[list[tuple[str, bytes]], di
         if not any(p.startswith(prefix + "/") for p, _ in records):
             raise SurfaceSourceError("missing visual source subtree: " + prefix)
     receipt = {
-        "$schema": "ordax.surface-source-materialization/1",
+        "$schema": "ordax.surface-source-materialization/2",
         "source_repository": lock["source_repository"],
         "source_commit": head,
         "paths": list(VISUAL_PATHS),
@@ -137,16 +136,15 @@ def stage_source(records: list[tuple[str, bytes]], receipt: dict, output: Path) 
 def main() -> None:
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("command", choices=("verify", "stage"))
-    parser.add_argument("--source-dir", type=Path, required=True)
-    parser.add_argument("--lock", type=Path, default=LOCK_PATH)
+    parser.add_argument("--os-root", type=Path, default=ROOT)
     parser.add_argument("--out-dir", type=Path)
     args = parser.parse_args()
     if args.command == "stage" and args.out_dir is None:
         parser.error("stage requires --out-dir")
     if args.command == "verify" and args.out_dir is not None:
         parser.error("verify does not accept --out-dir")
-    lock = load_lock(args.lock)
-    records, receipt = verify_source(args.source_dir, lock)
+    lock = load_lock(args.os_root / "docs/contracts/surface-source.json")
+    records, receipt = verify_source(args.os_root, lock)
     if args.command == "stage":
         stage_source(records, receipt, args.out_dir)
     print(json.dumps(receipt, sort_keys=True))

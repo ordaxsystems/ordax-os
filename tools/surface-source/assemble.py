@@ -1,8 +1,8 @@
 #!/usr/bin/env python3
-"""Assemble one disposable, reproducible OS system/ tree from pinned Surface source.
+"""Assemble one disposable, reproducible OS system/ tree from the same OS commit.
 
-The OS supplies system services and host. The Surface supplies only the two
-visual trees. No checkout, tracked OS source or running device is modified.
+The OS supplies system services and host. The Surface visual trees are committed alongside native OS services.
+No source checkout or running device is modified.
 Release-bundle, portable image and other builders consume --out-root as normal.
 """
 
@@ -52,9 +52,9 @@ def os_head(root: Path) -> str:
     return value
 
 
-def ensure_not_inside(output: Path, root: Path, surface_root: Path) -> None:
+def ensure_not_inside(output: Path, root: Path) -> None:
     resolved = output.resolve(strict=False)
-    for parent in (root.resolve(strict=True), surface_root.resolve(strict=True)):
+    for parent in (root.resolve(strict=True),):
         if os.path.commonpath((str(resolved), str(parent))) == str(parent):
             raise source.SurfaceSourceError("release staging cannot modify an input checkout")
     if output.exists() or output.is_symlink():
@@ -63,13 +63,12 @@ def ensure_not_inside(output: Path, root: Path, surface_root: Path) -> None:
         raise source.SurfaceSourceError("release staging parent must be a real directory")
 
 
-def assemble(os_root: Path, surface_root: Path, output: Path, lock_file: Path = source.LOCK_PATH) -> dict:
+def assemble(os_root: Path, output: Path) -> dict:
     os_root = os_root.resolve(strict=True)
-    surface_root = surface_root.resolve(strict=True)
     output = output.absolute()
-    ensure_not_inside(output, os_root, surface_root)
-    lock = source.load_lock(lock_file)
-    records, visual_receipt = source.verify_source(surface_root, lock)
+    ensure_not_inside(output, os_root)
+    lock = source.load_lock(os_root / "docs/contracts/surface-source.json")
+    records, visual_receipt = source.verify_source(os_root, lock)
     system = os_root / "system"
     require_tree(system)
     os_sha = os_head(os_root)
@@ -77,42 +76,31 @@ def assemble(os_root: Path, surface_root: Path, output: Path, lock_file: Path = 
         raise source.SurfaceSourceError("OS may not own a second Surface provenance receipt")
     tmp = Path(tempfile.mkdtemp(prefix=".ordax-system-stage-", dir=output.parent))
     try:
-        def ignore(directory: str, contents: list[str]) -> set[str]:
-            # The old OS visual source NEVER enters the final build. While
-            # cutover is in progress this also permits safe branch testing.
-            if Path(directory).resolve() == (system / "surface").resolve():
-                return set(VISUAL).intersection(contents)
-            return set()
-
-        shutil.copytree(system, tmp / "system", ignore=ignore, symlinks=True)
+        # The system and its Surface have one Git source, copied once.
+        shutil.copytree(system, tmp / "system", symlinks=True)
         for part in VISUAL:
-            if (tmp / "system/surface" / part).exists():
-                raise source.SurfaceSourceError("two Surface source trees in staged release")
-
+            path = tmp / "system/surface" / part
+            if path.is_symlink() or not path.is_dir():
+                raise source.SurfaceSourceError("missing committed Surface directory: " + part)
         for relative, payload in records:
             dest = tmp.joinpath(*PurePosixPath(relative).parts)
-            if dest.exists() or dest.is_symlink():
-                raise source.SurfaceSourceError("staged path collision: " + relative)
-            dest.parent.mkdir(parents=True, exist_ok=True)
-            dest.write_bytes(payload)
-            # Exact revision/byte verification is handled by verify_source;
-            # source mode must match the mode committed in its Git tree.
-            source_mode = stat.S_IMODE((surface_root / relative).stat().st_mode)
+            if dest.is_symlink() or not dest.is_file() or dest.read_bytes() != payload:
+                raise source.SurfaceSourceError("staged visual differs from OS Git: " + relative)
+            source_mode = stat.S_IMODE((os_root / relative).stat().st_mode)
             if source_mode not in (0o644, 0o755):
-                raise source.SurfaceSourceError("non-canonical Surface source file mode")
-            dest.chmod(source_mode)
+                raise source.SurfaceSourceError("non-canonical source file mode")
 
         receipt = {
-            "$schema": "prototype-ordax.surface-assembly/1",
+            "$schema": "prototype-ordax.surface-assembly/2",
             "os_commit": os_sha,
             "surface_source_repository": visual_receipt["source_repository"],
             "surface_source_commit": visual_receipt["source_commit"],
             "visual_file_count": visual_receipt["file_count"],
             "visual_source_sha256": visual_receipt["visual_source_sha256"],
             "visual_paths": visual_receipt["paths"],
-            "old_os_visual_source_packaged": False,
+            "single_visual_source": True,
             "host_owner": "ordaxsystems/ordax-os",
-            "user_interface_owner": "ordaxsystems/ordax-surface",
+            "user_interface_owner": "ordaxsystems/ordax-os",
         }
         dest_receipt = tmp / PROVENANCE
         dest_receipt.parent.mkdir(parents=True, exist_ok=True)
@@ -133,11 +121,9 @@ def assemble(os_root: Path, surface_root: Path, output: Path, lock_file: Path = 
 def main() -> None:
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--os-root", type=Path, required=True)
-    parser.add_argument("--surface-root", type=Path, required=True)
     parser.add_argument("--out-root", type=Path, required=True)
-    parser.add_argument("--lock", type=Path, default=source.LOCK_PATH)
     args = parser.parse_args()
-    print(json.dumps(assemble(args.os_root, args.surface_root, args.out_root, args.lock), sort_keys=True))
+    print(json.dumps(assemble(args.os_root, args.out_root), sort_keys=True))
 
 
 if __name__ == "__main__":

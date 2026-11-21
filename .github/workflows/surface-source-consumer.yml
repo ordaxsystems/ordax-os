@@ -63,41 +63,10 @@ jobs:
         run: |
           python -m unittest tests.test_surface_source_assembly tests.test_native_release_surface_source -v
 
-      - name: Obtain only the pinned Surface Git revision
-        shell: bash
-        run: |
-          set -euo pipefail
-          source_sha=$(python3 - <<'PY'
-          import json
-          from pathlib import Path
-          p = json.loads(Path("docs/contracts/surface-source.json").read_text(encoding="utf-8"))
-          print(p["source_commit"])
-          PY
-          )
-          git clone --single-branch --branch main --filter=blob:none --no-tags \
-            https://github.com/ordaxsystems/ordax-surface.git "$RUNNER_TEMP/surface-source"
-          git -C "$RUNNER_TEMP/surface-source" checkout --detach "$source_sha"
-          test "$(git -C "$RUNNER_TEMP/surface-source" rev-parse HEAD)" = "$source_sha"
+      - name: Verify committed Surface without an external clone
+        run: python3 tools/surface-source/materialize.py verify --os-root "$PWD"
 
-      - name: Verify and materialize external source in disposable build directory
-        shell: bash
-        run: |
-          set -euo pipefail
-          python3 tools/surface-source/materialize.py stage \
-            --source-dir "$RUNNER_TEMP/surface-source" \
-            --out-dir "$RUNNER_TEMP/surface-source-stage"
-          test -s "$RUNNER_TEMP/surface-source-stage/surface-source-receipt.json"
-          for part in ui workspace; do
-            test -d "$RUNNER_TEMP/surface-source-stage/system/surface/$part"
-            test ! -e "system/surface/$part" && test ! -L "system/surface/$part"
-            # Only this disposable CI checkout is overlaid. Production and USB
-            # activation are deliberately NOT authorized by this workflow.
-            rm -rf "system/surface/$part"
-            cp -a "$RUNNER_TEMP/surface-source-stage/system/surface/$part" "system/surface/$part"
-            diff -qr "$RUNNER_TEMP/surface-source-stage/system/surface/$part" "system/surface/$part"
-          done
-
-      - name: Compile Web composition from verified external source
+      - name: Compile Web composition from same-commit Surface
         shell: bash
         run: |
           set -euo pipefail
@@ -124,7 +93,7 @@ jobs:
           go-version: '1.27.1'
           cache: false
 
-      - name: Build canonical system.tar from verified cross-repository source
+      - name: Build canonical system.tar from OS source
         shell: bash
         run: |
           set -euo pipefail

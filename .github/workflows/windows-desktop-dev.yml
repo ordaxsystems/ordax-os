@@ -60,41 +60,13 @@ jobs:
       - uses: actions/setup-python@ece7cb06caefa5fff74198d8649806c4678c61a1 # v6
         with:
           python-version: '3.12'
-      - name: Verify and mount the single pinned Surface source in disposable Windows CI
+      - name: Verify committed Surface from the same OS revision
         shell: pwsh
         run: |
-          $ErrorActionPreference = 'Stop'
-          $lock = Get-Content 'docs/contracts/surface-source.json' -Raw | ConvertFrom-Json
-          if ($lock.source_repository -ne 'ordaxsystems/ordax-surface' -or
-              $lock.status -ne 'canonical' -or
-              $lock.source_commit -notmatch '^[0-9a-f]{40}$') {
-            throw 'Untrusted Surface source lock'
-          }
-          foreach ($part in @('ui','workspace')) {
-            if (Test-Path "system/surface/$part") { throw 'OS visual duplication detected' }
-          }
-          $source = Join-Path $env:RUNNER_TEMP 'ordax-desktop-pinned-surface'
-          $stage = Join-Path $env:RUNNER_TEMP 'ordax-desktop-verified-surface'
-          & git -c core.autocrlf=false clone --config core.autocrlf=false --filter=blob:none --single-branch --branch main --no-tags https://github.com/ordaxsystems/ordax-surface.git $source
-          if ($LASTEXITCODE -ne 0) { throw 'Canonical Surface Git acquisition failed' }
-          & git -C $source checkout --detach $lock.source_commit
-          if ($LASTEXITCODE -ne 0) { throw 'Pinned Surface commit missing' }
-          $head = (& git -C $source rev-parse HEAD).Trim()
-          if ($LASTEXITCODE -ne 0 -or $head -cne $lock.source_commit) {
-            throw 'Pinned Surface differs from OS SSOT'
-          }
-          & python tools/surface-source/materialize.py stage --source-dir $source --out-dir $stage
-          if ($LASTEXITCODE -ne 0) { throw 'Pinned Surface verification failed' }
-          $receipt = Get-Content (Join-Path $stage 'surface-source-receipt.json') -Raw | ConvertFrom-Json
-          if ($receipt.source_commit -cne $lock.source_commit -or
-              $receipt.source_repository -ne $lock.source_repository -or
-              $receipt.file_count -le 0) { throw 'Untrusted Surface receipt' }
-          foreach ($part in @('ui','workspace')) {
-            $verified = Join-Path $stage "system/surface/$part"
-            if (-not (Test-Path $verified -PathType Container)) { throw 'Incomplete pinned Surface tree' }
-            Copy-Item -LiteralPath $verified -Destination "system/surface/$part" -Recurse
-          }
-          Write-Output "WINDOWS_SINGLE_SURFACE_SOURCE=VERIFIED commit=$head"
+          & python tools/surface-source/materialize.py verify --os-root .
+          if ($LASTEXITCODE -ne 0) { throw 'OS Surface source mismatch' }
+          Write-Output "WINDOWS_SINGLE_SURFACE_SOURCE=OS_COMMIT"
+
       - name: Audit exact Windows packaged Native system footprint
         run: |
           node --test out/ordax-desktop-source/package-inventory.test.cjs
