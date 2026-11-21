@@ -371,10 +371,20 @@ jobs:
           if [ "$owner_cache_hit" != true ]; then
             owner_cache_hit=false
             echo 'ORDAX_OWNER_BASE_CACHE_MISS=build-affecting-input-or-environment'
+            # The canonical Buildroot owner forbids building beneath ROOT.
+            # Produce outside the checkout, then atomically expose its verified
+            # artifacts at the pre-existing channel/cache consumer path.
+            owner_build_out="$RUNNER_TEMP/dev-base-channel/owner-build-output"
+            test ! -e "$owner_build_out"
+            test ! -e out/dev-rootfs
             sudo -E python3 bootstrap/independent-base/build.py build \
-              --profile owner-development --out out/dev-rootfs \
+              --profile owner-development --out "$owner_build_out" \
               --cache "$RUNNER_TEMP/dev-base-channel/buildroot-cache" --jobs 4
-            sudo chown -R "$(id -u):$(id -g)" out/dev-rootfs
+            sudo chown -R "$(id -u):$(id -g)" "$owner_build_out"
+            python3 bootstrap/independent-base/build.py verify \
+              --profile owner-development --out "$owner_build_out"
+            mkdir -p out
+            mv "$owner_build_out" out/dev-rootfs
           fi
           python3 bootstrap/independent-base/build.py verify \
             --profile owner-development --out out/dev-rootfs

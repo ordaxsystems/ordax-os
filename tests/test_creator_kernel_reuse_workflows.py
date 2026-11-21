@@ -194,6 +194,14 @@ class CreatorKernelReuseWorkflowTests(unittest.TestCase):
             "test -f out/initramfs-work/kernel-uapi-install/include/linux/mount.h",
             build,
         )
+        # Keep heavy Buildroot writes out of the Git worktree. Consumers and
+        # content-addressed cache still use the original out/dev-rootfs path.
+        self.assertIn('owner_build_out="$RUNNER_TEMP/dev-base-channel/owner-build-output"', build)
+        self.assertIn('--profile owner-development --out "$owner_build_out"', build)
+        self.assertIn('mv "$owner_build_out" out/dev-rootfs', build)
+        self.assertNotIn('--profile owner-development --out out/dev-rootfs', build)
+        self.assertLess(build.index('verify \\\n              --profile owner-development --out "$owner_build_out"'),
+                        build.index('mv "$owner_build_out" out/dev-rootfs'))
         self.assertIn("owner_validation_pr", workflow)
         self.assertIn("DEV_BASE_OWNER_MAIN_BACKFILL=$GITHUB_SHA", workflow)
         self.assertIn("DEV_BASE_OWNER_BACKFILL=ALREADY_PUBLISHED", workflow)
