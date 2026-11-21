@@ -2,7 +2,7 @@
 
 `system/` contains the **OS-owned host, contracts, services, adapters and composition** used to assemble the OrdaX product across applicable modes. It is not the source owner of every component.
 
-The visual Surface is owned by `ordaxsystems/ordax-os`; removable first-party applications are owned by `ordaxsystems/ordax-apps`; the Windows host/packaging is owned by `ordaxsystems/ordax-desktop`. Exact external sources enter a candidate only through verified contracts/locks/artifacts.
+The visual Surface is owned by `ordaxsystems/ordax-os`; removable first-party applications are owned by `ordaxsystems/ordax-apps`; the Windows host/packaging is owned by this monorepo at `desktop/`. Exact external sources enter a candidate only through verified contracts/locks/artifacts.
 
 ```text
 system/
@@ -13,7 +13,7 @@ system/
   adapters/
     web/          # browser capability adapters
     mobile/       # mobile capability adapters
-    desktop/      # OS-side desktop capability boundary; host app lives in ordax-desktop
+    desktop/      # OS-side desktop capability boundary; host app lives at root desktop/
     native/       # OrdaX OS capabilities shared by USB/native where genuine
   composition/   # thin target wiring + verified external component assembly
 ```
