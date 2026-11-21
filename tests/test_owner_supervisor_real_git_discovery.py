@@ -50,6 +50,7 @@ class OwnerSupervisorRealGitDiscoveryTests(unittest.TestCase):
         self._git("-C", str(self.seed), "add", "state.txt")
         self._git("-C", str(self.seed), "commit", "-m", "known-good")
         self.initial_sha = self._git("-C", str(self.seed), "rev-parse", "HEAD")
+        (self.state / "current-commit").write_text(self.initial_sha + "\n", encoding="ascii")
         self._git("init", "--bare", "--initial-branch=main", str(self.remote))
         self._git("-C", str(self.seed), "remote", "add", "origin", str(self.remote))
         self._git("-C", str(self.seed), "push", "-u", "origin", "main")
@@ -89,6 +90,7 @@ class OwnerSupervisorRealGitDiscoveryTests(unittest.TestCase):
             "UPDATE_LOG": self.run / "update.log",
             "UPDATE_STATE": self.state_file,
             "OWNER_POLL_BOOT_FILE": self.state / "native-state/supervisor-boot-witness.json",
+            "CURRENT_FILE": self.state / "current-commit",
             "PINNED_FILE": self.state / "pinned-commit",
             "BOOT_REJECTED_FILE": self.state / "boot-rejected-commit",
             "REJECTED_FILE": self.state / "rejected-commit",
@@ -117,6 +119,7 @@ class OwnerSupervisorRealGitDiscoveryTests(unittest.TestCase):
             'set_update_context() { :; }',
             'write_update_state() { printf "%s %s\\n" "$1" "$2" > "$UPDATE_STATE"; }',
             'read_state_value() { [ ! -s "$1" ] || cat "$1"; }',
+            shell_function(source, "is_sha"),
             'apply_remote_checkout() { : >"$PULL_MARKER"; return 1; }',
             witness,
             poll,

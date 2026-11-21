@@ -12,6 +12,7 @@ import {
   resolveLocalSurfaceRoot,
   logicalSurfaceWatchIgnorePaths,
   virtualSurfaceAssetRedirect,
+  logicalSurfaceAssetRedirect,
   SURFACE_OVERLAY_PREFIX,
 } from "./surface-source-overlay.mjs";
 
@@ -82,16 +83,17 @@ test("workspace and brand aliases use verified Surface bytes without a junction"
   );
 });
 
-test("CSS stays overlaid while binary assets remain physical read-only inputs", t => {
+test("CSS uses Vite's physical pipeline while assets remain owner inputs", t => {
   const f = fixture(t);
   const plugin = createLocalSurfaceOverlayPlugin({ repoRoot: f.os, localSurface: f.surface });
   const cssId = plugin.resolveId("../../surface/ui/view.css", f.main);
-  assert.equal(cssId, SURFACE_OVERLAY_PREFIX + "system/surface/ui/view.css");
+  assert.equal(cssId, f.css);
+  assert.equal(plugin.resolveId("/system/surface/ui/view.css", f.main), f.css);
   assert.equal(
     plugin.resolveId("./brand/mark.png", cssId),
     resolve(f.asset),
   );
-  assert.equal(plugin.load.call({ addWatchFile() {} }, cssId), ".x{background:url('./brand/mark.png')}\n");
+  assert.equal(plugin.load.call({ addWatchFile() {} }, cssId), null);
 });
 
 test("overlay rejects relative traversal outside the OS source root", t => {
@@ -211,4 +213,23 @@ test("missing explicit Surface source cannot fall through to stale OS visual cop
   writeFileSync(stale,"export const stale=true;");
   const plugin = createLocalSurfaceOverlayPlugin({repoRoot:f.os,localSurface:f.surface});
   assert.throws(() => plugin.resolveId("../../surface/ui/missing.mjs",f.main), /Surface overlay source missing/);
+});
+
+test("HTML styles and logical asset URLs redirect to the owner's physical Vite path", t => {
+  const f = fixture(t);
+  const fs = file => "/@fs/" + encodeURI(file.replaceAll("\\", "/"));
+  assert.equal(logicalSurfaceAssetRedirect(f.surface, "/system/surface/ui/view.css?v=1"), fs(f.css) + "?v=1");
+  assert.equal(logicalSurfaceAssetRedirect(f.surface, "/system/surface/ui/brand/mark.png"), fs(f.asset));
+  assert.equal(logicalSurfaceAssetRedirect(f.surface, "/system/surface/ui/view.mjs"), null);
+  assert.equal(logicalSurfaceAssetRedirect(f.surface, "/system/surface/ui/%2e%2e/view.css"), null);
+  assert.equal(logicalSurfaceAssetRedirect(f.surface, "/system/surface/ui/missing.css"), null);
+  const plugin = createLocalSurfaceOverlayPlugin({repoRoot:f.os,localSurface:f.surface});
+  let middleware;
+  plugin.configureServer({middlewares:{use:fn=>{middleware=fn;}}});
+  const headers = {};
+  const response = {statusCode:200,setHeader(k,v){headers[k]=v;},end(){this.ended=true;}};
+  middleware({method:"GET",url:"/system/surface/ui/view.css"},response,()=>assert.fail("CSS not routed"));
+  assert.equal(response.statusCode,302);
+  assert.equal(headers.Location,fs(f.css));
+  assert.equal(response.ended,true);
 });

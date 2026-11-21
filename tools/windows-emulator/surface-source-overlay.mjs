@@ -111,6 +111,28 @@ export function virtualSurfaceAssetRedirect(surfaceRoot, requestUrl) {
   return "/@fs/" + encodeURI(absolute).replaceAll("#", "%23").replaceAll("?", "%3F");
 }
 
+// HTML links and CSS asset URLs bypass Vite's JS module resolver. Route
+// those same-owner files to Vite's real filesystem handler, never a shadow
+// file in the OS checkout. JS imports continue through the virtual overlay.
+export function logicalSurfaceAssetRedirect(surfaceRoot, requestUrl) {
+  if (typeof requestUrl !== "string") return null;
+  const parsed = stripQuery(requestUrl);
+  let decoded;
+  try { decoded = decodeURIComponent(parsed.path); }
+  catch { return null; }
+  if (!decoded.startsWith("/system/surface/")) return null;
+  const logical = decoded.slice(1);
+  if (!VISUAL_ROOTS.some(prefix => logical.startsWith(prefix + "/")) ||
+      logical.split("/").some(part => !part || part === "." || part === "..") ||
+      logical.includes("\\") || logical.includes("\0")) return null;
+  const extension = extname(logical).toLowerCase();
+  if (extension !== ".css" && !STATIC_ASSET_EXTENSIONS.has(extension)) return null;
+  const found = resolveSurfaceFile(surfaceRoot, logical);
+  if (!found || found.logicalRelative !== logical) return null;
+  const absolute = found.physical.split(sep).join("/");
+  return "/@fs/" + encodeURI(absolute).replaceAll("#", "%23").replaceAll("?", "%3F") + parsed.query;
+}
+
 // Explicit developer preview consumes the owner's actual visual checkout,
 // not a copied or pinned delivery. It never changes either Git worktree.
 export function resolveLocalSurfaceRoot(repoRoot, explicitRoot) {
@@ -169,6 +191,12 @@ export function createLocalSurfaceOverlayPlugin({ repoRoot, localSurface }) {
         query: parsed.query,
       });
     }
+    if (VISUAL_ROOTS.some(prefix => parsed.path.startsWith("/" + prefix + "/"))) {
+      return Object.freeze({
+        target: resolve(root, ...parsed.path.slice(1).split("/")),
+        query: parsed.query,
+      });
+    }
     if (isAbsolute(parsed.path) && inside(surface, resolve(parsed.path))) {
       const relativeToSurface = relative(surface, resolve(parsed.path)).split(sep).join("/");
       return Object.freeze({
@@ -190,7 +218,8 @@ export function createLocalSurfaceOverlayPlugin({ repoRoot, localSurface }) {
     configureServer(server) {
       server.middlewares.use((request, response, next) => {
         if (request.method !== "GET" && request.method !== "HEAD") return next();
-        const redirect = virtualSurfaceAssetRedirect(surface, request.url);
+        const redirect = logicalSurfaceAssetRedirect(surface, request.url) ??
+          virtualSurfaceAssetRedirect(surface, request.url);
         if (!redirect) return next();
         response.statusCode = 302;
         response.setHeader("Location", redirect);
@@ -207,7 +236,9 @@ export function createLocalSurfaceOverlayPlugin({ repoRoot, localSurface }) {
       if (logicalRelative !== null) {
         const found = resolveSurfaceFile(surface, logicalRelative);
         if (!found) throw new Error("Surface overlay source missing: " + logicalRelative);
-        if (!SOURCE_EXTENSIONS.has(extname(found.physical)))
+        // CSS uses Vite's physical CSS pipeline (including its file watcher
+        // and relative url()/@import processing), rather than a virtual JS ID.
+        if (extname(found.physical) === ".css" || !SOURCE_EXTENSIONS.has(extname(found.physical)))
           return found.physical + resolved.query;
         return overlayId(found.logicalRelative, resolved.query);
       }

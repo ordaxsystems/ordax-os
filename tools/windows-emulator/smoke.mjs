@@ -16,6 +16,7 @@ async function state(client){
         stage:overlay?.dataset.firstRunStep,
         meridian:doc?.documentElement.hasAttribute("data-meridian"),
         accent:doc?getComputedStyle(doc.documentElement).getPropertyValue("--md-accent").trim():null,
+        missingStyles:doc?[...doc.querySelectorAll('link[rel="stylesheet"]')].filter(link=>!link.sheet).map(link=>link.getAttribute("href")):[],
         boot:doc?.querySelector("#ordax-boot-screen")?.dataset.state,
         shell:!!doc?.querySelector("[data-ordax-shell]")
       };
@@ -55,7 +56,7 @@ async function action(client,id){
 runBrowser(async client=>{
   const navigation=await client.send("Page.navigate",{url});
   if(navigation.errorText)throw Error(navigation.errorText);
-  const initial=await until(client,result=>result?.firstRunVisible&&result.next);
+  const initial=await until(client,result=>result?.firstRunVisible&&result.next&&result.meridian&&result.accent&&!result.missingStyles.length);
   if(initial.schema!=="ordax.windows-emulator/1"||initial.kernel!==false||initial.target!==target||initial.path!==target)
     throw Error("Emulator must render the real Native entry: "+JSON.stringify(initial));
   if(!initial.meridian||!initial.accent)throw Error("Native Meridian presentation is missing");
