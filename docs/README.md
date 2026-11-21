@@ -12,7 +12,7 @@ Este índice é o **roteador central de autoridade documental** de todo o ecossi
 
 1. Uma responsabilidade normativa = um documento/contrato proprietário; demais repos fazem referência por link, não por cópia ou paráfrase normativa concorrente.
 2. Quando existir contrato executável ou schema, ele prevalece sobre prosa conflitante. O código atual do owner e os testes/recibos determinam o comportamento implementado; planos e handoffs datados não representam status atual.
-3. Os documentos locais de Apps, Runtime, Platform, Desktop, Creator, Surface e Site continuam junto ao source e não dependem de sincronização de commits do OS para mudanças internas. O índice central aponta para seus owners.
+3. A documentação do Desktop fica em `desktop/` e a do Site em `site/`, ambos na mesma `main` do OS. Os owners externos, como Runtime e Platform, continuam com documentação própria. O índice central aponta para cada autoridade.
 4. Ao alterar contrato compartilhado: atualizar primeiro seu owner, validar consumidores compatíveis e corrigir referências afetadas. Não criar espelhos de contratos, novo repo de docs ou outra fila de migração.
 5. Links para arquivos removidos ou históricos devem ser substituídos pelo índice/estado canônico, sem destruir evidências históricas.
 
