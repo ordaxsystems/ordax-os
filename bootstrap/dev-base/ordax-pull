@@ -894,6 +894,18 @@ if [ "$SEED_MODE" -eq 1 ]; then
     exit 0
 fi
 
+# Do not spend time discovering/fetching remote main, or replace a checkout
+# with broken origin/branch metadata, while it still contains readable edits.
+# This guard also protects manually edited assets during normal offline DEV.
+if [ -d "$WORKTREE/.git" ] && [ ! -L "$WORKTREE/.git" ] &&
+   early_status=$(git -C "$WORKTREE" status --porcelain 2>/dev/null) &&
+   [ -n "$early_status" ]; then
+    PULL_PHASE=preflight
+    record_dirty_checkout
+    echo "ordax-git: checkout local alterado; edicoes preservadas no checkout. Commit ou guarde suas alteracoes antes de atualizar." >&2
+    exit 1
+fi
+
 # A Supervisor-owned transaction arrives with an exact candidate SHA whose
 # tracking ref and Git objects were already fetched and checked by Supervisor.
 # It MUST NOT perform a second remote discovery: that races a moving main and

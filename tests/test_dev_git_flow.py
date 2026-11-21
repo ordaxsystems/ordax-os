@@ -1095,6 +1095,23 @@ class DevelopmentGitFlowTest(unittest.TestCase):
             self.commit_v2,
         )
 
+    def test_dirty_checkout_with_wrong_origin_is_not_replaced(self) -> None:
+        self._script(PULL)
+        dirty = self.worktree / "system/local-change.txt"
+        dirty.write_text("local work\n", encoding="utf-8")
+        wrong_origin = (self.root / "unexpected.git").as_uri()
+        self._run(["git", "-C", str(self.worktree), "remote", "set-url",
+                   "origin", wrong_origin])
+        result = self._script(PULL, check=False)
+        self.assertNotEqual(result.returncode, 0)
+        self.assertIn("edicoes preservadas", result.stderr)
+        self.assertEqual(dirty.read_text(encoding="utf-8"), "local work\n")
+        self.assertEqual(self._run(["git", "-C", str(self.worktree),
+                                    "remote", "get-url", "origin"]).stdout.strip(),
+                         wrong_origin)
+        self.assertEqual((self.state / "current-commit").read_text().strip(),
+                         self.commit_v1)
+
     def test_update_keeps_worktree_visible_to_continuous_readers(self) -> None:
         self._script(PULL)
         new_sha = self._commit_runtime("runtime-v2")

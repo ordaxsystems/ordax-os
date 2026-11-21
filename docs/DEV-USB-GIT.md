@@ -46,7 +46,8 @@ alterações locais. O Pull conserva os arquivos modificados e não rastreados
 no próprio checkout, registra o diagnóstico existente e interrompe a troca
 até o proprietário resolver as edições (commit/push, stash ou descarte
 explícito). Mudanças ocorridas durante o staging também impedem a troca.
-A recuperação de metadados inválidos permanece separada. O boot verificado
+A recuperação de metadados inválidos permanece separada: se o Git ainda
+conseguir ler alterações locais, o Pull as preserva antes de consultar a rede. O boot verificado
 ainda exige uma revisão limpa registrada; uma sessão de teste com fonte
 local não deve ser confundida com promoção de uma revisão oficial.
 
