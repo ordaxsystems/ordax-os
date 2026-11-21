@@ -1443,9 +1443,13 @@ recover_stale_surface_if_needed() {
     clear_surface_health
     stop_surface
     start_surface || fail_closed "Surface heartbeat recovery restart failed"
+    # An earlier neutral Git update may have advanced sourceSha without
+    # moving runtimeSurfaceSha. start_surface selects the current exact slot.
+    expected_sha=$(current_sha)
     if ! surface_stays_running 4 || ! wait_for_surface_health "$expected_sha" "$SURFACE_HEALTH_TIMEOUT"; then
         fail_closed "Surface heartbeat recovery restart did not acknowledge healthy state"
     fi
+    record_runtime_surface_sha "$expected_sha"
     SURFACE_STALE_RECOVERY_ARMED=1
     log "Surface heartbeat recovery restart acknowledged healthy state"
 }
@@ -1772,12 +1776,16 @@ classify_changes() {
     surface_host_changed=0
     live_surface_changed=0
 
-    if ! changed_paths=$("$GIT_BIN" -C "$WORKTREE" diff --name-only "$old_sha" "$new_sha" 2>>"$UPDATE_LOG"); then
+    if ! changed_paths=$("$GIT_BIN" -C "$WORKTREE" diff --name-only --no-renames "$old_sha" "$new_sha" 2>>"$UPDATE_LOG"); then
         APPLY_MODE=surface-restart
         return 0
     fi
 
-    helper_manifest=$UPDATE_RUN_DIR/dev-helper-classification.$$.tsv
+    # Only this exact non-runtime scope can keep the running verified slot.
+    # Unknown paths, source locks, Base and application changes still pass
+    # through the existing exact-source staging and health decisions.
+    runtime_neutral=1
+    helper_manifest=$UPDATE_RUN_DIR/dev-helper-classification.$.tsv
     helper_manifest_ready=0
     if "$GIT_BIN" -C "$WORKTREE" show "$new_sha:system/services/base-update/dev-helper-manifest.tsv" >"$helper_manifest" 2>>"$UPDATE_LOG"; then
         helper_manifest_ready=1
@@ -1787,6 +1795,13 @@ classify_changes() {
 
     while IFS= read -r path; do
         [ -n "$path" ] || continue
+        case "$path" in
+            URGENTE-LEIA.md|README.md|AGENTS.md|docs/*.md|tests/*) ;;
+            bootstrap/dev-base/ordax-pull)
+                [ "$helper_manifest_ready" -eq 1 ] || runtime_neutral=0
+                ;;
+            *) runtime_neutral=0 ;;
+        esac
         if [ "$path" = "system/services/base-update/dev-helper-manifest.tsv" ] || \
            [ "$path" = "system/services/base-update/dev-helpers.sh" ]; then
             DEV_HELPERS_CHANGED=1
@@ -1827,9 +1842,16 @@ $changed_paths
 EOF
     rm -f "$helper_manifest"
 
-    # A canonical external visual source must be staged for the exact OS
-    # revision even when only a live-reload/metadata path changed. Do not
-    # restart from a checkout whose visual directories are no longer tracked.
+    # The old verified runtime remains authoritative for a neutral delivery.
+    # Its identity is intentionally distinct from the updated Git checkout.
+    if [ "$runtime_neutral" -eq 1 ] && [ "$LOW_LEVEL_CHANGED" -eq 0 ] &&
+       [ "$supervisor_changed" -eq 0 ] && [ "$surface_host_changed" -eq 0 ] &&
+       [ "$live_surface_changed" -eq 0 ]; then
+        return 0
+    fi
+
+    # Actual runtime changes still need an exact canonical external visual
+    # slot; never restart from a checkout without its verified visual files.
     candidate_surface_status=$(ORDAX_GIT_BIN="$GIT_BIN" /bin/sh "$OWNER_SURFACE_STAGE_HELPER" status "$WORKTREE" "$new_sha" 2>>"$UPDATE_LOG" || true)
     if [ "$candidate_surface_status" = canonical ]; then
         surface_host_changed=1

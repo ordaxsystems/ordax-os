@@ -51,6 +51,17 @@ conseguir ler alterações locais, o Pull as preserva antes de consultar a rede.
 ainda exige uma revisão limpa registrada; uma sessão de teste com fonte
 local não deve ser confundida com promoção de uma revisão oficial.
 
+## Atualização neutra sem reinício da Surface
+
+Alterações exclusivamente de documentação, testes ou do helper Git
+`ordax-pull` registrado no manifesto são entregas neutras para o runtime:
+o Supervisor mantém o slot verificado em execução, sem encerrar a Surface
+ou montar outra cópia visual. A revisão Git instalada pode avançar sem
+alterar `runtimeSurfaceSha`. Quando um reinício for efetivamente necessário,
+o Supervisor inicia o slot canônico atual e confirma seu heartbeat antes
+de registrar sua identidade. Alterações reais de runtime, locks externos,
+Base ou caminhos desconhecidos continuam no fluxo de validação existente.
+
 ## Repetição inteligente após falhas de checkout
 
 Depois de uma falha **posterior ao fetch**, o Supervisor guarda um recibo

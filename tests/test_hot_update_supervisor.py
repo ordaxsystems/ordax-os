@@ -511,6 +511,58 @@ class HotUpdateSupervisorContractTests(unittest.TestCase):
             )[1],
         )
 
+    def test_neutral_git_diff_does_not_stage_or_restart_surface(self):
+        import os
+        source = SYSTEM_SUPERVISOR.read_text(encoding="utf-8")
+        fn = "classify_changes() {" + source.split(
+            "classify_changes() {", 1
+        )[1].split("\n}\n", 1)[0] + "\n}"
+        # Exercise the actual classifier with disposable Git commits.
+        fn = fn.replace("/bin/busybox awk", "awk")
+        with tempfile.TemporaryDirectory() as directory:
+            repo = Path(directory)
+            def git(*args):
+                return subprocess.run(["git", "-C", directory, *args],
+                                      check=True, capture_output=True, text=True).stdout.strip()
+            git("init", "-b", "main")
+            git("config", "user.name", "Test")
+            git("config", "user.email", "test@example.invalid")
+            manifest = repo / "system/services/base-update/dev-helper-manifest.tsv"
+            manifest.parent.mkdir(parents=True)
+            manifest.write_text("bootstrap/dev-base/ordax-pull\tusr/local/bin/ordax-pull\n")
+            git("add", ".")
+            git("commit", "-m", "base")
+            base = git("rev-parse", "HEAD")
+            helper = repo / "stage-helper"
+            helper.write_text("#!/bin/sh\nprintf canonical\n")
+            for paths, expected in [
+                (["URGENTE-LEIA.md", "docs/DEV-USB-GIT.md", "tests/test_demo.py"], "none"),
+                (["bootstrap/dev-base/ordax-pull"], "none"),
+                (["docs/contracts/surface-source.json"], "surface-restart"),
+                (["docs/README.md", "system/supervisor"], "supervisor-restart"),
+                (["bootstrap/kernel/build.py"], "surface-restart"),
+            ]:
+                with self.subTest(paths=paths):
+                    git("reset", "--hard", base)
+                    for name in paths:
+                        path = repo / name
+                        path.parent.mkdir(parents=True, exist_ok=True)
+                        path.write_text(name)
+                        git("add", name)
+                    git("commit", "-m", "candidate")
+                    head = git("rev-parse", "HEAD")
+                    env = dict(os.environ, GIT_BIN=shutil.which("git"),
+                               WORKTREE=directory, UPDATE_RUN_DIR=directory,
+                               UPDATE_LOG=str(repo / "log"),
+                               OWNER_SURFACE_STAGE_HELPER=str(helper),
+                               OWNER_INTELLIGENCE_STAGE_HELPER="")
+                    result = subprocess.run(
+                        ["sh", "-ec", fn + '\nclassify_changes "$1" "$2"\nprintf "%s" "$APPLY_MODE"',
+                         "classify", base, head],
+                        env=env, check=True, text=True, capture_output=True,
+                    )
+                    self.assertEqual(result.stdout, expected)
+
     def test_git_owned_development_helpers_refresh_without_base_candidate(self):
         text = SYSTEM_SUPERVISOR.read_text(encoding="utf-8")
         classification = text.split("classify_changes() {", 1)[1].split(
