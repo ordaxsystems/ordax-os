@@ -49,12 +49,13 @@ class CreatorMainFreshnessTests(unittest.TestCase):
             (True, "newer-main-nonproducer-only"),
         )
 
-    def test_newer_pull_change_must_skip_stale_creator(self):
+    def test_newer_pull_only_change_reuses_verified_usb_candidate(self):
         source = self.commit("bootstrap/dev-base/ordax-pull")
         latest = self.commit("bootstrap/dev-base/ordax-pull")
-        publish, reason = freshness_decision(source, latest, root=self.repo)
-        self.assertFalse(publish)
-        self.assertIn("bootstrap/dev-base/ordax-pull", reason)
+        self.assertEqual(
+            freshness_decision(source, latest, root=self.repo),
+            (True, "newer-main-nonproducer-only"),
+        )
 
     def test_newer_native_or_boot_change_must_skip(self):
         source = self.commit("docs/BUILD-AUTONOMY.md")

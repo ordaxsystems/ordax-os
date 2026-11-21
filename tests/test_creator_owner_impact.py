@@ -604,7 +604,7 @@ class CreatorOwnerImpactTests(unittest.TestCase):
                          "tools/ci/creator_owner_impact.py#PULL_REVIEW_ONLY_PATHS")
         self.assertEqual(pull["pull_review_validation_owner"], "Owner Development Preflight")
         self.assertTrue(pull["pull_only_pull_request_skips_creator_usb_build"])
-        self.assertTrue(pull["pull_source_change_on_main_preserves_creator_usb_publish"])
+        self.assertFalse(pull["pull_source_change_on_main_preserves_creator_usb_publish"])
         self.assertEqual(
             pull["source_only_pull_paths"],
             ["system/surface/runtime/native_host_server.py"],

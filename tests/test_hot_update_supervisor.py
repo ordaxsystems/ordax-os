@@ -298,7 +298,7 @@ class HotUpdateSupervisorContractTests(unittest.TestCase):
         self.assertIn('[ "$helper_sha" != "$current" ]', supervisor)
         self.assertIn('set_update_context error "$current" "" "helper-refresh-failed"', supervisor)
 
-    def test_dirty_runtime_checkout_is_diagnosed_and_atomically_replaced_by_pull_owner(self):
+    def test_dirty_runtime_checkout_is_diagnosed_and_preserved_by_pull_owner(self):
         text = SYSTEM_SUPERVISOR.read_text(encoding="utf-8")
         pull = DEV_PULL.read_text(encoding="utf-8")
         self.assertNotIn("record_dirty_checkout()", text)
@@ -306,8 +306,9 @@ class HotUpdateSupervisorContractTests(unittest.TestCase):
         self.assertIn("DIRTY_CHECKOUT_DIR=$STATE_DIR/dirty-checkout", pull)
         self.assertIn("record_dirty_checkout()", pull)
         self.assertIn('diff --binary --no-ext-diff HEAD', pull)
-        self.assertIn('replace_runtime_checkout "$remote_sha" dirty', pull)
-        self.assertIn("checkout local alterado; substituindo cache por clone limpo validado", pull)
+        self.assertNotIn('replace_runtime_checkout "$remote_sha" dirty', pull)
+        self.assertIn("checkout local alterado; edicoes preservadas no checkout", pull)
+        self.assertIn("checkout mudou durante staging; edicoes preservadas", pull)
 
     def test_candidate_is_preflighted_before_live_checkout_switch(self):
         text = SYSTEM_SUPERVISOR.read_text(encoding="utf-8")
