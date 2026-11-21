@@ -26,3 +26,12 @@ Se um gate estiver pendente, manter a publicação da origem antiga e registrar 
 - O contrato docs/contracts/public-site-source.json permanece com production_deployment_activated=false até existir prova real da revisão publicada do OS. Não marcar corte final antecipadamente.
 
 - Dependências host: workspace npm site, único lock ordax-os/package-lock.json. Install Command exige cd .. && npm ci --workspace=site; manter a opção de incluir arquivos fora de Root Directory para api/ e lib/ do OS. Pré-flight de dependências reproduzido num workspace isolado no Windows.
+
+
+## Validação CI do módulo consolidado — 21/11/2026
+
+Na revisão b197477e7abc2b23925e5d2ddb1a2d4c900eed26 da main do ordax-os, a execução https://github.com/ordaxsystems/ordax-os/actions/runs/44956556125 terminou SUCCESS em ambos os jobs: public-gateway (Node 24, npm workspace, testes do Site e da Identity canônica) e independent-site-consumer (bundle real e 11 rotas estáticas). A execução anterior 44956412000 falhou apenas por uma asserção antiga de test_external_site_source no teste do OS, retirada por exigência de fonte única; ela foi corrigida, não recriada.
+
+A fonte Vercel foi reconsultada após o CI: a ligação Git do projeto ordax-site continua ordaxsystems/ordax-site e o deployment READY de produção ainda informa SHA c6f215b25e1bfabf5763d65591208758ea5de44e. Não há prova de publicação do OS e nenhum cutover foi executado. A API Vercel havia bloqueado a criação de preview pelo limite de implantações do plano Hobby (HTTP 402); a publicação antiga permanece operacional e protegida por SSO.
+
+O workflow de Site agora ignora alterações exclusivamente de site/docs/ e site/README.md, mantendo os testes ligados a alterações de código, configs, contratos e scripts. Não iniciar compilação do Site por documentação.

@@ -4,6 +4,8 @@ on:
     branches: [main]
     paths:
       - "site/**"
+      - "!site/docs/**"
+      - "!site/README.md"
       - "tools/vercel/**"
       - "docs/contracts/public-site-source.json"
       - "docs/contracts/public-site*.json"
@@ -14,6 +16,8 @@ on:
   pull_request:
     paths:
       - "site/**"
+      - "!site/docs/**"
+      - "!site/README.md"
       - "tools/vercel/**"
       - "docs/contracts/public-site-source.json"
       - "docs/contracts/public-site*.json"
