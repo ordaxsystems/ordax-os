@@ -3,6 +3,9 @@ import hashlib
 import importlib.util
 import json
 import os
+import select
+import threading
+import time
 from pathlib import Path
 import subprocess
 import tempfile
@@ -208,6 +211,70 @@ class NativeNetworkManagementTests(unittest.TestCase):
             self.assertFalse(native_host.network_broker_available(
                 {**paths, "control": str(linked)}
             ))
+
+    @unittest.skipUnless(hasattr(os, "mkfifo"), "requires POSIX FIFO")
+    def test_connect_survives_broker_reader_restart_without_replaying_post(self):
+        # Emulate the real FIFO protocol in a Linux process. No WLAN, real
+        # password, on-disk WPA configuration or physical device is involved.
+        with tempfile.TemporaryDirectory() as temporary:
+            paths = native_host.network_broker_paths(temporary)
+            received: list[list[str]] = []
+            failures: list[Exception] = []
+            def serve_once():
+                descriptor = None
+                try:
+                    time.sleep(0.15)
+                    os.mkfifo(paths["control"], 0o600)
+                    descriptor = os.open(paths["control"], os.O_RDONLY | os.O_NONBLOCK)
+                    deadline = time.monotonic() + 2
+                    while time.monotonic() < deadline:
+                        if not select.select([descriptor], [], [], 0.08)[0]:
+                            continue
+                        signal = os.read(descriptor, 256)
+                        if b"request\n" not in signal:
+                            continue
+                        request = Path(paths["request"]).read_text(encoding="ascii").splitlines()
+                        received.append(request)
+                        Path(paths["response"]).write_text(
+                            f"{request[0]}\tok\twlan0\tconnected\n",
+                            encoding="ascii",
+                        )
+                        Path(paths["response"]).chmod(0o600)
+                        return
+                    raise TimeoutError("mock broker did not receive a native request")
+                except Exception as exc:
+                    failures.append(exc)
+                finally:
+                    if descriptor is not None:
+                        os.close(descriptor)
+            thread = threading.Thread(target=serve_once, daemon=True)
+            thread.start()
+            try:
+                snapshot = native_host.queue_network_broker_request(
+                    paths, "connect", ssid="LabNet",
+                    password="lab-strong-passphrase", timeout_seconds=3,
+                )
+            finally:
+                thread.join(timeout=3)
+            self.assertFalse(thread.is_alive())
+            self.assertEqual(failures, [])
+            self.assertEqual(snapshot["wifiInterface"], "wlan0")
+            self.assertEqual(len(received), 1, "a Wi-Fi POST must never replay")
+            self.assertEqual(received[0][1], "connect")
+            self.assertEqual(len(received[0][3]), 64)
+            self.assertNotIn("lab-strong-passphrase", str(received))
+
+    @unittest.skipUnless(hasattr(os, "mkfifo"), "requires POSIX FIFO")
+    def test_status_does_not_wait_for_unavailable_broker(self):
+        with tempfile.TemporaryDirectory() as temporary:
+            paths = native_host.network_broker_paths(temporary)
+            began = time.monotonic()
+            with self.assertRaises(FileNotFoundError):
+                native_host.queue_network_broker_request(
+                    paths, "status", timeout_seconds=2,
+                )
+            self.assertLess(time.monotonic() - began, 1,
+                            "status should return a typed unavailable response promptly")
 
     def test_broker_exits_between_liveness_and_fifo_write_without_replaying_action(self):
         # Simulate a supervisor restart between the checked reader and FIFO

@@ -2185,8 +2185,20 @@ def queue_network_broker_request(
 ) -> dict:
     if action not in {"status", "scan", "connect", "disconnect", "forget", "reconnect"}:
         raise ValueError("unsupported network action")
-    if not network_broker_available(paths):
-        raise FileNotFoundError("network broker unavailable")
+    deadline = time.monotonic() + timeout_seconds
+    # The broker is supervised and may reopen its FIFO after restart.
+    # Wait ONLY before a POST reaches it; do not replay any submitted request.
+    # A status GET still returns a prompt typed unavailable response.
+    if action == "status":
+        if not network_broker_available(paths):
+            raise FileNotFoundError("network broker unavailable")
+    else:
+        startup_deadline = min(deadline, time.monotonic() + 3.0)
+        while not network_broker_available(paths):
+            remaining = startup_deadline - time.monotonic()
+            if remaining <= 0:
+                raise FileNotFoundError("network broker unavailable")
+            time.sleep(min(0.05, remaining))
 
     request_id = secrets.token_hex(12)
     lines = [request_id, action]
@@ -2239,7 +2251,7 @@ def queue_network_broker_request(
         finally:
             os.close(descriptor)
 
-        deadline = time.monotonic() + timeout_seconds
+        # The deadline includes any bounded preflight reader wait.
         while time.monotonic() < deadline:
             response = read_small_text(paths["response"], 512)
             if response:
