@@ -772,3 +772,15 @@ sem duplicação de assinatura, composição ou updater.
 Esta seção documenta o **limite da implementação**, não autoriza gravação
 de USB, reformatar disco, promover Stable ou afirmar que um dispositivo já
 recebeu os executáveis.
+
+### Classificação compartilhada de impacto da Base DEV
+
+O Supervisor e o workflow `dev-base-channel.yml` usam o mesmo classificador
+`system/services/base-update/dev-impact.awk`, com o manifesto canônico de helpers
+Git-refrescáveis da revisão candidata. Somente mudanças que atingem o produtor
+da Base pedem um candidato de Base; ferramentas de atualização e mudanças
+independentes de boot/ESP não são confundidas com bytes produzidos pelo canal.
+Isso não concede autorização de ativação nem resolve o proprietário separado
+do loader UEFI. O produtor continua exigindo identidade exata; saltar revisões
+com mudanças binárias ainda exige resolver a entrega aplicável, não inventar
+um candidato para um SHA sem publicação.

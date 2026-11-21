@@ -17,6 +17,8 @@ on:
       - 'bootstrap/recovery/**'
       - 'tools/dev-base-channel/**'
       - 'system/services/base-update/dev_channel.py'
+      - 'system/services/base-update/dev-impact.awk'
+      - 'system/services/base-update/dev-helper-manifest.tsv'
       - 'tools/ci/portable_component_cache.py'
       - 'tests/test_dev_base_channel.py'
       - 'tests/test_portable_component_cache.py'
@@ -37,6 +39,8 @@ on:
       - 'bootstrap/recovery/**'
       - 'tools/dev-base-channel/**'
       - 'system/services/base-update/dev_channel.py'
+      - 'system/services/base-update/dev-impact.awk'
+      - 'system/services/base-update/dev-helper-manifest.tsv'
       - 'tools/ci/portable_component_cache.py'
       - 'tests/test_dev_base_channel.py'
       - 'tests/test_portable_component_cache.py'
@@ -107,6 +111,7 @@ jobs:
           import os
           import re
           import subprocess
+          import tempfile
 
           before = os.environ["ORDAX_BEFORE_SHA"]
           head = os.environ["ORDAX_HEAD_SHA"]
@@ -156,41 +161,27 @@ jobs:
                           paths.append(file["previous_filename"])
               if not paths:
                   raise ValueError("empty push comparison")
-              ignored = {
-                  "bootstrap/kernel/candidate_pipeline.py",
-                  "bootstrap/kernel/update_engine.py",
-                  "bootstrap/kernel/module_archive.py",
-              }
-              # The same manifest owns installed Git-refreshable helpers.
-              # Never duplicate its source inventory in the Base workflow.
+              # Consume the same policy as the running Owner Supervisor.
+              # GitHub comparison paths must be losslessly representable as
+              # lines; ambiguous input falls through to the conservative gate.
+              if any(not isinstance(path, str) or "\n" in path or "\r" in path
+                     for path in paths):
+                  raise ValueError("invalid changed path")
               manifest = subprocess.check_output(
                   ["git", "show", head + ":system/services/base-update/dev-helper-manifest.tsv"],
                   timeout=10,
-              ).decode("utf-8")
-              for line in manifest.splitlines():
-                  if not line or line.startswith("#"):
-                      continue
-                  fields = line.split("\t")
-                  if len(fields) not in (2, 3) or not re.fullmatch(
-                      r"bootstrap/[A-Za-z0-9_.-]+(?:/[A-Za-z0-9_.-]+)+", fields[0]
-                  ) or ".." in fields[0].split("/"):
-                      raise ValueError("invalid dev helper manifest")
-                  ignored.add(fields[0])
-              producing = (
-                  "bootstrap/kernel/", "bootstrap/initramfs/",
-                  "bootstrap/dev-base/", "bootstrap/independent-base/",
-                  "bootstrap/recovery/", "tools/dev-base-channel/",
               )
-              exact = {
-                  "bootstrap/base/firmware_policy.py",
-                  "docs/contracts/hardware-support-matrix.json",
-              }
-              publish = any(
-                  path not in ignored
-                  and not path.startswith("bootstrap/kernel/candidates/")
-                  and (path.startswith(producing) or path in exact)
-                  for path in paths
-              )
+              with tempfile.TemporaryDirectory() as temp:
+                  from pathlib import Path
+                  manifest_path = Path(temp) / "dev-helper-manifest.tsv"
+                  manifest_path.write_bytes(manifest)
+                  impact = subprocess.check_output(
+                      ["awk", "-f", "system/services/base-update/dev-impact.awk", str(manifest_path), "-"],
+                      input=("\n".join(paths) + "\n").encode("utf-8"), timeout=20,
+                  ).decode("ascii").strip()
+              if impact not in ("0", "1"):
+                  raise ValueError("invalid canonical Base impact response")
+              publish = impact == "1"
           except (OSError, ValueError, KeyError, TypeError, AttributeError, UnicodeError, subprocess.SubprocessError) as exc:
               print("DEV_BASE_SCOPE=UNVERIFIABLE:" + type(exc).__name__)
               publish = True

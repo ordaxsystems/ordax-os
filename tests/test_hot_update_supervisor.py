@@ -536,11 +536,16 @@ class HotUpdateSupervisorContractTests(unittest.TestCase):
             helper = repo / "stage-helper"
             helper.write_text("#!/bin/sh\nprintf canonical\n")
             for paths, expected in [
-                (["URGENTE-LEIA.md", "docs/DEV-USB-GIT.md", "tests/test_demo.py"], "none"),
-                (["bootstrap/dev-base/ordax-pull"], "none"),
-                (["docs/contracts/surface-source.json"], "surface-restart"),
-                (["docs/README.md", "system/supervisor"], "supervisor-restart"),
-                (["bootstrap/kernel/build.py"], "surface-restart"),
+                (["URGENTE-LEIA.md", "docs/DEV-USB-GIT.md", "tests/test_demo.py"], "none:0"),
+                (["bootstrap/dev-base/ordax-pull"], "none:0"),
+                (["docs/contracts/surface-source.json"], "surface-restart:0"),
+                (["docs/README.md", "system/supervisor"], "supervisor-restart:0"),
+                (["bootstrap/kernel/build.py"], "surface-restart:1"),
+                (["bootstrap/kernel/update_engine.py"], "surface-restart:0"),
+                (["bootstrap/base-update/promote.py"], "surface-restart:0"),
+                (["boot/esp/EFI/BOOT/BOOTX64.EFI"], "surface-restart:0"),
+                (["docs/contracts/hardware-support-matrix.json"], "surface-restart:1"),
+                (["bootstrap/base/firmware_policy.py"], "surface-restart:1"),
             ]:
                 with self.subTest(paths=paths):
                     git("reset", "--hard", base)
@@ -553,11 +558,12 @@ class HotUpdateSupervisorContractTests(unittest.TestCase):
                     head = git("rev-parse", "HEAD")
                     env = dict(os.environ, GIT_BIN=shutil.which("git"),
                                WORKTREE=directory, UPDATE_RUN_DIR=directory,
+                               SYSTEM_ROOT=str(ROOT / "system"),
                                UPDATE_LOG=str(repo / "log"),
                                OWNER_SURFACE_STAGE_HELPER=str(helper),
                                OWNER_INTELLIGENCE_STAGE_HELPER="")
                     result = subprocess.run(
-                        ["sh", "-ec", fn + '\nclassify_changes "$1" "$2"\nprintf "%s" "$APPLY_MODE"',
+                        ["sh", "-ec", fn + '\nclassify_changes "$1" "$2"\nprintf "%s:%s" "$APPLY_MODE" "$LOW_LEVEL_CHANGED"',
                          "classify", base, head],
                         env=env, check=True, text=True, capture_output=True,
                     )
@@ -592,7 +598,7 @@ class HotUpdateSupervisorContractTests(unittest.TestCase):
         self.assertIn("DEV_HELPERS_CHANGED=1", classification)
         self.assertLess(
             classification.index("dev-helper-manifest.tsv"),
-            classification.index("boot/*|bootstrap/*)"),
+            classification.index('awk -f "$SYSTEM_ROOT/services/base-update/dev-impact.awk"'),
         )
         self.assertNotIn("configure_runtime_sparse_checkout()", text)
         refresh = text.split("refresh_dev_helpers() {", 1)[1].split("\n}\n", 1)[0]

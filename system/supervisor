@@ -1779,6 +1779,7 @@ classify_changes() {
 
     if ! changed_paths=$("$GIT_BIN" -C "$WORKTREE" diff --name-only --no-renames "$old_sha" "$new_sha" 2>>"$UPDATE_LOG"); then
         APPLY_MODE=surface-restart
+        LOW_LEVEL_CHANGED=1
         return 0
     fi
 
@@ -1792,6 +1793,20 @@ classify_changes() {
         helper_manifest_ready=1
     else
         rm -f "$helper_manifest"
+    fi
+
+    # CI and the runtime share the exact same Base-producing path policy.
+    # The candidate helper manifest is data, not executable candidate code.
+    # Missing or malformed policy evidence is not an exemption.
+    if [ "$helper_manifest_ready" -eq 1 ] &&
+       base_impact=$(printf '%s\n' "$changed_paths" |
+           /bin/busybox awk -f "$SYSTEM_ROOT/services/base-update/dev-impact.awk" "$helper_manifest" - 2>>"$UPDATE_LOG"); then
+        case "$base_impact" in
+            0|1) LOW_LEVEL_CHANGED=$base_impact ;;
+            *) LOW_LEVEL_CHANGED=1 ;;
+        esac
+    else
+        LOW_LEVEL_CHANGED=1
     fi
 
     while IFS= read -r path; do
@@ -1818,9 +1833,6 @@ classify_changes() {
         fi
         case "$path" in
             system/*.md|boot/*.md|bootstrap/*.md|boot/*/prove_*|bootstrap/*/prove_*)
-                ;;
-            boot/*|bootstrap/*)
-                LOW_LEVEL_CHANGED=1
                 ;;
             system/entrypoint|system/supervisor|system/services/device-agent/native-product-lifecycle.sh)
                 # The Supervisor sources this library at startup. A live

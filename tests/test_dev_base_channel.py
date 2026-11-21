@@ -261,6 +261,8 @@ class DevBaseProducerTests(unittest.TestCase):
             manifest_file = repo / helper_manifest
             manifest_file.parent.mkdir(parents=True, exist_ok=True)
             manifest_file.write_bytes((ROOT / helper_manifest).read_bytes())
+            policy_file = repo / "system/services/base-update/dev-impact.awk"
+            policy_file.write_bytes((ROOT / "system/services/base-update/dev-impact.awk").read_bytes())
             watcher = repo / "bootstrap/dev-base/ordax-main-watch"
             watcher.write_text("initial\n", encoding="utf-8")
             git("add", "-A")
@@ -304,6 +306,19 @@ class DevBaseProducerTests(unittest.TestCase):
             self.assertEqual(classify(owner, firmware), "publish=true")
             hardware = change(paths[5])
             self.assertEqual(classify(firmware, hardware), "publish=true")
+            self.assertIn("system/services/base-update/dev-impact.awk", script)
+            # The OS must not request a Base for update machinery that the
+            # producer does not package.
+            for name in ("bootstrap/kernel/update_engine.py",
+                         "bootstrap/base-update/promote.py",
+                         "boot/esp/EFI/BOOT/BOOTX64.EFI"):
+                other = repo / name
+                other.parent.mkdir(parents=True, exist_ok=True)
+                other.write_text("separate owner\n", encoding="utf-8")
+                git("add", str(other))
+                git("commit", "-qm", "separate owner")
+                new_head = git("rev-parse", "HEAD")
+                self.assertEqual(classify(hardware, new_head), "publish=false")
 
             # Force the GitHub API fallback with an actual shallow checkout.
             # The fake API response stays local: no network or credentials.
