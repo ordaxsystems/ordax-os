@@ -737,6 +737,8 @@ class BaseUpdateRuntimeOwnerTests(unittest.TestCase):
         self.assertIn("prepare_dev_base_candidate()", agent)
         self.assertIn('DEV_BASE_REQUEST_FILE=$HOST_STATE_ROOT/dev-base-request-sha', agent)
         self.assertIn('/usr/bin/python3 "$channel"', agent)
+        self.assertIn('--compatible-worktree /srv/ordax-repo', agent)
+        self.assertIn('--ready-pair', agent)
         self.assertIn('--destination-root "$destination"', agent)
         self.assertIn('--version-root "$version_root"', agent)
         self.assertIn('version_root=$OWNER_BASE_ROOT_CHROOT/versions', agent)

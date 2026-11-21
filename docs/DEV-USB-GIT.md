@@ -815,6 +815,11 @@ compatibilidade quando o manifesto de pré-requisitos nativos mudou.
 `--acquire-only` reutiliza o adquirente existente para obter os arquivos
 verificados sem extrair rootfs. A identidade de origem da entrega não é
 reescrita: `source_commit` é o artefato e `requested_source_commit` é o checkout.
-O modo exato continua sendo o contrato da ativação e não é substituído por
-essa resolução até a promoção pós-boot verificar explicitamente ambos os SHAs.
-Nenhuma autorização de escrita ou boot é concedida pela resolução.
+O adquirente automático do Base owner agora usa esse resolvedor e registra
+atomicamente em `dev-base-ready-sha` duas linhas: primeiro o SHA imutável
+do artefato verificado, depois o SHA solicitado pelo Supervisor. O Supervisor
+reconhece a resolução sem repetir a requisição e apresenta o SHA efetivo
+da Base, independentemente do avanço de código. A aquisição compatível
+materializa a raiz versionada, mas **não entra na escrita do ESP** enquanto
+a promoção pós-boot não verificar explicitamente ambos os SHAs.
+Nenhuma autorização de boot é concedida pela resolução.

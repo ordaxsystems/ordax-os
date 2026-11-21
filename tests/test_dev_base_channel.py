@@ -885,6 +885,28 @@ class DevBaseConsumerTests(unittest.TestCase):
                 with self.assertRaises(consumer.DevBaseCandidateUnavailable):
                     consumer.resolve_published_source(newer, repo, opener=opener)
 
+    def test_ready_pair_reports_real_artifact_and_requested_revision(self):
+        requested = "2" * 40
+        with tempfile.TemporaryDirectory() as temporary:
+            root = Path(temporary)
+            with patch.object(sys, "argv", [
+                str(CONSUMER), "--source-commit", requested,
+                "--compatible-worktree", str(root / "repo"),
+                "--destination-root", str(root / "cache"),
+                "--version-root", str(root / "versions"), "--ready-pair",
+            ]), patch.object(consumer, "resolve_published_source",
+                           return_value=(SOURCE, b"verified manifest")) as resolve, \
+                 patch.object(consumer, "acquire",
+                              return_value=(root / "cache" / SOURCE, False)) as acquire, \
+                 patch.object(consumer, "materialize_versioned_rootfs",
+                              return_value=(root / "versions" / SOURCE, False)) as materialize, \
+                 patch.object(sys, "stdout", new_callable=io.StringIO) as output:
+                self.assertEqual(consumer.main(), 0)
+                self.assertEqual(output.getvalue().splitlines(), [SOURCE, requested])
+                resolve.assert_called_once()
+                self.assertEqual(acquire.call_args.args[0], SOURCE)
+                self.assertEqual(materialize.call_args.args[1], SOURCE)
+
     def test_resolution_never_substitutes_on_transport_or_invalid_manifest_failure(self):
         def unavailable(url, timeout):
             raise urllib.error.URLError("network down")

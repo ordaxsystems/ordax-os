@@ -423,13 +423,14 @@ prepare_dev_base_candidate() {
     [ -n "$request_sha" ] || return 0
     if ! is_sha "$request_sha"; then
         log "ignoring invalid development Base request identity"
-        /bin/busybox rm -f "$DEV_BASE_REQUEST_FILE" "$DEV_BASE_FETCHING_FILE" >/dev/null 2>&1 || true
+        /bin/busybox rm -f "$DEV_BASE_FETCHING_FILE" >/dev/null 2>&1 || true
         return 0
     fi
 
     ready_sha=$(read_state_value "$DEV_BASE_READY_FILE")
-    if [ "$ready_sha" = "$request_sha" ]; then
-        /bin/busybox rm -f "$DEV_BASE_REQUEST_FILE" "$DEV_BASE_FETCHING_FILE" >/dev/null 2>&1 || true
+    ready_request_sha=$(/bin/busybox sed -n '2p' "$DEV_BASE_READY_FILE" 2>/dev/null || true)
+    if is_sha "$ready_sha" && [ "${ready_request_sha:-$ready_sha}" = "$request_sha" ]; then
+        /bin/busybox rm -f "$DEV_BASE_FETCHING_FILE" >/dev/null 2>&1 || true
         return 0
     fi
 
@@ -444,17 +445,35 @@ prepare_dev_base_candidate() {
     version_root=$OWNER_BASE_ROOT_CHROOT/versions
     write_state_value "$DEV_BASE_FETCHING_FILE" "$request_sha" || return 0
     /bin/busybox mkdir -p "${DEV_BASE_LOG%/*}" >/dev/null 2>&1 || true
+    temporary=$(/bin/busybox mktemp "$HOST_STATE_ROOT/.dev-base-ready.XXXXXX") || {
+        /bin/busybox rm -f "$DEV_BASE_FETCHING_FILE" >/dev/null 2>&1 || true
+        return 0
+    }
 
     if /bin/busybox chroot "$RUNTIME_ROOT" \
         /usr/bin/python3 "$channel" \
         --source-commit "$request_sha" \
+        --compatible-worktree /srv/ordax-repo \
         --destination-root "$destination" \
         --version-root "$version_root" \
-        >>"$DEV_BASE_LOG" 2>&1
+        --ready-pair \
+        >"$temporary" 2>>"$DEV_BASE_LOG"
     then
-        write_state_value "$DEV_BASE_READY_FILE" "$request_sha" || true
-        /bin/busybox rm -f "$DEV_BASE_REQUEST_FILE" >/dev/null 2>&1 || true
-        log "development Base candidate and versioned rootfs ready: $request_sha"
+        artifact_sha=$(read_state_value "$temporary")
+        resolved_request=$(/bin/busybox sed -n '2p' "$temporary")
+        receipt_lines=$(/bin/busybox awk 'END { print NR }' "$temporary")
+        if is_sha "$artifact_sha" &&
+           [ "$receipt_lines" = 2 ] && [ "$resolved_request" = "$request_sha" ] &&
+           [ "$(read_state_value "$DEV_BASE_REQUEST_FILE")" = "$request_sha" ]; then
+            # Atomic receipt binds the actual immutable Base to the request.
+            # Only Supervisor clears/supersedes its request, never this worker.
+            /bin/busybox chmod 600 "$temporary" >/dev/null 2>&1 || true
+            if /bin/busybox mv -f "$temporary" "$DEV_BASE_READY_FILE"; then
+                log "development Base candidate and versioned rootfs ready: $artifact_sha (requested $request_sha)"
+            fi
+        else
+            log "development Base acquisition receipt invalid or superseded; current runtime remains active"
+        fi
     else
         rc=$?
         if [ "$rc" -eq 2 ]; then
@@ -463,7 +482,7 @@ prepare_dev_base_candidate() {
             log "development Base candidate preparation failed for $request_sha; current runtime remains active"
         fi
     fi
-    /bin/busybox rm -f "$DEV_BASE_FETCHING_FILE" >/dev/null 2>&1 || true
+    /bin/busybox rm -f "$temporary" "$DEV_BASE_FETCHING_FILE" >/dev/null 2>&1 || true
     return 0
 }
 
@@ -514,6 +533,13 @@ prepare_dev_base_physical_stage() {
         /bin/busybox rm -f "$DEV_BASE_STAGED_FILE" "$DEV_BASE_STAGE_RESULT_FILE" >/dev/null 2>&1 || true
         return 0
     fi
+
+    # A compatible archived Base may be acquired and materialized now.
+    # Do not stage it until the postboot owner proves separate code and
+    # artifact identities. Preserve the exact-candidate activation contract.
+    ready_request_sha=$(/bin/busybox sed -n '2p' "$DEV_BASE_READY_FILE" 2>/dev/null || true)
+    [ "${ready_request_sha:-$ready_sha}" = "$ready_sha" ] || return 0
+    [ "$(read_state_value "$HOST_STATE_ROOT/boot-refresh-required")" = "$ready_sha" ] || return 0
 
     preflight_sha=$(read_state_value "$ESP_READONLY_PREFLIGHT_SHA_FILE")
     if [ "$preflight_sha" != "$ready_sha" ] || [ ! -s "$ESP_READONLY_PREFLIGHT_FILE" ]; then

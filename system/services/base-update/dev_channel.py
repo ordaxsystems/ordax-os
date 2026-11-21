@@ -879,6 +879,8 @@ def main() -> int:
                         help="verify release compatibility without writing or downloading binaries")
     parser.add_argument("--acquire-only", action="store_true",
                         help="acquire verified archives without extracting the versioned rootfs")
+    parser.add_argument("--ready-pair", action="store_true",
+                        help="emit verified artifact and requested SHA on two lines for the Base owner")
     parser.add_argument("--git-bin", default="git")
     parser.add_argument("--awk-bin", default="awk")
     args = parser.parse_args()
@@ -886,11 +888,15 @@ def main() -> int:
         parser.error("--resolve-only requires --compatible-worktree")
     if args.resolve_only and args.acquire_only:
         parser.error("--resolve-only and --acquire-only are mutually exclusive")
+    if args.ready_pair and (args.resolve_only or args.acquire_only):
+        parser.error("--ready-pair requires acquisition and rootfs materialization")
     try:
         requested_commit = args.source_commit
         artifact_commit = requested_commit
         manifest_bytes = None
-        if args.compatible_worktree is not None:
+        if args.compatible_worktree is not None and (
+            args.resolve_only or not (args.destination_root / requested_commit).exists()
+        ):
             artifact_commit, manifest_bytes = resolve_published_source(
                 requested_commit, args.compatible_worktree,
                 git_bin=args.git_bin, awk_bin=args.awk_bin,
@@ -924,6 +930,12 @@ def main() -> int:
             artifact_commit,
             version_root,
         )
+        if args.ready_pair:
+            # The existing ready receipt is atomic: artifact first, request second.
+            # No progress flag is emitted until both materializations validate.
+            print(artifact_commit)
+            print(requested_commit)
+            return 0
         print(json.dumps({
             "status": "ready",
             "source_commit": artifact_commit,

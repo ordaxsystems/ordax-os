@@ -218,6 +218,41 @@ class HotUpdateSupervisorContractTests(unittest.TestCase):
         self.assertNotIn('remote_sha=$(remote_main_sha || true)', pull)
         self.assertIn('checkout local sera preservado', pull)
 
+    def test_owner_base_receipt_preserves_distinct_source_and_artifact_identities(self):
+        import os
+        source = SYSTEM_SUPERVISOR.read_text(encoding="utf-8")
+        def function(name):
+            return name + "() {" + source.split(name + "() {", 1)[1].split("\n}\n", 1)[0] + "\n}"
+        script = "\n".join(function(name) for name in (
+            "read_state_value", "is_sha", "dev_base_candidate_ready_for",
+            "derive_base_update_progress",
+        )).replace("/bin/busybox sed", "sed")
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory)
+            artifact, requested, current = "a" * 40, "b" * 40, "c" * 40
+            ready = root / "ready"
+            ready.write_text(artifact + "\n" + requested + "\n")
+            pending = root / "pending"
+            pending.write_text(requested + "\n")
+            env = {**os.environ, "DEV_BASE_READY_FILE": str(ready),
+                   "BOOT_REFRESH_FILE": str(pending),
+                   "DEV_BASE_ACTIVATION_READINESS_SHA_FILE": str(root / "activation"),
+                   "DEV_BASE_ACTIVATION_READINESS_FILE": str(root / "activation.json"),
+                   "DEV_BASE_STAGED_FILE": str(root / "staged"),
+                   "DEV_BASE_STAGE_RESULT_FILE": str(root / "staged.json"),
+                   "DEV_BASE_FETCHING_FILE": str(root / "fetching"),
+                   "DEV_BASE_REQUEST_FILE": str(root / "request")}
+            result = subprocess.run(
+                ["sh", "-ec", script + '\n'
+                 'dev_base_candidate_ready_for "$1"\n'
+                 '! dev_base_candidate_ready_for "$2"\n'
+                 'derive_base_update_progress "$2"\n'
+                 'printf "%s:%s" "$BASE_UPDATE_PHASE" "$BASE_UPDATE_SHA"',
+                 "receipt", requested, current],
+                env=env, check=True, text=True, capture_output=True,
+            )
+            self.assertEqual(result.stdout, "candidate-ready:" + artifact)
+
     def test_native_base_request_is_not_blocked_by_pending_helper_installation(self):
         supervisor = SYSTEM_SUPERVISOR.read_text(encoding="utf-8")
         manifest = (ROOT / "system/services/base-update/dev-helper-manifest.tsv").read_text(encoding="utf-8")

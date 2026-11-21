@@ -1109,40 +1109,41 @@ derive_base_update_progress() {
 
     [ -s "$BOOT_REFRESH_FILE" ] || return 0
     base_progress_pending_sha=$(read_state_value "$BOOT_REFRESH_FILE")
-    [ -n "$base_progress_pending_sha" ] || return 0
+    is_sha "$base_progress_pending_sha" || return 0
     BASE_UPDATE_SHA=$base_progress_pending_sha
 
-    if [ "$base_progress_pending_sha" != "$base_progress_target_sha" ]; then
-        BASE_UPDATE_PHASE=waiting-candidate
-        return 0
-    fi
-
-    base_progress_readiness_sha=$(read_state_value "$DEV_BASE_ACTIVATION_READINESS_SHA_FILE")
-    if [ "$base_progress_readiness_sha" = "$base_progress_target_sha" ] && [ -s "$DEV_BASE_ACTIVATION_READINESS_FILE" ]; then
-        BASE_UPDATE_PHASE=activation-ready
-        return 0
-    fi
-
-    base_progress_staged_sha=$(read_state_value "$DEV_BASE_STAGED_FILE")
-    if [ "$base_progress_staged_sha" = "$base_progress_target_sha" ] && [ -s "$DEV_BASE_STAGE_RESULT_FILE" ]; then
-        BASE_UPDATE_PHASE=staged
-        return 0
-    fi
-
     base_progress_ready_sha=$(read_state_value "$DEV_BASE_READY_FILE")
-    if [ "$base_progress_ready_sha" = "$base_progress_target_sha" ]; then
+    base_progress_ready_request=$(/bin/busybox sed -n '2p' "$DEV_BASE_READY_FILE" 2>/dev/null || true)
+    if is_sha "$base_progress_ready_sha" &&
+       [ "${base_progress_ready_request:-$base_progress_ready_sha}" = "$base_progress_pending_sha" ]; then
+        # Report the real Base identity, not the head of the code checkout.
+        BASE_UPDATE_SHA=$base_progress_ready_sha
+        if [ "$base_progress_ready_sha" != "$base_progress_pending_sha" ]; then
+            BASE_UPDATE_PHASE=candidate-ready
+            return 0
+        fi
+        base_progress_readiness_sha=$(read_state_value "$DEV_BASE_ACTIVATION_READINESS_SHA_FILE")
+        if [ "$base_progress_readiness_sha" = "$base_progress_ready_sha" ] && [ -s "$DEV_BASE_ACTIVATION_READINESS_FILE" ]; then
+            BASE_UPDATE_PHASE=activation-ready
+            return 0
+        fi
+        base_progress_staged_sha=$(read_state_value "$DEV_BASE_STAGED_FILE")
+        if [ "$base_progress_staged_sha" = "$base_progress_ready_sha" ] && [ -s "$DEV_BASE_STAGE_RESULT_FILE" ]; then
+            BASE_UPDATE_PHASE=staged
+            return 0
+        fi
         BASE_UPDATE_PHASE=candidate-ready
         return 0
     fi
 
     base_progress_fetching_sha=$(read_state_value "$DEV_BASE_FETCHING_FILE")
-    if [ "$base_progress_fetching_sha" = "$base_progress_target_sha" ]; then
+    if [ "$base_progress_fetching_sha" = "$base_progress_pending_sha" ]; then
         BASE_UPDATE_PHASE=candidate-fetching
         return 0
     fi
 
     base_progress_requested_sha=$(read_state_value "$DEV_BASE_REQUEST_FILE")
-    if [ "$base_progress_requested_sha" = "$base_progress_target_sha" ]; then
+    if [ "$base_progress_requested_sha" = "$base_progress_pending_sha" ]; then
         BASE_UPDATE_PHASE=candidate-requested
         return 0
     fi
@@ -1213,7 +1214,8 @@ dev_base_candidate_ready_for() {
     source_sha=$1
     [ -s "$DEV_BASE_READY_FILE" ] || return 1
     ready_sha=$(read_state_value "$DEV_BASE_READY_FILE")
-    [ "$ready_sha" = "$source_sha" ]
+    ready_request_sha=$(/bin/busybox sed -n '2p' "$DEV_BASE_READY_FILE" 2>/dev/null || true)
+    is_sha "$ready_sha" && [ "${ready_request_sha:-$ready_sha}" = "$source_sha" ]
 }
 
 request_dev_base_candidate() {
