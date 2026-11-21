@@ -129,6 +129,39 @@ def verify_source(source: Path, lock: dict) -> tuple[list[tuple[str, bytes]], di
     }
 
 
+def verify_staged_visuals(os_root: Path, staged_system: Path, receipt: dict) -> dict:
+    """Bind staged visual bytes to the actual committed OS Git tree."""
+    lock = load_lock(os_root / "docs/contracts/surface-source.json")
+    records, proof = verify_source(os_root, lock)
+    if (receipt.get("os_commit") != proof["source_commit"]
+            or receipt.get("surface_source_commit") != proof["source_commit"]
+            or receipt.get("surface_source_repository") != "ordaxsystems/ordax-os"
+            or receipt.get("visual_file_count") != proof["file_count"]
+            or receipt.get("visual_source_sha256") != proof["visual_source_sha256"]):
+        raise SurfaceSourceError("staged visual receipt is not bound to OS Git")
+    stage = staged_system.parent
+    actual = {}
+    for prefix in VISUAL_PATHS:
+        base = stage / prefix
+        if base.is_symlink() or not base.is_dir():
+            raise SurfaceSourceError("missing or linked staged visual source: " + prefix)
+        for entry in base.rglob("*"):
+            if entry.is_dir() and not entry.is_symlink():
+                continue
+            if not entry.is_file() or entry.is_symlink():
+                raise SurfaceSourceError("unsafe staged visual entry: " + str(entry))
+            relative = entry.relative_to(stage).as_posix()
+            if relative in actual:
+                raise SurfaceSourceError("duplicate staged visual entry")
+            actual[relative] = entry
+    if set(actual) != {name for name, _ in records}:
+        raise SurfaceSourceError("staged visual file inventory differs from OS Git")
+    for relative, content in records:
+        if actual[relative].read_bytes() != content:
+            raise SurfaceSourceError("staged visual bytes differ from OS Git: " + relative)
+    return proof
+
+
 def stage_source(records: list[tuple[str, bytes]], receipt: dict, output: Path) -> None:
     output = output.absolute()
     if output.exists() or output.is_symlink():

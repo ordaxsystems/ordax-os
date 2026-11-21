@@ -1,4 +1,5 @@
 #!/usr/bin/env python3
+# Same-commit OS visual source: runtime tests require Owner POSIX BusyBox.
 """Offline Git fixtures for the Owner Supervisor's pinned visual stage."""
 
 import json
@@ -20,29 +21,39 @@ def git(root: Path, *args: str):
     ).stdout.strip()
 
 
+class OwnerSourceContractStaticTests(unittest.TestCase):
+    def test_supervisor_reads_single_os_visual_revision(self):
+        script = HELPER.read_text(encoding="utf-8")
+        self.assertIn("OS_COMMIT_SURFACE_STAGED", script)
+        self.assertIn("OS_COMMIT_SURFACE_REUSED", script)
+        self.assertIn("source_policy=$(field source_policy)", script)
+        self.assertIn('archive --format=tar "$os_sha"', script)
+        self.assertNotIn("ordax-surface.git", script)
+        self.assertNotIn("git_root=", script)
+
+    def test_no_mutable_visual_fallback(self):
+        supervisor = (ROOT / "system/supervisor").read_text(encoding="utf-8")
+        self.assertIn("OWNER_SURFACE_STAGE_HELPER", supervisor)
+        self.assertIn("start_surface_from_system", supervisor)
+
+@unittest.skipUnless(Path("/bin/busybox").is_file() and Path("/usr/bin/git").is_file(), "requires Owner Linux BusyBox and Git")
 class OwnerSurfaceSourceTests(unittest.TestCase):
     def setUp(self):
         tmp = tempfile.TemporaryDirectory()
         self.addCleanup(tmp.cleanup)
         self.root = Path(tmp.name)
         self.os_root = self.root / "os"
-        self.surface_root = self.root / "external-surface"
         self.slot = self.root / "slot"
-        for root in (self.os_root, self.surface_root):
+        for root in (self.os_root,):
             root.mkdir()
             git(root, "init", "-q")
             git(root, "config", "user.email", "source-test@localhost.invalid")
             git(root, "config", "user.name", "Source fixture")
-        self.make_file(self.surface_root / "system/surface/ui/surface.mjs", "NEW_VISUAL\n")
-        self.make_file(self.surface_root / "system/surface/workspace/shell.tsx", "NEW_WORKSPACE\n")
-        git(self.surface_root, "add", ".")
-        git(self.surface_root, "commit", "-qm", "fixture surface")
-        self.source_sha = git(self.surface_root, "rev-parse", "HEAD")
         self.make_file(self.os_root / "system/supervisor", "#!/bin/sh\nexit 0\n")
         self.make_file(self.os_root / "system/surface/entrypoint", "#!/bin/sh\nexit 0\n")
         (self.os_root / "system/surface/entrypoint").chmod(0o755)
-        self.make_file(self.os_root / "system/surface/ui/surface.mjs", "OLD_VISUAL\n")
-        self.make_file(self.os_root / "system/surface/workspace/shell.tsx", "OLD_WORKSPACE\n")
+        self.make_file(self.os_root / "system/surface/ui/surface.mjs", "NEW_VISUAL\n")
+        self.make_file(self.os_root / "system/surface/workspace/shell.tsx", "NEW_WORKSPACE\n")
         self.lock_file = self.os_root / "docs/contracts/surface-source.json"
         self.set_lock(status="canonical")
         self.slot_system = self.slot / "system"
@@ -50,16 +61,7 @@ class OwnerSurfaceSourceTests(unittest.TestCase):
         self.make_file(self.slot_system / "surface/workspace/shell.tsx", "OLD_WORKSPACE\n")
         self.make_file(self.slot_system / "surface/entrypoint", "#!/bin/sh\n")
         (self.slot_system / "surface/entrypoint").chmod(0o755)
-        self.cfg = self.root / ".gitconfig"
-        self.cfg.write_text(
-            '[url "' + self.surface_root.as_uri() + '"]\n'
-            '    insteadOf = https://github.com/ordaxsystems/ordax-surface.git\n'
-            '[protocol "file"]\n    allow = always\n',
-            encoding="utf-8",
-        )
         self.env = dict(os.environ)
-        self.env["GIT_CONFIG_GLOBAL"] = str(self.cfg)
-        self.env["GIT_CONFIG_NOSYSTEM"] = "1"
         self.env["ORDAX_GIT_BIN"] = "/usr/bin/git"
 
     @staticmethod
@@ -67,17 +69,20 @@ class OwnerSurfaceSourceTests(unittest.TestCase):
         path.parent.mkdir(parents=True, exist_ok=True)
         path.write_text(content, encoding="utf-8")
 
-    def set_lock(self, status: str, source_sha=None, repository="ordaxsystems/ordax-surface"):
+    def set_lock(self, status: str, source_sha=None, repository="ordaxsystems/ordax-os"):
         self.make_file(self.lock_file, json.dumps({
-            "$schema": "prototype-ordax.surface-source/1",
+            "$schema": "prototype-ordax.surface-source/2",
             "status": status,
             "source_repository": repository,
-            "source_commit": source_sha or self.source_sha,
+            "source_ref": "same-commit",
+            "source_policy": "tracked-git-blobs-only",
+            "physical_disk_write_allowed": False,
             "visual_source_paths": ["system/surface/ui", "system/surface/workspace"],
         }, indent=2) + "\n")
         git(self.os_root, "add", ".")
         git(self.os_root, "commit", "-qm", "fixture OS lock")
         self.os_sha = git(self.os_root, "rev-parse", "HEAD")
+        self.source_sha = self.os_sha
 
     def call(self, command: str, check=False, reuse_sha=None):
         arguments = ["/bin/sh", str(HELPER), command, str(self.os_root), self.os_sha, str(self.slot)]
@@ -96,7 +101,7 @@ class OwnerSurfaceSourceTests(unittest.TestCase):
         self.call("stage", check=True)
         self.assertEqual((self.slot_system / "surface/ui/surface.mjs").read_text(), "NEW_VISUAL\n")
         self.assertEqual((self.slot_system / "surface/workspace/shell.tsx").read_text(), "NEW_WORKSPACE\n")
-        self.assertEqual((self.os_root / "system/surface/ui/surface.mjs").read_text(), "OLD_VISUAL\n")
+        self.assertEqual((self.os_root / "system/surface/ui/surface.mjs").read_text(), "NEW_VISUAL\n")
         self.assertEqual((self.slot / ".surface-source-sha").read_text().strip(), self.source_sha)
         self.assertFalse((self.slot / ".surface-source-git").exists())
         self.make_file(self.slot / ".sha", self.os_sha + "\n")
@@ -105,7 +110,7 @@ class OwnerSurfaceSourceTests(unittest.TestCase):
         self.make_file(self.slot / ".surface-source-sha", "0" * 40 + "\n")
         self.assertNotEqual(self.call("ready").returncode, 0)
 
-    def test_surface_reuses_previous_verified_slot_offline_when_lock_unchanged(self):
+    def test_reuses_only_matching_committed_git_visual_trees(self):
         self.call("stage", check=True)
         old_sha = self.os_sha
         self.make_file(self.slot / ".sha", old_sha + "\n")
@@ -114,34 +119,40 @@ class OwnerSurfaceSourceTests(unittest.TestCase):
         old_slot = self.root / old_sha
         self.slot.rename(old_slot)
         self.make_file(self.os_root / "docs/README.md", "documentation only\n")
-        git(self.os_root, "add", ".")
-        git(self.os_root, "commit", "-qm", "neutral OS source update")
+        git(self.os_root, "add", "-A")
+        git(self.os_root, "commit", "-qm", "docs only")
         self.os_sha = git(self.os_root, "rev-parse", "HEAD")
+        self.source_sha = self.os_sha
         self.make_file(self.slot_system / "surface/entrypoint", "#!/bin/sh\n")
         (self.slot_system / "surface/entrypoint").chmod(0o755)
-        self.surface_root.rename(self.root / "unavailable-external-surface")
         result = self.call("stage", check=True, reuse_sha=old_sha)
-        self.assertIn("PINNED_OWNER_SURFACE_REUSED=", result.stdout)
-        self.assertEqual((self.slot_system / "surface/ui/surface.mjs").read_text(), "NEW_VISUAL\n")
+        self.assertIn("OS_COMMIT_SURFACE_REUSED=", result.stdout)
         self.make_file(self.slot / ".sha", self.os_sha + "\n")
         self.make_file(self.slot / ".ready", "ready\n")
         self.call("ready", check=True)
+        # Corrupted older release is never reused; current Git source recovers.
+        shutil.rmtree(self.slot)
+        self.make_file(self.slot_system / "surface/entrypoint", "#!/bin/sh\n")
+        (self.slot_system / "surface/entrypoint").chmod(0o755)
+        (old_slot / "system/surface/ui/surface.mjs").write_text("tampered\n")
+        fresh = self.call("stage", check=True, reuse_sha=old_sha)
+        self.assertIn("OS_COMMIT_SURFACE_STAGED=", fresh.stdout)
 
-        # Cache corruption and a different source lock cannot be accepted.
-        shutil.rmtree(self.slot)
+    def test_new_visual_commit_does_not_reuse_old_tree(self):
+        self.call("stage", check=True)
+        old_sha = self.os_sha
+        self.make_file(self.slot / ".sha", old_sha + "\n")
+        self.make_file(self.slot / ".ready", "ready\n")
+        self.slot.rename(self.root / old_sha)
+        self.make_file(self.os_root / "system/surface/ui/surface.mjs", "UPDATED_VISUAL\n")
+        git(self.os_root, "add", "-A")
+        git(self.os_root, "commit", "-qm", "visual update")
+        self.os_sha = git(self.os_root, "rev-parse", "HEAD")
         self.make_file(self.slot_system / "surface/entrypoint", "#!/bin/sh\n")
         (self.slot_system / "surface/entrypoint").chmod(0o755)
-        content = old_slot / "system/surface/ui/surface.mjs"
-        content.write_text("tampered\n")
-        self.assertNotEqual(self.call("stage", reuse_sha=old_sha).returncode, 0)
-        self.assertFalse((self.slot / ".surface-source-sha").exists())
-        shutil.rmtree(self.slot)
-        content.write_text("NEW_VISUAL\n")
-        self.make_file(self.slot_system / "surface/entrypoint", "#!/bin/sh\n")
-        (self.slot_system / "surface/entrypoint").chmod(0o755)
-        self.set_lock("canonical", source_sha="f" * 40)
-        self.assertNotEqual(self.call("stage", reuse_sha=old_sha).returncode, 0)
-        self.assertFalse((self.slot / ".surface-source-sha").exists())
+        result = self.call("stage", check=True, reuse_sha=old_sha)
+        self.assertIn("OS_COMMIT_SURFACE_STAGED=", result.stdout)
+        self.assertEqual((self.slot_system / "surface/ui/surface.mjs").read_text(), "UPDATED_VISUAL\n")
 
     def test_ready_does_not_write_into_immutable_release_slot(self):
         # Ready is a read-only verifier, not a second stage writer. This is
@@ -211,11 +222,13 @@ class OwnerSurfaceSourceTests(unittest.TestCase):
         (self.slot_system / "surface/workspace/alias").symlink_to("shell.tsx")
         self.assertNotEqual(self.call("ready").returncode, 0)
 
-    def test_external_git_commit_unavailable_preserves_old_candidate_and_os(self):
-        self.set_lock("canonical", source_sha="f" * 40)
+    def test_unknown_os_commit_preserves_candidate_and_checkout(self):
+        old_sha = self.os_sha
+        self.os_sha = "f" * 40
         self.assertNotEqual(self.call("stage").returncode, 0)
+        self.os_sha = old_sha
         self.assertEqual((self.slot_system / "surface/ui/surface.mjs").read_text(), "OLD_VISUAL\n")
-        self.assertEqual((self.os_root / "system/surface/ui/surface.mjs").read_text(), "OLD_VISUAL\n")
+        self.assertEqual((self.os_root / "system/surface/ui/surface.mjs").read_text(), "NEW_VISUAL\n")
         self.assertFalse((self.slot / ".surface-source-sha").exists())
 
     def test_retired_integration_candidate_is_rejected_without_mutation(self):
@@ -233,16 +246,15 @@ class OwnerSurfaceSourceTests(unittest.TestCase):
         self.assertNotEqual(self.call("status").returncode, 0)
         self.assertNotEqual(self.call("stage").returncode, 0)
 
-    def test_symlink_mode_source_is_rejected_without_replacing_candidate(self):
-        alias = self.surface_root / "system/surface/ui/evil.mjs"
+    def test_committed_symlink_is_rejected_without_replacing_candidate(self):
+        alias = self.os_root / "system/surface/ui/evil.mjs"
         alias.symlink_to("surface.mjs")
-        git(self.surface_root, "add", ".")
-        git(self.surface_root, "commit", "-qm", "linked source")
-        self.set_lock("canonical", source_sha=git(self.surface_root, "rev-parse", "HEAD"))
+        git(self.os_root, "add", "-A")
+        git(self.os_root, "commit", "-qm", "unsafe visual symlink")
+        self.os_sha = git(self.os_root, "rev-parse", "HEAD")
         self.assertNotEqual(self.call("stage").returncode, 0)
         self.assertEqual((self.slot_system / "surface/ui/surface.mjs").read_text(), "OLD_VISUAL\n")
         self.assertFalse((self.slot / ".surface-source-sha").exists())
-
 
     def supervisor_start(self, profile: str, provision_missing: bool = False,
                          helper_override: Path | None = None):
@@ -362,18 +374,11 @@ stage_candidate_release() {
                     self.assertNotEqual(proc.returncode, 0)
                     self.assertFalse(marker.exists())
 
-    def test_clean_owner_install_can_stage_on_first_cold_boot(self):
-        # No legacy source or slot is available; the original Supervisor
-        # transaction must be invoked before launching the canonical Surface.
-        for part in ("ui", "workspace"):
-            shutil.rmtree(self.os_root / "system/surface" / part)
-        self.set_lock("canonical")
-        self.assertFalse((self.os_root / "system/surface/ui").exists())
-        proc, marker = self.supervisor_start("owner-development", provision_missing=True)
-        self.assertEqual(proc.returncode, 0, proc.stderr)
-        slot = self.root / "releases" / self.os_sha
-        self.assertEqual(marker.read_text().strip(), str(slot / "system"))
-        self.assertEqual((slot / ".surface-source-sha").read_text().strip(), self.source_sha)
+    def test_no_unverified_fallback_on_first_cold_boot(self):
+        # Do not execute the mutable checkout when a verified release is absent.
+        proc, marker = self.supervisor_start("owner-development")
+        self.assertNotEqual(proc.returncode, 0)
+        self.assertFalse(marker.exists())
 
     def test_cold_boot_uses_only_verified_canonical_slot(self):
         self.call("stage", check=True)
@@ -391,38 +396,19 @@ stage_candidate_release() {
         self.assertNotEqual(proc.returncode, 0)
         self.assertFalse(marker.exists(), "no fallback to tracked OS visuals")
 
-    def test_current_supervisor_rejects_rollback_to_noncanonical_source(self):
-        # Old committed source remains intact for an actual OS-version rollback,
-        # but the current Supervisor never launches unverified visual bytes.
-        self.set_lock("integration-candidate")
-        old_sha = self.os_sha
-        for path in ("ui", "workspace"):
-            shutil.rmtree(self.os_root / "system/surface" / path)
-            shutil.rmtree(self.slot_system / "surface" / path)
-        self.set_lock("canonical")
-        new_sha = self.os_sha
-        self.assertFalse((self.os_root / "system/surface/ui").exists())
-        self.assertFalse((self.os_root / "system/surface/workspace").exists())
+    def test_supervisor_rejects_rollback_to_noncanonical_commit(self):
         self.call("stage", check=True)
+        valid_sha = self.os_sha
+        self.make_file(self.slot / ".sha", valid_sha + "\n")
+        self.make_file(self.slot / ".ready", "ready\n")
         releases = self.root / "releases"
         releases.mkdir()
-        self.make_file(self.slot / ".sha", new_sha + "\n")
-        self.make_file(self.slot / ".ready", "ready\n")
-        self.slot.rename(releases / new_sha)
-        proc, marker = self.supervisor_start("owner-development")
-        self.assertEqual(proc.returncode, 0, proc.stderr)
-        self.assertEqual(marker.read_text().strip(), str(releases / new_sha / "system"))
-        marker.unlink()
-
-        # Existing ordax-pull rollback owner restores Git HEAD; the stage
-        # adapter has no authority to change it. Old visuals remain active.
-        git(self.os_root, "checkout", "-q", "--detach", old_sha)
-        self.os_sha = old_sha
+        self.slot.rename(releases / valid_sha)
+        self.set_lock("integration-candidate")
         proc, marker = self.supervisor_start("owner-development")
         self.assertNotEqual(proc.returncode, 0)
-        self.assertFalse(marker.exists(), "no mutable visual fallback after rollback")
-        self.assertEqual((self.os_root / "system/surface/ui/surface.mjs").read_text(), "OLD_VISUAL\n")
-        self.assertEqual((releases / new_sha / ".surface-source-sha").read_text().strip(), self.source_sha)
+        self.assertFalse(marker.exists())
+        self.assertEqual((releases / valid_sha / ".surface-source-sha").read_text().strip(), valid_sha)
 
     def test_noncanonical_owner_source_must_not_boot_from_git_tree(self):
         self.set_lock("integration-candidate")

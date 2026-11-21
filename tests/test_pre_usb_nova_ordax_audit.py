@@ -138,55 +138,25 @@ class PreUsbNovaOrdaxAuditTests(unittest.TestCase):
             self.assertFalse(status["authorized_candidate_materialization_allowed"])
             self.assertFalse(status["ready"])
 
-    def test_audited_sources_are_bound_to_owner_authorization_context(self):
-        context_paths = {
-            path.relative_to(ROOT).as_posix()
-            for path in promotion.authorization_context_files(ROOT)
-        }
-
+    def test_committed_ui_is_bound_to_physical_authorization_context(self):
+        context_paths = {path.relative_to(ROOT).as_posix()
+                         for path in promotion.authorization_context_files(ROOT)}
         self.assertIn("tools/creator/pre_usb_nova_ordax_audit.py", context_paths)
-        external_ui = {
-            "system/surface/ui/first-run.mjs",
-            "system/surface/ui/local-session-lock.mjs",
-            "system/surface/ui/settings-overview-controls.mjs",
-            "system/surface/ui/system-overview-controls.mjs",
-        }
-        asserted_external = set()
         for source in audit.required_source_paths(ROOT):
-            relative = source.relative_to(ROOT).as_posix()
-            if relative in external_ui:
-                # Auditing the verified Source is mandatory; the OS must not
-                # hash a duplicate or disposable copy of Surface visual files.
-                self.assertNotIn(relative, context_paths)
-                asserted_external.add(relative)
-            else:
-                self.assertIn(relative, context_paths)
-        self.assertEqual(asserted_external, external_ui)
+            self.assertIn(source.relative_to(ROOT).as_posix(), context_paths)
         self.assertIn("docs/contracts/surface-source.json", context_paths)
         self.assertIn(".github/actions/prepare-verified-surface/action.yml", context_paths)
-        preparer = (
-            ROOT / ".github/actions/prepare-verified-surface/action.yml"
-        ).read_text(encoding="utf-8")
-        self.assertIn("uses: ./.github/actions/assemble-surface", preparer)
-        self.assertIn("Materialize one canonical external source", preparer)
-        self.assertIn("diff -qr", preparer)
-        self.assertIn("ORDAX_VISUAL_SOURCE_REPOSITORY=ordaxsystems/ordax-surface", preparer)
 
+    def test_surface_ci_does_not_fetch_an_external_owner(self):
+        preparer = (ROOT / ".github/actions/prepare-verified-surface/action.yml").read_text()
+        assembler = (ROOT / ".github/actions/assemble-surface/action.yml").read_text()
+        self.assertIn("materialize.py verify --os-root", preparer)
+        self.assertIn("materialize.py verify --os-root", assembler)
+        self.assertIn("assemble.py --os-root", assembler)
+        self.assertNotIn("repository: ordaxsystems/ordax-surface", preparer)
+        self.assertNotIn("repository: ordaxsystems/ordax-surface", assembler)
+        self.assertNotIn("git clone", assembler)
 
-    def test_external_surface_checkout_uses_verified_pinned_git_source(self):
-        """CI must not use an anonymous clone of main as release source."""
-        action = (ROOT / ".github/actions/assemble-surface/action.yml").read_text(encoding="utf-8")
-        self.assertIn("docs/contracts/surface-source.json", action)
-        self.assertIn('data["source_repository"] == "ordaxsystems/ordax-surface"', action)
-        self.assertIn("repository: ordaxsystems/ordax-surface", action)
-        self.assertIn("ref: ${{ steps.surface-lock.outputs.commit }}", action)
-        self.assertIn("persist-credentials: false", action)
-        self.assertIn('git -C "$source_dir" rev-parse HEAD', action)
-        self.assertIn('test -z "$(git -C "$source_dir" status --porcelain)"', action)
-        self.assertIn("--surface-root \"$source_dir\"", action)
-        self.assertIn("if: always()", action)
-        self.assertNotIn("git clone --filter=blob:none", action)
-        self.assertNotIn("checkout --detach", action)
 
 if __name__ == "__main__":
     unittest.main()

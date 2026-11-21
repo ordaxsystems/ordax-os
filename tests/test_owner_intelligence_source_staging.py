@@ -155,31 +155,36 @@ class OwnerIntelligenceSourceTests(unittest.TestCase):
     def test_creator_can_preseed_exact_intelligence_offline_in_existing_supervisor_slot(self):
         import hashlib
         import importlib.util
-        surface_sha="a"*40
+        put(self.os_root/"system/surface/ui/surface.mjs","os-visual\n")
+        put(self.os_root/"system/surface/workspace/shell.tsx","os-workspace\n")
         put(self.os_root/"docs/contracts/surface-source.json", json.dumps({
-            "$schema":"prototype-ordax.surface-source/1",
+            "$schema":"prototype-ordax.surface-source/2",
             "status":"canonical",
-            "source_repository":"ordaxsystems/ordax-surface",
-            "source_commit":surface_sha,
+            "source_repository":"ordaxsystems/ordax-os",
+            "source_ref":"same-commit",
+            "source_policy":"tracked-git-blobs-only",
+            "visual_source_paths":["system/surface/ui","system/surface/workspace"],
+            "physical_disk_write_allowed":False,
         }))
         git(self.os_root,"add",".")
-        git(self.os_root,"commit","-qm","canonical Surface and Intelligence sources")
+        git(self.os_root,"commit","-qm","canonical OS Surface and Intelligence sources")
         self.sha=git(self.os_root,"rev-parse","HEAD")
         assembly=self.root/"assembled"
         shutil.copytree(self.os_root/"system", assembly/"system")
-        put(assembly/"system/surface/ui/surface.mjs","external-visual\n")
-        put(assembly/"system/surface/workspace/shell.tsx","external-workspace\n")
         visual_fingerprint=hashlib.sha256()
         for path in ("system/surface/ui/surface.mjs","system/surface/workspace/shell.tsx"):
             payload=(assembly/path).read_bytes()
             visual_fingerprint.update(path.encode()+b"\0"+hashlib.sha256(payload).digest())
         put(assembly/"system/surface/source-provenance.json",json.dumps({
+            "$schema":"prototype-ordax.surface-assembly/2",
             "os_commit":self.sha,
-            "surface_source_commit":surface_sha,
-            "surface_source_repository":"ordaxsystems/ordax-surface",
+            "surface_source_commit":self.sha,
+            "surface_source_repository":"ordaxsystems/ordax-os",
+            "user_interface_owner":"ordaxsystems/ordax-os",
+            "single_visual_source":True,
+            "visual_paths":["system/surface/ui","system/surface/workspace"],
             "visual_file_count":2,
             "visual_source_sha256":visual_fingerprint.hexdigest(),
-            "old_os_visual_source_packaged":False,
         }))
         intelligence_fingerprint=hashlib.sha256()
         for path in sorted(FILES):

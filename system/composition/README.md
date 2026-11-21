@@ -2,7 +2,7 @@
 
 `system/composition/` is the thin OS wiring layer that joins **verified component inputs** to the capability adapter for a runtime. It selects and connects implementations; it does not own product screens, design tokens, removable app source or domain policy.
 
-Current entry points are `web/` and `native/`. Both consume the **staged release tree** under `system/surface/` plus the same contracts. In source control, the visual `ui/` and `workspace/` bytes belong to `ordaxsystems/ordax-surface` and are materialized from the exact OS lock; only the host/runtime boundary remains OS-owned. The Native entry is the OrdaX OS composition used by USB and Native-disk targets. Visual structure does not fork by mode; only genuine environment capabilities belong in adapters.
+Current entry points are `web/` and `native/`. Both consume the **staged release tree** under `system/surface/` plus the same contracts. In source control, the visual `ui/` and `workspace/` bytes belong to `ordaxsystems/ordax-os` and are tracked in the same OS commit; both host and visual source are OS-owned. The Native entry is the OrdaX OS composition used by USB and Native-disk targets. Visual structure does not fork by mode; only genuine environment capabilities belong in adapters.
 
 The Windows emulator embeds `system/composition/native/index.html` directly, so
 it previews the Native composition rather than maintaining an emulator-owned
@@ -20,11 +20,11 @@ the existing assembly, signing, publication, acquisition, and activation gates.
 This source-level parity does not claim that a new public release or physical
 USB acceptance has occurred.
 
-Visual assets, design tokens and reusable interaction behavior are **owned in `ordaxsystems/ordax-surface`**. The composed/staged tree exposes them at paths such as `system/surface/ui/meridian.tokens.css`; those release paths do not transfer source ownership to the OS. Target compositions must consume the verified staged bytes rather than copy them or create a mode-specific theme.
+Visual assets, design tokens and reusable interaction behavior are **owned in `ordaxsystems/ordax-os`**. The composed/staged tree exposes them at paths such as `system/surface/ui/meridian.tokens.css`; these release paths preserve OS source ownership. Target compositions must consume the verified staged bytes rather than copy them or create a mode-specific theme.
 
 ## Canonical Web presentation cutover — 2026-10-10
 
-The approved Web workspace is materialized under `system/surface/workspace` in the composed tree and uses the official Web composition; its source owner is `ordaxsystems/ordax-surface`. Pending app interfaces are preserved.
+The approved Web workspace is materialized under `system/surface/workspace` in the composed tree and uses the official Web composition; its source owner is `ordaxsystems/ordax-os`. Pending app interfaces are preserved.
 Real service wiring remains capability-driven: presentation does not imply an
 authenticated session, user files, inference, sync, package installation, or
 remote-device access. Native operational UI, services, contracts, and public

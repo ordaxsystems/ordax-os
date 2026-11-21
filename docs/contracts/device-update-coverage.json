@@ -34,30 +34,33 @@
         "system/surface",
         "system/composition"
       ],
-      "development_delivery": "os-runtime-git-checkout-plus-verified-external-owner-adoption",
+      "development_delivery": "os-runtime-git-checkout-plus-verified-app-package",
       "activation": "reload-or-surface-restart",
       "usb_rewrite_required": false,
       "reboot_required": false,
-      "scope": "os-structural-app-catalog-native-surface-host-composition-plus-external-adoption",
+      "scope": "os-structural-app-catalog-native-surface-host-and-visual-source",
       "source_root_semantics": {
         "system/apps": "os-owned-structural-catalog-and-component-projection-not-first-party-app-source",
-        "system/surface": "os-owned-native-host-and-runtime-not-visual-source",
+        "system/surface": "os-owned-native-host-runtime-and-committed-visual-source",
         "system/composition": "os-owned-product-composition"
       },
       "external_sources": {
-        "surface": {
-          "source_repository": "ordaxsystems/ordax-surface",
-          "source_lock": "docs/contracts/surface-source.json",
-          "materialized_paths": [
-            "system/surface/ui",
-            "system/surface/workspace"
-          ]
-        },
         "apps": {
           "source_repository": "ordaxsystems/ordax-apps",
           "verified_catalog_contract": "docs/contracts/first-party-app-delivery.json",
           "package_policy_contract": "docs/contracts/runtime-component-package.json",
           "direct_first_party_app_source_root_in_os": false
+        }
+      },
+      "same_repository_sources": {
+        "surface": {
+          "source_repository": "ordaxsystems/ordax-os",
+          "source_ref": "same-commit",
+          "source_policy": "docs/contracts/surface-source.json",
+          "tracked_paths": [
+            "system/surface/ui",
+            "system/surface/workspace"
+          ]
         }
       }
     },
@@ -148,15 +151,15 @@
     "current_text_owner": "bootstrap/dev-base/ordax-dev-init",
     "graphical_boot_splash_implemented": false,
     "future_early_splash_owner": "initramfs-or-base",
-    "future_surface_loading_owner": "ordaxsystems/ordax-surface",
+    "future_surface_loading_owner": "ordaxsystems/ordax-os",
     "branding_source_must_remain_repository_owned": true,
     "surface_loading_implemented": true,
     "surface_loading_owner": "system/surface/ui/boot-screen.*",
     "surface_loading_delivery": "runtime-git-checkout",
     "surface_loading_usb_rewrite_required": false,
-    "surface_loading_source_repository": "ordaxsystems/ordax-surface",
+    "surface_loading_source_repository": "ordaxsystems/ordax-os",
     "surface_loading_source_lock": "docs/contracts/surface-source.json",
-    "surface_loading_owner_kind": "materialized-surface-path"
+    "surface_loading_owner_kind": "tracked-os-visual-source"
   },
   "runtime_checkout": {
     "sparse_by_design": true,

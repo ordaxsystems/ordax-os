@@ -9,8 +9,9 @@ from tools.ci import creator_owner_impact as impact
 ROOT = Path(__file__).resolve().parents[1]
 WORKFLOW = ROOT / ".github/workflows/creator-owner-dev-git.yml"
 VISUAL = {
-    "$schema": "prototype-ordax.surface-source/1", "status": "canonical",
-    "source_repository": "ordaxsystems/ordax-surface", "source_commit": "a" * 40,
+    "$schema": "prototype-ordax.surface-source/2", "status": "canonical",
+    "source_repository": "ordaxsystems/ordax-os", "source_ref": "same-commit",
+    "source_policy": "tracked-git-blobs-only",
     "visual_source_paths": ["system/surface/ui", "system/surface/workspace"],
     "os_host_paths": ["system/surface/entrypoint"],
 }
@@ -83,7 +84,7 @@ class CreatorOwnerImpactTests(unittest.TestCase):
         for selector in impact.PUSH_EXCLUDES:
             before_source = before_source.replace(f"      - '{selector}'\n", "")
         base = self.commit(before_source, VISUAL)
-        after = self.commit(base_source, {**VISUAL, "source_commit": "b" * 40},
+        after = self.commit(base_source, VISUAL,
                             "system/adapters/desktop/local-ai-host.mjs")
         self.assertTrue(impact.workflow_trigger_only(base, after, root=self.root))
         self.assertEqual(impact.classify(base, after, root=self.root), (False, "nonproducer-contract-only"))

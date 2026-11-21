@@ -43,10 +43,12 @@ schema=$(field '$schema') || exit 2
 status=$(field status) || exit 2
 repository=$(field source_repository) || exit 2
 source_ref=$(field source_ref) || exit 2
+source_policy=$(field source_policy) || exit 2
 visual_sha=$os_sha
 [ "$schema" = prototype-ordax.surface-source/2 ] || exit 2
 [ "$repository" = ordaxsystems/ordax-os ] || exit 2
 [ "$source_ref" = same-commit ] || exit 2
+[ "$source_policy" = tracked-git-blobs-only ] || exit 2
 case "$visual_sha" in ''|*[!0-9a-f]*) exit 2 ;; esac
 [ "${#visual_sha}" -eq 40 ] || exit 2
 [ "$status" = canonical ] || exit 2

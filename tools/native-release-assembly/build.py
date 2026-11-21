@@ -181,27 +181,18 @@ def verify_same_commit_surface_system(system_source: Path) -> dict:
         or receipt.get("visual_paths") != lock.get("visual_source_paths")
     ):
         raise AssemblyError("Native Surface source is not bound to current OS commit")
-    fingerprint = hashlib.sha256()
-    files = []
-    for dirname in ("ui", "workspace"):
-        base = system_source / "surface" / dirname
-        if not base.is_dir() or base.is_symlink():
-            raise AssemblyError("Native Surface source tree is missing or linked")
-        for file in base.rglob("*"):
-            if not file.is_file() or file.is_symlink():
-                if not file.is_dir():
-                    raise AssemblyError("Native visual source contains unsafe entry")
-                continue
-            files.append(file)
-    # The same lexical Git-path order as tools/surface-source/materialize.py.
-    files.sort(key=lambda file: file.relative_to(system_source.parent).as_posix())
-    for file in files:
-        relative = file.relative_to(system_source.parent).as_posix()
-        payload = file.read_bytes()
-        fingerprint.update(relative.encode("utf-8") + b"\0")
-        fingerprint.update(hashlib.sha256(payload).digest())
-    if receipt.get("visual_file_count") != len(files) or receipt.get("visual_source_sha256") != fingerprint.hexdigest():
-        raise AssemblyError("external Native visual source fingerprint mismatch")
+    # The OS materializer owns one byte-for-byte Git proof; never trust a
+    # self-declared receipt as independent authorization for a release.
+    module_path = Path(__file__).resolve().parents[2] / "tools/surface-source/materialize.py"
+    spec = importlib.util.spec_from_file_location("ordax_native_os_visual_proof", module_path)
+    if spec is None or spec.loader is None:
+        raise AssemblyError("canonical visual Git verifier unavailable")
+    source = importlib.util.module_from_spec(spec)
+    spec.loader.exec_module(source)
+    try:
+        source.verify_staged_visuals(ROOT, system_source, receipt)
+    except (source.SurfaceSourceError, OSError, ValueError) as exc:
+        raise AssemblyError("Native visual source fingerprint differs from OS Git") from exc
     return receipt
 
 def verify_external_intelligence_system(system_source: Path, *, lock_path: Path | None = None) -> dict:

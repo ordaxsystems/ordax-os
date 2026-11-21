@@ -23,7 +23,7 @@ class SurfaceBootScreenTests(unittest.TestCase):
         surface_source = json.loads(SURFACE_SOURCE.read_text(encoding="utf-8"))
 
         self.assertEqual(branding["$schema"], "prototype-ordax.branding/1")
-        self.assertEqual(branding["visual_source_repository"], "ordaxsystems/ordax-surface")
+        self.assertEqual(branding["visual_source_repository"], "ordaxsystems/ordax-os")
         self.assertEqual(branding["visual_source_lock"], "docs/contracts/surface-source.json")
         self.assertTrue(branding["visual_paths_materialized_into_os_staging"])
         self.assertEqual(
@@ -32,13 +32,13 @@ class SurfaceBootScreenTests(unittest.TestCase):
         )
         self.assertEqual(
             branding["visual_identity"]["owner_kind"],
-            "materialized-surface-path",
+            "tracked-os-visual-source",
         )
-        self.assertTrue(branding["visual_identity"]["external_visual_dependencies"])
+        self.assertFalse(branding["visual_identity"]["external_visual_dependencies"])
         self.assertTrue(branding["surface_loading"]["implemented"])
         self.assertEqual(
             branding["surface_loading"]["source_owner_repository"],
-            "ordaxsystems/ordax-surface",
+            "ordaxsystems/ordax-os",
         )
         self.assertEqual(
             branding["surface_loading"]["delivery"],
@@ -59,7 +59,7 @@ class SurfaceBootScreenTests(unittest.TestCase):
         self.assertTrue(coverage["branding"]["branding_source_must_remain_repository_owned"])
         self.assertEqual(
             coverage["branding"]["surface_loading_source_repository"],
-            "ordaxsystems/ordax-surface",
+            "ordaxsystems/ordax-os",
         )
         self.assertEqual(
             coverage["branding"]["surface_loading_source_lock"],
@@ -67,7 +67,7 @@ class SurfaceBootScreenTests(unittest.TestCase):
         )
         self.assertEqual(
             coverage["branding"]["surface_loading_owner_kind"],
-            "materialized-surface-path",
+            "tracked-os-visual-source",
         )
 
     def test_both_compositions_render_loading_before_javascript_mount(self):

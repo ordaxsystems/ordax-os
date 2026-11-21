@@ -90,8 +90,21 @@ def preseed(repo: Path, assembled: Path, rootfs: Path, sha: str) -> dict:
     for rel in VISUALS:
         visual = assembled / rel
         regular_tree(visual)
-    # Both external owners are preseeded in one and the same immutable
-    # Supervisor slot. Candidate Intelligence remains non-activating.
+    # Verify against committed OS blobs, not only a self-declared assembly
+    # fingerprint. This must finish before any disposable slot is written.
+    module_path = Path(__file__).resolve().parent / "materialize.py"
+    spec = importlib.util.spec_from_file_location("ordax_preseed_same_commit_visual", module_path)
+    if spec is None or spec.loader is None:
+        raise PreseedError("canonical visual Git verifier unavailable")
+    verifier = importlib.util.module_from_spec(spec)
+    spec.loader.exec_module(verifier)
+    try:
+        verifier.verify_staged_visuals(repo, source, receipt)
+    except (verifier.SurfaceSourceError, OSError, ValueError) as exc:
+        raise PreseedError("Owner preseed visual differs from committed OS Git") from exc
+
+    # Surface bytes come from this OS commit. Intelligence, when activated,
+    # remains a separately verified non-activating source in the same slot.
     intelligence_lock_file = repo / "docs/contracts/intelligence-source.json"
     intelligence = None
     if intelligence_lock_file.is_file():

@@ -53,23 +53,23 @@ class DeviceUpdateCoverageTests(unittest.TestCase):
         layer = next(item for item in contract["layers"] if item["id"] == "apps-and-surface")
         self.assertEqual(
             layer["source_root_semantics"]["system/surface"],
-            "os-owned-native-host-and-runtime-not-visual-source",
+            "os-owned-native-host-runtime-and-committed-visual-source",
         )
         self.assertEqual(
             layer["source_root_semantics"]["system/apps"],
             "os-owned-structural-catalog-and-component-projection-not-first-party-app-source",
         )
         self.assertEqual(
-            layer["external_sources"]["surface"]["source_repository"],
-            "ordaxsystems/ordax-surface",
+            layer["same_repository_sources"]["surface"]["source_repository"],
+            "ordaxsystems/ordax-os",
         )
         self.assertEqual(
-            layer["external_sources"]["surface"]["source_lock"],
+            layer["same_repository_sources"]["surface"]["source_policy"],
             "docs/contracts/surface-source.json",
         )
         self.assertIn(
             "system/surface/ui",
-            layer["external_sources"]["surface"]["materialized_paths"],
+            layer["same_repository_sources"]["surface"]["tracked_paths"],
         )
         self.assertEqual(
             layer["external_sources"]["apps"]["source_repository"],

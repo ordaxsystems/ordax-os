@@ -4,7 +4,7 @@ Status: CANONICAL OS-SIDE CAPABILITY BOUNDARY
 
 `system/adapters/desktop/` contains the **OS-owned side of desktop capability contracts**. The Windows application host, Electron lifecycle, NSIS packaging and Desktop delivery belong to `ordaxsystems/ordax-desktop`; this directory must not become a second Desktop implementation.
 
-The shared Surface remains owned by `ordaxsystems/ordax-surface` and is selected by the OS composition. Platform-specific capability differences stay behind public ports/adapters rather than copied UI or app source.
+The shared Surface remains owned by `ordaxsystems/ordax-os` and is selected by the OS composition. Platform-specific capability differences stay behind public ports/adapters rather than copied UI or app source.
 
 ## Authority model
 

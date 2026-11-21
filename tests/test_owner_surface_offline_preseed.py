@@ -3,6 +3,7 @@
 
 import importlib.util
 import hashlib
+import os
 import json
 from pathlib import Path
 import shutil
@@ -33,17 +34,22 @@ class OwnerOfflineSurfacePreseedTests(unittest.TestCase):
         git(self.repo, "init", "-q")
         git(self.repo, "config", "user.email", "offline-fixture@localhost.invalid")
         git(self.repo, "config", "user.name", "Offline fixture")
-        self.surface_sha = "a" * 40
         self.write(self.repo / "docs/contracts/surface-source.json", json.dumps({
-            "$schema": "prototype-ordax.surface-source/1",
+            "$schema": "prototype-ordax.surface-source/2",
             "status": "canonical",
-            "source_repository": "ordaxsystems/ordax-surface",
-            "source_commit": self.surface_sha,
+            "source_repository": "ordaxsystems/ordax-os",
+            "source_ref": "same-commit",
+            "source_policy": "tracked-git-blobs-only",
+            "visual_source_paths": ["system/surface/ui", "system/surface/workspace"],
+            "physical_disk_write_allowed": False,
         }, indent=2) + "\n")
         self.write(self.repo / "system/entrypoint", "#!/bin/sh\n")
+        self.write(self.repo / "system/surface/ui/surface.mjs", "verified visual\n")
+        self.write(self.repo / "system/surface/workspace/presentation.mjs", "verified workspace\n")
         git(self.repo, "add", "docs", "system")
-        git(self.repo, "commit", "-qm", "OS without tracked visual source")
+        git(self.repo, "commit", "-qm", "OS with committed Surface visual source")
         self.sha = git(self.repo, "rev-parse", "HEAD")
+        self.surface_sha = self.sha
         self.rootfs = self.repo / "out/dev-base/rootfs"
         self.checkout = self.rootfs / "workspace/ordax"
         self.checkout.parent.mkdir(parents=True)
@@ -53,8 +59,15 @@ class OwnerOfflineSurfacePreseedTests(unittest.TestCase):
         self.write(self.assembly / "system/entrypoint", "#!/bin/sh\n")
         self.write(self.assembly / "system/surface/entrypoint", "#!/bin/sh\n")
         (self.assembly / "system/surface/entrypoint").chmod(0o755)
-        self.write(self.assembly / "system/surface/ui/surface.mjs", "verified visual\n")
-        self.write(self.assembly / "system/surface/workspace/presentation.mjs", "verified workspace\n")
+        # Stage actual committed Git blobs, not checkout CRLF conversions.
+        for relative in ("system/surface/ui/surface.mjs",
+                         "system/surface/workspace/presentation.mjs"):
+            output = self.assembly / relative
+            output.parent.mkdir(parents=True, exist_ok=True)
+            payload = subprocess.check_output([
+                "git", "-C", str(self.repo), "show", "HEAD:" + relative,
+            ])
+            output.write_bytes(payload)
         self.receipt_path = self.assembly / "system/surface/source-provenance.json"
         self.make_receipt()
 
@@ -75,17 +88,20 @@ class OwnerOfflineSurfacePreseedTests(unittest.TestCase):
 
     def make_receipt(self, **overrides):
         receipt = {
+            "$schema": "prototype-ordax.surface-assembly/2",
             "os_commit": self.sha,
-            "surface_source_commit": self.surface_sha,
-            "surface_source_repository": "ordaxsystems/ordax-surface",
+            "surface_source_commit": self.sha,
+            "surface_source_repository": "ordaxsystems/ordax-os",
+            "user_interface_owner": "ordaxsystems/ordax-os",
+            "single_visual_source": True,
+            "visual_paths": ["system/surface/ui", "system/surface/workspace"],
             "visual_file_count": 2,
             "visual_source_sha256": self.fingerprint(),
-            "old_os_visual_source_packaged": False,
         }
         receipt.update(overrides)
         self.write(self.receipt_path, json.dumps(receipt, indent=2) + "\n")
 
-    def test_preseed_is_offline_exact_and_isolated_from_clean_os_git(self):
+    def test_preseed_is_offline_exact_and_reuses_committed_os_visual(self):
         before = git(self.checkout, "status", "--porcelain")
         self.assertEqual(before, "")
         preseed = OWNER.preseed(self.repo, self.assembly, self.rootfs, self.sha)
@@ -96,11 +112,12 @@ class OwnerOfflineSurfacePreseedTests(unittest.TestCase):
         self.assertEqual((slot / "system/surface/workspace/presentation.mjs").read_text(), "verified workspace\n")
         self.assertEqual((slot / ".surface-source-sha").read_text().strip(), self.surface_sha)
         self.assertEqual(git(self.checkout, "status", "--porcelain"), before)
-        self.assertFalse((self.checkout / "system/surface/ui").exists())
-        self.assertFalse((self.checkout / "system/surface/workspace").exists())
+        self.assertTrue((self.checkout / "system/surface/ui/surface.mjs").is_file())
+        self.assertTrue((self.checkout / "system/surface/workspace/presentation.mjs").is_file())
         with self.assertRaises(OWNER.PreseedError):
             OWNER.preseed(self.repo, self.assembly, self.rootfs, self.sha)
 
+    @unittest.skipUnless(Path("/bin/busybox").is_file(), "Owner BusyBox is required")
     def test_exact_offline_slot_is_accepted_by_real_supervisor_shell_helper(self):
         OWNER.preseed(self.repo, self.assembly, self.rootfs, self.sha)
         slot = self.rootfs / "state/ordax/releases" / self.sha
@@ -120,6 +137,7 @@ class OwnerOfflineSurfacePreseedTests(unittest.TestCase):
         modified = subprocess.run(command, text=True, capture_output=True, env=env)
         self.assertNotEqual(modified.returncode, 0)
 
+    @unittest.skipUnless(Path("/bin/busybox").is_file(), "Owner BusyBox is required")
     def test_owner_shell_reads_minified_canonical_lock_from_exact_git_commit(self):
         lock_path = self.repo / "docs/contracts/surface-source.json"
         packed = json.dumps(json.loads(lock_path.read_text(encoding="utf-8")), separators=(",", ":"))
@@ -155,7 +173,8 @@ class OwnerOfflineSurfacePreseedTests(unittest.TestCase):
         with self.assertRaises(OWNER.PreseedError):
             OWNER.preseed(self.repo, self.assembly, foreign, self.sha)
 
-    def test_rejects_linked_external_source_before_writing_slot(self):
+    @unittest.skipIf(os.name == "nt", "Windows symlink creation is not guaranteed")
+    def test_rejects_linked_visual_source_before_writing_slot(self):
         (self.assembly / "system/surface/ui/linked.mjs").symlink_to("surface.mjs")
         with self.assertRaises(OWNER.PreseedError):
             OWNER.preseed(self.repo, self.assembly, self.rootfs, self.sha)

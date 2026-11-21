@@ -65,10 +65,10 @@ A separação de repositórios **separa ownership e ciclos de desenvolvimento; n
 
 ### Regra de dependência direta
 
-- `ordax-surface` publica a fonte visual compartilhada. O `ordax-os` seleciona a revisão visual exata por seu lock canônico; Desktop, Creator e apps **não** mantêm outro pin da Surface.
+- Surface visual e workspace pertencem a ordax-os, no mesmo commit Git dos servicos nativos. Desktop, Creator e apps nao selecionam um segundo repo ou SHA visual.
 - `ordax-apps` publica componentes/pacotes e catálogo pelos contratos existentes. A Surface apresenta estado e ações através dos ports do produto; não importa source de apps nem se torna autoridade de instalação.
 - `ordax-intelligence` publica source/artefatos reutilizáveis. A composição Native seleciona a revisão aplicável por contrato; clientes não copiam o motor.
-- `ordax-os` é o **compositor do produto Native**: host, serviços, lifecycle, contratos e a seleção das revisões externas que entram em um candidato OrdaX. Isso não transfere ownership do source externo para o OS.
+- ordax-os e o compositor Native: host, servicos, Surface, lifecycle, contratos e verificacao de fontes externas restantes. A Surface pertence ao proprio OS.
 - `ordax-desktop` consome **uma composição/candidato OrdaX verificável** para o host Windows. Não integra Surface, Apps ou Intelligence separadamente quando esses componentes já são transitivamente selecionados pela composição do OS.
 - `ordax-creator` consome artefatos de mídia OrdaX já produzidos e verificados. Não recompila kernel, Surface, Runtime, Apps ou Base para o usuário final.
 - `ordax-site` consome somente catálogos/artefatos públicos autorizados e assets publicados pelos owners. O site não participa da composição Native.
@@ -82,7 +82,7 @@ Trabalhos independentes avançam simultaneamente. Um owner só espera outro no p
 
 Exemplos:
 - uma correção visual na Surface pode ser implementada e validada sem Desktop, Creator, kernel ou USB;
-- a adoção dessa Surface pelo produto Native altera o lock/composição do OS e executa somente os gates de integração aplicáveis;
+- Mudancas visuais na Surface usam o mesmo commit do OS e somente os gates de composicao aplicaveis.
 - o Desktop só precisa de nova execução quando houver intenção de produzir/validar um novo pacote Desktop com aquela composição;
 - o Creator só entra quando houver novo artefato de mídia a consumir;
 - uma mudança isolada em Forge/app não exige alteração de Surface/OS se os contratos existentes já bastarem.

@@ -26,7 +26,8 @@ test("Windows recovery stays an OS capability adapter after independent Surface 
  const native=readFileSync(new URL("system/composition/native/main.mjs",root),"utf8");
  const host=readFileSync(new URL("tools/windows-emulator/native-host.mjs",root),"utf8");
  const adapter=readFileSync(new URL("system/adapters/desktop/recovery-port.mjs",root),"utf8");
- assert.equal(lock.source_repository,"ordaxsystems/ordax-surface");
+ assert.equal(lock.source_repository,"ordaxsystems/ordax-os");
+ assert.equal(lock.source_ref,"same-commit");
  assert.equal(lock.status,"canonical");
  // CI deliberately overlays pinned visual files. They must remain untracked
  // by the OS source checkout, independently of their temporary presence.

@@ -61,10 +61,13 @@ AUTHORIZATION_CONTEXT_PATTERNS = (
     "system/composition/native/diagnostics.mjs",
     "system/composition/native/main.mjs",
     "system/surface/runtime/native_host_server.py",
-    # External Creator + Surface are immutable verified sources, not OS-owned
-    # Go or visual copies. The exact pin and resolver/assembler actions above
-    # protect their authority and invalidate existing physical consent on change.
-    # Retain only the actual OS-side safety and release policy sources.
+    # Creator remains a separate media producer. Surface visual code is now
+    # committed in this OS checkout; bind the audited UI files into physical
+    # authorization context. Any changed source invalidates stale consent.
+    "system/surface/ui/first-run.mjs",
+    "system/surface/ui/local-session-lock.mjs",
+    "system/surface/ui/settings-overview-controls.mjs",
+    "system/surface/ui/system-overview-controls.mjs",
     "tools/creator/authorize_physical_write.py",
     "tools/creator/bind_canonical_v4_release_proof.py",
     "tools/release-signing/go.*",
