@@ -351,6 +351,21 @@ class DevelopmentGitFlowTest(unittest.TestCase):
         self.assertIn("checkout diverge do commit registrado", result.stderr)
         self.assertNotIn("runtime-v1", result.stdout)
 
+    def test_helper_refresh_reuses_identical_installed_files_and_repairs_mode(self) -> None:
+        self._script(PULL)
+        installed = self.root / "installed-rootfs/usr/local/bin"
+        run = installed / "ordax-run"
+        pull = installed / "ordax-pull"
+        before = (run.stat().st_ino, run.stat().st_mtime_ns, run.read_bytes())
+        pull.chmod(0o644)
+        self._run(["git", "-C", str(self.source), "commit", "--allow-empty", "-m", "metadata update"])
+        self._run(["git", "-C", str(self.source), "push", "origin", "main"])
+        new_head = self._run(["git", "-C", str(self.source), "rev-parse", "HEAD"]).stdout.strip()
+        self._script(PULL)
+        self.assertEqual((run.stat().st_ino, run.stat().st_mtime_ns, run.read_bytes()), before)
+        self.assertEqual(stat.S_IMODE(pull.stat().st_mode), 0o755)
+        self.assertEqual((self.state / "dev-helpers-sha").read_text().strip(), new_head)
+
     def test_committed_checkout_failure_reports_helper_activation_stage(self) -> None:
         # Helper activation is required even if the atomic Git swap succeeded.
         # Preserve the actual active SHA and a machine-readable error stage.

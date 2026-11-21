@@ -57,6 +57,16 @@ class CreatorMainFreshnessTests(unittest.TestCase):
             (True, "newer-main-nonproducer-only"),
         )
 
+    def test_newer_git_helper_source_reuses_verified_usb_candidate(self):
+        source = self.commit("docs/BUILD-AUTONOMY.md")
+        self.commit("bootstrap/dev-base/ordax-main-watch")
+        self.commit("bootstrap/dev-base/ordax-run")
+        latest = self.commit("system/services/base-update/dev-helpers.sh")
+        self.assertEqual(
+            freshness_decision(source, latest, root=self.repo),
+            (True, "newer-main-nonproducer-only"),
+        )
+
     def test_newer_native_or_boot_change_must_skip(self):
         source = self.commit("docs/BUILD-AUTONOMY.md")
         for path in ("bootstrap/dev-base/build.py",

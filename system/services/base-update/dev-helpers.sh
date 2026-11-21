@@ -49,7 +49,8 @@ watcher_source=$WORKTREE/bootstrap/dev-base/ordax-main-watch
 watcher_target=$root_prefix/usr/local/bin/ordax-main-watch
 watcher_changed=1
 if [ -f "$watcher_source" ] && [ ! -L "$watcher_source" ] && \
-   [ -f "$watcher_target" ] && [ ! -L "$watcher_target" ] && \
+   [ -f "$watcher_target" ] && [ ! -L "$watcher_target" ] && [ -x "$watcher_target" ] && \
+   [ "$(bb stat -c '%a' "$watcher_target" 2>/dev/null)" = 755 ] && \
    bb cmp "$watcher_source" "$watcher_target" >/dev/null 2>&1; then
     watcher_changed=0
 fi
@@ -103,6 +104,14 @@ stage_helper() {
             echo "ordax-dev-helpers: target is not a regular file: $target_relative" >&2
             exit 1
         }
+    fi
+
+    # A new Git source revision need not rewrite identical installed bytes.
+    # Still validate syntax, target type and the declared native ABI above.
+    if [ -f "$target" ] && [ -x "$target" ] &&
+       [ "$(bb stat -c '%a' "$target" 2>/dev/null)" = 755 ] &&
+       bb cmp "$source" "$target" >/dev/null 2>&1; then
+        return 0
     fi
 
     bb rm -f "$temporary"

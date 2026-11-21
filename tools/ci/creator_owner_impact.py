@@ -160,15 +160,20 @@ WINDOWS_PRODUCT_PINNED_BLOBS = {
     "system/adapters/native/desktop-surface-state-report.mjs": "08ce3a0588383b2fe30997e99a972396887d2246",
 }
 
-# The installed Linux Git updater is a source file, not a Creator build dependency.
-# Its regressions on PR and main are covered by Owner Development Preflight.
-# Preserve the actual USB producer on mixed boot/Base/native-helper changes.
-# Never broad-exclude bootstrap/dev-base/** or any installed native helper.
-PULL_REVIEW_ONLY_PATHS = frozenset({
+# These already-installed Git-owned source entrypoints are delivered by Pull.
+# Owner Development Preflight executes their local, queue and helper contracts.
+# The exact scope deliberately excludes boot init, recovery and native binaries.
+PULL_HELPER_SOURCE_PATHS = frozenset({
     "bootstrap/dev-base/ordax-pull",
+    "bootstrap/dev-base/ordax-run",
+    "bootstrap/dev-base/ordax-main-watch",
+    "system/services/base-update/dev-helpers.sh",
+})
+PULL_REVIEW_ONLY_PATHS = PULL_HELPER_SOURCE_PATHS | frozenset({
     "tests/test_dev_pull_expected_sha.py",
     "tests/test_dev_git_flow.py",
     "tests/test_dev_checkout_exchange.py",
+    "tests/test_hot_update_supervisor.py",
     "docs/DEV-USB-GIT.md",
 })
 # This Native Host runtime is already part of the Git-owned /system checkout.
@@ -569,7 +574,7 @@ def classify(base, head, *, root=ROOT, event="push"):
         # the existing verified media on both PR and main pushes.
         # A mixed change to boot, Base, Supervisor, native helper, signer or
         # unknown path never qualifies for this fast path.
-        if ("bootstrap/dev-base/ordax-pull" in paths
+        if (PULL_HELPER_SOURCE_PATHS.intersection(paths)
                 and set(paths).issubset(PULL_REVIEW_ONLY_PATHS | LIGHT_EXACT)):
             return False, "pull-source-owner-preflight"
         for path in paths:

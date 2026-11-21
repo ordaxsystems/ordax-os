@@ -135,13 +135,16 @@ Linux checkout. The standalone Creator only consumes the Pull when **producing
 new physical USB media**, including seeding the initial Git checkout with
 `--seed-from-local`. The installed updater never invokes the Creator.
 
-For an exact Pull-script-only pull request (optionally accompanied by its own
-tests, documentation and approved non-producer contracts), the existing
-`Owner Development Preflight` is the required code/recovery validation.
-`tools/ci/creator_owner_impact.py` suppresses only the redundant **Creator
-USB build-and-publish job on PR and main pushes**. Mixed changes affecting boot, Base,
-Supervisor, native helpers, physical media or unknown owners still fail
-closed to full USB proof. Pull-only main pushes reuse the existing verified media; the installed checkout receives the change via Git. Manual Creator dispatch still forces full proof for explicitly requested new media. See [the central DEV policy](DEVELOPMENT-WORKFLOW.md#urgente--dev-direto-e-compilação-por-necessidade-2026-11-21).
+For changes limited to the already installed Git-owned Pull, local runner,
+main watcher and helper refresh scripts (plus their tests, documentation and
+approved non-producer contracts), the existing `Owner Development Preflight`
+validates source, queue, rollback and recovery behavior.
+`tools/ci/creator_owner_impact.py` suppresses the redundant **Creator
+USB build-and-publish job on PR and main pushes**. Mixed changes affecting
+boot init, Base, Supervisor, native binaries, physical media or unknown
+owners still require the existing USB proof. Existing verified media is
+reused; installed helpers receive the new source via Git. Manual Creator
+dispatch still forces full proof for explicitly requested new media. See [the central DEV policy](DEVELOPMENT-WORKFLOW.md#urgente--dev-direto-e-compilação-por-necessidade-2026-11-21).
 
 The policy is recorded in
 `docs/contracts/build-autonomy.json#owner_dev_pull_ci`, with ownership and

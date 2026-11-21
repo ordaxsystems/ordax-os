@@ -154,7 +154,7 @@ class CreatorOwnerImpactTests(unittest.TestCase):
 
         # A mixed Native, Base, boot or untrusted delta must never be hidden
         # behind the otherwise eligible Pull script.
-        for path in ("bootstrap/dev-base/ordax-main-watch",
+        for path in ("bootstrap/dev-base/ordax-dev-init",
                      "bootstrap/dev-base/ordax_checkout_exchange.c",
                      "bootstrap/dev-base/build.py",
                      "system/supervisor",
@@ -163,6 +163,19 @@ class CreatorOwnerImpactTests(unittest.TestCase):
             head = self.commit(path=path)
             self.assertTrue(impact.classify(base, head, root=self.root, event="pull_request")[0],
                             path)
+
+    def test_existing_git_helpers_use_owner_preflight_without_creator_media(self):
+        base = self.commit(WORKFLOW.read_text(encoding="utf-8"), VISUAL)
+        for filename in ("bootstrap/dev-base/ordax-run",
+                         "bootstrap/dev-base/ordax-main-watch",
+                         "system/services/base-update/dev-helpers.sh"):
+            head = self.commit(path=filename)
+            for event in ("push", "pull_request"):
+                self.assertEqual(impact.classify(base, head, root=self.root, event=event),
+                                 (False, "pull-source-owner-preflight"))
+            self.assertTrue(impact.classify(base, head, root=self.root, event="workflow_dispatch")[0])
+        mixed = self.commit(path="bootstrap/dev-base/ordax-dev-init")
+        self.assertTrue(impact.classify(base, mixed, root=self.root)[0])
 
     def test_native_host_runtime_source_uses_pull_without_usb_build(self):
         base = self.commit(WORKFLOW.read_text(encoding="utf-8"), VISUAL)
