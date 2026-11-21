@@ -574,6 +574,7 @@ class HotUpdateSupervisorContractTests(unittest.TestCase):
                 (["URGENTE-LEIA.md", "docs/DEV-USB-GIT.md", "tests/test_demo.py"], "none:0"),
                 (["bootstrap/dev-base/ordax-pull"], "none:0"),
                 (["bootstrap/dev-base/ordax-run", "bootstrap/dev-base/ordax-main-watch"], "none:0"),
+                (["bootstrap/dev-base/ordax-rollback"], "none:0"),
                 (["system/services/base-update/dev-helpers.sh"], "none:0"),
                 (["system/services/README.md"], "none:0"),
                 (["docs/contracts/surface-source.json"], "surface-restart:0"),

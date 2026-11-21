@@ -1834,7 +1834,7 @@ classify_changes() {
         [ -n "$path" ] || continue
         case "$path" in
             URGENTE-LEIA.md|README.md|AGENTS.md|docs/*.md|tests/*|system/*.md|boot/*.md|bootstrap/*.md|boot/*/prove_*|bootstrap/*/prove_*) ;;
-            bootstrap/dev-base/ordax-pull|bootstrap/dev-base/ordax-run|bootstrap/dev-base/ordax-main-watch)
+            bootstrap/dev-base/ordax-pull|bootstrap/dev-base/ordax-run|bootstrap/dev-base/ordax-rollback|bootstrap/dev-base/ordax-main-watch)
                 [ "$helper_manifest_ready" -eq 1 ] || runtime_neutral=0
                 ;;
             system/services/base-update/dev-helpers.sh)

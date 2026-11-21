@@ -99,8 +99,10 @@ sem build de USB e sem ativar uma versão oficial. O boot normal
 
 ## Atualização neutra sem reinício da Surface
 
-Alterações exclusivamente de documentação, testes ou do helper Git
-`ordax-pull` registrado no manifesto são entregas neutras para o runtime:
+Alterações exclusivamente de documentação, testes ou dos helpers Git
+`ordax-pull`, `ordax-run`, `ordax-rollback` e `ordax-main-watch` registrados
+no manifesto (ou do próprio instalador `dev-helpers.sh`) são entregas
+neutras para o runtime:
 o Supervisor mantém o slot verificado em execução, sem encerrar a Surface
 ou montar outra cópia visual. A revisão Git instalada pode avançar sem
 alterar `runtimeSurfaceSha`. Quando um reinício for efetivamente necessário,
