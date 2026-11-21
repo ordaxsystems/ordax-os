@@ -193,6 +193,16 @@ export function validateAccountOwnerProjectOnboarding(value, requestedDeviceId) 
       || value.spaces.length > 64 || !Array.isArray(value.projects)
       || value.projects.length > 512
       || !(value.next_state === null || ROOT_PROJECT_STATES.has(value.next_state))) return null;
+  // The Platform already publishes Owner-only deployment readiness as two
+  // booleans. Preserve them across Account without exposing provider config,
+  // installation metadata, or any credentials.
+  const availability = value.onboarding_availability;
+  if (!isRecord(availability)
+      || Object.keys(availability).sort().join(",")
+        !== "github_authorization_configured,project_device_binding_enabled"
+      || typeof availability.github_authorization_configured !== "boolean"
+      || typeof availability.project_device_binding_enabled !== "boolean")
+    return null;
   const spaces=[], spaceIds=new Set();
   for (const s of value.spaces) {
     if (!isRecord(s) || !isOwnerUuid(s.space_id) || spaceIds.has(s.space_id)
@@ -227,7 +237,11 @@ export function validateAccountOwnerProjectOnboarding(value, requestedDeviceId) 
       || (value.next_state === "needs_project" && (spaces.length === 0 || projects.length !== 0))
       || (value.next_state === null && (spaces.length === 0 || projects.length === 0))) return null;
   return {ok:true,schema:"ordax.owner-project-onboarding-view/1",
-    device_id:requestedDeviceId,spaces,projects,next_state:value.next_state};
+    device_id:requestedDeviceId,spaces,projects,next_state:value.next_state,
+    onboarding_availability:{
+      github_authorization_configured:availability.github_authorization_configured,
+      project_device_binding_enabled:availability.project_device_binding_enabled,
+    }};
 }
 
 export async function readAccountOwnerProjectOnboarding(access, deviceId, fetcher=fetch) {

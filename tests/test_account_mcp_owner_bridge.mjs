@@ -38,6 +38,10 @@ const challenge="77777777-7777-4777-8777-777777777777";
 const connection="88888888-8888-4888-8888-888888888888";
 const githubState=challenge+"."+"A".repeat(43);
 const githubCode="oauth-code-123456";
+const onboardingAvailability=Object.freeze({
+  github_authorization_configured:false,
+  project_device_binding_enabled:false,
+});
 const access="abcDEFghi.abcDEFghi.abcDEFghi";
 const row={device_id:device,name:"OrdaX Desktop",kind:"desktop",
   channel:"development",state:"active",online:true,runtime_ready:true,last_seen_at:null};
@@ -287,7 +291,7 @@ test("Project grant creation requires ready binding, one POST and exact scoped r
       state:"active",github_connection_count:1,
       repository_full_name:"ordaxsystems/ordax-platform",
       space_device_execute:true,project_device_bound:true,next_state:"ready_without_grants"}],
-    next_state:null};
+    next_state:null,onboarding_availability:onboardingAvailability};
   const newGroup="99999999-9999-4999-8999-999999999999";
   const after={...authority,grant_groups:[...authority.grant_groups,{
     grant_group_id:newGroup,client_id:client,device_id:device,
@@ -322,7 +326,7 @@ test("Project grant creation fails closed before mutation unless binding and OAu
       state:"active",github_connection_count:1,
       repository_full_name:"ordaxsystems/ordax-platform",
       space_device_execute:true,project_device_bound:true,next_state:"ready_without_grants"}],
-    next_state:null};
+    next_state:null,onboarding_availability:onboardingAvailability};
 
   for(const projectState of [
     {...ready.projects[0],next_state:"needs_device_binding",
@@ -354,7 +358,7 @@ test("Project grant mutation is never replayed and exact read-back must preserve
       state:"active",github_connection_count:1,
       repository_full_name:"ordaxsystems/ordax-platform",
       space_device_execute:true,project_device_bound:true,next_state:"ready_without_grants"}],
-    next_state:null};
+    next_state:null,onboarding_availability:onboardingAvailability};
 
   let postCalls=0;
   const uncertain=async(url,options)=>{
@@ -397,13 +401,15 @@ test("Project onboarding projects only bounded canonical state and exact Owner m
       state:"active",github_connection_count:0,repository_full_name:null,
       space_device_execute:false,project_device_bound:false,
       next_state:"needs_github_installation",installation_id:99}],
-    next_state:null,owner_user_id:other};
+    next_state:null,owner_user_id:other,
+    onboarding_availability:onboardingAvailability};
   const projected=validateAccountOwnerProjectOnboarding(state,device);
   assert.equal(projected.schema,"ordax.owner-project-onboarding-view/1");
   assert.equal(projected.spaces.length,1);
   assert.equal(projected.projects[0].next_state,"needs_github_installation");
   assert.equal("installation_id" in projected.projects[0],false);
   assert.equal("owner_user_id" in projected,false);
+  assert.deepEqual(projected.onboarding_availability,onboardingAvailability);
   const calls=[];
   assert.deepEqual(await readAccountOwnerProjectOnboarding(access,device,transport([state],calls)),projected);
   assert.equal(calls[0].url,OWNER_PROJECT_ONBOARDING_URL+"?device_id="+device);
@@ -437,10 +443,15 @@ test("Project onboarding projects only bounded canonical state and exact Owner m
 test("Project onboarding rejects ambiguous state instead of inventing readiness",()=>{
   const base={ok:true,device_id:device,
     spaces:[{space_id:space,name:"Owner",kind:"work",state:"active"}],
-    projects:[],next_state:"needs_project"};
+    projects:[],next_state:"needs_project",onboarding_availability:onboardingAvailability};
   assert.ok(validateAccountOwnerProjectOnboarding(base,device));
   for(const bad of [
     {...base,device_id:other},
+    {...base,onboarding_availability:null},
+    {...base,onboarding_availability:{github_authorization_configured:"false",project_device_binding_enabled:false}},
+    {...base,onboarding_availability:{github_authorization_configured:false,project_device_binding_enabled:1}},
+    {...base,onboarding_availability:{...onboardingAvailability,secret:"untrusted"}},
+    {...base,onboarding_availability:undefined},
     {...base,next_state:null},
     {...base,projects:[{project_id:project,space_id:space,name:"Platform",kind:"development",
       state:"active",github_connection_count:1,repository_full_name:null,
