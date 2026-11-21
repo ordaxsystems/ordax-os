@@ -2,7 +2,7 @@ import assert from "node:assert/strict";
 import test from "node:test";
 import { readFileSync } from "node:fs";
 
-const source = readFileSync(new URL("../public/assets/site.js", import.meta.url), "utf8");
+const source = readFileSync(new URL("../public/assets/site.js", import.meta.url), "utf8").replace(/\r\n/g, "\n");
 const start = source.indexOf("    async readSubscription(signal) {");
 const end = source.indexOf("\n    },\n    // Read-only account data", start);
 assert.ok(start >= 0 && end > start, "canonical Account subscription port missing");

@@ -41,6 +41,17 @@ jobs:
         with:
           python-version: "3.12"
           check-latest: false
+      - name: Set up Node 24 for the Site workspace
+        uses: actions/setup-node@249970729cb0ef3589644e2896645e5dc5ba9c38 # v6
+        with:
+          node-version: "24"
+          check-latest: false
+      - name: Validate Site module, workspace and UI contracts
+        run: |
+          set -euo pipefail
+          python3 -m unittest discover -s site/tests -q
+          npm ci --workspace=site --omit=dev --ignore-scripts --no-audit --no-fund
+          node --test site/tests/*.mjs
       - name: Validate OS-owned Identity, gateway, policy and release contracts
         run: |
           set -euo pipefail
@@ -90,6 +101,8 @@ jobs:
           VERCEL_PROJECT_ID: prj_mA9ew6hOfjdqlBr1cC757iMLPQJC
           VERCEL_GIT_COMMIT_SHA: ${{ github.sha }}
         run: python3 tools/vercel/build.py
+      - name: Verify the 11 public routes and static dependencies
+        run: python3 site/scripts/smoke_static.py --out out/vercel
       - name: Verify local Site source and inactive services
         run: |
           python3 - <<'PY'

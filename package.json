@@ -27,7 +27,8 @@
     "@tailwindcss/vite": "^4.2.1"
   },
   "workspaces": [
-    "tools/surface-web"
+    "tools/surface-web",
+    "site"
   ],
   "devDependencies": {
     "vite": "8.1.5",

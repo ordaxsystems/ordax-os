@@ -18,6 +18,17 @@ class CanonicalModuleTests(unittest.TestCase):
   self.assertEqual(contract["frontend_path"],"site/public")
   self.assertEqual(contract["source_revision"],"same-git-commit-as-os")
   self.assertFalse(contract["production_deployment_activated"])
+ def test_one_workspace_lock_for_serverless_dependencies(self):
+  host=json.loads((SITE/"package.json").read_text(encoding="utf-8"))
+  root=json.loads((OS/"package.json").read_text(encoding="utf-8"))
+  lock=json.loads((OS/"package-lock.json").read_text(encoding="utf-8"))
+  vercel=json.loads((SITE/"vercel.json").read_text(encoding="utf-8"))
+  self.assertIn("site",root["workspaces"])
+  self.assertEqual(lock["packages"]["site"]["dependencies"],host["dependencies"])
+  self.assertFalse((SITE/"package-lock.json").exists())
+  self.assertIn("cd .. && npm ci --workspace=site",vercel["installCommand"])
+  self.assertTrue((OS/"lib/account-proxy-core.mjs").is_file())
+
  def test_canonical_gateway(self):
   self.assertFalse((SITE/"contracts/canonical-gateway-source.json").exists())
   self.assertFalse((SITE/"scripts/stage_canonical_gateway.py").exists())

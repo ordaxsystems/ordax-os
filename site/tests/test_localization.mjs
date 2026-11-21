@@ -2,7 +2,8 @@ import fs from "node:fs";
 import path from "node:path";
 import vm from "node:vm";
 
-const ROOT = process.cwd();
+import { fileURLToPath } from "node:url";
+const ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "..");
 const read = relative => fs.readFileSync(path.join(ROOT, relative), "utf8");
 const normalize = value => String(value ?? "").replace(/\s+/g, " ").trim();
 
@@ -16,8 +17,8 @@ function assert(condition, message) {
 
 function loadCatalog() {
   const context = vm.createContext({ window: {} });
-  vm.runInContext(read("site/i18n/catalog.js"), context, {
-    filename: "site/i18n/catalog.js",
+  vm.runInContext(read("public/i18n/catalog.js"), context, {
+    filename: "public/i18n/catalog.js",
   });
   return context.window.OrdaXPublicI18nCatalog;
 }
@@ -228,7 +229,7 @@ for (const value of shellMessages) {
 }
 const canonicalRoutes = JSON.parse(read("contracts/site-routes.json"));
 assert(canonicalRoutes.$schema === "ordax.site-routes/1", "public Site route contract mismatch");
-const routes = canonicalRoutes.routes.map(route => "site/" + route.source);
+const routes = canonicalRoutes.routes.map(route => "public/" + route.source);
 assert(routes.length === 11, "public Site route inventory changed without localization review");
 
 for (const route of routes) {
@@ -253,7 +254,7 @@ for (const route of routes) {
   }
 }
 
-for (const cssPath of fs.readdirSync(path.join(ROOT, "site/assets")).filter(name => name.endsWith(".css"))) {
+for (const cssPath of fs.readdirSync(path.join(ROOT, "public/assets")).filter(name => name.endsWith(".css"))) {
   const css = read(`public/assets/${cssPath}`);
   assert(!/url\(\s*["']?https?:\/\//i.test(css), `${cssPath} introduced a remote CSS/font asset`);
 }
@@ -264,7 +265,7 @@ for (const cssPath of fs.readdirSync(path.join(ROOT, "site/assets")).filter(name
 assert(!fs.existsSync(path.join(ROOT, "public/assets/playground-fixture.json")),
        "Site must not own a second generated playground fixture");
 
-const runtime = read("site/i18n/runtime.js");
+const runtime = read("public/i18n/runtime.js");
 const localeRuntimeContext = vm.createContext({
   window: { OrdaXPublicI18nCatalog: catalog },
   navigator: { languages: ["en-US"], language: "en-US" },
@@ -281,7 +282,7 @@ const localeRuntimeContext = vm.createContext({
   MutationObserver: class { observe() {} },
   CustomEvent: class {},
 });
-vm.runInContext(runtime, localeRuntimeContext, { filename: "site/i18n/runtime.js" });
+vm.runInContext(runtime, localeRuntimeContext, { filename: "public/i18n/runtime.js" });
 const localeRuntime = localeRuntimeContext.window.OrdaXPublicI18n;
 assert(localeRuntime.getLocale() === "en-US", "locale regression must exercise the real runtime in en-US");
 assert(localeRuntime.t("site.navigation.menu") === "Menu", "mobile navigation label must use the English catalog");

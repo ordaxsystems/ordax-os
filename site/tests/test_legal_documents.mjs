@@ -5,7 +5,7 @@ import { createHash, webcrypto } from "node:crypto";
 import { readFileSync } from "node:fs";
 import vm from "node:vm";
 
-const source = readFileSync("public/assets/site.js", "utf8");
+const source = readFileSync(new URL("../public/assets/site.js", import.meta.url), "utf8").replace(/\r\n/g, "\n");
 const trailer = /\n  void start\(\);\s*\}\)\(\);\s*$/;
 assert.match(source, trailer, "must instrument the real site entrypoint");
 const instrumented = source.replace(trailer,

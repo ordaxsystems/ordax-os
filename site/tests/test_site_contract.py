@@ -1097,7 +1097,7 @@ class SiteContractTests(unittest.TestCase):
                 for prefix in ("auth", "sync", "account")
             ],
         ])
-        self.assertIn("npm ci --omit=dev --ignore-scripts", config["installCommand"])
+        self.assertIn("npm ci --workspace=site --omit=dev --ignore-scripts", config["installCommand"])
         self.assertNotIn("stage_canonical_gateway", config["installCommand"])
         adapter = (ROOT / "api/account-proxy.mjs").read_text(encoding="utf-8")
         self.assertIn('../../api/account-proxy.mjs', adapter)
@@ -1114,9 +1114,10 @@ class SiteContractTests(unittest.TestCase):
         self.assertFalse((ROOT / ".env.production").exists())
         # Runtime major must not drift independently between Vercel, lock and CI.
         package = json.loads((ROOT / "package.json").read_text(encoding="utf-8"))
-        package_lock = json.loads((ROOT / "package-lock.json").read_text(encoding="utf-8"))
+        package_lock = json.loads((ROOT.parent / "package-lock.json").read_text(encoding="utf-8"))
         self.assertEqual(package["engines"], {"node": "24.x"})
-        self.assertEqual(package_lock["packages"][""]["engines"], package["engines"])
+        self.assertEqual(package_lock["packages"]["site"]["engines"], package["engines"])
+        self.assertFalse((ROOT / "package-lock.json").exists())
         workflow = (ROOT.parent / ".github/workflows/public-site-candidate.yml").read_text(encoding="utf-8")
         self.assertIn("branches: [main]", workflow)
         self.assertIn("site/**", workflow)
@@ -1133,8 +1134,8 @@ class SiteContractTests(unittest.TestCase):
         self.assertIn("VERCEL_GIT_PREVIOUS_SHA", impact)
         self.assertNotIn("HEAD^", command)
         self.assertLessEqual(len(command), 256, "Vercel ignoreCommand schema max")
-        if not shutil.which("git") or not shutil.which("sh"):
-            self.skipTest("Git and POSIX shell required for Vercel build gate")
+        if os.name != "posix" or not shutil.which("git") or not shutil.which("sh"):
+            self.skipTest("POSIX Git and shell required for Vercel build gate")
 
         with tempfile.TemporaryDirectory() as tmp:
             repo = Path(tmp)

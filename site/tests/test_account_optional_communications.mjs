@@ -2,8 +2,8 @@ import test from "node:test";
 import assert from "node:assert/strict";
 import { readFileSync } from "node:fs";
 
-const client=readFileSync(new URL("../public/assets/site.js",import.meta.url),"utf8");
-const portal=readFileSync(new URL("../public/assets/account-portal.js",import.meta.url),"utf8");
+const client=readFileSync(new URL("../public/assets/site.js",import.meta.url),"utf8").replace(/\r\n/g, "\n");
+const portal=readFileSync(new URL("../public/assets/account-portal.js",import.meta.url),"utf8").replace(/\r\n/g, "\n");
 const start=client.indexOf("    async updateOptionalCommunications(choices, signal) {");
 const end=client.indexOf("\n    },\n    // The verified Account session authorizes read only.",start);
 assert.ok(start>0&&end>start,"canonical optional communication port missing");

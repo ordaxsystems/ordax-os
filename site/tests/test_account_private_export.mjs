@@ -2,8 +2,8 @@ import test from "node:test";
 import assert from "node:assert/strict";
 import { readFileSync } from "node:fs";
 
-const src=readFileSync(new URL("../public/assets/site.js",import.meta.url),"utf8");
-const portal=readFileSync(new URL("../public/assets/account-portal.js",import.meta.url),"utf8");
+const src=readFileSync(new URL("../public/assets/site.js",import.meta.url),"utf8").replace(/\r\n/g, "\n");
+const portal=readFileSync(new URL("../public/assets/account-portal.js",import.meta.url),"utf8").replace(/\r\n/g, "\n");
 const start=src.indexOf("    async readPrivateDataExport(signal) {");
 const end=src.indexOf("\n    },\n    // Read-only account data",start);
 assert.ok(start>0&&end>start,"canonical data-export port is required");

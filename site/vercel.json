@@ -3,7 +3,7 @@
   "framework": null,
   "ignoreCommand": "python3 scripts/build_impact.py --vercel",
   "outputDirectory": "out/site",
-  "installCommand": "npm ci --omit=dev --ignore-scripts --no-audit --no-fund",
+  "installCommand": "cd .. && npm ci --workspace=site --omit=dev --ignore-scripts --no-audit --no-fund",
   "buildCommand": "python3 scripts/build.py build --source-commit \"$VERCEL_GIT_COMMIT_SHA\" --dev-lock contracts/dev-artifact-lock.json --public-origin https://ordax.com.br --out out/site && python3 scripts/build.py verify --out out/site",
   "git": {
     "deploymentEnabled": {

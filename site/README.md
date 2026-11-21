@@ -24,3 +24,8 @@ Quando for necessário build/deploy do Site, executar o builder site/scripts/bui
 A regra DEV transversal reside somente em URGENTE-LEIA.md e docs/DEVELOPMENT-WORKFLOW.md da raiz do OS. Documentação histórica permanece preservada no Git da origem e não é instrução operacional.
 
 Arquivar ordax-site somente após conferir o deploy real do mesmo SHA do OS e a inexistência de alterações/branches/PRs não importadas.
+
+
+## Dependências do host Vercel
+
+O site é workspace npm do ordax-os, usando exclusivamente package-lock.json da raiz; nunca manter segundo lock no módulo. site/vercel.json executa a instalação a partir da raiz com npm ci --workspace=site --omit=dev para que a API canônica em lib/ consiga resolver @vercel/oidc sem cópia. Configurar Root Directory=site e habilitar Include source files outside the Root Directory na Vercel ao reapontar o projeto existente. Pré-flight em novo preview precisa confirmar a inclusão das rotas serverless antes de publicar.
