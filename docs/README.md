@@ -18,6 +18,24 @@ Este índice é o **roteador central de autoridade documental** de todo o ecossi
 
 **Diretório de documentação dos owners:** [Apps](https://github.com/ordaxsystems/ordax-apps/tree/main/docs) · [Runtime](https://github.com/ordaxsystems/ordax-runtime) · [Platform](https://github.com/ordaxsystems/ordax-platform) · [Desktop](https://github.com/ordaxsystems/ordax-desktop) · [Creator](https://github.com/ordaxsystems/ordax-creator) · [Surface](https://github.com/ordaxsystems/ordax-surface) · [Site](https://github.com/ordaxsystems/ordax-site).
 
+## Regra de publicação documental — SSOT central, sem espelhos
+
+**O `ordax-os/docs/README.md` é o único ponto de descoberta e precedência das regras globais.** Qualquer nova regra que envolva dois ou mais repositórios, capabilities, segurança, grants, contratos públicos, update, release ou distribuição deve ser registrada no documento/contrato global existente indicado neste índice **antes** de ser aplicada a consumidores. Os demais repositórios **apontam por link** à regra; não republicam uma versão normativa do texto.
+
+Não confundir **documentação global de produto** com **documentação interna de implementação**. Código, schemas/API executáveis, testes, instruções de build, operações e documentos de design exclusivos de um componente permanecem no owner do componente. Esse material não tem precedência sobre política transversal; não há necessidade de replicar seus detalhes no OS. Quando uma regra nova tocar somente um componente, ela é local e não força atualização dos oito repositórios.
+
+**Mapa explícito de delegações locais (não são novos SSOT globais):**
+
+| Assunto | Autoridade transversal | Documentação local de implementação |
+| --- | --- | --- |
+| Apps / permissões / composição | [ownership](contracts/repository-ownership.json), [SDK](../sdk/app-sdk-v1/README.md) e [workflow](DEVELOPMENT-WORKFLOW.md) | [Apps](https://github.com/ordaxsystems/ordax-apps/tree/main/docs) |
+| Forge GPT-first / MCP / execução | [ownership](contracts/repository-ownership.json), [MCP](MCP-SYSTEM-CAPABILITIES.md), [fluxo de desenvolvimento](DEVELOPMENT-WORKFLOW.md) | [Forge: plano de implementação](https://github.com/ordaxsystems/ordax-apps/blob/main/forge/docs/FORGE-GPT-FIRST-ADMINISTRADOR-ROADMAP.md); decisões internas válidas apenas no escopo Forge |
+| Runtime / ferramentas / acesso ao dispositivo | [remote control](REMOTE-CONTROL.md), [MCP](MCP-SYSTEM-CAPABILITIES.md), [ownership](contracts/repository-ownership.json) | [Runtime](https://github.com/ordaxsystems/ordax-runtime) |
+| OAuth / grants / dispatch remoto | [ownership](contracts/repository-ownership.json) e contratos de integração publicamente versionados | [Platform](https://github.com/ordaxsystems/ordax-platform) |
+| Surface / Desktop / Creator / Site | [ownership](contracts/repository-ownership.json), [composição](DEVELOPMENT-WORKFLOW.md), [releases](RELEASE-PIPELINE.md) | [Surface](https://github.com/ordaxsystems/ordax-surface), [Desktop](https://github.com/ordaxsystems/ordax-desktop), [Creator](https://github.com/ordaxsystems/ordax-creator), [Site](https://github.com/ordaxsystems/ordax-site) |
+
+**Mudança transversal:** (1) localizar contrato/ADR/doc normativo existente no OS e owner executável; (2) atualizar essa autoridade; (3) adaptar somente consumidores realmente afetados; (4) executar testes de contrato/compatibilidade por impacto; (5) evitar atualizar documentos locais apenas para repetir a regra. Não iniciar builds ou sincronização de SHA de owners independentes sem alteração de interface/artefato consumido.
+
 ## Authority order
 
 When two files disagree, use this order:
