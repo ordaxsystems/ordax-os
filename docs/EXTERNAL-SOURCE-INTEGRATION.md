@@ -111,7 +111,7 @@ ou PR integrada autoriza escrita física, Stable ou ativação Intelligence**.
 
 ## Ativação após o merge
 
-- **Windows Desktop Dev:** `ordaxsystems/ordax-desktop/dev-update.cjs` observa a main
+- **Windows Desktop Dev:** `ordaxsystems/ordax-os/desktop/dev-update.cjs` observa a main
   do OS, compõe a revisão Surface fixa naquele SHA e usa o journal,
   health e rollback do Desktop. Não atualiza por conta própria o executável
   Electron, nem instala o OS no disco ou USB.
