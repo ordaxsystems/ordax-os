@@ -33,6 +33,7 @@ TRANSACTION_FILE=$STATE_DIR/pull-transaction.tsv
 EXCHANGE_BIN=${ORDAX_CHECKOUT_EXCHANGE_BIN:-/usr/local/bin/ordax-checkout-exchange}
 NETWORK_STATUS_FILE=${ORDAX_NETWORK_STATUS_FILE:-/run/ordax-network-status}
 SEED_MODE=0
+ROLLBACK_MODE=0
 SEED_SOURCE_REPO=
 SEED_SOURCE_SHA=
 case "${1:-}" in
@@ -41,6 +42,10 @@ case "${1:-}" in
         SEED_MODE=1
         SEED_SOURCE_REPO=$2
         SEED_SOURCE_SHA=$3
+        ;;
+    --rollback)
+        [ "$#" -eq 1 ] || { echo "usage: ordax-pull --rollback" >&2; exit 2; }
+        ROLLBACK_MODE=1
         ;;
     "") ;;
     *) echo "ordax-git: unsupported argument: $1" >&2; exit 2 ;;
@@ -854,7 +859,7 @@ cleanup_transaction_artifacts() {
 # The normal local CLI and the UI use the same existing Supervisor queue.
 # Recovery/seed and the exact Supervisor handoff remain synchronous. This is
 # intentionally before the Pull lock: the queued Supervisor owns that lock.
-if [ "$SEED_MODE" -eq 0 ] && [ -z "$EXPECTED_SHA" ] &&
+if [ "$SEED_MODE" -eq 0 ] && [ "$ROLLBACK_MODE" -eq 0 ] && [ -z "$EXPECTED_SHA" ] &&
    [ "$AUTOMATIC_ROLLBACK_RECOVERY" -eq 0 ] &&
    [ ! -s "$PINNED_FILE" ] && [ ! -e "$TRANSACTION_FILE" ]; then
     first_run_receipt=$STATE_DIR/native-state/first-run.json
@@ -916,6 +921,41 @@ trap 'exit 143' TERM
 recover_interrupted_swap || exit 1
 recover_legacy_retired_checkout || exit 1
 cleanup_transaction_artifacts
+
+# The manual rollback entrypoint uses the same checkout lock and recovery
+# owner as Pull. It is entirely offline and never discards local work.
+if [ "$ROLLBACK_MODE" -eq 1 ]; then
+    PULL_PHASE=rollback
+    previous=$(read_state "$PREVIOUS_FILE")
+    registered=$(read_state "$CURRENT_FILE")
+    if ! is_sha "$previous" || ! is_sha "$registered" ||
+       ! checkout_metadata_valid "$WORKTREE" ||
+       [ "$(git -C "$WORKTREE" rev-parse HEAD)" != "$registered" ] ||
+       ! git -C "$WORKTREE" cat-file -e "$previous^{commit}" 2>/dev/null; then
+        echo "ordax-rollback: checkout ou revisao anterior invalida; estado preservado" >&2
+        exit 1
+    fi
+    if ! checkout_is_clean "$WORKTREE"; then
+        echo "ordax-rollback: edicoes locais preservadas; resolva as alteracoes antes de voltar" >&2
+        exit 1
+    fi
+    # Pin first: an interrupted checkout must not silently advance on boot.
+    write_state "$PINNED_FILE" "$previous"
+    if ! git -C "$WORKTREE" reset --keep "$previous" ||
+       [ "$(git -C "$WORKTREE" rev-parse HEAD)" != "$previous" ] ||
+       ! checkout_is_clean "$WORKTREE"; then
+        echo "ordax-rollback: conflito local; rollback nao confirmado" >&2
+        exit 1
+    fi
+    write_state "$CURRENT_FILE" "$previous"
+    rm -f "$BOOT_REJECTED_FILE"
+    PULL_PHASE=helper-refresh
+    refresh_dev_helpers "$previous" || exit 1
+    printf 'ORDAX_ROLLBACK_SHA=%s\n' "$previous"
+    printf 'ORDAX_PINNED_SHA=%s\n' "$previous"
+    printf 'ordax-rollback: commit fixado ate o proximo ordax-pull explicito\n'
+    exit 0
+fi
 
 if [ "$SEED_MODE" -eq 1 ]; then
     is_sha "$SEED_SOURCE_SHA" || {

@@ -51,6 +51,11 @@ de saúde não são descartadas. Em conflito, informa erro de rollback e
 mantém a recuperação bloqueada até reconciliar as edições, sem registrar
 uma restauração bem-sucedida fictícia.
 
+O comando manual `ordax-rollback` é uma entrada do próprio `ordax-pull --rollback`:
+usa o lock e a recuperação de transação existentes, sem rede, sem apagar
+edições e com restauração dos helpers da revisão fixada. O comando só
+confirma sucesso depois de registrar o checkout restaurado e validar seus helpers.
+
 O checkout Git do pendrive não é um cache descartável quando contém
 alterações locais. O Pull conserva os arquivos modificados e não rastreados
 no próprio checkout, registra o diagnóstico existente e interrompe a troca

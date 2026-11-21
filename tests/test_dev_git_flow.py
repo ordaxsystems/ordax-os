@@ -878,6 +878,31 @@ class DevelopmentGitFlowTest(unittest.TestCase):
         self.assertEqual((self.state / "previous-commit").read_text().strip(), self.commit_v1)
         self.assertEqual((self.state / "current-commit").read_text().strip(), self.commit_v2)
 
+        # Manual rollback must preserve local source and must use the
+        # existing Pull lock rather than racing a checkout exchange.
+        entry = self.worktree / "system/entrypoint"
+        original = entry.read_bytes()
+        entry.write_bytes(original + b"# local edit\n")
+        blocked = self._script(ROLLBACK, check=False)
+        self.assertNotEqual(blocked.returncode, 0)
+        self.assertIn("edicoes locais preservadas", blocked.stderr)
+        self.assertEqual(entry.read_bytes(), original + b"# local edit\n")
+        self.assertFalse((self.state / "pinned-commit").exists())
+        entry.write_bytes(original)
+        untracked = self.worktree / "system/local-note"
+        untracked.write_text("keep me", encoding="utf-8")
+        blocked = self._script(ROLLBACK, check=False)
+        self.assertNotEqual(blocked.returncode, 0)
+        self.assertEqual(untracked.read_text(encoding="utf-8"), "keep me")
+        untracked.unlink()
+        lock = self.root / "run/ordax-update/pull.lock"
+        lock.mkdir()
+        (lock / "pid").write_text(str(os.getpid()) + "\n", encoding="ascii")
+        blocked = self._script(ROLLBACK, check=False)
+        self.assertEqual(blocked.returncode, 75)
+        self.assertFalse((self.state / "pinned-commit").exists())
+        (lock / "pid").unlink()
+        lock.rmdir()
         rollback = self._script(ROLLBACK)
         self.assertIn(f"ORDAX_ROLLBACK_SHA={self.commit_v1}", rollback.stdout)
         self.assertIn(f"ORDAX_PINNED_SHA={self.commit_v1}", rollback.stdout)
