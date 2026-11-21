@@ -222,5 +222,30 @@ class RepositoryOwnershipContractTests(unittest.TestCase):
                 self.assertNotIn(item, ownership, f"{item} duplicated by {ownership.get(item)} and {name}")
                 ownership[item] = name
 
+    def test_federated_documentation_entrypoint_matches_owner_contract(self):
+        """Keep global documentation routing tied to the executable ownership SSOT."""
+        index = (ROOT / "docs" / "README.md").read_text(encoding="utf-8")
+        self.assertIn("## Autoridade documental do ecossistema multi-repositório", index)
+        self.assertIn("(contracts/repository-ownership.json)", index)
+        self.assertIn("Uma responsabilidade normativa = um documento/contrato proprietário", index)
+        self.assertIn("Não criar", index)
+        for role, record in self.contract["repositories"].items():
+            with self.subTest(role=role):
+                repository = record["repo"]
+                self.assertEqual(repository.count("/"), 1)
+                if repository == self.contract["repositories"]["platform"]["repo"]:
+                    continue
+                self.assertIn(
+                    f"https://github.com/{repository}",
+                    index,
+                    f"missing owner documentation directory for {role}",
+                )
+        self.assertNotIn(
+            "blob/main/INTELLIGENCE-HANDOFF.md",
+            index,
+            "removed historical handoff cannot be an active documentation route",
+        )
+
+
 if __name__ == "__main__":
     unittest.main()
