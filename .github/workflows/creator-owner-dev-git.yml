@@ -931,7 +931,13 @@ jobs:
           rm -f "$RUNNER_TEMP/owner-prototype-private-path"
 
       - name: Publish verified OS media for independent Creator owner
-        if: github.event_name == 'push' && github.ref == 'refs/heads/main'
+        # Only the Owner on main may explicitly republish a fresh QEMU-proven
+        # USB image when the matching push workflow is stranded or superseded.
+        # Never permit publication by PRs or arbitrary dispatch actors.
+        if: >-
+          github.ref == 'refs/heads/main' &&
+          (github.event_name == 'push' ||
+          (github.event_name == 'workflow_dispatch' && github.actor == 'ordaxos-admin'))
         env:
           GH_TOKEN: ${{ github.token }}
         run: |

@@ -86,7 +86,7 @@ class OfflineOwnerWelcomeGateTests(unittest.TestCase):
         self.assertIn('--seed-from-local "$GITHUB_WORKSPACE" "$ORDAX_OWNER_SOURCE_COMMIT"', workflow)
         self.assertIn("os.environ['ORDAX_OWNER_SOURCE_COMMIT']", workflow)
         self.assertNotIn('$GITHUB_SHA', workflow)
-        self.assertIn("if: github.event_name == 'push' && github.ref == 'refs/heads/main'", workflow)
+        self.assertIn("github.event_name == 'workflow_dispatch' && github.actor == 'ordaxos-admin'", workflow)
         growth = workflow.split("- name: Materialize and verify RAW development seed", 1)[1].split(
             "- name: Build split Windows Creator bundle", 1
         )[0]

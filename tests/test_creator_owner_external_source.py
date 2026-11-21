@@ -102,7 +102,7 @@ class CreatorOwnerExternalSourceTests(unittest.TestCase):
             "tools/creator/verify_owner_dev_media.py",
             "system/services/surface-source/owner-stage.sh ready",
             "Publish verified OS media for independent Creator owner",
-            "if: github.event_name == 'push' && github.ref == 'refs/heads/main'",
+            "github.event_name == 'workflow_dispatch' && github.actor == 'ordaxos-admin'",
             "OWNER_CREATOR_BINARY_BUILT_IN_OS=NO",
             "OWNER_CREATOR_WINDOWS_RELEASE_OWNED_BY=ordaxsystems/ordax-creator",
         ):

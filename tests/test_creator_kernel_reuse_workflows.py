@@ -339,7 +339,7 @@ class CreatorKernelReuseWorkflowTests(unittest.TestCase):
             workflow, "Publish verified OS media for independent Creator owner"
         )
         self.assertIn(
-            "if: github.event_name == 'push' && github.ref == 'refs/heads/main'",
+            "github.event_name == 'workflow_dispatch' && github.actor == 'ordaxos-admin'",
             publish_block,
         )
         self.assertIn("tag='creator-owner-media'", publish_block)
@@ -350,15 +350,18 @@ class CreatorKernelReuseWorkflowTests(unittest.TestCase):
         trigger = workflow.split("permissions:", 1)[0]
         self.assertIn("  push:\n    branches: [main]", trigger)
         # Non-publishing PRs can prove the actual Owner USB payload. Promotion
-        # remains restricted to an exact push of main, never a PR or dispatch.
+        # remains restricted to an exact push of main, never a PR or unapproved dispatch.
         self.assertIn("  pull_request:", trigger)
         publish = self.step_block(
             workflow, "Publish verified OS media for independent Creator owner"
         )
         self.assertIn(
-            "if: github.event_name == 'push' && github.ref == 'refs/heads/main'",
+            "github.event_name == 'workflow_dispatch' && github.actor == 'ordaxos-admin'",
             publish,
         )
+        self.assertIn("github.ref == 'refs/heads/main'", publish)
+        self.assertIn("github.event_name == 'push'", publish)
+        self.assertIn("github.event_name == 'workflow_dispatch' && github.actor == 'ordaxos-admin'", publish)
         self.assertIn("tag='creator-owner-media'", publish)
         self.assertEqual(publish.count('gh release upload "$tag"'), 2)
         self.assertIn("OWNER_OS_MEDIA_PUBLISHED=", publish)
