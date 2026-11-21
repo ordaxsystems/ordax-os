@@ -149,7 +149,6 @@ class PortableQemuImpactTests(unittest.TestCase):
         # or the real boot/Surface host never inherits this exemption.
         for critical in (
             "bootstrap/surface-runtime/build.py",
-            "bootstrap/surface-runtime/configs/ordax_surface_defconfig",
             "bootstrap/kernel/build.py",
             "system/surface/bin/ordax-surface",
             "system/supervisor",
@@ -158,6 +157,14 @@ class PortableQemuImpactTests(unittest.TestCase):
             with self.subTest(critical=critical):
                 candidate = impact.classify_paths(paths + [critical], root=ROOT)
                 self.assertTrue(candidate.required, critical)
+        # Changes to the dedicated Surface Kconfig are covered by the
+        # Independent Surface producer. They do not require a second
+        # Buildroot/QEMU consumer compilation to validate the same bytes.
+        dedicated = impact.classify_paths(
+            paths + ["bootstrap/surface-runtime/configs/ordax_surface_defconfig"],
+            root=ROOT,
+        )
+        self.assertFalse(dedicated.required)
 
     def test_app_delivery_policy_changes_use_app_gates_not_portable_boot(self):
         """An app lifecycle policy update must not rebuild unrelated Linux boot."""
