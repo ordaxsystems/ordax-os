@@ -61,10 +61,10 @@ jobs:
         run: |
           $remote = @(& git ls-remote --heads origin main)
           if ($LASTEXITCODE -ne 0 -or $remote.Count -ne 1 -or
-              $remote[0] -cnotmatch '^(?<sha>[a-f0-9]{40})\s+refs/heads/main$') {
+              $remote[0] -cnotmatch '^[a-f0-9]{40}\s+refs/heads/main$') {
             throw 'Cannot attest the canonical OS main HEAD'
           }
-          if ($Matches.sha -cne $env:EXPECTED_SOURCE_SHA) {
+          if (([string]$remote[0]).Substring(0,40) -cne $env:EXPECTED_SOURCE_SHA) {
             throw 'Requested Desktop Dev release is superseded; abort before Windows build'
           }
           Write-Output 'DESKTOP_RELEASE_SOURCE_CURRENT=PASS'
@@ -384,8 +384,8 @@ jobs:
           # Main may advance while the verified NSIS candidate is being built.
           $remoteMain = @(& git ls-remote --heads origin main)
           if ($LASTEXITCODE -ne 0 -or $remoteMain.Count -ne 1 -or
-              $remoteMain[0] -cnotmatch '^(?<sha>[a-f0-9]{40})\s+refs/heads/main$' -or
-              $Matches.sha -cne $desktopSha) {
+              $remoteMain[0] -cnotmatch '^[a-f0-9]{40}\s+refs/heads/main$' -or
+              ([string]$remoteMain[0]).Substring(0,40) -cne $desktopSha) {
             throw 'Canonical main advanced or cannot be attested; refuse stale Desktop publication'
           }
           $stage = Get-Content -LiteralPath $StageManifest -Raw | ConvertFrom-Json
