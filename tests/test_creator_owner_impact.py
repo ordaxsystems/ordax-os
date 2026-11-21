@@ -167,6 +167,7 @@ class CreatorOwnerImpactTests(unittest.TestCase):
     def test_existing_git_helpers_use_owner_preflight_without_creator_media(self):
         base = self.commit(WORKFLOW.read_text(encoding="utf-8"), VISUAL)
         for filename in ("bootstrap/dev-base/ordax-run",
+                         "bootstrap/dev-base/ordax-rollback",
                          "bootstrap/dev-base/ordax-main-watch",
                          "system/services/base-update/dev-helpers.sh"):
             head = self.commit(path=filename)

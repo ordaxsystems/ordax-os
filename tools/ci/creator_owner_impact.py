@@ -166,6 +166,7 @@ WINDOWS_PRODUCT_PINNED_BLOBS = {
 PULL_HELPER_SOURCE_PATHS = frozenset({
     "bootstrap/dev-base/ordax-pull",
     "bootstrap/dev-base/ordax-run",
+    "bootstrap/dev-base/ordax-rollback",
     "bootstrap/dev-base/ordax-main-watch",
     "system/services/base-update/dev-helpers.sh",
 })
