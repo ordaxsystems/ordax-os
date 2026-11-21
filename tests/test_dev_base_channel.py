@@ -7,6 +7,7 @@ import tarfile
 import json
 import tempfile
 import subprocess
+import shutil
 import sys
 import textwrap
 import unittest
@@ -810,6 +811,94 @@ class DevBaseConsumerTests(unittest.TestCase):
             target, _ = consumer.acquire(SOURCE, root, opener=opener)
             self.assertEqual(requests, list(payloads))
             self.assertEqual(consumer.verify_materialized(target, SOURCE), manifest)
+
+
+    @unittest.skipUnless(shutil.which("awk"), "requires canonical awk interpreter")
+    def test_resolution_uses_published_first_parent_and_preserves_artifact_identity(self):
+        with tempfile.TemporaryDirectory() as temporary:
+            repo = Path(temporary) / "repo"
+            repo.mkdir()
+            def git(*args):
+                return subprocess.check_output(
+                    ["git", "-C", str(repo), *args],
+                    stderr=subprocess.PIPE, text=True,
+                ).strip()
+
+            git("init", "-b", "main")
+            git("config", "user.name", "Test")
+            git("config", "user.email", "test@example.invalid")
+            policy = repo / consumer.IMPACT_POLICY_REPO_PATH
+            policy.parent.mkdir(parents=True)
+            policy.write_bytes(consumer.IMPACT_POLICY.read_bytes())
+            manifest = repo / consumer.HELPER_MANIFEST_REPO_PATH
+            manifest.write_bytes((ROOT / consumer.HELPER_MANIFEST_REPO_PATH).read_bytes())
+
+            def commit(path, content):
+                file = repo / path
+                file.parent.mkdir(parents=True, exist_ok=True)
+                file.write_text(content, encoding="utf-8")
+                git("add", "-A")
+                git("commit", "-m", content)
+                return git("rev-parse", "HEAD")
+
+            older = commit("bootstrap/kernel/source.json", "old kernel")
+            published = commit("bootstrap/kernel/source.json", "new kernel")
+            git("switch", "-c", "unrelated")
+            foreign = commit("README.md", "unrelated")
+            git("switch", "main")
+            requested = commit("README.md", "runtime-only")
+            self.assertFalse(consumer.prove_compatible_source(repo, older, requested))
+            self.assertFalse(consumer.prove_compatible_source(repo, foreign, requested))
+            self.assertTrue(consumer.prove_compatible_source(repo, published, requested))
+
+            kernel, initramfs, rootfs = b"kernel", b"initrd", b"rootfs"
+            descriptor = self.descriptor(kernel, initramfs, rootfs, published)
+            payloads = {
+                consumer.manifest_url(published): json.dumps(descriptor).encode(),
+                descriptor["kernel"]["url"]: kernel,
+                descriptor["initramfs"]["url"]: initramfs,
+                descriptor["rootfs"]["url"]: rootfs,
+            }
+            requests = []
+
+            def opener(url, timeout):
+                requests.append(url)
+                if url not in payloads:
+                    raise urllib.error.HTTPError(url, 404, "missing", {}, None)
+                return FakeResponse(url, payloads[url])
+
+            with patch.object(consumer, "_published_source_commits",
+                              return_value={older, published, foreign}):
+                identity, payload = consumer.resolve_published_source(requested, repo, opener=opener)
+                self.assertEqual(identity, published)
+                self.assertEqual(requests, [consumer.manifest_url(requested),
+                                            consumer.manifest_url(published)])
+                candidate, _ = consumer.acquire(
+                    identity, Path(temporary) / "cache", opener=opener,
+                    _manifest_bytes=payload,
+                )
+                self.assertEqual(candidate.name, published)
+                self.assertEqual(consumer.verify_materialized(candidate, published), descriptor)
+                self.assertFalse((candidate.parent / requested).exists())
+                self.assertEqual(requests.count(consumer.manifest_url(published)), 1)
+                newer = commit("bootstrap/kernel/source.json", "unpublished kernel")
+                with self.assertRaises(consumer.DevBaseCandidateUnavailable):
+                    consumer.resolve_published_source(newer, repo, opener=opener)
+
+    def test_resolution_never_substitutes_on_transport_or_invalid_manifest_failure(self):
+        def unavailable(url, timeout):
+            raise urllib.error.URLError("network down")
+
+        def invalid(url, timeout):
+            return FakeResponse(url, b"{}")
+
+        for opener in (unavailable, invalid):
+            with self.subTest(opener=opener), patch.object(
+                consumer, "_published_source_commits"
+            ) as discovery:
+                with self.assertRaises(consumer.DevBaseChannelError):
+                    consumer.resolve_published_source(SOURCE, Path("."), opener=opener)
+                discovery.assert_not_called()
 
     def test_acquire_rejects_manifest_for_another_commit(self):
         kernel = b"kernel\n"

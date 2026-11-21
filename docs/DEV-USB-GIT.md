@@ -789,3 +789,20 @@ Isso não concede autorização de ativação nem resolve o proprietário separa
 do loader UEFI. O produtor continua exigindo identidade exata; saltar revisões
 com mudanças binárias ainda exige resolver a entrega aplicável, não inventar
 um candidato para um SHA sem publicação.
+
+### Resolução de Base publicada compatível (DEV)
+
+O proprietário `system/services/base-update/dev_channel.py` oferece
+`--source-commit SHA --compatible-worktree CAMINHO --resolve-only` para consultar,
+sem tocar em mídia, o SHA efetivo da entrega que atende ao checkout solicitado.
+O manifesto exato tem prioridade. Somente HTTP 404 permite procurar tags
+`ordax-dev-base-<sha>` existentes; a tag precisa apontar para o próprio SHA e
+pertencer ao caminho first-parent da revisão solicitada. O classificador
+`dev-impact.awk` prova que nenhum input produtor foi alterado, sem presumir
+compatibilidade quando o manifesto de pré-requisitos nativos mudou.
+`--acquire-only` reutiliza o adquirente existente para obter os arquivos
+verificados sem extrair rootfs. A identidade de origem da entrega não é
+reescrita: `source_commit` é o artefato e `requested_source_commit` é o checkout.
+O modo exato continua sendo o contrato da ativação e não é substituído por
+essa resolução até a promoção pós-boot verificar explicitamente ambos os SHAs.
+Nenhuma autorização de escrita ou boot é concedida pela resolução.

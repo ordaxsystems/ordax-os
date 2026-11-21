@@ -15,6 +15,7 @@ from pathlib import Path, PurePosixPath
 import re
 import shutil
 import stat
+import subprocess
 import sys
 import tempfile
 import tarfile
@@ -55,6 +56,11 @@ REQUIRED_ROOTFS_DIRS = (
 )
 DOWNLOAD_TIMEOUT_SECONDS = 45
 ROOTFS_DOWNLOAD_TIMEOUT_SECONDS = 180
+MAX_RESOLUTION_HISTORY = 4096
+MAX_PUBLISHED_REFS = 4096
+IMPACT_POLICY = Path(__file__).resolve().with_name("dev-impact.awk")
+IMPACT_POLICY_REPO_PATH = "system/services/base-update/dev-impact.awk"
+HELPER_MANIFEST_REPO_PATH = "system/services/base-update/dev-helper-manifest.tsv"
 
 
 class DevBaseChannelError(RuntimeError):
@@ -63,6 +69,10 @@ class DevBaseChannelError(RuntimeError):
 
 class DevBaseCandidateUnavailable(DevBaseChannelError):
     pass
+
+
+class DevBaseCandidateNotPublished(DevBaseCandidateUnavailable):
+    """Only an observed HTTP 404 permits compatible release discovery."""
 
 
 def candidate_tag(source_commit: str) -> str:
@@ -152,7 +162,7 @@ def _fetch_bytes(
         response = opener(url, timeout=DOWNLOAD_TIMEOUT_SECONDS)
     except urllib.error.HTTPError as exc:
         if exc.code == 404:
-            raise DevBaseCandidateUnavailable("development Base candidate is not published yet") from exc
+            raise DevBaseCandidateNotPublished("development Base candidate is not published yet") from exc
         raise DevBaseChannelError(f"development Base download returned HTTP {exc.code}") from exc
     except (urllib.error.URLError, OSError) as exc:
         raise DevBaseCandidateUnavailable("development Base channel is temporarily unavailable") from exc
@@ -162,7 +172,7 @@ def _fetch_bytes(
         final_url = response.geturl()
         if status != 200:
             if status == 404:
-                raise DevBaseCandidateUnavailable("development Base candidate is not published yet")
+                raise DevBaseCandidateNotPublished("development Base candidate is not published yet")
             raise DevBaseChannelError(f"development Base download returned HTTP {status}")
         if not isinstance(final_url, str) or not final_url.startswith("https://"):
             raise DevBaseChannelError("development Base download left HTTPS")
@@ -197,7 +207,7 @@ def _download_binding_to_path(
         response = opener(url, timeout=timeout_seconds)
     except urllib.error.HTTPError as exc:
         if exc.code == 404:
-            raise DevBaseCandidateUnavailable("development Base candidate is not published yet") from exc
+            raise DevBaseCandidateNotPublished("development Base candidate is not published yet") from exc
         raise DevBaseChannelError(f"development Base download returned HTTP {exc.code}") from exc
     except (urllib.error.URLError, OSError) as exc:
         raise DevBaseCandidateUnavailable("development Base channel is temporarily unavailable") from exc
@@ -208,7 +218,7 @@ def _download_binding_to_path(
         final_url = response.geturl()
         if status != 200:
             if status == 404:
-                raise DevBaseCandidateUnavailable("development Base candidate is not published yet")
+                raise DevBaseCandidateNotPublished("development Base candidate is not published yet")
             raise DevBaseChannelError(f"development Base download returned HTTP {status}")
         if not isinstance(final_url, str) or not final_url.startswith("https://"):
             raise DevBaseChannelError("development Base download left HTTPS")
@@ -639,11 +649,158 @@ def _reuse_bound_asset(
     return False
 
 
+
+def _git_bytes(worktree: Path, *arguments: str, git_bin: str = "git") -> bytes:
+    try:
+        return subprocess.check_output(
+            [git_bin, "-C", str(worktree), *arguments],
+            stderr=subprocess.PIPE,
+            timeout=45,
+            env={**os.environ, "GIT_TERMINAL_PROMPT": "0"},
+        )
+    except (OSError, subprocess.SubprocessError) as exc:
+        raise DevBaseChannelError("development Base Git evidence unavailable") from exc
+
+
+def _published_source_commits(worktree: Path, *, git_bin: str) -> set[str]:
+    # The existing immutable release tags are discovery only. A tag is not
+    # authority to download or activate bytes without its exact manifest.
+    remote = f"https://github.com/{REPOSITORY}.git"
+    if _git_bytes(worktree, "remote", "get-url", "origin", git_bin=git_bin).decode().strip() != remote:
+        raise DevBaseChannelError("development Base resolution origin is not canonical")
+    raw = _git_bytes(
+        worktree, "ls-remote", "--tags", "--refs", "origin",
+        "refs/tags/ordax-dev-base-*", git_bin=git_bin,
+    )
+    rows = raw.splitlines()
+    if len(rows) > MAX_PUBLISHED_REFS:
+        raise DevBaseChannelError("development Base release discovery exceeds bounded scope")
+    published = set()
+    for row in rows:
+        match = re.fullmatch(rb"([0-9a-f]{40})\trefs/tags/ordax-dev-base-([0-9a-f]{40})", row)
+        if match and match.group(1) == match.group(2):
+            published.add(match.group(1).decode("ascii"))
+    return published
+
+
+def prove_compatible_source(
+    worktree: Path,
+    artifact_commit: str,
+    requested_commit: str,
+    *,
+    git_bin: str = "git",
+    awk_bin: str = "awk",
+) -> bool:
+    """Prove Base compatibility without relabeling an artifact or invoking build."""
+    candidate_tag(artifact_commit)
+    candidate_tag(requested_commit)
+    if artifact_commit == requested_commit:
+        return True
+    try:
+        ancestor = subprocess.run(
+            [git_bin, "-C", str(worktree), "merge-base", "--is-ancestor",
+             artifact_commit, requested_commit],
+            stdout=subprocess.DEVNULL, stderr=subprocess.PIPE, timeout=45,
+        )
+    except (OSError, subprocess.SubprocessError) as exc:
+        raise DevBaseChannelError("development Base ancestry evidence unavailable") from exc
+    if ancestor.returncode == 1:
+        return False
+    if ancestor.returncode != 0:
+        raise DevBaseChannelError("development Base ancestry evidence unavailable")
+    # Execute the installed policy only. Require its bytes to match the
+    # requested source, so a stale or unrelated policy cannot prove reuse.
+    if _git_bytes(worktree, "show", f"{requested_commit}:{IMPACT_POLICY_REPO_PATH}",
+                  git_bin=git_bin) != IMPACT_POLICY.read_bytes():
+        raise DevBaseChannelError("development Base impact policy differs from requested source")
+    manifest = _git_bytes(
+        worktree, "show", f"{requested_commit}:{HELPER_MANIFEST_REPO_PATH}",
+        git_bin=git_bin,
+    )
+    raw = _git_bytes(
+        worktree, "diff", "--name-only", "-z", "--no-renames",
+        artifact_commit, requested_commit, "--", git_bin=git_bin,
+    )
+    if raw and not raw.endswith(b"\0"):
+        raise DevBaseChannelError("development Base changed paths are incomplete")
+    paths = raw.split(b"\0")[:-1] if raw else []
+    # A changed native prerequisite inventory cannot be presumed compatible.
+    if HELPER_MANIFEST_REPO_PATH.encode() in paths:
+        return False
+    if any(not path or b"\n" in path or b"\r" in path for path in paths):
+        raise DevBaseChannelError("development Base changed path is ambiguous")
+    with tempfile.TemporaryDirectory(prefix="ordax-base-impact-") as temp:
+        manifest_path = Path(temp) / "helpers.tsv"
+        manifest_path.write_bytes(manifest)
+        try:
+            impact = subprocess.check_output(
+                [awk_bin, "-f", str(IMPACT_POLICY), str(manifest_path), "-"],
+                input=b"\n".join(paths) + b"\n", stderr=subprocess.PIPE, timeout=20,
+            ).strip()
+        except (OSError, subprocess.SubprocessError) as exc:
+            raise DevBaseChannelError("development Base compatibility evidence unavailable") from exc
+    if impact not in (b"0", b"1"):
+        raise DevBaseChannelError("development Base impact evidence is invalid")
+    return impact == b"0"
+
+
+def _published_manifest(source_commit: str, *, opener) -> bytes:
+    payload = _fetch_bytes(manifest_url(source_commit), MAX_MANIFEST_BYTES, opener=opener)
+    try:
+        validate_manifest(json.loads(payload.decode("utf-8")), source_commit)
+    except (UnicodeError, json.JSONDecodeError) as exc:
+        raise DevBaseChannelError("development Base manifest is invalid JSON") from exc
+    return payload
+
+
+def resolve_published_source(
+    source_commit: str,
+    worktree: Path,
+    *,
+    opener=urllib.request.urlopen,
+    git_bin: str = "git",
+    awk_bin: str = "awk",
+) -> tuple[str, bytes]:
+    """Resolve the nearest published compatible main ancestor, keeping both SHAs."""
+    candidate_tag(source_commit)
+    try:
+        return source_commit, _published_manifest(source_commit, opener=opener)
+    except DevBaseCandidateNotPublished:
+        pass
+    # First-parent ordering keeps main delivery authority; branch-only
+    # releases, unrelated history and unobserved history are not candidates.
+    published = _published_source_commits(worktree, git_bin=git_bin)
+    history = _git_bytes(
+        worktree, "rev-list", "--first-parent",
+        f"--max-count={MAX_RESOLUTION_HISTORY}", source_commit, "--",
+        git_bin=git_bin,
+    ).decode("ascii").splitlines()
+    if not history or history[0] != source_commit:
+        raise DevBaseChannelError("development Base requested Git identity unavailable")
+    for candidate in history[1:]:
+        if candidate not in published:
+            continue
+        if not prove_compatible_source(
+            worktree, candidate, source_commit, git_bin=git_bin, awk_bin=awk_bin,
+        ):
+            # An older ancestor might have an identical tree after a revert;
+            # do not assume incompatibility is monotone across Git history.
+            continue
+        try:
+            return candidate, _published_manifest(candidate, opener=opener)
+        except DevBaseCandidateNotPublished:
+            continue
+    raise DevBaseCandidateUnavailable(
+        "no published development Base compatible with requested Git revision"
+    )
+
+
 def acquire(
     source_commit: str,
     destination_root: Path,
     *,
     opener=urllib.request.urlopen,
+    _manifest_bytes: bytes | None = None,
 ) -> tuple[Path, bool]:
     candidate_tag(source_commit)
     destination_root.mkdir(parents=True, exist_ok=True)
@@ -655,11 +812,8 @@ def acquire(
         verify_materialized(target, source_commit)
         return target, True
 
-    manifest_bytes = _fetch_bytes(
-        manifest_url(source_commit),
-        MAX_MANIFEST_BYTES,
-        opener=opener,
-    )
+    manifest_bytes = (_manifest_bytes if _manifest_bytes is not None
+                      else _published_manifest(source_commit, opener=opener))
     try:
         manifest = validate_manifest(
             json.loads(manifest_bytes.decode("utf-8")),
@@ -719,9 +873,46 @@ def main() -> int:
         default=Path("/state/ordax/base-update/dev-candidates"),
     )
     parser.add_argument("--version-root", type=Path)
+    parser.add_argument("--compatible-worktree", type=Path,
+                        help="resolve published compatible Base using canonical Git history")
+    parser.add_argument("--resolve-only", action="store_true",
+                        help="verify release compatibility without writing or downloading binaries")
+    parser.add_argument("--acquire-only", action="store_true",
+                        help="acquire verified archives without extracting the versioned rootfs")
+    parser.add_argument("--git-bin", default="git")
+    parser.add_argument("--awk-bin", default="awk")
     args = parser.parse_args()
+    if args.resolve_only and args.compatible_worktree is None:
+        parser.error("--resolve-only requires --compatible-worktree")
+    if args.resolve_only and args.acquire_only:
+        parser.error("--resolve-only and --acquire-only are mutually exclusive")
     try:
-        path, reused = acquire(args.source_commit, args.destination_root)
+        requested_commit = args.source_commit
+        artifact_commit = requested_commit
+        manifest_bytes = None
+        if args.compatible_worktree is not None:
+            artifact_commit, manifest_bytes = resolve_published_source(
+                requested_commit, args.compatible_worktree,
+                git_bin=args.git_bin, awk_bin=args.awk_bin,
+            )
+        if args.resolve_only:
+            print(json.dumps({
+                "status": "resolved",
+                "requested_source_commit": requested_commit,
+                "source_commit": artifact_commit,
+                "exact_source": requested_commit == artifact_commit,
+            }, sort_keys=True))
+            return 0
+        path, reused = acquire(
+            artifact_commit, args.destination_root, _manifest_bytes=manifest_bytes,
+        )
+        if args.acquire_only:
+            print(json.dumps({
+                "status": "acquired", "source_commit": artifact_commit,
+                "requested_source_commit": requested_commit,
+                "path": str(path), "reused": reused,
+            }, sort_keys=True))
+            return 0
         if args.version_root is not None:
             version_root = args.version_root
         elif Path("/.ordax-base/versions").is_dir():
@@ -730,12 +921,13 @@ def main() -> int:
             version_root = Path("/versions")
         rootfs_path, rootfs_reused = materialize_versioned_rootfs(
             path,
-            args.source_commit,
+            artifact_commit,
             version_root,
         )
         print(json.dumps({
             "status": "ready",
-            "source_commit": args.source_commit,
+            "source_commit": artifact_commit,
+            "requested_source_commit": requested_commit,
             "path": str(path),
             "reused": reused,
             "rootfs_path": str(rootfs_path),
