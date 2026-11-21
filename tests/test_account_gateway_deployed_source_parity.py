@@ -11,7 +11,7 @@ from unittest.mock import patch
 
 from tools.account.prove_gateway_deployed_source_parity import (
     MODES, ParityFailure, canonical_import_graph, extract_files, prove,
-    read_deployed_bundle,
+    read_deployed_bundle, _multipart_source_payload,
 )
 
 
@@ -28,6 +28,28 @@ def zip_payload(files: dict[str, bytes]) -> bytes:
         for name, content in files.items():
             archive.writestr("source/" + name, content)
     return out.getvalue()
+
+
+
+
+def multipart_payload(files: dict[str, bytes], *, boundary: str = "ordax-parity-2026",
+                      metadata: bytes = b'{"deno2_entrypoint_path":"index.ts"}') -> bytes:
+    data: list[bytes] = []
+    divider = b"--" + boundary.encode("ascii")
+    for name, body in files.items():
+        data.extend((
+            divider + b"\r\n",
+            b'Content-Disposition: form-data; name="file"; filename="' +
+            name.encode("ascii") + b'"\r\nContent-Type: text/plain\r\n\r\n',
+            body, b"\r\n",
+        ))
+    data.extend((
+        divider + b"\r\n",
+        b'Content-Disposition: form-data; name="metadata"\r\n'
+        b'Content-Type: application/json\r\n\r\n',
+        metadata, b"\r\n", divider + b"--\r\n",
+    ))
+    return b"".join(data)
 
 
 class DeployedAccountSourceParityTests(unittest.TestCase):
@@ -128,6 +150,78 @@ class DeployedAccountSourceParityTests(unittest.TestCase):
             with self.assertRaises(ParityFailure):
                 read_deployed_bundle(bad, MODES[0], "secret", sender)
         self.assertEqual(len(requested), 1)
+
+    def test_supabase_multipart_source_passes_strict_preflight_and_verify(self):
+        for name in MODES:
+            graph = canonical_import_graph(name)
+            mime = 'multipart/form-data; boundary=ordax-parity-2026'
+            body = _multipart_source_payload(multipart_payload(graph), mime)
+            self.assertEqual(extract_files(body), graph)
+            self.assertEqual(prove(name, body, mode="preflight")["status"], "pass")
+            self.assertEqual(prove(name, body, mode="verify")["status"], "pass")
+            changed = dict(graph)
+            changed[name + "/index.ts"] += b"\n// drift\n"
+            with self.assertRaisesRegex(ParityFailure, "deployed-source-content-drift"):
+                prove(name, _multipart_source_payload(multipart_payload(changed), mime),
+                      mode="verify")
+
+    def test_supabase_multipart_rejects_traversal_duplicates_and_malformed_parts(self):
+        mime = 'multipart/form-data; boundary=ordax-parity-2026'
+        legitimate = multipart_payload({"_shared/a.mjs": b"export default 1;"})
+        attacks = [
+            (legitimate, "multipart/form-data"),
+            (legitimate, "multipart/form-data; boundary=wrong"),
+            (legitimate[:-5], mime),
+            (multipart_payload({"../bad.ts": b"x"}), mime),
+            (multipart_payload({"x\\\\bad.ts": b"x"}), mime),
+            (multipart_payload({"bad.exe": b"x"}), mime),
+            (multipart_payload({"x.ts": b"x"}, metadata=b"not-json"), mime),
+            (multipart_payload({}, metadata=b"[]"), mime),
+            (multipart_payload({}, metadata=b"{}"), mime),
+        ]
+        for raw, content_type in attacks:
+            with self.subTest(content_type=content_type, size=len(raw)):
+                with self.assertRaises(ParityFailure):
+                    _multipart_source_payload(raw, content_type)
+        divider = b"--ordax-parity-2026"
+        duplicate = (divider + b'\r\nContent-Disposition: form-data; name="file";'
+                     b' filename="x.ts"\r\n\r\nx\r\n') * 2
+        duplicate += divider + b"--\r\n"
+        with self.assertRaises(ParityFailure):
+            _multipart_source_payload(duplicate, mime)
+
+    def test_management_request_normalizes_multipart_without_exposing_source(self):
+        graph = canonical_import_graph(MODES[0])
+        mime = "multipart/form-data; boundary=ordax-parity-2026"
+
+        class MultipartResponse:
+            status = 200
+            headers = {"Content-Type": mime}
+
+            def __init__(self, request):
+                self.request = request
+
+            def geturl(self):
+                return self.request.full_url
+
+            def read(self, n):
+                return multipart_payload(graph)[:n]
+
+            def __enter__(self):
+                return self
+
+            def __exit__(self, *_):
+                return None
+
+        requests = []
+        def sender(req, timeout):
+            requests.append(req)
+            return MultipartResponse(req)
+        result = read_deployed_bundle("jhfphsjptrpmtnzkpwud", MODES[0],
+                                      "secret-not-to-print", sender)
+        self.assertEqual(extract_files(result), graph)
+        self.assertEqual(len(requests), 1)
+        self.assertIn("multipart/form-data", requests[0].get_header("Accept"))
 
     def test_no_supabase_write_or_owner_release_bypass_appears_in_workflow(self):
         root = Path(__file__).resolve().parents[1]

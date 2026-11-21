@@ -8,6 +8,9 @@ No user sessions, credentials in output, or Edge Function writes.
 from __future__ import annotations
 
 import argparse
+from email.message import Message
+from email.parser import BytesParser
+from email.policy import default as email_default_policy
 import hashlib
 import io
 import json
@@ -79,6 +82,75 @@ def canonical_import_graph(function: str, root: Path = SOURCE_ROOT) -> dict[str,
     return graph
 
 
+def _multipart_source_payload(raw: bytes, content_type: str) -> bytes:
+    """Normalize official Supabase Management API multipart source into files.
+
+    The boundary comes from the trusted HTTPS response Content-Type, never from
+    file content. No redirect, executable archive extraction or relaxed parity.
+    Every part and filename is validated before handing it to extract_files.
+    """
+    if (len(raw) > MAX_REMOTE_BYTES or len(content_type) > 200
+            or "\r" in content_type or "\n" in content_type):
+        raise ParityFailure("remote-multipart-invalid")
+    header = Message()
+    header["Content-Type"] = content_type
+    boundary = header.get_boundary()
+    if (header.get_content_type() != "multipart/form-data"
+            or not isinstance(boundary, str) or not 1 <= len(boundary) <= 70
+            or not boundary.isascii()):
+        raise ParityFailure("remote-multipart-invalid")
+    marker = b"--" + boundary.encode("ascii")
+    if not raw.startswith(marker + b"\r\n") or not raw.rstrip(b"\r\n").endswith(marker + b"--"):
+        raise ParityFailure("remote-multipart-invalid")
+    prefix = b"MIME-Version: 1.0\r\nContent-Type: " + content_type.encode("ascii") + b"\r\n\r\n"
+    message = BytesParser(policy=email_default_policy).parsebytes(prefix + raw)
+    if message.defects or not message.is_multipart():
+        raise ParityFailure("remote-multipart-invalid")
+    files: list[dict[str, str]] = []
+    names: set[str] = set()
+    metadata_count = 0
+    for part in message.iter_parts():
+        if (part.defects or part.is_multipart()
+                or part.get_content_disposition() != "form-data"
+                or not part.get_param("name", header="content-disposition")
+                or part.get("Content-Transfer-Encoding", "").lower()
+                   not in ("", "7bit", "8bit", "binary")):
+            raise ParityFailure("remote-multipart-part-invalid")
+        data = part.get_payload(decode=True)
+        if not isinstance(data, bytes) or len(data) > MAX_REMOTE_BYTES:
+            raise ParityFailure("remote-multipart-part-invalid")
+        filename = part.get_filename()
+        if filename is None:
+            # Supabase includes one non-file JSON metadata part. It is not
+            # executable authority and is never merged into source inventory.
+            metadata_count += 1
+            if metadata_count > 1:
+                raise ParityFailure("remote-multipart-metadata-invalid")
+            try:
+                metadata = json.loads(data.decode("utf-8"))
+            except (ValueError, UnicodeDecodeError):
+                raise ParityFailure("remote-multipart-metadata-invalid") from None
+            if not isinstance(metadata, dict):
+                raise ParityFailure("remote-multipart-metadata-invalid")
+            continue
+        name = safe_path(filename)
+        if (name in names or PurePosixPath(name).suffix not in ALLOWED_SUFFIXES
+                or len(files) >= MAX_FILES):
+            raise ParityFailure("remote-multipart-file-invalid")
+        try:
+            content = data.decode("utf-8")
+        except UnicodeDecodeError:
+            raise ParityFailure("remote-multipart-file-invalid") from None
+        names.add(name)
+        files.append({"name": name, "content": content})
+    if not files:
+        raise ParityFailure("remote-source-empty")
+    normalized = json.dumps({"files": files}, separators=(",", ":")).encode("utf-8")
+    if len(normalized) > MAX_REMOTE_BYTES:
+        raise ParityFailure("remote-bundle-size-invalid")
+    return normalized
+
+
 def extract_files(raw: bytes) -> dict[str, bytes]:
     if not raw or len(raw) > MAX_REMOTE_BYTES:
         raise ParityFailure("remote-bundle-size-invalid")
@@ -124,7 +196,7 @@ def read_deployed_bundle(project: str, function: str, token: str, sender=None) -
               "/functions/" + function + "/body")
     request = urllib.request.Request(target, headers={
         "Authorization": "Bearer " + token,
-        "Accept": "application/octet-stream, application/json",
+        "Accept": "multipart/form-data, application/octet-stream, application/json",
         "Cache-Control": "no-store",
     }, method="GET")
     if sender is None:
@@ -137,10 +209,14 @@ def read_deployed_bundle(project: str, function: str, token: str, sender=None) -
             if response.status != 200 or response.geturl() != target:
                 raise ParityFailure("management-response-invalid")
             raw = response.read(MAX_REMOTE_BYTES + 1)
+            headers = getattr(response, "headers", None)
+            content_type = headers.get("Content-Type", "") if headers is not None else ""
     except (urllib.error.URLError, TimeoutError, OSError):
         raise ParityFailure("management-unavailable") from None
     if len(raw) > MAX_REMOTE_BYTES:
         raise ParityFailure("management-response-too-large")
+    if content_type.lower().startswith("multipart/"):
+        return _multipart_source_payload(raw, content_type)
     return raw
 
 
