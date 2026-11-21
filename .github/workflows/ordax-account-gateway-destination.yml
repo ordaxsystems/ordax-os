@@ -23,7 +23,7 @@ on:
           - enable
           - disable
       owner_project_rollout:
-        description: 'Project MCP Owner rollout after deploying the reviewed gateway bundle'
+        description: 'Only Project creation and GitHub OAuth; never Project device binding or grants'
         required: true
         type: choice
         default: unchanged
@@ -144,7 +144,10 @@ jobs:
             --no-verify-jwt \
             --use-api
 
-      - name: Apply explicit Owner Project MCP rollout
+      - name: Apply explicit Owner Project setup rollout
+        # Project setup is independently releasable from Device binding/grants.
+        # Neither choice may write the execution/grant flags; those require
+        # their own reviewed, later authority release and Owner consent.
         if: steps.credential.outputs.enabled == 'true' && inputs.owner_project_rollout != 'unchanged'
         shell: bash
         env:
@@ -152,17 +155,26 @@ jobs:
         run: |
           set -euo pipefail
           case "${{ inputs.owner_project_rollout }}" in
-            enable) VALUE=1 ;;
-            disable) VALUE=0 ;;
-            *) echo '::error::Invalid Owner Project MCP rollout'; exit 2 ;;
+            enable)
+              # The shared Owner Account gate is needed for the read-only
+              # Project view and GitHub OAuth. Central device selection remains
+              # gated separately, and no Project execution grant is released.
+              supabase secrets set --project-ref "${SUPABASE_PROJECT_REF}" \
+                "ORDAX_MCP_OWNER_ACCOUNT_ENABLED=1" \
+                "ORDAX_MCP_OWNER_PROJECT_ONBOARDING_ENABLED=1" \
+                "ORDAX_MCP_OWNER_GITHUB_AUTHORIZATION_ENABLED=1"
+              ;;
+            disable)
+              # Do not disable OWNER_ACCOUNT: the independent Owner device
+              # console may already be live, and has its own release choice.
+              supabase secrets set --project-ref "${SUPABASE_PROJECT_REF}" \
+                "ORDAX_MCP_OWNER_PROJECT_ONBOARDING_ENABLED=0" \
+                "ORDAX_MCP_OWNER_GITHUB_AUTHORIZATION_ENABLED=0"
+              ;;
+            *) echo '::error::Invalid Owner Project setup rollout'; exit 2 ;;
           esac
-          supabase secrets set --project-ref "${SUPABASE_PROJECT_REF}" \
-            "ORDAX_MCP_OWNER_ACCOUNT_ENABLED=${VALUE}" \
-            "ORDAX_MCP_OWNER_PROJECT_ONBOARDING_ENABLED=${VALUE}" \
-            "ORDAX_MCP_OWNER_GITHUB_AUTHORIZATION_ENABLED=${VALUE}" \
-            "ORDAX_MCP_OWNER_PROJECT_DEVICE_BINDING_ENABLED=${VALUE}" \
-            "ORDAX_MCP_OWNER_PROJECT_GRANT_ENABLED=${VALUE}"
           echo "ACCOUNT_GATEWAY_OWNER_PROJECT_ROLLOUT=${{ inputs.owner_project_rollout }}"
+          echo 'ACCOUNT_GATEWAY_OWNER_PROJECT_EXECUTION_GRANTS=UNCHANGED'
           echo 'ACCOUNT_GATEWAY_OWNER_PROJECT_SECRET_VALUES_PRINTED=NO'
 
       - name: Apply independent Owner device MCP console rollout

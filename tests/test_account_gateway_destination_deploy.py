@@ -105,15 +105,28 @@ class AccountGatewayDestinationDeployTests(unittest.TestCase):
         self.assertIn("          - disable", text)
         self.assertIn("inputs.owner_project_rollout != 'unchanged'", text)
         self.assertIn("supabase secrets set", text)
+        # Project setup/OAuth is NOT permission to bind devices or create
+        # execution grants. The workflow must never touch either gate, even
+        # for its explicit "enable" or "disable" choice.
+        project_step = text.split(
+            "      - name: Apply explicit Owner Project setup rollout", 1,
+        )[1].split(
+            "      - name: Apply independent Owner device MCP console rollout", 1,
+        )[0]
         for key in (
-            "ORDAX_MCP_OWNER_ACCOUNT_ENABLED",
-            "ORDAX_MCP_OWNER_PROJECT_ONBOARDING_ENABLED",
-            "ORDAX_MCP_OWNER_GITHUB_AUTHORIZATION_ENABLED",
-            "ORDAX_MCP_OWNER_PROJECT_DEVICE_BINDING_ENABLED",
-            "ORDAX_MCP_OWNER_PROJECT_GRANT_ENABLED",
+            "ORDAX_MCP_OWNER_ACCOUNT_ENABLED=1",
+            "ORDAX_MCP_OWNER_PROJECT_ONBOARDING_ENABLED=1",
+            "ORDAX_MCP_OWNER_GITHUB_AUTHORIZATION_ENABLED=1",
+            "ORDAX_MCP_OWNER_PROJECT_ONBOARDING_ENABLED=0",
+            "ORDAX_MCP_OWNER_GITHUB_AUTHORIZATION_ENABLED=0",
         ):
-            self.assertIn(key, text)
-        self.assertIn("ACCOUNT_GATEWAY_OWNER_PROJECT_SECRET_VALUES_PRINTED=NO", text)
+            self.assertIn(key, project_step)
+        self.assertNotIn("ORDAX_MCP_OWNER_ACCOUNT_ENABLED=0", project_step)
+        self.assertNotIn("ORDAX_MCP_OWNER_PROJECT_DEVICE_BINDING_ENABLED", project_step)
+        self.assertNotIn("ORDAX_MCP_OWNER_PROJECT_GRANT_ENABLED", project_step)
+        self.assertIn("inputs.owner_project_rollout != 'unchanged'", project_step)
+        self.assertIn("ACCOUNT_GATEWAY_OWNER_PROJECT_EXECUTION_GRANTS=UNCHANGED", project_step)
+        self.assertIn("ACCOUNT_GATEWAY_OWNER_PROJECT_SECRET_VALUES_PRINTED=NO", project_step)
 
     def test_workflow_pins_approved_cli_action_and_version(self):
         text = WORKFLOW.read_text(encoding="utf-8")

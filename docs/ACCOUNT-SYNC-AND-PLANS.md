@@ -337,6 +337,22 @@ Device. O input `owner_project_rollout` continua independente; se ambos
 forem configurados, a decisão explícita de console é aplicada por último
 para o gate compartilhado.
 
+**Atualização do gate de release (2026-11-21):** a opção manual
+`owner_project_rollout=enable` autoriza **somente** o registro de Project e
+o OAuth GitHub para uma Conta já autenticada, ajustando
+`ORDAX_MCP_OWNER_ACCOUNT_ENABLED=1`,
+`ORDAX_MCP_OWNER_PROJECT_ONBOARDING_ENABLED=1` e
+`ORDAX_MCP_OWNER_GITHUB_AUTHORIZATION_ENABLED=1`. Não modifica
+`ORDAX_MCP_OWNER_PROJECT_DEVICE_BINDING_ENABLED`, nem
+`ORDAX_MCP_OWNER_PROJECT_GRANT_ENABLED`; esses gates permanecem
+independentes, desligados até prova E2E e aprovação futura. A opção
+`disable` desliga somente Project/OAuth e não desliga o console de
+dispositivos. `unchanged` não altera nenhum gate. O workflow continua
+manual e exige SHA exato da `main` e provas de paridade antes/depois.
+A implantação funcional da Conta `ordax-account-gateway` v24 já passou
+no workflow #44937127989, **sem habilitar Project, OAuth ou grants**.
+As flags de Project/OAuth não foram autorizadas para ativação nesta etapa.
+
 Seleção central exige também `ORDAX_MCP_OWNER_CENTRAL_SELECTION_ENABLED=1`;
 Project onboarding exige `ORDAX_MCP_OWNER_PROJECT_ONBOARDING_ENABLED=1`;
 o request de binding exige separadamente
