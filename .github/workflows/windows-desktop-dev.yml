@@ -27,8 +27,8 @@ concurrency:
   cancel-in-progress: true
 
 permissions:
-  # The Desktop caller supplies an explicit write grant for opt-in Dev Release.
-  # GitHub never permits a reusable workflow to elevate the caller's token.
+  # Only this OS workflow may publish the opt-in unsigned Desktop Dev Release.
+  # Reusable callers cannot elevate the token granted by their own workflow.
   contents: write
 jobs:
   desktop-dev:
@@ -52,6 +52,22 @@ jobs:
             throw 'Windows installer source does not match the requested Git SHA'
           }
           Write-Output "DESKTOP_INSTALLER_SOURCE_SHA=$actual"
+      # Cheap fail-closed preflight, before the expensive Windows producer.
+      - name: Reject superseded Desktop Dev release request before building
+        if: inputs.publish_dev_release
+        shell: pwsh
+        env:
+          EXPECTED_SOURCE_SHA: ${{ inputs.os_sha }}
+        run: |
+          $remote = @(& git ls-remote --heads origin main)
+          if ($LASTEXITCODE -ne 0 -or $remote.Count -ne 1 -or
+              $remote[0] -cnotmatch '^(?<sha>[a-f0-9]{40})\s+refs/heads/main$') {
+            throw 'Cannot attest the canonical OS main HEAD'
+          }
+          if ($Matches.sha -cne $env:EXPECTED_SOURCE_SHA) {
+            throw 'Requested Desktop Dev release is superseded; abort before Windows build'
+          }
+          Write-Output 'DESKTOP_RELEASE_SOURCE_CURRENT=PASS'
       - uses: actions/setup-node@249970729cb0ef3589644e2896645e5dc5ba9c38 # v6
         with:
           node-version: '24'
@@ -365,6 +381,13 @@ jobs:
           if (-not (Get-Command gh -ErrorAction SilentlyContinue)) { throw 'Official GitHub CLI unavailable' }
           $osHead = (& git rev-parse HEAD).Trim()
           if ($LASTEXITCODE -ne 0 -or $osHead -cne $osSha) { throw 'OS source checkout mismatch' }
+          # Main may advance while the verified NSIS candidate is being built.
+          $remoteMain = @(& git ls-remote --heads origin main)
+          if ($LASTEXITCODE -ne 0 -or $remoteMain.Count -ne 1 -or
+              $remoteMain[0] -cnotmatch '^(?<sha>[a-f0-9]{40})\s+refs/heads/main$' -or
+              $Matches.sha -cne $desktopSha) {
+            throw 'Canonical main advanced or cannot be attested; refuse stale Desktop publication'
+          }
           $stage = Get-Content -LiteralPath $StageManifest -Raw | ConvertFrom-Json
           $surface = Get-Content -LiteralPath $SurfaceLock -Raw | ConvertFrom-Json
           $receipt = Get-Content -LiteralPath $SurfaceReceipt -Raw | ConvertFrom-Json
