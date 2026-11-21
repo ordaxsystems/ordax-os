@@ -726,6 +726,36 @@ class DevBaseConsumerTests(unittest.TestCase):
 
         return open_url
 
+    def test_verified_candidate_can_be_transport_copied_without_activation(self):
+        kernel = b"transport-kernel\n"
+        initrd = b"transport-initrd\n"
+        rootfs = b"transport-rootfs\n"
+        manifest = self.descriptor(kernel, initrd, rootfs)
+        with tempfile.TemporaryDirectory() as temporary:
+            root = Path(temporary)
+            original, _ = consumer.acquire(
+                SOURCE, root / "local",
+                opener=self.opener_for(manifest, kernel, initrd, rootfs),
+            )
+            destination, reused = consumer.import_verified_candidate(
+                original, SOURCE, root / "usb",
+            )
+            self.assertFalse(reused)
+            self.assertEqual(consumer.verify_materialized(destination, SOURCE), manifest)
+            self.assertTrue(original.is_dir(), "import must preserve the canonical local cache")
+            destination2, reused = consumer.import_verified_candidate(
+                original, SOURCE, root / "usb",
+            )
+            self.assertTrue(reused)
+            self.assertEqual(destination, destination2)
+            (original / "rootfs.tar").write_bytes(b"corrupted")
+            with self.assertRaises(consumer.DevBaseChannelError):
+                consumer.import_verified_candidate(original, SOURCE, root / "other")
+            self.assertFalse((root / "other" / SOURCE).exists())
+            (destination / "initrd.gz").write_bytes(b"corrupted")
+            with self.assertRaises(consumer.DevBaseChannelError):
+                consumer.import_verified_candidate(original, SOURCE, root / "usb")
+
     @unittest.skipUnless(os.name == "nt", "Windows native acquisition only")
     def test_windows_acquire_reuses_os_authority_without_unix_directory_fsync(self):
         kernel = b"kernel-windows"

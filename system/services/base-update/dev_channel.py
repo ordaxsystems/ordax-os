@@ -906,6 +906,54 @@ def acquire(
     return target, False
 
 
+def import_verified_candidate(
+    source: Path, source_commit: str, destination_root: Path,
+) -> tuple[Path, bool]:
+    """Copy already acquired Base bytes; never authorize boot or activation.
+
+    The caller must authenticate the original OS-owned manifest through the
+    published HTTPS channel before invoking this offline transport primitive.
+    This function only enforces immutable bytes, hash readback and atomicity.
+    """
+    candidate_tag(source_commit)
+    verify_materialized(source, source_commit)
+    destination_root.mkdir(parents=True, exist_ok=True)
+    if destination_root.is_symlink() or not destination_root.is_dir():
+        raise DevBaseChannelError("development Base transport root is unsafe")
+    target = destination_root / source_commit
+    if target.exists() or target.is_symlink():
+        verify_materialized(target, source_commit)
+        return target, True
+
+    temporary = Path(
+        tempfile.mkdtemp(prefix=f".staging-{source_commit}-", dir=destination_root)
+    )
+    committed = False
+    try:
+        for name in ("vmlinuz", "initrd.gz", "rootfs.tar", "dev-base.json"):
+            origin = source / name
+            metadata = origin.lstat()
+            if not stat.S_ISREG(metadata.st_mode):
+                raise DevBaseChannelError("development Base transport source changed type")
+            with origin.open("rb") as input_file:
+                with (temporary / name).open("xb") as output:
+                    shutil.copyfileobj(input_file, output, length=1024 * 1024)
+                    output.flush()
+                    os.fsync(output.fileno())
+        verify_materialized(temporary, source_commit)
+        _fsync_dir(temporary)
+        _publish_candidate_directory(temporary, target)
+        committed = True
+        _fsync_dir(destination_root)
+    except FileExistsError:
+        pass
+    finally:
+        if not committed and temporary.exists():
+            shutil.rmtree(temporary)
+    verify_materialized(target, source_commit)
+    return target, False
+
+
 def main() -> int:
     parser = argparse.ArgumentParser()
     parser.add_argument("--source-commit", required=True)
@@ -921,6 +969,10 @@ def main() -> int:
                         help="verify release compatibility without writing or downloading binaries")
     parser.add_argument("--acquire-only", action="store_true",
                         help="acquire verified archives without extracting the versioned rootfs")
+    parser.add_argument("--import-only", action="store_true",
+                        help="copy an already acquired candidate as a non-activating transport")
+    parser.add_argument("--source-directory", type=Path,
+                        help="already verified candidate directory for --import-only")
     parser.add_argument("--ready-pair", action="store_true",
                         help="emit verified artifact and requested SHA on two lines for the Base owner")
     parser.add_argument("--git-bin", default="git")
@@ -930,9 +982,24 @@ def main() -> int:
         parser.error("--resolve-only requires --compatible-worktree")
     if args.resolve_only and args.acquire_only:
         parser.error("--resolve-only and --acquire-only are mutually exclusive")
-    if args.ready_pair and (args.resolve_only or args.acquire_only):
+    if args.ready_pair and (args.resolve_only or args.acquire_only or args.import_only):
         parser.error("--ready-pair requires acquisition and rootfs materialization")
+    if args.import_only:
+        if (args.source_directory is None or args.acquire_only or args.resolve_only
+                or args.compatible_worktree is not None or args.version_root is not None):
+            parser.error("--import-only requires an exact source directory without acquisition")
+    elif args.source_directory is not None:
+        parser.error("--source-directory requires --import-only")
     try:
+        if args.import_only:
+            destination, reused = import_verified_candidate(
+                args.source_directory, args.source_commit, args.destination_root,
+            )
+            print(json.dumps({
+                "status": "imported-not-activated", "source_commit": args.source_commit,
+                "path": str(destination), "reused": reused,
+            }, sort_keys=True))
+            return 0
         requested_commit = args.source_commit
         artifact_commit = requested_commit
         manifest_bytes = None
