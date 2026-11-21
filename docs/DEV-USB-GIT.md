@@ -10,7 +10,7 @@ via `--seed-from-local`. **Depois da instalação, o Pull não depende do
 Creator, de QEMU ou de recompilar kernel/Buildroot**. O Supervisor coordena
 a atualização Git no Linux, com preflight, saúde e rollback; no Windows, a
 materialização do canal Dev pertence a
-`ordaxsystems/ordax-desktop/dev-update.cjs`, não ao script Linux nem a uma cópia de Desktop dentro do OS.
+`ordaxsystems/ordax-os/desktop/dev-update.cjs`, não ao script Linux nem a um segundo atualizador do OS.
 
 Mudanças restritas aos scripts Git-owned do Pull, runner local, watcher
 e refresh dos helpers são validadas pelo workflow já existente
