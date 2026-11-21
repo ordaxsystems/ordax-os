@@ -110,7 +110,7 @@ N?o existe checkout externo, lock transitivo ou outro dono do c?digo visual.
 O contrato docs/contracts/surface-source.json v2 representa a pol?tica da
 fonte ?nica, e o Supervisor mant?m a ativa??o e rollback da release.
 
-### 6. ordaxsystems/ordax-desktop
+### 6. Desktop Windows — módulo `ordax-os/desktop/`
 
 **Papel:** host, shell Electron, ciclo de janela e empacotamento/entrega Windows do OrdaX Desktop.
 
@@ -121,13 +121,13 @@ fonte ?nica, e o Supervisor mant?m a ativa??o e rollback da release.
 - consumo de uma composição OrdaX/OS exata e verificável.
 
 Não é owner de:
-- source visual da Surface, que pertence a `ordax-surface` e é selecionado pela composição do OS;
+- source visual da Surface, que pertence ao mesmo OS em `system/surface/` e é consumido pelo host sem segundo pin;
 - serviços Native, contratos sistêmicos, kernel/boot ou lifecycle de componentes, que permanecem no OS;
 - Runtime/Computer Control local, que pertence a `ordax-runtime`;
 - Creator Core/política de mídia;
 - Product MCP/grants remotos.
 
-Desktop fixa sua **dependência direta de composição OS**; não mantém pins independentes de Surface, Apps ou Intelligence quando esses componentes já são transitivos ao candidato OrdaX.
+Desktop consome a composição da **mesma revisão Git do OS**; não mantém pins independentes de Surface, Apps ou Intelligence quando esses componentes já são transitivos ao candidato OrdaX.
 ### 7. Site público — módulo site/ no ordax-os
 
 **Papel:** apresentação pública, páginas legais, login/recuperação e Conta visual, com raiz estática em site/public/.
@@ -214,11 +214,11 @@ não da existência de um instalador do Creator ou de testes isolados.
 ordax-os/system/surface / ordax-apps / outros producers
   -> ordaxsystems/ordax-os (composição e dependência direta)
   -> candidato OrdaX/OS verificável
-  -> ordaxsystems/ordax-desktop (host Electron + NSIS)
+  -> ordaxsystems/ordax-os/desktop (host Electron + NSIS do mesmo commit)
   -> instalação Windows + recibo/proveniência
 ```
 
-O Desktop não reabre a árvore de dependências transitivas nem copia a Surface. Mudanças no host/packaging ficam em `ordax-desktop`; adoção de nova composição ocorre quando um candidato Windows realmente precisa dela.
+O Desktop não reabre a árvore de dependências transitivas nem copia a Surface. Mudanças no host/packaging ficam em `desktop/` do `ordax-os`; adoção de nova composição ocorre quando um candidato Windows realmente precisa dela.
 ### ChatGPT controlando um computador Windows
 
 ```text
@@ -330,8 +330,8 @@ Atualizado em **2026-11-13**. Esta tabela resume roles; a autoridade executável
 | Camada | Repositório canônico | Estado |
 | --- | --- | --- |
 | OrdaX OS / composição Native | `ordaxsystems/ordax-os` | canônico |
-| Desktop Windows host/packaging | `ordaxsystems/ordax-desktop` | canônico; consome composição OrdaX/OS |
-| Surface visual compartilhada | `ordaxsystems/ordax-surface` | canônico; revisão adotada pelo lock do OS |
+| Desktop Windows host/packaging | `ordaxsystems/ordax-os/desktop/` | canônico; mesma revisão Git da composição OS |
+| Surface visual compartilhada | `ordaxsystems/ordax-os/system/surface/` | canônico; revisão `same-commit` do OS |
 | Apps first-party / Forge / Studio | `ordaxsystems/ordax-apps` | canônico |
 | Runtime / Device Host Windows | `ordaxsystems/ordax-runtime` | canônico |
 | Product MCP / Control Plane / connectors | `ordaxsystems/ordax-platform` | canônico |
