@@ -167,7 +167,7 @@ async function stopOwnedWindowsProfile(profile) {
   const script = [
     "$ErrorActionPreference='Stop'",
     "$profile='"+safe+"'",
-    "$pattern='(?i)(?:^|\\s)--user-data-dir=\"?'+[regex]::Escape($profile)+'\"?(?=\\s|$)'",
+    "$pattern='(?i)(?:^|\\s)\"?--user-data-dir=\"?'+[regex]::Escape($profile)+'\"?(?=\\s|$)'",
     "$owned={ @(Get-CimInstance Win32_Process -Filter \"Name='chrome.exe' OR Name='msedge.exe'\" | Where-Object { $_.CommandLine -match $pattern }) }",
     "for($attempt=0;$attempt -lt 3;$attempt++){ $items=@(& $owned); if($items.Count -eq 0){exit 0}; foreach($item in $items){ try{ Stop-Process -Id $item.ProcessId -Force -ErrorAction Stop } catch { if(Get-Process -Id $item.ProcessId -ErrorAction SilentlyContinue){throw} } }; Start-Sleep -Milliseconds 350 }",
     "if(@(& $owned).Count -gt 0){throw 'Test-owned Chrome processes still running'}",
@@ -235,6 +235,7 @@ export async function stopOwnedBrowser(child, getExitState, platform = process.p
       }, 10_000);
       killer.once('error', settle);
       killer.once('close', async (code) => {
+        clearTimeout(watchdog);
         // taskkill can race an already exiting Chrome. A nonzero exit is
         // not evidence of a live process; wait for Node's actual exit event.
         const deadline = Date.now() + 2000;
