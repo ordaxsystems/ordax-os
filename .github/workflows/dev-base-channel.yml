@@ -388,12 +388,26 @@ jobs:
           fi
           python3 bootstrap/independent-base/build.py verify \
             --profile owner-development --out out/dev-rootfs
+          # post-build publishes the independent module selection receipt at
+          # ORDAX_KERNEL_MODULES_RECEIPT, not into the Buildroot output root.
+          # On a verified Buildroot cache hit post-build does not run; derive
+          # the same receipt from the archived rootfs, then reverify it against
+          # the canonical kernel archive and policy in module_parity.py.
+          embedded_selection="$RUNNER_TEMP/dev-base-channel/owner-receipts/kernel-module-selection-embedded.json"
+          tar -xOf out/dev-rootfs/rootfs.tar ./etc/ordax/kernel-module-selection.json > "$embedded_selection"
+          test -s "$embedded_selection"
+          if [ -e "$ORDAX_KERNEL_MODULES_RECEIPT" ]; then
+            test ! -L "$ORDAX_KERNEL_MODULES_RECEIPT"
+            cmp -s "$ORDAX_KERNEL_MODULES_RECEIPT" "$embedded_selection"
+          else
+            cp "$embedded_selection" "$ORDAX_KERNEL_MODULES_RECEIPT"
+          fi
           parity="out/dev-rootfs/kernel-module-parity.json"
           test ! -L "$parity"
           rm -f "$parity"
           python3 bootstrap/independent-base/module_parity.py verify \
             --kernel-modules "$ORDAX_KERNEL_MODULES_ARCHIVE" \
-            --selection-receipt "out/dev-rootfs/kernel-module-selection.json" \
+            --selection-receipt "$ORDAX_KERNEL_MODULES_RECEIPT" \
             --rootfs-tar "out/dev-rootfs/rootfs.tar" \
             --base-provenance "out/dev-rootfs/provenance.json" \
             --out "$parity"

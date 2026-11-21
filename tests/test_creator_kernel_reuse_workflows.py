@@ -218,6 +218,22 @@ class CreatorKernelReuseWorkflowTests(unittest.TestCase):
         self.assertIn('test "$(jq -r \'.head.sha\' <<<"$pr_json")" = "$GITHUB_SHA"', authority)
         self.assertIn("github.actor == 'ordaxos-admin'", workflow)
 
+    def test_dev_base_parity_uses_producer_receipt_and_cache_embedded_fallback(self):
+        workflow = self.workflow(DEV_BASE_CHANNEL)
+        build = self.step_block(workflow, "Build exact-commit development Base and initramfs")
+        self.assertIn(
+            'tar -xOf out/dev-rootfs/rootfs.tar ./etc/ordax/kernel-module-selection.json',
+            build,
+        )
+        self.assertIn('cmp -s "$ORDAX_KERNEL_MODULES_RECEIPT" "$embedded_selection"', build)
+        self.assertIn('cp "$embedded_selection" "$ORDAX_KERNEL_MODULES_RECEIPT"', build)
+        self.assertIn('--selection-receipt "$ORDAX_KERNEL_MODULES_RECEIPT"', build)
+        self.assertNotIn('--selection-receipt "out/dev-rootfs/kernel-module-selection.json"', build)
+        self.assertLess(
+            build.index('cmp -s "$ORDAX_KERNEL_MODULES_RECEIPT" "$embedded_selection"'),
+            build.index('bootstrap/independent-base/module_parity.py verify'),
+        )
+
     def test_retired_diagnose_cannot_build_and_live_owners_use_canonical_kernel_uapi(self):
         # A removed diagnostic is not a competing kernel/build authority.
         self.assertFalse(OWNER_DEV_DIAGNOSE.exists())
