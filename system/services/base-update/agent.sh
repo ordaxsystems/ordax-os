@@ -441,6 +441,21 @@ mount_owner_usb_base_media() {
     data_device=$(/bin/busybox sed -n 's/^[[:space:]]*"data_device": "\(\/dev\/[A-Za-z0-9_.+-]*\)",[[:space:]]*$/\1/p' "$receipt")
     /bin/busybox rm -f "$receipt"
     safe_block_source "$data_device" || return 1
+    # A sysfs sibling proves physical identity, not its filesystem. Validate
+    # the actual on-disk signature and label before mounting. Do not depend on
+    # optional udev /dev/disk/by-label links or trust a standalone label.
+    data_identity=$(/bin/busybox blkid "$data_device" 2>>"$DEV_BASE_LOG") || {
+        log "Owner USB DATA on-disk identity unavailable"
+        return 1
+    }
+    case "$data_identity" in
+        *' LABEL="ORDAX-DATA"'*) ;;
+        *) log "Owner USB DATA filesystem label mismatch"; return 1 ;;
+    esac
+    case "$data_identity" in
+        *' TYPE="exfat"'*) ;;
+        *) log "Owner USB DATA filesystem type mismatch"; return 1 ;;
+    esac
     OWNER_USB_MEDIA_HOST=$RUNTIME_ROOT$OWNER_USB_MEDIA_CHROOT
     [ ! -L "$OWNER_USB_MEDIA_HOST" ] || return 1
     /bin/busybox mkdir -p "$OWNER_USB_MEDIA_HOST" || return 1

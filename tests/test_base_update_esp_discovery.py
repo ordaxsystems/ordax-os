@@ -99,7 +99,7 @@ class EspDiscoveryTests(unittest.TestCase):
             (by_label / "ORDAX-DATA").unlink()
             (by_label / "ORDAX-DATA").symlink_to(Path("../../sdb1"))
             with mock.patch.object(esp, "_is_block_device", return_value=True):
-                with self.assertRaisesRegex(esp.EspDiscoveryError, "not on the running root disk"):
+                with self.assertRaisesRegex(esp.EspDiscoveryError, "label points outside"):
                     esp.discover_owner_data(
                         root_source=dev / "sda2", dev_root=dev,
                         by_label_root=by_label, sys_class_block=sys_class,
@@ -109,6 +109,44 @@ class EspDiscoveryTests(unittest.TestCase):
             (root / "sys/devices/platform/fake/block/sda/removable").write_text("0\n")
             with mock.patch.object(esp, "_is_block_device", return_value=True):
                 with self.assertRaisesRegex(esp.EspDiscoveryError, "not on a removable disk"):
+                    esp.discover_owner_data(
+                        root_source=dev / "sda2", dev_root=dev,
+                        by_label_root=by_label, sys_class_block=sys_class,
+                    )
+
+    def test_owner_data_detects_partition_three_without_udev_label_link(self):
+        with tempfile.TemporaryDirectory() as temporary:
+            root = Path(temporary)
+            dev, by_label, sys_class = self.fixture(root)
+            (by_label / "ORDAX-DATA").unlink()
+            with mock.patch.object(esp, "_is_block_device", return_value=True):
+                result = esp.discover_owner_data(
+                    root_source=dev / "sda2", dev_root=dev,
+                    by_label_root=by_label, sys_class_block=sys_class,
+                )
+            self.assertEqual(result["data_device"], str(dev / "sda3"))
+            self.assertFalse(result["mount_performed"])
+
+    def test_owner_data_requires_unique_real_partition_three(self):
+        with tempfile.TemporaryDirectory() as temporary:
+            root = Path(temporary)
+            dev, by_label, sys_class = self.fixture(root)
+            (sys_class / "sda3").unlink()
+            with mock.patch.object(esp, "_is_block_device", return_value=True):
+                with self.assertRaisesRegex(esp.EspDiscoveryError, "missing or ambiguous"):
+                    esp.discover_owner_data(
+                        root_source=dev / "sda2", dev_root=dev,
+                        by_label_root=by_label, sys_class_block=sys_class,
+                    )
+
+    def test_owner_data_rejects_nonlink_udev_label(self):
+        with tempfile.TemporaryDirectory() as temporary:
+            root = Path(temporary)
+            dev, by_label, sys_class = self.fixture(root)
+            (by_label / "ORDAX-DATA").unlink()
+            (by_label / "ORDAX-DATA").write_text("untrusted", encoding="ascii")
+            with mock.patch.object(esp, "_is_block_device", return_value=True):
+                with self.assertRaisesRegex(esp.EspDiscoveryError, "not a safe symlink"):
                     esp.discover_owner_data(
                         root_source=dev / "sda2", dev_root=dev,
                         by_label_root=by_label, sys_class_block=sys_class,

@@ -842,7 +842,12 @@ O transporte Windows prepara Base e código Git separadamente na partição
 `ORDAX-DATA`. Ao receber `dev-base-request-sha`, o mesmo
 `system/services/base-update/agent.sh` utiliza a descoberta física
 `esp_discovery.py --kind owner-data`, exigindo partição 2 como raiz ext4,
-partição 3 como exFAT e **o mesmo disco removível**. A montagem temporária
+partição 3 como exFAT e **o mesmo disco removível**. A descoberta usa
+a identidade da partição no sysfs; não exige o link opcional
+`/dev/disk/by-label` criado pelo udev. Quando esse link existe,
+qualquer divergência bloqueia o uso. Antes de montar, o owner confere
+no dispositivo físico `LABEL="ORDAX-DATA"` e `TYPE="exfat"` via
+BusyBox `blkid`. A montagem temporária
 é estritamente `ro,nosuid,nodev,noexec`, com verificação da origem e
 desmontagem antes de publicar qualquer recibo de prontidão.
 

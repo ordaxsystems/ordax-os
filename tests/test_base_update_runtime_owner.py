@@ -751,6 +751,12 @@ class BaseUpdateRuntimeOwnerTests(unittest.TestCase):
         self.assertIn("--kind owner-data", media)
         self.assertIn("--root-source \"$PHYSICAL_ROOT_SOURCE\"", media)
         self.assertIn("safe_block_source \"$data_device\"", media)
+        self.assertIn('blkid "$data_device"', media)
+        self.assertIn('LABEL="ORDAX-DATA"', media)
+        self.assertIn('TYPE="exfat"', media)
+        self.assertLess(media.index('blkid "$data_device"'),
+                        media.index("mount -t exfat -o ro,nosuid,nodev,noexec"))
+
         self.assertIn("mount -t exfat -o ro,nosuid,nodev,noexec", media)
         self.assertIn("mount_record_for \"$OWNER_USB_MEDIA_HOST\"", media)
         self.assertIn("unmount_owner_usb_base_media()", media)

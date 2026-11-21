@@ -151,16 +151,39 @@ def discover_owner_data(
     if (removable.is_symlink() or not removable.is_file()
             or removable.read_text(encoding="ascii").strip() != "1"):
         raise EspDiscoveryError("Owner root is not on a removable disk")
+    # The minimal USB Base boots with devtmpfs. The udev-created label link
+    # can be absent even when the exFAT partition is healthy. Derive the
+    # candidate from sysfs parent + partition number, never by global label.
+    candidates: list[Path] = []
+    try:
+        entries = sorted(sys_class_block.iterdir(), key=lambda entry: entry.name)
+    except OSError as exc:
+        raise EspDiscoveryError("Owner USB block-device inventory unavailable") from exc
+    for entry in entries:
+        if not entry.is_symlink():
+            continue
+        try:
+            candidate_parent = _partition_parent(sys_class_block, entry.name, "Owner DATA")
+            if candidate_parent != parent or _partition_number(sys_class_block, entry.name) != 3:
+                continue
+            candidate = _direct_block_node(dev_root / entry.name, dev_root, "Owner DATA")
+        except (EspDiscoveryError, OSError):
+            continue
+        if candidate == root:
+            raise EspDiscoveryError("Owner DATA and root cannot be the same partition")
+        candidates.append(candidate)
+    if len(candidates) != 1:
+        raise EspDiscoveryError("Owner DATA partition 3 is missing or ambiguous")
+    data = candidates[0]
+    # If udev did expose a label, it cannot contradict the physical proof.
     label = by_label_root / DATA_LABEL
-    if not label.is_symlink():
-        raise EspDiscoveryError("ORDAX-DATA label is missing or unsafe")
-    data = _direct_block_node(label, dev_root, "Owner DATA")
-    if data == root:
-        raise EspDiscoveryError("Owner DATA and root cannot be the same partition")
-    if _partition_parent(sys_class_block, data.name, "Owner DATA") != parent:
-        raise EspDiscoveryError("ORDAX-DATA is not on the running root disk")
-    if _partition_number(sys_class_block, data.name) != 3:
-        raise EspDiscoveryError("ORDAX-DATA is not partition 3")
+    if label.is_symlink():
+        if _direct_block_node(label, dev_root, "Owner DATA label") != data:
+            raise EspDiscoveryError("ORDAX-DATA label points outside the verified partition")
+    elif label.exists():
+        raise EspDiscoveryError("ORDAX-DATA label entry is not a safe symlink")
+    # Filesystem type and on-disk label must also be verified by the agent
+    # through the already installed BusyBox blkid, before any mount.
     return {"$schema": DATA_SCHEMA, "status": "identified",
             "root_device": os.fspath(root), "data_device": os.fspath(data),
             "filesystem_label": DATA_LABEL, "parent_disk": parent,
