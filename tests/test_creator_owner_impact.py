@@ -556,9 +556,9 @@ class CreatorOwnerImpactTests(unittest.TestCase):
         (self.root / trigger).write_text(before.replace(old_trigger, new_trigger), encoding="utf-8")
         dist = "".join(original)
         dist = dist.replace("tools/windows-desktop/dev-update.cjs",
-                            "ordaxsystems/ordax-desktop/dev-update.cjs")
+                            "ordaxsystems/ordax-os/desktop/dev-update.cjs")
         dist = dist.replace("tools/windows-desktop/main.cjs",
-                            "ordaxsystems/ordax-desktop/main.cjs")
+                            "ordaxsystems/ordax-os/desktop/main.cjs")
         (self.root / distribution).write_text(dist, encoding="utf-8")
         migrated = self.commit(delete_path="tools/windows-desktop/main.cjs")
         self.assertEqual(impact.classify(base, migrated, root=self.root),
