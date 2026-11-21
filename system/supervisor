@@ -2735,12 +2735,19 @@ check_for_update() {
     # staging, helper installation or a false health receipt for the new HEAD.
     # Keep the active verified runtime alive. An explicit Pull may register a
     # clean local commit after it actually becomes canonical remote main.
+    local_head_for_adoption=""
     registered_sha=$(read_state_value "$CURRENT_FILE")
     if is_sha "$registered_sha"; then
         if [ "$current" != "$registered_sha" ]; then
-            set_update_context blocked "" "" "local-commit-unregistered"
-            write_update_state "$registered_sha" running none
-            return 0
+            if [ "${OWNER_MANUAL_CHECK:-0}" -ne 1 ] || [ -s "$PINNED_FILE" ] ||
+               ! is_sha "$current" ||
+               ! "$GIT_BIN" -C "$WORKTREE" merge-base --is-ancestor "$registered_sha" "$current"; then
+                set_update_context blocked "" "" "local-commit-unregistered"
+                write_update_state "$registered_sha" running none
+                return 0
+            fi
+            local_head_for_adoption=$current
+            current=$registered_sha
         fi
         if ! local_checkout_status=$("$GIT_BIN" -C "$WORKTREE" status --porcelain 2>>"$UPDATE_LOG"); then
             set_update_context blocked "" "" "local-checkout-unreadable"
@@ -2779,6 +2786,13 @@ check_for_update() {
             return 0
             ;;
     esac
+
+    if [ -n "$local_head_for_adoption" ] &&
+       [ "$remote_sha" != "$local_head_for_adoption" ]; then
+        set_update_context blocked "" "" "local-commit-not-published"
+        write_update_state "$current" running none
+        return 0
+    fi
 
     # Poll main promptly after First Run, but never replace an unverified UI.
     if [ "$OWNER_INITIAL_HEALTH_PENDING" -eq 1 ]; then

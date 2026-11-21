@@ -851,6 +851,45 @@ cleanup_transaction_artifacts() {
     fi
 }
 
+# The normal local CLI and the UI use the same existing Supervisor queue.
+# Recovery/seed and the exact Supervisor handoff remain synchronous. This is
+# intentionally before the Pull lock: the queued Supervisor owns that lock.
+if [ "$SEED_MODE" -eq 0 ] && [ -z "$EXPECTED_SHA" ] &&
+   [ "$AUTOMATIC_ROLLBACK_RECOVERY" -eq 0 ] &&
+   [ ! -s "$PINNED_FILE" ] && [ ! -e "$TRANSACTION_FILE" ]; then
+    first_run_receipt=$STATE_DIR/native-state/first-run.json
+    supervisor_pid=$(read_state "$RUN_DIR/supervisor-heartbeat")
+    if [ -f "$first_run_receipt" ] && [ ! -L "$first_run_receipt" ] &&
+       grep -q '"completed"[[:space:]]*:[[:space:]]*true' "$first_run_receipt" &&
+       is_pid "$supervisor_pid" && kill -0 "$supervisor_pid" 2>/dev/null &&
+       [ -r "/proc/$supervisor_pid/cmdline" ]; then
+        supervisor_command=$(tr '\000' ' ' <"/proc/$supervisor_pid/cmdline")
+        case "$supervisor_command" in
+            *"$WORKTREE/system/supervisor"*)
+                request=$RUN_DIR/manual-check-request
+                if [ ! -f "$request" ] || [ -L "$request" ]; then
+                    request_tmp=$request.tmp.$
+                    (umask 077; set -C; printf 'check-main\n' >"$request_tmp") || exit 1
+                    if ! ln "$request_tmp" "$request" 2>/dev/null &&
+                       { [ ! -f "$request" ] || [ -L "$request" ]; }; then
+                        rm -f "$request_tmp"
+                        echo "ordax-git: nao foi possivel solicitar atualizacao ao Supervisor" >&2
+                        exit 1
+                    fi
+                    rm -f "$request_tmp"
+                fi
+                [ "$(read_state "$request")" = check-main ] || {
+                    echo "ordax-git: pedido de atualizacao local invalido" >&2
+                    exit 1
+                }
+                printf 'ORDAX_PULL_REQUEST=QUEUED\n'
+                echo "ordax-git: atualizacao solicitada ao Supervisor; consulte o estado existente da atualizacao."
+                exit 0
+                ;;
+        esac
+    fi
+fi
+
 mkdir -p "$WORKSPACE_ROOT" "$STATE_DIR" "$RUN_DIR"
 if ! acquire_pull_lock; then
     exit 75
@@ -1062,7 +1101,14 @@ if [ -n "$EXPECTED_SHA" ] && [ "$current" != "$EXPECTED_SHA" ]; then
     echo "ordax-git: checkout ativado divergiu do SHA esperado" >&2
     exit 1
 fi
-if [ "$(read_state "$CURRENT_FILE")" != "$current" ]; then
+registered_before=$(read_state "$CURRENT_FILE")
+if [ "$registered_before" != "$current" ]; then
+    # When the owner already committed/pushed the exact verified main in
+    # this checkout, no exchange is needed. Preserve rollback provenance.
+    if is_sha "$registered_before" &&
+       git -C "$WORKTREE" merge-base --is-ancestor "$registered_before" "$current"; then
+        write_state "$PREVIOUS_FILE" "$registered_before"
+    fi
     write_state "$CURRENT_FILE" "$current"
 fi
 if [ "$AUTOMATIC_ROLLBACK_RECOVERY" -eq 1 ]; then

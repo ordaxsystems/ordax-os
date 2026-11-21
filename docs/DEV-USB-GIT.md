@@ -54,7 +54,12 @@ local não deve ser confundida com promoção de uma revisão oficial.
 Enquanto o checkout estiver editado ou o HEAD local não coincidir com
 `current-commit`, o Supervisor preserva a Surface já verificada e não
 consulta a main nem instala helpers. Após publicar um commit local na main,
-`ordax-pull` explícito valida a revisão canônica e atualiza o recibo. O
+`ordax-pull` explícito solicita o mesmo fluxo do Supervisor usado pela
+interface. O Supervisor confere que o HEAD local já é exatamente a main
+remota e que constitui fast-forward da revisão registrada; aplica o
+preflight, staging, saúde e rollback existentes. Um commit local não
+publicado permanece preservado. Na ausência do Supervisor, o Pull mantém
+seu caminho síncrono de recuperação/atualização. O
 watcher só solicita reinício quando esse recibo limpo diverge da revisão
 Git observada pelo Supervisor e não existe transação em andamento. Uma
 diferença legítima entre `sourceSha` e `runtimeSurfaceSha` não é falha.

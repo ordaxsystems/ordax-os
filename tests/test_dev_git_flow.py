@@ -537,6 +537,47 @@ class DevelopmentGitFlowTest(unittest.TestCase):
             "",
         )
 
+    def test_explicit_pull_delegates_to_active_supervisor_without_mutation(self) -> None:
+        self._script(PULL)
+        self._commit_runtime("runtime-v2")
+        supervisor_path = self.worktree / "system/supervisor"
+        # Model the local process identity without starting a real Supervisor.
+        process = subprocess.Popen(["sh", "-c", "while :; do sleep 1; done", str(supervisor_path)],
+                                   stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
+        try:
+            run_dir = self.root / "run/ordax-update"
+            (run_dir / "supervisor-heartbeat").write_text(str(process.pid) + "\n")
+            first = self.state / "native-state/first-run.json"
+            first.parent.mkdir(parents=True, exist_ok=True)
+            first.write_text('{"completed":true}\n')
+            before = (run_dir / "pull-result").read_bytes()
+            first_result = self._script(PULL)
+            self.assertIn("ORDAX_PULL_REQUEST=QUEUED", first_result.stdout)
+            self.assertNotIn("ORDAX_SOURCE_SHA=", first_result.stdout)
+            self.assertEqual((run_dir / "manual-check-request").read_text(), "check-main\n")
+            self.assertIn("ORDAX_PULL_REQUEST=QUEUED", self._script(PULL).stdout)
+            self.assertEqual((run_dir / "pull-result").read_bytes(), before)
+            self.assertEqual((self.state / "current-commit").read_text().strip(), self.commit_v1)
+        finally:
+            process.terminate()
+            process.wait(timeout=5)
+
+    def test_pull_registers_published_local_commit_and_preserves_previous(self) -> None:
+        self._script(PULL)
+        self._run(["git", "-C", str(self.worktree), "config", "user.name", "Local Test"])
+        self._run(["git", "-C", str(self.worktree), "config", "user.email", "local@example.invalid"])
+        entrypoint = self.worktree / "system/entrypoint"
+        entrypoint.write_text("#!/bin/sh\nprintf '%s\\n' local-edit\n")
+        self._run(["git", "-C", str(self.worktree), "add", "system/entrypoint"])
+        self._run(["git", "-C", str(self.worktree), "commit", "-m", "local edit"])
+        head = self._run(["git", "-C", str(self.worktree), "rev-parse", "HEAD"]).stdout.strip()
+        self.assertNotEqual(self._script(PULL, check=False).returncode, 0)
+        self.assertEqual((self.state / "current-commit").read_text().strip(), self.commit_v1)
+        self._run(["git", "-C", str(self.worktree), "push", "origin", "main"])
+        self._script(PULL)
+        self.assertEqual((self.state / "current-commit").read_text().strip(), head)
+        self.assertEqual((self.state / "previous-commit").read_text().strip(), self.commit_v1)
+
     def test_watcher_distinguishes_neutral_update_from_external_pull(self) -> None:
         self._script(PULL)
         new_sha = self._commit_runtime("runtime-v2")

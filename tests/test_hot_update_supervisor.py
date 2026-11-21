@@ -576,6 +576,10 @@ class HotUpdateSupervisorContractTests(unittest.TestCase):
         self.assertLess(body.index("local-edits-pending"), body.index("ls-remote"))
         self.assertLess(body.index("local-edits-pending"), body.index('refresh_dev_helpers "$current"'))
         self.assertIn('status --porcelain', gate)
+        self.assertIn('OWNER_MANUAL_CHECK:-0', gate)
+        self.assertIn('local_head_for_adoption=$current', gate)
+        self.assertIn('local-commit-not-published', body)
+        self.assertLess(body.index("local-commit-not-published"), body.index('if ! apply_remote_checkout "$old_sha" "$remote_sha"'))
 
     def test_git_owned_development_helpers_refresh_without_base_candidate(self):
         text = SYSTEM_SUPERVISOR.read_text(encoding="utf-8")
