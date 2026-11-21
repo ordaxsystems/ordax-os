@@ -167,7 +167,7 @@ async function stopOwnedWindowsProfile(profile) {
   const script = [
     "$ErrorActionPreference='Stop'",
     "$profile='"+safe+"'",
-    "$pattern='(?i)--user-data-dir=\"?'+[regex]::Escape($profile)+'\"?(?=\s|$)'",
+    "$pattern='(?i)(?:^|\\s)--user-data-dir=\"?'+[regex]::Escape($profile)+'\"?(?=\\s|$)'",
     "$owned={ @(Get-CimInstance Win32_Process -Filter \"Name='chrome.exe' OR Name='msedge.exe'\" | Where-Object { $_.CommandLine -match $pattern }) }",
     "for($attempt=0;$attempt -lt 3;$attempt++){ $items=@(& $owned); if($items.Count -eq 0){exit 0}; foreach($item in $items){ try{ Stop-Process -Id $item.ProcessId -Force -ErrorAction Stop } catch { if(Get-Process -Id $item.ProcessId -ErrorAction SilentlyContinue){throw} } }; Start-Sleep -Milliseconds 350 }",
     "if(@(& $owned).Count -gt 0){throw 'Test-owned Chrome processes still running'}",
@@ -212,7 +212,9 @@ export async function stopOwnedBrowser(child, getExitState, platform = process.p
     const exitDeadline = Date.now() + 750;
     while (!getExitState() && Date.now() < exitDeadline) await sleep(30);
   }
-  if (getExitState() || !Number.isSafeInteger(child.pid) || child.pid <= 0) return;
+  const launcherExited = () => Boolean(getExitState()) ||
+    child.exitCode != null || child.signalCode != null;
+  if (launcherExited() || !Number.isSafeInteger(child.pid) || child.pid <= 0) return;
   if (platform === 'win32') {
     await new Promise((resolvePromise, reject) => {
       const killer = spawn('taskkill.exe', ['/PID', String(child.pid), '/T', '/F'], {
@@ -232,9 +234,21 @@ export async function stopOwnedBrowser(child, getExitState, platform = process.p
         settle(new Error('Timed out terminating test-owned Chromium process tree'));
       }, 10_000);
       killer.once('error', settle);
-      killer.once('close', (code) => {
-        if (code !== 0 && !getExitState()) {
-          settle(new Error('Could not terminate test-owned Chromium process tree'));
+      killer.once('close', async (code) => {
+        // taskkill can race an already exiting Chrome. A nonzero exit is
+        // not evidence of a live process; wait for Node's actual exit event.
+        const deadline = Date.now() + 2000;
+        while (code !== 0 && !launcherExited() && Date.now() < deadline) await sleep(30);
+        if (code !== 0 && !launcherExited()) {
+          if (profile !== null) {
+            try {
+              await stopOwnedWindowsProfile(profile);
+              // ChildProcess.kill uses its own process handle, not a newly
+              // looked-up PID. Never terminate unrelated Chrome instances.
+              if (!launcherExited()) child.kill('SIGKILL');
+              settle();
+            } catch (error) { settle(error); }
+          } else settle(new Error('Could not terminate test-owned Chromium process tree'));
         } else settle();
       });
     });
@@ -277,6 +291,7 @@ export async function runBrowser(proof) {
   let exitState = null;
   let spawnError = null;
   let passed = false;
+  let proofError = null;
   child.stderr.setEncoding('utf8');
   child.stderr.on('data', (chunk) => { stderr = appendDiagnostic(stderr, chunk); });
   child.once('exit', (code, signal) => { exitState = { code, signal }; });
@@ -309,6 +324,9 @@ export async function runBrowser(proof) {
       throw new Error('Browser emitted a JavaScript exception');
     passed = true;
     return result;
+  } catch (error) {
+    proofError = error;
+    throw error;
   } finally {
     // Graceful CDP shutdown first; then verify the exact disposable profile
     // owns no surviving process before deleting its on-disk state.
@@ -319,10 +337,19 @@ export async function runBrowser(proof) {
       ]);
     }
     client?.close();
-    await stopOwnedBrowser(child, () => exitState, process.platform, profile);
-    await rm(profile, { recursive: true, force: true, maxRetries: 25, retryDelay: 250 });
-    if (!passed && stderr) {
-      process.stderr.write(`CHROMIUM_STDERR_BEGIN\n${stderr}\nCHROMIUM_STDERR_END\n`);
+    try {
+      await stopOwnedBrowser(child, () => exitState, process.platform, profile);
+      await rm(profile, { recursive: true, force: true, maxRetries: 25, retryDelay: 250 });
+    } catch (cleanupError) {
+      if (proofError) {
+        throw new AggregateError([proofError, cleanupError],
+          'Browser proof and its disposable-profile cleanup both failed');
+      }
+      throw cleanupError;
+    } finally {
+      if (!passed && stderr) {
+        process.stderr.write(`CHROMIUM_STDERR_BEGIN\n${stderr}\nCHROMIUM_STDERR_END\n`);
+      }
     }
   }
 }

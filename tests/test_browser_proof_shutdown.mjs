@@ -4,7 +4,7 @@ import {spawn} from 'node:child_process';
 import {mkdtemp,readFile,rm} from 'node:fs/promises';
 import {tmpdir} from 'node:os';
 import {join} from 'node:path';
-import {parseDevToolsActivePort,stopOwnedBrowser} from '../tools/browser-proof/chromium.mjs';
+import {parseDevToolsActivePort,stopOwnedBrowser,runBrowser} from '../tools/browser-proof/chromium.mjs';
 
 function spawnOwnedNode(script) {
   const child=spawn(process.execPath,['-e',script],{
@@ -73,4 +73,17 @@ test('Windows profile cleanup refuses paths not owned by this harness',async()=>
     stopOwnedBrowser({pid:process.pid},()=>null,'win32','C:\\Windows\\Temp\\not-owned'),
     /disposable proof profile/,
   );
+});
+
+test('real Windows Chromium proof preserves its original failure and exits', {
+  skip: process.platform !== 'win32' || !process.env.ORDAX_CHROME_BIN,
+  timeout: 120000,
+}, async () => {
+  await assert.rejects(runBrowser(async client => {
+    const result = await client.send('Runtime.evaluate', {
+      expression: '1+2', returnByValue: true,
+    });
+    assert.equal(result.result.value, 3);
+    throw new Error('intentional browser-proof failure');
+  }), /intentional browser-proof failure/);
 });
