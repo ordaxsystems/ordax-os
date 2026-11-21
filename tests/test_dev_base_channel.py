@@ -740,6 +740,62 @@ class DevBaseConsumerTests(unittest.TestCase):
             self.assertTrue(reused)
             self.assertEqual(same, target)
 
+    def test_acquire_reuses_exact_assets_across_commits(self):
+        kernel = b"same kernel"
+        initramfs = b"same initramfs"
+        old_rootfs, new_rootfs = b"old rootfs", b"new rootfs"
+        second = "2" * 40
+        first_manifest = self.descriptor(kernel, initramfs, old_rootfs)
+        next_manifest = self.descriptor(kernel, initramfs, new_rootfs, second)
+
+        with tempfile.TemporaryDirectory() as temporary:
+            root = Path(temporary)
+            donor, _ = consumer.acquire(
+                SOURCE, root,
+                opener=self.opener_for(first_manifest, kernel, initramfs, old_rootfs),
+            )
+            requests = []
+            payloads = {
+                consumer.manifest_url(second): json.dumps(next_manifest).encode(),
+                next_manifest["rootfs"]["url"]: new_rootfs,
+            }
+
+            def opener(url, timeout):
+                requests.append(url)
+                return FakeResponse(url, payloads[url])
+
+            target, reused = consumer.acquire(second, root, opener=opener)
+            self.assertFalse(reused)
+            self.assertEqual(requests, list(payloads))
+            self.assertEqual(consumer.verify_materialized(target, second), next_manifest)
+            # A copy, not a hardlink into the new immutable candidate.
+            (donor / "vmlinuz").write_bytes(b"bad kernel!")
+            self.assertEqual((target / "vmlinuz").read_bytes(), kernel)
+
+    def test_corrupt_same_size_donor_is_never_reused(self):
+        kernel, initramfs, rootfs = b"kernel", b"initrd", b"rootfs"
+        manifest = self.descriptor(kernel, initramfs, rootfs)
+        with tempfile.TemporaryDirectory() as temporary:
+            root = Path(temporary)
+            donor = root / ("3" * 40)
+            donor.mkdir()
+            (donor / "vmlinuz").write_bytes(b"broken")
+            (donor / "initrd.gz").write_bytes(initramfs)
+            (donor / "rootfs.tar").write_bytes(rootfs)
+            requests = []
+            payloads = {
+                consumer.manifest_url(SOURCE): json.dumps(manifest).encode(),
+                manifest["kernel"]["url"]: kernel,
+            }
+
+            def opener(url, timeout):
+                requests.append(url)
+                return FakeResponse(url, payloads[url])
+
+            target, _ = consumer.acquire(SOURCE, root, opener=opener)
+            self.assertEqual(requests, list(payloads))
+            self.assertEqual(consumer.verify_materialized(target, SOURCE), manifest)
+
     def test_acquire_rejects_manifest_for_another_commit(self):
         kernel = b"kernel\n"
         initramfs = b"initramfs\n"
