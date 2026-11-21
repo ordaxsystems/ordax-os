@@ -186,6 +186,51 @@ def verify(*, kernel_modules: Path, selection_receipt: Path, rootfs_tar: Path) -
     }
 
 
+def extract_embedded_selection(rootfs_tar: Path, destination: Path) -> None:
+    """Recover the exact existing module receipt without GNU tar path aliases.
+
+    Buildroot rootfs.tar may name members as etc/... or ./etc/...; the
+    normalized archive name is authoritative and the same normalization is
+    already enforced by verify(). No whole-rootfs extraction or kernel rebuild.
+    """
+    if rootfs_tar.is_symlink() or not rootfs_tar.is_file():
+        raise ModuleParityError("rootfs archive is missing or unsafe")
+    if destination.exists() or destination.is_symlink():
+        raise ModuleParityError("selection output already exists or is unsafe")
+    if not destination.parent.is_dir() or destination.parent.is_symlink():
+        raise ModuleParityError("selection output parent is missing or unsafe")
+    matches = []
+    try:
+        with tarfile.open(rootfs_tar, "r") as archive:
+            for member in archive:
+                if normalized_member_name(member.name) != RECEIPT_IN_ROOTFS:
+                    continue
+                if not member.isfile() or not 0 < member.size <= 256 * 1024:
+                    raise ModuleParityError("embedded module selection is not a bounded regular file")
+                source = archive.extractfile(member)
+                if source is None:
+                    raise ModuleParityError("embedded module receipt is unreadable")
+                content = source.read(member.size + 1)
+                if len(content) != member.size:
+                    raise ModuleParityError("embedded module receipt is incomplete")
+                matches.append(content)
+    except (OSError, tarfile.TarError) as exc:
+        raise ModuleParityError("cannot inspect rootfs receipt archive") from exc
+    if len(matches) != 1:
+        raise ModuleParityError("rootfs must carry exactly one module selection receipt")
+    try:
+        payload = json.loads(matches[0].decode("utf-8"))
+    except (UnicodeError, json.JSONDecodeError) as exc:
+        raise ModuleParityError("embedded module selection is not valid JSON") from exc
+    if not isinstance(payload, dict):
+        raise ModuleParityError("embedded module selection must be an object")
+    with destination.open("xb") as output:
+        output.write(matches[0])
+        output.flush()
+        import os
+        os.fsync(output.fileno())
+
+
 def bind_base_provenance(result: dict, *, base_provenance: Path, rootfs_tar: Path) -> dict:
     provenance = load_json(base_provenance, "Independent Base provenance")
     if provenance.get("$schema") != BASE_PROVENANCE_SCHEMA:
@@ -211,14 +256,26 @@ def bind_base_provenance(result: dict, *, base_provenance: Path, rootfs_tar: Pat
 
 def main() -> int:
     parser = argparse.ArgumentParser()
-    parser.add_argument("action", choices=("verify",))
-    parser.add_argument("--kernel-modules", type=Path, required=True)
-    parser.add_argument("--selection-receipt", type=Path, required=True)
+    parser.add_argument("action", choices=("verify", "extract-selection"))
+    parser.add_argument("--kernel-modules", type=Path)
+    parser.add_argument("--selection-receipt", type=Path)
     parser.add_argument("--rootfs-tar", type=Path, required=True)
-    parser.add_argument("--base-provenance", type=Path, required=True)
+    parser.add_argument("--base-provenance", type=Path)
     parser.add_argument("--out", type=Path, required=True)
     args = parser.parse_args()
+    if args.action == "verify" and (
+        args.kernel_modules is None or args.selection_receipt is None
+        or args.base_provenance is None
+    ):
+        parser.error("verify requires kernel archive, selection receipt and provenance")
     try:
+        if args.action == "extract-selection":
+            if (args.kernel_modules is not None or args.selection_receipt is not None
+                    or args.base_provenance is not None):
+                parser.error("extract-selection accepts only rootfs archive and output")
+            extract_embedded_selection(args.rootfs_tar, args.out)
+            print("ORDAX_EMBEDDED_MODULE_SELECTION=EXTRACTED")
+            return 0
         result = verify(
             kernel_modules=args.kernel_modules,
             selection_receipt=args.selection_receipt,

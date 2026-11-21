@@ -222,9 +222,10 @@ class CreatorKernelReuseWorkflowTests(unittest.TestCase):
         workflow = self.workflow(DEV_BASE_CHANNEL)
         build = self.step_block(workflow, "Build exact-commit development Base and initramfs")
         self.assertIn(
-            'tar -xOf out/dev-rootfs/rootfs.tar ./etc/ordax/kernel-module-selection.json',
+            'module_parity.py extract-selection --rootfs-tar out/dev-rootfs/rootfs.tar',
             build,
         )
+        self.assertNotIn("tar -xOf out/dev-rootfs/rootfs.tar", build)
         self.assertIn('cmp -s "$ORDAX_KERNEL_MODULES_RECEIPT" "$embedded_selection"', build)
         self.assertIn('cp "$embedded_selection" "$ORDAX_KERNEL_MODULES_RECEIPT"', build)
         self.assertIn('--selection-receipt "$ORDAX_KERNEL_MODULES_RECEIPT"', build)
@@ -233,6 +234,22 @@ class CreatorKernelReuseWorkflowTests(unittest.TestCase):
             build.index('cmp -s "$ORDAX_KERNEL_MODULES_RECEIPT" "$embedded_selection"'),
             build.index('bootstrap/independent-base/module_parity.py verify'),
         )
+
+    def test_dev_base_producer_parity_extraction_and_cache_precedes_assembly(self):
+        workflow = self.workflow(DEV_BASE_CHANNEL)
+        build = self.step_block(workflow, "Build exact-commit development Base and initramfs")
+        save = self.step_block(workflow, "Save verified Owner Buildroot for other consumers")
+        assemble = self.step_block(workflow, "Prove and assemble exact-commit development Base")
+        self.assertIn("module_parity.py extract-selection", build)
+        self.assertNotIn("tar -xOf out/dev-rootfs/rootfs.tar", build)
+        self.assertIn("module_parity.py verify", build)
+        self.assertIn("portable_component_cache.py verify", build)
+        self.assertIn("actions/cache/save@", save)
+        self.assertIn("prove_independent_rootfs.py", assemble)
+        self.assertLess(workflow.index("module_parity.py verify"),
+                        workflow.index("Save verified Owner Buildroot for other consumers"))
+        self.assertLess(workflow.index("Save verified Owner Buildroot for other consumers"),
+                        workflow.index("Prove and assemble exact-commit development Base"))
 
     def test_retired_diagnose_cannot_build_and_live_owners_use_canonical_kernel_uapi(self):
         # A removed diagnostic is not a competing kernel/build authority.

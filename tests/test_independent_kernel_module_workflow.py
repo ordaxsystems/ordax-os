@@ -1,4 +1,6 @@
 import hashlib
+import io
+import tarfile
 import importlib.util
 import json
 from pathlib import Path
@@ -26,6 +28,45 @@ class IndependentKernelModuleWorkflowTests(unittest.TestCase):
         if next_step < 0:
             next_step = len(text)
         return text[start:next_step]
+
+    def test_embedded_module_receipt_accepts_tar_member_name_variants(self):
+        receipt = b'{"kernel_release":"6.6.158","selected_module_count":1}\n'
+        for name in ("etc/ordax/kernel-module-selection.json",
+                     "./etc/ordax/kernel-module-selection.json"):
+            with self.subTest(name=name), tempfile.TemporaryDirectory() as td:
+                base = Path(td)
+                archive = base / "rootfs.tar"
+                with tarfile.open(archive, "w") as tar:
+                    info = tarfile.TarInfo(name)
+                    info.size = len(receipt)
+                    info.mode = 0o644
+                    tar.addfile(info, io.BytesIO(receipt))
+                output = base / "module-receipt.json"
+                PARITY.extract_embedded_selection(archive, output)
+                self.assertEqual(output.read_bytes(), receipt)
+                with self.assertRaises(PARITY.ModuleParityError):
+                    PARITY.extract_embedded_selection(archive, output)
+
+    def test_embedded_module_receipt_rejects_missing_duplicate_or_link(self):
+        payload = b'{"kernel_release":"6.6.158"}\n'
+        cases = ((), ("etc/ordax/kernel-module-selection.json",) * 2,
+                 ("link:etc/ordax/kernel-module-selection.json",))
+        for names in cases:
+            with self.subTest(names=names), tempfile.TemporaryDirectory() as td:
+                base = Path(td)
+                archive = base / "rootfs.tar"
+                with tarfile.open(archive, "w") as tar:
+                    for name in names:
+                        is_link = name.startswith("link:")
+                        member = tarfile.TarInfo(name.removeprefix("link:"))
+                        member.type = tarfile.SYMTYPE if is_link else tarfile.REGTYPE
+                        member.size = 0 if is_link else len(payload)
+                        if is_link:
+                            member.linkname = "other"
+                        tar.addfile(member, None if is_link else io.BytesIO(payload))
+                with self.assertRaises(PARITY.ModuleParityError):
+                    PARITY.extract_embedded_selection(archive, base / "output.json")
+                self.assertFalse((base / "output.json").exists())
 
     def test_verified_kernel_precedes_rootfs_module_consumption(self):
         workflow = self.workflow()

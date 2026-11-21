@@ -394,7 +394,7 @@ jobs:
           # the same receipt from the archived rootfs, then reverify it against
           # the canonical kernel archive and policy in module_parity.py.
           embedded_selection="$RUNNER_TEMP/dev-base-channel/owner-receipts/kernel-module-selection-embedded.json"
-          tar -xOf out/dev-rootfs/rootfs.tar ./etc/ordax/kernel-module-selection.json > "$embedded_selection"
+          python3 bootstrap/independent-base/module_parity.py extract-selection --rootfs-tar out/dev-rootfs/rootfs.tar --out "$embedded_selection"
           test -s "$embedded_selection"
           if [ -e "$ORDAX_KERNEL_MODULES_RECEIPT" ]; then
             test ! -L "$ORDAX_KERNEL_MODULES_RECEIPT"
@@ -422,6 +422,20 @@ jobs:
             --integration-commit "$GITHUB_SHA" --cache-hit "$owner_cache_hit" \
             --receipt "$RUNNER_TEMP/dev-base-channel/owner-receipts/owner-base-component-reuse.json"
           echo "ORDAX_OWNER_BASE_CACHE_HIT=$owner_cache_hit"
+
+      # Cache only after kernel parity and provenance have been verified;
+      # downstream publication failures must not trigger a new Buildroot run.
+      - name: Save verified Owner Buildroot for other consumers
+        if: steps.changes.outputs.publish == 'true' && steps.owner-base-cache.outputs.cache-hit != 'true'
+        uses: actions/cache/save@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
+        with:
+          path: out/dev-rootfs
+          key: ordax-portable-component-v1-${{ runner.os }}-${{ runner.arch }}-independent-base-owner-${{ steps.component-fingerprints.outputs.independent_base_owner }}
+
+      - name: Prove and assemble exact-commit development Base
+        if: steps.changes.outputs.publish == 'true'
+        run: |
+          set -euo pipefail
           test -s out/dev-rootfs/provenance.json
           test -s out/dev-rootfs/rootfs.tar
           python3 tools/dev-base-channel/prove_independent_rootfs.py \
@@ -440,13 +454,6 @@ jobs:
             --rootfs-dir out/dev-rootfs \
             --out-dir out/dev-base
           python tools/dev-base-channel/build.py verify --out-dir out/dev-base
-
-      - name: Save verified Owner Buildroot for other consumers
-        if: steps.changes.outputs.publish == 'true' && steps.owner-base-cache.outputs.cache-hit != 'true'
-        uses: actions/cache/save@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
-        with:
-          path: out/dev-rootfs
-          key: ordax-portable-component-v1-${{ runner.os }}-${{ runner.arch }}-independent-base-owner-${{ steps.component-fingerprints.outputs.independent_base_owner }}
 
       - name: Publish immutable exact-commit Base candidate
         if: steps.changes.outputs.publish == 'true'
