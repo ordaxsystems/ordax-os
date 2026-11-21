@@ -1,7 +1,9 @@
 
 # Decisões arquiteturais — OrdaX Site
 
-> **Regra vigente:** ADR-032 substitui as decisões transitórias de snapshots (ADR-010/011); ADR-041 atualiza a composição móvel definida em ADR-035/038. Os demais ADRs continuam válidos. A documentação operacional é o [README](../README.md) e o [handoff](HANDOFF.md). Referências antigas abaixo são histórico, não instrução para executar comandos removidos.
+> **Regra vigente:** ADR-042 substitui somente a separação física de repositório da ADR-001 (preservando a separação de responsabilidades); ADR-032 substitui os snapshots transitórios (ADR-010/011); ADR-041 atualiza a composição móvel (ADR-035/038). Os demais ADRs não conflitantes continuam válidos. A documentação operacional é o [README](../README.md) e o [handoff](HANDOFF.md). Paths antigos referem-se ao módulo anterior à reintegração; não são instruções para reconstruir fontes, duplicar contratos ou operar repositórios independentes.
+
+**SITE-ADR-042 — Site como módulo canônico do monorepo (2026-11-21):** a autoridade única de apresentação pública é `ordaxsystems/ordax-os/main`, na pasta `site/`; `site/public/` é a raiz visual, e as APIs compartilhadas de Conta e OAuth são importadas de `api/` e `lib/` da mesma revisão Git, sem outra implementação e sem clone do repositório `ordax-site`. Um único `package-lock.json` na raiz e o workspace npm `site` garantem a resolução de dependências da API compartilhada. O mesmo projeto Vercel `ordax-site` deve conectar-se ao repositório `ordax-os`, Root Directory `site` e inclusão dos arquivos externos à raiz; o source Git real em produção deve ser comprovado antes do corte. O repositório anterior permanece apenas como fonte histórica até conclusão e verificação do cutover, quando deverá ser arquivado; seu estado anterior não pode orientar novos builds, decisões ou deploys. O CI do módulo roda sobre o commit do OS e não repete builds de kernel, USB ou Creator por mudanças apenas do Site.
 
 **SITE-ADR-034 — Geração do shell público a partir de um contrato (2026-10-29):** cabeçalhos e rodapés das rotas comuns não são markup mantida por página. `contracts/public-shell.json` contém conteúdo, perfis reutilizáveis e exceções; `scripts/public_shell.py` valida as referências e gera os fragmentos no build. `site/assets/site.css` é o owner da geometria compartilhada; `site/i18n/catalog.js`/`runtime.js` são o owner de traduções. `contracts/site-routes.json` permanece o único inventário de rotas. `/conta/` tem shell de aplicação próprio. Privacidade e Termos preservam seus bytes de origem por causa dos hashes de Identity; o runtime normaliza a marca e as ações na apresentação.
 
@@ -21,7 +23,7 @@
 
 **SITE-ADR-032 — Encerramento dos snapshots temporários (2026-10-24):** Surface publica marca e Meridian em prereleases Dev assinadas com pins externos de archive+manifesto, e o Site usa o único `contracts/dev-artifact-lock.json`. Nenhum snapshot OS, clone do renderer, plano comercial fictício ou atalho de publicação é preservado no fluxo padrão. Os ADRs anteriores descrevem fases históricas, não instruções atuais.
 
-**SITE-ADR-001 — Isolamento de repositório (2026-10-23):** HTML/CSS/JS e catálogo local PT-BR/en-US têm owner no Site. Nenhum runtime, backend, código React da Surface ou utilitário de kernel entra no artefato.
+**SITE-ADR-001 — Isolamento de repositório (2026-10-23, supersedida por ADR-042):** HTML/CSS/JS e catálogo local PT-BR/en-US têm owner no Site. Nenhum runtime, backend, código React da Surface ou utilitário de kernel entra no artefato.
 
 **SITE-ADR-002 — Artefatos por digest:** marca e demonstração Meridian entram apenas como artefatos publicados por seu owner, com revisão, manifesto e hashes SHA-256. Snapshot visual local é **somente leitura** e pode ficar temporariamente pinado; não é outro lugar de edição canônica.
 
