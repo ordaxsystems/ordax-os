@@ -4,6 +4,8 @@
 # kernel module firmware= declarations. No product package manager.
 BR2_PACKAGE_CA_CERTIFICATES=y
 BR2_PACKAGE_IW=y
+# Kernel cfg80211 consumes the signed upstream radio-frequency policy.
+BR2_PACKAGE_WIRELESS_REGDB=y
 BR2_PACKAGE_WPA_SUPPLICANT=y
 BR2_PACKAGE_WPA_SUPPLICANT_PASSPHRASE=y
 BR2_PACKAGE_WPA_SUPPLICANT_CLI=y

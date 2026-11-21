@@ -165,6 +165,17 @@ if test "$PROFILE" = owner-development || test "$PROFILE" = stable-mvp; then
         exit 1
     }
 
+    # Both Owner and Stable need the canonical signed cfg80211 regulatory
+    # database; firmware blobs alone do not establish channel authorization.
+    # Buildroot owns these files. Never synthesize a country policy in OrdaX.
+    for regulatory_file in regulatory.db regulatory.db.p7s; do
+        if ! test -s "$TARGET_DIR/lib/firmware/$regulatory_file" ||
+           test -L "$TARGET_DIR/lib/firmware/$regulatory_file"; then
+            echo "Missing signed wireless regulatory database: $regulatory_file" >&2
+            exit 1
+        fi
+    done
+
     : "${ORDAX_FIRMWARE_COVERAGE_RECEIPT:?ORDAX_FIRMWARE_COVERAGE_RECEIPT is required}"
     test -f "$ROOT/bootstrap/base/firmware_policy.py"
 

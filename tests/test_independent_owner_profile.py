@@ -60,6 +60,7 @@ class IndependentOwnerDevelopmentProfileTests(unittest.TestCase):
         required_wifi = {
             "BR2_PACKAGE_CA_CERTIFICATES=y",
             "BR2_PACKAGE_IW=y",
+            "BR2_PACKAGE_WIRELESS_REGDB=y",
             "BR2_PACKAGE_WPA_SUPPLICANT=y",
             "BR2_PACKAGE_WPA_SUPPLICANT_PASSPHRASE=y",
             "BR2_PACKAGE_WPA_SUPPLICANT_CLI=y",
@@ -202,6 +203,12 @@ class IndependentOwnerDevelopmentProfileTests(unittest.TestCase):
         ):
             self.assertIn(target, script)
         self.assertIn("Owner/Development or Stable/MVP CA trust store is missing", script)
+        # The signed upstream regulatory policy is required on both Base
+        # profiles, never guessed or installed at runtime.
+        self.assertIn("for regulatory_file in regulatory.db regulatory.db.p7s; do", script)
+        self.assertIn('test -s "$TARGET_DIR/lib/firmware/$regulatory_file"', script)
+        self.assertIn('test -L "$TARGET_DIR/lib/firmware/$regulatory_file"', script)
+        self.assertIn("Missing signed wireless regulatory database", script)
         self.assertIn("Incomplete Owner/Development or Stable/MVP target capability set", script)
         self.assertIn("ORDAX_OWNER_DEVELOPMENT_PROFILE=YES", script)
 
