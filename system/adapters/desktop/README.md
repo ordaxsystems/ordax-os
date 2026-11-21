@@ -2,7 +2,7 @@
 
 Status: CANONICAL OS-SIDE CAPABILITY BOUNDARY
 
-`system/adapters/desktop/` contains the **OS-owned side of desktop capability contracts**. The Windows application host, Electron lifecycle, NSIS packaging and Desktop delivery belong to `ordaxsystems/ordax-desktop`; this directory must not become a second Desktop implementation.
+`system/adapters/desktop/` contains the **OS-owned side of desktop capability contracts**. The Windows application host, Electron lifecycle, NSIS packaging and Desktop delivery belong to `ordaxsystems/ordax-os/desktop`; this directory must not become a second Desktop implementation.
 
 The shared Surface remains owned by `ordaxsystems/ordax-os` and is selected by the OS composition. Platform-specific capability differences stay behind public ports/adapters rather than copied UI or app source.
 
@@ -44,7 +44,7 @@ Every capability must declare whether it is:
 
 ## Store boundary
 
-The OS-side Windows Store transport is owned by this adapter (`verified-store-catalog-host.mjs`, `store-lifecycle-host.mjs` and `store-artifact-transport.mjs`) and consumes the canonical [Store services and verified projection](../../services/apps/README.md). It reuses the signed catalog, generated package policy and runtime-component lifecycle; it must not become a second Store, catalog, updater or installation authority. The Windows host/shell/package delivery remains owned by `ordaxsystems/ordax-desktop`.
+The OS-side Windows Store transport is owned by this adapter (`verified-store-catalog-host.mjs`, `store-lifecycle-host.mjs` and `store-artifact-transport.mjs`) and consumes the canonical [Store services and verified projection](../../services/apps/README.md). It reuses the signed catalog, generated package policy and runtime-component lifecycle; it must not become a second Store, catalog, updater or installation authority. The Windows host/shell/package delivery remains owned by `ordaxsystems/ordax-os/desktop`.
 
 ## Creator boundary
 
@@ -88,6 +88,6 @@ Those remain in the shared `system/surface/`, `system/apps/` and `system/service
 
 ## Implementation baseline
 
-The current Windows host is implemented and delivered from `ordaxsystems/ordax-desktop`. This OS adapter remains framework-neutral and supplies only the capability/host boundary needed by the composed product. Do not reintroduce the former `tools/windows-desktop` product implementation, choose a second shell framework here, or make the OS repository a competing Windows packager.
+The current Windows host is implemented and delivered from the `desktop/` module of `ordaxsystems/ordax-os`. This OS adapter remains framework-neutral and supplies only the capability/host boundary needed by the composed product. Do not reintroduce the former `tools/windows-desktop` product implementation, choose a second shell framework here, or add a competing Windows packager alongside the existing `desktop/` module.
 
 No private signing key, device private key, access token or release-authority secret belongs in this directory or in a shipped client bundle.
