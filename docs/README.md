@@ -16,7 +16,7 @@ Este índice é o **roteador central de autoridade documental** de todo o ecossi
 4. Ao alterar contrato compartilhado: atualizar primeiro seu owner, validar consumidores compatíveis e corrigir referências afetadas. Não criar espelhos de contratos, novo repo de docs ou outra fila de migração.
 5. Links para arquivos removidos ou históricos devem ser substituídos pelo índice/estado canônico, sem destruir evidências históricas.
 
-**Diretório de documentação dos owners:** [Apps](https://github.com/ordaxsystems/ordax-apps/tree/main/docs) · [Runtime](https://github.com/ordaxsystems/ordax-runtime) · [Platform](https://github.com/ordaxsystems/ordax-platform) · [Desktop](https://github.com/ordaxsystems/ordax-desktop) · [Creator](https://github.com/ordaxsystems/ordax-creator) · [Surface](https://github.com/ordaxsystems/ordax-surface) · [Site](https://github.com/ordaxsystems/ordax-site).
+**Diretório de documentação dos owners:** [Apps](https://github.com/ordaxsystems/ordax-apps/tree/main/docs) · [Runtime](https://github.com/ordaxsystems/ordax-runtime) · [Platform](https://github.com/ordaxsystems/ordax-platform) · [Desktop](https://github.com/ordaxsystems/ordax-os/tree/main/desktop) · [Creator](https://github.com/ordaxsystems/ordax-creator) · [Surface](https://github.com/ordaxsystems/ordax-surface) · [Site](https://github.com/ordaxsystems/ordax-site).
 
 ## Regra de publicação documental — SSOT central, sem espelhos
 
@@ -32,7 +32,7 @@ Não confundir **documentação global de produto** com **documentação interna
 | Forge GPT-first / MCP / execução | [ownership](contracts/repository-ownership.json), [MCP](MCP-SYSTEM-CAPABILITIES.md), [fluxo de desenvolvimento](DEVELOPMENT-WORKFLOW.md) | [Forge: roteiro normativo central](forge/FORGE-GPT-FIRST-ADMINISTRADOR-ROADMAP.md); código, contratos e testes permanecem no Apps |
 | Runtime / ferramentas / acesso ao dispositivo | [remote control](REMOTE-CONTROL.md), [MCP](MCP-SYSTEM-CAPABILITIES.md), [ownership](contracts/repository-ownership.json) | [Runtime](https://github.com/ordaxsystems/ordax-runtime) |
 | OAuth / grants / dispatch remoto | [ownership](contracts/repository-ownership.json) e contratos de integração publicamente versionados | [Platform](https://github.com/ordaxsystems/ordax-platform) |
-| Surface / Desktop / Creator / Site | [ownership](contracts/repository-ownership.json), [composição](DEVELOPMENT-WORKFLOW.md), [releases](RELEASE-PIPELINE.md) | [Surface](https://github.com/ordaxsystems/ordax-surface), [Desktop](https://github.com/ordaxsystems/ordax-desktop), [Creator](https://github.com/ordaxsystems/ordax-creator), [Site](https://github.com/ordaxsystems/ordax-site) |
+| Surface / Desktop / Creator / Site | [ownership](contracts/repository-ownership.json), [composição](DEVELOPMENT-WORKFLOW.md), [releases](RELEASE-PIPELINE.md) | [Surface](https://github.com/ordaxsystems/ordax-surface), [Desktop](https://github.com/ordaxsystems/ordax-os/tree/main/desktop), [Creator](https://github.com/ordaxsystems/ordax-creator), [Site](https://github.com/ordaxsystems/ordax-site) |
 
 **Mudança transversal:** (1) localizar contrato/ADR/doc normativo existente no OS e owner executável; (2) atualizar essa autoridade; (3) adaptar somente consumidores realmente afetados; (4) executar testes de contrato/compatibilidade por impacto; (5) evitar atualizar documentos locais apenas para repetir a regra. Não iniciar builds ou sincronização de SHA de owners independentes sem alteração de interface/artefato consumido.
 
