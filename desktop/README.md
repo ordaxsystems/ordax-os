@@ -14,3 +14,5 @@ Testes: node --test desktop/host-startup.test.cjs desktop/runtime.test.cjs.
 A produção NSIS permanece no workflow existente
 .github/workflows/windows-desktop-dev.yml, executado apenas quando necessário
 com prova do mesmo OS SHA. Esta migração não reinstala nada.
+
+Auditoria de corte e condição de arquivamento: [docs/CUTOVER-2026-11-21.md](docs/CUTOVER-2026-11-21.md).
