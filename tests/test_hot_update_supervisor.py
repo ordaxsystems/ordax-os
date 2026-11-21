@@ -849,7 +849,11 @@ class HotUpdateSupervisorContractTests(unittest.TestCase):
 
         recovery = text.split("recover_stale_surface_if_needed() {", 1)[1].split("\n}\n", 1)[0]
         self.assertEqual(recovery.count('stop_surface'), 1)
-        self.assertEqual(recovery.count('start_surface'), 1)
+        self.assertEqual(recovery.count('start_surface ||'), 1)
+        self.assertLess(recovery.index('start_surface ||'),
+                        recovery.index('expected_sha=$(current_sha)', recovery.index('start_surface ||')))
+        self.assertLess(recovery.index('wait_for_surface_health "$expected_sha"'),
+                        recovery.index('record_runtime_surface_sha "$expected_sha"'))
         self.assertIn('[ "$SURFACE_STALE_RECOVERY_ARMED" -eq 1 ] || return 0', recovery)
         self.assertIn('SURFACE_STALE_RECOVERY_ARMED=1', recovery)
 
