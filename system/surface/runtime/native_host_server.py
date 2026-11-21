@@ -1939,19 +1939,44 @@ class WifiKeyDerivationUnavailable(RuntimeError):
     pass
 
 
+def _pbkdf2_hmac_sha1(password: bytes, salt: bytes, iterations: int, dklen: int) -> bytes:
+    """Pure-Python PBKDF2 fallback for minimal Python builds without OpenSSL."""
+    digestmod = getattr(hashlib, "sha1", None)
+    if digestmod is None:
+        raise WifiKeyDerivationUnavailable("WPA SHA-1 is unavailable")
+    if iterations < 1 or dklen < 1:
+        raise ValueError("invalid PBKDF2 parameters")
+
+    digest_size = digestmod().digest_size
+    block_count = (dklen + digest_size - 1) // digest_size
+    output = bytearray()
+    hmac_key = hmac.new(password, digestmod=digestmod)
+    for block_index in range(1, block_count + 1):
+        current = hmac_key.copy()
+        current.update(salt + block_index.to_bytes(4, "big"))
+        u_value = current.digest()
+        block = bytearray(u_value)
+        for _ in range(1, iterations):
+            current = hmac_key.copy()
+            current.update(u_value)
+            u_value = current.digest()
+            for index, value in enumerate(u_value):
+                block[index] ^= value
+        output.extend(block)
+    return bytes(output[:dklen])
+
+
 def derive_wpa_psk(ssid: str, password: str) -> str:
     if not valid_wifi_ssid(ssid) or not valid_wifi_password(password):
         raise ValueError("invalid Wi-Fi credentials")
     derive_key = getattr(hashlib, "pbkdf2_hmac", None)
-    if derive_key is None:
-        raise WifiKeyDerivationUnavailable("WPA key derivation is unavailable")
-    return derive_key(
-        "sha1",
-        password.encode("utf-8"),
-        ssid.encode("utf-8"),
-        4096,
-        dklen=32,
-    ).hex()
+    password_bytes = password.encode("utf-8")
+    ssid_bytes = ssid.encode("utf-8")
+    if derive_key is not None:
+        derived = derive_key("sha1", password_bytes, ssid_bytes, 4096, dklen=32)
+    else:
+        derived = _pbkdf2_hmac_sha1(password_bytes, ssid_bytes, 4096, 32)
+    return derived.hex()
 
 
 def decode_wpa_ssid_line(line: str) -> str | None:

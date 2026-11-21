@@ -164,6 +164,28 @@ class CreatorOwnerImpactTests(unittest.TestCase):
             self.assertTrue(impact.classify(base, head, root=self.root, event="pull_request")[0],
                             path)
 
+    def test_native_host_runtime_source_uses_pull_without_usb_build(self):
+        base = self.commit(WORKFLOW.read_text(encoding="utf-8"), VISUAL)
+        source = self.commit(path="system/surface/runtime/native_host_server.py")
+        self.assertEqual(
+            impact.classify(base, source, root=self.root, event="push"),
+            (False, "nonproducer-contract-only"),
+        )
+        self.assertEqual(
+            impact.classify(base, source, root=self.root, event="pull_request"),
+            (False, "nonproducer-contract-only"),
+        )
+
+        # This permission is narrow: a mixed Supervisor change remains gated.
+        mixed = self.commit(path="system/supervisor")
+        self.assertEqual(
+            impact.classify(base, mixed, root=self.root, event="push"),
+            (True, "real-or-unknown-usb-producer:system/supervisor"),
+        )
+        self.assertTrue(
+            impact.classify(base, source, root=self.root, event="workflow_dispatch")[0]
+        )
+
     def test_test_only_changes_skip_usb_but_mixed_product_delta_remains_gated(self):
         base = self.commit(WORKFLOW.read_text(encoding="utf-8"), VISUAL)
         tests_only = self.commit(path="tests/test_canonical_document_freshness.py")
@@ -583,6 +605,11 @@ class CreatorOwnerImpactTests(unittest.TestCase):
         self.assertEqual(pull["pull_review_validation_owner"], "Owner Development Preflight")
         self.assertTrue(pull["pull_only_pull_request_skips_creator_usb_build"])
         self.assertTrue(pull["pull_source_change_on_main_preserves_creator_usb_publish"])
+        self.assertEqual(
+            pull["source_only_pull_paths"],
+            ["system/surface/runtime/native_host_server.py"],
+        )
+        self.assertTrue(pull["source_only_runtime_updates_skip_creator_usb_build"])
         self.assertTrue(pull["mixed_boot_base_native_or_unknown_changes_require_full_usb_proof"])
         self.assertTrue(pull["manual_creator_usb_production_requires_full_proof"])
         self.assertFalse(pull["installed_git_updates_require_creator"])

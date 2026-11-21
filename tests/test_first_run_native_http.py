@@ -73,6 +73,11 @@ class NativeFirstRunHttpTests(unittest.TestCase):
             "accountMode": account_mode,
         }
 
+    def test_wifi_psk_derivation_falls_back_when_openssl_pbkdf2_is_missing(self):
+        expected = "f42c6fc52df0ebef9ebb4b90b38a5f902e83fe1b135a70e23aed762e9710a12e"
+        with mock.patch.object(native.hashlib, "pbkdf2_hmac", None):
+            self.assertEqual(native.derive_wpa_psk("IEEE", "password"), expected)
+
     def test_wifi_connect_reports_missing_key_derivation_before_broker_dispatch(self):
         with mock.patch.object(native, "network_broker_available", return_value=True), \
                 mock.patch.object(native, "hashlib", spec=[]):

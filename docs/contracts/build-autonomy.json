@@ -157,6 +157,10 @@
     "pull_review_validation_owner": "Owner Development Preflight",
     "pull_only_pull_request_skips_creator_usb_build": true,
     "pull_source_change_on_main_preserves_creator_usb_publish": true,
+    "source_only_pull_paths": [
+      "system/surface/runtime/native_host_server.py"
+    ],
+    "source_only_runtime_updates_skip_creator_usb_build": true,
     "mixed_boot_base_native_or_unknown_changes_require_full_usb_proof": true,
     "manual_creator_usb_production_requires_full_proof": true,
     "installed_git_updates_require_creator": false,

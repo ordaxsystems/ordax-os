@@ -170,6 +170,12 @@ PULL_REVIEW_ONLY_PATHS = frozenset({
     "tests/test_dev_checkout_exchange.py",
     "docs/DEV-USB-GIT.md",
 })
+# This Native Host runtime is already part of the Git-owned /system checkout.
+# Owner/Development receives it through ordax-pull; it does not change USB media.
+# Keep the exemption exact: boot, Base, Supervisor and helper changes remain gated.
+PULL_SOURCE_ONLY_PATHS = frozenset({
+    "system/surface/runtime/native_host_server.py",
+})
 
 PUSH_EXCLUDES = ("!system/adapters/desktop/**", "!system/surface/ui/**", "!system/surface/workspace/**")
 PR_REMOVED = ("docs/contracts/surface-source.json", "system/surface/ui/**", "system/surface/workspace/**")
@@ -594,6 +600,8 @@ def classify(base, head, *, root=ROOT, event="push"):
             elif path in WINDOWS_PRODUCT_PINNED_BLOBS:
                 if not verified_windows_product_blob(head, path, root=root):
                     return True, "windows-product-untrusted-blob:" + path
+            elif path in PULL_SOURCE_ONLY_PATHS:
+                continue
             elif path.startswith(TEST_ONLY_PREFIX):
                 continue
             elif path not in LIGHT_EXACT and not any(
