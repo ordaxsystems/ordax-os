@@ -461,8 +461,8 @@ class HotUpdateSupervisorContractTests(unittest.TestCase):
 
     def test_system_markdown_is_runtime_neutral_before_system_fallback(self):
         text = SYSTEM_SUPERVISOR.read_text(encoding="utf-8")
-        markdown = text.index("system/*.md|boot/*.md|bootstrap/*.md|boot/*/prove_*|bootstrap/*/prove_*)")
-        next_case = text.index("boot/*|bootstrap/*)", markdown + 1)
+        markdown = text.index("system/*.md|boot/*.md|bootstrap/*.md|boot/*/prove_*|bootstrap/*/prove_*)\n")
+        next_case = text.index("system/entrypoint|system/supervisor|", markdown + 1)
         broad_system = text.index("system/*)", next_case + 1)
         self.assertLess(markdown, next_case)
         self.assertLess(next_case, broad_system)
@@ -529,7 +529,7 @@ class HotUpdateSupervisorContractTests(unittest.TestCase):
             git("config", "user.email", "test@example.invalid")
             manifest = repo / "system/services/base-update/dev-helper-manifest.tsv"
             manifest.parent.mkdir(parents=True)
-            manifest.write_text("bootstrap/dev-base/ordax-pull\tusr/local/bin/ordax-pull\n")
+            manifest.write_bytes((ROOT / "system/services/base-update/dev-helper-manifest.tsv").read_bytes())
             git("add", ".")
             git("commit", "-m", "base")
             base = git("rev-parse", "HEAD")
@@ -538,6 +538,9 @@ class HotUpdateSupervisorContractTests(unittest.TestCase):
             for paths, expected in [
                 (["URGENTE-LEIA.md", "docs/DEV-USB-GIT.md", "tests/test_demo.py"], "none:0"),
                 (["bootstrap/dev-base/ordax-pull"], "none:0"),
+                (["bootstrap/dev-base/ordax-run", "bootstrap/dev-base/ordax-main-watch"], "none:0"),
+                (["system/services/base-update/dev-helpers.sh"], "none:0"),
+                (["system/services/README.md"], "none:0"),
                 (["docs/contracts/surface-source.json"], "surface-restart:0"),
                 (["docs/README.md", "system/supervisor"], "supervisor-restart:0"),
                 (["bootstrap/kernel/build.py"], "surface-restart:1"),
@@ -651,12 +654,9 @@ class HotUpdateSupervisorContractTests(unittest.TestCase):
 
     def test_low_level_changes_are_marked_not_auto_rebooted(self):
         text = SYSTEM_SUPERVISOR.read_text(encoding="utf-8")
-        self.assertIn("boot/*|bootstrap/*", text)
+        self.assertIn('awk -f "$SYSTEM_ROOT/services/base-update/dev-impact.awk"', text)
+        self.assertIn("0|1) LOW_LEVEL_CHANGED=$base_impact", text)
         self.assertIn("boot/*/prove_*|bootstrap/*/prove_*", text)
-        self.assertLess(
-            text.index("boot/*/prove_*|bootstrap/*/prove_*"),
-            text.index("boot/*|bootstrap/*"),
-        )
         self.assertIn("BOOT_REFRESH_FILE=$STATE_DIR/boot-refresh-required", text)
         self.assertIn("mark_boot_refresh_required", text)
         self.assertIn(

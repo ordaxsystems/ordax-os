@@ -1812,9 +1812,12 @@ classify_changes() {
     while IFS= read -r path; do
         [ -n "$path" ] || continue
         case "$path" in
-            URGENTE-LEIA.md|README.md|AGENTS.md|docs/*.md|tests/*) ;;
-            bootstrap/dev-base/ordax-pull)
+            URGENTE-LEIA.md|README.md|AGENTS.md|docs/*.md|tests/*|system/*.md|boot/*.md|bootstrap/*.md|boot/*/prove_*|bootstrap/*/prove_*) ;;
+            bootstrap/dev-base/ordax-pull|bootstrap/dev-base/ordax-run|bootstrap/dev-base/ordax-main-watch)
                 [ "$helper_manifest_ready" -eq 1 ] || runtime_neutral=0
+                ;;
+            system/services/base-update/dev-helpers.sh)
+                # The canonical helper refresh runs on Pull, not in Surface.
                 ;;
             *) runtime_neutral=0 ;;
         esac

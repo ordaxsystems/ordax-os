@@ -23,7 +23,9 @@ class DevMainWatchSingleOwnerTest(unittest.TestCase):
     def test_main_watch_defers_to_live_supervisor_before_pull(self) -> None:
         text = MAIN_WATCH.read_text(encoding="utf-8")
         self.assertIn("SUPERVISOR_HEARTBEAT_FILE=$RUN_DIR/supervisor-heartbeat", text)
-        self.assertIn("RUNTIME_SURFACE_SHA_FILE=$STATE_DIR/runtime-surface-sha", text)
+        self.assertIn("CURRENT_FILE=$STATE_DIR/current-commit", text)
+        self.assertIn("UPDATE_STATE=$RUN_DIR/state.json", text)
+        self.assertNotIn("RUNTIME_SURFACE_SHA_FILE=", text)
         self.assertIn("active_supervisor_pid()", text)
         self.assertIn('case "$command_line" in', text)
         self.assertIn('*"/system/supervisor"*', text)
