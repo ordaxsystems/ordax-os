@@ -804,6 +804,38 @@ do loader UEFI. O produtor continua exigindo identidade exata; saltar revisões
 com mudanças binárias ainda exige resolver a entrega aplicável, não inventar
 um candidato para um SHA sem publicação.
 
+### Transporte de Base DEV a partir do Creator Windows (parcial)
+
+O Creator Owner Dev usa o **mesmo** `system/services/base-update/dev_channel.py`
+do OS, extraído do checkout Git `main` verificado. Primeiro `--resolve-only`
+decide qual Base publicada atende ao SHA de código solicitado; em seguida
+`--acquire-only` adquire `dev-base.json`, `vmlinuz`, `initrd.gz` e `rootfs.tar`
+sob SHA-256 e limites do produtor. No Windows, essa aquisição preserva bytes
+binários (`O_BINARY`) e publica o diretório imutável sem substituir um candidato
+existente, usando movimentação nativa write-through. Não requer WSL.
+
+O adaptador físico único do Creator verifica serial, número de disco,
+topologia GPT e volume `ORDAX-DATA` antes e depois da cópia. Ele chama o
+próprio `dev_channel.py --import-only`, que copia os quatro arquivos já
+verificados para `.ordax/updates/owner-base/<artifact_sha>/` e revalida
+integridade e nomes exatos. Esse transporte não escreve ESP, ext4, GPT ou
+variáveis EFI e não constitui ativação da Base. O recibo
+`STAGED_NOT_ACTIVATED` da Base só significa **bytes verificados na partição
+de dados**, enquanto `AVAILABLE_NOT_STAGED` significa publicação remota
+sem cópia confirmada. A revisão solicitada do código e a revisão que
+produziu a Base podem diferir; ambos os SHAs permanecem explícitos.
+
+A partição de dados do USB preparado tem capacidade própria, que pode
+impedir copiar binários grandes. Falha de espaço ou de publicação mantém
+`AVAILABLE_NOT_STAGED` e nunca promove boot. A máquina Windows já executou
+prova integrada do caminho OS→Creator sobre diretório descartável, incluindo
+rejeição de bytes adulterados. **Ainda não há prova física de carregamento
+desses bytes pelo boot no notebook**; o Supervisor do USB instalado deve
+adotar a Base pelo único contrato de seleção A/B, saúde e rollback. Um
+pendrive com uma Base antiga não adquire esse consumidor apenas por receber
+os arquivos em exFAT. Não reformatar nem substituir o boot alegando que
+o transporte concluiu a missão.
+
 ### Resolução de Base publicada compatível (DEV)
 
 O proprietário `system/services/base-update/dev_channel.py` oferece
