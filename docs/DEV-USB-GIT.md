@@ -39,6 +39,17 @@ origem diferente ou falta de ancestralidade Git interrompe o job em vez
 de anunciar atualização. Isso não executa Creator nos computadores
 instalados, não modifica o Pull e não substitui os testes offline/USB.
 
+## Preservação das edições locais DEV
+
+O checkout Git do pendrive não é um cache descartável quando contém
+alterações locais. O Pull conserva os arquivos modificados e não rastreados
+no próprio checkout, registra o diagnóstico existente e interrompe a troca
+até o proprietário resolver as edições (commit/push, stash ou descarte
+explícito). Mudanças ocorridas durante o staging também impedem a troca.
+A recuperação de metadados inválidos permanece separada. O boot verificado
+ainda exige uma revisão limpa registrada; uma sessão de teste com fonte
+local não deve ser confundida com promoção de uma revisão oficial.
+
 ## Repetição inteligente após falhas de checkout
 
 Depois de uma falha **posterior ao fetch**, o Supervisor guarda um recibo

@@ -1030,7 +1030,7 @@ class DevelopmentGitFlowTest(unittest.TestCase):
         self.assertNotIn('"$BIN_DIR/ordax-pull"', dev_init)
         self.assertNotIn('start_main_watch_background()', dev_init)
 
-    def test_pull_replaces_dirty_or_invalid_runtime_checkout_atomically(self) -> None:
+    def test_pull_preserves_local_edits_and_repairs_invalid_clean_checkout(self) -> None:
         self._script(PULL)
 
         entrypoint = self.worktree / "system/entrypoint"
@@ -1039,20 +1039,21 @@ class DevelopmentGitFlowTest(unittest.TestCase):
         dirty.write_text("local\n", encoding="utf-8")
 
         self.commit_v2 = self._commit_runtime("runtime-v2")
-        result = self._script(PULL)
+        result = self._script(PULL, check=False)
 
+        self.assertNotEqual(result.returncode, 0)
         self.assertIn("checkout local alterado", result.stderr)
-        self.assertIn("substituindo cache por clone limpo validado", result.stderr)
-        self.assertIn("checkout atomico ativado", result.stdout)
-        self.assertFalse(dirty.exists())
-        self.assertIn("runtime-v2", entrypoint.read_text(encoding="utf-8"))
-        self.assertEqual(
-            self._run(["git", "-C", str(self.worktree), "status", "--porcelain"]).stdout,
-            "",
-        )
+        self.assertIn("edicoes preservadas", result.stderr)
+        self.assertTrue(dirty.exists())
+        self.assertEqual(dirty.read_text(encoding="utf-8"), "local\n")
+        self.assertIn("locally-corrupted", entrypoint.read_text(encoding="utf-8"))
         self.assertEqual(
             (self.state / "current-commit").read_text().strip(),
-            self.commit_v2,
+            self.commit_v1,
+        )
+        self.assertEqual(
+            self._run(["git", "-C", str(self.worktree), "rev-parse", "HEAD"]).stdout.strip(),
+            self.commit_v1,
         )
         diagnostic = self.state / "dirty-checkout/last-status.txt"
         patch = self.state / "dirty-checkout/last-tracked-changes.patch"
@@ -1062,8 +1063,16 @@ class DevelopmentGitFlowTest(unittest.TestCase):
         self.assertTrue(patch.is_file())
         self.assertIn("locally-corrupted", patch.read_text(encoding="utf-8"))
 
-        # Even broken local Git metadata is disposable. A valid remote is cloned
-        # and swapped into place only after validation.
+        # Resolve the local edits explicitly and resume the same Git updater.
+        dirty.unlink()
+        self._run(["git", "-C", str(self.worktree), "restore", "--", "system/entrypoint"])
+        result = self._script(PULL)
+        self.assertIn("checkout atomico ativado", result.stdout)
+        self.assertIn("runtime-v2", entrypoint.read_text(encoding="utf-8"))
+        self.assertEqual((self.state / "current-commit").read_text().strip(), self.commit_v2)
+
+        # Broken metadata in a clean checkout still uses canonical recovery.
+        # A valid remote is cloned and swapped only after validation.
         self._run(
             [
                 "git",

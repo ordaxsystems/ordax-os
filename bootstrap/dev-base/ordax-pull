@@ -726,6 +726,20 @@ replace_runtime_checkout() {
         echo "ordax-git: candidate staging failed; current checkout preserved" >&2
         return 1
     }
+    # An editor or Git commit may have changed the live tree while staging.
+    # Re-check before the exchange, not just at the start of the Pull.
+    case "$reason" in
+        update|reconciled)
+            if ! checkout_metadata_valid "$WORKTREE" ||
+               ! checkout_is_clean "$WORKTREE" ||
+               [ "$(git -C "$WORKTREE" rev-parse HEAD 2>/dev/null || true)" != "$old_sha" ]; then
+                PULL_PHASE=preflight
+                echo "ordax-git: checkout mudou durante staging; edicoes preservadas, atualizacao cancelada" >&2
+                rm -rf "$stage"
+                return 1
+            fi
+            ;;
+    esac
     PULL_PHASE=atomic-switch
     if [ -e "$retired" ] || [ -L "$retired" ]; then
         echo "ordax-git: retirement path already exists; refusing overwrite" >&2
@@ -984,8 +998,10 @@ else
     current=$(git -C "$WORKTREE" rev-parse HEAD)
 
     if ! checkout_is_clean "$WORKTREE"; then
-        echo "ordax-git: checkout local alterado; substituindo cache por clone limpo validado" >&2
-        replace_runtime_checkout "$remote_sha" dirty || exit 1
+        PULL_PHASE=preflight
+        record_dirty_checkout
+        echo "ordax-git: checkout local alterado; edicoes preservadas no checkout. Commit ou guarde suas alteracoes antes de atualizar." >&2
+        exit 1
     elif [ "$current" != "$remote_sha" ]; then
         if [ -n "$RECONCILE_PREVIOUS_SHA" ]; then
             # The Supervisor is the sole authority to authorize this path.
