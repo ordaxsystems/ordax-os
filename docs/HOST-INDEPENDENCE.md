@@ -15,7 +15,7 @@ Portable behavior remains split by canonical owner rather than copied into one r
 ```text
 ordaxsystems/ordax-creator     # Creator Core + host adapters + media consumer
 ordaxsystems/ordax-os          # OS artifact/media contracts + producers/proofs
-ordaxsystems/ordax-desktop     # Windows shell/packaging; no raw-media ownership
+ordaxsystems/ordax-os/desktop/ # Windows shell/packaging module; no raw-media ownership
 ```
 
 Creator host adapters may use unavoidable Windows/Linux/macOS device APIs, but the **Creator Core in its own repository** owns target/media-consumer policy. OS-side `tools/creator/` may produce/verify payloads and release evidence but must not duplicate the independent Core. Desktop may launch Creator but must not implement a second privileged writer.
