@@ -822,6 +822,11 @@ atomicamente em `dev-base-ready-sha` duas linhas: primeiro o SHA imutável
 do artefato verificado, depois o SHA solicitado pelo Supervisor. O Supervisor
 reconhece a resolução sem repetir a requisição e apresenta o SHA efetivo
 da Base, independentemente do avanço de código. A aquisição compatível
-materializa a raiz versionada, mas **não entra na escrita do ESP** enquanto
-a promoção pós-boot não verificar explicitamente ambos os SHAs.
-Nenhuma autorização de boot é concedida pela resolução.
+materializa a raiz versionada. O stager revalida a compatibilidade entre
+artefato, solicitação e checkout atual antes de preparar o slot inativo.
+A promoção pós-boot exige identidade exata do artefato no cmdline/ESP, prova
+Git da compatibilidade do código e heartbeats de saúde da mesma sessão de boot.
+O recibo de promoção mantém os SHAs de artefato, solicitação e código; apenas
+o Supervisor encerra a solicitação correspondente após postflight, preservando
+uma solicitação mais recente. A autorização de armar one-shot continua
+independente e não é concedida por esta resolução.

@@ -50,6 +50,7 @@ _promote = _load(
 _discovery = _load(HERE / "esp_discovery.py", "ordax_postboot_discovery")
 _layout = _load(HERE / "esp_layout.py", "ordax_postboot_layout")
 _readonly = _load(HERE / "esp_readonly.py", "ordax_postboot_readonly")
+_channel = _load(HERE / "dev_channel.py", "ordax_postboot_channel")
 
 
 def _read_text(path: Path, label: str, max_bytes: int = 64 * 1024) -> str:
@@ -95,6 +96,24 @@ def _derive_previous_slot(layout: dict, candidate_slot: str) -> str:
     return active
 
 
+
+def _owner_source_proof(worktree: Path, artifact: str, requested: str, current: str):
+    """Reprove the acquisition relation and current checkout before any ESP write."""
+    try:
+        head = _channel._git_bytes(worktree, "rev-parse", "HEAD").decode("ascii").strip()
+        if head != current:
+            raise PostbootPromotionError("current checkout changed before Base promotion")
+        if not _channel.prove_compatible_source(worktree, artifact, requested):
+            raise PostbootPromotionError("Base no longer satisfies the requested revision")
+        if not _channel.prove_compatible_source(worktree, requested, current):
+            raise PostbootPromotionError("current checkout supersedes the Base request")
+        def proof(release, source):
+            return _channel.prove_compatible_source(worktree, release, source)
+        return proof
+    except _channel.DevBaseChannelError as exc:
+        raise PostbootPromotionError(str(exc)) from exc
+
+
 def promote_running_candidate(
     *,
     root_source: Path,
@@ -107,6 +126,8 @@ def promote_running_candidate(
     healthy_sha_file: Path,
     source_sha: str,
     expected_release_sha: str,
+    owner_worktree: Path | None = None,
+    requested_source_sha: str | None = None,
     dev_root: Path = Path("/dev"),
     by_label_root: Path = Path("/dev/disk/by-label"),
     sys_class_block: Path = Path("/sys/class/block"),
@@ -118,6 +139,19 @@ def promote_running_candidate(
         raise PostbootPromotionError("current checkout SHA is invalid")
     if SHA40_RE.fullmatch(expected_release_sha) is None:
         raise PostbootPromotionError("expected staged SHA is invalid")
+
+    if (owner_worktree is None) != (requested_source_sha is None):
+        raise PostbootPromotionError("owner promotion requires both checkout and request")
+    proof = None
+    if owner_worktree is not None:
+        if SHA40_RE.fullmatch(requested_source_sha) is None:
+            raise PostbootPromotionError("requested source SHA is invalid")
+        pending = _read_text(state_root / "boot-refresh-required", "Base request", 1024).strip()
+        if pending != requested_source_sha:
+            raise PostbootPromotionError("Base request was superseded before promotion")
+        proof = _owner_source_proof(
+            owner_worktree, expected_release_sha, requested_source_sha, source_sha,
+        )
 
     cmdline = _read_text(cmdline_file, "kernel cmdline")
     identity = _candidate_identity(cmdline)
@@ -164,8 +198,9 @@ def promote_running_candidate(
             expected_release_sha=expected_release_sha,
             expected_candidate_slot=identity["slot"],
             previous_slot=previous_slot,
+            prove_source_compatibility=proof,
         )
-    except _promote.PromotionError as exc:
+    except (_promote.PromotionError, _channel.DevBaseChannelError) as exc:
         raise PostbootPromotionError(str(exc)) from exc
 
     try:
@@ -226,11 +261,20 @@ def promote_running_candidate(
                     "ESP layout changed between health proof and promotion"
                 )
 
+        if owner_worktree is not None:
+            # Revalidate after the read-only evidence and before the commit.
+            if _read_text(state_root / "boot-refresh-required", "Base request", 1024).strip() != requested_source_sha:
+                raise PostbootPromotionError("Base request was superseded before ESP commit")
+            head = _channel._git_bytes(owner_worktree, "rev-parse", "HEAD").decode("ascii").strip()
+            if head != source_sha:
+                raise PostbootPromotionError("current checkout changed before ESP commit")
+
         try:
             promotion = _promote.promote(
                 esp_root=esp_mount_root,
                 state_root=state_root,
                 health=health,
+                clear_refresh_marker=owner_worktree is None,
             )
         except _promote.PromotionError as exc:
             raise PostbootPromotionError(str(exc)) from exc
@@ -251,6 +295,8 @@ def promote_running_candidate(
             "$schema": SCHEMA,
             "status": "promoted",
             "source_commit": expected_release_sha,
+            "runtime_source_commit": source_sha,
+            "requested_source_commit": requested_source_sha or expected_release_sha,
             "boot_id": health["boot_id"],
             "active_slot": identity["slot"],
             "recovery_slot": previous_slot,
@@ -339,6 +385,8 @@ def main() -> int:
     )
     parser.add_argument("--source-sha", required=True)
     parser.add_argument("--expected-release-sha", required=True)
+    parser.add_argument("--owner-worktree", type=Path)
+    parser.add_argument("--requested-source-sha")
     parser.add_argument("--dev-root", type=Path, default=Path("/dev"))
     parser.add_argument(
         "--by-label-root",
@@ -369,6 +417,8 @@ def main() -> int:
             healthy_sha_file=args.healthy_sha,
             source_sha=args.source_sha,
             expected_release_sha=args.expected_release_sha,
+            owner_worktree=args.owner_worktree,
+            requested_source_sha=args.requested_source_sha,
             dev_root=args.dev_root,
             by_label_root=args.by_label_root,
             sys_class_block=args.sys_class_block,
@@ -381,6 +431,7 @@ def main() -> int:
         UnicodeError,
         PostbootPromotionError,
         _promote.PromotionError,
+        _channel.DevBaseChannelError,
         _promote._activate.ActivateError,
     ) as exc:
         print(f"dev-base-postboot-promotion: ERROR: {exc}", file=sys.stderr)

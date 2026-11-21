@@ -116,6 +116,37 @@ class BaseUpdatePromotionTests(unittest.TestCase):
         with self.assertRaises(promote.PromotionError):
             promote.evaluate_health(**evidence)
 
+    def test_compatible_checkout_requires_proof_and_current_surface_health(self):
+        runtime = "b" * 40
+        evidence = self.evidence()
+        evidence["source_sha"] = runtime
+        evidence["healthy_sha"] = runtime
+        evidence["base_heartbeat"]["sourceSha"] = runtime
+        evidence["surface_heartbeat"]["sourceSha"] = runtime
+        with self.assertRaises(promote.PromotionError):
+            promote.evaluate_health(**evidence)
+        def proof(artifact, source):
+            return (artifact, source) == (self.RELEASE, runtime)
+        health = promote.evaluate_health(**evidence, prove_source_compatibility=proof)
+        self.assertEqual(health["release_sha"], self.RELEASE)
+        self.assertEqual(health["runtime_source_sha"], runtime)
+        self.assertEqual(health["boot_source_sha"], runtime)
+        evidence["surface_heartbeat"]["sourceSha"] = self.RELEASE
+        with self.assertRaises(promote.PromotionError):
+            promote.evaluate_health(**evidence, prove_source_compatibility=proof)
+
+    def test_runtime_promotion_does_not_remove_supervisor_request(self):
+        with tempfile.TemporaryDirectory() as temp:
+            esp, state, *_ = self.fixture(Path(temp))
+            receipt = promote.promote(
+                esp_root=esp, state_root=state,
+                health=promote.evaluate_health(**self.evidence()),
+                clear_refresh_marker=False,
+            )
+            self.assertTrue(receipt["promoted"])
+            self.assertEqual(receipt["boot_refresh_marker_status"], "deferred-to-supervisor")
+            self.assertEqual((state / "boot-refresh-required").read_text().strip(), self.RELEASE)
+
     def test_duplicate_candidate_cmdline_identity_is_rejected(self):
         evidence = self.evidence()
         evidence["cmdline"] += " ordax.base_slot=b"

@@ -253,6 +253,37 @@ class HotUpdateSupervisorContractTests(unittest.TestCase):
             )
             self.assertEqual(result.stdout, "candidate-ready:" + artifact)
 
+    def test_supervisor_consumes_only_matching_postflight_receipt(self):
+        import os
+        import json
+        source = SYSTEM_SUPERVISOR.read_text(encoding="utf-8")
+        def function(name):
+            return name + "() {" + source.split(name + "() {", 1)[1].split("\n}\n", 1)[0] + "\n}"
+        script = "\n".join(function(name) for name in (
+            "read_state_value", "is_sha", "reconcile_dev_base_promotion",
+        )).replace("/bin/busybox sed", "sed").replace("/bin/busybox grep", "grep")
+        script += "\nlog() { :; }\nreconcile_dev_base_promotion\n"
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory)
+            artifact, request, newer = "a" * 40, "b" * 40, "c" * 40
+            (root / "promoted").write_text(artifact + "\n" + request + "\n")
+            (root / "result").write_text(json.dumps({
+                "source_commit": artifact, "requested_source_commit": request,
+                "status": "promoted", "postflight_verified": True, "health_verified": True,
+            }))
+            pending = root / "pending"
+            requested = root / "request"
+            env = {**os.environ, "DISTRIBUTION_PROFILE": "owner-development",
+                   "BOOT_REFRESH_FILE": str(pending), "DEV_BASE_REQUEST_FILE": str(requested),
+                   "DEV_BASE_PROMOTED_FILE": str(root / "promoted"),
+                   "DEV_BASE_PROMOTION_RESULT_FILE": str(root / "result")}
+            for revision in (newer, request):
+                pending.write_text(revision + "\n")
+                requested.write_text(revision + "\n")
+                subprocess.run(["sh", "-ec", script], env=env, check=True)
+                self.assertEqual(pending.exists(), revision == newer)
+                self.assertEqual(requested.exists(), revision == newer)
+
     def test_native_base_request_is_not_blocked_by_pending_helper_installation(self):
         supervisor = SYSTEM_SUPERVISOR.read_text(encoding="utf-8")
         manifest = (ROOT / "system/services/base-update/dev-helper-manifest.tsv").read_text(encoding="utf-8")

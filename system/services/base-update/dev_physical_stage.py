@@ -131,6 +131,7 @@ def physical_stage(
     version_root: Path,
     source_commit: str,
     mount_root: Path,
+    requested_source_commit: str | None = None,
     dev_root: Path = Path("/dev"),
     by_label_root: Path = Path("/dev/disk/by-label"),
     sys_class_block: Path = Path("/sys/class/block"),
@@ -138,6 +139,17 @@ def physical_stage(
     mount_command: Path = Path("/bin/mount"),
     umount_command: Path = Path("/bin/umount"),
 ) -> dict:
+    if requested_source_commit is not None:
+        channel = _dev_stage._channel
+        try:
+            head = channel._git_bytes(repo_root, "rev-parse", "HEAD").decode("ascii").strip()
+            if not channel.prove_compatible_source(repo_root, source_commit, requested_source_commit):
+                raise PhysicalDevStageError("Base does not satisfy the requested revision")
+            if not channel.prove_compatible_source(repo_root, requested_source_commit, head):
+                raise PhysicalDevStageError("Base request no longer satisfies the checkout")
+        except channel.DevBaseChannelError as exc:
+            raise PhysicalDevStageError(str(exc)) from exc
+
     manifest = _verified_candidate_manifest(
         candidate_root,
         version_root,
@@ -345,6 +357,7 @@ def main() -> int:
     parser.add_argument("--candidate-root", type=Path, required=True)
     parser.add_argument("--version-root", type=Path, required=True)
     parser.add_argument("--source-commit", required=True)
+    parser.add_argument("--requested-source-commit")
     parser.add_argument(
         "--mount-root",
         type=Path,
@@ -375,6 +388,7 @@ def main() -> int:
             candidate_root=args.candidate_root,
             version_root=args.version_root,
             source_commit=args.source_commit,
+            requested_source_commit=args.requested_source_commit,
             mount_root=args.mount_root,
             dev_root=args.dev_root,
             by_label_root=args.by_label_root,

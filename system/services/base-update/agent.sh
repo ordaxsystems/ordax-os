@@ -534,12 +534,12 @@ prepare_dev_base_physical_stage() {
         return 0
     fi
 
-    # A compatible archived Base may be acquired and materialized now.
-    # Do not stage it until the postboot owner proves separate code and
-    # artifact identities. Preserve the exact-candidate activation contract.
+    # Only stage the verified artifact associated with the pending request.
+    # The physical helper reproves compatibility against the current checkout.
     ready_request_sha=$(/bin/busybox sed -n '2p' "$DEV_BASE_READY_FILE" 2>/dev/null || true)
-    [ "${ready_request_sha:-$ready_sha}" = "$ready_sha" ] || return 0
-    [ "$(read_state_value "$HOST_STATE_ROOT/boot-refresh-required")" = "$ready_sha" ] || return 0
+    ready_request_sha=${ready_request_sha:-$ready_sha}
+    is_sha "$ready_request_sha" || return 0
+    [ "$(read_state_value "$HOST_STATE_ROOT/boot-refresh-required")" = "$ready_request_sha" ] || return 0
 
     preflight_sha=$(read_state_value "$ESP_READONLY_PREFLIGHT_SHA_FILE")
     if [ "$preflight_sha" != "$ready_sha" ] || [ ! -s "$ESP_READONLY_PREFLIGHT_FILE" ]; then
@@ -570,6 +570,7 @@ prepare_dev_base_physical_stage() {
         --candidate-root "$candidate_root" \
         --version-root "$version_root" \
         --source-commit "$ready_sha" \
+        --requested-source-commit "$ready_request_sha" \
         --mount-root "$ESP_STAGE_MOUNT_ROOT" \
         >"$temporary" 2>>"$DEV_BASE_STAGE_LOG"
     then
@@ -674,8 +675,16 @@ prepare_dev_base_postboot_promotion() {
     /bin/busybox grep -q 'ordax.base_slot=' /proc/cmdline 2>/dev/null || return 0
     is_sha "$source_sha" || return 0
 
+    ready_sha=$(read_state_value "$DEV_BASE_READY_FILE")
+    [ "$ready_sha" = "$staged_sha" ] || return 0
+    ready_request_sha=$(/bin/busybox sed -n '2p' "$DEV_BASE_READY_FILE" 2>/dev/null || true)
+    ready_request_sha=${ready_request_sha:-$ready_sha}
+    is_sha "$ready_request_sha" || return 0
+    [ "$(read_state_value "$HOST_STATE_ROOT/boot-refresh-required")" = "$ready_request_sha" ] || return 0
     promoted_sha=$(read_state_value "$DEV_BASE_PROMOTED_FILE")
-    if [ "$promoted_sha" = "$staged_sha" ] && [ -s "$DEV_BASE_PROMOTION_RESULT_FILE" ]; then
+    promoted_request_sha=$(/bin/busybox sed -n '2p' "$DEV_BASE_PROMOTED_FILE" 2>/dev/null || true)
+    if [ "$promoted_sha" = "$staged_sha" ] &&
+       [ "$promoted_request_sha" = "$ready_request_sha" ] && [ -s "$DEV_BASE_PROMOTION_RESULT_FILE" ]; then
         return 0
     fi
 
@@ -707,9 +716,12 @@ prepare_dev_base_postboot_promotion() {
         --healthy-sha /run/ordax-update/healthy-sha \
         --source-sha "$source_sha" \
         --expected-release-sha "$staged_sha" \
+        --owner-worktree /srv/ordax-repo \
+        --requested-source-sha "$ready_request_sha" \
         >"$temporary" 2>>"$DEV_BASE_PROMOTION_LOG"
     then
         if /bin/busybox grep -Fq "\"source_commit\": \"$staged_sha\"" "$temporary" &&
+           /bin/busybox grep -Fq "\"requested_source_commit\": \"$ready_request_sha\"" "$temporary" &&
            /bin/busybox grep -Fq '"status": "promoted"' "$temporary" &&
            /bin/busybox grep -Fq '"health_verified": true' "$temporary" &&
            /bin/busybox grep -Fq '"postflight_verified": true' "$temporary" &&
@@ -718,10 +730,16 @@ prepare_dev_base_postboot_promotion() {
         then
             /bin/busybox chmod 600 "$temporary" >/dev/null 2>&1 || true
             if /bin/busybox mv -f "$temporary" "$DEV_BASE_PROMOTION_RESULT_FILE"; then
-                if write_state_value "$DEV_BASE_PROMOTED_FILE" "$staged_sha"; then
+                # Publish the artifact/request pair only after postflight.
+                # Supervisor, the request owner, clears the matching marker.
+                promotion_receipt=$DEV_BASE_PROMOTED_FILE.tmp.$
+                if printf '%s\n%s\n' "$staged_sha" "$ready_request_sha" >"$promotion_receipt" &&
+                   /bin/busybox chmod 600 "$promotion_receipt" &&
+                   /bin/busybox mv -f "$promotion_receipt" "$DEV_BASE_PROMOTED_FILE"; then
                     log "development Base healthy candidate promoted: $staged_sha"
                     return 0
                 fi
+                /bin/busybox rm -f "$promotion_receipt" >/dev/null 2>&1 || true
             fi
         fi
         log "development Base promotion result validation failed for $staged_sha"

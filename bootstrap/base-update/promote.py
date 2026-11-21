@@ -16,6 +16,7 @@ from pathlib import Path
 import re
 import stat
 import sys
+from typing import Callable
 
 HERE = Path(__file__).resolve().parent
 _ACTIVATE_SPEC = importlib.util.spec_from_file_location(
@@ -117,6 +118,7 @@ def evaluate_health(
     expected_release_sha: str,
     expected_candidate_slot: str,
     previous_slot: str,
+    prove_source_compatibility: Callable[[str, str], bool] | None = None,
 ) -> dict:
     if not SHA40_RE.fullmatch(expected_release_sha):
         raise PromotionError("expected release SHA is invalid")
@@ -134,16 +136,22 @@ def evaluate_health(
     base = validate_base_heartbeat(base_heartbeat)
     surface = validate_surface_heartbeat(surface_heartbeat)
 
+    def compatible(observed: str) -> bool:
+        if observed == expected_release_sha:
+            return True
+        return (prove_source_compatibility is not None
+                and prove_source_compatibility(expected_release_sha, observed) is True)
+
     comparisons = {
         "cmdline_release": identity["release_sha"] == expected_release_sha,
         "cmdline_slot": identity["slot"] == expected_candidate_slot,
         "base_candidate_release": base["candidateSha"] == expected_release_sha,
-        "base_source_release": base["sourceSha"] == expected_release_sha,
+        "base_source_release": compatible(base["sourceSha"]),
         "base_slot": base["slot"] == expected_candidate_slot,
         "base_current_boot": base["bootId"] == current_boot_id,
-        "checkout_release": source_sha == expected_release_sha,
-        "surface_health_release": healthy_sha == expected_release_sha,
-        "surface_heartbeat_release": surface["sourceSha"] == expected_release_sha,
+        "checkout_release": compatible(source_sha),
+        "surface_health_release": healthy_sha == source_sha,
+        "surface_heartbeat_release": surface["sourceSha"] == source_sha,
         "surface_current_boot": surface["bootId"] == current_boot_id,
     }
     failed = sorted(key for key, passed in comparisons.items() if not passed)
@@ -153,6 +161,8 @@ def evaluate_health(
     return {
         "$schema": "prototype-ordax.base-update-health/1",
         "release_sha": expected_release_sha,
+        "runtime_source_sha": source_sha,
+        "boot_source_sha": base["sourceSha"],
         "candidate_slot": expected_candidate_slot,
         "previous_slot": previous_slot,
         "boot_id": current_boot_id,
@@ -415,6 +425,7 @@ def promote(
     esp_root: Path,
     state_root: Path,
     health: dict,
+    clear_refresh_marker: bool = True,
 ) -> dict:
     if health.get("$schema") != "prototype-ordax.base-update-health/1" or health.get("healthy") is not True:
         raise PromotionError("a validated healthy candidate proof is required")
@@ -478,7 +489,10 @@ def promote(
             discard_prepared_active_record(active_temporary)
 
     active_record_written = finalize_active_record(active_temporary, active_target)
-    boot_refresh_status = clear_boot_refresh_marker(state_root_resolved)
+    boot_refresh_status = (
+        clear_boot_refresh_marker(state_root_resolved)
+        if clear_refresh_marker else "deferred-to-supervisor"
+    )
 
     return {
         "$schema": "prototype-ordax.base-update-promotion-result/1",

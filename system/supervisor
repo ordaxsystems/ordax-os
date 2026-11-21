@@ -16,6 +16,8 @@ PREVIOUS_FILE=$STATE_DIR/previous-commit
 CURRENT_FILE=$STATE_DIR/current-commit
 BOOT_REFRESH_FILE=$STATE_DIR/boot-refresh-required
 DEV_BASE_READY_FILE=$STATE_DIR/dev-base-ready-sha
+DEV_BASE_PROMOTED_FILE=$STATE_DIR/base-update/dev-base-promoted-sha
+DEV_BASE_PROMOTION_RESULT_FILE=$STATE_DIR/base-update/dev-base-promotion-result.json
 DEV_BASE_REQUEST_FILE=$STATE_DIR/dev-base-request-sha
 DEV_BASE_FETCHING_FILE=$STATE_DIR/dev-base-fetching-sha
 DEV_BASE_STAGED_FILE=$STATE_DIR/base-update/dev-base-staged-sha
@@ -1118,10 +1120,6 @@ derive_base_update_progress() {
        [ "${base_progress_ready_request:-$base_progress_ready_sha}" = "$base_progress_pending_sha" ]; then
         # Report the real Base identity, not the head of the code checkout.
         BASE_UPDATE_SHA=$base_progress_ready_sha
-        if [ "$base_progress_ready_sha" != "$base_progress_pending_sha" ]; then
-            BASE_UPDATE_PHASE=candidate-ready
-            return 0
-        fi
         base_progress_readiness_sha=$(read_state_value "$DEV_BASE_ACTIVATION_READINESS_SHA_FILE")
         if [ "$base_progress_readiness_sha" = "$base_progress_ready_sha" ] && [ -s "$DEV_BASE_ACTIVATION_READINESS_FILE" ]; then
             BASE_UPDATE_PHASE=activation-ready
@@ -2717,6 +2715,29 @@ owner_stage_usb_git_once() {
     return 0
 }
 
+reconcile_dev_base_promotion() {
+    [ "$DISTRIBUTION_PROFILE" = owner-development ] || return 0
+    [ -s "$BOOT_REFRESH_FILE" ] && [ ! -L "$BOOT_REFRESH_FILE" ] || return 0
+    [ -s "$DEV_BASE_PROMOTED_FILE" ] && [ ! -L "$DEV_BASE_PROMOTED_FILE" ] || return 0
+    [ -s "$DEV_BASE_PROMOTION_RESULT_FILE" ] && [ ! -L "$DEV_BASE_PROMOTION_RESULT_FILE" ] || return 0
+    completed_artifact=$(read_state_value "$DEV_BASE_PROMOTED_FILE")
+    completed_request=$(/bin/busybox sed -n '2p' "$DEV_BASE_PROMOTED_FILE")
+    is_sha "$completed_artifact" && is_sha "$completed_request" || return 0
+    [ "$(read_state_value "$BOOT_REFRESH_FILE")" = "$completed_request" ] || return 0
+    /bin/busybox grep -Fq "\"source_commit\": \"$completed_artifact\"" "$DEV_BASE_PROMOTION_RESULT_FILE" &&
+        /bin/busybox grep -Fq "\"requested_source_commit\": \"$completed_request\"" "$DEV_BASE_PROMOTION_RESULT_FILE" &&
+        /bin/busybox grep -Fq '"status": "promoted"' "$DEV_BASE_PROMOTION_RESULT_FILE" &&
+        /bin/busybox grep -Fq '"postflight_verified": true' "$DEV_BASE_PROMOTION_RESULT_FILE" &&
+        /bin/busybox grep -Fq '"health_verified": true' "$DEV_BASE_PROMOTION_RESULT_FILE" || return 0
+    # Only the Supervisor owns the pending marker and request lifecycle.
+    # A completed older request must never erase a more recent Base request.
+    rm -f "$BOOT_REFRESH_FILE"
+    if [ "$(read_state_value "$DEV_BASE_REQUEST_FILE")" = "$completed_request" ]; then
+        rm -f "$DEV_BASE_REQUEST_FILE"
+    fi
+    log "development Base request fulfilled by promoted artifact $completed_artifact"
+}
+
 check_for_update() {
     current=$(current_sha)
 
@@ -3249,6 +3270,7 @@ while :; do
     if [ "$OWNER_INITIAL_HEALTH_PENDING" -eq 0 ]; then
         owner_stage_usb_git_once
     fi
+    reconcile_dev_base_promotion
     check_for_update
     # One owner and one event loop. Recheck the pinned signed current slot,
     # local consent and the sole Runtime child only after first Surface

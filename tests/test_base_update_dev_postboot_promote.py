@@ -6,6 +6,7 @@ from __future__ import annotations
 from importlib.util import module_from_spec, spec_from_file_location
 from pathlib import Path
 import unittest
+from unittest.mock import patch
 
 ROOT = Path(__file__).resolve().parents[1]
 MODULE = ROOT / "system/services/base-update/dev_postboot_promote.py"
@@ -23,6 +24,22 @@ promotion = load_module()
 
 
 class DevelopmentPostbootPromotionTests(unittest.TestCase):
+    def test_owner_proof_checks_actual_head_and_request(self):
+        artifact, request, current = "a" * 40, "b" * 40, "c" * 40
+        with patch.object(promotion._channel, "_git_bytes", return_value=current.encode()), \
+             patch.object(promotion._channel, "prove_compatible_source", return_value=True) as check:
+            proof = promotion._owner_source_proof(Path("."), artifact, request, current)
+            self.assertTrue(proof(artifact, current))
+            self.assertEqual([call.args[1:] for call in check.call_args_list],
+                             [(artifact, request), (request, current), (artifact, current)])
+        with patch.object(promotion._channel, "_git_bytes", return_value=artifact.encode()):
+            with self.assertRaisesRegex(promotion.PostbootPromotionError, "checkout changed"):
+                promotion._owner_source_proof(Path("."), artifact, request, current)
+        with patch.object(promotion._channel, "_git_bytes", return_value=current.encode()), \
+             patch.object(promotion._channel, "prove_compatible_source", return_value=False):
+            with self.assertRaisesRegex(promotion.PostbootPromotionError, "no longer satisfies"):
+                promotion._owner_source_proof(Path("."), artifact, request, current)
+
     def test_normal_boot_is_not_a_candidate(self):
         with self.assertRaises(promotion.NotCandidateBoot):
             promotion._candidate_identity(
