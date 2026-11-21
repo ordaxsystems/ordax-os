@@ -195,6 +195,9 @@ class CreatorKernelReuseWorkflowTests(unittest.TestCase):
             build,
         )
         self.assertIn("owner_validation_pr", workflow)
+        self.assertIn("DEV_BASE_OWNER_MAIN_BACKFILL=$GITHUB_SHA", workflow)
+        self.assertIn("DEV_BASE_OWNER_BACKFILL=ALREADY_PUBLISHED", workflow)
+        self.assertIn('current_main="$(gh api "repos/$GITHUB_REPOSITORY/git/ref/heads/main"', workflow)
         authority = self.step_block(
             workflow, "Authorize exact Owner validation dispatch or confirmed main push"
         )

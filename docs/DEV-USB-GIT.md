@@ -831,3 +831,14 @@ O recibo de promoção mantém os SHAs de artefato, solicitação e código; ape
 o Supervisor encerra a solicitação correspondente após postflight, preservando
 uma solicitação mais recente. A autorização de armar one-shot continua
 independente e não é concedida por esta resolução.
+
+### Publicação manual de Base binária faltante na main, sem PR
+
+Se uma revisão produtora não publicou a Base e commits seguintes avançaram
+somente o código Git-atualizável, os builds por push continuam evitados.
+O workflow canônico Development Base Channel admite `workflow_dispatch`
+com `publish_owner_candidate=true` em `main`, somente por `ordaxos-admin`.
+A revisão executada deve coincidir com a HEAD remota da `main` e a mesma
+release não pode já existir. Reutiliza cache e contratos de integridade
+do canal existente, sem reescrever USB, ativar one-shot ou promover Stable.
+Publicação isolada por PR continua exigindo a prova anterior de draft/HEAD.
