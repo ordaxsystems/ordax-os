@@ -574,6 +574,71 @@ def verify_materialized(path: Path, expected_commit: str) -> dict:
     return manifest
 
 
+def _reuse_bound_asset(
+    destination_root: Path,
+    target: Path,
+    binding: dict,
+    destination: Path,
+) -> bool:
+    """Reuse bytes from existing exact-commit slots, never their authority.
+
+    The freshly acquired manifest for the requested commit owns size and SHA-256.
+    A donor is only a byte source; its commit, manifest and filename grant no
+    authorization. Copy and hash the same opened regular file into the private
+    staging directory; never hardlink mutable slots or publish partial bytes.
+    """
+    for candidate in destination_root.iterdir():
+        if candidate == target or SHA40_RE.fullmatch(candidate.name) is None:
+            continue
+        if candidate.is_symlink() or not candidate.is_dir():
+            continue
+        donor = candidate / binding["name"]
+        try:
+            metadata = donor.lstat()
+            if not stat.S_ISREG(metadata.st_mode) or metadata.st_size != binding["size"]:
+                continue
+            descriptor = os.open(
+                donor,
+                os.O_RDONLY
+                | getattr(os, "O_NOFOLLOW", 0)
+                | getattr(os, "O_CLOEXEC", 0)
+                | getattr(os, "O_NONBLOCK", 0)
+                | getattr(os, "O_BINARY", 0),
+            )
+        except OSError:
+            continue
+
+        accepted = False
+        try:
+            with os.fdopen(descriptor, "rb") as source:
+                opened = os.fstat(source.fileno())
+                if (not stat.S_ISREG(opened.st_mode)
+                        or not os.path.samestat(metadata, opened)
+                        or opened.st_size != binding["size"]):
+                    continue
+                with destination.open("xb") as output:
+                    remaining = binding["size"]
+                    digest = hashlib.sha256()
+                    while remaining:
+                        chunk = source.read(min(1024 * 1024, remaining))
+                        if not chunk:
+                            break
+                        output.write(chunk)
+                        digest.update(chunk)
+                        remaining -= len(chunk)
+                    if remaining or source.read(1) or digest.hexdigest() != binding["sha256"]:
+                        continue
+                    output.flush()
+                    os.fsync(output.fileno())
+                    accepted = True
+        finally:
+            if not accepted:
+                destination.unlink(missing_ok=True)
+        if accepted:
+            return True
+    return False
+
+
 def acquire(
     source_commit: str,
     destination_root: Path,
@@ -603,19 +668,6 @@ def acquire(
     except (UnicodeError, json.JSONDecodeError) as exc:
         raise DevBaseChannelError("development Base manifest is invalid JSON") from exc
 
-    kernel = _fetch_bytes(
-        manifest["kernel"]["url"],
-        MAX_KERNEL_BYTES,
-        opener=opener,
-    )
-    initramfs = _fetch_bytes(
-        manifest["initramfs"]["url"],
-        MAX_INITRAMFS_BYTES,
-        opener=opener,
-    )
-    _verify_payload(kernel, manifest["kernel"], "kernel")
-    _verify_payload(initramfs, manifest["initramfs"], "initramfs")
-
     temporary = Path(
         tempfile.mkdtemp(
             prefix=f".staging-{source_commit}-",
@@ -624,15 +676,24 @@ def acquire(
     )
     committed = False
     try:
-        _write_synced(temporary / "vmlinuz", kernel)
-        _write_synced(temporary / "initrd.gz", initramfs)
-        _download_binding_to_path(
-            manifest["rootfs"],
-            temporary / "rootfs.tar",
-            MAX_ROOTFS_BYTES,
-            opener=opener,
-            timeout_seconds=ROOTFS_DOWNLOAD_TIMEOUT_SECONDS,
-        )
+        for key, max_bytes in (
+            ("kernel", MAX_KERNEL_BYTES),
+            ("initramfs", MAX_INITRAMFS_BYTES),
+            ("rootfs", MAX_ROOTFS_BYTES),
+        ):
+            binding = manifest[key]
+            destination = temporary / binding["name"]
+            if _reuse_bound_asset(destination_root, target, binding, destination):
+                continue
+            if key == "rootfs":
+                _download_binding_to_path(
+                    binding, destination, max_bytes, opener=opener,
+                    timeout_seconds=ROOTFS_DOWNLOAD_TIMEOUT_SECONDS,
+                )
+            else:
+                payload = _fetch_bytes(binding["url"], max_bytes, opener=opener)
+                _verify_payload(payload, binding, key)
+                _write_synced(destination, payload)
         _write_synced(temporary / "dev-base.json", manifest_bytes)
         _fsync_dir(temporary)
         os.rename(temporary, target)
