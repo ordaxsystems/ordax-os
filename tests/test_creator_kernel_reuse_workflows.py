@@ -199,7 +199,12 @@ class CreatorKernelReuseWorkflowTests(unittest.TestCase):
         self.assertIn('owner_build_out="$RUNNER_TEMP/dev-base-channel/owner-build-output"', build)
         self.assertIn('--profile owner-development --out "$owner_build_out"', build)
         self.assertIn('mv "$owner_build_out" out/dev-rootfs', build)
-        self.assertNotIn('--profile owner-development --out out/dev-rootfs', build)
+        # Verification of the moved bytes is expected; only the builder itself
+        # must never receive an in-repository output directory.
+        self.assertNotIn(
+            'bootstrap/independent-base/build.py build \\\n              --profile owner-development --out out/dev-rootfs',
+            build,
+        )
         self.assertLess(build.index('verify \\\n              --profile owner-development --out "$owner_build_out"'),
                         build.index('mv "$owner_build_out" out/dev-rootfs'))
         self.assertIn("owner_validation_pr", workflow)
