@@ -726,6 +726,28 @@ class DevBaseConsumerTests(unittest.TestCase):
 
         return open_url
 
+    @unittest.skipUnless(os.name == "nt", "Windows native acquisition only")
+    def test_windows_acquire_reuses_os_authority_without_unix_directory_fsync(self):
+        kernel = b"kernel-windows"
+        initramfs = b"initrd-windows"
+        rootfs = b"rootfs-windows"
+        manifest = self.descriptor(kernel, initramfs, rootfs)
+        with tempfile.TemporaryDirectory() as temporary:
+            root = Path(temporary)
+            target, reused = consumer.acquire(
+                SOURCE, root,
+                opener=self.opener_for(manifest, kernel, initramfs, rootfs),
+            )
+            self.assertFalse(reused)
+            self.assertEqual(consumer.verify_materialized(target, SOURCE), manifest)
+            self.assertEqual((target / "rootfs.tar").read_bytes(), rootfs)
+            again, reused = consumer.acquire(
+                SOURCE, root,
+                opener=lambda *_args, **_kwargs: self.fail("Windows acquired twice"),
+            )
+            self.assertTrue(reused)
+            self.assertEqual(again, target)
+
     def test_acquire_materializes_exact_candidate_and_reuses_it_offline(self):
         kernel = b"kernel-dev-channel\n"
         initramfs = b"initramfs-dev-channel\n"

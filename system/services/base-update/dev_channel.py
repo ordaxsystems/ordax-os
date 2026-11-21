@@ -229,7 +229,8 @@ def _download_binding_to_path(
             | os.O_CREAT
             | os.O_EXCL
             | getattr(os, "O_CLOEXEC", 0)
-            | getattr(os, "O_NOFOLLOW", 0),
+            | getattr(os, "O_NOFOLLOW", 0)
+            | getattr(os, "O_BINARY", 0),
             0o600,
         )
         digest = hashlib.sha256()
@@ -277,7 +278,8 @@ def _write_synced(path: Path, payload: bytes, mode: int = 0o600) -> None:
         | os.O_CREAT
         | os.O_EXCL
         | getattr(os, "O_CLOEXEC", 0)
-        | getattr(os, "O_NOFOLLOW", 0),
+        | getattr(os, "O_NOFOLLOW", 0)
+        | getattr(os, "O_BINARY", 0),
         mode,
     )
     try:
@@ -293,6 +295,12 @@ def _write_synced(path: Path, payload: bytes, mode: int = 0o600) -> None:
 
 
 def _fsync_dir(path: Path) -> None:
+    # Windows exposes no directory fd fsync via os.open. For acquisition
+    # only, files are individually flushed, then the immutable directory is
+    # published with a write-through native move and reverified by hash.
+    # Keep the full POSIX directory barrier on the booted OrdaX OS.
+    if os.name == "nt":
+        return
     descriptor = os.open(
         path,
         os.O_RDONLY
@@ -304,6 +312,23 @@ def _fsync_dir(path: Path) -> None:
         os.fsync(descriptor)
     finally:
         os.close(descriptor)
+
+
+def _publish_candidate_directory(source: Path, target: Path) -> None:
+    if os.name != "nt":
+        os.rename(source, target)
+        return
+    # MOVEFILE_WRITE_THROUGH; deliberately omit REPLACE_EXISTING.
+    # Promotion remains within one parent directory and one filesystem.
+    import ctypes
+    kernel = ctypes.WinDLL("kernel32", use_last_error=True)
+    kernel.MoveFileExW.argtypes = (ctypes.c_wchar_p, ctypes.c_wchar_p, ctypes.c_uint32)
+    kernel.MoveFileExW.restype = ctypes.c_int
+    if not kernel.MoveFileExW(str(source), str(target), 0x00000008):
+        error = ctypes.get_last_error()
+        if error in (80, 183):
+            raise FileExistsError(error, "immutable development Base already exists", str(target))
+        raise OSError(error, "development Base directory promotion failed", str(target))
 
 
 def _canonical_archive_path(value: str) -> bool:
@@ -867,7 +892,7 @@ def acquire(
                 _write_synced(destination, payload)
         _write_synced(temporary / "dev-base.json", manifest_bytes)
         _fsync_dir(temporary)
-        os.rename(temporary, target)
+        _publish_candidate_directory(temporary, target)
         committed = True
         _fsync_dir(destination_root)
     except FileExistsError:
