@@ -2,7 +2,7 @@
   "$schema": "prototype-ordax.studio-runtime-source-lock/1",
   "source": {
     "repository": "https://github.com/ordaxsystems/ordax-runtime",
-    "commit": "1453f0bd97404bad575cae0516a9c53c1d802f59",
+    "commit": "a2333e238f6cbd268a4207c06c78f6f92be72c19",
     "compatibility_contract": {
       "path": "docs/contracts/ordax-os-runtime-compatibility.json",
       "schema": "ordax.studio-runtime-compatibility/1",
@@ -81,13 +81,13 @@
   "candidate_evidence_by_target": {
     "linux-amd64": {
       "kind": "ci-only-unsigned",
-      "source_commit": "1453f0bd97404bad575cae0516a9c53c1d802f59",
+      "source_commit": "a2333e238f6cbd268a4207c06c78f6f92be72c19",
       "platform": "linux-amd64-musl",
-      "workflow_run_id": 44184055813,
-      "artifact_id": 14371684909,
-      "archive_sha256": "8ce21a2520443a87ec5778a210b0391cd9d5daf375f8d247ddebbfef3a91df89",
-      "executable_sha256": "004792b4b4b6fdae785c61b3382faee5264bae61f00a80809032a6a9913faed3",
-      "executable_size_bytes": 18155816,
+      "workflow_run_id": 44216619491,
+      "artifact_id": 14389165874,
+      "archive_sha256": "5c11b9c4b5b8aa20c857cc138d30af3fe1d7bb1679287260fb591d2bdeb44d57",
+      "executable_sha256": "ff269bb3ffa1ec499304a41cdc4ea737e413f545b0797ab274e33f4ca0e9424d",
+      "executable_size_bytes": 18156272,
       "offline_proof_verified": true,
       "device_execution_proven": false,
       "signed_distribution_authorized": false,
