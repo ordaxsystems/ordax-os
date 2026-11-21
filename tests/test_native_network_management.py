@@ -220,6 +220,7 @@ class NativeNetworkManagementTests(unittest.TestCase):
             paths = native_host.network_broker_paths(temporary)
             received: list[list[str]] = []
             failures: list[Exception] = []
+            release_broker = threading.Event()
             def serve_once():
                 descriptor = None
                 try:
@@ -240,6 +241,9 @@ class NativeNetworkManagementTests(unittest.TestCase):
                             encoding="ascii",
                         )
                         Path(paths["response"]).chmod(0o600)
+                        # The real broker holds its FIFO open for the session.
+                        # Avoid closing the reader before the writer completes.
+                        release_broker.wait(timeout=3)
                         return
                     raise TimeoutError("mock broker did not receive a native request")
                 except Exception as exc:
@@ -255,6 +259,7 @@ class NativeNetworkManagementTests(unittest.TestCase):
                     password="lab-strong-passphrase", timeout_seconds=3,
                 )
             finally:
+                release_broker.set()
                 thread.join(timeout=3)
             self.assertFalse(thread.is_alive())
             self.assertEqual(failures, [])
