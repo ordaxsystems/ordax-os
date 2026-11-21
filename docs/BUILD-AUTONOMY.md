@@ -139,12 +139,9 @@ For an exact Pull-script-only pull request (optionally accompanied by its own
 tests, documentation and approved non-producer contracts), the existing
 `Owner Development Preflight` is the required code/recovery validation.
 `tools/ci/creator_owner_impact.py` suppresses only the redundant **Creator
-USB build-and-publish job on that PR**. Mixed changes affecting boot, Base,
+USB build-and-publish job on PR and main pushes**. Mixed changes affecting boot, Base,
 Supervisor, native helpers, physical media or unknown owners still fail
-closed to full USB proof. The same Pull source change on a `main` push
-**continues to produce/validate a new USB image** under the existing
-distribution policy, and manual Creator dispatch also forces full proof.
-This is review-time CI isolation, not an unreviewed change to USB publication.
+closed to full USB proof. Pull-only main pushes reuse the existing verified media; the installed checkout receives the change via Git. Manual Creator dispatch still forces full proof for explicitly requested new media. See [the central DEV policy](DEVELOPMENT-WORKFLOW.md#urgente--dev-direto-e-compilação-por-necessidade-2026-11-21).
 
 The policy is recorded in
 `docs/contracts/build-autonomy.json#owner_dev_pull_ci`, with ownership and

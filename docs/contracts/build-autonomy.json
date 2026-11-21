@@ -156,7 +156,7 @@
     "pull_review_fast_path_scope": "tools/ci/creator_owner_impact.py#PULL_REVIEW_ONLY_PATHS",
     "pull_review_validation_owner": "Owner Development Preflight",
     "pull_only_pull_request_skips_creator_usb_build": true,
-    "pull_source_change_on_main_preserves_creator_usb_publish": true,
+    "pull_source_change_on_main_preserves_creator_usb_publish": false,
     "source_only_pull_paths": [
       "system/surface/runtime/native_host_server.py"
     ],

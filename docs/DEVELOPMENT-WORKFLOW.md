@@ -3,6 +3,12 @@
 Status: CANONICAL FOR PROTOTYPE
 
 
+## URGENTE — DEV direto e compilação por necessidade (2026-11-21)
+
+**Regra transversal para todos os repositórios OrdaX:** editar → aplicar → executar → observar → corrigir. Trabalhar na main quando autorizada; não criar branches, PRs, builds, auditorias ou testes gerais por rotina. Validar só o impacto real. Documentação não dispara compilação. Git é a recuperação de código, não de dados pessoais ou partições.
+
+Plano de execução: (1) remover builds de USB acionados por alterações de source atualizável; (2) separar fundação binária (kernel, drivers, bootloader, interpretadores, WebKit/bibliotecas) em artefatos independentes, reutilizando binários compatíveis; (3) tornar o checkout Git DEV no USB editável e persistente, com aplicação direta e reinício seletivo; (4) usar o mesmo Update Engine em ordax-pull e Creator, sem rebuild de mídia por rotina; (5) reduzir CI de todos os owners a validação causal, reservar homologação completa para mudanças que a exigem e promoções Stable/MVP. Não confundir DEV com produção; preservar autorização de dispositivos, dados, integridade e histórico. Esta é a política central, não copiar para outros repos.
+
 ## Autonomia operacional transversal — Owner/Development (2026-11-19)
 
 **Regra única para todo o ecossistema OrdaX, inclusive novos repositórios.** Enquanto o destino for um dispositivo/instalação **Owner/Development** autorizado, privilegiar operação contínua, implementação imediata e automação real. Esta regra abrange OS, Desktop, Runtime, MCP, Platform, Surface, Apps/Forge, Creator, Site e os serviços do produto. Não significa publicar o perfil DEV nem criar outra autoridade técnica: cada owner implementa seu próprio comportamento pelo contrato existente, sem duplicar a política de execução.

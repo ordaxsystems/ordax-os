@@ -124,7 +124,7 @@ class CreatorOwnerImpactTests(unittest.TestCase):
         self.assertTrue(impact.classify(light, boot, root=self.root)[0])
         self.assertTrue(impact.classify("0" * 40, boot, root=self.root)[0])
 
-    def test_pull_script_only_pr_uses_owner_preflight_main_still_produces_usb(self):
+    def test_pull_script_only_uses_owner_preflight_on_pr_and_main(self):
         workflow = WORKFLOW.read_text(encoding="utf-8")
         preflight = (ROOT / ".github/workflows/owner-dev-preflight.yml").read_text(encoding="utf-8")
         inventory = (ROOT / "tools/ci/preflight_owner_dev.py").read_text(encoding="utf-8")
@@ -136,21 +136,21 @@ class CreatorOwnerImpactTests(unittest.TestCase):
         base = self.commit(workflow, VISUAL)
         pull = self.commit(path="bootstrap/dev-base/ordax-pull")
         self.assertEqual(impact.classify(base, pull, root=self.root, event="pull_request"),
-                         (False, "pull-pr-owner-preflight"))
+                         (False, "pull-source-owner-preflight"))
         self.assertEqual(impact.classify(base, pull, root=self.root, event="push"),
-                         (True, "real-or-unknown-usb-producer:bootstrap/dev-base/ordax-pull"))
+                         (False, "pull-source-owner-preflight"))
         self.assertTrue(impact.classify(base, pull, root=self.root, event="workflow_dispatch")[0])
         self.assertTrue(impact.classify(base, pull, root=self.root, event="unknown")[0])
 
         # A reviewed Pull change and its own regression tests/docs are light;
-        # the same merged main payload is still published with full USB proof.
+        # main uses the same source-only update path.
         for path in ("tests/test_dev_pull_expected_sha.py",
                      "tests/test_dev_checkout_exchange.py",
                      "docs/DEV-USB-GIT.md"):
             head = self.commit(path=path)
             self.assertEqual(impact.classify(base, head, root=self.root, event="pull_request"),
-                             (False, "pull-pr-owner-preflight"))
-            self.assertTrue(impact.classify(base, head, root=self.root, event="push")[0])
+                             (False, "pull-source-owner-preflight"))
+            self.assertFalse(impact.classify(base, head, root=self.root, event="push")[0])
 
         # A mixed Native, Base, boot or untrusted delta must never be hidden
         # behind the otherwise eligible Pull script.

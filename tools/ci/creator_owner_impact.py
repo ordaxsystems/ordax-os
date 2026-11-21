@@ -51,6 +51,7 @@ LIGHT_EXACT = frozenset({
     # no executable Native, USB, release, kernel or signing producer bytes.
     # Keep this exact allowlist; docs/contracts/** cannot be skipped wholesale.
     "docs/README.md",
+    "URGENTE-LEIA.md",
     "docs/SPACES-AND-PROFILES.md",
     "README.md",
     "URGENTE-CONSOLIDACAO-ORDAX.md",
@@ -564,14 +565,13 @@ def classify(base, head, *, root=ROOT, event="push"):
         if not paths:
             return False, "no-changes"
         # The Owner preflight already tests Git transactions, power loss,
-        # recovery and the actual ordax-pull script on a PR. PR-only isolation
-        # is safe because the main push still builds the changed physical USB.
+        # recovery and the actual ordax-pull script. Source-only updates use
+        # the existing verified media on both PR and main pushes.
         # A mixed change to boot, Base, Supervisor, native helper, signer or
         # unknown path never qualifies for this fast path.
-        if (event == "pull_request"
-                and "bootstrap/dev-base/ordax-pull" in paths
+        if ("bootstrap/dev-base/ordax-pull" in paths
                 and set(paths).issubset(PULL_REVIEW_ONLY_PATHS | LIGHT_EXACT)):
-            return False, "pull-pr-owner-preflight"
+            return False, "pull-source-owner-preflight"
         for path in paths:
             if path == WORKFLOW:
                 if not (workflow_trigger_only(base, head, root=root)
@@ -601,6 +601,8 @@ def classify(base, head, *, root=ROOT, event="push"):
                 if not verified_windows_product_blob(head, path, root=root):
                     return True, "windows-product-untrusted-blob:" + path
             elif path in PULL_SOURCE_ONLY_PATHS:
+                continue
+            elif path.startswith(("docs/", "00-PLANOS-PRIORITARIOS/")) and path.endswith(".md"):
                 continue
             elif path.startswith(TEST_ONLY_PREFIX):
                 continue
