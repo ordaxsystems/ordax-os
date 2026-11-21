@@ -959,3 +959,24 @@ A homologação Windows inicial da PR #628 identificou uma dependência antiga d
 - **Fronteira explícita:** novo cartão “Somente observação e armazenamento” informa que novas decisões/ações partem dos chats GPT conectados ao MCP e que o App apenas projeta o SQLite canônico. Os handlers legados permanecem temporariamente no source para compatibilidade durante a extração física, porém não são montados como controles visíveis e seguem bloqueados pela política passiva.
 - **Sem executor novo:** nenhuma operação MCP, tabela, Store, provider ou fluxo de envio foi acrescentado. A remoção definitiva dos handlers antigos será feita junto da migração do executor para evitar dois caminhos concorrentes.
 - **Prova local:** `git diff --check` e `node --check forge/product/desktop/orchestrator-ui.mjs` aprovados; `node --test forge/product/test/desktop-contract.test.mjs forge/product/test/forge-conversation-v21.test.mjs forge/product/test/forge-layout-v2.test.mjs` terminou com **76/76 aprovados**. Nenhum pacote foi reconstruído e nenhum segundo Core/MCP foi iniciado.
+
+
+### Incremento 9 — kernel passivo e cutover MCP-first (21/11/2026)
+
+**Status: implementado no owner de código `ordaxsystems/ordax-apps`, PR #638; integração à main depende dos gates remotos.**
+
+- **Fronteira física concluída no App:** removidos `runTask`, `ordax:tasks:send`, `ownerDispatch`, rota lateral `/owner-dispatch`, pool/scheduler `agent-*` e o módulo `provider-execution-scheduler`. A única WebContentsView `primary` é observacional e nasce com `allowSend:false`.
+- **Catálogo executável simplificado:** `work_send`, `forjador_send`, `proposal_send` e `work_parallel_launch` saíram do catálogo/dispatch. Referências antigas permanecem somente onde necessárias para leitura/reconciliação de recibos históricos.
+- **Cérebro App-owned retirado:** `orchestrator_analyze`, `orchestrator_prepare`, `proposal_review`, continuidade/autonomia mutável e launch de child workers não são operações executáveis. Projeções históricas continuam consultáveis, sem scheduler, retry ou envio.
+- **Coordenação multichat canônica:** `work_plan → work_claim → work_progress/work_memory_set → release/handoff`. O SQLite existente continua SSOT de projetos, Tasks, claims, memória, Runs e recibos; não foi criado banco, MCP, Store ou executor paralelo.
+- **Fencing preservado:** exclusão de projeto bloqueia por Run ativo, claim ativo e recibo running/uncertain reais. Efeitos antigos incertos continuam sem replay automático.
+- **Prova pós-rebase:** suíte focada de App passivo + claims + loopback + startup terminou **98/98**; `desktop-contract.test.mjs` terminou **62/62** e `forge-conversation-v21.test.mjs` **5/5**.
+
+### Incremento 10 — redesign live e DEV por checkout (21/11/2026)
+
+- **Causa da UI antiga comprovada:** a janela observada ainda executava o pacote `OrdaX Forge.__candidate_631`, mantido por supervisor de worktree anterior. O código novo existia, mas não era o processo exibido.
+- **Cutover sem rebuild completo:** o DEV passou para `coreMode: checkout`, reutilizando as dependências canônicas por junction e regenerando apenas o worker preload. O supervisor aponta para o checkout da PR #638; nenhum processo `candidate_631` permanece.
+- **Falha real encontrada e corrigida:** o primeiro cutover expôs `attachProviderView is not defined`; foi restaurado somente o helper neutro de reparenting da única view observacional. O startup agora registra exceções em `%LOCALAPPDATA%\\OrdaX\\Forge\\startup-error.log`.
+- **Layout passivo visível:** shell de três áreas; centro **Atividade do projeto**; rail **Coordenação**; navegação **Atividade / Tarefas / Histórico / Evidências**; copy **Claims, progresso e resultados**; sessões/memória/claims vêm das projeções canônicas.
+- **UI antiga retirada:** composer de execução, “Forjador/Conversa” como rota principal, “Pausar”, sugestões de criação, “Analisar frentes”, toggles de continuidade/autonomia e mensagens de pool de agents deixam a experiência principal. Diagnóstico de projeto é somente leitura.
+- **Limite explícito:** a prova final com três conversas GPT Web reais e independentes, distinguindo chamadas GPT→MCP de testes in-process, continua obrigatória antes do aceite integral da missão. Não declarar esse E2E como concluído apenas pelos testes locais.
