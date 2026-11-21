@@ -90,9 +90,10 @@ test("network failures distinguish WPA, DHCP and controller issues without secre
     ["connect-failed", 409, "connectFailure", "O motivo específico"],
     ["reconnect-failed", 409, "reconnectFailure", "rede salva"],
     ["saved-network-unavailable", 409, "noSavedNetwork", "Não há uma rede Wi-Fi salva"],
-    ["network-broker-unavailable", 503, "brokerUnavailable", "serviço nativo"],
+    ["network-broker-unavailable", 503, "brokerUnavailable", "Wi-Fi está indisponível"],
     ["network-broker-timeout", 503, "brokerTimeout", "demorou demais"],
     ["network-broker-io-failed", 503, "brokerIo", "falhou ao acessar"],
+    ["wifi-key-derivation-unavailable", 503, "keyDerivationUnavailable", "Atualize o OrdaX"],
     ["wifi-tools-unavailable", 503, "wifiTools", "ferramentas Wi-Fi"],
     ["no-wifi-interface", 503, "noInterface", "interface Wi-Fi"],
     ["credential-save-failed", 503, "credentialSave", "não pôde ser salva"],
@@ -133,7 +134,7 @@ test("first-use differentiates rejected Native HTTP input before WPA or DHCP", (
 test("first-use reports Native transport, missing endpoint and snapshot failures without exposing secrets", () => {
   for (const [reason, kind, expected] of [
     ["network-session-unavailable", "sessionUnavailable", "sessão nativa"],
-    ["network-host-unreachable", "hostUnreachable", "serviço nativo"],
+    ["network-host-unreachable", "hostUnreachable", "O Wi-Fi não respondeu"],
     ["network-endpoint-unavailable", "endpointUnavailable", "não oferece esta operação"],
     ["network-native-failure", "nativeFailure", "sem informar a etapa"],
     ["network-snapshot-invalid", "snapshotInvalid", "estado Wi-Fi inválido"],

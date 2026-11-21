@@ -1935,10 +1935,17 @@ def valid_wifi_password(value: object) -> bool:
     )
 
 
+class WifiKeyDerivationUnavailable(RuntimeError):
+    pass
+
+
 def derive_wpa_psk(ssid: str, password: str) -> str:
     if not valid_wifi_ssid(ssid) or not valid_wifi_password(password):
         raise ValueError("invalid Wi-Fi credentials")
-    return hashlib.pbkdf2_hmac(
+    derive_key = getattr(hashlib, "pbkdf2_hmac", None)
+    if derive_key is None:
+        raise WifiKeyDerivationUnavailable("WPA key derivation is unavailable")
+    return derive_key(
         "sha1",
         password.encode("utf-8"),
         ssid.encode("utf-8"),
@@ -5527,6 +5534,9 @@ class NativeHostHandler(SimpleHTTPRequestHandler):
                         # scan becomes a spurious 503 before the broker replies.
                         timeout_seconds=42.0 if action in {"connect", "reconnect"} else (20.0 if action == "scan" else 12.0),
                     )
+            except WifiKeyDerivationUnavailable:
+                self._write_json(503, {"reason": "wifi-key-derivation-unavailable"})
+                return
             except ValueError:
                 # The HTTP and credential contracts were already validated;
                 # a later ValueError is an invalid Native/broker response.

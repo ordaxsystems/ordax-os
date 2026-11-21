@@ -83,6 +83,7 @@ test("native network adapter reports safe WPA/DHCP failures without exposing sec
     ["network-broker-unavailable", "network-broker-unavailable"],
     ["network-broker-timeout", "network-broker-timeout"],
     ["network-broker-io-failed", "network-broker-io-failed"],
+    ["wifi-key-derivation-unavailable", "wifi-key-derivation-unavailable"],
     ["wifi-tools-unavailable", "wifi-tools-unavailable"],
     ["no-wifi-interface", "no-wifi-interface"],
     ["credential-save-failed", "credential-save-failed"],

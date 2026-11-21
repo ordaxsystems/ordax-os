@@ -8,6 +8,7 @@ from pathlib import Path
 import tempfile
 import threading
 import unittest
+from unittest import mock
 
 ROOT = Path(__file__).resolve().parents[1]
 HOST = ROOT / "system" / "surface" / "runtime" / "native_host_server.py"
@@ -49,7 +50,7 @@ class NativeFirstRunHttpTests(unittest.TestCase):
         native.FIRST_RUN_FILE = self.original_receipt
         self.temporary.cleanup()
 
-    def request(self, method="GET", *, value=None, headers=None):
+    def request(self, method="GET", *, path=native.FIRST_RUN_PATH, value=None, headers=None):
         connection = http.client.HTTPConnection("127.0.0.1", self.port, timeout=5)
         outgoing = dict(headers or {})
         body = None
@@ -57,7 +58,7 @@ class NativeFirstRunHttpTests(unittest.TestCase):
             body = json.dumps(value, separators=(",", ":")).encode("utf-8")
             outgoing["Content-Type"] = "application/json"
         try:
-            connection.request(method, native.FIRST_RUN_PATH, body=body, headers=outgoing)
+            connection.request(method, path, body=body, headers=outgoing)
             response = connection.getresponse()
             status = response.status
             response_body = response.read()
@@ -71,6 +72,19 @@ class NativeFirstRunHttpTests(unittest.TestCase):
             "completed": True,
             "accountMode": account_mode,
         }
+
+    def test_wifi_connect_reports_missing_key_derivation_before_broker_dispatch(self):
+        with mock.patch.object(native, "network_broker_available", return_value=True), \
+                mock.patch.object(native, "hashlib", spec=[]):
+            status, body = self.request(
+                "POST", path=native.NETWORK_MANAGEMENT_PATH,
+                headers={native.NETWORK_TOKEN_HEADER: self.server.network_token},
+                value={"action": "connect", "ssid": "IEEE", "password": "password"},
+            )
+        self.assertEqual(status, 503)
+        self.assertEqual(json.loads(body), {"reason": "wifi-key-derivation-unavailable"})
+        self.assertFalse(Path(self.server.network_paths["request"]).exists())
+        self.assertEqual(self.request()[0], 200)
 
     def test_real_http_completion_is_durable_and_replay_is_idempotent(self):
         status, body = self.request()
