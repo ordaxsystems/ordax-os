@@ -1,0 +1,12 @@
+{
+  "name": "ordax-site-host",
+  "private": true,
+  "version": "0.0.0",
+  "type": "module",
+  "engines": {
+    "node": "24.x"
+  },
+  "dependencies": {
+    "@vercel/oidc": "4.0.0"
+  }
+}

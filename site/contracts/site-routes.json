@@ -1,0 +1,62 @@
+{
+  "$schema": "ordax.site-routes/1",
+  "status": "public-presentation-candidate",
+  "canonical_origin_authority": "ordax-os:docs/contracts/public-site-deployment.json",
+  "routes": [
+    {
+      "path": "/",
+      "source": "index.html",
+      "indexable": true
+    },
+    {
+      "path": "/download/",
+      "source": "download/index.html",
+      "indexable": true
+    },
+    {
+      "path": "/login/",
+      "source": "login/index.html",
+      "indexable": false
+    },
+    {
+      "path": "/cadastro/",
+      "source": "cadastro/index.html",
+      "indexable": false
+    },
+    {
+      "path": "/recuperar/",
+      "source": "recuperar/index.html",
+      "indexable": false
+    },
+    {
+      "path": "/recuperar/nova-senha/",
+      "source": "recuperar/nova-senha/index.html",
+      "indexable": false
+    },
+    {
+      "path": "/conta/",
+      "source": "conta/index.html",
+      "indexable": false
+    },
+    {
+      "path": "/licencas/",
+      "source": "licencas/index.html",
+      "indexable": true
+    },
+    {
+      "path": "/privacidade/",
+      "source": "privacidade/index.html",
+      "indexable": true
+    },
+    {
+      "path": "/termos/",
+      "source": "termos/index.html",
+      "indexable": true
+    },
+    {
+      "path": "/web/",
+      "source": "web/index.html",
+      "indexable": false
+    }
+  ]
+}

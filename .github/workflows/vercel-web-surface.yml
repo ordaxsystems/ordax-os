@@ -27,10 +27,11 @@ jobs:
           VERCEL_PROJECT_ID: prj_ftACluUqk6i9DoD9GPIwmgURwckP
           VERCEL_GIT_COMMIT_SHA: ${{ github.sha }}
         run: python3 tools/vercel/build.py
-      - name: Verify independent Site and same-commit Surface
+      - name: Verify canonical Site and same-commit Surface
         run: |
           python3 - <<'PY'
           import json
+          import os
           from pathlib import Path
 
           root = Path.cwd()
@@ -38,7 +39,7 @@ jobs:
           site_pin = json.loads((root / "docs/contracts/public-site-source.json").read_text())
           surface_pin = json.loads((root / "docs/contracts/surface-source.json").read_text())
           assert manifest["site_source_repository"] == site_pin["repository"]
-          assert manifest["site_source_commit"] == site_pin["commit"]
+          assert manifest["site_source_commit"] == os.environ["GITHUB_SHA"]
           assert (root / "out/vercel/web-client-manifest.json").is_file()
           assert (root / "out/vercel/login/index.html").is_file()
           assert (root / "system/surface/ui/surface.mjs").is_file()

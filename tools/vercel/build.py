@@ -22,12 +22,12 @@ from pathlib import Path
 ROOT = Path(__file__).resolve().parents[2]
 OUTPUT = ROOT / "out" / "vercel"
 PUBLIC_PROJECT_ID = "prj_mA9ew6hOfjdqlBr1cC757iMLPQJC"
+SITE_PROJECT_ID = "prj_rEZck0dLNrLlSX9UhjifUzGiFpts"
 WEB_PROJECT_ID = "prj_ftACluUqk6i9DoD9GPIwmgURwckP"
 SHA40_RE = re.compile(r"^[0-9a-f]{40}$")
 WEB_DEPLOYMENT_MANIFEST = "web-deployment-manifest.json"
 WEB_DEPLOYMENT_SCHEMA = "prototype-ordax.web-deployment-bundle/1"
 PUBLIC_ORIGIN = "https://ordax.com.br"
-WEB_LOGIN_SOURCE_CONTRACT = "docs/contracts/public-site-source.json"
 WEB_IDENTITY_SOURCE_FILES = (
     "assets/site.css",
     "assets/account.css",
@@ -50,22 +50,11 @@ class DeploymentBuildError(RuntimeError):
 
 
 def run(*args: str) -> None:
-    # A fetched Site checkout stays immutable between public and Web builds.
-    # Python bytecode belongs to the interpreter cache, never to source input.
+    # Python bytecode belongs to interpreter cache; the local module is immutable in CI.
     result = subprocess.run(args, cwd=ROOT, check=False,
                             env={**os.environ, "PYTHONDONTWRITEBYTECODE": "1"})
     if result.returncode:
         raise DeploymentBuildError("command failed: " + " ".join(args))
-
-
-def load_site_source_resolver():
-    path = ROOT / "tools/vercel/site_source.py"
-    spec = importlib.util.spec_from_file_location("_ordax_external_site_build_source", path)
-    if spec is None or spec.loader is None:
-        raise DeploymentBuildError("external Site resolver unavailable")
-    module = importlib.util.module_from_spec(spec)
-    spec.loader.exec_module(module)
-    return module.resolve
 
 
 def clean_output() -> None:
@@ -76,25 +65,25 @@ def clean_output() -> None:
     OUTPUT.parent.mkdir(parents=True, exist_ok=True)
 
 
-def build_independent_site_candidate(destination: Path) -> str:
-    """Invoke the sole Site-owned builder against the exact pinned commit."""
-    checkout, site_commit = load_site_source_resolver()()
-    builder = checkout / "scripts/build.py"
-    lock = checkout / "contracts/dev-artifact-lock.json"
+def build_independent_site_candidate(destination: Path, source_commit: str) -> str:
+    """Build the canonical in-repository Site from the same OS Git commit."""
+    if not SHA40_RE.fullmatch(source_commit):
+        raise DeploymentBuildError("canonical OS source commit required for Site")
+    builder = ROOT / "site/scripts/build.py"
+    lock = ROOT / "site/contracts/dev-artifact-lock.json"
+    if not builder.is_file() or not lock.is_file():
+        raise DeploymentBuildError("canonical local Site module missing")
     run(sys.executable, str(builder), "build",
-        "--source-commit", site_commit,
+        "--source-commit", source_commit,
         "--dev-lock", str(lock),
         "--public-origin", PUBLIC_ORIGIN,
         "--out", str(destination))
     run(sys.executable, str(builder), "verify", "--out", str(destination))
-    return site_commit
+    return source_commit
 
 
 def build_public(source_commit: str) -> None:
-    # The Vercel account gateway stays in OS; all static Site output now
-    # belongs to the independent Site builder. No local portal fallback.
-    del source_commit
-    build_independent_site_candidate(OUTPUT)
+    build_independent_site_candidate(OUTPUT, source_commit)
 
 
 def copy_unique(source: Path, destination: Path) -> None:
@@ -115,17 +104,16 @@ def sha256_file(path: Path) -> str:
 
 
 def compose_web_identity_bootstrap(source_commit: str) -> None:
-    """Compose Web login from the independently verified Site bundle.
+    """Compose Web login from the same OS-commit Site module.
 
     One owner renders its HTML, styles and brand. Web selects only the
     necessary output files and rewrites off-host public-account links.
     """
-    del source_commit
-    # No private OS copy of the Site renderer, CSS compiler or HTML is used.
+    # The renderer is owned once by the local site/scripts module.
     (ROOT / "out").mkdir(parents=True, exist_ok=True)
     with tempfile.TemporaryDirectory(prefix=".ordax-web-site-", dir=ROOT / "out") as tmp:
         candidate = Path(tmp) / "site"
-        build_independent_site_candidate(candidate)
+        build_independent_site_candidate(candidate, source_commit)
         for relative in WEB_IDENTITY_SUPPORT_FILES:
             copy_unique(candidate / relative, OUTPUT / relative)
         login_source = candidate / "login/index.html"
@@ -197,16 +185,15 @@ def write_web_deployment_manifest(source_commit: str) -> None:
             "sha256": sha256_file(path),
             "size": path.stat().st_size,
         })
-    source_pin = json.loads((ROOT / WEB_LOGIN_SOURCE_CONTRACT).read_text(encoding="utf-8"))
     manifest = {
         "$schema": WEB_DEPLOYMENT_SCHEMA,
         "source_commit": source_commit,
-        "site_source_repository": source_pin["repository"],
-        "site_source_commit": source_pin["commit"],
+        "site_source_repository": "ordaxsystems/ordax-os",
+        "site_source_commit": source_commit,
         "surface_manifest": "web-client-manifest.json",
         "login_path": "/login/",
-        "login_presentation_owner": "ordaxsystems/ordax-site:site/login/index.html",
-        "login_runtime_owner": "ordaxsystems/ordax-site:site/assets/site.js",
+        "login_presentation_owner": "ordaxsystems/ordax-os:site/public/login/index.html",
+        "login_runtime_owner": "ordaxsystems/ordax-os:site/public/assets/site.js",
         "host_only_session_required": True,
         "identity_support_files": list(WEB_IDENTITY_SUPPORT_FILES),
         "files": records,
@@ -272,6 +259,7 @@ def main() -> int:
 
     role = {
         PUBLIC_PROJECT_ID: "public-site",
+        SITE_PROJECT_ID: "ordax-site",
         WEB_PROJECT_ID: "ordax-web",
     }.get(project_id)
     if role is None:
@@ -280,7 +268,7 @@ def main() -> int:
 
     try:
         clean_output()
-        if project_id == PUBLIC_PROJECT_ID:
+        if project_id in (PUBLIC_PROJECT_ID, SITE_PROJECT_ID):
             build_public(source_commit)
         else:
             build_web(source_commit)

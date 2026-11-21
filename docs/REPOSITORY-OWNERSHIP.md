@@ -128,15 +128,15 @@ Não é owner de:
 - Product MCP/grants remotos.
 
 Desktop fixa sua **dependência direta de composição OS**; não mantém pins independentes de Surface, Apps ou Intelligence quando esses componentes já são transitivos ao candidato OrdaX.
-### 7. ordaxsystems/ordax-site
+### 7. Site público — módulo site/ no ordax-os
 
-**Papel:** fonte e build independentes da apresentação pública (landing, catálogo visual de downloads, páginas legais, login/recuperação e Conta somente na camada visual).
+**Papel:** apresentação pública, páginas legais, login/recuperação e Conta visual, com raiz estática em site/public/.
 
-O único código de apresentação, CSS, assets, rotas, i18n e testes do Site pertence ao `ordaxsystems/ordax-site`. O OS consome o commit imutável descrito em `docs/contracts/public-site-source.json`, inclusive no build público e no bootstrap de login Web. A montagem de build não cria um segundo source owner.
+O único código do Site, seus estilos, assets, internacionalização, renderizador, contratos e testes estão em ordaxsystems/ordax-os/site/. O Site usa o mesmo commit Git do OS, sem pin de outro repositório, clone externo, submódulo ou segundo owner.
 
-Identity, sessão, autorização, billing, publicação assinada de releases, domínios e o proxy do gateway **não** pertencem ao Site. Esses serviços mantêm a autoridade no OS/Platform e apenas fornecem APIs/autorização de mesma origem ao frontend. O ambiente `ordax-site-dev` é separado da operação de produção.
+Os entrypoints Vercel de Conta e OAuth são apenas interfaces de host para as APIs existentes em api/ do próprio OS. Identity, sessão, autorização, billing, domínios, assinatura de releases e grants continuam nos respectivos owners existentes. Não há bridge, materializador de gateway, API alternativa nem implantação adicional. O projeto Vercel ordax-site existente deve manter domínios e proteção durante o cutover.
 
-**Exceção transitória de staging:** o host Dev do Site pode materializar a closure imutável do gateway de Conta diretamente do source owner apenas pelo lock Site `contracts/canonical-gateway-source.json`. Isso é um bridge de hospedagem, não transferência de ownership nem modelo de produção. O lock deve permanecer `production_authorized=false`, identificar owner/consumer e conter condição de remoção; a exceção termina quando o owner fornecer gateway same-origin implantado/versionado ou artefato publicado que dispense importar source do OS.
+A origem Git legada somente pode ser arquivada após confirmar que a produção aponta para o commit do ordax-os/main, sem branches, commits ou PRs pendentes.
 
 ### 8. ordaxsystems/ordax-creator
 
@@ -174,16 +174,14 @@ de código é autorizado no repositório Intelligence por esta definição.
 
 ## Fluxos oficiais
 
-### Site público independente
+### Site público canônico no OS
 
-```text
-ordaxsystems/ordax-site (revisão fixa em docs/contracts/public-site-source.json)
-  -> build independente de páginas, estilo, assets e i18n
-  -> bundle estático verificado, consumido por ordaxsystems/ordax-os no Web
-  -> Identity, autorização e publicador de releases permanecem em seus owners
-```
-
-O código da apresentação pública não é compilado a partir de `sites/public/` no OS. A integração de fonte para desenvolvimento não equivale a deploy de produção.
+ordaxsystems/ordax-os/main:site/
+  -> site/public/ (páginas, estilo, assets e i18n)
+  -> site/scripts/build.py (builder e validador)
+  -> api/ e lib/ do próprio OS (Identity compartilhada sem cópia)
+  -> bundle verificado para o projeto Vercel existente e bootstrap Web
+  -> sem outro commit Git, clone ou segundo pipeline
 
 ### Surface visual compartilhada Web / Native
 
@@ -338,7 +336,7 @@ Atualizado em **2026-11-13**. Esta tabela resume roles; a autoridade executável
 | Runtime / Device Host Windows | `ordaxsystems/ordax-runtime` | canônico |
 | Product MCP / Control Plane / connectors | `ordaxsystems/ordax-platform` | canônico |
 | Creator Core/UI/consumer Windows | `ordaxsystems/ordax-creator` | canônico; mídia/release continuam produzidas pelo OS |
-| Site público | `ordaxsystems/ordax-site` | canônico para apresentação/build público |
+| Site público | `ordaxsystems/ordax-os:site/` | canônico para apresentação/build público |
 | Intelligence portátil | `ordaxsystems/ordax-intelligence` | source candidate; autoridade ativa depende do lock/cutover do OS |
 | Incubação antiga | `washingtonmsdj/mcp-blender` | legado aposentado; não recebe novas features |
 

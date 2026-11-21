@@ -13,7 +13,7 @@ class RepositoryOwnershipContractTests(unittest.TestCase):
     def test_canonical_modules_include_same_repo_surface_visual_owner(self):
         repos = self.contract["repositories"]
         self.assertEqual(set(repos), {"platform", "surface", "apps", "runtime", "control_plane", "public_site", "creator", "desktop"})
-        self.assertEqual(repos["public_site"]["repo"], "ordaxsystems/ordax-site")
+        self.assertEqual(repos["public_site"]["repo"], "ordaxsystems/ordax-os")
         self.assertIn("public-site-static-build-and-i18n", repos["public_site"]["owns"])
         self.assertIn("identity-backend", repos["public_site"]["must_not_own"])
         self.assertEqual(repos["surface"]["repo"], "ordaxsystems/ordax-os")
@@ -36,10 +36,10 @@ class RepositoryOwnershipContractTests(unittest.TestCase):
         )
         repos = self.contract["repositories"]
         active = {record["repo"] for record in repos.values()}
-        self.assertEqual(len(active), len(repos)-1, "Surface and OS must share one repository")
+        self.assertEqual(len(active), len(repos) - 2, "Surface and Site share the OS repository")
         self.assertEqual(source["source_repository"], "ordaxsystems/ordax-intelligence")
         self.assertNotIn(source["source_repository"], active)
-        self.assertEqual(len(active | {source["source_repository"]}), 8)
+        self.assertEqual(len(active | {source["source_repository"]}), 7)
         self.assertEqual(source["status"], "integration-candidate")
         self.assertIs(source["cutover_complete"], False)
         self.assertIs(source["activation_authorized"], False)

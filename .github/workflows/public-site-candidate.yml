@@ -3,6 +3,7 @@ on:
   push:
     branches: [main]
     paths:
+      - "site/**"
       - "tools/vercel/**"
       - "docs/contracts/public-site-source.json"
       - "docs/contracts/public-site*.json"
@@ -12,6 +13,7 @@ on:
       - ".github/workflows/public-site-candidate.yml"
   pull_request:
     paths:
+      - "site/**"
       - "tools/vercel/**"
       - "docs/contracts/public-site-source.json"
       - "docs/contracts/public-site*.json"
@@ -43,7 +45,6 @@ jobs:
         run: |
           set -euo pipefail
           python3 -m unittest \
-            tests.test_external_site_source \
             tests.test_public_account_edge_gateway_source \
             tests.test_auth_provider_probe \
             tests.test_account_release_provider_proof \
@@ -84,24 +85,26 @@ jobs:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
         with:
           persist-credentials: false
-      - name: Produce public static bundle from exact Site commit (no deployment)
+      - name: Produce Site from current OS commit (no deployment)
         env:
           VERCEL_PROJECT_ID: prj_mA9ew6hOfjdqlBr1cC757iMLPQJC
           VERCEL_GIT_COMMIT_SHA: ${{ github.sha }}
         run: python3 tools/vercel/build.py
-      - name: Verify independent source authority and inactive services
+      - name: Verify local Site source and inactive services
         run: |
           python3 - <<'PY'
           import json
+          import os
           from pathlib import Path
           root = Path.cwd()
           receipt = json.loads((root / "out/vercel/public-site-manifest.json").read_text())
-          pin = json.loads((root / "docs/contracts/public-site-source.json").read_text())
+          contract = json.loads((root / "docs/contracts/public-site-source.json").read_text())
           catalog = json.loads((root / "out/vercel/releases/catalog.json").read_text())
-          assert receipt["source_commit"] == pin["commit"]
+          assert receipt["source_commit"] == os.environ["GITHUB_SHA"]
+          assert contract["repository"] == "ordaxsystems/ordax-os"
           assert receipt["catalog_status"] == "empty"
           assert catalog["status"] == "empty"
           assert (root / "out/vercel/login/index.html").is_file()
           assert not (root / "sites/public").exists()
-          print("OS_CONSUMES_INDEPENDENT_SITE=PASS")
+          print("OS_SITE_MONOREPO_SOURCE=PASS")
           PY

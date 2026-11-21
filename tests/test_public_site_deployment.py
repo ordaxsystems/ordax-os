@@ -13,6 +13,7 @@ import json
 import re
 import os
 import subprocess
+import shutil
 import tempfile
 import unittest
 from pathlib import Path
@@ -48,7 +49,7 @@ class PublicSiteDeploymentTests(unittest.TestCase):
             output = root / "web"
             staged = root / "verified-site"
 
-            def materialize_test_site(_dest):
+            def materialize_test_site(_dest, _source_commit):
                 staged.mkdir(parents=True, exist_ok=True)
                 for relative in module.WEB_IDENTITY_SUPPORT_FILES:
                     target = _dest / relative
@@ -88,9 +89,9 @@ class PublicSiteDeploymentTests(unittest.TestCase):
                                  b"pinned-site-symbol")
                 module.write_web_deployment_manifest("a" * 40)
                 receipt = json.loads((output / module.WEB_DEPLOYMENT_MANIFEST).read_text(encoding="utf-8"))
-                self.assertEqual(receipt["site_source_repository"], "ordaxsystems/ordax-site")
+                self.assertEqual(receipt["site_source_repository"], "ordaxsystems/ordax-os")
                 self.assertEqual(receipt["login_runtime_owner"],
-                                 "ordaxsystems/ordax-site:site/assets/site.js")
+                                 "ordaxsystems/ordax-os:site/public/assets/site.js")
                 self.assertIn("assets/ordax-symbol.png", receipt["identity_support_files"])
                 self.assertIn("assets/ordax-symbol.png", {item["path"] for item in receipt["files"]})
 
@@ -134,7 +135,7 @@ class PublicSiteDeploymentTests(unittest.TestCase):
                 env["VERCEL_ENV"] = environment
                 env["VERCEL_PROJECT_ID"] = PUBLIC_VERCEL_PROJECT_ID
                 result = subprocess.run(
-                    ["sh", str(script)], cwd=work, env=env,
+                    [shutil.which("sh") or str(Path(__import__("os").environ.get("ProgramFiles", r"C:\Program Files")) / "Git/bin/sh.exe"), str(script)], cwd=work, env=env,
                     capture_output=True, text=True, check=False,
                 )
                 return result.returncode

@@ -71,7 +71,7 @@ A separação de repositórios **separa ownership e ciclos de desenvolvimento; n
 - ordax-os e o compositor Native: host, servicos, Surface, lifecycle, contratos e verificacao de fontes externas restantes. A Surface pertence ao proprio OS.
 - `ordax-desktop` consome **uma composição/candidato OrdaX verificável** para o host Windows. Não integra Surface, Apps ou Intelligence separadamente quando esses componentes já são transitivamente selecionados pela composição do OS.
 - `ordax-creator` consome artefatos de mídia OrdaX já produzidos e verificados. Não recompila kernel, Surface, Runtime, Apps ou Base para o usuário final.
-- `ordax-site` consome somente catálogos/artefatos públicos autorizados e assets publicados pelos owners. O site não participa da composição Native.
+- O Site público pertence ao módulo site/ do próprio ordax-os, com o mesmo commit Git e builder local. Consome somente catálogos e artefatos autorizados pelos owners e não participa da composição Native. A publicação Vercel mantém seu projeto e seus gates.
 - Runtime/Control Plane permanecem owners independentes de suas capacidades e são consumidos por contratos públicos; composição nunca autoriza duplicar dispatcher, grants, OAuth ou controle local em outro repositório.
 
 **Regra transitiva:** um consumidor fixa apenas sua dependência direta canônica. Se A compõe B e B compõe C, A não cria um segundo pin de C sem uma dependência direta real e documentada.

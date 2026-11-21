@@ -75,8 +75,9 @@ class PublicLegalReadinessTests(unittest.TestCase):
         self.assertTrue(identity["legal_readiness"]["full_account_publication_requires_legal_readiness"])
         self.assertFalse(legal["account_activation_ready"])
         source = json.loads(SITE_SOURCE.read_text(encoding="utf-8"))
-        self.assertEqual(source["repository"], "ordaxsystems/ordax-site")
+        self.assertEqual(source["repository"], "ordaxsystems/ordax-os")
         self.assertFalse(source["production_deployment_activated"])
+        self.assertEqual(source["frontend_path"], "site/public")
 
     def test_auth_transport_is_live_but_account_activation_gate_is_not_ready(self):
         contract = json.loads(AUTH_HARDENING.read_text(encoding="utf-8"))

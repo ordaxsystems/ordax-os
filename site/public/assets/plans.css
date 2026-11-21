@@ -1,0 +1,23 @@
+.commercial-section{max-width:1320px;margin:72px auto;padding:24px clamp(16px,4vw,48px);scroll-margin-top:90px}
+.commercial-section>h2{font-size:clamp(28px,4vw,44px);margin:0 0 24px}
+.commercial-catalog{color:var(--foreground);min-width:0}
+.commercial-notice,.commercial-note{color:var(--muted-foreground);line-height:1.6;margin:16px 0}
+.commercial-catalog>.plan-catalog{list-style:none;padding:0;margin:24px 0;display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:16px}
+.commercial-catalog>.plan-catalog>.commercial-plan{display:flex;flex-direction:column;gap:16px;padding:24px;border:1px solid var(--border);border-radius:var(--radius);background:var(--background);min-width:0}
+.commercial-plan h3,.commercial-additions h4{margin:0;font-weight:600;overflow-wrap:anywhere}
+.commercial-catalog .plan-price{font-size:24px;font-weight:600;margin:0;line-height:1.4}
+.commercial-catalog .plan-price small{display:block;font-size:12px;font-weight:400;color:var(--muted-foreground)}
+.commercial-catalog .plan-detail,.commercial-availability{font-size:13px;line-height:1.6;margin:0;color:var(--muted-foreground)}
+.commercial-catalog .status-tag{display:inline-flex;align-self:flex-start;font-size:11px;padding:5px 9px;border:1px solid var(--border);border-radius:var(--radius);color:var(--muted-foreground)}
+.commercial-catalog .commercial-features{list-style:none;padding:0;margin:0;display:grid;gap:10px;width:100%}
+.commercial-catalog .commercial-features>li,body.account-portal .commercial-catalog .commercial-features>li{display:flex;flex-direction:row;justify-content:space-between;align-items:baseline;gap:12px;padding:0;border:0;background:transparent;border-radius:0;font-size:12px;line-height:1.5}
+.commercial-features strong{flex-shrink:0;font-weight:600}
+.commercial-availability{margin-top:auto!important;padding-top:12px;border-top:1px solid var(--border)}
+.commercial-additions{list-style:none;padding:0;display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:16px}
+.commercial-additions>li{padding:20px;border:1px solid var(--border);border-radius:var(--radius);min-width:0}
+.commercial-additions p{font-size:13px;line-height:1.6;color:var(--muted-foreground)}
+.commercial-additions .plan-price{margin:12px 0;font-size:20px}
+body.account-portal .commercial-catalog>.plan-catalog{grid-template-columns:repeat(2,minmax(0,1fr))}
+body.account-portal .commercial-additions{grid-template-columns:repeat(2,minmax(0,1fr))}
+@media(max-width:1100px){.commercial-catalog>.plan-catalog{grid-template-columns:repeat(2,minmax(0,1fr))}}
+@media(max-width:620px){.commercial-catalog>.plan-catalog,.commercial-additions,body.account-portal .commercial-catalog>.plan-catalog,body.account-portal .commercial-additions{grid-template-columns:minmax(0,1fr)}.commercial-section{margin:32px auto}.commercial-catalog>.plan-catalog>.commercial-plan{padding:20px}}

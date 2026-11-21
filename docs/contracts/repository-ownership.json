@@ -104,7 +104,7 @@
       ]
     },
     "public_site": {
-      "repo": "ordaxsystems/ordax-site",
+      "repo": "ordaxsystems/ordax-os",
       "owns": [
         "public-marketing-presentation",
         "public-legal-pages-presentation",

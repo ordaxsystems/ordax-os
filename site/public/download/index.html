@@ -1,0 +1,63 @@
+<!doctype html>
+<html lang="pt-BR">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="description" content="Escolha entre o OrdaX Desktop para Windows em homologação e o OrdaX OS por USB, conforme a disponibilidade oficial.">
+  <title>Download — OrdaX</title>
+  <link rel="stylesheet" href="/assets/site.css">
+  <link rel="stylesheet" href="/assets/download.css?v=titanium-6">
+  <script src="/i18n/catalog.js?v=6f6f6e9ae470" defer></script>
+  <script src="/i18n/runtime.js" defer></script>
+  <script src="/assets/site.js?v=auth-nav-1" defer></script>
+</head>
+<body data-page="download">
+  <a class="skip-link" href="#conteudo">Ir para o conteúdo</a>
+  <!-- ORDAX_PUBLIC_HEADER -->
+  <main id="conteudo" tabindex="-1">
+    <section class="download-hero" aria-labelledby="download-title">
+      <div class="download-hero-art" aria-hidden="true"></div>
+      <div class="download-hero-copy"><p class="eyebrow">ORDA X / FORMAS DE COMEÇAR</p><h1 id="download-title">Seu OrdaX.<br><span>Escolha como começar.</span></h1><p>Use o Desktop no Windows ou prepare o OrdaX OS para iniciar pelo pendrive. São instalações diferentes, com disponibilidade própria.</p><a class="hero-anchor" href="#desktop">Conhecer o Desktop <span aria-hidden="true"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 3v13M7 11l5 5 5-5M4 17v4h16v-4"/></svg></span></a><p class="hero-caption">DESKTOP WINDOWS · HOMOLOGAÇÃO  /  OS USB · EM PREPARAÇÃO</p></div>
+      <span class="art-caption">Imagem conceitual</span>
+    </section>
+
+    <div class="download-container">
+      <!-- Desktop and bootable USB are separate products, never one installer or release gate. -->
+      <nav class="download-mode-nav" aria-label="Escolha o modo de instalação"><a href="#desktop">Desktop para Windows</a><a href="#creator">OrdaX OS por USB</a></nav>
+      <section id="desktop" class="desktop-download" aria-labelledby="desktop-download-title">
+        <div class="desktop-download-heading"><div><p class="eyebrow">USAR NO WINDOWS · SEM PENDRIVE</p><h2 id="desktop-download-title">OrdaX Desktop</h2><p>Uma aplicação Windows com interface Native e serviços locais. Não substitui o Windows e não grava o disco como sistema operacional.</p></div><span class="desktop-release-state">Homologação técnica · Windows x64</span></div>
+        <div class="desktop-download-grid">
+          <article class="desktop-install-card">
+            <h3>Instalador de avaliação</h3><p>O Desktop já tem builds Windows com teste de instalação e atualização NSIS no GitHub Actions. Ainda não existe uma versão pública assinada e autorizada no catálogo OrdaX.</p>
+            <a class="desktop-build-link" href="https://github.com/ordaxsystems/ordax-os/actions/workflows/windows-desktop-dev.yml?query=branch%3Amain" target="_blank" rel="noopener noreferrer">Consultar builds oficiais de homologação <span aria-hidden="true">↗</span></a>
+            <p class="desktop-small">No GitHub, abra a execução bem-sucedida mais recente da branch main e procure o artefato <strong>ordax-os-desktop-dev-alpha-windows</strong>.</p><p class="desktop-small">O acesso aos artefatos pode exigir uma conta GitHub. A disponibilidade é temporária; não é um download público homologado.</p>
+          </article>
+          <article class="desktop-test-card">
+            <h3>Teste o produto real</h3><ol><li>Baixe o artefato do build Windows aprovado e confira a revisão da execução.</li><li>Extraia o instalador e instale no Windows x64; não é necessário preparar USB.</li><li>Abra o OrdaX, percorra o primeiro uso e experimente a Surface, a Conta local e a Aura conforme os serviços disponíveis.</li><li>Verifique o estado dos serviços e a atualização. Registre falhas observadas no computador, não apenas no CI.</li></ol>
+          </article>
+        </div>
+        <p class="desktop-integrity-note"><strong>Antes de instalar:</strong> o instalador de homologação ainda não é uma release pública com assinatura de distribuição. Não desative proteções do Windows para executá-lo. A Aura local e os aplicativos externos dependem de seus próprios gates e podem não estar totalmente disponíveis. Uma versão pública aparecerá apenas quando aprovada pelo publicador oficial.</p>
+      </section>
+      <section id="creator" class="creator-grid" aria-label="OrdaX Creator e disponibilidade">
+        <article class="creator-card">
+          <div class="creator-heading"><div class="creator-app-icon" aria-hidden="true">◯│</div><div><p class="eyebrow">O PRIMEIRO PASSO</p><h2>OrdaX Creator</h2><p>Um app para preparar seu USB.</p></div></div>
+          <p class="creator-description">O Creator seleciona uma release Stable autorizada, verifica seus arquivos e prepara o pendrive para iniciar o OrdaX.</p>
+          <div class="catalog-status" data-download-status role="status" aria-live="polite"><span class="catalog-lock" aria-hidden="true"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 3 4 6v6c0 5 8 9 8 9s8-4 8-9V6ZM8 12l3 3 5-6"/></svg></span><div><strong>Consultando disponibilidade pública</strong><p>Os downloads aparecem aqui quando houver uma publicação autorizada.</p></div></div>
+          <noscript><p>Ative JavaScript para consultar o catálogo. Nenhum download pode ser exibido sem verificar sua disponibilidade.</p></noscript>
+          <p class="creator-footnote">Compatibilidade, tamanho e integridade acompanham cada arquivo publicado.</p>
+        </article>
+        <aside class="release-explainer"><h2>A release Stable<br>vai dentro do Creator.</h2><p>Uma preparação guiada, do arquivo oficial ao primeiro boot.</p><ul class="trust-list"><li><span aria-hidden="true"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 3 4 6v6c0 5 8 9 8 9s8-4 8-9V6ZM8 12l3 3 5-6"/></svg></span><div><strong>Origem verificada</strong><p>A assinatura da release é conferida antes da preparação.</p></div></li><li><span aria-hidden="true"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 6c0-4 16-4 16 0s-16 4-16 0Zm0 0v12c0 4 16 4 16 0V6M4 12c0 4 16 4 16 0"/></svg></span><div><strong>Integridade conferida</strong><p>Os arquivos e a mídia preparada passam por verificação.</p></div></li><li><span aria-hidden="true"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M8 8h8v13H8ZM9 3h6v5H9ZM11 5v1M13 5v1"/></svg></span><div><strong>O sistema roda pelo USB</strong><p>No MVP, você usa o OrdaX diretamente pelo pendrive.</p></div></li></ul></aside>
+      </section>
+
+      <section class="release-list" data-release-list aria-label="Downloads públicos autorizados"></section>
+
+      <section class="download-journey" aria-labelledby="journey-title"><div class="journey-heading"><div><p class="eyebrow">EM TRÊS PASSOS</p><h2 id="journey-title">Do download ao primeiro boot.</h2></div><span>SIMPLES. SEGURO. PORTÁTIL.</span></div><ol class="journey-steps"><li><div class="step-heading"><span>1</span><h3>Baixar o Creator</h3></div><div class="step-symbol" aria-hidden="true"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 3v13M7 11l5 5 5-5M4 17v4h16v-4"/></svg></div><p>Quando disponível, baixe o Creator compatível com seu computador pelo catálogo oficial.</p><small>Os detalhes do arquivo acompanham a publicação.</small></li><li><div class="step-heading"><span>2</span><h3>Conferir e preparar o USB</h3></div><div class="step-symbol" aria-hidden="true"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M8 8h8v13H8ZM9 3h6v5H9ZM11 5v1M13 5v1"/></svg></div><p>Abra o Creator, selecione a release e confira a identidade e a capacidade do pendrive.</p><small>A preparação apaga o conteúdo do USB escolhido. Confirme somente o dispositivo correto.</small></li><li><div class="step-heading"><span>3</span><h3>Iniciar e usar pelo pendrive</h3></div><div class="step-symbol" aria-hidden="true"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="m7 3 14 9-14 9Z"/></svg></div><p>Depois da gravação e verificação, reinicie o computador e selecione o USB no menu de boot.</p><small>O primeiro uso oferece conta e rede opcionais.</small></li></ol></section>
+
+      <section class="preparation-notices" aria-label="Antes de preparar"><div class="erase-notice"><span aria-hidden="true"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="m12 3 10 18H2ZM12 9v5M12 17v1"/></svg></span><div><strong>A preparação apaga o pendrive escolhido.</strong><p>Salve seus arquivos antes. O Creator não oferece instalação no disco interno; a preparação não altera o SSD/NVMe/HD interno.</p></div></div><div class="account-notice"><span aria-hidden="true"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M16 7a4 4 0 1 1-8 0 4 4 0 0 1 8 0ZM4 21v-3a8 8 0 0 1 16 0v3Z"/></svg></span><div><strong>Entrar é opcional</strong><p>Download e primeiro uso não exigem conta online.</p><a href="/login/">Conhecer o acesso à conta ↗</a></div></div></section>
+
+      <section class="integrity-panel" aria-labelledby="integrity-title"><div class="integrity-symbol" aria-hidden="true"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 3 4 6v6c0 5 8 9 8 9s8-4 8-9V6ZM8 12l3 3 5-6"/></svg></div><div><h2 id="integrity-title">Integridade antes da gravação</h2><p>Assinatura, SHA-256 e tamanho vinculam a release aos arquivos oficiais. O Creator verifica esses dados antes de preparar o USB.</p></div><a href="/licencas/">Licenças e código-fonte <span aria-hidden="true">↗</span></a></section>
+    </div>
+  </main>
+  <!-- ORDAX_PUBLIC_FOOTER -->
+</body>
+</html>

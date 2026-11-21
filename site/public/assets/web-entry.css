@@ -1,0 +1,21 @@
+/* Web-entry composition only. Meridian tokens and identity components are
+   shared with login/register through account.css and the canonical brand bridge. */
+.web-entry .web-access-actions { display:grid; gap:10px; min-height:46px; margin-top:20px; }
+.web-entry .web-access-actions > a { display:flex; align-items:center; justify-content:space-between; min-height:46px; }
+.web-entry .account-promise p { margin:0; }
+.web-entry .identity-state[data-status="error"] { border-color:var(--account-danger); background:var(--account-danger-soft); }
+.web-entry .identity-state[data-status="error"] strong { color:var(--account-danger); }
+
+@media (min-width:781px) {
+  .web-entry .account-stage {
+    grid-template-areas: "story access" "details access";
+    grid-template-rows: auto auto;
+    row-gap: 24px;
+  }
+  .web-entry .account-access { align-self: center; }
+  .web-entry .web-details { grid-area: details; display: grid; align-content: start; gap: 16px; }
+}
+
+@media (max-width:780px) {
+  .web-entry .web-details { width: 100%; max-width: 460px; margin: 0 auto; }
+}
