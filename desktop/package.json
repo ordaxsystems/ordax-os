@@ -1,0 +1,170 @@
+{
+  "name": "ordax-os-desktop-dev",
+  "private": true,
+  "version": "0.1.0-alpha.21",
+  "description": "Installable Windows development host for the canonical OrdaX Native Surface",
+  "main": "main.cjs",
+  "scripts": {
+    "start": "electron .",
+    "dev:local": "node local-dev.cjs",
+    "test": "node --test power-helper.test.cjs standalone-stage.test.cjs local-dev.test.cjs window-layout.test.cjs dev-update.test.cjs host-recovery.test.cjs host-startup.test.cjs native-grant-frame.test.cjs browser-host.test.cjs pe-dependency-audit.test.cjs materialize-local-ai.test.cjs",
+    "dist:win": "electron-builder --win nsis --x64",
+    "test:portable": "node --test power-helper.test.cjs standalone-stage.test.cjs local-dev.test.cjs window-layout.test.cjs dev-update.test.cjs host-recovery.test.cjs host-startup.test.cjs native-grant-frame.test.cjs browser-host.test.cjs pe-dependency-audit.test.cjs materialize-local-ai.test.cjs"
+  },
+  "devDependencies": {
+    "electron": "^40.0.0",
+    "electron-builder": "^26.0.12"
+  },
+  "build": {
+    "appId": "dev.ordax.os.desktop",
+    "productName": "OrdaX OS Desktop Dev",
+    "artifactName": "OrdaX-OS-Desktop-Dev-${version}-${arch}.${ext}",
+    "directories": {
+      "output": "../out/windows-desktop-installer"
+    },
+    "files": [
+      "main.cjs",
+      "window-layout.cjs",
+      "package.json",
+      "runtime.cjs",
+      "checkout.cjs",
+      "dev-update.cjs",
+      "git-cleanup.cjs",
+      "host.cjs",
+      "native-grant-frame.cjs",
+      "browser-host.cjs",
+      "browser-preload.cjs",
+      "native-build.cjs",
+      "power-helper.cjs",
+      "vite-native-build.mjs",
+      "surface-stage.cjs",
+      "toolchain-cache.cjs",
+      "git-toolchain-lock.json"
+    ],
+    "extraResources": [
+      {
+        "from": "../system",
+        "to": "runtime-template/system",
+        "filter": [
+          "**/*",
+          "!surface/runtime/packages.txt",
+          "!surface/runtime/media_runtime_probe.py",
+          "!surface/runtime/audio-session.sh",
+          "!surface/runtime/physical_ata_probe.py",
+          "!surface/runtime/physical_kernel_log_probe.py",
+          "!surface/runtime/physical_performance_probe.py"
+        ]
+      },
+      {
+        "from": "../tools/windows-emulator",
+        "to": "runtime-template/tools/windows-emulator",
+        "filter": [
+          "**/*"
+        ]
+      },
+      {
+        "from": "../tools/surface-web",
+        "to": "runtime-template/tools/surface-web",
+        "filter": [
+          "**/*"
+        ]
+      },
+      {
+        "from": "../package.json",
+        "to": "runtime-template/package.json"
+      },
+      {
+        "from": "../docs/contracts/distribution-profiles.json",
+        "to": "runtime-template/docs/contracts/distribution-profiles.json"
+      },
+      {
+        "from": "../out/windows-desktop-toolchain/node_modules.tar.gz",
+        "to": "runtime-template/toolchain/node_modules.tar.gz"
+      },
+      {
+        "from": "../out/windows-desktop-toolchain/toolchain-receipt.json",
+        "to": "runtime-template/toolchain/toolchain-receipt.json"
+      },
+      {
+        "from": "../out/windows-desktop-toolchain/git",
+        "to": "runtime-template/toolchain/git"
+      },
+      {
+        "from": "../out/windows-desktop-toolchain/git-receipt.json",
+        "to": "runtime-template/toolchain/git-receipt.json"
+      },
+      {
+        "from": "../out/windows-desktop-native",
+        "to": "runtime-template/desktop-assets",
+        "filter": [
+          "**/*"
+        ]
+      },
+      {
+        "from": "../out/windows-desktop-power/ordax-win32-power.exe",
+        "to": "runtime-template/tools/windows-power/ordax-win32-power.exe"
+      },
+      {
+        "from": "../docs/contracts/surface-source.json",
+        "to": "runtime-template/docs/contracts/surface-source.json"
+      },
+      {
+        "from": "../out/windows-local-ai-runtime",
+        "to": "runtime-template/local-ai-runtime",
+        "filter": [
+          "**/*"
+        ]
+      },
+      {
+        "from": "../out/windows-desktop-components/ordax-runtime-component-channel.exe",
+        "to": "runtime-template/tools/runtime-component-channel/ordax-runtime-component-channel.exe"
+      },
+      {
+        "from": "../docs/contracts/runtime-component-trust-policy.json",
+        "to": "runtime-template/docs/contracts/runtime-component-trust-policy.json"
+      },
+      {
+        "from": "../docs/evidence/desktop-runtime-windows-candidate-2026-10-31.json",
+        "to": "runtime-template/docs/evidence/desktop-runtime-windows-candidate-2026-10-31.json"
+      },
+      {
+        "from": "../docs/contracts/runtime-component-package.json",
+        "to": "runtime-template/docs/contracts/runtime-component-package.json"
+      }
+    ],
+    "asar": true,
+    "win": {
+      "target": [
+        {
+          "target": "nsis",
+          "arch": [
+            "x64"
+          ]
+        }
+      ]
+    },
+    "nsis": {
+      "oneClick": false,
+      "allowToChangeInstallationDirectory": false,
+      "perMachine": false,
+      "createDesktopShortcut": true,
+      "createStartMenuShortcut": true,
+      "include": "installer.nsh",
+      "preCompressedFileExtensions": [
+        ".avi",
+        ".mov",
+        ".m4v",
+        ".mp4",
+        ".m4p",
+        ".qt",
+        ".mkv",
+        ".webm",
+        ".vmdk",
+        ".gguf"
+      ],
+      "deleteAppDataOnUninstall": false,
+      "selectPerMachineByDefault": false
+    },
+    "publish": null
+  }
+}

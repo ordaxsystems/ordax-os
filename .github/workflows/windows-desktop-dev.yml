@@ -1,17 +1,23 @@
-name: Windows Desktop Dev (SSOT)
+name: Windows Desktop Dev (OS monorepo)
 on:
+  workflow_dispatch:
+    inputs:
+      os_sha:
+        description: Exact authorized ordax-os/main SHA to package
+        type: string
+        required: true
+      publish_dev_release:
+        description: Publish only after isolated Windows verification
+        type: boolean
+        default: false
   workflow_call:
     inputs:
       os_sha:
         description: Exact canonical OS commit
         type: string
         required: true
-      desktop_sha:
-        description: Exact canonical Electron owner commit
-        type: string
-        required: true
       publish_dev_release:
-        description: Publish verified unsigned NSIS to the caller Desktop GitHub prerelease
+        description: Publish verified unsigned NSIS to canonical OS GitHub prerelease
         type: boolean
         default: false
 
@@ -35,13 +41,6 @@ jobs:
         with:
           repository: ordaxsystems/ordax-os
           ref: ${{ inputs.os_sha }}
-          persist-credentials: false
-      - name: Checkout canonical Desktop owner source (reusable workflow only)
-        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
-        with:
-          repository: ordaxsystems/ordax-desktop
-          ref: ${{ inputs.desktop_sha }}
-          path: out/ordax-desktop-source
           persist-credentials: false
       - name: Assert exact installer OS source identity
         shell: pwsh
@@ -69,9 +68,9 @@ jobs:
 
       - name: Audit exact Windows packaged Native system footprint
         run: |
-          node --test out/ordax-desktop-source/package-inventory.test.cjs
-          node out/ordax-desktop-source/package-inventory.cjs
-          node --test out/ordax-desktop-source/standalone-stage.test.cjs
+          node --test desktop/package-inventory.test.cjs
+          node desktop/package-inventory.cjs
+          node --test desktop/standalone-stage.test.cjs
       - name: Install canonical workspace
         run: npm ci --no-audit --no-fund
       - name: Test Native host and desktop contracts
@@ -95,16 +94,16 @@ jobs:
             "tests/test_first_run_device_name.mjs",
             "tests/test_windows_emulator_native_host.mjs",
             "tests/test_desktop_browser_transport.mjs",
-            "out/ordax-desktop-source/browser-host.test.cjs",
-            "out/ordax-desktop-source/host-startup.test.cjs",
-            "out/ordax-desktop-source/native-build.test.cjs",
-            "out/ordax-desktop-source/surface-stage.test.cjs",
-            "out/ordax-desktop-source/dev-update-real-build.test.cjs",
-            "out/ordax-desktop-source/dev-update.test.cjs",
-            "out/ordax-desktop-source/runtime.test.cjs",
-            "out/ordax-desktop-source/runtime-toolchain.test.cjs",
-            "out/ordax-desktop-source/toolchain-cache.test.cjs",
-            "out/ordax-desktop-source/checkout.test.cjs"
+            "desktop/browser-host.test.cjs",
+            "desktop/host-startup.test.cjs",
+            "desktop/native-build.test.cjs",
+            "desktop/surface-stage.test.cjs",
+            "desktop/dev-update-real-build.test.cjs",
+            "desktop/dev-update.test.cjs",
+            "desktop/runtime.test.cjs",
+            "desktop/runtime-toolchain.test.cjs",
+            "desktop/toolchain-cache.test.cjs",
+            "desktop/checkout.test.cjs"
           )
           foreach ($suite in $suites) {
             & node --test $suite
@@ -117,16 +116,16 @@ jobs:
       - name: Prove signed-current Desktop bridge remains read-only and fail-closed
         run: node --test tools/windows-emulator/desktop-verified-component-slot.test.mjs
       - name: Install desktop shell toolchain
-        working-directory: out/ordax-desktop-source
+        working-directory: desktop
         run: npm ci --no-audit --no-fund
-      - name: Prove detached Desktop HMR against disposable OS and Surface Git checkouts
-        run: node --test out/ordax-desktop-source/local-dev.test.cjs
+      - name: Verify same-commit Desktop HMR and Native Surface
+        run: node --test desktop/local-dev.test.cjs
       - name: Test installed Native HTTP host without Vite
         run: node --test tools/windows-emulator/desktop-built-assets.test.mjs tools/windows-emulator/desktop-native-server.test.mjs
       - name: Compile canonical Native Surface for Windows
-        run: npx vite build --config out/ordax-desktop-source/vite-native-build.mjs
+        run: npx vite build --config desktop/vite-native-build.mjs
       - name: Measure both verified Native representations before NSIS
-        run: node out/ordax-desktop-source/package-inventory.cjs --compiled
+        run: node desktop/package-inventory.cjs --compiled
       - name: Bind installer to exact OS + Surface Native provenance
         shell: pwsh
         run: |
@@ -134,7 +133,7 @@ jobs:
           $receipt = Join-Path $env:RUNNER_TEMP 'ordax-desktop-verified-surface/surface-source-receipt.json'
           if (-not (Test-Path -LiteralPath $receipt -PathType Leaf)) { throw 'Surface materialization receipt missing' }
           $sha = (& git rev-parse HEAD).Trim()
-          & node out/ordax-desktop-source/bundle-provenance.cjs . $receipt $sha
+          & node desktop/bundle-provenance.cjs . $receipt $sha
           if ($LASTEXITCODE -ne 0) { throw 'Installer OS/Surface source attestation failed' }
       - name: Verify canonical compiled entry
         shell: pwsh
@@ -147,28 +146,28 @@ jobs:
           if ($scripts.Count -eq 0) { throw "Native bundle has no JavaScript" }
           Write-Output ("NATIVE_BUNDLE_SMOKE=PASS assets=" + $scripts.Count)
       - name: Materialize minimal canonical Native runtime dependencies
-        run: node out/ordax-desktop-source/runtime-toolchain.cjs
+        run: node desktop/runtime-toolchain.cjs
       - name: Restore exact private MinGit source archive cache
         id: mingit-cache
         uses: actions/cache/restore@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
         with:
           path: out/windows-desktop-toolchain/source
-          key: ordax-windows-mingit-source-v2-${{ runner.os }}-${{ hashFiles('out/ordax-desktop-source/git-toolchain-lock.json') }}
+          key: ordax-windows-mingit-source-v2-${{ runner.os }}-${{ hashFiles('desktop/git-toolchain-lock.json') }}
       - name: Materialize pinned private MinGit for Windows Dev updates
         shell: pwsh
-        run: pwsh -NoProfile -File out/ordax-desktop-source/package-git-toolchain.ps1
+        run: pwsh -NoProfile -File desktop/package-git-toolchain.ps1
       - name: Verify source-pinned private MinGit on cache hit and miss
         shell: pwsh
         run: |
           $ErrorActionPreference = 'Stop'
-          node -e "const m=require('./out/ordax-desktop-source/checkout.cjs'); const p=m.bundledGit({platform:'win32',toolchainRoot:require('node:path').resolve('out/windows-desktop-toolchain')}); if(!p)process.exit(1); console.log('WINDOWS_PRIVATE_MINGIT_VERIFIED='+p)"
+          node -e "const m=require('./desktop/checkout.cjs'); const p=m.bundledGit({platform:'win32',toolchainRoot:require('node:path').resolve('out/windows-desktop-toolchain')}); if(!p)process.exit(1); console.log('WINDOWS_PRIVATE_MINGIT_VERIFIED='+p)"
           if ($LASTEXITCODE -ne 0) { throw 'Private MinGit failed canonical receipt or PE digests' }
       - name: Save source-pinned private MinGit archive cache
         if: steps.mingit-cache.outputs.cache-hit != 'true'
         uses: actions/cache/save@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
         with:
           path: out/windows-desktop-toolchain/source
-          key: ordax-windows-mingit-source-v2-${{ runner.os }}-${{ hashFiles('out/ordax-desktop-source/git-toolchain-lock.json') }}
+          key: ordax-windows-mingit-source-v2-${{ runner.os }}-${{ hashFiles('desktop/git-toolchain-lock.json') }}
       - name: Restore content-pinned Windows Aura engine and model cache
         id: aura-cache
         uses: actions/cache/restore@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
@@ -252,7 +251,7 @@ jobs:
           & python tools/windows-emulator/fetch-pinned-local-ai-model.py --cache-dir $cache
           if ($LASTEXITCODE -ne 0) { throw 'Pinned Aura GGUF acquisition failed' }
           $model = Join-Path $cache $lock.model.filename
-          & node out/ordax-desktop-source/materialize-local-ai.cjs $candidate $model out/windows-local-ai-runtime $env:ORDAX_VC143_REDIST_SOURCE
+          & node desktop/materialize-local-ai.cjs $candidate $model out/windows-local-ai-runtime $env:ORDAX_VC143_REDIST_SOURCE
           if ($LASTEXITCODE -ne 0) { throw 'Pinned Aura runtime assembly failed' }
           Write-Output "WINDOWS_AURA_PROMOTED_ENGINE_SHA256=$archiveHash"
       - name: Verify complete offline Aura bytes even after cache restoration
@@ -264,7 +263,7 @@ jobs:
         shell: pwsh
         run: |
           $ErrorActionPreference = 'Stop'
-          & node out/ordax-desktop-source/pe-dependency-audit.cjs out/windows-local-ai-runtime/engine system/services/local-ai/source-lock.json
+          & node desktop/pe-dependency-audit.cjs out/windows-local-ai-runtime/engine system/services/local-ai/source-lock.json
           if ($LASTEXITCODE -ne 0) {
             throw 'Aura cannot be considered ready for clean Windows until its pinned engine is self-contained or the approved prerequisite is shipped'
           }
@@ -312,22 +311,18 @@ jobs:
           Write-Output ("WINDOWS_RUNTIME_COMPONENT_VERIFIER_SHA256=" + (Get-FileHash -LiteralPath $binary -Algorithm SHA256).Hash.ToLowerInvariant())
       - name: Stage and verify standalone Windows packaging inputs
         shell: pwsh
-        env:
-          DESKTOP_OWNER_SHA: ${{ inputs.desktop_sha }}
         run: |
           $ErrorActionPreference = 'Stop'
           $sha = (& git rev-parse HEAD).Trim()
-          if ($env:DESKTOP_OWNER_SHA -cnotmatch '^[a-f0-9]{40}$') { throw 'Exact Desktop SHA required' }
-          $desktopRoot = Join-Path $PWD 'out/ordax-desktop-source'
-          & node out/ordax-desktop-source/standalone-stage.cjs $sha --os-root "$PWD" --desktop-root $desktopRoot --desktop-sha $env:DESKTOP_OWNER_SHA
+          & node desktop/standalone-stage.cjs $sha --os-root "$PWD"
           if ($LASTEXITCODE -ne 0) { throw 'Standalone Desktop source staging failed' }
           $manifest = Get-Content 'out/windows-desktop-standalone/stage-manifest.json' -Raw | ConvertFrom-Json
-          if ($manifest.desktop_sha -cne $env:DESKTOP_OWNER_SHA -or
-              $manifest.desktop_owner -cne 'ordaxsystems/ordax-desktop' -or
+          if ($manifest.desktop_sha -cne $sha -or
+              $manifest.desktop_owner -cne 'ordaxsystems/ordax-os' -or
               $manifest.runtime_owner -cne 'ordaxsystems/ordax-os') {
             throw 'Installer manifest does not bind the canonical source owners'
           }
-          Write-Output "WINDOWS_DESKTOP_DETACHED_SOURCE=VERIFIED os=$sha desktop=$env:DESKTOP_OWNER_SHA"
+          Write-Output "WINDOWS_DESKTOP_MONOREPO_SOURCE=VERIFIED os=$sha desktop=$sha"
       # Install the Desktop owner dependencies in the disposable stage.
       - name: Install standalone Windows shell toolchain
         working-directory: out/windows-desktop-standalone/shell
@@ -342,7 +337,7 @@ jobs:
         run: |
           $version = (Get-Content out/windows-desktop-standalone/shell/package.json -Raw | ConvertFrom-Json).version
           $installer = "out/windows-desktop-installer/OrdaX-OS-Desktop-Dev-$version-x64.exe"
-          pwsh -NoProfile -File out/ordax-desktop-source/install-smoke.ps1 -Installer $installer
+          pwsh -NoProfile -File desktop/install-smoke.ps1 -Installer $installer
       # Same canonical NSIS producer, independent durable release gate.
       # This step runs only AFTER the isolated NSIS/Native installation proof.
       - name: Publish and verify official unsigned Desktop Dev prerelease
@@ -350,7 +345,6 @@ jobs:
         shell: pwsh
         env:
           GH_TOKEN: ${{ github.token }}
-          DESKTOP_SOURCE_SHA: ${{ inputs.desktop_sha }}
           OS_SOURCE_SHA: ${{ inputs.os_sha }}
         run: |
           $InstallerRoot = 'out/windows-desktop-installer'
@@ -360,9 +354,9 @@ jobs:
           Set-StrictMode -Version Latest
           $ErrorActionPreference = 'Stop'
           $repo = $env:GITHUB_REPOSITORY
-          $desktopSha = $env:DESKTOP_SOURCE_SHA
+          $desktopSha = $env:OS_SOURCE_SHA
           $osSha = $env:OS_SOURCE_SHA
-          if ($repo -cne 'ordaxsystems/ordax-desktop' -or
+          if ($repo -cne 'ordaxsystems/ordax-os' -or
               $desktopSha -cnotmatch '^[a-f0-9]{40}$' -or
               $osSha -cnotmatch '^[a-f0-9]{40}$' -or
               [string]::IsNullOrWhiteSpace($env:GH_TOKEN)) {
@@ -374,8 +368,11 @@ jobs:
           $stage = Get-Content -LiteralPath $StageManifest -Raw | ConvertFrom-Json
           $surface = Get-Content -LiteralPath $SurfaceLock -Raw | ConvertFrom-Json
           $receipt = Get-Content -LiteralPath $SurfaceReceipt -Raw | ConvertFrom-Json
+          if ($receipt.'$schema' -cne 'ordax.surface-source-materialization/2') {
+            throw 'Canonical same-commit Surface receipt required'
+          }
           if ($stage.desktop_sha -cne $desktopSha -or
-              $stage.desktop_owner -cne 'ordaxsystems/ordax-desktop' -or
+              $stage.desktop_owner -cne 'ordaxsystems/ordax-os' -or
               $stage.runtime_owner -cne 'ordaxsystems/ordax-os' -or
               $surface.source_repository -cne 'ordaxsystems/ordax-os' -or
               $surface.source_ref -cne 'same-commit' -or

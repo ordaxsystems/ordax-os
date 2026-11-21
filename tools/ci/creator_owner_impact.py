@@ -519,11 +519,11 @@ def verified_desktop_distribution_owner_cutover(base, head, *, root=ROOT):
     """Retarget only three Windows Electron ownership fields, not USB hosts."""
     replacements = (
         ('"git_main_materializer": "tools/windows-desktop/dev-update.cjs"',
-         '"git_main_materializer": "ordaxsystems/ordax-desktop/dev-update.cjs"'),
+         '"git_main_materializer": "ordaxsystems/ordax-os/desktop/dev-update.cjs"'),
         ('"health_promotion_owner": "tools/windows-desktop/dev-update.cjs"',
-         '"health_promotion_owner": "ordaxsystems/ordax-desktop/dev-update.cjs"'),
+         '"health_promotion_owner": "ordaxsystems/ordax-os/desktop/dev-update.cjs"'),
         ('"application_relaunch_owner": "tools/windows-desktop/main.cjs"',
-         '"application_relaunch_owner": "ordaxsystems/ordax-desktop/main.cjs"'),
+         '"application_relaunch_owner": "ordaxsystems/ordax-os/desktop/main.cjs"'),
     )
     try:
         before = _git_show(base, DESKTOP_DISTRIBUTION_CONTRACT, root)

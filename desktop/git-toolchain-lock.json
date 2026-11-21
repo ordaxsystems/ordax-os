@@ -1,0 +1,9 @@
+{
+  "schema": "ordax.windows-min-git-lock/1",
+  "version": "2.56.0.4",
+  "archive": "MinGit-2.56.0.4-64-bit.zip",
+  "sha256": "e3bf78351fe777fba47ddee5950082f8a98bb0f02604fdc7ba3ee2cb68ffa877",
+  "url": "https://github.com/git-for-windows/git/releases/download/v2.56.0.windows.4/MinGit-2.56.0.4-64-bit.zip",
+  "git_exe_sha256": "20d0dde30a65afb6e5810a883700a94dcd77fbf3b44b32868d45bf7c9b30137c",
+  "core_exe_sha256": "9c75f3f41eb5686bacde4b7c4fdfcd7970e8b699ee05c8d7a0cc9c8a7ddaffe8"
+}

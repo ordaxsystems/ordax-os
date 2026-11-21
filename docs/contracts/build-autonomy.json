@@ -132,7 +132,7 @@
     "desktop-client": {
       "requires_creator": false,
       "requires_usb_producer": false,
-      "producer": "ordaxsystems/ordax-desktop",
+      "producer": "ordaxsystems/ordax-os",
       "validation_owner": "Desktop Source Contracts"
     },
     "web-client": {
