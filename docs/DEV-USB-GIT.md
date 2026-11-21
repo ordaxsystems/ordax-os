@@ -668,3 +668,50 @@ que impedia o primeiro polling durante a validacao inicial.
 Pull no pendrive fisico**: ainda exigimos artefato Creator exato, QEMU UEFI/NAT,
 recibo `git-remote-completed`, aplicacao de commit controlado, teste de
 rejeicao/rollback e novo boot antes de promover a correcao.
+
+## Contrato compartilhado de atualização — OS e Creator (2026-11-21)
+
+O **OrdaX OS é a autoridade de estado/ativação do sistema**. No dispositivo
+iniciado, `ordax-pull` (entrada CLI) e Ajustes (entrada gráfica) delegam ao
+fluxo existente do Supervisor, do Pull atômico e dos owners de Base/componentes.
+O Creator Windows é **consumidor/adaptador de mídia física**, não executor de
+`ordax-pull` Linux, segundo instalador de Base, segundo produtor de Surface
+ou autoridade de assinatura.
+
+A política comum exige: canal identificado; identidade da entrega;
+proveniência/hashes e assinaturas quando aplicáveis; compatibilidade;
+pré-condições de armazenamento/boot; operação transacional; validação de saúde;
+histórico de aplicação e recuperação/rollback no owner correto. Dev aceita
+`main` autorizada como fonte do **código**; binários, EROFS, kernel, initramfs,
+boot e Base continuam exigindo seus artefatos verificáveis. Stable consome
+entregas oficiais assinadas, sem expor Git ao usuário.
+
+**Estados independentes obrigatórios** para a apresentação e os recibos:
+
+- `source_current`: fonte Git verificada, **não** prova componentes aplicados;
+- `candidate_verified`: artefato recebido e verificado, **não** ativado;
+- `staged`: candidato preparado sem promoção/ativação;
+- `activated_healthy`: instalação/ativação confirmada pelo owner do OS,
+  com saúde e recibo durável correspondentes;
+- `blocked` ou `rolled_back`: falha preservada, sem fabricar sucesso.
+
+A UI não deve marcar "sistema atualizado" nem 100% de atualização do sistema
+por um recibo apenas de transporte Git (`CURRENT` ou
+`STAGED_NOT_ACTIVATED`). O Creator pode indicar **pacote Git verificado**,
+mas deve informar Base/Surface/boot como não verificados/não ativados quando
+não recebeu os recibos correspondentes. Recibos informativos nunca conferem
+capacidade de gravação física.
+
+**Integração disponível:** `ordax-creator/tools/owner_local_sync.py` e
+`owner_usb_git_delivery.py` implementam o transporte Dev existente para
+`ORDAX-DATA`; o Creator GUI apenas o aciona pelo adaptador Windows. O
+`ordax-os/bootstrap/dev-base/ordax-pull` continua o executor do Pull
+atômico no sistema iniciado. Estes fluxos não constituem, isoladamente, a
+atualização executável completa. A integração de entrega binária verificada
+e ativação física a partir do Creator só estará concluída após consumir
+artefatos do produtor canônico do OS e comprovar readback/health/rollback,
+sem duplicação de assinatura, composição ou updater.
+
+Esta seção documenta o **limite da implementação**, não autoriza gravação
+de USB, reformatar disco, promover Stable ou afirmar que um dispositivo já
+recebeu os executáveis.
