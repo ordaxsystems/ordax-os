@@ -24,7 +24,7 @@ class RepositoryOwnershipContractTests(unittest.TestCase):
         self.assertEqual(repos["apps"]["repo"], "ordaxsystems/ordax-apps")
         self.assertEqual(repos["runtime"]["repo"], "ordaxsystems/ordax-runtime")
         self.assertEqual(repos["control_plane"]["repo"], "ordaxsystems/ordax-platform")
-        self.assertEqual(repos["desktop"]["repo"], "ordaxsystems/ordax-desktop")
+        self.assertEqual(repos["desktop"]["repo"], "ordaxsystems/ordax-os")
         self.assertIn("desktop-windows-shell", repos["desktop"]["owns"])
         self.assertIn("desktop-windows-shell", repos["platform"]["must_not_own"])
 
