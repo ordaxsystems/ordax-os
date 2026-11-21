@@ -111,7 +111,7 @@ record_fetch_failure() {{ :; }}
         source = SUPERVISOR.read_text(encoding="utf-8")
         self.assertEqual(source.count("        owner_stage_usb_git_once\n"), 1)
         # Prefetch can run without Wi-Fi onboarding; no update is authorized there.
-        self.assertIn('if [ "$OWNER_INITIAL_HEALTH_PENDING" -eq 0 ]; then\n        owner_stage_usb_git_once\n    fi\n    check_for_update', source)
+        self.assertIn('if [ "$OWNER_INITIAL_HEALTH_PENDING" -eq 0 ]; then\n        owner_stage_usb_git_once\n    fi\n    reconcile_dev_base_promotion\n    check_for_update', source)
         first_run_gate = source.split("check_for_update() {", 1)[1].split("record_owner_poll_boot_stage git-remote-started", 1)[0]
         self.assertNotIn("owner_stage_usb_git_once", first_run_gate)
         self.assertIn("owner_root_sys=/sys/dev/block/$owner_root_mm", source)
