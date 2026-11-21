@@ -165,16 +165,11 @@ class CreatorKernelReuseWorkflowTests(unittest.TestCase):
         self.assertIn("compare/{before}...{head}", detector)
         self.assertIn('data.get("merge_base_commit", {}).get("sha") != before', detector)
         self.assertIn("publish = True", detector)
-        for helper in (
-            "bootstrap/dev-base/ordax-dev-init",
-            "bootstrap/dev-base/ordax-network",
-            "bootstrap/dev-base/ordax-pull",
-            "bootstrap/dev-base/ordax-run",
-            "bootstrap/dev-base/ordax-rollback",
-            "bootstrap/dev-base/ordax-diagnose",
-            "bootstrap/recovery/entrypoint",
-        ):
-            self.assertIn(helper, detector)
+        self.assertIn("system/services/base-update/dev-helper-manifest.tsv", detector)
+        self.assertIn("ignored.add(fields[0])", detector)
+        self.assertNotIn('"bootstrap/dev-base/ordax-main-watch"', detector)
+        self.assertNotIn('"bootstrap/dev-base/ordax-pull"', detector)
+        self.assertIn("musl-tools", self.step_block(workflow, "Install measured Base build dependencies"))
         self.assertNotIn(".github/workflows/dev-base-channel.yml", detector)
         build = self.step_block(workflow, "Build exact-commit development Base and initramfs")
         self.assertNotIn("bootstrap/kernel/build.py", build)

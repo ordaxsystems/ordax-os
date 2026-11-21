@@ -160,14 +160,22 @@ jobs:
                   "bootstrap/kernel/candidate_pipeline.py",
                   "bootstrap/kernel/update_engine.py",
                   "bootstrap/kernel/module_archive.py",
-                  "bootstrap/dev-base/ordax-dev-init",
-                  "bootstrap/dev-base/ordax-diagnose",
-                  "bootstrap/dev-base/ordax-network",
-                  "bootstrap/dev-base/ordax-pull",
-                  "bootstrap/dev-base/ordax-rollback",
-                  "bootstrap/dev-base/ordax-run",
-                  "bootstrap/recovery/entrypoint",
               }
+              # The same manifest owns installed Git-refreshable helpers.
+              # Never duplicate its source inventory in the Base workflow.
+              manifest = subprocess.check_output(
+                  ["git", "show", head + ":system/services/base-update/dev-helper-manifest.tsv"],
+                  timeout=10,
+              ).decode("utf-8")
+              for line in manifest.splitlines():
+                  if not line or line.startswith("#"):
+                      continue
+                  fields = line.split("\t")
+                  if len(fields) not in (2, 3) or not re.fullmatch(
+                      r"bootstrap/[A-Za-z0-9_.-]+(?:/[A-Za-z0-9_.-]+)+", fields[0]
+                  ) or ".." in fields[0].split("/"):
+                      raise ValueError("invalid dev helper manifest")
+                  ignored.add(fields[0])
               producing = (
                   "bootstrap/kernel/", "bootstrap/initramfs/",
                   "bootstrap/dev-base/", "bootstrap/independent-base/",
@@ -259,7 +267,7 @@ jobs:
             gcc-13 make bc perl bison flex openssl libssl-dev libelf-dev \
             dwarves kmod xz-utils pkg-config binutils bzip2 \
             e2fsprogs util-linux erofs-utils gawk cpio unzip rsync \
-            file wget curl patch gettext
+            file wget curl patch gettext musl-tools
 
       - name: Resolve reusable kernel fingerprint
         if: steps.changes.outputs.publish == 'true'

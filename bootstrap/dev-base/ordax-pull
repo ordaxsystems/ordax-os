@@ -867,21 +867,19 @@ if [ "$SEED_MODE" -eq 0 ] && [ -z "$EXPECTED_SHA" ] &&
         case "$supervisor_command" in
             *"$WORKTREE/system/supervisor"*)
                 request=$RUN_DIR/manual-check-request
-                if [ ! -f "$request" ] || [ -L "$request" ]; then
-                    request_tmp=$request.tmp.$
+                if [ "$(read_state "$request")" != check-main ]; then
+                    request_tmp=$request.tmp.$$
                     (umask 077; set -C; printf 'check-main\n' >"$request_tmp") || exit 1
+                    # Successful publication is the receipt. The Supervisor
+                    # may consume the request immediately, before a reread.
                     if ! ln "$request_tmp" "$request" 2>/dev/null &&
-                       { [ ! -f "$request" ] || [ -L "$request" ]; }; then
+                       [ "$(read_state "$request")" != check-main ]; then
                         rm -f "$request_tmp"
                         echo "ordax-git: nao foi possivel solicitar atualizacao ao Supervisor" >&2
                         exit 1
                     fi
                     rm -f "$request_tmp"
                 fi
-                [ "$(read_state "$request")" = check-main ] || {
-                    echo "ordax-git: pedido de atualizacao local invalido" >&2
-                    exit 1
-                }
                 printf 'ORDAX_PULL_REQUEST=QUEUED\n'
                 echo "ordax-git: atualizacao solicitada ao Supervisor; consulte o estado existente da atualizacao."
                 exit 0

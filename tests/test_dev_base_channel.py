@@ -257,6 +257,12 @@ class DevBaseProducerTests(unittest.TestCase):
                 file = repo / name
                 file.parent.mkdir(parents=True, exist_ok=True)
                 file.write_text("initial\n", encoding="utf-8")
+            helper_manifest = "system/services/base-update/dev-helper-manifest.tsv"
+            manifest_file = repo / helper_manifest
+            manifest_file.parent.mkdir(parents=True, exist_ok=True)
+            manifest_file.write_bytes((ROOT / helper_manifest).read_bytes())
+            watcher = repo / "bootstrap/dev-base/ordax-main-watch"
+            watcher.write_text("initial\n", encoding="utf-8")
             git("add", "-A")
             git("commit", "-qm", "base")
             base = git("rev-parse", "HEAD")
@@ -290,8 +296,10 @@ class DevBaseProducerTests(unittest.TestCase):
             self.assertEqual(classify(test_only, test_only), "publish=true")
             excluded = change(paths[2])
             self.assertEqual(classify(test_only, excluded), "publish=false")
+            watcher_update = change("bootstrap/dev-base/ordax-main-watch")
+            self.assertEqual(classify(excluded, watcher_update), "publish=false")
             owner = change(paths[3])
-            self.assertEqual(classify(excluded, owner), "publish=true")
+            self.assertEqual(classify(watcher_update, owner), "publish=true")
             firmware = change(paths[4])
             self.assertEqual(classify(owner, firmware), "publish=true")
             hardware = change(paths[5])
