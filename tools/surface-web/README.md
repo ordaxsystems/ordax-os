@@ -1,6 +1,9 @@
 # Canonical OrdaX Web build
 
-The visual source owner is `ordaxsystems/ordax-surface`. The build assembles the exact revision pinned by `ordax-os/docs/contracts/surface-source.json` into the disposable/staged path `system/surface/workspace/components/central`; that path is **not** a second Git source owner. Thin OS entry: `system/composition/web/main.tsx`.
+The visual owner is now the same ordax-os Git commit as the Web/native host,
+under system/surface/{ui,workspace}. The Web composition reads this tracked
+source directly; tools/surface-source/materialize.py verifies committed Git
+blobs without cloning or pinning another repository.
 
 The historical design reference `ordaxsystems/lovable-core-ui@89438133b322e3ef87e862c80af3a3dbe18251f5` is provenance only; current source is the pinned Surface revision. Central and classic desktop are views of the same composed page. Root package.json/package-lock.json own the OS Web build dependencies.
 
