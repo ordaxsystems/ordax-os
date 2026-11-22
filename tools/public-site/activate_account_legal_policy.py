@@ -145,6 +145,19 @@ def verify_published_site_manifest(expected_commit: str) -> None:
         or manifest.get("source_commit") != expected_commit
     ):
         fail("published-site-source-commit-mismatch")
+    # Compare the actual published manifest bytes against the locally built,
+    # verified same-commit artifact; public metadata alone is not attestation.
+    expected_path = SITE / "public-site-manifest.json"
+    if not expected_path.is_file() or expected_path.is_symlink():
+        fail("verified-site-manifest-unavailable")
+    try:
+        expected_bytes = expected_path.read_bytes()
+    except OSError:
+        fail("verified-site-manifest-unavailable")
+    if not expected_bytes or len(expected_bytes) > MAX_PUBLIC_DOCUMENT_BYTES:
+        fail("verified-site-manifest-invalid-size")
+    if raw != expected_bytes:
+        fail("published-site-manifest-artifact-mismatch")
 
 
 def verify_published_legal_documents(candidate: dict) -> None:

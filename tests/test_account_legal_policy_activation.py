@@ -509,14 +509,24 @@ class AccountLegalPolicyActivationTests(unittest.TestCase):
         self_test = self
         def check(manifest):
             raw = json.dumps(manifest).encode("utf-8")
-            with patch.object(
-                activation.urllib.request,
-                "build_opener",
-                return_value=Opener(raw),
-            ):
-                activation.verify_published_site_manifest(expected)
+            with tempfile.TemporaryDirectory() as tmp:
+                local = Path(tmp)
+                (local / "public-site-manifest.json").write_bytes(
+                    json.dumps(source).encode("utf-8")
+                )
+                with (
+                    patch.object(activation, "SITE", local),
+                    patch.object(
+                        activation.urllib.request,
+                        "build_opener",
+                        return_value=Opener(raw),
+                    ),
+                ):
+                    activation.verify_published_site_manifest(expected)
 
         check(source)
+        with self.assertRaisesRegex(SystemExit, "published-site-manifest-artifact-mismatch"):
+            check({**source, "files": [{"path": "unexpected.html"}]})
         for key, invalid in (
             ("source_commit", "b" * 40),
             ("$schema", "unrecognized"),
