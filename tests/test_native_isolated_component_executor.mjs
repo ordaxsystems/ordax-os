@@ -255,7 +255,9 @@ test("Native external module execution is represented by an opaque-origin iframe
   assert.equal(frame.attributes.get("referrerpolicy"), "no-referrer");
   assert.match(frame.srcdoc, /<meta name="referrer" content="no-referrer">/);
   assert.match(frame.srcdoc, /default-src 'none'/);
-  assert.match(frame.srcdoc, /connect-src 'none'/);
+  assert.ok(frame.srcdoc.includes("connect-src " + ORIGIN
+    + "/__ordax/native/component-module/notes/current/0.4.2/" + "a".repeat(40) + "/"));
+  assert.doesNotMatch(frame.srcdoc, /connect-src [*]/);
   assert.match(frame.srcdoc, /component-module\/notes\/current\/0\.4\.2\//);
   assert.match(frame.srcdoc, /component-module\/notes\/current\/0\.4\.2/);
   assert.match(frame.receivedBootstrap.moduleUrl, /component-module\/notes\/current\/0\.4\.2/);
@@ -860,6 +862,8 @@ test("pending Intelligence client mounts only with synthetic unavailable ports i
   assert.equal(frame.attributes.has("allow-same-origin"), false);
   assert.equal(frame.attributes.get("referrerpolicy"), "no-referrer");
   assert.match(frame.srcdoc, /<meta name="referrer" content="no-referrer">/);
+  assert.ok(frame.srcdoc.includes("connect-src " + ORIGIN
+    + "/__ordax/native/component-module/assistant/pending/0.1.2/" + "a".repeat(40) + "/"));
   assert.equal(frame.receivedBootstrap.pendingMount, true);
   assert.equal(frame.receivedBootstrap.appDataIdentity, null);
   assert.equal(frame.receivedBootstrap.fileSpaceScope, null);
@@ -1046,7 +1050,9 @@ test("pending import probation runs in an opaque frame without host ports and pi
   assert.equal(frame.receivedProbe.schema, PROBE);
   assert.equal(frame.receivedProbe.componentId, "notes");
   assert.match(frame.receivedProbe.moduleUrl, /\/notes\/pending\/0\.4\.2\//);
-  assert.match(frame.srcdoc, /connect-src &#39;none&#39;|connect-src 'none'/);
+  assert.ok(frame.srcdoc.includes("connect-src " + ORIGIN
+    + "/__ordax/native/component-module/notes/pending/0.4.2/" + "a".repeat(40) + "/"));
+  assert.doesNotMatch(frame.srcdoc, /connect-src [*]/);
   assert.equal(frame.attributes.get("referrerpolicy"), "no-referrer");
   assert.match(frame.srcdoc, /<meta name="referrer" content="no-referrer">/);
   assert.match(frame.srcdoc, /frame-src &#39;none&#39;|frame-src 'none'/);

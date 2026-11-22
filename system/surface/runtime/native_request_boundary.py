@@ -22,6 +22,9 @@ OPAQUE_MODULE_PREFIX = "/__ordax/native/component-module/"
 _OPAQUE_DESTINATIONS = {
     ".mjs": ("script", frozenset({"cors"})),
     ".js": ("script", frozenset({"cors"})),
+    # JSON import attributes load signed app.json with Sec-Fetch-Dest: json.
+    # This is a read of verified package bytes, not Native metadata or APIs.
+    ".json": ("json", frozenset({"cors"})),
     ".css": ("style", frozenset({"cors", "no-cors"})),
     ".svg": ("image", frozenset({"no-cors"})),
     ".png": ("image", frozenset({"no-cors"})),

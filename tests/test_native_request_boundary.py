@@ -436,6 +436,20 @@ class NativeRequestBoundaryIntegrationTests(unittest.TestCase):
             self.assertEqual(body, b"export const ok = true;")
             self.assertEqual(css_response_headers.get("Access-Control-Allow-Origin"), "null")
             self.assertEqual(read.call_count, 2)
+            # Chromium imports the signed Aura app manifest with Fetch destination
+            # json, not script. Only verified package bytes may be served.
+            signed_json = signed_js.replace("/src/runtime.mjs", "/app.json")
+            json_headers = {**opaque, "Sec-Fetch-Dest": "json"}
+            read.return_value = b'{"id":"assistant"}'
+            status, body, json_response_headers = self.request_with_headers(
+                signed_json, headers=json_headers,
+            )
+            self.assertEqual(status, 200)
+            self.assertEqual(body, b'{"id":"assistant"}')
+            self.assertTrue(json_response_headers.get("Content-Type", "").startswith("application/json"))
+            self.assertEqual(json_response_headers.get("Access-Control-Allow-Origin"), "null")
+            self.assertNotIn("Access-Control-Allow-Credentials", json_response_headers)
+            self.assertEqual(read.call_count, 3)
             for method, path in (
                 ("POST", signed_js),
                 ("GET", native_host.FILES_PATH),
@@ -448,7 +462,7 @@ class NativeRequestBoundaryIntegrationTests(unittest.TestCase):
                     )
                     self.assertEqual(status, 403)
                     self.assertNotIn("Access-Control-Allow-Origin", denied_headers)
-            self.assertEqual(read.call_count, 2)
+            self.assertEqual(read.call_count, 3)
 
             # Same-origin import runs in the privileged Surface realm and is
             # rejected before the signed-slot file reader is invoked.
@@ -463,7 +477,7 @@ class NativeRequestBoundaryIntegrationTests(unittest.TestCase):
             )
             self.assertEqual(status, 403)
             self.assertNotIn("Access-Control-Allow-Origin", denied_headers)
-            self.assertEqual(read.call_count, 2)
+            self.assertEqual(read.call_count, 3)
 
     def test_no_cors_file_preview_has_same_origin_resource_policy(self):
         # An ordinary Surface file response is retained; a browser in a

@@ -6,6 +6,9 @@ on:
       - 'system/composition/native/component-workspace-ports.mjs'
       - 'system/composition/native/component-pending-host.mjs'
       - 'system/adapters/native/isolated-component-executor.mjs'
+      - 'system/surface/runtime/native_request_boundary.py'
+      - 'tests/test_native_request_boundary.py'
+      - 'tests/test_native_opaque_component_json.py'
       - 'tests/test_native_isolated_component_executor.mjs'
       - 'system/composition/native/intelligence-client-trusted-context.mjs'
       - 'tests/test_native_aura_trusted_context.mjs'
@@ -26,6 +29,9 @@ on:
       - 'system/composition/native/component-workspace-ports.mjs'
       - 'system/composition/native/component-pending-host.mjs'
       - 'system/adapters/native/isolated-component-executor.mjs'
+      - 'system/surface/runtime/native_request_boundary.py'
+      - 'tests/test_native_request_boundary.py'
+      - 'tests/test_native_opaque_component_json.py'
       - 'tests/test_native_isolated_component_executor.mjs'
       - 'system/composition/native/intelligence-client-trusted-context.mjs'
       - 'tests/test_native_aura_trusted_context.mjs'
@@ -67,6 +73,7 @@ jobs:
           node --check system/composition/native/component-workspace-ports.mjs
           node --check system/composition/native/component-pending-host.mjs
           node --check system/adapters/native/isolated-component-executor.mjs
+          python -m py_compile system/surface/runtime/native_request_boundary.py tests/test_native_opaque_component_json.py tests/test_native_request_boundary.py
           node --check tests/test_native_isolated_component_executor.mjs
           node --check system/composition/native/intelligence-client-trusted-context.mjs
           node --check tests/test_native_aura_trusted_context.mjs
@@ -87,3 +94,6 @@ jobs:
           node --test tests/test_native_aura_trusted_context.mjs
           node --test tests/test_component_mount_probation_context.mjs
           node --test tests/test_native_isolated_component_executor.mjs
+          python -m unittest tests.test_native_opaque_component_json -v
+          python -m unittest tests.test_native_request_boundary.NativeRequestBoundaryPolicyTests.test_opaque_component_package_read_is_the_only_foreign_native_api_exception -v
+          python -m unittest tests.test_native_request_boundary.NativeRequestBoundaryIntegrationTests.test_opaque_module_origin_can_read_verified_code_but_not_native_files -v

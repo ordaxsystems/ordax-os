@@ -506,20 +506,28 @@ const FRAME_BOOTSTRAP = String.raw`(() => {
   }, { once: true });
 })();`;
 
-function createFrameDocument({ nonce, parentOrigin, resourceRoot }) {
-  const policy = [
+function createSandboxDocumentPolicy({ nonce, resourceRoot }) {
+  // JSON module import attributes are governed by CSP connect-src in Chromium.
+  // Only the immutable signed package prefix is reachable. Native HTTP still
+  // rejects ordinary fetch requests and all privileged routes.
+  return [
     "default-src 'none'",
     `script-src 'nonce-${nonce}' ${resourceRoot}`,
     `style-src 'unsafe-inline' ${resourceRoot}`,
     `img-src data: blob: ${resourceRoot}`,
     `font-src data: ${resourceRoot}`,
-    "connect-src 'none'",
+    `connect-src ${resourceRoot}`,
     "form-action 'none'",
     "base-uri 'none'",
     "object-src 'none'",
     "frame-src 'none'",
     "worker-src 'none'",
   ].join("; ");
+}
+
+function createFrameDocument({ nonce, parentOrigin, resourceRoot }) {
+  const policy = createSandboxDocumentPolicy({ nonce, resourceRoot });
+
   const script = FRAME_BOOTSTRAP
     .replace("__PARENT_ORIGIN__", JSON.stringify(parentOrigin))
     .replace("__NONCE__", JSON.stringify(nonce));
@@ -573,19 +581,8 @@ const PENDING_PROBE_BOOTSTRAP = String.raw`(() => {
 })();`;
 
 function createPendingProbeFrameDocument({ nonce, parentOrigin, resourceRoot }) {
-  const policy = [
-    "default-src 'none'",
-    `script-src 'nonce-${nonce}' ${resourceRoot}`,
-    `style-src 'unsafe-inline' ${resourceRoot}`,
-    `img-src data: blob: ${resourceRoot}`,
-    `font-src data: ${resourceRoot}`,
-    "connect-src 'none'",
-    "form-action 'none'",
-    "base-uri 'none'",
-    "object-src 'none'",
-    "frame-src 'none'",
-    "worker-src 'none'",
-  ].join("; ");
+  const policy = createSandboxDocumentPolicy({ nonce, resourceRoot });
+
   const script = PENDING_PROBE_BOOTSTRAP
     .replace("__PARENT_ORIGIN__", JSON.stringify(parentOrigin))
     .replace("__NONCE__", JSON.stringify(nonce));
