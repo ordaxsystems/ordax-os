@@ -144,13 +144,13 @@ class NativeIntelligenceGateTests(unittest.TestCase):
             return path
         destination=self.root/"assembled"
         with (
-            patch.object(native,"verify_external_creator_source"),
+            patch.object(native,"verify_monorepo_creator_source"),
             patch.object(native,"validate_source_tree"),
-            patch.object(native,"verify_external_surface_system"),
+            patch.object(native,"verify_same_commit_surface_system"),
             patch.object(native,"verify_external_intelligence_system",side_effect=verified),
             patch.object(native,"build_helper",side_effect=fake_helper),
             patch.object(native,"git_head",return_value="a"*40),
-            patch.object(native,"creator_source_pin",return_value={"repository":"ordaxsystems/ordax-creator","commit":"b"*40,"tree":"c"*40}),
+            patch.object(native,"creator_source_pin",return_value={"repository":"ordaxsystems/ordax-os","path":"creator","module":"github.com/ordaxsystems/ordax-os/creator","commit":"b"*40,"tree":"c"*40}),
         ):
             result=native.assemble(destination,self.system,self.root,require_external_intelligence=True)
             self.assertEqual(result["intelligence_source"],native.intelligence_binding(self.receipt))

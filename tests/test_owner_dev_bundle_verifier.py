@@ -32,7 +32,7 @@ class DevelopmentCreatorBundleTests(unittest.TestCase):
             "$schema": "prototype-ordax.creator-owner-physical/1",
             "source_commit": COMMIT,
             "creator_version": VERSION,
-            "creator_source_repository": "ordaxsystems/ordax-creator",
+            "creator_source_repository": "ordaxsystems/ordax-os",
             "creator_source_commit": "b" * 40,
             "creator_source_tree": "c" * 40,
             "symbol_sha256": hashlib.sha256(SYMBOL_BYTES).hexdigest(),
@@ -74,6 +74,13 @@ class DevelopmentCreatorBundleTests(unittest.TestCase):
         out = self.run_check()
         self.assertEqual(out.returncode, 0, out.stderr)
         self.assertIn("OWNER_DEV_BUNDLE_VERIFY=PASS", out.stdout)
+
+    def test_retired_repository_cannot_supply_owner_creator(self):
+        self.provenance["creator_source_repository"] = "ordaxsystems/ordax-creator"
+        self.create()
+        result = self.run_check()
+        self.assertNotEqual(result.returncode, 0)
+        self.assertIn("creator-source-owner-drift", result.stderr)
 
     def test_archive_tampering_fails(self):
         with self.archive.open("ab") as file:

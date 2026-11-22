@@ -16,7 +16,9 @@ OWNER_SINGLE_EXE = (Path(os.environ["ORDAX_CREATOR_NATIVE_SOURCE"])
 class OwnerDevHelperSourceBoundaryTests(unittest.TestCase):
     def test_owner_and_windows_ci_bind_the_helper_to_the_single_source_lock(self):
         pin = json.loads((ROOT / "docs/contracts/native-release-assembly.json").read_text(encoding="utf-8"))["creator_source"]
-        self.assertEqual(pin["repository"], "ordaxsystems/ordax-creator")
+        self.assertEqual(pin["repository"], "ordaxsystems/ordax-os")
+        self.assertEqual(pin["path"], "creator")
+        self.assertEqual(pin["module"], "github.com/ordaxsystems/ordax-os/creator")
         self.assertIs(pin["physical_apply_authorized"], False)
         owner = WORKFLOW.read_text(encoding="utf-8")
         physical = (ROOT / ".github/workflows/physical-usb-test-toolkit.yml").read_text(encoding="utf-8")
@@ -28,7 +30,7 @@ class OwnerDevHelperSourceBoundaryTests(unittest.TestCase):
 
 
 @unittest.skipUnless(os.environ.get("ORDAX_CREATOR_NATIVE_SOURCE"),
-                     "Windows helper implementation is checked from pinned standalone source in Windows CI")
+                     "Windows helper implementation is checked from the canonical OS Creator module in Windows CI")
 class OwnerDevHelperStorageProfileTests(unittest.TestCase):
     def test_owner_workflow_binds_development_storage_profile_into_embedded_backend(self):
         workflow = WORKFLOW.read_text(encoding="utf-8")

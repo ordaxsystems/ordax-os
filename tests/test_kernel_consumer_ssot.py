@@ -131,7 +131,9 @@ class KernelConsumerSSOTTests(unittest.TestCase):
         self.assertIn('gzip -n -6 -c "$seed" > "$media/ordax-bootstrap-seed.raw.gz"', workflow)
         independent = os.environ.get("ORDAX_CREATOR_NATIVE_SOURCE")
         pin = json.loads((ROOT / "docs/contracts/native-release-assembly.json").read_text(encoding="utf-8"))["creator_source"]
-        self.assertEqual(pin["repository"], "ordaxsystems/ordax-creator")
+        self.assertEqual(pin["repository"], "ordaxsystems/ordax-os")
+        self.assertEqual(pin["path"], "creator")
+        self.assertEqual(pin["module"], "github.com/ordaxsystems/ordax-os/creator")
         self.assertIs(pin["physical_apply_authorized"], False)
         self.assertIn("uses: ./.github/actions/resolve-creator-source", workflow)
         if independent:

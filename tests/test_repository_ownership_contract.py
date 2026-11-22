@@ -38,10 +38,10 @@ class RepositoryOwnershipContractTests(unittest.TestCase):
         )
         repos = self.contract["repositories"]
         active = {record["repo"] for record in repos.values()}
-        self.assertEqual(len(active), len(repos) - 3, "Surface, Site and Desktop share the OS repository")
+        self.assertEqual(len(active), len(repos) - 4, "Surface, Site, Creator and Desktop share the OS repository")
         self.assertEqual(source["source_repository"], "ordaxsystems/ordax-intelligence")
         self.assertNotIn(source["source_repository"], active)
-        self.assertEqual(len(active | {source["source_repository"]}), 6)
+        self.assertEqual(len(active | {source["source_repository"]}), 5)
         self.assertEqual(source["status"], "integration-candidate")
         self.assertIs(source["cutover_complete"], False)
         self.assertIs(source["activation_authorized"], False)
@@ -79,7 +79,11 @@ class RepositoryOwnershipContractTests(unittest.TestCase):
     def test_creator_is_independent_consumer_not_os_media_producer(self):
         repos = self.contract["repositories"]
         creator = repos["creator"]
-        self.assertEqual(creator["repo"], "ordaxsystems/ordax-creator")
+        self.assertEqual(creator["repo"], "ordaxsystems/ordax-os")
+        source = json.loads((ROOT / "docs/contracts/native-release-assembly.json").read_text(encoding="utf-8"))["creator_source"]
+        self.assertEqual(source["repository"], creator["repo"])
+        self.assertEqual(source["path"], "creator")
+        self.assertEqual(source["module"], "github.com/ordaxsystems/ordax-os/creator")
         self.assertIn("creator-media-verification-core", creator["owns"])
         self.assertIn("creator-windows-ui-and-host-adapters", creator["owns"])
         self.assertIn("os-media-proof-producers", creator["must_not_own"])

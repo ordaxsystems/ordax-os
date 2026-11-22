@@ -12,7 +12,8 @@ RUNTIME = (Path(os.environ["ORDAX_CREATOR_NATIVE_SOURCE"]) / "host/windows/porta
 class PortableWindowsGPTSourceBoundaryTests(unittest.TestCase):
     def test_gpt_regression_uses_immutable_creator_source_in_windows_safety_ci(self):
         pin = json.loads((ROOT / "docs/contracts/native-release-assembly.json").read_text(encoding="utf-8"))["creator_source"]
-        self.assertEqual(pin["repository"], "ordaxsystems/ordax-creator")
+        self.assertEqual(pin["repository"], "ordaxsystems/ordax-os")
+        self.assertEqual(pin["path"], "creator")
         workflow = (ROOT / ".github/workflows/physical-usb-test-toolkit.yml").read_text(encoding="utf-8")
         self.assertIn("uses: ./.github/actions/resolve-creator-source", workflow)
         self.assertIn("tests.test_portable_windows_gpt_idempotence", workflow)
@@ -20,7 +21,7 @@ class PortableWindowsGPTSourceBoundaryTests(unittest.TestCase):
 
 
 @unittest.skipUnless(os.environ.get("ORDAX_CREATOR_NATIVE_SOURCE"),
-                     "Windows PowerShell GPT implementation is checked from pinned independent Creator source")
+                     "Windows PowerShell GPT implementation is checked from the canonical OS Creator module")
 class PortableWindowsGPTIdempotenceTests(unittest.TestCase):
     @classmethod
     def setUpClass(cls):
