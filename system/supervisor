@@ -2487,6 +2487,43 @@ portable_commit_candidate() {
     [ "$committed" = "$candidate_sha" ]
 }
 
+# The ext4 portable-state helper remains the sole activation authority.
+# Windows writes a per-release media plan only as a signed-artifact index;
+# publish its installed-plan projection AFTER a real health commit. This also
+# repairs an interrupted advisory promotion on the next healthy current boot.
+portable_sync_creator_media_receipt() {
+    receipt_sha=$1
+    [ "$DISTRIBUTION_PROFILE" = "stable-mvp" ] || return 0
+    [ "$STABLE_LAYOUT" = "portable-v2" ] || return 0
+    is_sha "$receipt_sha" || return 1
+    receipt_dir="$PORTABLE_ROOT/installation"
+    candidate_receipt="$receipt_dir/candidates/$receipt_sha.json"
+    active_receipt="$receipt_dir/portable-media-plan.json"
+    [ -f "$candidate_receipt" ] && [ ! -L "$candidate_receipt" ] || return 0
+    [ -d "$receipt_dir" ] && [ ! -L "$receipt_dir" ] || return 1
+    [ ! -L "$active_receipt" ] || return 1
+    bytes="$(/bin/busybox wc -c < "$candidate_receipt" 2>/dev/null || true)"
+    case "$bytes" in ''|*[!0-9]*) return 1 ;; esac
+    [ "$bytes" -gt 0 ] && [ "$bytes" -le 2097152 ] || return 1
+    receipt_source="$(/bin/busybox sed -n 's/^[[:space:]]*"source_commit": "\([0-9a-f]*\)",*$/\1/p' "$candidate_receipt" 2>/dev/null || true)"
+    [ "$receipt_source" = "$receipt_sha" ] || return 1
+    temp_receipt="$(/bin/busybox mktemp "$receipt_dir/.portable-media-plan.XXXXXXXX" 2>/dev/null)" || return 1
+    if ! /bin/busybox cp "$candidate_receipt" "$temp_receipt" ||
+       ! /bin/busybox cmp -s "$candidate_receipt" "$temp_receipt"; then
+        /bin/busybox rm -f "$temp_receipt" || true
+        return 1
+    fi
+    /bin/busybox sync >/dev/null 2>&1 || true
+    if ! /bin/busybox mv -f "$temp_receipt" "$active_receipt" ||
+       ! /bin/busybox cmp -s "$candidate_receipt" "$active_receipt"; then
+        /bin/busybox rm -f "$temp_receipt" || true
+        return 1
+    fi
+    /bin/busybox sync >/dev/null 2>&1 || true
+    log "Creator Portable installed media receipt synchronized after verified current $receipt_sha"
+    return 0
+}
+
 portable_rollback_candidate() {
     candidate_sha=$1
     portable_state_helper_ready || return 1
@@ -2634,6 +2671,9 @@ handle_portable_candidate_boot() {
         fi
         record_applied "$candidate_sha" signed-release
         record_runtime_surface_sha "$candidate_sha"
+        if ! portable_sync_creator_media_receipt "$candidate_sha"; then
+            log "Portable release committed, but Creator advisory media receipt could not be synchronized"
+        fi
         rm -f "$STAGED_RELEASE_FILE" "$STABLE_HEALTH_READY_FILE" "$STABLE_HEALTH_REJECTED_FILE"
         /bin/busybox sync >/dev/null 2>&1 || true
         clear_update_context
@@ -3199,6 +3239,15 @@ else
     log "starting shared OrdaX Surface with Owner/Development Git hot-update supervisor"
 fi
 start_surface || fail_closed "surface entrypoint could not be started"
+# Reconcile a receipt from a previously committed, verified current release.
+# Candidate/known-good slots never become current merely from exFAT metadata.
+if [ "$DISTRIBUTION_PROFILE" = "stable-mvp" ] &&
+   [ "$STABLE_LAYOUT" = "portable-v2" ] &&
+   [ "$PORTABLE_BOOT_SLOT" = "current" ]; then
+    if ! portable_sync_creator_media_receipt "$initial_sha"; then
+        log "Creator advisory receipt reconciliation is deferred; ext4 current remains authoritative"
+    fi
+fi
 
 if [ "$DISTRIBUTION_PROFILE" = "stable-mvp" ] &&
    [ "$STABLE_LAYOUT" = "portable-v2" ] &&
