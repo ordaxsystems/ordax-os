@@ -124,11 +124,22 @@ func ownerUSBTransportFromTask(task ownerUSBTaskInfo, target physicalTarget, exe
         return ownerUSBTransport{}, errors.New("Owner Dev task does not match this Creator installation")
     }
     creatorModule := filepath.Dir(filepath.Dir(fields[1]))
-    if !strings.EqualFold(filepath.Base(creatorModule), "creator") ||
-        !strings.EqualFold(filepath.Base(filepath.Dir(creatorModule)), "ordax-os") ||
-        !strings.EqualFold(filepath.Base(filepath.Dir(filepath.Dir(creatorModule))), "GitHub") {
-        return ownerUSBTransport{}, errors.New("Owner Dev task is outside the canonical OS Creator module")
+    if !strings.EqualFold(filepath.Base(creatorModule), "creator") {
+        return ownerUSBTransport{}, errors.New("Owner Dev task must use the canonical OS creator/ module")
     }
+    // Accept a full OS checkout or a Git worktree dedicated to main. Do not
+    // rely on a fixed developer folder, and never accept the retired owner.
+    osRoot := filepath.Dir(creatorModule)
+    rootInfo, rootErr := os.Lstat(osRoot)
+    marker, markerErr := os.Lstat(filepath.Join(osRoot, ".git"))
+    if strings.EqualFold(filepath.Base(osRoot), "ordax-creator") ||
+        rootErr != nil || !rootInfo.IsDir() || rootInfo.Mode()&os.ModeSymlink != 0 ||
+        markerErr != nil || marker.Mode()&os.ModeSymlink != 0 ||
+        (!marker.IsDir() && !marker.Mode().IsRegular()) {
+        return ownerUSBTransport{}, errors.New("Owner Dev task is outside a real OS Git checkout")
+    }
+    // The exact Git origin, clean main and executable's source ancestry are
+    // verified by verifyCanonicalCreatorSource before either script executes.
     script := filepath.Join(creatorModule, "tools", "owner_usb_git_delivery.py")
     for _, name := range []string{task.Executable, fields[1], script} {
         info, err := os.Lstat(name)
