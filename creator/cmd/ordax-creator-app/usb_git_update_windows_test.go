@@ -132,11 +132,17 @@ func TestVerifyCanonicalCreatorSourceFastForwardsOnlyVerifiedMain(t *testing.T) 
         diverged bool
         changedDuringFetch bool
         wrongOrigin bool
+        onlyAvailableAfterFetch bool
+        creatorNotAncestor bool
         shouldPass bool
         expectMerge bool
     }{
         {name: "fresh main", remote: oldMain, shouldPass: true},
         {name: "fast forward unrelated OS changes", remote: nextMain, shouldPass: true, expectMerge: true},
+        {name: "installed binary commit arrives with verified fetch", remote: nextMain,
+            onlyAvailableAfterFetch: true, shouldPass: true, expectMerge: true},
+        {name: "reject binary commit from foreign history", remote: nextMain,
+            creatorNotAncestor: true},
         {name: "reject rewritten main", remote: nextMain, diverged: true},
         {name: "reject remote race", remote: nextMain, changedDuringFetch: true},
         {name: "reject local edits", remote: nextMain, dirty: " M creator/tools/owner_usb_git_delivery.py"},
@@ -157,8 +163,13 @@ func TestVerifyCanonicalCreatorSourceFastForwardsOnlyVerifiedMain(t *testing.T) 
                 case "rev-parse HEAD":
                     return head, nil
                 case "cat-file -e " + binary + "^{commit}":
+                    if tc.onlyAvailableAfterFetch && !fetched {
+                        return "", errors.New("binary commit missing before fetch")
+                    }
                     return "", nil
-                case "merge-base --is-ancestor " + binary + " " + oldMain:
+                case "merge-base --is-ancestor " + binary + " " + oldMain,
+                     "merge-base --is-ancestor " + binary + " " + nextMain:
+                    if tc.creatorNotAncestor {return "", errors.New("foreign Creator source")}
                     return "", nil
                 case "status --porcelain=v1":
                     return tc.dirty, nil
