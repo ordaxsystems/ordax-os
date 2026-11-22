@@ -10,7 +10,7 @@
 
 **Domínio público `ordax.com.br`:** servido pelo projeto Vercel existente `ordax-os-public` (`prj_mA9ew6hOfjdqlBr1cC757iMLPQJC`), já conectado a `ordax-os/main`. O deployment READY `0bf86219` foi conferido contra `/public-site-manifest.json` e a origem do bundle é o mesmo commit do OS. `/auth/session` funciona para sessão anônima (HTTP 200); login real e rollout de recursos continuam sujeitos a gates independentes.
 
-**Staging `ordax-site`:** projeto Vercel existente `prj_rEZck0dLNrLlSX9UhjifUzGiFpts`, com SSO e domínios `vercel.app`, ainda conectado à origem histórica arquivada. O preview `dpl_Ad1HRByz2VZ1VJGpqLM4YRLPZ9Kr` já construiu o módulo do monorepo. Caso esse staging continue necessário, conectar o Git a `ordax-os/main`, Root Directory `site`, incluindo arquivos fora da raiz. Não criar novo projeto, duplicar o backend ou copiar credenciais de produção para o staging.
+**Staging histórico `ordax-site`:** o projeto Vercel existente (`prj_rEZck0dLNrLlSX9UhjifUzGiFpts`) foi **pausado em 2026-11-22**; seus domínios `vercel.app` respondem `DEPLOYMENT_PAUSED`. O Git arquivado permanece apenas como vínculo histórico, sem ambiente ativo. Caso surja necessidade de homologação, reconectar o projeto existente a `ordax-os/main` (`site/`, fontes externas à raiz, origem/Identity próprias) **antes** de despausar. Não criar projeto adicional nem copiar credenciais de produção.
 
 O repositório `ordaxsystems/ordax-site` contém apenas um aviso de migração e permanece arquivado: história preservada, **nenhum código ativo**.
 

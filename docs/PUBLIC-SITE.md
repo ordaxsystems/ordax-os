@@ -7,7 +7,7 @@ abaixo descrevem o artefato preservado, não uma etapa exigida de acesso.
 
 Este documento descreve **arquitetura, ownership e invariantes atuais** do site público OrdaX.
 
-**Fonte de apresentação:** `ordaxsystems/ordax-os/main:site/`, com frontend em `site/public/`, builder em `site/scripts/` e APIs compartilhadas de Conta/OAuth em `api/` e `lib/` do mesmo commit. `docs/contracts/public-site-source.json` fixa essa autoridade. A produção `ordax.com.br` é servida pelo projeto Vercel `ordax-os-public`, conectado ao monorepo. O staging Vercel `ordax-site` permanece um projeto distinto, pendente de decisão administrativa; o Git antigo `ordaxsystems/ordax-site` contém apenas histórico. Deploy não autoriza cadastro, Conta integral nem releases.
+**Fonte de apresentação:** `ordaxsystems/ordax-os/main:site/`, com frontend em `site/public/`, builder em `site/scripts/` e APIs compartilhadas de Conta/OAuth em `api/` e `lib/` do mesmo commit. `docs/contracts/public-site-source.json` fixa essa autoridade. A produção `ordax.com.br` é servida pelo projeto Vercel `ordax-os-public`, conectado ao monorepo. O staging Vercel histórico `ordax-site` foi pausado em 2026-11-22: seus domínios `vercel.app` respondem `DEPLOYMENT_PAUSED`; o Git antigo `ordaxsystems/ordax-site` contém apenas histórico. Deploy não autoriza cadastro, Conta integral nem releases.
 Ele não é um diário de deploy nem substitui contratos machine-readable ou evidências datadas.
 
 ## Autoridades canônicas
@@ -227,7 +227,7 @@ python3 -m unittest discover -s site/tests -q
 node --test site/tests/*.mjs
 ```
 
-A produção `ordax-os-public` compõe o Site no mesmo commit via `tools/vercel/build.py`. O staging `ordax-site` utiliza `site/vercel.json` e só poderá voltar a publicar via Git após reconexão autorizada ao monorepo. Ambos reutilizam `site/scripts/build_impact.py`. Não reconstruir kernel, USB ou Creator por mudança exclusiva do Site.
+A produção `ordax-os-public` compõe o Site no mesmo commit via `tools/vercel/build.py`. O antigo staging `ordax-site` está **pausado** e não constitui outra autoridade ativa. Se voltar a ser necessário, reconectar primeiro a `ordax-os/main`, configurar corretamente origem/Identity e somente depois despausar. Não reconstruir kernel, USB ou Creator por mudança exclusiva do Site.
 
 Um bundle público válido não habilita Conta integral, cadastro, downloads nem promoção Stable; os gates de segurança e identidade são independentes. Estado operacional e provas reais: `site/docs/HANDOFF.md`.
 
