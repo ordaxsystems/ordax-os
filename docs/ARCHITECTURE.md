@@ -125,7 +125,7 @@ ordax-os/
                                       v
                           verified OrdaX candidate
                            /                    \
-                    ordax-desktop          ordax-creator
+                    ordax-os/desktop/      ordax-creator
                     Windows host/NSIS      media consumer
 ```
 
