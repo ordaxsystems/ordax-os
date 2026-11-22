@@ -89,7 +89,10 @@ import { createProjectWebReferenceRuntime } from "../../services/projects/web-re
 import { createProjectContinuityFileSpace } from "../../services/files/project-continuity-file-space.mjs";
 import { installTrustedComponentContextProvider } from "../../services/components/runtime-loader.mjs";
 import { createNativeWorkspacePendingBootstrap, installNativeWorkspaceVerifiedContext } from "./component-workspace-ports.mjs";
-import { createNativeIntelligenceClientTrustedContextProvider } from "./intelligence-client-trusted-context.mjs";
+import {
+  createNativeIntelligenceClientTrustedContextProvider,
+  createNativeIntelligenceClientPendingBootstrap,
+} from "./intelligence-client-trusted-context.mjs";
 import { createPersonalActionCatalog } from "../../services/personal-ordax/action-catalog.mjs";
 import { createNotificationsRuntime } from "../../services/notifications/runtime.mjs";
 import { createUpdateNotificationBridge } from "../../services/notifications/update-bridge.mjs";
@@ -189,6 +192,7 @@ function blockedAccountMemoryMutations() {
 const bootScreen = createSurfaceBootScreen(document);
 let bootLocale = "pt-BR";
 let workspaceComponentBootstrap = null;
+let assistantPendingBootstrap = null;
 const bootText = (messageId) => translateSurfaceMessage(bootLocale, messageId);
 
 async function start() {
@@ -201,6 +205,7 @@ async function start() {
     throw new Error("OrdaX composition root is missing #ordax-root");
   }
   workspaceComponentBootstrap = createNativeWorkspacePendingBootstrap();
+  assistantPendingBootstrap = createNativeIntelligenceClientPendingBootstrap();
 
   const browserSession = createNativeBrowserSession(window);
   const windowsDesktopHost = hasDesktopBrowserTransport(window);
@@ -1151,6 +1156,14 @@ async function start() {
     console.warn("OrdaX optional workspace component probation unavailable", error);
     workspaceComponentBootstrap?.fail(error);
   }
+  try {
+    // Pre-publication Aura probation receives only a synthetic, data-free
+    // lifecycle. All real ports remain exclusive to verified-current slots.
+    assistantPendingBootstrap?.bind({ root, ports: {} });
+  } catch (error) {
+    console.warn("OrdaX optional Aura component probation unavailable", error);
+    assistantPendingBootstrap?.fail(error);
+  }
   // Verified-current slot metadata is the only authority for workspace ports.
   installNativeWorkspaceVerifiedContext({
     installed: installedAppCatalog?.installed ?? [],
@@ -1601,6 +1614,7 @@ async function start() {
       batteryTrayControls?.destroy();
       batteryQuickPanel?.destroy();
       workspaceComponentBootstrap?.destroy();
+      assistantPendingBootstrap?.destroy();
       void externalAppRefresh?.destroy();
       projectReferences?.destroy();
       projectBindingReview?.dispose();
@@ -1646,6 +1660,7 @@ async function start() {
 
 start().catch((error) => {
   workspaceComponentBootstrap?.fail(error);
+  assistantPendingBootstrap?.fail(error);
   bootScreen.fail(bootText("surface.boot.failed"));
   // The Native diagnostic POST may be unavailable during a failed bootstrap.
   // Keep only its existing sanitized, bounded identity on the local boot

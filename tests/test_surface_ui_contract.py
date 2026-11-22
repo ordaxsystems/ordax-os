@@ -288,14 +288,15 @@ class SurfaceUiContractTests(unittest.TestCase):
         self.assertNotIn('railButton("assistant"', DESKTOP_SHELL.read_text(encoding="utf-8"))
         self.assertNotIn('ASSISTANT_SOURCE_MESSAGES', SURFACE_LOCALIZATION.read_text(encoding="utf-8"))
         # The only packaged Aura source is in Apps; the OS broker may read
-        # its exact verified current slot without bundling another app or
-        # obtaining health, installation, promotion or model authority.
+        # its exact verified current slot. Pending probation uses only synthetic
+        # context, not live Identity/Space/model ports or activation authority.
         self.assertIn("assistant", policy["native_loopback_broker_supported_components"])
         self.assertTrue(policy["native_loopback_broker_read_only"])
         self.assertTrue(policy["native_loopback_broker_requires_component_trust"])
         self.assertTrue(policy["runtime_file_read_revalidates_slot_and_hash"])
-        self.assertNotIn("assistant", policy["native_loopback_broker_health_mutation_components"])
-        self.assertNotIn("assistant", policy["runtime_health_bridge_supported_components"])
+        self.assertIn("assistant", policy["native_loopback_broker_health_mutation_components"])
+        self.assertIn("assistant", policy["runtime_health_bridge_supported_components"])
+        self.assertEqual(policy["runtime_health_bridge_probe_mode_by_component"]["assistant"], "mount-contract")
         self.assertNotIn("assistant", policy["native_pending_decision_supported_components"])
         self.assertFalse(policy["canonical_component_trust_anchor_pinned"])
         self.assertFalse(policy["pending_health_promotion_available"])

@@ -1,6 +1,7 @@
 import assert from "node:assert/strict";
 import test from "node:test";
-import { createNativeIntelligenceClientTrustedContextProvider } from "../system/composition/native/intelligence-client-trusted-context.mjs";
+import { createNativeIntelligenceClientTrustedContextProvider, createNativeIntelligenceClientPendingBootstrap } from "../system/composition/native/intelligence-client-trusted-context.mjs";
+import { NATIVE_COMPONENT_PROBATION_IDS, NATIVE_COMPONENT_PROBE_MODE_BY_ID } from "../system/services/components/probation-policy.generated.mjs";
 
 const CURRENT = Object.freeze({
   componentId: "assistant", state: "current", source: "slot",
@@ -71,4 +72,74 @@ test("Native composition installs only this verified binding; it is not an app o
   assert.match(composition, /hasNativeExternalFirstPartyModuleRead\("assistant"\)/);
   assert.match(composition, /verifiedCurrent: installedAppCatalog\?\.installed\.find/);
   assert.match(composition, /intelligencePort: selectedSpaceIntelligence/);
+});
+
+
+// The real pending Aura mount is handled by the existing opaque-origin Native
+// sandbox. This host supplies only an empty root + fixed offline lifecycle.
+test("Aura pending probation uses the generic host but never leaks real host ports", async () => {
+  class FakeElement {
+    constructor(doc) {
+      this.nodeType = 1; this.ownerDocument = doc;
+      this.childNodes = []; this.dataset = {}; this.style = {};
+      this.parentNode = null; this.hidden = false;
+    }
+    append(child) {
+      child.parentNode = this;
+      this.childNodes.push(child);
+    }
+    remove() {
+      if (this.parentNode) {
+        this.parentNode.childNodes = this.parentNode.childNodes.filter((entry) => entry !== this);
+        this.parentNode = null;
+      }
+    }
+  }
+  const doc = { createElement() { return new FakeElement(doc); } };
+  const root = new FakeElement(doc);
+  let provider = null;
+  const bootstrap = createNativeIntelligenceClientPendingBootstrap({
+    installProvider(candidate) { provider = candidate; },
+  });
+  assert.ok(bootstrap);
+  assert.equal(NATIVE_COMPONENT_PROBATION_IDS.includes("assistant"), true);
+  assert.equal(NATIVE_COMPONENT_PROBE_MODE_BY_ID.assistant, "mount-contract");
+  assert.equal(await provider("notes"), null);
+  const pending = provider("assistant");
+  assert.equal(root.childNodes.length, 0);
+  // Supplying real ports is intentionally ignored by the synthetic adapter.
+  bootstrap.bind({ root, ports });
+  const context = await pending;
+  assert.deepEqual(Object.keys(context).sort(), ["root", "surfaceLifecycle"]);
+  assert.equal(context.surfaceLifecycle.schema, "ordax.surface-render-lifecycle/5");
+  assert.equal(context.surfaceLifecycle.localization.getLocale(), "pt-BR");
+  assert.equal(context.surfaceLifecycle.getAppTarget("assistant"), null);
+  assert.throws(() => context.surfaceLifecycle.setAppTarget("assistant", "home"),
+    /cannot control Surface/);
+  assert.equal(root.childNodes.length, 1);
+  assert.strictEqual(context.root, root.childNodes[0]);
+  assert.equal(context.root.hidden, true);
+  assert.equal(context.root.dataset.ordaxComponentProbationHost, "assistant");
+  for (const key of ["intelligence", "identitySessionPort", "spaceSelectionPort",
+    "memoryCapture", "personalOrdax", "appData"]) {
+    assert.equal(Object.hasOwn(context, key), false, key);
+  }
+  bootstrap.destroy();
+  assert.equal(root.childNodes.length, 0);
+  await assert.rejects(() => provider("assistant"), /destroyed/);
+});
+
+test("Native Surface wires Aura's pending provider before async work and cleans up", async () => {
+  const { readFile } = await import("node:fs/promises");
+  const code = await readFile(new URL("../system/composition/native/main.mjs", import.meta.url), "utf8");
+  const start = code.indexOf("async function start() {");
+  const registered = code.indexOf("assistantPendingBootstrap = createNativeIntelligenceClientPendingBootstrap();", start);
+  const firstAwait = code.indexOf("await ", start);
+  const mounted = code.indexOf("const surface = mountSurface(", firstAwait);
+  const bound = code.indexOf("assistantPendingBootstrap?.bind({ root, ports: {} });", mounted);
+  const verified = code.indexOf("createNativeIntelligenceClientTrustedContextProvider({", bound);
+  assert.ok(start >= 0 && registered > start && registered < firstAwait);
+  assert.ok(mounted > firstAwait && bound > mounted && verified > bound);
+  assert.ok(code.indexOf("assistantPendingBootstrap?.destroy();", verified) > verified);
+  assert.ok(code.indexOf("assistantPendingBootstrap?.fail(error);", verified) > verified);
 });

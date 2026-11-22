@@ -47,7 +47,7 @@ def message(
             "sourceCommit": source_commit,
             "revision": revision,
             "health": health,
-            "probeMode": "mount-contract" if component_id == "files" else "import-contract",
+            "probeMode": "mount-contract" if component_id in {"files", "assistant"} else "import-contract",
         },
     }
 
@@ -67,6 +67,7 @@ class NativeComponentProbationTests(unittest.TestCase):
         self.assertNotIn("studio", probation.SUPPORTED_COMPONENTS)
         self.assertNotIn("internet", probation.SUPPORTED_COMPONENTS)
         self.assertIn("files", probation.SUPPORTED_COMPONENTS)
+        self.assertIn("assistant", probation.SUPPORTED_COMPONENTS)
         self.assertIs(
             probation.PROBE_MODE_BY_COMPONENT,
             NATIVE_PROBATION_PROBE_MODE_BY_COMPONENT,
@@ -76,6 +77,7 @@ class NativeComponentProbationTests(unittest.TestCase):
             policy["runtime_health_bridge_probe_mode_by_component"],
         )
         self.assertEqual(probation.PROBE_MODE_BY_COMPONENT["files"], "mount-contract")
+        self.assertEqual(probation.PROBE_MODE_BY_COMPONENT["assistant"], "mount-contract")
         self.assertEqual(probation.PROBE_MODE_BY_COMPONENT["calculator"], "import-contract")
 
     def test_exact_nonce_and_receipt_record_health_once(self):
@@ -318,7 +320,7 @@ class NativeComponentProbationTests(unittest.TestCase):
                 slot_root="/var/lib/ordax/components",
             )
 
-        bad_component = message(component_id="assistant")
+        bad_component = message(component_id="studio")
         with self.assertRaises(probation.ComponentProbationReceiptError):
             probation.record_system_component_probation(
                 payload=bad_component,

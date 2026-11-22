@@ -36,7 +36,9 @@ function metadataResponse(componentId = "notes") {
         sourceCommit: COMMIT,
         entrypoint: componentId === "notes"
           ? "system/apps/notes/src/runtime.mjs"
-          : "system/surface/ui/files-component-runtime.mjs",
+          : componentId === "assistant"
+            ? "system/apps/assistant/src/runtime.mjs"
+            : "system/surface/ui/files-component-runtime.mjs",
         pendingHealth: "unknown",
       };
     },
@@ -202,4 +204,40 @@ test("import-contract probation cannot be upgraded by injecting mount context", 
   assert.equal(result.health, "healthy");
   assert.equal(result.probeMode, "import-contract");
   assert.equal(imported.length, 1);
+});
+
+
+test("Aura pending mount checks the UI in a transient root, with no real user ports", async () => {
+  const context = filesMountContext();
+  let mounts = 0;
+  let destroys = 0;
+  const result = await runSystemPendingComponentProbation({
+    componentId: "assistant",
+    source: createNativeComponentSlotSource(windowRef()),
+    mountContext: Object.freeze({
+      root: context.root,
+      surfaceLifecycle: context.surfaceLifecycle,
+    }),
+    fetchImpl: async () => metadataResponse("assistant"),
+    importModule: async () => ({
+      componentRuntime: Object.freeze({
+        schema: COMPONENT_RUNTIME_SCHEMA,
+        componentId: "assistant",
+        version: "0.1.0",
+        async mount(received) {
+          mounts++;
+          assert.equal(received.root.dataset.ordaxComponentRoot, "assistant");
+          assert.strictEqual(received.surfaceLifecycle, context.surfaceLifecycle);
+          assert.deepEqual(Object.keys(received).sort(), ["root", "surfaceLifecycle"]);
+          return { destroy() { destroys++; } };
+        },
+      }),
+    }),
+    timeoutMs: 500,
+  });
+  assert.equal(result.health, "healthy");
+  assert.equal(result.probeMode, "mount-contract");
+  assert.equal(mounts, 1);
+  assert.equal(destroys, 1);
+  assert.equal(context.root.childNodes.length, 0);
 });

@@ -37,12 +37,14 @@ NATIVE_MODULE_READ_COMPONENT_IDS = frozenset({
 })
 
 NATIVE_HEALTH_MUTATION_COMPONENT_IDS = frozenset({
+    "assistant",
     "calculator",
     "files",
     "notes",
 })
 
 NATIVE_PROBATION_COMPONENT_IDS = frozenset({
+    "assistant",
     "calculator",
     "files",
     "notes",
@@ -53,6 +55,7 @@ NATIVE_PENDING_DECISION_COMPONENT_IDS = frozenset({
 })
 
 NATIVE_PROBATION_PROBE_MODE_BY_COMPONENT = MappingProxyType({
+    "assistant": "mount-contract",
     "calculator": "import-contract",
     "files": "mount-contract",
     "notes": "import-contract",

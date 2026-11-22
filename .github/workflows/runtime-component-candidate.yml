@@ -35,6 +35,8 @@ on:
       - 'system/services/components/**'
       - 'tests/test_component_mount_health_probe.mjs'
       - 'tests/test_component_mount_probation_context.mjs'
+      - 'system/composition/native/intelligence-client-trusted-context.mjs'
+      - 'tests/test_native_aura_trusted_context.mjs'
       - 'tests/test_component_probation_context_registry.mjs'
       - 'tests/test_verified_current_component_runtime.mjs'
       - 'system/composition/native/verified-installed-apps.mjs'
@@ -97,6 +99,8 @@ on:
       - 'system/services/components/**'
       - 'tests/test_component_mount_health_probe.mjs'
       - 'tests/test_component_mount_probation_context.mjs'
+      - 'system/composition/native/intelligence-client-trusted-context.mjs'
+      - 'tests/test_native_aura_trusted_context.mjs'
       - 'tests/test_component_probation_context_registry.mjs'
       - 'tests/test_verified_current_component_runtime.mjs'
       - 'system/composition/native/verified-installed-apps.mjs'
@@ -164,6 +168,7 @@ jobs:
           node --test tests/test_component_probation_loader.mjs
           node --test tests/test_component_mount_health_probe.mjs
           node --test tests/test_component_mount_probation_context.mjs
+          node --test tests/test_native_aura_trusted_context.mjs
           node --test tests/test_component_probation_context_registry.mjs
           node --test tests/test_verified_current_component_runtime.mjs
           node --test tests/test_native_verified_installed_apps.mjs

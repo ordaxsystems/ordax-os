@@ -110,7 +110,7 @@ class RuntimeComponentPackageTests(unittest.TestCase):
         self.assertFalse(policy["publish_allowed"])
         self.assertEqual(
             policy["native_loopback_broker_health_mutation_components"],
-            ["calculator", "files", "notes"],
+            ["assistant", "calculator", "files", "notes"],
         )
         self.assertTrue(policy["files_component_slot_read_available"])
         self.assertTrue(policy["files_component_probation_available"])
@@ -158,11 +158,11 @@ class RuntimeComponentPackageTests(unittest.TestCase):
         )
         self.assertEqual(
             policy["runtime_health_bridge_supported_components"],
-            ["calculator", "files", "notes"],
+            ["assistant", "calculator", "files", "notes"],
         )
         self.assertEqual(
             policy["runtime_health_bridge_probe_mode_by_component"],
-            {"calculator": "import-contract", "files": "mount-contract", "notes": "import-contract"},
+            {"assistant": "mount-contract", "calculator": "import-contract", "files": "mount-contract", "notes": "import-contract"},
         )
         self.assertNotIn("runtime_health_bridge_probe_mode", policy)
         self.assertTrue(policy["runtime_health_bridge_requires_host_nonce"])

@@ -85,7 +85,7 @@ test("Native and Surface probation use exactly the same canonical policy", () =>
       NATIVE_COMPONENT_PROBE_MODE_BY_ID[id],
     );
   }
-  for (const id of ["studio", "assistant", "clock"]) {
+  for (const id of ["studio", "clock"]) {
     assert.throws(() => systemComponentProbationProbeMode(id),
       /Unsupported system component probation probe/);
   }
@@ -98,10 +98,7 @@ test("system probation exposes fixed probes only for explicit supported componen
   assert.equal(systemComponentProbationProbeMode("notes"), "import-contract");
   assert.equal(systemComponentProbationProbeMode("calculator"), "import-contract");
   assert.equal(systemComponentProbationProbeMode("files"), "mount-contract");
-  assert.throws(
-    () => systemComponentProbationProbeMode("assistant"),
-    /Unsupported system component probation probe/,
-  );
+  assert.equal(systemComponentProbationProbeMode("assistant"), "mount-contract");
 });
 
 test("unavailable Internet cannot trigger a probation probe or materialize native modules", async () => {
