@@ -11,6 +11,7 @@ from pathlib import Path
 import sys
 import tempfile
 import unittest
+from unittest import mock
 import zipfile
 
 ROOT = Path(__file__).resolve().parents[1]
@@ -356,6 +357,143 @@ class RuntimeComponentTrustPromotionTests(unittest.TestCase):
 
             self.assertFalse((repo / promoter.TRUST_REPOSITORY_PATH).exists())
             self.assertFalse((repo / promoter.EVIDENCE_REPOSITORY_PATH).exists())
+            policy = json.loads((repo / promoter.POLICY_PATH).read_text(encoding="utf-8"))
+            self.assertFalse(policy["public_anchor"]["pinned"])
+
+    def test_atomic_public_writer_preserves_exact_binary_bytes(self):
+        with tempfile.TemporaryDirectory() as temporary:
+            root = Path(temporary)
+            destination = root / "trust.json"
+            payload = b'{"key":"A"}' + bytes([10]) + b'{"key":"B"}' + bytes([10])
+            promoter._atomic_write(destination, payload)
+            self.assertEqual(destination.read_bytes(), payload)
+            self.assertEqual(
+                hashlib.sha256(destination.read_bytes()).digest(),
+                hashlib.sha256(payload).digest(),
+            )
+
+    def test_write_failure_restores_all_prior_public_outputs(self):
+        with tempfile.TemporaryDirectory() as temporary:
+            root = Path(temporary)
+            repo = root / "repo"
+            repo.mkdir()
+            self.make_repo(repo)
+            verifier = self.make_verifier(root)
+            promotion = self.write_promotion_dir(root, self.make_public_files(root))
+            originals = {
+                relative: (repo / relative).read_bytes() if (repo / relative).exists() else None
+                for relative in (
+                    promoter.TRUST_REPOSITORY_PATH,
+                    promoter.EVIDENCE_REPOSITORY_PATH,
+                    promoter.PROOF_RELEASE_REPOSITORY_PATH,
+                    promoter.RECOVERY_ENVELOPE_REPOSITORY_PATH,
+                    promoter.POLICY_PATH,
+                    promoter.PACKAGE_POLICY_PATH,
+                )
+            }
+            real_write = promoter._atomic_write
+            failed = False
+
+            def interrupted_write(destination, data):
+                nonlocal failed
+                if destination == repo / promoter.POLICY_PATH and not failed:
+                    failed = True
+                    raise OSError("injected policy write failure")
+                return real_write(destination, data)
+
+            with mock.patch.object(promoter, "_atomic_write", side_effect=interrupted_write):
+                with self.assertRaisesRegex(promoter.PromotionError, "outputs restored"):
+                    promoter.apply_repository_promotion(repo, promotion, verifier)
+
+            for relative, original in originals.items():
+                destination = repo / relative
+                if original is None:
+                    self.assertFalse(destination.exists(), str(relative))
+                else:
+                    self.assertEqual(destination.read_bytes(), original, str(relative))
+
+    def test_failure_after_replace_restores_the_current_destination_too(self):
+        with tempfile.TemporaryDirectory() as temporary:
+            root = Path(temporary)
+            repo = root / "repo"
+            repo.mkdir()
+            self.make_repo(repo)
+            verifier = self.make_verifier(root)
+            promotion = self.write_promotion_dir(root, self.make_public_files(root))
+            real_write = promoter._atomic_write
+            failed = False
+
+            def replaced_then_interrupted(destination, data):
+                nonlocal failed
+                real_write(destination, data)
+                if destination == repo / promoter.RECOVERY_ENVELOPE_REPOSITORY_PATH and not failed:
+                    failed = True
+                    raise OSError("injected post-replace failure")
+
+            with mock.patch.object(promoter, "_atomic_write", side_effect=replaced_then_interrupted):
+                with self.assertRaisesRegex(promoter.PromotionError, "outputs restored"):
+                    promoter.apply_repository_promotion(repo, promotion, verifier)
+
+            for relative in (
+                promoter.TRUST_REPOSITORY_PATH,
+                promoter.EVIDENCE_REPOSITORY_PATH,
+                promoter.PROOF_RELEASE_REPOSITORY_PATH,
+                promoter.RECOVERY_ENVELOPE_REPOSITORY_PATH,
+            ):
+                self.assertFalse((repo / relative).exists(), str(relative))
+            policy = json.loads((repo / promoter.POLICY_PATH).read_text(encoding="utf-8"))
+            self.assertFalse(policy["public_anchor"]["pinned"])
+
+    def test_post_write_verification_failure_restores_both_policies(self):
+        with tempfile.TemporaryDirectory() as temporary:
+            root = Path(temporary)
+            repo = root / "repo"
+            repo.mkdir()
+            self.make_repo(repo)
+            verifier = self.make_verifier(root)
+            promotion = self.write_promotion_dir(root, self.make_public_files(root))
+            trust_policy = (repo / promoter.POLICY_PATH).read_bytes()
+            package_policy = (repo / promoter.PACKAGE_POLICY_PATH).read_bytes()
+
+            with mock.patch.object(
+                promoter, "validate_promoted_repository",
+                side_effect=promoter.PromotionError("injected final verification failure"),
+            ):
+                with self.assertRaisesRegex(promoter.PromotionError, "outputs restored"):
+                    promoter.apply_repository_promotion(repo, promotion, verifier)
+
+            self.assertEqual((repo / promoter.POLICY_PATH).read_bytes(), trust_policy)
+            self.assertEqual((repo / promoter.PACKAGE_POLICY_PATH).read_bytes(), package_policy)
+            self.assertFalse((repo / promoter.TRUST_REPOSITORY_PATH).exists())
+            self.assertFalse((repo / promoter.EVIDENCE_REPOSITORY_PATH).exists())
+
+    def test_concurrent_change_is_never_overwritten_by_rollback(self):
+        with tempfile.TemporaryDirectory() as temporary:
+            root = Path(temporary)
+            repo = root / "repo"
+            repo.mkdir()
+            self.make_repo(repo)
+            verifier = self.make_verifier(root)
+            promotion = self.write_promotion_dir(root, self.make_public_files(root))
+            real_write = promoter._atomic_write
+            drift = b"externally modified trust file"
+            failed = False
+
+            def concurrent_change(destination, data):
+                nonlocal failed
+                if destination == repo / promoter.PROOF_RELEASE_REPOSITORY_PATH and not failed:
+                    failed = True
+                    (repo / promoter.TRUST_REPOSITORY_PATH).write_bytes(drift)
+                    raise OSError("injected concurrent repository write")
+                return real_write(destination, data)
+
+            with mock.patch.object(promoter, "_atomic_write", side_effect=concurrent_change):
+                with self.assertRaisesRegex(promoter.PromotionError, "manual repository repair"):
+                    promoter.apply_repository_promotion(repo, promotion, verifier)
+
+            self.assertEqual((repo / promoter.TRUST_REPOSITORY_PATH).read_bytes(), drift)
+            self.assertFalse((repo / promoter.EVIDENCE_REPOSITORY_PATH).exists())
+            self.assertFalse((repo / promoter.PROOF_RELEASE_REPOSITORY_PATH).exists())
             policy = json.loads((repo / promoter.POLICY_PATH).read_text(encoding="utf-8"))
             self.assertFalse(policy["public_anchor"]["pinned"])
 

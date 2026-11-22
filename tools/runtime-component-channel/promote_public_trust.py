@@ -598,6 +598,11 @@ def prepare_repository_promotion_zip(
 
 
 def _fsync_directory(path: Path) -> None:
+    if os.name == "nt":
+        # Windows CRT cannot open directory file descriptors for os.fsync.
+        # The staged file itself has already been fsynced, then atomically
+        # replaced on the same volume. Do not claim multi-file crash atomicity.
+        return
     descriptor = os.open(
         path,
         os.O_RDONLY
@@ -629,6 +634,12 @@ def _assert_safe_output_destination(path: Path) -> bool:
     return True
 
 
+def _read_output_snapshot(path: Path, label: str) -> bytes | None:
+    if not _assert_safe_output_destination(path):
+        return None
+    return _require_regular(path, label, max_bytes=4 * 1024 * 1024)
+
+
 def _atomic_write(path: Path, payload: bytes) -> None:
     _assert_safe_output_destination(path)
     parent = path.parent
@@ -637,6 +648,7 @@ def _atomic_write(path: Path, payload: bytes) -> None:
         os.O_WRONLY
         | os.O_CREAT
         | os.O_EXCL
+        | getattr(os, "O_BINARY", 0)
         | getattr(os, "O_CLOEXEC", 0)
         | getattr(os, "O_NOFOLLOW", 0)
     )
@@ -752,26 +764,64 @@ def apply_repository_promotion(
         PROOF_RELEASE_REPOSITORY_PATH.as_posix(),
         RECOVERY_ENVELOPE_REPOSITORY_PATH.as_posix(),
     }
-    # Validate EVERY destination before writing the first public anchor or
-    # policy. A late immutable conflict or invalid parent must not leave a
-    # partially pinned repository. Recheck each path inside _atomic_write.
-    for relative, payload in plan["outputs"].items():
-        destination = root / relative
-        if _assert_safe_output_destination(destination) and relative in immutable_public_paths:
-            existing = _require_regular(
-                destination,
-                f"existing {relative}",
-                max_bytes=4 * 1024 * 1024,
+    outputs = plan["outputs"]
+    snapshots: dict[str, bytes | None] = {}
+
+    # Every planned destination must be valid before the first write. Preserve
+    # original bytes for bounded rollback if a later write/verification fails.
+    for relative, payload in outputs.items():
+        before = _read_output_snapshot(root / relative, f"existing {relative}")
+        if relative in immutable_public_paths and before is not None and before != payload:
+            raise PromotionError(
+                f"refusing to replace different canonical public material: {relative}"
             )
-            if existing != payload:
-                raise PromotionError(
-                    f"refusing to replace different canonical public material: {relative}"
-                )
+        snapshots[relative] = before
 
-    for relative, payload in plan["outputs"].items():
-        _atomic_write(root / relative, payload)
+    attempted: list[str] = []
+    try:
+        for relative, payload in outputs.items():
+            destination = root / relative
+            current = _read_output_snapshot(destination, f"current {relative}")
+            if current != snapshots[relative]:
+                raise PromotionError(f"repository output changed after preflight: {relative}")
+            if current == payload:
+                continue
+            # Include an attempt *before* writing: a failure after os.replace
+            # must restore the just-written destination as well.
+            attempted.append(relative)
+            _atomic_write(destination, payload)
 
-    return validate_promoted_repository(root, verifier)
+        return validate_promoted_repository(root, verifier)
+    except Exception as failure:
+        incomplete: list[str] = []
+        for relative in reversed(attempted):
+            destination = root / relative
+            original = snapshots[relative]
+            try:
+                current = _read_output_snapshot(destination, f"rollback {relative}")
+                if current == original:
+                    continue
+                if current != outputs[relative]:
+                    # Never overwrite a different concurrent writer's bytes.
+                    raise PromotionError(
+                        f"repository output changed during rollback: {relative}"
+                    )
+                if original is None:
+                    destination.unlink()
+                    _fsync_directory(destination.parent)
+                else:
+                    _atomic_write(destination, original)
+            except Exception as recovery_error:
+                incomplete.append(f"{relative} ({type(recovery_error).__name__})")
+
+        if incomplete:
+            raise PromotionError(
+                "public trust promotion failed; rollback incomplete and manual "
+                "repository repair required for: " + ", ".join(incomplete)
+            ) from failure
+        raise PromotionError(
+            f"public trust promotion failed; original repository outputs restored: {failure}"
+        ) from failure
 
 
 def apply_repository_promotion_zip(
