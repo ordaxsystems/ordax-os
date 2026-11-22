@@ -21,12 +21,15 @@ import (
 type portableWindowsUpdateRuntime struct {
 	base *portableWindowsRuntime
 	expectedCopies int
+	roots portableUpdateRoots
 }
 
 type portableUpdateRoots struct {
 	ESP string `json:"esp"`
 	Data string `json:"data"`
 	TemporaryESP bool `json:"temporary_esp"`
+	ESPVolumeGUID string `json:"-"`
+	DataVolumeGUID string `json:"-"`
 }
 
 // Mount the existing exact two-partition media. Windows normally hides EFI;
@@ -76,6 +79,25 @@ func openInstalledPortableRoots(target Target, parts []creatorcore.PortableAppli
 		roots.ESP[1:] != ":"+string(os.PathSeparator) || roots.Data[1:] != ":"+string(os.PathSeparator) || strings.EqualFold(roots.ESP,roots.Data) {
 		return portableUpdateRoots{},errors.New("existing Portable mount returned unsafe volume roots")
 	}
+	// A disk number and serial are not sufficient: a Windows drive letter may
+	// be reassigned while the selected USB is still connected.
+	espGUID,err:=targetMountVolumeName(strings.TrimSuffix(roots.ESP,string(os.PathSeparator)))
+	if err!=nil {closeInstalledPortableRoots(target,roots);return portableUpdateRoots{},err}
+	dataGUID,err:=targetMountVolumeName(strings.TrimSuffix(roots.Data,string(os.PathSeparator)))
+	if err!=nil {closeInstalledPortableRoots(target,roots);return portableUpdateRoots{},err}
+	if strings.EqualFold(espGUID,dataGUID){
+		closeInstalledPortableRoots(target,roots)
+		return portableUpdateRoots{},errors.New("Portable ESP and data resolve to the same volume")
+	}
+	roots.ESPVolumeGUID=espGUID
+	roots.DataVolumeGUID=dataGUID
+	for _,guid:=range []string{espGUID,dataGUID} {
+		disks,err:=queryVolumeDiskNumbersReadOnly(guid)
+		if err!=nil {closeInstalledPortableRoots(target,roots);return portableUpdateRoots{},err}
+		if err:=validatePortableVolumeBinding(guid,guid,target.DiskNumber,disks);err!=nil{
+			closeInstalledPortableRoots(target,roots);return portableUpdateRoots{},err
+		}
+	}
 	return roots,nil
 }
 
@@ -85,6 +107,21 @@ func closeInstalledPortableRoots(target Target, roots portableUpdateRoots) {
 	script:=fmt.Sprintf("$ErrorActionPreference='Stop';$p=Get-Partition -DiskNumber %d -PartitionNumber 1 -ErrorAction Stop;if(([string]$p.DriveLetter)+':' + [char]92 -ne %s){throw 'Portable ESP access path changed'};$p|Remove-PartitionAccessPath -AccessPath %s -ErrorAction Stop|Out-Null",
 		target.DiskNumber,psSingle(roots.ESP),psSingle(roots.ESP))
 	_,_=runPortablePS(script)
+}
+
+func (u *portableWindowsUpdateRuntime) verifyBoundVolumes() error {
+	if err:=revalidatePortableTarget(u.base.target);err!=nil{return err}
+	for _,volume:=range []struct{root,guid string}{
+		{u.roots.ESP,u.roots.ESPVolumeGUID},
+		{u.roots.Data,u.roots.DataVolumeGUID},
+	} {
+		observed,err:=targetMountVolumeName(strings.TrimSuffix(volume.root,string(os.PathSeparator)))
+		if err!=nil{return err}
+		disks,err:=queryVolumeDiskNumbersReadOnly(observed)
+		if err!=nil{return err}
+		if err:=validatePortableVolumeBinding(volume.guid,observed,u.base.target.DiskNumber,disks);err!=nil{return err}
+	}
+	return nil
 }
 
 func checkPortableUpdateParent(root,target string) (string,error) {
@@ -112,10 +149,12 @@ func checkPortableUpdateParent(root,target string) (string,error) {
 }
 
 func (u *portableWindowsUpdateRuntime) VerifyLayout(parts []creatorcore.PortableApplicationPartition, bytes uint64) error {
+	if err:=u.verifyBoundVolumes();err!=nil{return err}
 	return u.base.VerifyLayout(parts,bytes)
 }
 
 func (u *portableWindowsUpdateRuntime) Readback(op creatorcore.PortableApplicationOperation) error {
+	if err:=u.verifyBoundVolumes();err!=nil{return err}
 	return u.base.Readback(op)
 }
 
@@ -124,7 +163,7 @@ func (u *portableWindowsUpdateRuntime) Readback(op creatorcore.PortableApplicati
 // directly to its final name before SHA-256 and size are verified.
 func (u *portableWindowsUpdateRuntime) Materialize(op creatorcore.PortableApplicationOperation, source creatorcore.PortableApplicationSource) error {
 	r:=u.base
-	if err:=revalidatePortableTarget(r.target);err!=nil{return err}
+	if err:=u.verifyBoundVolumes();err!=nil{return err}
 	h,ok:=r.sources[source.ArtifactID]
 	if !ok || h.core!=source{return errors.New("unsigned or unlocked update source")}
 	dest,err:=checkPortableUpdateParent(r.roots[op.Partition],op.TargetPath)
@@ -163,7 +202,7 @@ func (u *portableWindowsUpdateRuntime) Materialize(op creatorcore.PortableApplic
 }
 
 func (u *portableWindowsUpdateRuntime) Flush() error {
-	if err:=revalidatePortableTarget(u.base.target);err!=nil{return err}
+	if err:=u.verifyBoundVolumes();err!=nil{return err}
 	if len(u.base.synced)!=u.expectedCopies {
 		return fmt.Errorf("Portable update copied %d of %d required sources",len(u.base.synced),u.expectedCopies)
 	}
@@ -174,7 +213,7 @@ func (u *portableWindowsUpdateRuntime) ArmCandidate(sha string) error {
 	if len(sha)!=40 || strings.Trim(sha,"0123456789abcdef")!="" {
 		return errors.New("candidate source commit is invalid")
 	}
-	if err:=revalidatePortableTarget(u.base.target);err!=nil{return err}
+	if err:=u.verifyBoundVolumes();err!=nil{return err}
 	target,err:=checkPortableUpdateParent(u.base.roots["ORDAX-DATA"],"/.ordax/updates/portable-release-request.txt")
 	if err!=nil{return err}
 	payload:=[]byte("schema=ordax.portable-update-request/1"+string(byte(10))+"source_commit="+sha+string(byte(10)))
@@ -233,7 +272,7 @@ func ApplyPortablePhysicalUpdateWithProgress(request PortablePhysicalUpdateReque
 		}),
 	}
 	defer base.close()
-	runtime:=&portableWindowsUpdateRuntime{base:base,expectedCopies:len(sources)}
+	runtime:=&portableWindowsUpdateRuntime{base:base,expectedCopies:len(sources),roots:roots}
 	receipt,err:=creatorcore.ExecutePortableUpdate(
 		request.InstalledMediaPlan,request.CandidateMediaPlan,request.UpdatePlan,
 		sources,creatorcore.PortableUpdateGrant{
