@@ -4,7 +4,20 @@ const assert = require('node:assert/strict');
 const { mkdtempSync, mkdirSync, writeFileSync, symlinkSync, rmSync } = require('node:fs');
 const { tmpdir } = require('node:os');
 const { join } = require('node:path');
+const { spawnSync } = require('node:child_process');
 const { inventory, nativeBundleComparison } = require('./package-inventory.cjs');
+
+test('CLI inventory resolves the canonical monorepo system directory', () => {
+  const command = spawnSync(process.execPath, [join(__dirname, 'package-inventory.cjs')], {
+    cwd: __dirname, encoding: 'utf8', windowsHide: true,
+  });
+  assert.equal(command.status, 0, command.stderr);
+  const report = JSON.parse(command.stdout);
+  assert.equal(report.schema, 'ordax.desktop-system-inventory/1');
+  assert.ok(report.includedFiles > 0);
+  assert.ok(report.groups['surface/ui']?.files > 0);
+  assert.ok(report.groups['composition/native']?.files > 0);
+});
 
 test('inventory counts included bytes and exact Linux exclusions', () => {
   const root = mkdtempSync(join(tmpdir(), 'ordax-package-inventory-'));
