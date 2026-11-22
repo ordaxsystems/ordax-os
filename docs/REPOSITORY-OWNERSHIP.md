@@ -134,9 +134,9 @@ Desktop consome a composição da **mesma revisão Git do OS**; não mantém pin
 
 O único código do Site, seus estilos, assets, internacionalização, renderizador, contratos e testes estão em ordaxsystems/ordax-os/site/. O Site usa o mesmo commit Git do OS, sem pin de outro repositório, clone externo, submódulo ou segundo owner.
 
-Os entrypoints Vercel de Conta e OAuth são apenas interfaces de host para as APIs existentes em api/ do próprio OS. Identity, sessão, autorização, billing, domínios, assinatura de releases e grants continuam nos respectivos owners existentes. Não há bridge, materializador de gateway, API alternativa nem implantação adicional. O projeto Vercel ordax-site existente deve manter domínios e proteção durante o cutover.
+Os entrypoints Vercel de Conta e OAuth apenas expõem as APIs existentes em `api/` e `lib/` do OS. Identity, sessão, autorização, billing, assinatura de releases e grants permanecem sob seus owners. Não existe bridge, materializador de gateway ou API alternativa. **A produção `ordax.com.br` pertence ao projeto Vercel `ordax-os-public`, já conectado a `ordax-os/main`**; a origem foi comprovada por manifesto público e SHA do deployment. O projeto Vercel `ordax-site` é staging protegido e distinto, com vínculo Git histórico ainda pendente de reconexão ou descontinuação.
 
-A origem Git legada somente pode ser arquivada após confirmar que a produção aponta para o commit do ordax-os/main, sem branches, commits ou PRs pendentes.
+A origem Git `ordaxsystems/ordax-site` já está arquivada e contém somente `README.md` na ponta de suas branches; os commits históricos foram preservados. Nenhum código ativo deverá retornar a esse repositório.
 
 ### 8. Creator no monorepo ordax-os/creator/
 

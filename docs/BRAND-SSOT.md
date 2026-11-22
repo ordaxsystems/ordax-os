@@ -33,9 +33,9 @@ a implementação original da PR #1532, encerrada como substituída.
 python3 tools/brand/build.py render-emails
 python3 tools/brand/build.py check
 
-# no checkout independente ordax-site (somente Dev):
-python3 scripts/build.py check
-# OS consome o bundle do Site pelo pin docs/contracts/public-site-source.json; não há builder do Site no OS.
+# no mesmo checkout ordax-os/main, sem source externo:
+python3 site/scripts/build.py check
+# Site usa o mesmo SHA do OS: docs/contracts/public-site-source.json.
 ```
 
 Quando a Surface alterar a paleta, primeiro integrar a mudança no **owner Surface**. Depois, em uma adoção deliberada no OS, atualizar `surface-source.json`, materializar essa revisão e regenerar/validar as saídas de e-mail no **PR do OS**. Não tentar colocar mudanças de dois repos “no mesmo PR” e não criar segundo pin no Site. O gate `check` exige que o HTML versionado corresponda aos tokens da Surface adotada.
@@ -103,8 +103,8 @@ asset separado, mas **não é aplicado** nas páginas enquanto o asset
 final do conceito visual não for aprovado. Nenhum PNG de geração é
 copiado automaticamente para GitHub ou produção.
 
-A landing e o `playground.css` pertencem agora a `ordaxsystems/ordax-site/site/`,
-separados do OrdaX Web como produto; não manter uma cópia editável no OS.
+A landing e o `playground.css` pertencem exclusivamente a `ordaxsystems/ordax-os/site/public/`;
+OrdaX Web é outro produto, não outra cópia do Site.
 Gradientes e arte decorativa legados são migrados por etapas, com
 testes visuais; os tokens semânticos agora têm dono único e validação
 no `tests/test_brand_pipeline.py`.
