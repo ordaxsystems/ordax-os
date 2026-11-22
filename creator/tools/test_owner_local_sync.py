@@ -429,6 +429,73 @@ class LocalSyncTests(unittest.TestCase):
                 self.assertEqual((cache / "bootstrap/dev-base/ordax-pull").read_text(), "v2\n")
                 self.assertEqual(sum("clone" in cmd for cmd in commands), 1)
 
+    def test_remote_main_advance_refetches_once_without_second_updater(self):
+        import contextlib
+        import owner_usb_git_delivery as delivery
+        stale = SYNC.subprocess.CompletedProcess(
+            ["python"], 3, "", "OWNER_USB_GIT_DELIVERY=MAIN_ADVANCED:OS checkout differs from current remote main")
+        current = SYNC.subprocess.CompletedProcess(
+            ["python"], 0, '{"status":"CURRENT","source_commit":"' + "a" * 40 + '"}', "")
+        with (
+            mock.patch.object(SYNC, "creator_process_active", return_value=False),
+            mock.patch.object(SYNC, "owner_usb_stage_gate",
+                              return_value=contextlib.nullcontext(True)),
+            mock.patch.object(delivery, "discover_trusted_volume", return_value="E"),
+            mock.patch.object(SYNC, "_owner_main_delivery_checkout",
+                              side_effect=[Path("safe-main"), Path("safe-main")]) as fetch,
+            mock.patch.object(SYNC, "run_owner_usb_transport",
+                              side_effect=[stale, current]) as transport,
+        ):
+            self.assertEqual(
+                SYNC.stage_owner_usb_dev("6699E36B", expected_disk_number=1),
+                "CURRENT",
+            )
+        self.assertEqual(fetch.call_count, 2)
+        self.assertEqual(transport.call_count, 2)
+        for call in transport.call_args_list:
+            self.assertIn("--trusted-serial", call.args[0])
+            self.assertIn("--trusted-disk-number", call.args[0])
+
+    def test_unsafe_usb_error_never_refetches_or_retries(self):
+        import contextlib
+        import owner_usb_git_delivery as delivery
+        bad = SYNC.subprocess.CompletedProcess(
+            ["python"], 2, "", "OWNER_USB_GIT_DELIVERY=BLOCKED:USB serial changed")
+        with (
+            mock.patch.object(SYNC, "creator_process_active", return_value=False),
+            mock.patch.object(SYNC, "owner_usb_stage_gate",
+                              return_value=contextlib.nullcontext(True)),
+            mock.patch.object(delivery, "discover_trusted_volume", return_value="E"),
+            mock.patch.object(SYNC, "_owner_main_delivery_checkout",
+                              return_value=Path("safe-main")) as fetch,
+            mock.patch.object(SYNC, "run_owner_usb_transport",
+                              return_value=bad) as transport,
+        ):
+            with self.assertRaisesRegex(SYNC.SyncError, "USB serial changed"):
+                SYNC.stage_owner_usb_dev("6699E36B", expected_disk_number=1)
+        fetch.assert_called_once()
+        transport.assert_called_once()
+
+    def test_main_advance_retry_is_bounded_when_main_keeps_moving(self):
+        import contextlib
+        import owner_usb_git_delivery as delivery
+        stale = SYNC.subprocess.CompletedProcess(
+            ["python"], 3, "", "OWNER_USB_GIT_DELIVERY=MAIN_ADVANCED:canonical OS main advanced during USB packaging")
+        with (
+            mock.patch.object(SYNC, "creator_process_active", return_value=False),
+            mock.patch.object(SYNC, "owner_usb_stage_gate",
+                              return_value=contextlib.nullcontext(True)),
+            mock.patch.object(delivery, "discover_trusted_volume", return_value="E"),
+            mock.patch.object(SYNC, "_owner_main_delivery_checkout",
+                              return_value=Path("safe-main")) as fetch,
+            mock.patch.object(SYNC, "run_owner_usb_transport",
+                              return_value=stale) as transport,
+        ):
+            with self.assertRaisesRegex(SYNC.SyncError, "main advanced during USB packaging"):
+                SYNC.stage_owner_usb_dev("6699E36B", expected_disk_number=1)
+        self.assertEqual(fetch.call_count, 2)
+        self.assertEqual(transport.call_count, 2)
+
     def test_absent_trusted_usb_skips_git_and_transport(self):
         import contextlib
         import owner_usb_git_delivery as delivery
