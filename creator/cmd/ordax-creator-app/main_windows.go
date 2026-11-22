@@ -534,7 +534,7 @@ func renderSelectionExperience(state appRefreshState) {
 
 	busy := writeInProgress() || ownerUSBUpdateInProgress()
 	enable(writeButton, !busy && view.Step == creatorStepReview && view.CanContinue)
-	enable(usbUpdateButton, !busy && ownerUSBCanStageSelected(state, selectedTargetIndex()))
+	enable(usbUpdateButton, !busy && creatorUSBUpdateEligible(state, selectedTargetIndex()))
 	if view.Step == creatorStepReview && view.PrimaryAction != "" {
 		setText(writeButton, view.PrimaryAction)
 	} else {
@@ -729,7 +729,7 @@ func wndProc(hwnd uintptr, message uint32, wParam, lParam uintptr) uintptr {
 			return 0
 		}
 		if id == idUSBUpdate && notify == bnClicked {
-			beginOwnerUSBUpdate()
+			beginCreatorUSBUpdate()
 			return 0
 		}
 		if id == idUpdate && notify == bnClicked {
