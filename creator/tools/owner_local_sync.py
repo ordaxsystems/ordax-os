@@ -726,12 +726,24 @@ def stage_owner_usb_dev(expected_serial: str, *, from_creator_ui: bool = False,
             if from_creator_ui:
                 raise SyncError("selected Owner USB disappeared before staging")
             return "SKIP_TRUSTED_USB_NOT_PRESENT"
-        main_repo = _owner_main_delivery_checkout()
-        command = [sys.executable, str(delivery), "--repo", str(main_repo),
-                   "--auto-volume", "--trusted-serial", expected_serial, "--apply"]
-        if expected_disk_number is not None:
-            command += ["--trusted-disk-number", str(expected_disk_number)]
-        completed = run_owner_usb_transport(command, from_creator_ui=from_creator_ui)
+        main_repo = None
+        completed = None
+        # Concurrent commits from other OrdaX owners can advance main during
+        # a large bundle export. Refetch and retry once, but ONLY when the
+        # writer explicitly classified this as canonical main advancement.
+        # Never retry a disk mismatch, tampered bundle or revoked authority.
+        for attempt in range(2):
+            main_repo = _owner_main_delivery_checkout()
+            command = [sys.executable, str(delivery), "--repo", str(main_repo),
+                       "--auto-volume", "--trusted-serial", expected_serial, "--apply"]
+            if expected_disk_number is not None:
+                command += ["--trusted-disk-number", str(expected_disk_number)]
+            completed = run_owner_usb_transport(command, from_creator_ui=from_creator_ui)
+            if (attempt == 0 and completed is not None and
+                    completed.returncode == 3 and
+                    completed.stderr.startswith("OWNER_USB_GIT_DELIVERY=MAIN_ADVANCED:")):
+                continue
+            break
     if completed is None:
         return "DEFERRED_USB_TRANSPORT_BUSY"
     if completed.returncode:
