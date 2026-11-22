@@ -62,7 +62,7 @@
     "windows_app_publisher": "ordaxsystems/ordax-os",
     "path": "creator"
   },
-  "intelligence_source_candidate": {
+  "intelligence_source": {
     "owner": "ordaxsystems/ordax-os",
     "source_lock": "docs/contracts/intelligence-source.json",
     "source_action": ".github/actions/assemble-intelligence",

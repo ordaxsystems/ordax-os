@@ -146,29 +146,20 @@ O aplicativo Win32, Go Core, consumidores assinados e adaptadores físicos perte
 
 O repositório histórico ordaxsystems/ordax-creator foi arquivado após a migração verificada do executável Windows, do sincronizador local e da publicação. Sua `main` contém apenas README de encaminhamento, preservando o histórico Git; o código e os releases ativos pertencem a `ordax-os/creator/`. A consolidação de fonte não autoriza escrita física nem release Stable/MVP.
 
-### 9. ordaxsystems/ordax-intelligence — fonte portátil candidata, não autoridade ativa
+### 9. OrdaX Intelligence — módulo canônico no OS
 
-O nono repositório possui a **fonte portátil candidata** do motor de
-Intelligence, router, streaming, compatibilidade e builder técnico. Seu único
-pin de integração, incluindo o grafo portátil completo verificado, é
-`docs/contracts/intelligence-source.json`. Enquanto o lock declarar
-`integration-candidate`, `cutover_complete=false` e
-`activation_authorized=false`, essa fonte **não substitui** o motor
-ativo no OS nem autoriza remoção de consumidores antigos, assinatura ou boot.
+O Intelligence pertence integralmente ao mesmo commit de ordaxsystems/ordax-os:
+system/intelligence/ contém o núcleo portátil de inferência, roteamento,
+streaming, ferramentas, validação e testes. Os serviços Native já existentes
+injetam contratos do OS sem implementar um segundo motor.
 
-Por isso `docs/contracts/repository-ownership.json#repositories` ainda
-enumera **oito autoridades operacionais**: o OS retém Intelligence de
-sistema, Memory, permissões, Supervisor, composição Native e política de
-modelos. O conjunto de **nove repositórios em auditoria** é obtido desses
-oito owners mais o `source_repository` do lock, **sem manter segunda lista
-de versões ou duplicar ownership**. O teste de contrato impede promover
-a candidata como owner operacional antes do cutover atestado.
+docs/contracts/intelligence-source.json declara source_revision=same-os-commit.
+tools/intelligence/verify.py compara blobs Git e composições Native com o
+recibo de proveniência. O Supervisor conserva a transação e o rollback.
 
-O corte definitivo exige migrar consumidores e validar OS/Windows com
-as mesmas portas públicas, segurança, cancelamento, recuperação e artefatos
-verificados. Só então atualizar owner ativo, remover o motor OS substituído
-e encerrar o estado de candidata no mesmo change set. Nenhum trabalho
-de código é autorizado no repositório Intelligence por esta definição.
+ordax-intelligence é um repositório histórico, não uma autoridade operacional.
+Runtime e Platform permanecem independentes. Cutover de código não concede
+ativação, instalação, publicação Stable, mudança de grants ou engines.
 
 ## Fluxos oficiais
 

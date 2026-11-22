@@ -287,21 +287,21 @@ class WindowsInferenceCandidateTest(unittest.TestCase):
             self.assertIn(root / "ggml-cpu-sandybridge.dll", files)
             self.assertIn(root / "ggml-cpu-haswell.dll", files)
 
-    def test_independent_windows_ci_requires_complete_multivariant_hash_equivalence(self):
-        workflow = (BUILDER_DIR.parents[1] / ".github" / "workflows"
-                    / "windows-inference-candidate.yml").read_text(encoding="utf-8")
-        # Prove that manual candidate generation uses one immutable OS lock
-        # instead of a moving main or the older source-import fixture.
-        self.assertRegex(workflow, r"(?m)^          ref: [0-9a-f]{40}$")
-        self.assertIn("repository: ordaxsystems/ordax-os", workflow)
+    def test_canonical_windows_ci_requires_complete_multivariant_hash_equivalence(self):
+        root = BUILDER_DIR.parents[3]
+        workflow = (root / ".github" / "workflows"
+                    / "intelligence-windows-candidate.yml").read_text(encoding="utf-8")
+        self.assertNotIn("repository: ordaxsystems/ordax-os", workflow)
         self.assertNotIn("ref: main", workflow)
+        self.assertNotIn("_upstream/ordax-os", workflow)
+        self.assertIn("system/intelligence/tools/inference-builder/windows-candidate.py", workflow)
         self.assertIn("$firstHashes.Count -lt 9", workflow)
         self.assertIn("$firstHashes.Count -ne $secondHashes.Count", workflow)
         self.assertIn("($firstHashes -join ';') -cne ($secondHashes -join ';')", workflow)
         self.assertIn("throw 'Pinned Windows EXE/DLL outputs are not byte-reproducible'", workflow)
         self.assertNotIn("$firstHashes.Count -ne 8", workflow)
-        # PRs enforce the source/path contract without consuming two Windows
-        # compile slots. Actual GGUF and EXE/DLL proofs remain manual-only.
+        # No accidental Windows builds on pull requests or OS commits.
+        self.assertNotIn("pull_request:", workflow)
         for step in (
             "Compile exact llama.cpp and prove real offline GGUF inference",
             "Rebuild independent Windows PE files and reject nonreproducible digests",
@@ -309,40 +309,18 @@ class WindowsInferenceCandidateTest(unittest.TestCase):
             with self.subTest(step=step):
                 header = workflow.split("- name: " + step, 1)[1].split("shell: pwsh", 1)[0]
                 self.assertIn("if: github.event_name == 'workflow_dispatch'", header)
-        upload = workflow.split(
-            "- uses: actions/upload-artifact@b7c566a772e6b6bfb58ed0dc250532a479d7789f", 1
-        )[1].split("with:", 1)[0]
-        self.assertIn("if: github.event_name == 'workflow_dispatch'", upload)
 
-    def test_proven_windows_candidate_promotion_reuses_exact_artifact_without_rebuild(self):
-        root = BUILDER_DIR.parents[1]
-        promotion = json.loads(
-            (root / "release" / "windows-inference-candidate.json").read_text(encoding="utf-8")
-        )
-        workflow = (
-            root / ".github" / "workflows" / "windows-inference-promotion.yml"
-        ).read_text(encoding="utf-8")
-        self.assertEqual(promotion["$schema"], "ordax.intelligence-windows-engine-promotion/1")
-        self.assertEqual(promotion["proof_run_id"], 43309006398)
-        self.assertEqual(promotion["artifact_id"], 13985193466)
-        self.assertEqual(
-            promotion["artifact_sha256"],
-            "21680ead38fbbd34848826badb1ec30ee489b5a8c25fca29deb9d1da74e2cc29",
-        )
-        self.assertEqual(promotion["proof_head_commit"], "20ffa79651401b2e03732f3878025bbd30b4b52e")
-        self.assertEqual(promotion["builder_commit"], "70fc05715e1eb99a43d513caec9f4ac13fbcb1f3")
-        self.assertFalse(promotion["activation_authorized"])
-        self.assertFalse(promotion["signed_release"])
-        self.assertIn("actions: read", workflow)
-        self.assertIn("contents: write", workflow)
-        self.assertIn("actions/artifacts/$ORDAX_ARTIFACT_ID/zip", workflow)
-        self.assertIn("sha256sum --check --strict", workflow)
-        self.assertIn("gh release create", workflow)
-        self.assertIn("--prerelease", workflow)
-        self.assertIn("candidate-receipt.json", workflow)
-        self.assertNotIn("windows-candidate.py", workflow)
-        self.assertNotIn("cmake", workflow.lower())
-        self.assertNotIn("workflow_dispatch:", workflow)
+    def test_historical_promotion_receipt_is_evidence_not_current_release_authority(self):
+        root = BUILDER_DIR.parents[3]
+        historical = json.loads((root / "system/intelligence/docs/evidence"
+                    / "windows-inference-candidate-legacy.json").read_text(encoding="utf-8"))
+        self.assertEqual(historical["$schema"], "ordax.intelligence-windows-engine-promotion/1")
+        self.assertEqual(historical["builder_commit"], "70fc05715e1eb99a43d513caec9f4ac13fbcb1f3")
+        self.assertEqual(historical["proof_run_id"], 43309006398)
+        self.assertFalse(historical["activation_authorized"])
+        self.assertFalse(historical["signed_release"])
+        self.assertFalse((root / ".github/workflows/intelligence-windows-promotion.yml").exists())
+        self.assertFalse((root / "system/intelligence/release/windows-inference-candidate.json").exists())
 
     def test_real_proof_must_use_same_os_owned_model_lock_and_no_authority(self):
         source = (BUILDER_DIR / "windows-candidate.py").read_text(encoding="utf-8")

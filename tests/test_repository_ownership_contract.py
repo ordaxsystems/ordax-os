@@ -30,34 +30,29 @@ class RepositoryOwnershipContractTests(unittest.TestCase):
         self.assertTrue(self.contract["invariants"]["desktop_shell_is_same_commit_os_module"])
         self.assertNotIn("desktop_shell_is_not_os_source", self.contract["invariants"])
 
-    def test_ninth_intelligence_source_is_pinned_without_premature_owner_cutover(self):
-        # Eight active runtime/product authorities plus one separately owned, pinned
-        # source candidate. Do not silently promote source into runtime authority.
+    def test_intelligence_is_same_commit_os_owner_without_activation(self):
         source = json.loads(
             (ROOT / "docs/contracts/intelligence-source.json").read_text(encoding="utf-8")
         )
         repos = self.contract["repositories"]
         active = {record["repo"] for record in repos.values()}
-        self.assertEqual(len(active), len(repos) - 4, "Surface, Site, Creator and Desktop share the OS repository")
-        self.assertEqual(source["source_repository"], "ordaxsystems/ordax-intelligence")
-        self.assertNotIn(source["source_repository"], active)
-        self.assertEqual(len(active | {source["source_repository"]}), 5)
-        self.assertEqual(source["status"], "integration-candidate")
-        self.assertIs(source["cutover_complete"], False)
+        self.assertEqual(len(active), len(repos) - 4)
+        self.assertEqual(source["source_repository"], "ordaxsystems/ordax-os")
+        self.assertIn(source["source_repository"], active)
+        self.assertEqual(source["source_revision"], "same-os-commit")
+        self.assertEqual(source["source_root"], "system/intelligence")
+        self.assertEqual(source["status"], "canonical")
+        self.assertIs(source["cutover_complete"], True)
         self.assertIs(source["activation_authorized"], False)
         self.assertIs(source["builder_activation_authorized"], False)
         self.assertIs(source["change_live_os"], False)
         self.assertIs(source["source_only"], True)
-        source_paths = set(source["source_paths"])
-        self.assertIn("src/snapshot-notification.mjs", source_paths)
-        self.assertIn("tools/inference-builder/build.py", source_paths)
-        self.assertTrue(all(
-            path == "tools/inference-builder/build.py"
-            or (path.startswith("src/") and path.endswith(".mjs"))
-            for path in source_paths
-        ))
+        self.assertNotIn("source_commit", source)
+        self.assertNotIn("source_paths", source)
+        self.assertTrue((ROOT / "system/intelligence/src/index.mjs").is_file())
+        self.assertTrue((ROOT / "system/intelligence/tools/inference-builder/build.py").is_file())
+        self.assertTrue((ROOT / "tools/intelligence/verify.py").is_file())
         self.assertIn("intelligence", repos["platform"]["owns"])
-        # Memory, model authorization and Native/Supervisor remain OS owners.
         self.assertIn("global-memory", repos["platform"]["owns"])
         self.assertIn("native-capability-preflight", repos["platform"]["owns"])
 

@@ -57,7 +57,7 @@
     "portable-v2-materialization-must-not-create-current-activation-pointer",
     "legacy-materialize-and-activate-exact-must-reject-portable-v2"
   ],
-  "external_intelligence_candidate": {
+  "intelligence_source": {
     "owner": "ordaxsystems/ordax-os",
     "lock": "docs/contracts/intelligence-source.json",
     "source_action": ".github/actions/assemble-intelligence",

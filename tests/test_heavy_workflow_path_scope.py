@@ -48,7 +48,6 @@ class HeavyWorkflowPathScopeTests(unittest.TestCase):
     def test_local_ai_engine_candidate_does_not_rebuild_for_disposable_composition(self):
         text = (WORKFLOW_DIR / "local-ai-runtime-candidate.yml").read_text(encoding="utf-8")
         self.assertNotIn("      - 'tools/intelligence/**'", text)
-        self.assertNotIn("      - 'tools/intelligence/verify.py'", text)
         self.assertIn("      - 'tools/intelligence/verify.py'", text)
         self.assertIn("      - 'docs/contracts/intelligence-source.json'", text)
         self.assertIn("      - '.github/actions/resolve-intelligence-builder/**'", text)

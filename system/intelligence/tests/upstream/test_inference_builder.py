@@ -4,6 +4,7 @@ import importlib.util
 import hashlib
 import io
 import json
+import os
 import subprocess
 import threading
 from pathlib import Path
@@ -45,6 +46,7 @@ class LocalAiRuntimeBuilderTests(unittest.TestCase):
                     ):
                         BUILDER.source_commit()
 
+    @unittest.skipIf(os.name == 'nt', 'POSIX symbolic link privileges unavailable on Windows')
     def test_os_manifest_parents_cannot_be_symlinks_even_when_files_are_regular(self):
         with tempfile.TemporaryDirectory() as temporary:
             root = Path(temporary)
@@ -68,6 +70,7 @@ class LocalAiRuntimeBuilderTests(unittest.TestCase):
             self.assertEqual(BUILDER.SOURCE_LOCK, SOURCE_LOCK)
             self.assertEqual(BUILDER.ROOT, OS_ROOT.resolve())
 
+    @unittest.skipIf(os.name == 'nt', 'POSIX symbolic link privileges unavailable on Windows')
     def test_os_source_parent_components_cannot_be_symlinks(self):
         with tempfile.TemporaryDirectory() as temporary:
             root = Path(temporary)
@@ -78,6 +81,7 @@ class LocalAiRuntimeBuilderTests(unittest.TestCase):
             with self.assertRaisesRegex(BUILDER.RuntimeBuildError, "symlink"):
                 BUILDER.configure_os_source(alias / "checkout")
 
+    @unittest.skipIf(os.name == 'nt', 'POSIX symbolic link privileges unavailable on Windows')
     def test_vendored_os_license_rejects_symlinked_ancestor_and_traversal(self):
         with tempfile.TemporaryDirectory() as temporary:
             root = Path(temporary)
@@ -97,6 +101,7 @@ class LocalAiRuntimeBuilderTests(unittest.TestCase):
                     root, "../outside/Apache-2.0.txt", "OS model license"
                 )
 
+    @unittest.skipIf(os.name == 'nt', 'POSIX symbolic link privileges unavailable on Windows')
     def test_exact_download_refuses_symlinked_cache_parent_before_network(self):
         with tempfile.TemporaryDirectory() as temporary:
             root = Path(temporary)
@@ -210,8 +215,8 @@ class LocalAiRuntimeBuilderTests(unittest.TestCase):
                 "platform": "linux-x86_64",
                 "binary_format": "ELF",
                 "linkage": "static",
-                "sha256": "4a974691b9905b88cb46d97c85c2b035b33592a16cd0239ae4c6687f68799afe",
-                "size_bytes": 17039584,
+                "sha256": "c170393570f105856508d5d2f5423e853194dbcd8a55e61136f084e9a0619471",
+                "size_bytes": 17039536,
             },
         )
         self.assertEqual(lock["model"]["sha256"], "57d1997790d1744fba5b40a7317df71ea5e2acee28c47e78f0cce39c0703f8cf")
@@ -385,6 +390,7 @@ class LocalAiRuntimeBuilderTests(unittest.TestCase):
         self.assertTrue(url.endswith("Qwen3.5-0.8B-Q4_0.gguf?download=true"))
 
 
+    @unittest.skipIf(os.name == 'nt', 'POSIX symbolic link privileges unavailable on Windows')
     def test_builder_rejects_symlinked_artifact_roots_before_download(self):
         with tempfile.TemporaryDirectory() as directory:
             root = Path(directory)
@@ -409,6 +415,7 @@ class LocalAiRuntimeBuilderTests(unittest.TestCase):
                             BUILDER.build(out_dir, cache_dir)
             self.assertEqual(list(outside.iterdir()), [], "no writes through symlink")
 
+    @unittest.skipIf(os.name == 'nt', 'POSIX symbolic link privileges unavailable on Windows')
     def test_verifier_rejects_output_root_that_is_a_symlink(self):
         with tempfile.TemporaryDirectory() as directory:
             root = Path(directory)
@@ -419,6 +426,7 @@ class LocalAiRuntimeBuilderTests(unittest.TestCase):
             with self.assertRaisesRegex(BUILDER.RuntimeBuildError, "symlink"):
                 BUILDER.verify(output)
 
+    @unittest.skipIf(os.name == 'nt', 'POSIX symbolic link privileges unavailable on Windows')
     def test_engine_mirror_refuses_a_link_to_an_outside_git_cache(self):
         with tempfile.TemporaryDirectory() as directory:
             root = Path(directory)
@@ -433,6 +441,7 @@ class LocalAiRuntimeBuilderTests(unittest.TestCase):
                 with self.assertRaisesRegex(BUILDER.RuntimeBuildError, "mirror cache is unsafe"):
                     BUILDER.prepare_engine_mirror(lock, cache)
 
+    @unittest.skipIf(os.name == 'nt', 'POSIX symbolic link privileges unavailable on Windows')
     def test_cached_model_and_partial_download_refuse_symlinks_without_clobbering_target(self):
         with tempfile.TemporaryDirectory() as directory:
             root = Path(directory)
@@ -557,6 +566,7 @@ class LocalAiRuntimeBuilderTests(unittest.TestCase):
                         with self.assertRaisesRegex(BUILDER.RuntimeBuildError, "must not overlap"):
                             BUILDER.build(out_dir, cache_dir)
 
+    @unittest.skipIf(os.name == 'nt', 'POSIX symbolic link privileges unavailable on Windows')
     def test_directory_helper_rejects_symlinked_parent_components(self):
         with tempfile.TemporaryDirectory() as directory:
             root = Path(directory)

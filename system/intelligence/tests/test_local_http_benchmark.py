@@ -6,6 +6,7 @@ from pathlib import Path
 import tempfile
 from threading import Thread
 import unittest
+import os
 
 SCRIPT = Path(__file__).resolve().parents[1] / "tools/benchmarks/local_http.py"
 SPEC = importlib.util.spec_from_file_location("ordax_local_http_bench", SCRIPT)
@@ -48,6 +49,7 @@ class Fixture(BaseHTTPRequestHandler):
         self.wfile.write(body)
 
 
+@unittest.skipUnless(hasattr(os, 'O_NOFOLLOW'), 'POSIX no-follow path semantics required')
 class LocalHttpBenchmarkTests(unittest.TestCase):
     def setUp(self):
         self.temporary = tempfile.TemporaryDirectory()

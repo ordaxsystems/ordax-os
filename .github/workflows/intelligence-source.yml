@@ -1,5 +1,6 @@
 name: Same-commit OrdaX Intelligence
 on:
+  workflow_dispatch:
   push:
     branches: [main]
     paths:
@@ -41,6 +42,7 @@ jobs:
       - name: Verify same OS commit source and execution safety
         run: |
           python3 tools/intelligence/verify.py
+          python -m unittest discover -s tests -p 'test_intelligence_canonical_integrity.py' -v
           /bin/sh -n system/intelligence/owner-stage.sh
           python -m unittest discover -s system/intelligence/tests -p 'test_inference_builder_isolation.py' -v
           python -m unittest discover -s system/intelligence/tests -p 'test_windows_inference_candidate.py' -v

@@ -1,6 +1,7 @@
 import importlib.util
 from pathlib import Path
 import tempfile
+import os
 import unittest
 
 ROOT=Path(__file__).resolve().parents[1]
@@ -33,8 +34,11 @@ class BuilderBoundaryTests(unittest.TestCase):
             cache.chmod(0o600)
             module.stage_distributable_model(cache, distributed)
             self.assertEqual(distributed.read_bytes(), cache.read_bytes())
-            self.assertEqual(stat.S_IMODE(distributed.stat().st_mode), 0o644)
-            self.assertEqual(stat.S_IMODE(cache.stat().st_mode), 0o600)
+            if os.name != "nt":
+                self.assertEqual(stat.S_IMODE(distributed.stat().st_mode), 0o644)
+                self.assertEqual(stat.S_IMODE(cache.stat().st_mode), 0o600)
+            # NTFS/Python does not faithfully expose POSIX mode bits; content
+            # integrity remains verified on Windows, Linux validates modes.
 
 if __name__=="__main__":
     unittest.main()

@@ -121,7 +121,7 @@ jobs:
           assert "--host 127.0.0.1" in module.launcher_text(lock)
           print("EXTERNAL_INFERENCE_BUILDER_OS_POLICY=PASS")
           PY
-          test ! -e "$RUNNER_TEMP/ordax-intelligence-builder/system/intelligence/tools/inference-builder/__pycache__"
+          test ! -e "$GITHUB_WORKSPACE/system/intelligence/tools/inference-builder/__pycache__"
 
       - name: Validate local AI source and builder contracts
         run: |

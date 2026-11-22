@@ -35,7 +35,7 @@ def commit() -> str:
 
 def tracked() -> dict[str,str]:
     paths = git("ls-tree", "-r", "HEAD", "--", "system/intelligence/src",
-                "system/intelligence/tools/inference-builder/build.py", *FACADES)
+                "system/intelligence/tools", *FACADES)
     blobs = {}
     for row in paths.splitlines():
         metadata, path = row.split("\t", 1)
@@ -69,15 +69,45 @@ def verify(root: Path, *, need_receipt=False) -> dict:
     h = hashlib.sha256()
     for path, blob in sorted(identities.items()):
         target = root / path
-        if target.is_symlink() or not target.is_file():
-            raise IntelligenceIntegrityError("missing or linked Intelligence file: " + path)
+        ancestor = root
+        for segment in Path(path).parts:
+            ancestor = ancestor / segment
+            if ancestor.is_symlink():
+                raise IntelligenceIntegrityError("linked Intelligence path: " + path)
+        if not target.is_file():
+            raise IntelligenceIntegrityError("missing Intelligence file: " + path)
         payload = target.read_bytes()
         if len(payload) > 262144:
             raise IntelligenceIntegrityError("oversized Intelligence source: " + path)
-        calculated = hashlib.sha1(b"blob " + str(len(payload)).encode() + b"\0" + payload).hexdigest()
-        if calculated != blob:
+        # Git normalizes checkout line endings on Windows; verify through the
+        # committed clean filter and fingerprint canonical Git object bytes.
+        result = subprocess.run(
+            ("git", "-C", str(ROOT), "hash-object", "--path", path, str(target)),
+            capture_output=True, text=True,
+        )
+        if result.returncode or result.stdout.strip() != blob:
             raise IntelligenceIntegrityError("Intelligence Git blob drift: " + path)
-        h.update(path.encode() + b"\0" + hashlib.sha256(payload).digest())
+        canonical = subprocess.run(
+            ("git", "-C", str(ROOT), "cat-file", "blob", blob),
+            capture_output=True,
+        )
+        if canonical.returncode:
+            raise IntelligenceIntegrityError("Intelligence canonical Git bytes unavailable")
+        h.update(path.encode() + b"\0" + hashlib.sha256(canonical.stdout).digest())
+    # No additional imported source or builder files can ride inside a
+    # stage, even if none of the public facades imports them today.
+    for prefix in ("system/intelligence/src", "system/intelligence/tools"):
+        folder=root / prefix
+        for item in folder.rglob("*"):
+            name=item.relative_to(root).as_posix()
+            if item.is_symlink() or (not item.is_file() and not item.is_dir()):
+                raise IntelligenceIntegrityError("unsafe Intelligence staged entry: " + name)
+            if item.is_file() and name not in identities:
+                # Developer-only bytecode is excluded by Git archive. Never
+                # allow extra files in a disposable release candidate.
+                if root == ROOT.resolve() and "__pycache__" in item.parts and item.suffix == ".pyc":
+                    continue
+                raise IntelligenceIntegrityError("untracked Intelligence staged file: " + name)
     receipt = {
         "$schema":"ordax.intelligence-same-commit/1",
         "source_repository":"ordaxsystems/ordax-os",

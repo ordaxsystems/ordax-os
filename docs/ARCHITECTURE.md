@@ -107,7 +107,7 @@ Canonical trust remains fail-closed. Ephemeral CI/development keys never satisfy
 ```text
 ordax-surface ── visual source ───────┐
 ordax-apps ───── removable apps ──────┤
-ordax-intelligence ─ portable source ─┤
+ordax-os/system/intelligence ────────┤
                                       v
 ordax-os/
   boot/                 # boot media definition

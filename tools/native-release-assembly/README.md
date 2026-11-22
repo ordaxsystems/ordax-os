@@ -43,6 +43,6 @@ The OS Native assembler resolves creator/ from its own worktree, compares HEAD a
 
 ## Pinned external Intelligence
 
-The release CI stages verified `ordax-intelligence` source only after the canonical Surface assembly, by calling `.github/actions/assemble-intelligence`. The same Native assembler runs with `--require-external-intelligence`, re-verifies the copy after the helpers are built and writes the source identity to `system/.ordax/native-release-tools.json`. The existing `system.tar` ownership and signing boundary remain unchanged; consumer devices require no build toolchain.
+The release CI stages verified `OS Intelligence` source only after the canonical Surface assembly, by calling `.github/actions/assemble-intelligence`. The same Native assembler runs with `--require-intelligence`, re-verifies the copy after the helpers are built and writes the source identity to `system/.ordax/native-release-tools.json`. The existing `system.tar` ownership and signing boundary remain unchanged; consumer devices require no build toolchain.
 
 This is a source/build pipeline gate. First boot, signed publication, real llama.cpp/GGUF and the OS Supervisor cutover remain unproven.

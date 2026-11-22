@@ -175,7 +175,7 @@ jobs:
                assert binding['activation_authorized'] is False
                assert proof['activation_authorized'] is False
                entries=subprocess.check_output(['git','ls-tree','-r','HEAD','--','system/intelligence/src',
-                            'system/intelligence/tools/inference-builder/build.py'],text=True).splitlines()
+                            'system/intelligence/tools'],text=True).splitlines()
                for entry in entries:
                    meta,key=entry.split('\t',1)
                    mode,kind,blob=meta.split()

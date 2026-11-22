@@ -120,7 +120,7 @@ jobs:
           sha=subprocess.check_output(['git','rev-parse','HEAD'],text=True).strip()
           archive_path=pathlib.Path(os.environ['RUNNER_TEMP'])/'portable-release/system.tar'
           entries=subprocess.check_output(['git','ls-tree','-r','HEAD','--','system/intelligence/src',
-                    'system/intelligence/tools/inference-builder/build.py'],text=True).splitlines()
+                    'system/intelligence/tools'],text=True).splitlines()
           with tarfile.open(archive_path,'r:') as archive:
               names=archive.getnames()
               assert len(set(names))==len(names)

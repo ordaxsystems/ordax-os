@@ -80,7 +80,7 @@ The temporary CI system fixture is only a protocol fixture. It is not the OrdaX 
 
 ## Intelligence SSOT in the Native release CI
 
-The canonical release workflow now composes the pinned external Surface source and then the pinned external Intelligence source (the complete immutable portable Git graph, including the technical inference builder) before Native assembly. The OS-owned reusable action `.github/actions/assemble-intelligence` invokes the existing source materializer and candidate composer, not a second package manager or updater. Both Native assemblies and their later verifications **require** `--require-external-intelligence`.
+The canonical release workflow now composes the pinned external Surface source and then the same-commit OS Intelligence module, including its technical inference builder before Native assembly. The OS-owned reusable action `.github/actions/assemble-intelligence` invokes the same-commit verifier, not a second package manager or updater. Both Native assemblies and their later verifications **require** `--require-intelligence`.
 
 The ordinary deterministic `system.tar` test asserts full byte identity between independent builds; the tar contains the pinned Intelligence blobs, exactly five OS public-contract wrappers in place of their previous implementation bodies, and both source and Native provenance with inactive authorization. OS remains canonical for Identity, Account, Memory, Space, signatures, model selection, Supervisor and rollback.
 
