@@ -214,9 +214,18 @@ func TestOwnerUSBTrustedHotplugRequiresUniqueAuthorizedSerial(t *testing.T) {
         Executable: python,
         Arguments: "\"" + script + "\" --install-root \"" + install +
             "\" --stage-owner-dev-usb-serial 6699E36B",
-        State: "Ready", Concurrency: "IgnoreNew",
+        State: "Ready", Concurrency: "IgnoreNew", AutoTriggerEnabled: true,
     }
     state := appRefreshState{PhysicalReady: true, Targets: []physicalTarget{testOwnerUSBTarget()}}
+    task.AutoTriggerEnabled = false
+    if _, ok := ownerUSBTrustedTargetFromTask(state, task, executable); ok {
+        t.Fatal("disabled scheduled trigger must never auto-stage an authorized USB")
+    }
+    // Disabling unattended staging must not disable the deliberate GUI button.
+    if _, err := ownerUSBTransportFromTask(task, testOwnerUSBTarget(), executable); err != nil {
+        t.Fatalf("manual Update USB must remain available: %v", err)
+    }
+    task.AutoTriggerEnabled = true
     target, ok := ownerUSBTrustedTargetFromTask(state, task, executable)
     if !ok || target.DeviceSerial != "6699E36B" {
         t.Fatalf("previously authorized Owner USB not found: %+v %v", target, ok)

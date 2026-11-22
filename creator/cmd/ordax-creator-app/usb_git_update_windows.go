@@ -43,6 +43,7 @@ type ownerUSBTaskInfo struct {
     Arguments string
     State string
     Concurrency string
+    AutoTriggerEnabled bool
 }
 type ownerUSBTransport struct {
     Python string
@@ -154,7 +155,11 @@ func ownerUSBTransportFromTask(task ownerUSBTaskInfo, target physicalTarget, exe
 // authorized in the existing Windows task. It never selects a raw-write target.
 func ownerUSBTrustedTargetFromTask(state appRefreshState, task ownerUSBTaskInfo,
     executable string) (physicalTarget, bool) {
-    if state.Error != "" { return physicalTarget{}, false }
+    // A registered task is not permission to auto-stage: if its triggers
+    // were disabled, the GUI may discover USB but must never start a writer.
+    // The explicit Update USB button uses the same verified task without
+    // requiring unattended scheduling to be enabled.
+    if state.Error != "" || !task.AutoTriggerEnabled { return physicalTarget{}, false }
     var candidate physicalTarget
     found := false
     for index := range state.Targets {
@@ -228,8 +233,10 @@ func ownerUSBTaskConfiguration(ctx context.Context) (ownerUSBTaskInfo, error) {
     const ps = "$ErrorActionPreference='Stop';" +
         "$t=Get-ScheduledTask -TaskName 'OrdaX Creator Dev Release Sync' -ErrorAction Stop;" +
         "if($t.Actions.Count -ne 1){throw 'unexpected action count'};" +
+        "$auto=@($t.Triggers|Where-Object{$_.Enabled -eq $true}).Count -gt 0;" +
         "[pscustomobject]@{Executable=$t.Actions[0].Execute;Arguments=$t.Actions[0].Arguments;" +
-        "State=$t.State.ToString();Concurrency=$t.Settings.MultipleInstances.ToString()}|ConvertTo-Json -Compress"
+        "State=$t.State.ToString();Concurrency=$t.Settings.MultipleInstances.ToString();" +
+        "AutoTriggerEnabled=$auto}|ConvertTo-Json -Compress"
     cmd := exec.CommandContext(ctx, "powershell.exe", "-NoLogo", "-NoProfile", "-NonInteractive", "-Command", ps)
     cmd.SysProcAttr = &syscall.SysProcAttr{HideWindow: true}
     output, err := cmd.Output()
