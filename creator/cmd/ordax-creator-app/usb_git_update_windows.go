@@ -22,6 +22,7 @@ import (
 // existing Windows task invoke tools/owner_usb_git_delivery.py, which owns all
 // physical identity checks, Git provenance, atomic writes and readback.
 type ownerUSBUpdateStatus struct {
+    Mode string
     Active bool
     Result string
     Error string
@@ -460,11 +461,19 @@ func beginOwnerUSBUpdate() {
 // Shared by the explicit button and the trusted hotplug observer. Neither
 // entry point creates an updater or alters the active Linux installation.
 func startOwnerUSBUpdate(target physicalTarget) {
+    startCreatorUSBUpdateTask("owner-git",func()(ownerUSBReceipt,error){
+        return executeOwnerUSBTransport(target)
+    })
+}
+
+// Only one UI lifecycle and progress observer. The selected physical
+// transport and Core update policy own the actual media operations.
+func startCreatorUSBUpdateTask(mode string, execute func()(ownerUSBReceipt,error)) {
     if refreshInProgress || writeInProgress() || ownerUSBUpdateInProgress() { return }
     failed, succeeded := physicalWriteTerminalFlags()
     if failed || succeeded { return }
     ownerUSBUpdateMu.Lock()
-    ownerUSBUpdateResult = ownerUSBUpdateStatus{Active: true}
+    ownerUSBUpdateResult = ownerUSBUpdateStatus{Active: true,Mode:mode}
     ownerUSBUpdateMu.Unlock()
     setCreatorStatus(creatorT(msgUSBUpdateWorking))
     setCreatorHint(creatorT(msgUSBUpdateWorkingHint))
@@ -476,26 +485,30 @@ func startOwnerUSBUpdate(target physicalTarget) {
     enable(deviceCombo, false)
     enable(localeCombo, false)
     go func() {
-        receipt, runErr := executeOwnerUSBTransport(target)
+        receipt,runErr:=execute()
         ownerUSBUpdateMu.Lock()
-        ownerUSBUpdateResult.Active = false
-        ownerUSBUpdateResult.Error = ""
-        if runErr != nil {
-            ownerUSBUpdateResult.Error = runErr.Error()
+        ownerUSBUpdateResult.Active=false
+        ownerUSBUpdateResult.Error=""
+        if runErr!=nil {
+            ownerUSBUpdateResult.Error=runErr.Error()
         } else {
-            ownerUSBUpdateResult.Result = receipt.Status
-            ownerUSBUpdateResult.SourceCommit = receipt.SourceCommit
-            ownerUSBUpdateResult.BaseStatus = receipt.BaseStatus
-            ownerUSBUpdateResult.BaseArtifactCommit = receipt.BaseArtifactCommit
+            ownerUSBUpdateResult.Result=receipt.Status
+            ownerUSBUpdateResult.SourceCommit=receipt.SourceCommit
+            ownerUSBUpdateResult.BaseStatus=receipt.BaseStatus
+            ownerUSBUpdateResult.BaseArtifactCommit=receipt.BaseArtifactCommit
         }
         ownerUSBUpdateMu.Unlock()
-        procPostMessageW.Call(mainWindow, wmAppUSBUpdateDone, 0, 0)
+        procPostMessageW.Call(mainWindow,wmAppUSBUpdateDone,0,0)
     }()
 }
 
 // The transport receipt attests to a Git bundle in ORDAX-DATA only.
 // It must never imply that the Linux kernel, Base, Surface or boot were updated.
 func ownerUSBComponentSummary(state ownerUSBUpdateStatus) string {
+    if state.Mode=="portable" {
+        if !validLowerHexString(state.SourceCommit,40) {return ""}
+        return fmt.Sprintf("Release portátil %s gravada e verificada no pendrive.",state.SourceCommit[:12])+"\n"+creatorT(msgUSBUpdateNotActivated)
+    }
     if state.Result != "CURRENT" && state.Result != "STAGED_NOT_ACTIVATED" {
         return ""
     }
