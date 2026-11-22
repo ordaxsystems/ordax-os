@@ -14,7 +14,7 @@ test('Native Desktop Surface timers remain scheduled while the window is backgro
   const start=source.indexOf('window=new BrowserWindow({');
   assert.ok(start>=0,'the canonical Native Desktop BrowserWindow must exist');
   const options=source.slice(start,source.indexOf('});',start));
-  assert.match(options,/webPreferences:\\{[^}]*backgroundThrottling:false/, 
+  assert.match(options,/webPreferences:[{][^}]*backgroundThrottling:false/,
     'Native Surface reports must not expire under background timer throttling');
   assert.match(options,/nodeIntegration:false/);
   assert.match(options,/contextIsolation:true/);
