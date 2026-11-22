@@ -43,8 +43,6 @@ jobs:
 
       - name: Resolve exact independent Creator source
         uses: ./.github/actions/resolve-creator-source
-        with:
-          checkout-root: ${{ runner.temp }}/ordax-creator-authenticode-source
 
       - name: Set up Go
         uses: actions/setup-go@b7ad1dad31e06c5925ef5d2fc7ad053ef454303e # v7
@@ -98,7 +96,7 @@ jobs:
           if ((git -C $env:ORDAX_CREATOR_NATIVE_SOURCE rev-parse HEAD).Trim() -cne $env:ORDAX_CREATOR_SOURCE_COMMIT) {
             throw 'Creator implementation is not at the contract-pinned Git revision'
           }
-          if ((git -C $env:ORDAX_CREATOR_NATIVE_SOURCE rev-parse 'HEAD^{tree}').Trim() -cne $env:ORDAX_CREATOR_SOURCE_TREE) {
+          if ((git -C $env:ORDAX_CREATOR_NATIVE_SOURCE rev-parse 'HEAD:creator').Trim() -cne $env:ORDAX_CREATOR_SOURCE_TREE) {
             throw 'Creator implementation does not match contract-pinned source tree'
           }
           Push-Location $env:ORDAX_CREATOR_NATIVE_SOURCE

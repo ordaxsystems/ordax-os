@@ -1,0 +1,181 @@
+name: Creator Owner Windows release (OS monorepo publisher)
+
+on:
+  workflow_dispatch:
+
+defaults:
+  run:
+    working-directory: creator
+
+permissions:
+  contents: write
+
+concurrency:
+  group: creator-monorepo-owner-publisher
+  cancel-in-progress: false
+
+jobs:
+  media-freshness:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 8
+    outputs:
+      publish_required: ${{ steps.check.outputs.publish_required }}
+    steps:
+      - name: Checkout immutable OS revision containing Creator module
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
+        with:
+          persist-credentials: false
+      - name: Check published OS media and current Creator release before building
+        id: check
+        shell: bash
+        env:
+          CREATOR_SHA: ${{ github.sha }}
+        run: |
+          set -euo pipefail
+          base='https://github.com/ordaxsystems/ordax-os/releases/download/creator-owner-media'
+          curl --fail --silent --show-error --location --retry 3 \
+            --max-time 50 "$base/creator-owner-media.json" \
+            -o "$RUNNER_TEMP/creator-owner-media.json"
+          # No Creator release on first migration is valid; another network
+          # failure cannot be mistaken for an existing/current release.
+          status="$(curl --silent --show-error --location --max-time 30 \
+            -w '%{http_code}' \
+            -o "$RUNNER_TEMP/creator-owner-previous.json" \
+            'https://github.com/ordaxsystems/ordax-os/releases/download/creator-owner-prototype/creator-owner-update.json')"
+          case "$status" in
+            200) ;;
+            404) rm -f "$RUNNER_TEMP/creator-owner-previous.json" ;;
+            *) echo "Existing Creator channel check returned HTTP $status" >&2; exit 1 ;;
+          esac
+          args=(--media "$RUNNER_TEMP/creator-owner-media.json" \
+            --root . --creator-sha "$CREATOR_SHA" --github-output "$GITHUB_OUTPUT")
+          if [ -s "$RUNNER_TEMP/creator-owner-previous.json" ]; then
+            args+=(--existing "$RUNNER_TEMP/creator-owner-previous.json")
+          fi
+          python3 tools/owner_release.py status "${args[@]}"
+          echo "CREATOR_SOURCE_OWNER=ordaxsystems/ordax-os"
+
+  windows-publish:
+    needs: media-freshness
+    if: needs.media-freshness.outputs.publish_required == 'true'
+    runs-on: windows-2025
+    timeout-minutes: 45
+    permissions:
+      contents: write
+    env:
+      GH_TOKEN: ${{ github.token }}
+      CREATOR_SHA: ${{ github.sha }}
+    steps:
+      - name: Checkout exact OS revision containing Creator module
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
+        with:
+          persist-credentials: false
+      - name: Set up canonical Go
+        uses: actions/setup-go@b7ad1dad31e06c5925ef5d2fc7ad053ef454303e # v7
+        with:
+          go-version: '1.27.1'
+          check-latest: false
+          cache: true
+          cache-dependency-path: creator/go.sum
+      - name: Set up exact Python
+        uses: actions/setup-python@ece7cb06caefa5fff74198d8649806c4678c61a1 # v6
+        with:
+          python-version: '3.12'
+          check-latest: false
+      - name: Download canonical OS media without downloading an OS toolchain
+        shell: bash
+        run: |
+          set -euo pipefail
+          mkdir -p "$RUNNER_TEMP/owner-media"
+          base='https://github.com/ordaxsystems/ordax-os/releases/download/creator-owner-media'
+          for name in creator-owner-media.json ordax-bootstrap-seed.raw.gz ordax-symbol.png ordax-design-theme.json; do
+            curl --fail --silent --show-error --location --retry 3 \
+              --retry-delay 2 --max-time 600 \
+              "$base/$name" -o "$RUNNER_TEMP/owner-media/$name"
+          done
+          echo 'OWNER_OS_IMAGE_ACQUISITION=PASS_NO_REBUILD'
+      - name: Verify OS media and bind same-commit Creator module
+        shell: bash
+        run: |
+          set -euo pipefail
+          version="$(python3 -c "import json;print(json.load(open('version.json'))['version'])")"
+          tree="$(git rev-parse 'HEAD:creator')"
+          test "$(git rev-parse HEAD)" = "$CREATOR_SHA"
+          python3 tools/owner_release.py stage \
+            --media "$RUNNER_TEMP/owner-media" --root . \
+            --bundle "$RUNNER_TEMP/OrdaX-Creator" \
+            --creator-sha "$CREATOR_SHA" --creator-tree "$tree"
+          echo "CREATOR_PRODUCT_VERSION=$version" >> "$GITHUB_ENV"
+          echo "CREATOR_SOURCE_TREE=$tree" >> "$GITHUB_ENV"
+      - name: Compile existing Windows Creator EXE from OS monorepo
+        shell: bash
+        run: |
+          set -euo pipefail
+          CGO_ENABLED=0 GOOS=windows GOARCH=amd64 \
+            go build -trimpath -buildvcs=false \
+              -tags 'ordax_owner_prototype ordax_single_exe ordax_raw_backend' \
+              -ldflags="-s -w -H=windowsgui -X main.buildCreatorVersion=$CREATOR_PRODUCT_VERSION -X main.buildCreatorSourceCommit=$CREATOR_SHA" \
+              -o "$RUNNER_TEMP/OrdaX-Creator/OrdaX-Creator.exe" \
+              ./cmd/ordax-creator-app
+          test "$(find "$RUNNER_TEMP/OrdaX-Creator" -maxdepth 1 -type f -name '*.exe' | wc -l)" -eq 1
+          echo 'CREATOR_WINDOWS_EXECUTABLE_OWNER=ordaxsystems/ordax-os'
+      - name: Test actual packaged Win32 UI with physical writer disabled
+        shell: pwsh
+        env:
+          ORDAX_CREATOR_PACKAGE_EXPECT_VERSION: ${{ env.CREATOR_PRODUCT_VERSION }}
+          ORDAX_CREATOR_PACKAGE_EXPECT_SOURCE: ${{ github.sha }}
+        run: |
+          $ErrorActionPreference = 'Stop'
+          $exe = Join-Path $env:RUNNER_TEMP 'OrdaX-Creator/OrdaX-Creator.exe'
+          $process = Start-Process -FilePath $exe -ArgumentList '--offline-package-smoke' -PassThru -Wait -WindowStyle Hidden
+          if ($process.ExitCode -ne 0) {
+            throw "Packaged Creator Win32 smoke failed (code $($process.ExitCode))"
+          }
+          Write-Output 'CREATOR_REAL_WINDOWS_GUI_SMOKE=PASS'
+          Write-Output 'CREATOR_PHYSICAL_DISK_TOUCHED=NO'
+      - name: Package and verify Creator owner release with exact provenance
+        shell: bash
+        run: |
+          set -euo pipefail
+          python3 tools/owner_release.py package \
+            --media "$RUNNER_TEMP/owner-media" --root . \
+            --bundle "$RUNNER_TEMP/OrdaX-Creator" \
+            --release "$RUNNER_TEMP/creator-release" \
+            --creator-sha "$CREATOR_SHA" \
+            --creator-tree "$CREATOR_SOURCE_TREE"
+          test -s "$RUNNER_TEMP/creator-release/creator-owner-update.json"
+          echo 'CREATOR_WINDOWS_RELEASE_VERIFIED=PASS'
+      - name: Publish verified Creator binaries and updates in OS release only
+        shell: bash
+        run: |
+          set -euo pipefail
+          repo='ordaxsystems/ordax-os'
+          test "$(git ls-remote https://github.com/ordaxsystems/ordax-os.git refs/heads/main | cut -f1)" = "$CREATOR_SHA"
+          base='https://github.com/ordaxsystems/ordax-os/releases/download/creator-owner-media'
+          curl --fail --silent --show-error --location --max-time 50 \
+            "$base/creator-owner-media.json" -o "$RUNNER_TEMP/owner-media-latest.json"
+          cmp "$RUNNER_TEMP/owner-media/creator-owner-media.json" "$RUNNER_TEMP/owner-media-latest.json"
+          if ! gh release view creator-owner-prototype --repo "$repo" >/dev/null 2>&1; then
+            gh release create creator-owner-prototype --repo "$repo" \
+              --target "$CREATOR_SHA" --title 'OrdaX Creator - Owner Development Windows' \
+              --prerelease --notes 'Creator module release from ordax-os/creator; verified OS Owner media reused without rebuilding Base.'
+          fi
+          rel="$RUNNER_TEMP/creator-release"
+          # Place the manifest LAST; consumers reject mixed-asset transitions.
+          gh release upload creator-owner-prototype \
+            "$rel/OrdaX-Creator-Owner-Prototype.zip" "$rel/SHA256SUMS.txt" \
+            "$rel/LEIA-ME.txt" --repo "$repo" --clobber
+          gh release upload creator-owner-prototype "$rel/creator-owner-update.json" \
+            --repo "$repo" --clobber
+          gh api "repos/$repo/releases/tags/creator-owner-prototype" \
+            > "$RUNNER_TEMP/creator-published-release.json"
+          python3 tools/owner_release.py readback \
+            --release "$rel" --remote "$RUNNER_TEMP/creator-published-release.json"
+          echo 'CREATOR_PUBLISHER=ordaxsystems/ordax-os'
+          echo 'OS_KERNEL_BUILD_TRIGGERED=NO'
+      - name: Remove ephemeral OS image and embedded compilation payload
+        if: always()
+        shell: bash
+        run: |
+          rm -rf cmd/ordax-creator-app/owner_payload \
+            "$RUNNER_TEMP/owner-media" "$RUNNER_TEMP/OrdaX-Creator"

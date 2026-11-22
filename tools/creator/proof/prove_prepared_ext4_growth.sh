@@ -32,49 +32,37 @@ if readelf -l "$HELPER" | grep -q 'Requesting program interpreter'; then
   fail "growth helper is dynamically linked"
 fi
 
-# The OS owns this disposable GPT/ext4 proof. The Go preparer comes only from
-# the exact standalone Creator SHA/tree resolved by the shared source action.
-# Reject a missing or dirty checkout, not silently fall back to embedded Go.
-CREATOR_SOURCE="${ORDAX_CREATOR_NATIVE_SOURCE:-}"
-[[ -n "$CREATOR_SOURCE" && "$CREATOR_SOURCE" = /* ]] || fail "verified independent Creator source must be an absolute path"
-[[ -d "$CREATOR_SOURCE" && ! -L "$CREATOR_SOURCE" ]] || fail "verified independent Creator source is missing or a symlink"
-python3 - "$ROOT/docs/contracts/native-release-assembly.json" "$CREATOR_SOURCE" <<'PY' || fail "independent Creator source lock or checkout mismatch"
-import json, os, pathlib, re, stat, subprocess, sys
-lock_path = pathlib.Path(sys.argv[1])
-source_path = pathlib.Path(sys.argv[2])
-if not stat.S_ISREG(lock_path.lstat().st_mode):
-    raise SystemExit('Creator source lock must be a regular file')
-contract = json.loads(lock_path.read_text(encoding='utf-8'))
-pin = contract['creator_source']
-if (pin['repository'] != 'ordaxsystems/ordax-creator'
-    or pin['module'] != 'github.com/ordaxsystems/ordax-creator'
-    or pin['publisher_authority'] != 'ordaxsystems/ordax-os'
-    or pin['physical_apply_authorized'] is not False):
-    raise SystemExit('Creator source authority or physical isolation mismatch')
-def read_env(name):
-    value = os.environ.get(name, '')
-    if not value:
-        raise SystemExit(f'missing verified Creator source identity: {name}')
-    return value
-if (read_env('ORDAX_CREATOR_SOURCE_REPOSITORY') != pin['repository']
-    or read_env('ORDAX_CREATOR_SOURCE_COMMIT') != pin['commit']
-    or read_env('ORDAX_CREATOR_SOURCE_TREE') != pin['tree']):
-    raise SystemExit('Creator source env does not match canonical OS lock')
-for field in ('commit', 'tree'):
-    if re.fullmatch(r'[0-9a-f]{40}', pin[field]) is None:
-        raise SystemExit('Creator source SHA or tree is not exact lowercase Git hash')
+# Reuse the checked-out creator/ module of this OS commit; never clone a second source.
+CREATOR_SOURCE="${ORDAX_CREATOR_NATIVE_SOURCE:-$ROOT/creator}"
+[[ -n "$CREATOR_SOURCE" && "$CREATOR_SOURCE" = /* ]] || fail "Creator module must be an absolute path"
+[[ -d "$CREATOR_SOURCE" && ! -L "$CREATOR_SOURCE" ]] || fail "Creator module missing or a symlink"
+python3 - "$ROOT/docs/contracts/native-release-assembly.json" "$ROOT" "$CREATOR_SOURCE" <<'PY' || fail "Creator monorepo contract or source mismatch"
+import json, os, pathlib, subprocess, sys
+contract = json.loads(pathlib.Path(sys.argv[1]).read_text(encoding='utf-8'))['creator_source']
+root = pathlib.Path(sys.argv[2]).resolve()
+source = pathlib.Path(sys.argv[3]).resolve()
+if (contract.get('repository') != 'ordaxsystems/ordax-os'
+    or contract.get('path') != 'creator'
+    or contract.get('module') != 'github.com/ordaxsystems/ordax-os/creator'
+    or contract.get('physical_apply_authorized') is not False
+    or 'commit' in contract or 'tree' in contract):
+    raise SystemExit('Creator monorepo contract mismatch')
+if source != root / 'creator':
+    raise SystemExit('Creator source must belong to this OS checkout')
 def git(*args):
-    return subprocess.check_output(['git', '-C', str(source_path), *args], text=True).strip()
-if git('rev-parse', 'HEAD') != pin['commit']:
-    raise SystemExit('Creator checked-out commit differs from OS lock')
-if git('rev-parse', 'HEAD^{tree}') != pin['tree']:
-    raise SystemExit('Creator checked-out tree differs from OS lock')
-if git('status', '--porcelain', '--untracked-files=all'):
-    raise SystemExit('Creator checkout contains modified or untracked source')
-if (source_path / 'go.mod').read_text(encoding='utf-8').splitlines()[0] != 'module github.com/ordaxsystems/ordax-creator':
-    raise SystemExit('Creator source module is not the canonical Go module')
+    return subprocess.check_output(['git','-C',str(root),*args],text=True).strip()
+commit=git('rev-parse','HEAD')
+tree=git('rev-parse','HEAD:creator')
+if (os.environ.get('ORDAX_CREATOR_SOURCE_COMMIT') != commit
+    or os.environ.get('ORDAX_CREATOR_SOURCE_TREE') != tree
+    or os.environ.get('ORDAX_CREATOR_SOURCE_REPOSITORY') != 'ordaxsystems/ordax-os'):
+    raise SystemExit('Creator source identity differs from OS commit')
+if git('status','--porcelain','--untracked-files=all','--','creator'):
+    raise SystemExit('Creator module contains uncommitted source')
+if (source/'go.mod').read_text(encoding='utf-8').splitlines()[0] != 'module github.com/ordaxsystems/ordax-os/creator':
+    raise SystemExit('Creator module identity mismatch')
 PY
-echo 'CREATOR_PREPARED_IMAGE_SOURCE=PINNED_INDEPENDENT'
+echo 'CREATOR_PREPARED_IMAGE_SOURCE=OS_MONOREPO'
 echo 'CREATOR_PREPARED_PHYSICAL_WRITE=NOT_AUTHORIZED'
 
 SEED_ABS="$(cd "$(dirname "$SEED")" && pwd)/$(basename "$SEED")"

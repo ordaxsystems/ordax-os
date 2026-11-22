@@ -343,7 +343,7 @@ class CreatorKernelReuseWorkflowTests(unittest.TestCase):
             publish_block,
         )
         self.assertIn("tag='creator-owner-media'", publish_block)
-        self.assertIn("OWNER_CREATOR_WINDOWS_RELEASE_OWNED_BY=ordaxsystems/ordax-creator", publish_block)
+        self.assertIn("OWNER_CREATOR_WINDOWS_RELEASE_OWNED_BY=ordaxsystems/ordax-os", publish_block)
 
     def test_owner_dev_publication_remains_main_only(self):
         workflow = self.workflow(OWNER_DEV)
@@ -366,7 +366,7 @@ class CreatorKernelReuseWorkflowTests(unittest.TestCase):
         self.assertEqual(publish.count('gh release upload "$tag"'), 2)
         self.assertIn("OWNER_OS_MEDIA_PUBLISHED=", publish)
         self.assertIn(
-            "OWNER_CREATOR_WINDOWS_RELEASE_OWNED_BY=ordaxsystems/ordax-creator",
+            "OWNER_CREATOR_WINDOWS_RELEASE_OWNED_BY=ordaxsystems/ordax-os",
             publish,
         )
         self.assertNotIn("OrdaX-Creator.exe", publish)

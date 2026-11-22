@@ -41,8 +41,6 @@ jobs:
 
       - name: Resolve exact standalone Creator implementation
         uses: ./.github/actions/resolve-creator-source
-        with:
-          checkout-root: ${{ runner.temp }}/ordax-creator-native-proof
 
       - name: Set up Go
         uses: actions/setup-go@b7ad1dad31e06c5925ef5d2fc7ad053ef454303e # v7
@@ -74,10 +72,10 @@ jobs:
         run: |
           set -euo pipefail
           creator="${ORDAX_CREATOR_NATIVE_SOURCE:?missing pinned Creator checkout}"
-          test "${ORDAX_CREATOR_SOURCE_REPOSITORY:?}" = 'ordaxsystems/ordax-creator'
+          test "${ORDAX_CREATOR_SOURCE_REPOSITORY:?}" = 'ordaxsystems/ordax-os'
           test "$(git -C "$creator" rev-parse HEAD)" = "${ORDAX_CREATOR_SOURCE_COMMIT:?}"
-          test "$(git -C "$creator" rev-parse 'HEAD^{tree}')" = "${ORDAX_CREATOR_SOURCE_TREE:?}"
-          test "$(head -n 1 "$creator/go.mod")" = 'module github.com/ordaxsystems/ordax-creator'
+          test "$(git -C "$creator" rev-parse 'HEAD:creator')" = "${ORDAX_CREATOR_SOURCE_TREE:?}"
+          test "$(head -n 1 "$creator/go.mod")" = 'module github.com/ordaxsystems/ordax-os/creator'
           (
             cd "$creator"
             ORDAX_OS_CONTRACTS_DIR="$GITHUB_WORKSPACE/docs/contracts" \

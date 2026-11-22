@@ -1,14 +1,12 @@
-# OrdaX Creator — integração do OS
+# OrdaX Creator — produtores e contratos do OS
 
-**SSOT de implementação:** [`ordaxsystems/ordax-creator`](https://github.com/ordaxsystems/ordax-creator). Este diretório do `ordax-os` **não é o Core, aplicativo, CLI ou adaptador Go do Creator**.
+**SSOT:** ordaxsystems/ordax-os/main. O aplicativo Win32 e Core Go estão em creator/. Este diretório tools/creator/ contém produtores OS de mídia e provas descartáveis, contratos e autorizações de promoção; não contém outra implementação Go.
 
-O OS é proprietário somente dos produtores de payload e provas descartáveis em `tools/creator/assemble.py` e `tools/creator/proof/`, dos contratos de instalação, da autorização explícita para mídia física e do publicador/assinatura independente. O código Go do Creator e seus componentes Native/Windows são compilados do checkout exato, imutável e verificado pelo contrato único `docs/contracts/native-release-assembly.json#creator_source`, resolvido pela ação `.github/actions/resolve-creator-source`.
+A montagem Native usa docs/contracts/native-release-assembly.json#creator_source para vincular exatamente a árvore creator/ do commit OS.
 
-A autoridade de instalação física permanece **desativada** por `docs/contracts/physical-write-authorization.json`; compilar o helper, provar uma imagem temporária ou verificar artefatos assinados não cria consentimento para gravar qualquer dispositivo. A identidade de release assinada e a identidade de commit do OS/Writer são separadas da identidade do Creator. Windows, Linux e o MVP USB devem consumir o mesmo Core, sem implementação equivalente adicional no OS.
+O empacotador Python componentchannel e seus testes estão em creator/componentchannel/. O workflow existente Creator Component Candidate usa o módulo da mesma revisão do OS, sem checkout de outro repositório.
 
-O empacotador Python de `componentchannel` e seus testes pertencem exclusivamente ao `ordax-creator`; o workflow `Creator Component Candidate` os executa do checkout independente verificado. O OS mantém apenas o contrato e o publicador/assinatura da distribuição. As antigas cópias `tools/creator/componentchannel/*.py` foram removidas sem alterar os bytes do empacotador canônico.
-
-Os contratos oficiais e seus respectivos proprietários são a fonte de verdade; os detalhes operacionais abaixo explicam os gates do OS, não estabelecem outro proprietário para o Creator.
+A autorização de escrita física segue desativada por docs/contracts/physical-write-authorization.json, salvo ativação específica e comprovada pelos gates aplicáveis. Uma compilação de helper, imagem de teste ou artefato assinado não equivale a consentimento físico.
 
 ## Unsigned review bundle versus signed Portable v3 distribution
 

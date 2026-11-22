@@ -38,7 +38,7 @@ class CreatorDevReleaseGate(unittest.TestCase):
         self.assertIn("docs/contracts/native-release-assembly.json", publisher)
 
     def test_one_source_pin_and_legacy_consumer_interface(self):
-        self.assertEqual(self.pin["repository"], "ordaxsystems/ordax-creator")
+        self.assertEqual(self.pin["repository"], "ordaxsystems/ordax-os")
         self.assertEqual(self.pin["publisher_authority"], "ordaxsystems/ordax-os")
         self.assertIs(self.pin["physical_apply_authorized"], False)
         text = self.workflow

@@ -60,7 +60,7 @@ A divisão canônica entre **sistema, apps, runtime e infraestrutura remota** es
 
 ## Principios
 
-- `ordax-os/main` e a source authority **do código/contratos/composição pertencentes ao OS**; Surface, Apps, Desktop, Creator, Intelligence, Runtime, Platform e Site mantêm suas próprias autoridades de source conforme `docs/contracts/repository-ownership.json`.
+- `ordax-os/main` e a source authority **do código/contratos/composição pertencentes ao OS**; Creator, Desktop, Site e Surface pertencem ao OS; Runtime e Platform permanecem independentes conforme `docs/contracts/repository-ownership.json`.
 - Pendrive/notebook sao alvos materializados.
 - Codex e parceiro opcional, nunca requisito de source/build/release/instalacao.
 - Builds nascem de receitas versionadas + CI + provenance/hash.
@@ -107,7 +107,7 @@ owners externos consumidos por contrato/artefato:
   ordax-surface            # UI visual
   ordax-apps               # apps removíveis + Forge/Studio
   ordax-intelligence       # source portátil de Intelligence
-  ordax-creator            # Creator Core/UI/media consumer
+  creator/                 # Creator Core/UI/media consumer no mesmo commit OS
   ordax-runtime            # Runtime/Device Host local
   ordax-platform           # Control Plane/Product MCP/grants remotos
   ordax-site               # apresentação/distribuição pública
@@ -149,12 +149,12 @@ USB minimo
 
 ## Instalação sem Codex
 
-O Creator é um **produto/owner independente**, não um Core a ser absorvido pelo Desktop:
+O Creator é um módulo único do OS, separado funcionalmente do Desktop:
 
 ```text
 ordax-os
  -> produz/autoriza candidato de mídia verificável
- -> ordax-creator
+ -> creator/ (mesmo commit do OS)
     -> verifica artefato/proveniência
     -> confirma target removível
     -> grava + readback

@@ -18,7 +18,7 @@ class CreatorComponentChannelContractTests(unittest.TestCase):
             "prototype-ordax.creator-component-channel/1",
         )
         self.assertEqual(CONTRACT["status"], "candidate-enabled")
-        self.assertEqual(CONTRACT["implementation_repository"], "ordaxsystems/ordax-creator")
+        self.assertEqual(CONTRACT["implementation_repository"], "ordaxsystems/ordax-os")
         self.assertEqual(CONTRACT["publisher_repository"], "ordaxsystems/ordax-os")
         self.assertEqual(
             CONTRACT["implementation_source_contract"],

@@ -19,13 +19,13 @@ class CreatorOwnerExternalSourceTests(unittest.TestCase):
 
     def test_immutable_standalone_checkout_and_only_one_go_source(self):
         w = self.workflow
-        self.assertEqual(self.source["repository"], "ordaxsystems/ordax-creator")
+        self.assertEqual(self.source["repository"], "ordaxsystems/ordax-os")
         self.assertEqual(self.source["publisher_authority"], "ordaxsystems/ordax-os")
-        self.assertEqual(self.source["windows_app_publisher"], "ordaxsystems/ordax-creator")
+        self.assertEqual(self.source["windows_app_publisher"], "ordaxsystems/ordax-os")
         self.assertIs(self.source["physical_apply_authorized"], False)
         self.assertEqual(w.count("uses: ./.github/actions/resolve-creator-source"), 1)
         self.assertIn('git -C "$creator" rev-parse HEAD', w)
-        self.assertIn("rev-parse 'HEAD^{tree}'", w)
+        self.assertIn("rev-parse 'HEAD:creator'", w)
         self.assertIn('ORDAX_OS_CONTRACTS_DIR="$GITHUB_WORKSPACE/docs/contracts" go test', w)
         self.assertIn('creator="${ORDAX_CREATOR_NATIVE_SOURCE:?missing independent Creator source}"', w)
         self.assertIn('cd "$creator"', w)
@@ -104,7 +104,7 @@ class CreatorOwnerExternalSourceTests(unittest.TestCase):
             "Publish verified OS media for independent Creator owner",
             "github.event_name == 'workflow_dispatch' && github.actor == 'ordaxos-admin'",
             "OWNER_CREATOR_BINARY_BUILT_IN_OS=NO",
-            "OWNER_CREATOR_WINDOWS_RELEASE_OWNED_BY=ordaxsystems/ordax-creator",
+            "OWNER_CREATOR_WINDOWS_RELEASE_OWNED_BY=ordaxsystems/ordax-os",
         ):
             self.assertIn(marker, w)
         for marker in (

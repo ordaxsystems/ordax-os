@@ -41,49 +41,48 @@ if ($AppReleaseSequence -le 0) { throw 'Creator app release sequence must be pos
 
 $repoRoot = [IO.Path]::GetFullPath((Join-Path $PSScriptRoot '..\..\..'))
 
-# Fail closed on the sole OS-owned pin before creating any output or compiling.
-$sourceLock = Get-RealFile -Path (Join-Path $repoRoot 'docs/contracts/native-release-assembly.json') -Label 'Creator source contract'
+# Validate that this same OS commit owns Creator, before output or compilation.
+$sourceLock = Get-RealFile -Path (Join-Path $repoRoot 'docs/contracts/native-release-assembly.json') -Label 'Creator module contract'
 $sourceDoc = Get-Content -LiteralPath $sourceLock -Raw -Encoding UTF8 | ConvertFrom-Json
 $pin = $sourceDoc.creator_source
 if ($sourceDoc.'$schema' -cne 'prototype-ordax.native-release-assembly/2' -or
-    $pin.repository -cne 'ordaxsystems/ordax-creator' -or
-    $pin.module -cne 'github.com/ordaxsystems/ordax-creator' -or
+    $pin.repository -cne 'ordaxsystems/ordax-os' -or
+    $pin.path -cne 'creator' -or
+    $pin.module -cne 'github.com/ordaxsystems/ordax-os/creator' -or
     $pin.publisher_authority -cne 'ordaxsystems/ordax-os' -or
     $pin.helper_package -cne './cmd/ordax-creator-native-targets' -or
-    $pin.physical_apply_authorized -ne $false) {
-    throw 'Creator source owner or physical authorization contract mismatch'
-}
-$creatorCommit = [string]$pin.commit
-$creatorTree = [string]$pin.tree
-if ($creatorCommit -cnotmatch '^[0-9a-f]{40}$' -or $creatorTree -cnotmatch '^[0-9a-f]{40}$') {
-    throw 'Creator source lock must pin an exact lowercase Git SHA and tree'
+    $pin.physical_apply_authorized -ne $false -or
+    ($pin.PSObject.Properties.Name -contains 'commit') -or
+    ($pin.PSObject.Properties.Name -contains 'tree')) {
+    throw 'Creator monorepo source or physical authorization contract mismatch'
 }
 $creatorRoot = [IO.Path]::GetFullPath($CreatorSourceDirectory)
-if (-not (Test-Path -LiteralPath $creatorRoot -PathType Container)) { throw 'Creator checkout missing' }
+if ($creatorRoot -cne [IO.Path]::GetFullPath((Join-Path $repoRoot 'creator'))) {
+    throw 'Creator source must be the creator/ module from this OS checkout'
+}
+if (-not (Test-Path -LiteralPath $creatorRoot -PathType Container)) { throw 'Creator module missing' }
 if (((Get-Item -LiteralPath $creatorRoot -Force).Attributes -band [IO.FileAttributes]::ReparsePoint) -ne 0) {
-    throw 'Creator checkout may not be a symlink'
+    throw 'Creator module may not be a symlink'
 }
 $creatorModule = Get-RealFile -Path (Join-Path $creatorRoot 'go.mod') -Label 'Creator Go module'
-if ((Get-Content -LiteralPath $creatorModule -TotalCount 1) -cne 'module github.com/ordaxsystems/ordax-creator') {
+if ((Get-Content -LiteralPath $creatorModule -TotalCount 1) -cne 'module github.com/ordaxsystems/ordax-os/creator') {
     throw 'Creator Go module identity mismatch'
 }
 $null = Get-RealFile -Path (Join-Path $creatorRoot 'cmd/ordax-creator-launcher/main_windows.go') -Label 'Creator launcher source'
 $null = Get-RealFile -Path (Join-Path $creatorRoot 'cmd/ordax-creator-app/main_windows.go') -Label 'Creator GUI source'
 $gitRoot = & git -C $creatorRoot rev-parse --show-toplevel
-if ($LASTEXITCODE -ne 0 -or [IO.Path]::GetFullPath(([string]$gitRoot).Trim()) -ne $creatorRoot) {
-    throw 'Creator checkout must be the Git worktree root'
+if ($LASTEXITCODE -ne 0 -or [IO.Path]::GetFullPath(([string]$gitRoot).Trim()) -ne $repoRoot) {
+    throw 'Creator module is not in the expected OS Git worktree'
 }
-$gitHead = & git -C $creatorRoot rev-parse HEAD
-if ($LASTEXITCODE -ne 0 -or ([string]$gitHead).Trim() -cne $creatorCommit) {
-    throw 'Creator source Git SHA differs from OS contract'
+$creatorCommit = [string](& git -C $repoRoot rev-parse HEAD)
+$creatorTree = [string](& git -C $repoRoot rev-parse 'HEAD:creator')
+if ($LASTEXITCODE -ne 0 -or $creatorCommit.Trim() -cne $SourceCommit -or
+    $creatorTree.Trim() -cnotmatch '^[0-9a-f]{40}$') {
+    throw 'Creator source commit/tree must match exact OS commit'
 }
-$gitTree = & git -C $creatorRoot rev-parse 'HEAD^{tree}'
-if ($LASTEXITCODE -ne 0 -or ([string]$gitTree).Trim() -cne $creatorTree) {
-    throw 'Creator source Git tree differs from OS contract'
-}
-$gitDirty = & git -C $creatorRoot status --porcelain --untracked-files=all
+$gitDirty = & git -C $repoRoot status --porcelain --untracked-files=all -- creator
 if ($LASTEXITCODE -ne 0 -or (-not [string]::IsNullOrWhiteSpace(([string]($gitDirty | Out-String)).Trim()))) {
-    throw 'Creator source must be clean'
+    throw 'Creator module differs from current OS commit'
 }
 
 $TrustPath = Get-RealFile -Path $TrustPath -Label 'Creator public release trust'

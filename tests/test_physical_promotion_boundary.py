@@ -744,7 +744,7 @@ class PhysicalPromotionBoundaryTests(unittest.TestCase):
             self.make_ready_fixture(root)
             lock = root / "docs/contracts/native-release-assembly.json"
             original = json.loads(lock.read_text(encoding="utf-8"))
-            self.assertEqual(original["creator_source"]["repository"], "ordaxsystems/ordax-creator")
+            self.assertEqual(original["creator_source"]["repository"], "ordaxsystems/ordax-os")
             original["creator_source"]["commit"] = "f" * 40
             write_json(lock, original)
             status = promotion.evaluate(root)
@@ -767,8 +767,8 @@ class PhysicalPromotionBoundaryTests(unittest.TestCase):
         workflow = PHYSICAL_PROMOTION_WORKFLOW.read_text(encoding="utf-8")
         self.assertEqual(workflow.count("uses: ./.github/actions/resolve-creator-source"), 2)
         self.assertIn("CREATOR_EXTERNAL_SOURCE_GRANTS_PHYSICAL_CONSENT=NO", workflow)
-        self.assertIn("git -C \"$creator\" rev-parse 'HEAD^{tree}'", workflow)
-        self.assertIn('test "${ORDAX_CREATOR_SOURCE_REPOSITORY:?}" = \'ordaxsystems/ordax-creator\'', workflow)
+        self.assertIn("git -C \"$creator\" rev-parse 'HEAD:creator'", workflow)
+        self.assertIn('test "${ORDAX_CREATOR_SOURCE_REPOSITORY:?}" = \'ordaxsystems/ordax-os\'', workflow)
         self.assertIn("ORDAX_OS_CONTRACTS_DIR=", workflow)
         self.assertIn('cd "$creator"', workflow)
         self.assertNotIn("(cd tools/creator && go test", workflow)

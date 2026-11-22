@@ -85,7 +85,7 @@ def main() -> int:
             fail("seed-commit-drift")
         if provenance.get("creator_version") != version:
             fail("creator-version-provenance-drift")
-        if provenance.get("creator_source_repository") != "ordaxsystems/ordax-creator":
+        if provenance.get("creator_source_repository") != "ordaxsystems/ordax-os":
             fail("creator-source-owner-drift")
         if not SHA40.fullmatch(provenance.get("creator_source_commit", "")) or not SHA40.fullmatch(provenance.get("creator_source_tree", "")):
             fail("creator-source-pin-invalid")

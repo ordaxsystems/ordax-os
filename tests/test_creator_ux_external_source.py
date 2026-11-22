@@ -13,9 +13,9 @@ class CreatorUxStandaloneSource(unittest.TestCase):
     def test_go_source_from_single_canonical_immutable_pin(self):
         workflow=WORKFLOW.read_text(encoding="utf-8")
         source=json.loads(PIN.read_text(encoding="utf-8"))["creator_source"]
-        self.assertEqual(source["repository"],"ordaxsystems/ordax-creator")
+        self.assertEqual(source["repository"],"ordaxsystems/ordax-os")
         self.assertEqual(source["publisher_authority"],"ordaxsystems/ordax-os")
-        self.assertEqual(source["windows_app_publisher"],"ordaxsystems/ordax-creator")
+        self.assertEqual(source["windows_app_publisher"],"ordaxsystems/ordax-os")
         self.assertIs(source["physical_apply_authorized"],False)
         self.assertEqual(workflow.count("uses: ./.github/actions/resolve-creator-source"),1)
         self.assertIn("docs/contracts/native-release-assembly.json",workflow)

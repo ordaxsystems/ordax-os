@@ -23,13 +23,13 @@ class CreatorPayloadExternalSourceTests(unittest.TestCase):
 
     def test_exact_standalone_source_single_pin_no_legacy_go(self):
         w = self.workflow
-        self.assertEqual(self.source["repository"], "ordaxsystems/ordax-creator")
+        self.assertEqual(self.source["repository"], "ordaxsystems/ordax-os")
         self.assertEqual(self.source["publisher_authority"], "ordaxsystems/ordax-os")
-        self.assertEqual(self.source["windows_app_publisher"], "ordaxsystems/ordax-creator")
+        self.assertEqual(self.source["windows_app_publisher"], "ordaxsystems/ordax-os")
         self.assertIs(self.source["physical_apply_authorized"], False)
         self.assertEqual(w.count("uses: ./.github/actions/resolve-creator-source"), 1)
         self.assertIn("docs/contracts/native-release-assembly.json", w)
-        self.assertIn("git -C \"$creator\" rev-parse 'HEAD^{tree}'", w)
+        self.assertIn("git -C \"$creator\" rev-parse 'HEAD:creator'", w)
         self.assertIn("go test -count=1 ./cmd/ordax-creator ./core", w)
         self.assertIn('cd "$creator"', w)
         self.assertIn("./cmd/ordax-creator", w)

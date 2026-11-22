@@ -38,8 +38,6 @@ jobs:
           persist-credentials: false
       - name: Resolve exact independently owned Creator GUI source
         uses: ./.github/actions/resolve-creator-source
-        with:
-          checkout-root: ${{ runner.temp }}/ordax-creator-ux-source
 
       - name: Set up Go
         uses: actions/setup-go@b7ad1dad31e06c5925ef5d2fc7ad053ef454303e # v7
@@ -115,7 +113,7 @@ jobs:
               'gui_raw_backend_separate': False,
               'standalone_gui_published': False,
               'bundle_extraction_required': True,
-              'publisher_repository': 'ordaxsystems/ordax-creator',
+              'publisher_repository': 'ordaxsystems/ordax-os',
               'os_media_repository': 'ordaxsystems/ordax-os',
           }
           assert contract['owner_update'] == {
@@ -126,7 +124,7 @@ jobs:
               'unsupported_automatic_update_fails_closed': True,
           }
 
-          assert os.environ['ORDAX_CREATOR_SOURCE_REPOSITORY'] == 'ordaxsystems/ordax-creator'
+          assert os.environ['ORDAX_CREATOR_SOURCE_REPOSITORY'] == 'ordaxsystems/ordax-os'
           assert len(os.environ['ORDAX_CREATOR_SOURCE_COMMIT']) == 40
           assert len(os.environ['ORDAX_CREATOR_SOURCE_TREE']) == 40
           creator_root = pathlib.Path(os.environ['ORDAX_CREATOR_NATIVE_SOURCE'])
@@ -216,7 +214,7 @@ jobs:
                   'creator-owner-media.json',
                   'OWNER_CREATOR_BINARY_BUILT_IN_OS=NO',
                   'Publish verified OS media for independent Creator owner',
-                  "OWNER_CREATOR_WINDOWS_RELEASE_OWNED_BY=ordaxsystems/ordax-creator",
+                  "OWNER_CREATOR_WINDOWS_RELEASE_OWNED_BY=ordaxsystems/ordax-os",
               ],          }
           for name, anchors in required.items():
               for anchor in anchors:

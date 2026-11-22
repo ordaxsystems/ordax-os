@@ -37,8 +37,6 @@ jobs:
 
       - name: Resolve independent Creator with immutable source and tree
         uses: ./.github/actions/resolve-creator-source
-        with:
-          checkout-root: ${{ runner.temp }}/ordax-creator-physical-safety
 
       - name: Set up Python
         uses: actions/setup-python@ece7cb06caefa5fff74198d8649806c4678c61a1 # v6
@@ -68,10 +66,10 @@ jobs:
           $ErrorActionPreference = 'Stop'
           $source = $env:ORDAX_CREATOR_NATIVE_SOURCE
           if (-not $source -or -not (Test-Path -LiteralPath $source)) { throw 'independent Creator checkout missing' }
-          if ($env:ORDAX_CREATOR_SOURCE_REPOSITORY -ne 'ordaxsystems/ordax-creator') { throw 'Creator repository authority mismatch' }
+          if ($env:ORDAX_CREATOR_SOURCE_REPOSITORY -ne 'ordaxsystems/ordax-os') { throw 'Creator repository authority mismatch' }
           if ((git -C $source rev-parse HEAD).Trim() -ne $env:ORDAX_CREATOR_SOURCE_COMMIT) { throw 'independent Creator SHA mismatch' }
-          if ((git -C $source rev-parse 'HEAD^{tree}').Trim() -ne $env:ORDAX_CREATOR_SOURCE_TREE) { throw 'independent Creator tree mismatch' }
-          if ((Get-Content -LiteralPath (Join-Path $source 'go.mod') -TotalCount 1).Trim() -ne 'module github.com/ordaxsystems/ordax-creator') { throw 'independent Go module mismatch' }
+          if ((git -C $source rev-parse 'HEAD:creator').Trim() -ne $env:ORDAX_CREATOR_SOURCE_TREE) { throw 'independent Creator tree mismatch' }
+          if ((Get-Content -LiteralPath (Join-Path $source 'go.mod') -TotalCount 1).Trim() -ne 'module github.com/ordaxsystems/ordax-os/creator') { throw 'independent Go module mismatch' }
           $env:ORDAX_OS_CONTRACTS_DIR = Join-Path $env:GITHUB_WORKSPACE 'docs/contracts'
           Push-Location $source
           try {

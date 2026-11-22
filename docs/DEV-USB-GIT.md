@@ -187,7 +187,7 @@ This is an owner/development profile. It does not replace the canonical product 
 
 ## Windows Creator channel — historical packaging notes, independent source owner
 
-The application/Core source owner is now `ordaxsystems/ordax-creator`. The OS-owned channel/workflow described below may assemble an authorized development-media candidate from an **exact pinned Creator revision**, but it is not a second Creator source and must not be used to restore Creator code under `ordax-os` or Desktop.
+The application/Core source owner is now `ordaxsystems/ordax-os/creator/`. The OS-owned channel/workflow described below may assemble an authorized development-media candidate from an **Creator module from the same verified OS commit**, but it is not a second Creator source and must not be used to restore Creator code under `ordax-os` or Desktop.
 
 The Owner/Development Creator is packaged separately from the public Stable/MVP
 Creator. Its GitHub prerelease is
@@ -778,7 +778,7 @@ mas deve informar Base/Surface/boot como não verificados/não ativados quando
 não recebeu os recibos correspondentes. Recibos informativos nunca conferem
 capacidade de gravação física.
 
-**Integração disponível:** `ordax-creator/tools/owner_local_sync.py` e
+**Integração disponível:** `ordax-os/creator/tools/owner_local_sync.py` e
 `owner_usb_git_delivery.py` implementam o transporte Dev existente para
 `ORDAX-DATA`; o Creator GUI apenas o aciona pelo adaptador Windows. O
 `ordax-os/bootstrap/dev-base/ordax-pull` continua o executor do Pull

@@ -17,14 +17,14 @@ class CreatorComponentExternalSourceTests(unittest.TestCase):
         cls.channel = json.loads(CHANNEL.read_text(encoding="utf-8"))
 
     def test_exact_single_pinned_source_with_separate_publisher(self):
-        self.assertEqual(self.source["repository"], "ordaxsystems/ordax-creator")
+        self.assertEqual(self.source["repository"], "ordaxsystems/ordax-os")
         self.assertEqual(self.source["publisher_authority"], "ordaxsystems/ordax-os")
         self.assertIs(self.source["physical_apply_authorized"], False)
         self.assertEqual(self.channel["source_repository"], "ordaxsystems/ordax-os")
         self.assertIs(self.channel["publish_allowed"], False)
         self.assertEqual(self.workflow.count("uses: ./.github/actions/resolve-creator-source"), 2)
         self.assertIn("docs/contracts/native-release-assembly.json", self.workflow)
-        self.assertIn("rev-parse 'HEAD^{tree}'", self.workflow)
+        self.assertIn("rev-parse 'HEAD:creator'", self.workflow)
         self.assertIn("Push-Location $env:ORDAX_CREATOR_NATIVE_SOURCE", self.workflow)
         self.assertNotIn("Push-Location tools/creator", self.workflow)
         self.assertNotIn("working-directory: tools/creator", self.workflow)

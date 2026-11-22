@@ -51,8 +51,6 @@ jobs:
 
       - name: Resolve canonical independent Creator source
         uses: ./.github/actions/resolve-creator-source
-        with:
-          checkout-root: ${{ runner.temp }}/ordax-creator-portable-proof
 
       - name: Set up Python
         uses: actions/setup-python@ece7cb06caefa5fff74198d8649806c4678c61a1 # v6
@@ -99,10 +97,10 @@ jobs:
             tests.test_storage_architecture_contract \
             tests.test_creator_portable_prepared_media -v
           creator="${ORDAX_CREATOR_NATIVE_SOURCE:?missing external Creator checkout}"
-          test "${ORDAX_CREATOR_SOURCE_REPOSITORY:?}" = 'ordaxsystems/ordax-creator'
+          test "${ORDAX_CREATOR_SOURCE_REPOSITORY:?}" = 'ordaxsystems/ordax-os'
           test "$(git -C "$creator" rev-parse HEAD)" = "${ORDAX_CREATOR_SOURCE_COMMIT:?}"
-          test "$(git -C "$creator" rev-parse 'HEAD^{tree}')" = "${ORDAX_CREATOR_SOURCE_TREE:?}"
-          test "$(head -n 1 "$creator/go.mod")" = 'module github.com/ordaxsystems/ordax-creator'
+          test "$(git -C "$creator" rev-parse 'HEAD:creator')" = "${ORDAX_CREATOR_SOURCE_TREE:?}"
+          test "$(head -n 1 "$creator/go.mod")" = 'module github.com/ordaxsystems/ordax-os/creator'
           (
             cd "$creator"
             ORDAX_OS_CONTRACTS_DIR="$GITHUB_WORKSPACE/docs/contracts" \

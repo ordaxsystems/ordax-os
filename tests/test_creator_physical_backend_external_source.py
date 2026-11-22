@@ -17,15 +17,15 @@ class CreatorPhysicalBackendExternalSourceTests(unittest.TestCase):
 
     def test_raw_go_package_is_single_pinned_implementation(self):
         w = self.workflow
-        self.assertEqual(self.source["repository"], "ordaxsystems/ordax-creator")
+        self.assertEqual(self.source["repository"], "ordaxsystems/ordax-os")
         self.assertFalse(self.source["physical_apply_authorized"])
         self.assertEqual(self.source["publisher_authority"], "ordaxsystems/ordax-os")
         self.assertEqual(w.count("uses: ./.github/actions/resolve-creator-source"), 1)
         self.assertIn("docs/contracts/native-release-assembly.json", w)
         self.assertIn("ORDAX_CREATOR_SOURCE_COMMIT", w)
         self.assertIn("ORDAX_CREATOR_SOURCE_TREE", w)
-        self.assertIn("rev-parse 'HEAD^{tree}'", w)
-        self.assertIn("module github.com/ordaxsystems/ordax-creator", w)
+        self.assertIn("rev-parse 'HEAD:creator'", w)
+        self.assertIn("module github.com/ordaxsystems/ordax-os/creator", w)
         self.assertIn("ORDAX_OS_CONTRACTS_DIR", w)
         self.assertNotIn("Push-Location tools/creator", w)
         self.assertNotIn("'tools/creator/host/windows/portable_apply_windows.go'", w)

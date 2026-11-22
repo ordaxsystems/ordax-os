@@ -16,7 +16,7 @@ class CreatorOfficialExternalHandoff(unittest.TestCase):
         cls.pin=json.loads(CONTRACT.read_text(encoding="utf-8"))["creator_source"]
 
     def test_exact_pin_consumed_by_all_jobs(self):
-        self.assertEqual(self.pin["repository"],"ordaxsystems/ordax-creator")
+        self.assertEqual(self.pin["repository"],"ordaxsystems/ordax-os")
         self.assertEqual(self.pin["publisher_authority"],"ordaxsystems/ordax-os")
         self.assertIs(self.pin["physical_apply_authorized"],False)
         self.assertEqual(self.workflow.count("uses: ./.github/actions/resolve-creator-source"),3)
@@ -26,9 +26,9 @@ class CreatorOfficialExternalHandoff(unittest.TestCase):
 
     def test_wrong_source_rejected_before_output(self):
         before=self.script.split("$OutputDirectory = Get-EmptyOutputDirectory")[0]
-        for value in ("native-release-assembly.json","rev-parse HEAD","HEAD^{tree}",
+        for value in ("native-release-assembly.json","rev-parse HEAD","HEAD:creator",
                       "status --porcelain --untracked-files=all","Creator Go module",
-                      "Creator source Git SHA differs","Creator source Git tree differs"):
+                      "Creator source commit/tree must match exact OS commit"):
             self.assertIn(value,before)
         self.assertIn("Push-Location $creatorRoot",self.script)
         self.assertNotIn("Push-Location (Join-Path $repoRoot 'tools/creator')",self.script)

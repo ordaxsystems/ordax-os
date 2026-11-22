@@ -212,8 +212,6 @@ jobs:
 
       - name: Resolve immutable standalone Creator implementation
         uses: ./.github/actions/resolve-creator-source
-        with:
-          checkout-root: ${{ runner.temp }}/ordax-creator-owner-source
 
       - name: Prepare pinned Surface from independent visual owner for exact Owner image
         uses: ./.github/actions/prepare-verified-surface
@@ -246,10 +244,10 @@ jobs:
         run: |
           set -euo pipefail
           creator="${ORDAX_CREATOR_NATIVE_SOURCE:?missing independent Creator source}"
-          test "${ORDAX_CREATOR_SOURCE_REPOSITORY:?}" = 'ordaxsystems/ordax-creator'
+          test "${ORDAX_CREATOR_SOURCE_REPOSITORY:?}" = 'ordaxsystems/ordax-os'
           test "$(git -C "$creator" rev-parse HEAD)" = "${ORDAX_CREATOR_SOURCE_COMMIT:?}"
-          test "$(git -C "$creator" rev-parse 'HEAD^{tree}')" = "${ORDAX_CREATOR_SOURCE_TREE:?}"
-          test "$(head -n 1 "$creator/go.mod")" = 'module github.com/ordaxsystems/ordax-creator'
+          test "$(git -C "$creator" rev-parse 'HEAD:creator')" = "${ORDAX_CREATOR_SOURCE_TREE:?}"
+          test "$(head -n 1 "$creator/go.mod")" = 'module github.com/ordaxsystems/ordax-os/creator'
           python3 - "$creator/version.json" "$GITHUB_ENV" <<'PY'
           import json, pathlib, re, sys
           source, github_env = map(pathlib.Path, sys.argv[1:])
@@ -963,7 +961,7 @@ jobs:
             gh release create "$tag" --repo "$repo" \
               --target "$ORDAX_OWNER_SOURCE_COMMIT" \
               --title 'OrdaX OS - QEMU verified Owner Dev media' --prerelease \
-              --notes 'Verified OS media only. Creator EXE and updates are published in ordaxsystems/ordax-creator.'
+              --notes 'Verified OS media only. Creator EXE and updates are published in ordaxsystems/ordax-os.'
           fi
           gh release upload "$tag" \
             "$media/ordax-bootstrap-seed.raw.gz" "$media/ordax-symbol.png" \
@@ -976,7 +974,7 @@ jobs:
             --directory "$media" --source-commit "$ORDAX_OWNER_SOURCE_COMMIT" \
             --release-json "$RUNNER_TEMP/owner-published-media.json"
           echo "OWNER_OS_MEDIA_PUBLISHED=$ORDAX_OWNER_SOURCE_COMMIT"
-          echo 'OWNER_CREATOR_WINDOWS_RELEASE_OWNED_BY=ordaxsystems/ordax-creator'
+          echo 'OWNER_CREATOR_WINDOWS_RELEASE_OWNED_BY=ordaxsystems/ordax-os'
 
       - name: Cleanup ephemeral private material
         if: ${{ always() }}

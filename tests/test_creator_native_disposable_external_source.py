@@ -17,12 +17,12 @@ class NativeDisposableCreatorSourceTests(unittest.TestCase):
 
     def test_one_pinned_cli_from_owner_repo(self):
         w = self.w
-        self.assertEqual(self.pin["repository"], "ordaxsystems/ordax-creator")
+        self.assertEqual(self.pin["repository"], "ordaxsystems/ordax-os")
         self.assertFalse(self.pin["physical_apply_authorized"])
         self.assertEqual(self.pin["publisher_authority"], "ordaxsystems/ordax-os")
         self.assertEqual(w.count("uses: ./.github/actions/resolve-creator-source"), 1)
         self.assertIn('git -C "$creator" rev-parse HEAD', w)
-        self.assertIn("rev-parse 'HEAD^{tree}'", w)
+        self.assertIn("rev-parse 'HEAD:creator'", w)
         self.assertIn("ORDAX_OS_CONTRACTS_DIR=", w)
         self.assertIn('"$creator" plan-native-materialization', w)
         self.assertNotIn("cd tools/creator", w)

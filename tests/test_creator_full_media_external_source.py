@@ -17,12 +17,12 @@ class CreatorFullMediaExternalSourceTests(unittest.TestCase):
 
     def test_one_immutable_creator_core_for_payload_and_tree(self):
         w = self.w
-        self.assertEqual(self.pin["repository"], "ordaxsystems/ordax-creator")
+        self.assertEqual(self.pin["repository"], "ordaxsystems/ordax-os")
         self.assertEqual(self.pin["publisher_authority"], "ordaxsystems/ordax-os")
         self.assertFalse(self.pin["physical_apply_authorized"])
         self.assertEqual(w.count("uses: ./.github/actions/resolve-creator-source"), 1)
         self.assertIn('git -C "$creator" rev-parse HEAD', w)
-        self.assertIn("rev-parse 'HEAD^{tree}'", w)
+        self.assertIn("rev-parse 'HEAD:creator'", w)
         self.assertIn('ORDAX_OS_CONTRACTS_DIR="$GITHUB_WORKSPACE/docs/contracts"', w)
         self.assertIn('"$creator" verify-payload', w)
         self.assertIn('"$creator" stage-tree', w)
