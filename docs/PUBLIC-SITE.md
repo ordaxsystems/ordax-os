@@ -130,9 +130,10 @@ A linguagem visual pública deriva dos tokens canônicos da Surface através do 
 Para identidade pública:
 
 ```text
-ordax-surface/system/surface/ui/tokens.css
-  -> surface-source.json (adoção exata pelo OS)
-  -> staging verificado do pipeline de brand
+ordax-os/main:system/surface/ui/tokens.css
+  -> docs/contracts/surface-source.json (mesma revisão Git)
+  -> tools/brand/build.py (tokens da fonte canônica)
+  -> site/scripts/canonical_artifacts.py (inventário SHA-256)
   -> ordax-design-tokens.css
   -> account.css
   -> login / cadastro / recuperação

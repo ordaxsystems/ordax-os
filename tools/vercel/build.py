@@ -22,7 +22,6 @@ from pathlib import Path
 ROOT = Path(__file__).resolve().parents[2]
 OUTPUT = ROOT / "out" / "vercel"
 PUBLIC_PROJECT_ID = "prj_mA9ew6hOfjdqlBr1cC757iMLPQJC"
-SITE_PROJECT_ID = "prj_rEZck0dLNrLlSX9UhjifUzGiFpts"
 WEB_PROJECT_ID = "prj_ftACluUqk6i9DoD9GPIwmgURwckP"
 SHA40_RE = re.compile(r"^[0-9a-f]{40}$")
 WEB_DEPLOYMENT_MANIFEST = "web-deployment-manifest.json"
@@ -259,7 +258,6 @@ def main() -> int:
 
     role = {
         PUBLIC_PROJECT_ID: "public-site",
-        SITE_PROJECT_ID: "ordax-site",
         WEB_PROJECT_ID: "ordax-web",
     }.get(project_id)
     if role is None:
@@ -268,7 +266,7 @@ def main() -> int:
 
     try:
         clean_output()
-        if project_id in (PUBLIC_PROJECT_ID, SITE_PROJECT_ID):
+        if project_id == PUBLIC_PROJECT_ID:
             build_public(source_commit)
         else:
             build_web(source_commit)

@@ -19,6 +19,10 @@ class SiteVercelImpactTests(unittest.TestCase):
             "site/README.md",
             "site/tests/test_site_contract.py",
             "infra/supabase/functions/other-service/index.ts",
+            "system/surface/runtime/native_host_server.py",
+            "system/services/update/native_update.py",
+            "third_party/licenses/Other-OFL.txt",
+            "tools/surface-web/build.py",
             ".github/workflows/windows-desktop-dev.yml",
         )
         for path in paths:
@@ -44,11 +48,48 @@ class SiteVercelImpactTests(unittest.TestCase):
             "docs/contracts/public-site-auth.json",
             "package.json",
             "package-lock.json",
+            "system/surface/ui/meridian.css",
+            "system/surface/workspace/components/central/meridian-home.tsx",
+            "system/apps/catalog.mjs",
+            "system/contracts/space-selection.mjs",
+            "system/services/apps/first-run-selection.mjs",
+            "system/services/i18n/surface.mjs",
+            "system/services/preferences/regional.mjs",
+            "system/services/profile-packs/catalog.mjs",
+            "system/services/spaces/authorized-view.mjs",
+            "system/services/surface/shortcut-catalog.mjs",
+            "system/services/system-ui/account/app.mjs",
+            "tools/brand/build.py",
+            "tools/surface-source/materialize.py",
+            "docs/contracts/surface-source.json",
+            "third_party/licenses/Inter-OFL-1.1.txt",
         )
         for path in paths:
             with self.subTest(path=path):
                 self.assertFalse(build_impact.may_skip_vercel((path,)))
                 self.assertTrue(build_impact.affects_site_deployment(path))
+
+    def test_canonical_visual_changes_cannot_be_skipped(self):
+        self.assertFalse(build_impact.may_skip_vercel((
+            "creator/core/portable_update.go",
+            "system/surface/ui/tokens.css",
+        )))
+        self.assertTrue(build_impact.may_skip_vercel((
+            "creator/core/portable_update.go",
+            "system/surface/runtime/native_host_server.py",
+        )))
+
+    def test_archived_staging_project_is_rejected_by_vercel_builder(self):
+        import os
+        import subprocess
+        env = dict(os.environ)
+        env.update(VERCEL_PROJECT_ID="prj_rEZck0dLNrLlSX9UhjifUzGiFpts",
+                   VERCEL_GIT_COMMIT_SHA="a" * 40)
+        runner = Path(__file__).resolve().parents[2] / "tools/vercel/build.py"
+        result = subprocess.run([sys.executable, str(runner)], env=env,
+                                capture_output=True, text=True, timeout=12)
+        self.assertEqual(result.returncode, 1)
+        self.assertIn("unrecognized canonical project", result.stderr)
 
     def test_mixed_change_and_missing_baseline_fail_closed(self):
         self.assertFalse(build_impact.may_skip_vercel(None))
@@ -71,6 +112,21 @@ class SiteVercelImpactTests(unittest.TestCase):
             "infra/supabase/functions/ordax-public-account-gateway/**",
             "package.json",
             "package-lock.json",
+            "system/surface/ui/**",
+            "system/surface/workspace/**",
+            "system/apps/**",
+            "system/contracts/**",
+            "system/services/apps/**",
+            "system/services/i18n/**",
+            "system/services/preferences/**",
+            "system/services/profile-packs/**",
+            "system/services/spaces/**",
+            "system/services/surface/**",
+            "system/services/system-ui/**",
+            "tools/brand/**",
+            "tools/surface-source/**",
+            "docs/contracts/surface-source.json",
+            "third_party/licenses/Inter-OFL-1.1.txt",
         )
         for path in expected:
             with self.subTest(path=path):

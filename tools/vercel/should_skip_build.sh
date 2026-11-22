@@ -27,12 +27,8 @@ case "$project" in
   prj_mA9ew6hOfjdqlBr1cC757iMLPQJC)
     # The actual ordax.com.br project consumes the canonical site/ module.
     # Keep its non-Site inputs separate, not a second mirror of Site paths.
-    if git diff --quiet "$previous" "$current" -- \
-      tools/brand \
-      platform/releases/publications.json \
-      docs/contracts \
-      vercel.json &&
-      python3 site/scripts/build_impact.py --vercel; then
+    # Single impact authority covers the Site AND its OS visual dependencies.
+    if python3 site/scripts/build_impact.py --vercel; then
       exit 0
     fi
     ;;

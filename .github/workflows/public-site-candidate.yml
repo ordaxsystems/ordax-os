@@ -16,6 +16,21 @@ on:
       - "package.json"
       - "package-lock.json"
       - ".github/workflows/public-site-candidate.yml"
+      - "system/surface/ui/**"
+      - "system/surface/workspace/**"
+      - "system/apps/**"
+      - "system/contracts/**"
+      - "system/services/apps/**"
+      - "system/services/i18n/**"
+      - "system/services/preferences/**"
+      - "system/services/profile-packs/**"
+      - "system/services/spaces/**"
+      - "system/services/surface/**"
+      - "system/services/system-ui/**"
+      - "tools/brand/**"
+      - "tools/surface-source/**"
+      - "docs/contracts/surface-source.json"
+      - "third_party/licenses/Inter-OFL-1.1.txt"
   pull_request:
     paths:
       - "site/**"
@@ -32,6 +47,21 @@ on:
       - "package-lock.json"
       - "tests/test_public*.py"
       - ".github/workflows/public-site-candidate.yml"
+      - "system/surface/ui/**"
+      - "system/surface/workspace/**"
+      - "system/apps/**"
+      - "system/contracts/**"
+      - "system/services/apps/**"
+      - "system/services/i18n/**"
+      - "system/services/preferences/**"
+      - "system/services/profile-packs/**"
+      - "system/services/spaces/**"
+      - "system/services/surface/**"
+      - "system/services/system-ui/**"
+      - "tools/brand/**"
+      - "tools/surface-source/**"
+      - "docs/contracts/surface-source.json"
+      - "third_party/licenses/Inter-OFL-1.1.txt"
   workflow_dispatch:
 permissions:
   contents: read
@@ -126,7 +156,11 @@ jobs:
           import json
           import os
           from pathlib import Path
+          import sys
           root = Path.cwd()
+          sys.path.insert(0, str(root / "site/scripts"))
+          from build_impact import affects_site_deployment
+          from canonical_artifacts import INPUTS as BRAND_INPUTS, CSS_INPUTS
           receipt = json.loads((root / "out/vercel/public-site-manifest.json").read_text())
           contract = json.loads((root / "docs/contracts/public-site-source.json").read_text())
           catalog = json.loads((root / "out/vercel/releases/catalog.json").read_text())
@@ -134,6 +168,22 @@ jobs:
           assert contract["repository"] == "ordaxsystems/ordax-os"
           assert receipt["catalog_status"] == "empty"
           assert catalog["status"] == "empty"
+          fixture = json.loads((root / "out/vercel/assets/playground-fixture.json").read_text())
+          sources = fixture["surface"]["sources"]
+          assert sources and all(row["repository"] == "ordaxsystems/ordax-os"
+                                 and row["commit"] == os.environ["GITHUB_SHA"]
+                                 for row in sources)
+          # The Vite source graph is the actual dependency inventory. No
+          # handwritten mirror may silently omit a newly imported module.
+          affected = {row["path"] for row in sources}
+          affected.update(BRAND_INPUTS.values())
+          affected.update(CSS_INPUTS)
+          affected.update(("tools/brand/build.py",
+                           "tools/surface-source/materialize.py",
+                           "docs/contracts/surface-source.json"))
+          omitted = sorted(path for path in affected if not affects_site_deployment(path))
+          assert not omitted, f"Vercel could skip modified visual sources: {omitted}"
+          print(f"OS_SITE_VISUAL_IMPACT=PASS source_files={len(affected)}")
           assert (root / "out/vercel/login/index.html").is_file()
           assert not (root / "sites/public").exists()
           print("OS_SITE_MONOREPO_SOURCE=PASS")

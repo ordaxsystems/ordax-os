@@ -2,8 +2,8 @@
 """One fail-closed Git diff policy for Vercel and GitHub Site candidate CI.
 
 Vercel skips only when nothing affecting the hosted Site changed since the
-last successful deployment on the same branch. CI can avoid costly signed
-release downloads and Chrome for *PR-only* documentation edits. On pushes,
+last successful deployment on the same branch. CI avoids unnecessary
+full browser verification for *PR-only* documentation edits. On pushes,
 CI always validates the full candidate; failed or unfinished prior CI must
 never be overwritten by a cheap documentation-only green run.
 """
@@ -30,6 +30,20 @@ SITE_DEPLOYMENT_PREFIXES = (
     "tools/vercel/",
     "infra/supabase/functions/_shared/",
     "infra/supabase/functions/ordax-public-account-gateway/",
+    # Same-commit brand and Meridian SSR input roots. Exclude OS native runtime.
+    "system/surface/ui/",
+    "system/surface/workspace/",
+    "system/apps/",
+    "system/contracts/",
+    "system/services/apps/",
+    "system/services/i18n/",
+    "system/services/preferences/",
+    "system/services/profile-packs/",
+    "system/services/spaces/",
+    "system/services/surface/",
+    "system/services/system-ui/",
+    "tools/brand/",
+    "tools/surface-source/",
 )
 SITE_DEPLOYMENT_FILES = frozenset({
     "api/account-proxy.mjs",
@@ -38,6 +52,8 @@ SITE_DEPLOYMENT_FILES = frozenset({
     "package.json",
     "package-lock.json",
     "vercel.json",
+    "docs/contracts/surface-source.json",
+    "third_party/licenses/Inter-OFL-1.1.txt",
 })
 
 def changed_paths(baseline: str | None) -> tuple[str, ...] | None:
@@ -67,8 +83,9 @@ def is_doc(path: str) -> bool:
 
 def affects_site_deployment(path: str) -> bool:
     """Only canonical owners of Site source and shared gateway require a build."""
-    # This contract is in docs/, but it is executable ownership state.
-    if path.startswith("docs/contracts/public-site") and path.endswith(".json"):
+    # Executable source contracts must be checked before docs are excluded.
+    if path in SITE_DEPLOYMENT_FILES or (
+            path.startswith("docs/contracts/public-site") and path.endswith(".json")):
         return True
     if is_doc(path) or path.startswith(HOST_ONLY_PREFIXES):
         return False
