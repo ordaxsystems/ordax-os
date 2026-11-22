@@ -6,6 +6,7 @@ import { mkdtempSync, mkdirSync, writeFileSync, readFileSync, rmSync, existsSync
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { createDesktopVerifiedComponentSlotMiddleware } from "../../system/adapters/desktop/verified-component-slot-host.mjs";
+import { EXTERNAL_FIRST_PARTY_NATIVE_MODULE_READ_IDS, EXTERNAL_FIRST_PARTY_NATIVE_PROBATION_IDS } from "../../system/services/apps/external-first-party-policy.mjs";
 import { createDesktopVerifiedStoreCatalogMiddleware, desktopStoreCatalogEnvelopeUrl, resolveDesktopStoreHttpsOrigins } from "../../system/adapters/desktop/verified-store-catalog-host.mjs";
 import { createDesktopStoreLifecycleMiddleware } from "../../system/adapters/desktop/store-lifecycle-host.mjs";
 import { acquireDesktopStoreArtifacts } from "../../system/adapters/desktop/store-artifact-transport.mjs";
@@ -42,6 +43,10 @@ test("Native Store HTTPS preflight requires one canonical paired origin", () => 
 
 const SHA = "a".repeat(40);
 const SOURCE = "578d38256fc906e7208764ef0b2616c8d64b784f";
+const NON_PROBATION_MODULE_ID = EXTERNAL_FIRST_PARTY_NATIVE_MODULE_READ_IDS.find(
+  id => !EXTERNAL_FIRST_PARTY_NATIVE_PROBATION_IDS.includes(id),
+);
+assert.ok(NON_PROBATION_MODULE_ID, "A non-probation Native module-read target is required");
 
 function setup(t) {
   const root = mkdtempSync(join(tmpdir(), "ordax-signed-current-win-"));
@@ -346,8 +351,8 @@ test("Windows Store sees signed pending Go health without exposing pending modul
   assert.equal((await fetch(url)).status, 409,
     "A mismatched Go pending generation cannot be presented as staged");
   assert.equal((await fetch(base
-    + "/__ordax/native/component-module/assistant/pending/0.2.0/" + SOURCE
-    + "/system/apps/assistant/src/runtime.mjs")).status, 404,
+    + "/__ordax/native/component-module/" + NON_PROBATION_MODULE_ID + "/pending/0.2.0/" + SOURCE
+    + "/system/apps/" + NON_PROBATION_MODULE_ID + "/src/runtime.mjs")).status, 404,
     "Pending runtime bytes remain inaccessible through the CURRENT reader");
   assert.ok(commands.every(cmd => ["status", "resolve-pending"].includes(cmd)));
 });
@@ -392,7 +397,7 @@ test("Windows probation-only pending module requires exact signed unknown-health
   assert.equal(valid.status, 200);
   assert.equal(await valid.text(), "export const pending = true;\n");
   assert.deepEqual(calls, ["status", "resolve-pending", "read-runtime-file"]);
-  assert.equal((await fetch(url.replace("/notes/", "/assistant/"))).status, 404);
+  assert.equal((await fetch(url.replace("/notes/", "/" + NON_PROBATION_MODULE_ID + "/"))).status, 404);
   assert.deepEqual(calls, ["status", "resolve-pending", "read-runtime-file"],
     "a non-probation module must not invoke Go");
   health = "healthy";
@@ -414,8 +419,8 @@ test("Windows Native slot reader rejects traversal, pending, stale identity and 
   const invalid = [
     "/__ordax/native/component-runtime?component=clock&state=current",
     "/__ordax/native/component-runtime?component=assistant&component=studio&state=current",
-    "/__ordax/native/component-module/assistant/pending/0.1.2/" + SOURCE
-      + "/system/apps/assistant/src/runtime.mjs",
+    "/__ordax/native/component-module/" + NON_PROBATION_MODULE_ID + "/pending/0.1.2/" + SOURCE
+      + "/system/apps/" + NON_PROBATION_MODULE_ID + "/src/runtime.mjs",
     "/__ordax/native/component-module/assistant/current/0.1.2/" + SOURCE
       + "/system/apps/assistant/src/bad%5cpath.mjs",
     "/__ordax/native/component-module/assistant/current/0.1.2/" + SOURCE
