@@ -1525,7 +1525,7 @@
             }))).join("")
       : "";
     const devPanel = devButtons
-      ? '<div class="panel-actions" aria-label="Autorizações DEV">'+devButtons+'</div>'
+      ? '<div class="panel-actions" aria-label="'+esc(tx("Autorizações DEV"))+'">'+devButtons+'</div>'
       : "";
     const centralPanel = availableClients.length
       ? `<div class="panel-actions" aria-label="${tx("Vínculo MCP Owner")}">
