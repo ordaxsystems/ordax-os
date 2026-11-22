@@ -37,6 +37,11 @@ class DeliveryError(RuntimeError):
     pass
 
 
+class MainAdvanced(DeliveryError):
+    """Canonical Git main advanced; bounded retry after refreshing main is safe."""
+    pass
+
+
 @contextmanager
 def exclusive_transport():
     """The GUI and the existing Windows task share one Owner USB writer."""
@@ -180,7 +185,7 @@ def source_commit(repo: Path) -> str:
         raise DeliveryError("OS Git HEAD is malformed")
     remote = git(repo, "ls-remote", "--heads", "origin", "refs/heads/main", timeout=40)
     if remote != head + "\trefs/heads/main":
-        raise DeliveryError("OS checkout differs from current remote main")
+        raise MainAdvanced("OS checkout differs from current remote main")
     return head
 
 
@@ -673,7 +678,7 @@ def deliver(args: argparse.Namespace) -> int:
                     raise DeliveryError("physical USB identity changed before update request")
                 arm_update_request(target, *verified)
                 if source_commit(args.repo.resolve()) != commit:
-                    raise DeliveryError("canonical OS main advanced after USB request")
+                    raise MainAdvanced("canonical OS main advanced after USB request")
             print(json.dumps({"status": "CURRENT", "source_commit": commit}))
             return 0
         if not args.apply:
@@ -687,18 +692,21 @@ def deliver(args: argparse.Namespace) -> int:
             # The main SHA was pinned before packaging. Long bundle generation
             # must not report "current" if another chat advanced canonical main.
             if source_commit(args.repo.resolve()) != commit:
-                raise DeliveryError("canonical OS main advanced during USB packaging")
+                raise MainAdvanced("canonical OS main advanced during USB packaging")
             install_bundle(target, bundle, commit, digest, size)
             if checked_volume(letter) != before:
                 raise DeliveryError("physical USB identity changed after transfer")
             if source_commit(args.repo.resolve()) != commit:
-                raise DeliveryError("canonical OS main advanced after USB readback; staged revision is not latest")
+                raise MainAdvanced("canonical OS main advanced after USB readback; staged revision is not latest")
             arm_update_request(target, commit, digest, size)
             if checked_volume(letter) != before:
                 raise DeliveryError("physical USB identity changed after update request")
             print(json.dumps({"status": "STAGED_NOT_ACTIVATED", "source_commit": commit,
                               "sha256": digest, "bytes": size}))
         return 0
+    except MainAdvanced as exc:
+        print("OWNER_USB_GIT_DELIVERY=MAIN_ADVANCED:" + str(exc), file=sys.stderr)
+        return 3
     except DeliveryError as exc:
         print("OWNER_USB_GIT_DELIVERY=BLOCKED:" + str(exc), file=sys.stderr)
         return 2
