@@ -678,9 +678,11 @@ class SiteContractTests(unittest.TestCase):
                 self.assertNotIn("--migration-lock", content)
         self.assertFalse((ROOT / "contracts/migration-artifact-lock.json").exists())
         self.assertEqual(set(DEV_LOCK), {"brand", "surface_preview"})
-        deployment = json.loads((ROOT / "vercel.json").read_text(encoding="utf-8"))
-        self.assertIn("--dev-lock contracts/dev-artifact-lock.json",
-                      deployment["buildCommand"])
+        deployment = json.loads((ROOT.parent / "vercel.json").read_text(encoding="utf-8"))
+        self.assertEqual(deployment["buildCommand"], "python3 tools/vercel/build.py")
+        canonical_builder = (ROOT.parent / "tools/vercel/build.py").read_text(encoding="utf-8")
+        self.assertIn('"--dev-lock", str(lock)', canonical_builder)
+        self.assertIn('ROOT / "site/contracts/dev-artifact-lock.json"', canonical_builder)
 
     def test_site_inactive_plans_do_not_duplicate_os_entitlements(self):
         self.assertFalse((ROOT / "artifacts/offers/os-migration-70b0f7eb").exists())
