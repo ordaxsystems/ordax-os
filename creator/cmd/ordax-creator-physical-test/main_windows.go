@@ -484,7 +484,7 @@ func runApply(args []string) error {
 }
 
 func usage() {
-	fmt.Fprintln(os.Stderr, "usage: ordax-creator-physical-test <status|targets|prepare|apply|prepare-portable|apply-portable> [options]")
+	fmt.Fprintln(os.Stderr, "usage: ordax-creator-physical-test <status|targets|prepare|apply|prepare-portable|apply-portable|prepare-portable-update|apply-portable-update> [options]")
 }
 
 func main() {
@@ -506,6 +506,10 @@ func main() {
 		err = runPreparePortable(os.Args[2:])
 	case "apply-portable":
 		err = runApplyPortable(os.Args[2:])
+	case "prepare-portable-update":
+		err = runPreparePortableUpdate(os.Args[2:])
+	case "apply-portable-update":
+		err = runApplyPortableUpdate(os.Args[2:])
 	default:
 		usage()
 		os.Exit(2)
