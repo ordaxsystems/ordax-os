@@ -276,6 +276,57 @@ select_verified_release() {
     [ "$fallback_commit" != "$commit" ] || return 1
     verify_selected_release known-good "$fallback_commit"
 }
+# A Windows Creator update already installed the immutable signed release bytes
+# in ORDAX-DATA. The request is advisory only. The booted OS must validate
+# the exact release with the canonical agent before the existing one-shot
+# candidate state machine can select it. A bad/missing request is a no-op.
+import_verified_creator_update() {
+    update_request="$PORTABLE_ROOT/updates/portable-release-request.txt"
+    [ -f "$update_request" ] && [ ! -L "$update_request" ] || return 0
+    request_line1="$(sed -n '1p' "$update_request" 2>/dev/null || true)"
+    request_line2="$(sed -n '2p' "$update_request" 2>/dev/null || true)"
+    request_line3="$(sed -n '3p' "$update_request" 2>/dev/null || true)"
+    [ "$request_line1" = 'schema=ordax.portable-update-request/1' ] || return 0
+    [ -z "$request_line3" ] || return 0
+    case "$request_line2" in
+        source_commit=*) request_sha="$(printf '%s' "$request_line2" | sed 's/^source_commit=//')" ;;
+        *) return 0 ;;
+    esac
+    is_sha "$request_sha" || return 0
+    request_expected="$(printf 'schema=ordax.portable-update-request/1\nsource_commit=%s\n' "$request_sha")"
+    request_actual="$(cat "$update_request" 2>/dev/null || true)"
+    request_bytes="$(wc -c <"$update_request" 2>/dev/null || true)"
+    expected_bytes="$(printf 'schema=ordax.portable-update-request/1\nsource_commit=%s\n' "$request_sha" | wc -c)"
+    [ "$request_actual" = "$request_expected" ] &&
+        [ "$request_bytes" = "$expected_bytes" ] || return 0
+
+    # Do not arm a repeated or previously rejected candidate. Never alter
+    # current/known-good pointers, EFI or the persistent state image on Windows.
+    installed_sha="$(/sbin/ordax-portable-state resolve "$STATE_MOUNT" "$PORTABLE_ROOT" current 2>/dev/null || true)"
+    is_sha "$installed_sha" || return 0
+    [ "$installed_sha" != "$request_sha" ] || return 0
+    rejected_sha="$(/sbin/ordax-portable-state "$STATE_MOUNT" rejected 2>/dev/null || true)"
+    [ "$rejected_sha" != "$request_sha" ] || return 0
+
+    # Require modern exact signed release; an arbitrary exFAT file or an old
+    # Git bundle can never authorize a candidate boot.
+    if ! "$AGENT" verify-portable-v4-exact \
+        --trust "$TRUST_ANCHOR" \
+        --root "$PORTABLE_ROOT" \
+        --expected-commit "$request_sha" \
+        >"/run/portable-host-update-verify.json" 2>/dev/null; then
+        echo "OrdaX: Creator update request has no exact signed release; keeping known-good" >&2
+        return 0
+    fi
+    if /sbin/ordax-portable-state prepare "$STATE_MOUNT" "$PORTABLE_ROOT" "$request_sha" >/dev/null 2>&1; then
+        echo "ORDAX_PORTABLE_CREATOR_CANDIDATE_ARMED=$request_sha"
+    else
+        echo "OrdaX: Creator candidate was not armed; preserving existing boot state" >&2
+    fi
+    return 0
+}
+import_verified_creator_update
+
 select_verified_release ||
     rescue "no candidate/current/known-good release is safely selectable and exactly verified"
 
