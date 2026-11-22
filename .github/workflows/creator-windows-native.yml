@@ -107,6 +107,10 @@ jobs:
           # elevation or media-access test is run.
           go test -count=1 -tags ordax_raw_backend -run '^TestPortableProgress' ./host/windows
           if ($LASTEXITCODE -ne 0) { throw 'Native Windows Portable progress unit tests failed' }
+          # Compile and unit-test the signed privileged Portable update entrypoint.
+          # No physical USB discovery or apply command is invoked in CI.
+          go test -count=1 -tags ordax_raw_backend ./cmd/ordax-creator-physical-test
+          if ($LASTEXITCODE -ne 0) { throw 'Signed Portable update backend compile/unit tests failed' }
           # Win32 WndProc LPARAM is a caller-owned borrowed struct pointer.
           # Go vet's unsafeptr heuristic flags four necessary callback casts;
           # keep default vet on all other packages and all other GUI checks.
