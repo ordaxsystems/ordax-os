@@ -6,9 +6,9 @@
 
 - **Projeto Vercel de produção:** `ordax-os-public` (`prj_mA9ew6hOfjdqlBr1cC757iMLPQJC`), conectado diretamente a `ordaxsystems/ordax-os`, branch `main`.
 - **Domínios:** `ordax.com.br` verificado; `www.ordax.com.br` redireciona para o domínio principal. Esse projeto é diferente do staging `ordax-site`.
-- **Deployment de produção READY:** `dpl_GT8hoGeM7X2gzP56gG1zDHMwNXdR`, commit `0bf86219a2e9b555cfe6cf09722874fd4f06d73a`. O endpoint público `/public-site-manifest.json` respondeu HTTP 200 e confirmou **exatamente o mesmo** `source_commit`, classe `public-site` e origem `https://ordax.com.br`. Esse commit contém a migração do Site integrada anteriormente em `fe7538db6c4e6ac90ccb1a76cea8b1747b5a2b3d`.
+- **Autoridade de produção em tempo real:** consultar a versão `READY` associada ao domínio `ordax.com.br` no projeto Vercel existente e confirmar por HTTP 200 o `source_commit` e a classe `public-site` de [`/public-site-manifest.json`](https://ordax.com.br/public-site-manifest.json). Não registrar um SHA histórico como se fosse permanentemente a revisão atual da produção. O primeiro cutover foi comprovado em `dpl_GT8hoGeM7X2gzP56gG1zDHMwNXdR` (`0bf86219`); outra prova posterior ocorreu em `dpl_28Yj3saZ42WUUCVpB63tEnfFCNf9` (`ed7ad0c`). Estes são **recibos históricos**, não ponteiros mutáveis de produção.
 - **HTTP público conferido:** `/` e `/login/` = 200; `/auth/session` = 200 com `authenticated:false`, `status:anonymous`, `provider:supabase`; `/releases/catalog.json` = 200, catálogo vazio. A sessão anônima valida a rota e a configuração pública, **não** comprova E2E de login real, cadastro ou publicação de releases.
-- Deployments mais recentes com estado CANCELED não revogam a evidência do deployment READY nem devem ser confundidos com uma publicação nova.
+- Deployments com estado `CANCELED` podem ser o resultado **esperado** de `tools/vercel/should_skip_build.sh` quando o Site não mudou. Conferir os eventos de build e o manifesto público antes de classificar um cancelamento como falha; alterações reais do Site devem continuar invalidando o cache.
 
 **Conclusão:** a origem Git e o bundle realmente servidos pelo domínio público **já são do monorepo**. Não é necessário reconectar o projeto de staging para afirmar essa origem em produção. Não criar novo projeto nem deslocar os domínios existentes.
 
@@ -22,9 +22,10 @@
 
 ## Fluxo técnico mantido
 
-- Um único lock npm na raiz do OS; workspace `site`. A configuração canônica de build/rewrite está em `site/vercel.json`; as funções de Conta/OAuth vivem uma só vez em `api/` e `lib/`.
+- Um único lock npm na raiz do OS; workspace `site`. A versão de Node é fixada em `24.x` no manifesto raiz e no lock, alinhada aos projetos Vercel e aos testes do Site. A configuração canônica de build/rewrite está em `site/vercel.json`; as funções de Conta/OAuth vivem uma só vez em `api/` e `lib/`.
 - `site/scripts/build_impact.py` evita builds de Site por mudanças isoladas em Desktop/Forge/sistema nativo e exige build quando frontend, APIs, dependências ou contratos executáveis mudam; diff incerto exige build.
-- Workflow `.github/workflows/public-site-candidate.yml`: execução [44978409954](https://github.com/ordaxsystems/ordax-os/actions/runs/44978409954) **2/2 jobs SUCCESS** na revisão `afb75869`. Testes de impacto isolados aprovados. Não repetir kernel, QEMU, USB ou Creator por alterações do Site.
+- Workflow `.github/workflows/public-site-candidate.yml`: execução [44995192998](https://github.com/ordaxsystems/ordax-os/actions/runs/44995192998) **2/2 jobs SUCCESS** para a revisão de alinhamento Node 24. O workflow de integridade legal [44995001232](https://github.com/ordaxsystems/ordax-os/actions/runs/44995001232) validou o gate de equivalência. Não repetir kernel, QEMU, USB ou Creator por alterações do Site.
+- A ativação legal manual exige que o **artefato produzido e verificado no commit do workflow** seja equivalente ao manifesto realmente servido pela produção, incluindo inventário de arquivos, hashes e política. O `source_commit` publicado pode ser anterior quando a Vercel pulou corretamente um build sem mudanças de Site. Se ambos os SHAs forem iguais, os bytes do manifesto também devem ser idênticos. Nunca presumir `READY` ou ativar Conta a partir de um SHA isolado.
 
 ## Gates independentes que não se presumem aprovados
 
@@ -32,4 +33,4 @@
 2. Habilitação pública de recursos restritos, cadastro, downloads e releases depende de suas próprias autoridades e aprovações. `docs/contracts/public-site-source.json` ainda declara `production_deployment_activated=false`: não mudar o gate apenas por existir um bundle público; reconciliar seu significado com a autoridade de rollout antes de ativá-lo.
 3. Decisão sobre o staging Vercel separado: religar ao monorepo **se necessário** ou descontinuar com autorização, sem ressuscitar o repositório de código antigo.
 
-Histórico da migração e dos recibos anteriores permanece no Git. Este handoff representa o **estado operacional atual**, não um plano para restaurar repositórios ou pipelines legados.
+Histórico da migração e recibos anteriores permanece no Git. Este handoff documenta **autoridades e gates operacionais**; para o estado em tempo real usar a conexão Git do projeto, o deployment ativo e o manifesto publicado. Não restaurar repositórios ou pipelines legados.

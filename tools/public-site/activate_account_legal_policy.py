@@ -109,7 +109,7 @@ class _NoRedirectHandler(urllib.request.HTTPRedirectHandler):
 
 
 def verify_published_site_manifest(expected_commit: str) -> None:
-    """Require the exact OS commit to be live before activating legal policy."""
+    """Verify the live Site artifact equals this authorized OS build before activation."""
     if not SOURCE_COMMIT_RE.fullmatch(expected_commit):
         fail("published-site-commit-invalid")
     origin = canonical_public_origin()

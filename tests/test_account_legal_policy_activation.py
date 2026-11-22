@@ -472,7 +472,7 @@ class AccountLegalPolicyActivationTests(unittest.TestCase):
                 with self.assertRaisesRegex(SystemExit, "policy-not-ready"):
                     activation.verify_published_legal_documents(candidate)
 
-    def test_activation_requires_exact_live_manifest_before_provider_rpc(self):
+    def test_activation_requires_equivalent_live_manifest_before_provider_rpc(self):
         from unittest.mock import patch
         expected = "a" * 40
         source = {
