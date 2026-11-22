@@ -67,7 +67,7 @@ function nativeBundleComparison(systemReport, compiledRoot) {
 }
 
 function main() {
-  const base = resolve(__dirname, '../..');
+  const base = resolve(__dirname, '..');
   const packageJson = require('./package.json');
   const sources = packageJson.build.extraResources.filter(x => x.from === '../system' && x.to === 'runtime-template/system');
   if (sources.length !== 1 || sources[0].filter[0] !== '**/*') throw Error('Windows system packaging source is not unique');
