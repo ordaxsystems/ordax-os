@@ -65,13 +65,12 @@ def is_doc(path: str) -> bool:
 
 def affects_site_deployment(path: str) -> bool:
     """Only canonical owners of Site source and shared gateway require a build."""
-    if is_doc(path) or path.startswith(HOST_ONLY_PREFIXES):
-        return False
-    if path in SITE_DEPLOYMENT_FILES:
-        return True
+    # This contract is in docs/, but it is executable ownership state.
     if path.startswith("docs/contracts/public-site") and path.endswith(".json"):
         return True
-    return path.startswith(SITE_DEPLOYMENT_PREFIXES)
+    if is_doc(path) or path.startswith(HOST_ONLY_PREFIXES):
+        return False
+    return path in SITE_DEPLOYMENT_FILES or path.startswith(SITE_DEPLOYMENT_PREFIXES)
 
 
 def may_skip_vercel(paths: tuple[str, ...] | None) -> bool:
