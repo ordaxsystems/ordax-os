@@ -29,6 +29,8 @@ BASE_SUBDIR = Path(".ordax") / "updates" / "owner-base"
 BASE_FILES = ("dev-base.json", "vmlinuz", "initrd.gz", "rootfs.tar")
 BUNDLE = "ordax-main.bundle"
 MANIFEST = "owner-git-bundle.txt"
+UPDATE_REQUEST = "owner-git-update-request.txt"
+UPDATE_REQUEST_SCHEMA = "ordax.owner-usb-update-request/1"
 
 
 class DeliveryError(RuntimeError):
@@ -197,6 +199,39 @@ def manifest_bytes(commit: str, sha256: str, size: int) -> bytes:
             + "source_commit=" + commit + "\n"
             + "bundle_sha256=" + sha256 + "\n"
             + "bundle_bytes=" + str(size) + "\n").encode("ascii")
+
+
+def update_request_bytes(commit: str) -> bytes:
+    # Owner intent only, NOT an offline signature or activation authorization.
+    if not SHA.fullmatch(commit):
+        raise DeliveryError("Owner USB update request SHA is invalid")
+    return (f"schema={UPDATE_REQUEST_SCHEMA}\n"
+            f"source_commit={commit}\n").encode("ascii")
+
+
+def arm_update_request(target: Path, commit: str, digest: str, size: int) -> None:
+    # Exact verified ORDAX-DATA transport, atomic and read back. The OS owns
+    # activation after independent remote-main and health verification.
+    if verified_local_bundle(target) != (commit, digest, size):
+        raise DeliveryError("Owner USB update request requires a verified Git bundle")
+    request = target / UPDATE_REQUEST
+    pending = target / (UPDATE_REQUEST + ".pending")
+    for member in (request, pending):
+        if member.is_symlink() or (hasattr(member, "is_junction") and member.is_junction()):
+            raise DeliveryError("Owner USB update request path is linked")
+        if member.exists() and not member.is_file():
+            raise DeliveryError("Owner USB update request path is not a regular file")
+    payload = update_request_bytes(commit)
+    try:
+        with pending.open("wb") as dest:
+            dest.write(payload)
+            dest.flush()
+            os.fsync(dest.fileno())
+        os.replace(pending, request)
+        if request.read_bytes() != payload:
+            raise DeliveryError("Owner USB update request readback failed")
+    finally:
+        pending.unlink(missing_ok=True)
 
 
 def verified_local_bundle(target: Path) -> tuple[str, str, int] | None:
@@ -630,6 +665,15 @@ def deliver(args: argparse.Namespace) -> int:
             raise DeliveryError("canonical OS Git checkout required")
         commit = source_commit(args.repo.resolve())
         if existing_current(target, commit):
+            if args.apply:
+                verified = verified_local_bundle(target)
+                if verified is None or verified[0] != commit:
+                    raise DeliveryError("current USB bundle cannot be reverified")
+                if checked_volume(letter) != before:
+                    raise DeliveryError("physical USB identity changed before update request")
+                arm_update_request(target, *verified)
+                if source_commit(args.repo.resolve()) != commit:
+                    raise DeliveryError("canonical OS main advanced after USB request")
             print(json.dumps({"status": "CURRENT", "source_commit": commit}))
             return 0
         if not args.apply:
@@ -649,6 +693,9 @@ def deliver(args: argparse.Namespace) -> int:
                 raise DeliveryError("physical USB identity changed after transfer")
             if source_commit(args.repo.resolve()) != commit:
                 raise DeliveryError("canonical OS main advanced after USB readback; staged revision is not latest")
+            arm_update_request(target, commit, digest, size)
+            if checked_volume(letter) != before:
+                raise DeliveryError("physical USB identity changed after update request")
             print(json.dumps({"status": "STAGED_NOT_ACTIVATED", "source_commit": commit,
                               "sha256": digest, "bytes": size}))
         return 0

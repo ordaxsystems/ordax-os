@@ -117,6 +117,8 @@ OWNER_POLL_BOOT_FILE=$STATE_DIR/native-state/supervisor-boot-witness.json
 OWNER_INITIAL_HEALTH_PENDING=0
 # One non-authoritative Git object import attempt per Supervisor boot.
 OWNER_USB_CACHE_ATTEMPTED=0
+# A Creator request is an untrusted priority hint, never activation authority.
+OWNER_USB_REQUEST_SHA=""
 OWNER_INITIAL_HEALTH_RETRIES=0
 OWNER_MANUAL_CHECK=0
 OWNER_INITIAL_NORMAL_SINCE=0
@@ -2704,14 +2706,41 @@ owner_stage_usb_git_once() {
         return 0
     fi
     owner_bundle_dir=$owner_cache_mount/.ordax/updates/owner-git
+    owner_cache_receipt=$UPDATE_RUN_DIR/.owner-usb-git-receipt.$$
     if [ -d "$owner_bundle_dir" ] && [ ! -L "$owner_bundle_dir" ]; then
+        /bin/busybox rm -f "$owner_cache_receipt"
         if ORDAX_DISTRIBUTION_PROFILE=owner-development \
            ORDAX_WORKTREE="$WORKTREE" ORDAX_UPDATE_RUN_DIR="$UPDATE_RUN_DIR" \
-           /bin/busybox timeout -k 2 90 "$owner_usb_git_bin" stage "$owner_bundle_dir" >>"$UPDATE_LOG" 2>&1; then
+           /bin/busybox timeout -k 2 90 "$owner_usb_git_bin" stage "$owner_bundle_dir" \
+                >"$owner_cache_receipt" 2>>"$UPDATE_LOG"; then
             log "Owner USB Git objects cached; activation still requires verified GitHub main"
+            owner_candidate_line=$(/bin/busybox cat "$owner_cache_receipt" 2>/dev/null || true)
+            case "$owner_candidate_line" in
+                ORDAX_OFFLINE_CANDIDATE_SHA=*)
+                    owner_candidate_sha=$(printf '%s\n' "$owner_candidate_line" | /bin/busybox sed 's/^ORDAX_OFFLINE_CANDIDATE_SHA=//')
+                    if is_sha "$owner_candidate_sha"; then
+                        owner_request_file=$owner_bundle_dir/owner-git-update-request.txt
+                        if [ -f "$owner_request_file" ] && [ ! -L "$owner_request_file" ]; then
+                            owner_request_expected=$(printf 'schema=ordax.owner-usb-update-request/1\nsource_commit=%s\n' "$owner_candidate_sha")
+                            owner_request_actual=$(/bin/busybox cat "$owner_request_file" 2>/dev/null || true)
+                            owner_request_bytes=$(/bin/busybox wc -c <"$owner_request_file" 2>/dev/null || true)
+                            owner_expected_bytes=$(printf 'schema=ordax.owner-usb-update-request/1\nsource_commit=%s\n' "$owner_candidate_sha" | /bin/busybox wc -c)
+                            if [ "$owner_request_actual" = "$owner_request_expected" ] &&
+                               [ "$owner_request_bytes" = "$owner_expected_bytes" ]; then
+                                OWNER_USB_REQUEST_SHA=$owner_candidate_sha
+                                log "verified Creator USB request queued for online main check"
+                            fi
+                        fi
+                    fi
+                    ;;
+            esac
         else
             log "Owner USB Git cache rejected; active checkout preserved"
         fi
+        if [ -f "$owner_cache_receipt" ] && [ ! -L "$owner_cache_receipt" ]; then
+            /bin/busybox cat "$owner_cache_receipt" >>"$UPDATE_LOG" 2>/dev/null || true
+        fi
+        /bin/busybox rm -f "$owner_cache_receipt"
     fi
     if ! /bin/busybox umount "$owner_cache_mount" >>"$UPDATE_LOG" 2>&1; then
         log "Owner USB DATA read-only mount remains; no writable mount was attempted"
@@ -2860,6 +2889,16 @@ check_for_update() {
         set_update_context health-wait "$remote_sha" "" ""
         write_update_state "$current" applied initial
         return 0
+    fi
+
+    # Existing Supervisor remains sole owner; verified remote main may
+    # prioritize an explicit USB request once, never bypass safety gates.
+    if [ -n "$OWNER_USB_REQUEST_SHA" ]; then
+        if [ "$OWNER_USB_REQUEST_SHA" = "$remote_sha" ]; then
+            OWNER_MANUAL_CHECK=1
+            log "Creator USB request matched canonical main; prioritizing existing update"
+        fi
+        OWNER_USB_REQUEST_SHA=""
     fi
 
     if [ -s "$PINNED_FILE" ]; then
