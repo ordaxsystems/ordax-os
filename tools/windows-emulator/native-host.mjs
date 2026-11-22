@@ -21,6 +21,7 @@ import { createDesktopVerifiedStoreCatalogMiddleware, resolveDesktopStoreHttpsOr
 import { createDesktopStoreLifecycleMiddleware } from "../../system/adapters/desktop/store-lifecycle-host.mjs";
 import { createDesktopProductRuntimeSupervisor, createDesktopSignedRuntimeHandoff } from "../../system/adapters/desktop/product-runtime-supervisor.mjs";
 import { createDesktopSurfaceRuntimeBridge, DESKTOP_SURFACE_BRIDGE_PATH } from "../../system/adapters/desktop/surface-runtime-bridge.mjs";
+import { createDesktopIntelligenceRuntimeBridge } from "../../system/adapters/desktop/intelligence-runtime-bridge.mjs";
 import { createDesktopDisplayCurrentModeMiddleware } from "../../system/adapters/desktop/display-current-mode-host.mjs";
 import observationPolicy from "../../system/adapters/desktop/observation-grant.cjs";
 const { OBSERVATION_ROUTES, createDesktopObservationGrantMiddleware }=observationPolicy;
@@ -358,6 +359,16 @@ export function nativeEmulatorPlugin(stateDirectory, { desktopHost = false, acco
           onFirstCommandPoll: () => console.info("runtime: Native Surface command polling authenticated"),
         });
         server.middlewares.use(surfaceBridge.middleware);
+        // This is only an authenticated peer transport into the SAME Aura
+        // Intelligence port in the mounted Surface, not another inference
+        // engine, Memory service, Model Router or executor.
+        const intelligenceBridge=createDesktopIntelligenceRuntimeBridge({
+          reportToken:process.env.ORDAX_DESKTOP_SURFACE_REPORT_TOKEN,
+          runtimeToken:bridgeRuntimeToken,
+          isSurfaceReady:surfaceBridge.isSurfaceReady,
+        });
+        server.middlewares.use(intelligenceBridge.middleware);
+        server.httpServer?.once?.("close",()=>intelligenceBridge.dispose());
         // No localhost process may inspect network, power, recovery or
         // storage/update observations without the owning Electron grant.
         server.middlewares.use(createDesktopObservationGrantMiddleware({

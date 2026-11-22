@@ -223,7 +223,9 @@ function authorizeDesktopFileRequests(browserWindow,base,fileToken,localSessionT
           headers['X-OrdaX-Desktop-State-Token']=stateToken;
         if(trusted && ['/__ordax/native/desktop-surface-state',
                        '/__ordax/native/desktop-surface-command',
-                       '/__ordax/native/desktop-surface-receipt'].includes(target.pathname))
+                       '/__ordax/native/desktop-surface-receipt',
+                        '/__ordax/native/desktop-intelligence-command',
+                        '/__ordax/native/desktop-intelligence-result'].includes(target.pathname))
           headers['X-OrdaX-Surface-Report-Token']=surfaceReportToken;
         if(trusted && OBSERVATION_ROUTES.includes(target.pathname))
           headers['X-OrdaX-Observation-Token']=observationToken;

@@ -175,6 +175,17 @@ export function createNativeIntelligenceService({
         response,
       });
     },
+    // Desktop MCP calls do not supply an account, Space or Memory scope.
+    // Read the SAME current OS ports as Aura, then reuse respond() and its
+    // in-flight A->B->A authority fence. No second model or context store.
+    respondCurrent({requestId, request} = {}) {
+      return this.respond({
+        schema: NATIVE_INTELLIGENCE_SERVICE_REQUEST_SCHEMA,
+        requestId,
+        context: readCurrentContext(),
+        request,
+      });
+    },
     dispose() {
       if (disposed) return;
       disposed = true;

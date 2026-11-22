@@ -166,6 +166,7 @@ import { mountStoreWindows } from "../../surface/ui/store-experience.mjs";
 import { mountSystemOverviewControls } from "../../surface/ui/system-overview-controls.mjs";
 import { createNativeDesktopProductRuntimeStatus } from "../../adapters/native/desktop-product-runtime-status.mjs";
 import { mountNativeDesktopSurfaceStateReport } from "../../adapters/native/desktop-surface-state-report.mjs";
+import { mountNativeDesktopIntelligenceMcp } from "../../adapters/native/desktop-intelligence-mcp.mjs";
 import { mountSystemTrayQuickPanels } from "../../surface/ui/system-tray-quick-panels.mjs";
 import { mountUpdateControls } from "../../surface/ui/update-controls.mjs";
 
@@ -943,6 +944,17 @@ async function start() {
         spaceSelectionPort: spaceSelection,
       })
     : null;
+  // The Windows Desktop Product Runtime consults the identical final Aura
+  // port through its authenticated Native Host. No separate Intelligence,
+  // inference instance, model selector, Space or Memory source is created.
+  const desktopIntelligenceMcp = windowsDesktopHost
+    ? mountNativeDesktopIntelligenceMcp({
+        windowRef: window,
+        intelligencePort: selectedSpaceIntelligence,
+        identitySessionPort: identitySession,
+        spaceSelectionPort: spaceSelection,
+      })
+    : null;
   const sidebarAccount = mountNativeSidebarAccount(root, identitySession, host, surface);
   bootLocale = surface.localization.getLocale();
   const notificationCenter = mountNotificationCenterControls(root, notifications, appActivation, surface);
@@ -1588,6 +1600,7 @@ async function start() {
       unsubscribeWorkspaceIdentity();
       unsubscribeHostIdentity();
       nativeIntelligenceHostBridge?.dispose();
+      desktopIntelligenceMcp?.dispose();
       unsubscribeCapabilityDiscovery?.();
       unsubscribeStoreCapabilityDiscovery?.();
       verifiedSemanticsRefresh?.dispose();

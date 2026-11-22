@@ -286,5 +286,5 @@ export function createDesktopSurfaceRuntimeBridge({
     }
     return reply(response,405,{error:"Unsupported Native Surface method"});
   }
-  return Object.freeze({middleware});
+  return Object.freeze({middleware,isSurfaceReady:()=>Boolean(fresh())});
 }
