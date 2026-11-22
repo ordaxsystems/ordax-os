@@ -30,6 +30,23 @@ ext4; invocar o produtor diretamente no Windows é bloqueado. Até que esse
 adaptador físico seja conectado e validado, o botão Owner DEV continua
 sendo transporte Git/Base, não instalação direta.
 
+## Prova Linux descartável no Windows
+
+O módulo creator/tools/owner_dev_qemu_filesystem_proof.py reutiliza os
+artefatos Base publicados e o validador OS de dev_channel.py para gerar um
+initramfs temporário com BusyBox, iniciar o kernel OrdaX em QEMU e materializar
+um rootfs.tar verificado num disco virtual temporário. O segundo boot do
+mesmo disco virtual remonta em modo somente leitura e confere SHA-256.
+O teste usa ext2 montado pelo driver ext4: não é prova do acesso físico à
+partição ext4 do USB, nem valida boot do sistema completo.
+
+O QEMU recebe apenas arquivos temporários. A ferramenta pode ler artefatos
+já transportados em ORDAX-DATA para copiá-los, sem escrever nela; não recebe
+PhysicalDrive, não modifica USB/EFI, não altera ativação ou boot real e nunca
+autoriza escrita física. Não há instalação de distribuição externa, rebuild
+do kernel ou segundo Update Engine. A ponte física segura e seu readback
+continuam pendentes no adaptador Windows canônico do Creator.
+
 ## Desenvolvimento e distribuição
 
 O resolvedor em ../.github/actions/resolve-creator-source/ valida a versão de creator/ contida no próprio commit do OS. Workflows e releases pertencem ao ordax-os; os contratos de mídia, assinatura, atualização e publicação ficam em ../docs/contracts/ e produtores em ../tools/creator/.
