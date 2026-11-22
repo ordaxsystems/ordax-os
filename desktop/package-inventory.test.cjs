@@ -78,18 +78,19 @@ test('comparison fails closed when compiled assets are missing', () => {
 });
 
 
-test('installed Desktop includes exactly the OS-pinned DEV provenance but no unsigned executable',()=>{
+test('installed Desktop excludes historical runtime evidence and unsigned executables',()=>{
   const config=require('./package.json');
   const resources=config.build.extraResources;
-  const target='runtime-template/docs/evidence/desktop-runtime-windows-candidate-2026-10-31.json';
-  const selected=resources.filter(item=>item.to===target);
-  assert.equal(selected.length,1,'DEV evidence must not be a second file authority');
-  assert.equal(selected[0].from,'../docs/evidence/desktop-runtime-windows-candidate-2026-10-31.json');
-  assert.equal(selected[0].to,target);
-  assert.ok(selected[0].from.startsWith('../docs/evidence/'));
-  assert.equal(resources.filter(item=>item.to===target).length,1);
+  assert.equal(resources.some(item=>
+    item.from?.startsWith('../docs/evidence/')||
+    item.to?.startsWith('runtime-template/docs/evidence/')),false,
+    'historical runtime proof must not become an installed or duplicate authority');
   assert.equal(resources.some(item=>
     item.to?.includes('product-runtime-dev')||
     item.from?.includes('ordax-product-agent.exe')),false,
     'unsigned DEV Runtime may never be silently bundled or installed');
+  assert.equal(resources.filter(item=>
+    item.from==='../docs/contracts/runtime-component-trust-policy.json' &&
+    item.to==='runtime-template/docs/contracts/runtime-component-trust-policy.json').length,1,
+    'the current signed runtime trust policy stays in the installed package');
 });
