@@ -257,7 +257,7 @@ jobs:
           $builder = [string]$artifact.builder_commit
           $proofRun = [long]$artifact.proof_run_id
           $proofBundle = [string]$artifact.proof_bundle_sha256
-          if ($artifact.builder_repository -cne 'ordaxsystems/ordax-intelligence' -or
+          if ($artifact.distribution_repository -cne 'ordaxsystems/ordax-os' -or
               $builder -cnotmatch '^[0-9a-f]{40}$' -or $proofRun -le 0 -or
               $proofBundle -cnotmatch '^[0-9a-f]{64}$') {
             throw 'Windows Aura proof authority is incomplete'
@@ -265,7 +265,7 @@ jobs:
           $shortBuilder = $builder.Substring(0, 7)
           $tag = "windows-local-ai-engine-$shortBuilder-$proofRun"
           $asset = "ordax-windows-local-ai-engine-candidate-$shortBuilder.zip"
-          $url = "https://github.com/$($artifact.builder_repository)/releases/download/$tag/$asset"
+          $url = "https://github.com/$($artifact.distribution_repository)/releases/download/$tag/$asset"
           $archive = Join-Path $env:RUNNER_TEMP $asset
           $candidate = Join-Path $env:RUNNER_TEMP 'ordax-windows-ai-candidate'
           $cache = Join-Path $env:RUNNER_TEMP 'ordax-verified-gguf'

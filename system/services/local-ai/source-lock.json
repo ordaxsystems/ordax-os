@@ -132,7 +132,8 @@
           "sha256": "492ff527047ed459ddfe5943e2872ac93b99d6da8c18dfc75b7f1c6b56709427",
           "size_bytes": 1368064
         }
-      ]
+      ],
+      "distribution_repository": "ordaxsystems/ordax-os"
     },
     "linux_build_toolchain": {
       "runner_os": "ubuntu-24.04",
