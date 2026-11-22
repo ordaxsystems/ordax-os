@@ -106,6 +106,43 @@ func checkPortableUSBPreparation(prep portableUSBUpdatePreparation,target physic
 	return nil
 }
 
+// The elevated helper's zero exit code is necessary but insufficient:
+// only its exact canonical Core receipt can authorize a "written" message.
+// Progress snapshots and a bare "complete" phase cannot assert success.
+func verifyPortableUSBCompletion(
+	progress physicalProgressDocument,
+	installed creatorcore.PortableMediaPlan,
+	candidate creatorcore.PortableMediaPlan,
+	plan creatorcore.PortableUpdatePlan,
+	planSHA string,
+) error {
+	receipt:=progress.PortableReceipt
+	if progress.Schema!=physicalProgressSchema ||
+		progress.Phase!="complete-portable-update" ||
+		progress.CompletedBytes!=1 || progress.TotalBytes!=1 ||
+		receipt==nil || receipt.Schema!=creatorcore.PortableUpdateReceiptSchema ||
+		receipt.Status!="staged-not-activated" || receipt.Activated ||
+		!receipt.CandidateRequestArmed ||
+		receipt.FromSourceCommit!=installed.SourceCommit ||
+		receipt.ToSourceCommit!=candidate.SourceCommit ||
+		receipt.PlanSHA256!=planSHA ||
+		receipt.InstalledReadbacks!=len(installed.Artifacts) {
+		return errors.New("a confirmação física não corresponde à atualização autorizada")
+	}
+	copied,verified:=0,0
+	for _,op:=range plan.Operations {
+		switch op.Kind {
+		case "materialize-artifact":copied++
+		case "readback-sha256-size":verified++
+		}
+	}
+	if verified==0 || copied!=receipt.ReleaseMaterialized ||
+		verified!=receipt.ReleaseReadbacks {
+		return errors.New("a atualização física não comprovou todos os arquivos assinados")
+	}
+	return nil
+}
+
 func executePortableUSBUpdate(state appRefreshState,target physicalTarget) (ownerUSBReceipt,error) {
 	blank:=ownerUSBReceipt{}
 	payload:=state.PortablePayload
@@ -179,9 +216,16 @@ func executePortableUSBUpdate(state appRefreshState,target physicalTarget) (owne
 	if err:=runElevatedAndWait(backend,dir,args,diagnosticPath,progressPath);err!=nil {
 		return blank,err
 	}
+	// Only the elevated Core can attest the completed filesystem writes.
+	// Its sidecar is checked after process termination, not during progress.
+	progress,err:=readPhysicalProgress(progressPath)
+	if err!=nil{return blank,fmt.Errorf("recibo físico de atualização ausente: %w",err)}
+	if err:=verifyPortableUSBCompletion(progress,installedPlan,candidatePlan,updatePlan,expectedSHA);err!=nil{
+		return blank,err
+	}
 	return ownerUSBReceipt{
 		Status:"STAGED_NOT_ACTIVATED",
-		SourceCommit:payload.ReleaseSourceCommit,
+		SourceCommit:progress.PortableReceipt.ToSourceCommit,
 	},nil
 }
 
