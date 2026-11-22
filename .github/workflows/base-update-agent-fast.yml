@@ -1,0 +1,39 @@
+name: Base Update Agent Fast Checks
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - 'system/services/base-update/agent.sh'
+      - 'system/services/base-update/efivarfs_preflight.py'
+      - 'tests/test_efivarfs_agent_idempotence.py'
+      - 'tests/test_base_update_efivarfs_preflight.py'
+      - '.github/workflows/base-update-agent-fast.yml'
+  pull_request:
+    paths:
+      - 'system/services/base-update/agent.sh'
+      - 'system/services/base-update/efivarfs_preflight.py'
+      - 'tests/test_efivarfs_agent_idempotence.py'
+      - 'tests/test_base_update_efivarfs_preflight.py'
+      - '.github/workflows/base-update-agent-fast.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  efivarfs-owner:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 3
+    steps:
+      - name: Checkout exact canonical source
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
+        with:
+          persist-credentials: false
+
+      - name: Syntax and evidence-only regressions (no OS build)
+        run: |
+          set -euo pipefail
+          sh -n system/services/base-update/agent.sh
+          python -m unittest tests.test_base_update_efivarfs_preflight -v
+          python -m unittest tests.test_efivarfs_agent_idempotence -v
