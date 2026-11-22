@@ -68,6 +68,7 @@ class EfivarfsAgentIdempotenceTests(unittest.TestCase):
         )
         self.script = "\n".join((
             "set -eu",
+            "PATH=/usr/bin:$PATH; export PATH",
             "log() { printf 'LOG:%s\\n' \"$*\" >&2; }",
             f'RUNTIME_ROOT="{posix_path(self.fake_root)}"',
             f'EFIVARFS_PREFLIGHT_FILE="{posix_path(self.evidence)}"',
