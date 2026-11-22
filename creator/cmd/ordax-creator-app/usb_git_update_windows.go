@@ -372,7 +372,7 @@ func verifyCanonicalCreatorSourceWithGit(runGit func(...string) (string, error))
         return errors.New("Creator main fast-forward failed")
     }
     current, err := runGit("rev-parse", "HEAD")
-    if err != nil || current != fetched {
+    if err != nil || current != candidate {
         return errors.New("Creator source did not advance to verified main")
     }
     dirty, err = runGit("status", "--porcelain=v1")
