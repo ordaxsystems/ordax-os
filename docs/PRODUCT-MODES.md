@@ -123,7 +123,7 @@ ordax-os/system/
   services/          # shared OS/domain services and lifecycle
   adapters/          # environment capabilities only
   composition/       # verified direct-dependency assembly
-ordax-desktop        # Windows host/packaging consuming OrdaX/OS composition
+ordax-os/desktop/    # Windows Electron/NSIS host, same-commit OS composition
 ```
 
 Target adapters inside the OS remain `web`, `mobile`, `desktop` and `native`; they implement capabilities, not alternate source ownership. `mobile` owns Android/iOS capability differences; `native` is shared by USB and internal OrdaX installations wherever the capability is genuinely the same.
