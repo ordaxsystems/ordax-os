@@ -262,6 +262,38 @@ test("DEV candidate selection is a single strict path pin, never a filesystem es
   sup.stop();
 });
 
+test("source-addressed DEV evidence binds immutable filename to exact runtime commit",async t=>{
+  const f=fixture(t,{approved:false});
+  const staged=stagePinnedDesktopDevCandidate(f);
+  const name="desktop-runtime-windows-candidate-"+SHA+".json";
+  const proof=readFileSync(staged.path);
+  writeFileSync(join(f.systemRoot,"docs","evidence",name),proof);
+  writeFileSync(staged.selectionPath,JSON.stringify({
+    $schema:"prototype-ordax.desktop-runtime-dev-candidate-selection/1",
+    evidence_file:name,
+  }));
+  const supervisor=createDesktopProductRuntimeSupervisor({
+    systemRoot:f.systemRoot,userData:f.userData,platform:"win32",
+    developmentCandidate:true,spawnImpl:()=>child(),
+  });
+  assert.equal((await supervisor.reconcile()).reason,"runtime_readiness_pending");
+  supervisor.stop();
+
+  const mismatchedName="desktop-runtime-windows-candidate-"+("b".repeat(40))+".json";
+  writeFileSync(join(f.systemRoot,"docs","evidence",mismatchedName),proof);
+  writeFileSync(staged.selectionPath,JSON.stringify({
+    $schema:"prototype-ordax.desktop-runtime-dev-candidate-selection/1",
+    evidence_file:mismatchedName,
+  }));
+  const denied=createDesktopProductRuntimeSupervisor({
+    systemRoot:f.systemRoot,userData:f.userData,platform:"win32",
+    developmentCandidate:true,
+    spawnImpl:()=>{throw Error("Mismatched source-addressed candidate must not launch")},
+  });
+  assert.equal((await denied.reconcile()).reason,"component_trust_not_authorized");
+  denied.stop();
+});
+
 test("verified DEV component gets canonical Windows computer handlers without inheriting another agent",async t=>{
   const f=fixture(t,{approved:false});
   stagePinnedDesktopDevCandidate(f);

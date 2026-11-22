@@ -88,12 +88,16 @@ function readDesktopDevCandidateGate(systemRoot){
     if(selection?.$schema!=="prototype-ordax.desktop-runtime-dev-candidate-selection/1"||
        Object.keys(selection).length!==2||
        typeof selection.evidence_file!=="string"||
-       !/^desktop-runtime-windows-candidate-[0-9]{4}-[0-9]{2}-[0-9]{2}\.json$/.test(selection.evidence_file))
+       !/^desktop-runtime-windows-candidate-(?:[0-9]{4}-[0-9]{2}-[0-9]{2}|[a-f0-9]{40})\.json$/.test(selection.evidence_file))
       return null;
     evidence=JSON.parse(readRegular(join(systemRoot,"docs","evidence",
       selection.evidence_file),65536).toString("utf8"));
   } catch { return null; }
   const candidate=evidence.candidate,proof=evidence.physical_offline_proof;
+  // Source-addressed immutable evidence must name the exact runtime commit.
+  const sourceName=selection.evidence_file.match(
+    /^desktop-runtime-windows-candidate-([a-f0-9]{40})\.json$/);
+  if(sourceName && sourceName[1]!==candidate?.source_commit)return null;
   if(policy.$schema!==POLICY_SCHEMA||policy.trust_domain!=="runtime-components"||
      policy.status!=="operator-ceremony-pending"||
      policy.current_gates?.canonical_component_trust_anchor_pinned!==false||
