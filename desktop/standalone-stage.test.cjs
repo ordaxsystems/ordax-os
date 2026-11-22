@@ -436,12 +436,12 @@ test('operational NSIS install retires only a superseded Desktop Dev shell delta
 });
 
 
-test('new NSIS smoke cannot accept the historical OS-owned Electron receipt',()=>{
+test('NSIS smoke enforces same-commit monorepo Electron owner and rejects legacy receipt',()=>{
   const source=fs.readFileSync(join(__dirname,'install-smoke.ps1'),'utf8');
-  assert.match(source,/\$stageReceipt\.desktop_owner -cne "ordaxsystems\/ordax-desktop"/);
-  assert.match(source,/\$stageReceipt\.product_owner -cne "ordaxsystems\/ordax-desktop"/);
-  assert.match(source,/\$stageReceipt\.source_authority -cne "ordaxsystems\/ordax-desktop\/package\.json"/);
-  assert.match(source,/\$stageReceipt\.desktop_sha -cnotmatch "\^\[a-f0-9\]\{40\}\$"/);
+  assert.match(source,/\$stageReceipt\.desktop_owner -cne "ordaxsystems\/ordax-os"/);
+  assert.match(source,/\$stageReceipt\.product_owner -cne "ordaxsystems\/ordax-os"/);
+  assert.match(source,/\$stageReceipt\.source_authority -cne "ordaxsystems\/ordax-os\/desktop\/package\.json"/);
+  assert.match(source,/\$stageReceipt\.desktop_sha -cne \$stageReceipt\.os_sha/);
   assert.doesNotMatch(source,/if \(\$stageReceipt\.desktop_owner\)/,
     'Desktop owner must not be an optional condition');
   assert.doesNotMatch(source,/tools\/windows-desktop\/package\.json/,
