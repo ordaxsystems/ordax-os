@@ -49,31 +49,37 @@ de `ordax-surface` nem publica releases oficiais; catálogo público
 
 ## Publicação seletiva por CI — preparada, ainda desativada
 
-O publicador canônico \`tools/vercel/selective_site_delivery.py\` é ligado ao resultado
-SUCCESS do workflow \`Public Site Candidate\` para \`ordax-os/main\`, via
-\`.github/workflows/public-site-selective-deploy.yml\`. Reutiliza sem copiar
-\`site/scripts/build_impact.py\`, compara o manifesto HTTP de produção à HEAD,
+O publicador canônico `tools/vercel/selective_site_delivery.py` é ligado ao resultado
+SUCCESS do workflow `Public Site Candidate` para `ordax-os/main`, via
+`.github/workflows/public-site-selective-deploy.yml`. Reutiliza sem copiar
+`site/scripts/build_impact.py`, compara o manifesto HTTP de produção à HEAD,
 trata renomeações e diferenças incertas como alterações relevantes e só cria
 um deployment quando houver impacto, com SHA Git fixado. Aguarda READY e
 atesta a origem de marca/Surface no domínio real; nunca contorna HTTP 402.
 
-A condição \`ORDAX_SITE_SELECTIVE_DEPLOY_ENABLED == true\` **não está ativada**.
+A condição `ORDAX_SITE_SELECTIVE_DEPLOY_ENABLED == true` **não está ativada**.
 Ela não deve ser ativada com a entrega automática Git do projeto de produção
 ainda ligada, pois seriam **duas autoridades** consumindo cota. Não modificar
-\`vercel.json\` compartilhado para desligar Git: isso também pararia o
-\`ordax-web\`. O corte exige desativação **específica do projeto**
-\`ordax-os-public\`, comprovada na Vercel; se tal ajuste não for possível,
-não ativar o novo workflow até o Web ter seu próprio caminho equivalente.
+`vercel.json` compartilhado para desligar Git: isso também pararia o
+`ordax-web`. O corte exige política **específica do projeto** `ordax-os-public`, nunca
+do `ordax-web`: na Vercel, `deploymentPolicy.deploymentSources` deve
+permitir **somente `rest-api` em produção**, bloqueando a origem `git`
+(webhooks). O publicador executa leitura autenticada de
+`GET /v9/projects/prj_mA9ew6hOfjdqlBr1cC757iMLPQJC` e **falha antes
+de criar qualquer deployment** se a política não estiver aplicada exatamente.
+A configuração por projeto é independente de `vercel.json`; só aplicá-la
+**depois** de cadastrar e validar o secret de CI. Se o plano/provedor
+rejeitar essa política, manter Git automático e o workflow seletivo inerte.
 
-Pré-requisitos operacionais: credencial \`VERCEL_TOKEN\` armazenada no GitHub
-Actions (secret do ambiente \`Production – ordax-os-public\` ou repositório),
+Pré-requisitos operacionais: credencial `VERCEL_TOKEN` armazenada no GitHub
+Actions (secret do ambiente `Production – ordax-os-public` ou repositório),
 autorizada exclusivamente ao projeto/equipe atuais; desativação verificada
 das publicações automáticas Git no projeto Site; variável do repositório
-\`ORDAX_SITE_SELECTIVE_DEPLOY_ENABLED=true\` só após o corte. A credencial
+`ORDAX_SITE_SELECTIVE_DEPLOY_ENABLED=true` só após o corte. A credencial
 não pertence ao Git, logs, Site público ou arquivos locais. Não publicar
 a partir de CI falho, PR, outro repositório, revisão reescrita ou diff
 incompleto. O Web mantém produção independente. Testes locais do publicador:
-\`python3 -m unittest tests.test_public_site_selective_delivery -q\`.
+`python3 -m unittest tests.test_public_site_selective_delivery -q`.
 
 Enquanto os pré-requisitos externos não existirem, a Vercel Git continua
 como autoridade única: o novo workflow permanece inerte, e o Site não

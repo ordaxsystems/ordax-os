@@ -66,6 +66,44 @@ def correct_source(manifest: dict, commit: str) -> bool:
             and all(isinstance(manifest.get(key), dict) for key in ("brand", "surface_preview")))
 
 
+def production_rest_api_only(project: dict) -> bool:
+    """Require a *project-scoped* production rule denying Git webhooks.
+
+    A global vercel.json Git toggle would also stop ordax-web. An Ignored
+    Build Step cancels too late to save the daily deployment quota.
+    """
+    if project.get("id") != PROJECT_ID:
+        return False
+    policy = project.get("deploymentPolicy")
+    if not isinstance(policy, dict):
+        return False
+    rules = policy.get("deploymentSources")
+    if not isinstance(rules, list):
+        return False
+    matching = []
+    for rule in rules:
+        if not isinstance(rule, dict) or not isinstance(rule.get("environments"), list):
+            return False
+        if any(isinstance(env, dict) and env.get("type") == "system"
+               and env.get("target") == "production"
+               for env in rule["environments"]):
+            matching.append(rule)
+    # Both absent and ambiguous rules fail closed. No simultaneous Git,
+    # deploy-hook, CLI, Marketplace or API publishers for production.
+    return (len(matching) == 1
+            and matching[0].get("enabled") is True
+            and matching[0].get("sources") == ["rest-api"])
+
+
+def assert_release_authority(vercel_token: str) -> None:
+    project = json_request(f"{API}/v9/projects/{PROJECT_ID}?teamId={TEAM_ID}",
+                           token=vercel_token)
+    if not production_rest_api_only(project):
+        raise DeliveryError(
+            "Site production source policy is not REST-API-only; "
+            "Git auto-deployment may still be enabled")
+
+
 def affects_site(files: list[str]) -> bool:
     spec = importlib.util.spec_from_file_location("canonical_site_impact", SITE_IMPACT)
     if spec is None or spec.loader is None:
@@ -152,6 +190,8 @@ def main() -> int:
     vercel_token = os.getenv("VERCEL_TOKEN", "")
     if SHA.fullmatch(sha) is None or not github_token or not vercel_token:
         raise DeliveryError("Missing validated SHA or deployment credentials")
+    # Never turn one successful CI run into a second concurrent publisher.
+    assert_release_authority(vercel_token)
     head = json_request(f"https://api.github.com/repos/{OWNER}/{REPO}/branches/main",
                         token=github_token).get("commit", {}).get("sha")
     if not isinstance(head, str) or SHA.fullmatch(head) is None:

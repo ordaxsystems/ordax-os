@@ -86,11 +86,60 @@ class SelectiveSiteTests(unittest.TestCase):
                 with self.assertRaisesRegex(site_delivery.DeliveryError,'credentials'):
                     site_delivery.main()
 
+    def test_source_policy_must_be_exclusive_for_production(self):
+        policy = {'deploymentSources': [{'enabled': True,
+                   'environments':[{'type':'system','target':'production'}],
+                   'sources':['rest-api']}]}
+        valid={'id':site_delivery.PROJECT_ID, 'deploymentPolicy':policy}
+        self.assertTrue(site_delivery.production_rest_api_only(valid))
+        self.assertFalse(site_delivery.production_rest_api_only({}))
+        self.assertFalse(site_delivery.production_rest_api_only(
+            {'id':'prj_unrelated', 'deploymentPolicy':policy}))
+        for sources in (['git','rest-api'],['rest-api','deploy-hook'],[],['cli']):
+            candidate={'id':site_delivery.PROJECT_ID,
+                       'deploymentPolicy':{'deploymentSources':[{
+                           'enabled':True,'environments':[{'type':'system','target':'production'}],
+                           'sources':sources}]}}
+            with self.subTest(sources=sources):
+                self.assertFalse(site_delivery.production_rest_api_only(candidate))
+
+    def test_policy_rejects_absent_ambiguous_and_wrong_environment(self):
+        for rules in (None, [], [{'enabled':True,
+                      'environments':[{'type':'system','target':'preview'}],
+                      'sources':['rest-api']}],
+                      [{'enabled':False,'environments':[{'type':'system','target':'production'}],
+                        'sources':['rest-api']}],
+                      [{'enabled':True,'environments':[{'type':'system','target':'production'}],
+                        'sources':['rest-api']}]*2):
+            with self.subTest(rules=rules):
+                self.assertFalse(site_delivery.production_rest_api_only(
+                    {'id':site_delivery.PROJECT_ID,
+                     'deploymentPolicy':{'deploymentSources':rules}}))
+
+    def test_authority_readback_is_required_before_production(self):
+        with patch.object(site_delivery,'json_request',return_value={'id':site_delivery.PROJECT_ID}):
+            with self.assertRaisesRegex(site_delivery.DeliveryError,'source policy'):
+                site_delivery.assert_release_authority('Vercel_Token')
+
+    def test_enabled_main_rejects_git_auto_source_before_reading_github(self):
+        calls=[]
+        def reject_policy(url, **kwargs):
+            calls.append(url)
+            return {'id':site_delivery.PROJECT_ID}
+        with patch.dict(os.environ,{'ORDAX_SITE_SELECTIVE_DEPLOY_ENABLED':'true',
+                                    'ORDAX_SITE_CANDIDATE_SHA':GOOD_SHA,
+                                    'GITHUB_TOKEN':'gh','VERCEL_TOKEN':'vercel'},clear=True):
+            with patch.object(site_delivery,'json_request',side_effect=reject_policy):
+                with self.assertRaisesRegex(site_delivery.DeliveryError,'source policy'):
+                    site_delivery.main()
+        self.assertEqual(len(calls),1)
+        self.assertIn(site_delivery.PROJECT_ID,calls[0])
+
     def test_newer_site_source_defers_until_own_ci(self):
         with patch.dict(os.environ,{'ORDAX_SITE_SELECTIVE_DEPLOY_ENABLED':'true',
                                     'ORDAX_SITE_CANDIDATE_SHA':GOOD_SHA,
                                     'GITHUB_TOKEN':'gh','VERCEL_TOKEN':'vercel'},clear=True):
-            with patch.object(site_delivery,'json_request',return_value={'commit':{'sha':OLD_SHA}}):
+            with patch.object(site_delivery,'assert_release_authority'), patch.object(site_delivery,'json_request',return_value={'commit':{'sha':OLD_SHA}}):
                 with patch.object(site_delivery,'compare_paths',return_value=['site/public/index.html']):
                     with patch.object(site_delivery,'publish',side_effect=AssertionError('no publish')):
                         self.assertEqual(site_delivery.main(),0)
@@ -107,6 +156,7 @@ class SelectiveSiteTests(unittest.TestCase):
                                     'ORDAX_SITE_CANDIDATE_SHA':GOOD_SHA,
                                     'GITHUB_TOKEN':'gh','VERCEL_TOKEN':'vercel'},clear=True), \
              patch.object(site_delivery,'json_request',side_effect=mock_json), \
+             patch.object(site_delivery,'assert_release_authority'), \
              patch.object(site_delivery,'compare_paths',side_effect=lambda base,head,token: ['creator/core/portable.go'] if base==GOOD_SHA else ['site/public/index.html']), \
              patch.object(site_delivery,'publish',side_effect=lambda sha, token:calls.append(sha) or 'dpl_example'), \
              patch.object(site_delivery,'verify_ready'):
