@@ -7,6 +7,7 @@ import (
 	"fmt"
 	"math/bits"
 
+	creatorcore "github.com/ordaxsystems/ordax-os/creator/core"
 	"github.com/ordaxsystems/ordax-os/creator/internal/safefile"
 )
 
@@ -17,6 +18,7 @@ type physicalProgressDocument struct {
 	Phase          string `json:"phase"`
 	CompletedBytes int64  `json:"completed_bytes"`
 	TotalBytes     int64  `json:"total_bytes"`
+	PortableReceipt *creatorcore.PortableUpdateReceipt `json:"portable_update_receipt,omitempty"`
 }
 
 func setProgressPercent(percent int) {
