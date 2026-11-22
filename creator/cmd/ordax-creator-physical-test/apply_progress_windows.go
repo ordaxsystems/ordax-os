@@ -12,6 +12,7 @@ import (
 	"sync"
 	"time"
 
+	creatorcore "github.com/ordaxsystems/ordax-os/creator/core"
 	windowsadapter "github.com/ordaxsystems/ordax-os/creator/host/windows"
 )
 
@@ -118,4 +119,47 @@ func finalizeElevatedApply(progressPath, phase string, encodeReceipt func() erro
 		return nil
 	}
 	return encodeReceipt()
+}
+
+
+// The elevated updater records its actual Core receipt in the existing
+// progress sidecar, rather than merely publishing a "complete" phase. This
+// prevents the GUI from treating a zero exit without verified readbacks as
+// physical installation. The sidecar remains local to Creator's ephemeral
+// per-update directory and never grants disk-write authority.
+func finalizeElevatedPortableUpdate(progressPath string, receipt creatorcore.PortableUpdateReceipt) error {
+	if receipt.Schema != creatorcore.PortableUpdateReceiptSchema ||
+		receipt.Status != "staged-not-activated" ||
+		!receipt.CandidateRequestArmed || receipt.Activated ||
+		receipt.InstalledReadbacks <= 0 || receipt.ReleaseReadbacks <= 0 {
+		return errors.New("Portable Core returned no verified candidate receipt")
+	}
+	if progressPath == "" {
+		return encode(receipt)
+	}
+	doc := struct {
+		applyProgressDocument
+		Receipt creatorcore.PortableUpdateReceipt `json:"portable_update_receipt"`
+	}{
+		applyProgressDocument: applyProgressDocument{
+			Schema:applyProgressSchema, Phase:"complete-portable-update",
+			CompletedBytes:1, TotalBytes:1,
+		},
+		Receipt:receipt,
+	}
+	data,err:=json.Marshal(doc)
+	if err!=nil{return err}
+	data=append(data,'
+')
+	if len(data)>4096{return errors.New("Portable completion receipt exceeds bounded sidecar")}
+	if err:=os.WriteFile(progressPath,data,0o600);err!=nil {
+		return fmt.Errorf("persist verified Portable update receipt: %w",err)
+	}
+	// The parent consumes this receipt only after the elevated process exits.
+	// A successful write without matching readback must never claim success.
+	back,err:=os.ReadFile(progressPath)
+	if err!=nil || string(back)!=string(data){
+		return errors.New("Portable completion receipt readback differs")
+	}
+	return nil
 }
