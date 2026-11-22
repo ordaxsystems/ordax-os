@@ -8,6 +8,8 @@ import (
 	"os"
 	"path/filepath"
 	"testing"
+
+	creatorcore "github.com/ordaxsystems/ordax-os/creator/core"
 )
 
 func TestValidateApplySidecarPathRequiresPreparedImageDirectory(t *testing.T) {
@@ -83,5 +85,44 @@ func TestElevatedApplyCompletionKeepsDirectCLIAndFailsClosed(t *testing.T) {
 	path := filepath.Join(t.TempDir(), "missing", "ordax-physical-progress.json")
 	if err := finalizeElevatedApply(path, "complete", func() error { calls++; return nil }); err == nil || calls != 0 {
 		t.Fatalf("missing required success sidecar must fail closed: calls=%d error=%v", calls, err)
+	}
+}
+
+
+func TestElevatedPortableReceiptPersistsCoreEvidenceNotJustPhase(t *testing.T) {
+	path:=filepath.Join(t.TempDir(),"ordax-physical-progress.json")
+	good:=creatorcore.PortableUpdateReceipt{
+		Schema:creatorcore.PortableUpdateReceiptSchema,
+		Status:"staged-not-activated",
+		FromSourceCommit:"aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+		ToSourceCommit:"bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
+		PlanSHA256:"cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc",
+		InstalledReadbacks:17,ReleaseMaterialized:2,ReleaseReadbacks:7,
+		CandidateRequestArmed:true,Activated:false,
+	}
+	if err:=finalizeElevatedPortableUpdate(path,good);err!=nil{
+		t.Fatalf("verified Core receipt was not persisted: %v",err)
+	}
+	data,err:=os.ReadFile(path)
+	if err!=nil{t.Fatal(err)}
+	var result struct {
+		applyProgressDocument
+		Receipt creatorcore.PortableUpdateReceipt `json:"portable_update_receipt"`
+	}
+	if err:=json.Unmarshal(data,&result);err!=nil{t.Fatal(err)}
+	if result.Phase!="complete-portable-update" ||
+		result.Receipt.PlanSHA256!=good.PlanSHA256 ||
+		result.Receipt.ToSourceCommit!=good.ToSourceCommit ||
+		!result.Receipt.CandidateRequestArmed {
+		t.Fatalf("completion sidecar lost physical Core evidence: %+v",result)
+	}
+	missing:=good
+	missing.CandidateRequestArmed=false
+	if err:=finalizeElevatedPortableUpdate(path,missing);err==nil{
+		t.Fatal("unarmed Core candidate was presented as complete")
+	}
+	stored,err:=os.ReadFile(path)
+	if err!=nil || string(stored)!=string(data){
+		t.Fatal("rejected candidate overwrote verified sidecar")
 	}
 }
