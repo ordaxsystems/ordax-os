@@ -62,7 +62,11 @@ func TestPortableUpdateFailsClosedOnKernelOrStateChange(t *testing.T) {
 			old, newer := portableUpdateFixture(t)
 			for i := range newer.Artifacts {
 				if newer.Artifacts[i].ID == id {
-					newer.Artifacts[i].SHA256 = strings.Repeat("f", 64)
+					replacement := strings.Repeat("f", 64)
+					if newer.Artifacts[i].SHA256 == replacement {
+						replacement = strings.Repeat("0", 64)
+					}
+					newer.Artifacts[i].SHA256 = replacement
 				}
 			}
 			if _, err := PlanPortableUpdate(old, newer); err == nil {
