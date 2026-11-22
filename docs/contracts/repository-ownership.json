@@ -187,7 +187,7 @@
     "windows_studio_is_optional_runtime_consumer": true,
     "windows_mcp_distribution_independent_of_studio": true,
     "desktop_consumes_os_composition_without_transitive_pins": true,
-    "desktop_shell_is_not_os_source": false
+    "desktop_shell_is_same_commit_os_module": true
   },
   "namespace_migration": {
     "status": "complete",
