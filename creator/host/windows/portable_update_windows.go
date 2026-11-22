@@ -263,6 +263,28 @@ func ApplyPortablePhysicalUpdateWithProgress(request PortablePhysicalUpdateReque
 		return creatorcore.PortableUpdateReceipt{},err
 	}
 	defer closeInstalledPortableRoots(confirmed,roots)
+	// The frontend's old-plan JSON is advisory. Only the exact receipt on
+	// the selected, GUID-bound USB may describe the installed layout. It is
+	// further checked against all 17 actual on-disk artifact digests by Core.
+	receiptPath,err:=portableDestination(roots.Data,creatorcore.PortableInstalledMediaPlanTargetPath)
+	if err!=nil{return creatorcore.PortableUpdateReceipt{},err}
+	receiptInfo,err:=os.Lstat(receiptPath)
+	if err!=nil{return creatorcore.PortableUpdateReceipt{},fmt.Errorf("read installed Portable receipt: %w",err)}
+	if !receiptInfo.Mode().IsRegular() || receiptInfo.Mode()&os.ModeSymlink!=0 ||
+		receiptInfo.Size()<=0 || receiptInfo.Size()>2<<20 {
+		return creatorcore.PortableUpdateReceipt{},errors.New("USB installed media receipt is not a bounded regular file")
+	}
+	if err:=revalidatePortableTarget(confirmed);err!=nil{return creatorcore.PortableUpdateReceipt{},err}
+	diskReceipt,err:=os.ReadFile(receiptPath)
+	if err!=nil{return creatorcore.PortableUpdateReceipt{},err}
+	diskPlan,err:=creatorcore.ParsePortableMediaPlan(diskReceipt)
+	if err!=nil{return creatorcore.PortableUpdateReceipt{},fmt.Errorf("decode installed USB media receipt: %w",err)}
+	expectedBytes,err:=creatorcore.PortableMediaPlanReceiptBytes(request.InstalledMediaPlan)
+	if err!=nil{return creatorcore.PortableUpdateReceipt{},err}
+	observedBytes,err:=creatorcore.PortableMediaPlanReceiptBytes(diskPlan)
+	if err!=nil || string(expectedBytes)!=string(observedBytes) {
+		return creatorcore.PortableUpdateReceipt{},errors.New("selected USB media receipt differs from the authorized installation")
+	}
 	base:=&portableWindowsRuntime{
 		target:confirmed,sources:handles,
 		roots:map[string]string{"ORDAX-ESP":roots.ESP,"ORDAX-DATA":roots.Data},
