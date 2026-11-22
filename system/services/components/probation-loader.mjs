@@ -4,6 +4,7 @@ import {
   validateComponentSlotResolution,
 } from "../../contracts/component-slot-source.mjs";
 import { validateComponentRuntime } from "../../contracts/component-runtime.mjs";
+import { assertPendingRuntimeUrl } from "./runtime-mount-health-probe.mjs";
 
 export const COMPONENT_PROBATION_RESULT_SCHEMA = "ordax.component-probation-result/1";
 
@@ -102,6 +103,9 @@ export async function runPendingComponentProbation({
       timeoutMs: timeout,
     });
     const runtimeUrl = slotSource.runtimeUrl(resolution);
+    // Validate the exact loopback pending-slot identity BEFORE importing any
+    // candidate code. Both import-only and mount probes share this boundary.
+    assertPendingRuntimeUrl(runtimeUrl, resolution);
     const module = await withTimeout(
       () => importModule(runtimeUrl, resolution),
       timeout,

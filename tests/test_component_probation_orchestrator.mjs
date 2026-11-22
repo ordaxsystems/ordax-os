@@ -215,6 +215,40 @@ test("Notes probation imports the external component contract without mounting t
   );
 });
 
+test("import-only probation refuses foreign origins and non-exact pending module paths", async () => {
+  const trusted = createNativeComponentSlotSource(windowRef());
+  const good = trusted.runtimeUrl({
+    componentId: "notes", state: "pending", source: "slot",
+    revision: 7, version: "0.4.1", sourceCommit: COMMIT,
+    entrypoint: "system/apps/notes/src/runtime.mjs", pendingHealth: "unknown",
+  });
+  let imported = 0;
+  const badUrls = [
+    "https://evil.example" + new URL(good).pathname,
+    "http://127.0.0.1:8765/prefix" + new URL(good).pathname,
+    good + "?cache=bypass",
+    good + "#fragment",
+    good.replace("/system/apps/notes/", "/system/apps/calculator/"),
+    good.replace("/0.4.1/", "/0.4.2/"),
+  ];
+  for (const badUrl of badUrls) {
+    const result = await runSystemPendingComponentProbation({
+      componentId: "notes",
+      source: { ...trusted, runtimeUrl: () => badUrl },
+      fetchImpl: async () => metadataResponse({ componentId: "notes" }),
+      importModule: async () => {
+        imported += 1;
+        return runtimeModule();
+      },
+      timeoutMs: 500,
+    });
+    assert.equal(result.health, "failed", badUrl);
+    assert.equal(result.revision, 7);
+    assert.match(result.error, /not exact pending-slot identity/, badUrl);
+  }
+  assert.equal(imported, 0, "Untrusted module URL must be rejected before import");
+});
+
 test("import failure becomes a failed receipt bound to the same pending identity", async () => {
   const result = await runSystemPendingComponentProbation({
     componentId: "notes",

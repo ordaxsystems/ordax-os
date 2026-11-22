@@ -16,7 +16,7 @@ function validateTimeout(value) {
   return value;
 }
 
-function assertPendingRuntimeUrl(runtimeUrl, pending) {
+export function assertPendingRuntimeUrl(runtimeUrl, pending) {
   if (typeof runtimeUrl !== "string") {
     throw new TypeError("Component mount-health runtime URL must be text");
   }
