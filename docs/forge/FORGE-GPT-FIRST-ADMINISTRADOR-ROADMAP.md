@@ -132,6 +132,17 @@ Chat GPT C ─┘           │
 
 **Próximo passo obrigatório:** implementar a composição do Owner binding de leitura por repositório na fonte autoritativa apropriada, sem reutilizar um grant do OrdaX MCP nem criar permissão com base no catálogo; testar o modo negado antes do modo autorizado. Atualizar este mesmo checkpoint com commit, teste, receipt e status real.
 
+### 5.2. Checkpoint — R1 contrato Owner/OAuth e claims estritos (22/11/2026)
+
+**Código confirmado em ordax-apps/main@aa9ac7026af8f295a656da450d1ba6f80cd6e7ec. R1 permanece parcial; não houve deploy ou grant físico.**
+
+- ForgeRepositoryOwnerReadPort aceita resolução assíncrona de grant no processo Owner, sem cache de autorização. Exige origem forge_platform_runtime, cliente OAuth Forge exato, dispositivo Runtime atestado, confirmação Owner, capability de leitura por Task/repo, atestação recente (até 120s), TTL do grant de até 5 minutos, identidade física da pasta e Git origin/HEAD. Repete as verificações após I/O. São requisitos do port confiável, não prova de que a Platform já fornece esse objeto.
+- forge_repository_file_read e forge_repository_files_list exigem claimToken e claimGeneration; ForgeWorkClaims.assertActiveTaskLease rejeita claims ausentes, liberados, vencidos ou da geração errada. O serviço verifica o claim antes e após a leitura. A antiga assertTaskMutation permitia Task histórica sem claim ativo e não foi reutilizada para arquivos físicos.
+- O Host Node Owner compõe a porta somente quando o inicializador Owner confiável fornecer repositoryReadGrantResolver; revalida a sessão OAuth do Forge em toda consulta. O launcher real scripts/start-host.mjs NÃO fornece resolver hoje. Portanto o gateway mantém tools ocultas/fail-closed. Browser Host, renderer, env, catálogo, Task/repo ou OrdaX MCP não criam grants.
+- forge-passive-ui-policy.mjs proíbe leituras nativas via IPC do renderer e pela ponte MCP do browser, mesmo quando a operação é read-only.
+- Evidências Windows em checkout isolado: 7/7 testes do reader (spoof de atestação, revogação durante I/O, Task sem claim); 1/1 teste de composição Owner/OAuth (após correção da ordem de fechamento do SQLite); 5/5 testes da UI passiva/dedicada. Outros testes preexistentes do Host concluíram com sucesso, mas a primeira suíte agregada excedeu timeout e NÃO equivale a validação total verde. Nenhuma instalação/autoridade do usuário foi alterada.
+
+**Bloqueio atual:** disponibilizar na autoridade Owner + Platform/Runtime um resolvedor real de autorização por repositório com raiz física confirmada e capability de leitura do cliente Forge. Sessão nativa Forge com Owner e atestação de dispositivo já existe na Platform, mas NÃO é um grant para ler qualquer repo. Não gerar faux grant por forge_ordax_devices, catálogo, caminho previsível ou por chamada ao MCP público do OrdaX. Só compor port quando contrato real existir; depois provar GPT externo → Forge MCP → arquivo autorizado → SHA-256 e receipt. R1 parcial; não liberar R2.
 ### 6. Protocolo de retomada independente desta conversa
 
 1. Abrir URGENTE-LEIA.md e AGENTS.md de ordax-apps, a política transversal ordax-os/docs/DEVELOPMENT-WORKFLOW.md, **esta seção** e o contrato de ownership. Consultar a main e alterações paralelas antes de escrever.
