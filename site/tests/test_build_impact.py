@@ -33,7 +33,7 @@ class SiteVercelImpactTests(unittest.TestCase):
             "site/scripts/build_impact.py",
             "site/contracts/dev-artifact-lock.json",
             "site/api/account-proxy.mjs",
-            "site/vercel.json",
+            "vercel.json",
             "api/account-proxy.mjs",
             "api/oauth-consent.mjs",
             "lib/account-proxy-core.mjs",

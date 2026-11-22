@@ -37,6 +37,7 @@ SITE_DEPLOYMENT_FILES = frozenset({
     "lib/account-proxy-core.mjs",
     "package.json",
     "package-lock.json",
+    "vercel.json",
 })
 
 def changed_paths(baseline: str | None) -> tuple[str, ...] | None:

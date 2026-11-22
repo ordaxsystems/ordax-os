@@ -9,7 +9,7 @@ import {
 } from "../../lib/account-proxy-core.mjs";
 import gatewayFunction from "../api/account-proxy.mjs";
 
-const config = JSON.parse(fs.readFileSync(new URL("../vercel.json", import.meta.url), "utf8"));
+const config = JSON.parse(fs.readFileSync(new URL("../../vercel.json", import.meta.url), "utf8"));
 const source = JSON.parse(fs.readFileSync(new URL("../../docs/contracts/public-site-source.json", import.meta.url), "utf8"));
 const ORIGIN = "https://ordax-site.vercel.app";
 
@@ -27,19 +27,20 @@ test("only the pinned OS entrypoint is exposed, never a copied Site identity imp
 
 test("same-origin routes use the one canonical proxy and disable caching", () => {
   for (const path of ["auth", "sync", "account"]) {
-    assert.deepEqual(config.rewrites.find(item => item.source === `/${path}/:path*`), {
+    assert.deepEqual(config.rewrites.find(item => item.source === `/${path}/:path*` && !item.has), {
       source: `/${path}/:path*`,
       destination: `/api/account-proxy?ordax_path=/${path}/:path*`,
     });
     assert.ok(config.headers.some(item =>
       item.source === `/${path}/:path*`
-      && item.headers.some(h => h.key === "Cache-Control" && h.value === "no-store")
+      && item.headers.some(h => h.key === "Cache-Control" && h.value.includes("no-store"))
     ));
   }
   assert.ok(config.headers.some(item => item.source === "/(.*)"
-    && item.headers.some(h => h.key === "X-Robots-Tag" && h.value.includes("noindex"))));
-  assert.ok(config.buildCommand.includes("--dev-lock contracts/dev-artifact-lock.json"));
-  assert.equal(config.outputDirectory, "out/site");
+    && item.headers.some(h => h.key === "Content-Security-Policy")));
+  assert.equal(config.buildCommand, "python3 tools/vercel/build.py");
+  assert.equal(config.ignoreCommand, "sh tools/vercel/should_skip_build.sh");
+  assert.equal(config.outputDirectory, "out/vercel");
 });
 
 test("the canonical source route policy rejects arbitrary account paths", () => {

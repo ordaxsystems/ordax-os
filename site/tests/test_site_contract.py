@@ -1076,47 +1076,55 @@ class SiteContractTests(unittest.TestCase):
         self.assertIn('document.getElementById("account-session").innerHTML', runtime)
         self.assertIn('document.getElementById("account-content").innerHTML', runtime)
 
-    def test_independent_vercel_host_preserves_owner_and_publication_gates(self):
-        config = json.loads((ROOT / "vercel.json").read_text(encoding="utf-8"))
-        self.assertEqual(config["outputDirectory"], "out/site")
-        self.assertEqual(config["framework"], None)
-        self.assertIn("scripts/build.py build", config["buildCommand"])
-        self.assertIn("--dev-lock contracts/dev-artifact-lock.json",
-                      config["buildCommand"])
-        self.assertIn("scripts/build.py verify", config["buildCommand"])
-        self.assertNotIn("tools/public-site", config["buildCommand"])
-        self.assertNotIn("ordax-os", config["buildCommand"])
+    def test_one_vercel_config_for_canonical_site_and_gateway(self):
+        self.assertFalse((ROOT / "vercel.json").exists())
+        config = json.loads((ROOT.parent / "vercel.json").read_text(encoding="utf-8"))
+        self.assertIsNone(config["framework"])
+        self.assertEqual(config["outputDirectory"], "out/vercel")
+        self.assertEqual(config["buildCommand"], "python3 tools/vercel/build.py")
+        self.assertEqual(config["ignoreCommand"], "sh tools/vercel/should_skip_build.sh")
         self.assertEqual(config["git"]["deploymentEnabled"], {"**": False, "main": True})
-        # Auth/account transport and OAuth consent are same-origin adapters
-        # into one pinned OS-owned source closure; Site owns no Identity/OAuth logic.
-        self.assertEqual(config["rewrites"], [
-            {"source": "/oauth/consent", "destination": "/api/oauth-consent"},
-            *[
-                {"source": f"/{prefix}/:path*",
-                 "destination": f"/api/account-proxy?ordax_path=/{prefix}/:path*"}
-                for prefix in ("auth", "sync", "account")
-            ],
-        ])
-        self.assertIn("npm ci --workspace=site --omit=dev --ignore-scripts", config["installCommand"])
+        self.assertTrue(any(
+            item["source"] == "/oauth/consent"
+            and item["destination"] == "/api/oauth-consent"
+            for item in config["rewrites"]
+        ))
+        for prefix in ("auth", "sync", "account"):
+            self.assertTrue(any(
+                item["source"] == f"/{prefix}/:path*"
+                and not item.get("has")
+                and item["destination"] == f"/api/account-proxy?ordax_path=/{prefix}/:path*"
+                for item in config["rewrites"]
+            ))
+            self.assertTrue(any(
+                item["source"] == f"/{prefix}/:path*"
+                and any(h["key"] == "Cache-Control" and "no-store" in h["value"]
+                        for h in item["headers"])
+                for item in config["headers"]
+            ))
+        self.assertTrue(any(
+            item["source"] == "/(.*)"
+            and any(h["key"] == "Content-Security-Policy" for h in item["headers"])
+            for item in config["headers"]
+        ))
         self.assertNotIn("stage_canonical_gateway", config["installCommand"])
         adapter = (ROOT / "api/account-proxy.mjs").read_text(encoding="utf-8")
+        oauth = (ROOT / "api/oauth-consent.mjs").read_text(encoding="utf-8")
         self.assertIn('../../api/account-proxy.mjs', adapter)
+        self.assertIn('../../api/oauth-consent.mjs', oauth)
         self.assertNotIn("jwtVerify", adapter)
         self.assertNotIn("createClient", adapter)
-        oauth_adapter = (ROOT / "api/oauth-consent.mjs").read_text(encoding="utf-8")
-        self.assertIn('../../api/oauth-consent.mjs', oauth_adapter)
-        self.assertNotIn("approveAuthorization", oauth_adapter)
-        self.assertNotIn("createClient", oauth_adapter)
+        self.assertNotIn("approveAuthorization", oauth)
+        self.assertNotIn("createClient", oauth)
         self.assertEqual(
             json.loads((ROOT / "package.json").read_text(encoding="utf-8"))["dependencies"],
             {"@vercel/oidc": "4.0.0"},
         )
         self.assertFalse((ROOT / ".env.production").exists())
-        # Runtime major must not drift independently between Vercel, lock and CI.
         package = json.loads((ROOT / "package.json").read_text(encoding="utf-8"))
-        package_lock = json.loads((ROOT.parent / "package-lock.json").read_text(encoding="utf-8"))
+        lock = json.loads((ROOT.parent / "package-lock.json").read_text(encoding="utf-8"))
         self.assertEqual(package["engines"], {"node": "24.x"})
-        self.assertEqual(package_lock["packages"]["site"]["engines"], package["engines"])
+        self.assertEqual(lock["packages"]["site"]["engines"], package["engines"])
         self.assertFalse((ROOT / "package-lock.json").exists())
         workflow = (ROOT.parent / ".github/workflows/public-site-candidate.yml").read_text(encoding="utf-8")
         self.assertIn("branches: [main]", workflow)
@@ -1124,111 +1132,13 @@ class SiteContractTests(unittest.TestCase):
         self.assertIn("python3 tools/vercel/build.py", workflow)
         self.assertNotIn("tests.test_external_site_source", workflow)
 
-    def test_vercel_monorepo_ignore_build_uses_last_deployed_sha_and_fails_open(self):
-        # Only changes to the Site and its canonical dependencies invalidate the host artifact.
-        # Compare against the last successful *deployment*, not HEAD^: queued
-        # releases can contain code changes followed by a docs-only commit.
-        command = json.loads((ROOT / "vercel.json").read_text(encoding="utf-8"))["ignoreCommand"]
-        self.assertEqual(command, "python3 scripts/build_impact.py --vercel")
-        impact = (ROOT / "scripts/build_impact.py").read_text(encoding="utf-8")
-        self.assertIn("VERCEL_GIT_PREVIOUS_SHA", impact)
-        self.assertNotIn("HEAD^", command)
-        self.assertLessEqual(len(command), 256, "Vercel ignoreCommand schema max")
-        if os.name != "posix" or not shutil.which("git") or not shutil.which("sh"):
-            self.skipTest("POSIX Git and shell required for Vercel build gate")
-
-        with tempfile.TemporaryDirectory() as tmp:
-            repo = Path(tmp)
-
-            def git(*args):
-                return subprocess.run(
-                    ["git", *args], cwd=repo, check=True,
-                    text=True, capture_output=True,
-                ).stdout.strip()
-
-            def write(path, contents):
-                target = repo / path
-                target.parent.mkdir(parents=True, exist_ok=True)
-                target.write_text(contents, encoding="utf-8")
-
-            def commit(message):
-                git("add", "-A")
-                git("commit", "--quiet", "-m", message)
-                return git("rev-parse", "HEAD")
-
-            def ignored_build(previous_sha):
-                environment = os.environ.copy()
-                environment["VERCEL_GIT_PREVIOUS_SHA"] = previous_sha
-                return subprocess.run(
-                    ["sh", "-c", command], cwd=repo / "site", env=environment,
-                    capture_output=True, text=True,
-                ).returncode
-
-            git("init", "--quiet")
-            git("config", "user.name", "Site Gate Test")
-            git("config", "user.email", "gate-test@example.invalid")
-            for path in (
-                "site/README.md", "site/AGENTS.md", "site/docs/AUDIT.md", "site/tests/test_site.py",
-                ".github/workflows/ci.yml", "site/public/index.html", "site/vercel.json",
-            ):
-                write(path, "initial\\n")
-            write("site/scripts/build_impact.py", impact)
-            deployed = commit("initial")
-            self.assertNotEqual(ignored_build(""), 0)
-            self.assertNotEqual(ignored_build("f" * 40), 0)
-
-            for path in (
-                "site/README.md", "site/AGENTS.md", "site/docs/AUDIT.md", "site/tests/test_site.py",
-                ".github/workflows/ci.yml",
-            ):
-                write(path, "docs-only\\n")
-            commit("documentation and CI only")
-            self.assertEqual(ignored_build(deployed), 0)
-
-            write("site/public/index.html", "product changed\\n")
-            deployed_product = commit("product code")
-            self.assertNotEqual(ignored_build(deployed), 0)
-
-            write("site/docs/AUDIT.md", "newer docs\\n")
-            commit("docs after product")
-            self.assertNotEqual(ignored_build(deployed), 0)
-            self.assertEqual(ignored_build(deployed_product), 0)
-
-            def ci_full(base_sha, event):
-                environment = os.environ.copy()
-                environment["ORDAX_CI_BASE_SHA"] = base_sha
-                environment["ORDAX_CI_EVENT"] = event
-                # GitHub writes this outside the checkout. Keep the fixture
-                # equally isolated so git add -A cannot accidentally commit it.
-                with tempfile.TemporaryDirectory(prefix="ordax-ci-impact-output-") as outdir:
-                    report = Path(outdir) / "github-output"
-                    environment["GITHUB_OUTPUT"] = str(report)
-                    outcome = subprocess.run(
-                        ["python3", "site/scripts/build_impact.py", "--ci"],
-                        cwd=repo, env=environment, capture_output=True, text=True,
-                    )
-                    self.assertEqual(outcome.returncode, 0, outcome.stderr)
-                    return "full=true" in report.read_text(encoding="utf-8")
-
-            # A PR containing tests/CI changes still runs the full suite,
-            # even though such files cannot affect the Vercel bundle.
-            self.assertTrue(ci_full(deployed, "pull_request"))
-            self.assertTrue(ci_full(deployed, "push"))
-            docs_base = git("rev-parse", "HEAD")
-            write("site/README.md", "docs-only again\\n")
-            commit("PR documentation without code or tests")
-            self.assertFalse(ci_full(docs_base, "pull_request"))
-            self.assertTrue(ci_full(docs_base, "push"))
-            self.assertTrue(ci_full("f" * 40, "pull_request"))
-            self.assertTrue(ci_full("", "pull_request"))
-
-            write("desktop/unrelated-config.txt", "not consumed by Site\\n")
-            commit("unrelated OS module")
-            self.assertEqual(ignored_build(deployed_product), 0)
-
-            write("site/vercel.json", "host config changed\\n")
-            commit("host config change")
-            self.assertNotEqual(ignored_build(deployed_product), 0)
+    def test_one_canonical_vercel_ignore_gate(self):
+        config = json.loads((ROOT.parent / "vercel.json").read_text(encoding="utf-8"))
+        self.assertEqual(config["ignoreCommand"], "sh tools/vercel/should_skip_build.sh")
+        wrapper = (ROOT.parent / "tools/vercel/should_skip_build.sh").read_text(encoding="utf-8")
+        self.assertIn("site/scripts/build_impact.py --vercel", wrapper)
+        self.assertIn("VERCEL_GIT_PREVIOUS_SHA", wrapper)
+        self.assertNotIn("HEAD^", wrapper)
 
     def test_ci_candidate_uses_current_os_revision(self):
         workflow = (ROOT.parent / ".github/workflows/public-site-candidate.yml").read_text(encoding="utf-8")

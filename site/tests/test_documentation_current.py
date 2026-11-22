@@ -22,11 +22,12 @@ class CanonicalModuleTests(unittest.TestCase):
   host=json.loads((SITE/"package.json").read_text(encoding="utf-8"))
   root=json.loads((OS/"package.json").read_text(encoding="utf-8"))
   lock=json.loads((OS/"package-lock.json").read_text(encoding="utf-8"))
-  vercel=json.loads((SITE/"vercel.json").read_text(encoding="utf-8"))
+  vercel=json.loads((OS/"vercel.json").read_text(encoding="utf-8"))
   self.assertIn("site",root["workspaces"])
   self.assertEqual(lock["packages"]["site"]["dependencies"],host["dependencies"])
   self.assertFalse((SITE/"package-lock.json").exists())
-  self.assertIn("cd .. && npm ci --workspace=site",vercel["installCommand"])
+  self.assertEqual(vercel["installCommand"],"npm ci --ignore-scripts --no-audit --no-fund")
+  self.assertFalse((SITE/"vercel.json").exists())
   self.assertTrue((OS/"lib/account-proxy-core.mjs").is_file())
 
  def test_canonical_gateway(self):
@@ -37,10 +38,11 @@ class CanonicalModuleTests(unittest.TestCase):
    self.assertIn("../../api/"+name,body)
    self.assertTrue((OS/"api"/name).is_file())
    self.assertNotIn(".gateway-source",body)
-  vercel=json.loads((SITE/"vercel.json").read_text(encoding="utf-8"))
+  vercel=json.loads((OS/"vercel.json").read_text(encoding="utf-8"))
   self.assertNotIn("stage_canonical_gateway",vercel["installCommand"])
   self.assertTrue(any(x["source"]=="/oauth/consent" for x in vercel["rewrites"]))
-  self.assertIn("noindex",str(vercel["headers"]))
+  self.assertIn("Content-Security-Policy",str(vercel["headers"]))
+  self.assertNotIn("X-Robots-Tag",str(vercel["headers"]))
  def test_no_site_repo_consumer(self):
   builder=(OS/"tools/vercel/build.py").read_text(encoding="utf-8")
   self.assertIn('"site/scripts/build.py"',builder)
