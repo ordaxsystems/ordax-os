@@ -98,6 +98,7 @@ ordaxsystems/ordax-os
     services/              # serviços/lifecycle do OS
     adapters/              # capability boundaries
     composition/           # composição verificada
+  desktop/                 # host Electron/NSIS Windows, mesma main/composição OS
   tools/                   # producers/verifiers do OS
   docs/contracts/          # ownership, locks, distribuição e trust
   tests/
@@ -106,7 +107,6 @@ owners externos consumidos por contrato/artefato:
   ordax-surface            # UI visual
   ordax-apps               # apps removíveis + Forge/Studio
   ordax-intelligence       # source portátil de Intelligence
-  ordax-desktop            # host/packaging Windows
   ordax-creator            # Creator Core/UI/media consumer
   ordax-runtime            # Runtime/Device Host local
   ordax-platform           # Control Plane/Product MCP/grants remotos
@@ -161,7 +161,7 @@ ordax-os
  -> USB OrdaX verificado
 ```
 
-`ordax-desktop` pode apresentar ou lançar essa experiência, mas não mantém um segundo Creator Core nem autoridade genérica de raw disk. O Creator não compila kernel no Windows; consome artefatos já gerados e verificados pelos producers do OS.
+O módulo `desktop/` pode apresentar ou lançar essa experiência, mas não mantém um segundo Creator Core nem autoridade genérica de raw disk. O Creator não compila kernel no Windows; consome artefatos já gerados e verificados pelos producers do OS.
 
 Estado atual deve ser lido de `docs/CURRENT-STATE.md`, `docs/PROMOTION-GATES.md` e contratos correspondentes; este README não replica flags de autorização física para evitar drift.
 ## Desenvolvimento
