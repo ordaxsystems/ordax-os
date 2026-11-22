@@ -141,34 +141,36 @@ jobs:
             --github-output "$GITHUB_OUTPUT"
 
   producer-availability:
-    name: Trusted Linux Surface producer availability
+    name: Non-Codespace Linux producer configuration
     needs: [contract, impact]
     if: needs.impact.outputs.required == 'true' && github.event_name == 'workflow_dispatch' && github.ref == 'refs/heads/main'
     runs-on: ubuntu-24.04
     timeout-minutes: 3
     steps:
-      - name: Reject missing or Codespace producer before scheduling Buildroot
+      - name: Require explicit non-Codespace producer configuration
         env:
-          GH_TOKEN: ${{ github.token }}
           ORDAX_SURFACE_LABEL: ${{ vars.ORDAX_SURFACE_RUNNER_LABEL }}
+          ORDAX_SURFACE_ENVIRONMENT: ${{ vars.ORDAX_SURFACE_PRODUCER_ENVIRONMENT }}
+          ORDAX_SURFACE_CACHE_ROOT: ${{ vars.ORDAX_SURFACE_PERSISTENT_WORK_ROOT }}
+          ORDAX_SURFACE_BUILD_ROOT: ${{ vars.ORDAX_SURFACE_BUILD_WORK_ROOT }}
         run: |
           set -euo pipefail
-          if [ -z "$ORDAX_SURFACE_LABEL" ]; then
-            echo '::error::No trusted Linux Surface producer label configured. Never run Buildroot on an unqualified hosted runner.'
-            exit 1
-          fi
-          inventory="$(gh api "repos/$GITHUB_REPOSITORY/actions/runners?per_page=100")"
-          if ! jq -e --arg label "$ORDAX_SURFACE_LABEL" '
-            any(.runners[];
-              .os == "Linux" and .status == "online" and .busy == false
-              and ([.labels[].name] | index("self-hosted") != null)
-              and ([.labels[].name] | index($label) != null)
-              and ((.name | ascii_downcase | contains("codespace")) | not)
-            )' <<< "$inventory" >/dev/null; then
-            echo '::error title=Surface producer unavailable::No idle online non-Codespace Linux runner matches the configured label. Do not enqueue a stalled Buildroot job.'
-            exit 1
-          fi
-          echo 'ORDAX_SURFACE_TRUSTED_LINUX_PRODUCER=ONLINE_NON_CODESPACE'
+          for config in ORDAX_SURFACE_LABEL ORDAX_SURFACE_ENVIRONMENT ORDAX_SURFACE_CACHE_ROOT ORDAX_SURFACE_BUILD_ROOT; do
+            if [ -z "${!config}" ]; then
+              echo "::error title=Surface producer not configured::Missing $config; refusing to queue a potentially offline Linux producer."
+              exit 1
+            fi
+            case "${!config,,}" in
+              *codespace*)
+                echo "::error title=Codespace disallowed::The Surface producer configuration $config references Codespaces."
+                exit 1
+                ;;
+            esac
+          done
+          # No GitHub runner inventory API here: GITHUB_TOKEN does not carry
+          # Administration:read. The selected Linux runner itself verifies its
+          # runtime, capacity and disk identity before any expensive build.
+          echo 'ORDAX_SURFACE_PRODUCER_CONFIG=NON_CODESPACE_NOT_YET_RUNTIME_ATTESTED'
 
   buildroot-surface:
     needs: [contract, impact, producer-availability]
@@ -195,6 +197,23 @@ jobs:
       artifact_reused: ${{ steps.surface-reuse-state.outputs.reused }}
       artifact_source: ${{ steps.surface-reuse-state.outputs.source }}
     steps:
+      - name: Reject Codespace runtime before any source or compiler work
+        if: github.event_name == 'workflow_dispatch'
+        env:
+          ORDAX_RUNNER_NAME: ${{ runner.name }}
+          ORDAX_RUNNER_ENVIRONMENT: ${{ runner.environment }}
+        run: |
+          set -euo pipefail
+          if [ "$ORDAX_RUNNER_ENVIRONMENT" != self-hosted ]; then
+            echo '::error::Trusted Surface production requires an authorized self-hosted Linux runner.'
+            exit 1
+          fi
+          case "${ORDAX_RUNNER_NAME,,}" in
+            *codespace*)
+              echo '::error::Codespace execution is prohibited for this Surface producer.'
+              exit 1
+              ;;
+          esac
       - name: Checkout exact source
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
         with:
