@@ -75,3 +75,29 @@ O resolvedor em ../.github/actions/resolve-creator-source/ valida a versão de c
 Testes locais focados: executar go test ./... neste diretório quando houver toolchain Go 1.27, sem disco físico. O Creator não recompila Base/kernel/Surface por mudança de interface. Builds físicos e publicação Stable exigem gates específicos.
 
 A origem histórica ordaxsystems/ordax-creator foi importada de 8a23779346cbe78ea022d3eb00640fa912840689. O histórico da origem registra proveniência, não dependência executável.
+
+
+### Owner DEV Windows USB update preflight (MCP / Creator, no GUI)
+
+The OS-owned \`creator/tools/owner_dev_usb_update_preflight.py\` is a
+read-only **feasibility gate**, not a second updater. On the authorized
+Windows host, pass the explicit physical disk number and USB serial;
+the script discovers ORDAX-DATA and the compatible Base cache itself,
+verifies the \`ordax-os/main\` Git source and published manifest, and runs
+the already-owned QEMU ext4 COW staging and cold-readback evidence.
+It checks the same physical USB identity before and after the proof.
+
+The proof creates and removes a **temporary local QCOW2**. The physical
+ext4/ESP are never written; a positive result must not be called
+'updated', 'installed', 'bootable' or 'activated'. Neither MCP nor Creator
+may infer the installed source commit from this result. The next owner
+gate is the existing physical writer / readback interface with a verified
+inactive-slot activation plan, **not** a new GPT updater or a simulated
+success marker.
+
+Example invocation for an already authorized DEV USB:
+\`python creator/tools/owner_dev_usb_update_preflight.py --disk-number 1 --serial <physical-USB-serial>\`
+
+No alternate Base path, QEMU path, shell string or \`--apply\` is accepted.
+If any physical identity, publisher, rootfs or QEMU check fails, this
+operation exits unsuccessfully without touching the USB.

@@ -37,6 +37,33 @@ class SnapshotExt4Tests(unittest.TestCase):
             self.assertNotIn("PhysicalDrive", script)
             self.assertNotIn("\\\\.\\", script)
 
+    def test_physical_probe_errors_are_converted_to_snapshot_owner_error(self):
+        class ProbeFailure(RuntimeError):
+            pass
+
+        physical = mock.Mock()
+        physical.ReadonlyProbeError = ProbeFailure
+        physical.probe.side_effect = ProbeFailure("guest stalled")
+        with mock.patch.object(APP, "_load", return_value=physical):
+            with self.assertRaisesRegex(APP.SnapshotProofError, "guest stalled"):
+                APP.prove(Path("base"), Path("qemu"), Path("qemu-img"),
+                          disk_number=1, serial="6699E36B",
+                          requested_commit=SHA)
+
+    def test_qemu_timeout_preserves_bounded_guest_diagnostic(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            for name in ("qemu.exe", "kernel", "initrd.gz", "disk.qcow2"):
+                (root / name).write_bytes(b"fixture")
+            timeout = __import__("subprocess").TimeoutExpired(
+                "qemu", 180, output=b"QEMU_DRIVER_REPORT: stalled physical read")
+            with mock.patch.object(APP.subprocess, "run", side_effect=timeout):
+                with self.assertRaisesRegex(APP.SnapshotProofError,
+                                            "QEMU_DRIVER_REPORT"):
+                    APP.run_vm(root / "qemu.exe", root / "kernel",
+                               root / "initrd.gz", root / "disk.qcow2",
+                               "qcow2", "expected")
+
     def test_invalid_source_nonce_and_phase_rejected(self):
         for value in ("", "../", SHA + "extra", "A" * 40):
             with self.assertRaises(APP.SnapshotProofError):

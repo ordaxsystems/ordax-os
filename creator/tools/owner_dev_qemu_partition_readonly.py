@@ -177,15 +177,24 @@ def probe(base: Path, qemu: Path, *, disk_number: int, serial: str,
             "-serial", "stdio", "-monitor", "none", "-net", "none",
             "-kernel", str(base / "vmlinuz"), "-initrd", str(initrd),
             "-drive", f"file={volume},format=raw,if=virtio,readonly=on",
-            "-append", "console=ttyS0 rdinit=/init loglevel=3 panic=1",
+            "-append", "console=ttyS0 rdinit=/init loglevel=7 earlyprintk=serial,ttyS0 panic=1",
         ]
         try:
             result = subprocess.run(
                 command, stdin=subprocess.DEVNULL, stdout=subprocess.PIPE,
                 stderr=subprocess.STDOUT, timeout=95, check=False,
             )
-        except (OSError, subprocess.TimeoutExpired) as exc:
-            raise ReadonlyProbeError("QEMU could not finish read-only ext4 proof") from exc
+        except subprocess.TimeoutExpired as exc:
+            output = exc.stdout or b""
+            if isinstance(output, str):
+                output = output.encode("utf-8", "replace")
+            tail = output[-1800:].decode("utf-8", "replace")
+            raise ReadonlyProbeError(
+                "QEMU ext4 read-only proof timed out without completion marker; "
+                + "guest output tail: " + (tail or "<no guest output>")
+            ) from exc
+        except OSError as exc:
+            raise ReadonlyProbeError("QEMU could not launch read-only ext4 proof") from exc
     log = result.stdout.decode("utf-8", errors="replace")
     if result.returncode or GUEST_MARKER not in log or GUEST_UNMOUNT not in log:
         raise ReadonlyProbeError("Linux ext4 read-only mount evidence missing: " + log[-800:])

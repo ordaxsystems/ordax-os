@@ -160,7 +160,7 @@ def run_vm(qemu: Path, kernel: Path, ramdisk: Path, image: Path | str,
             "-serial", "stdio", "-monitor", "none", "-net", "none",
             "-kernel", str(kernel), "-initrd", str(ramdisk),
             "-drive", drive,
-            "-append", "console=ttyS0 rdinit=/init loglevel=3 panic=1"]
+            "-append", "console=ttyS0 rdinit=/init loglevel=7 earlyprintk=serial,ttyS0 panic=1"]
     if tar is not None:
         if tar.is_symlink() or not tar.is_file():
             raise SnapshotProofError("verified tar file unavailable")
@@ -169,8 +169,17 @@ def run_vm(qemu: Path, kernel: Path, ramdisk: Path, image: Path | str,
         result = subprocess.run(args, stdin=subprocess.DEVNULL,
                                 stdout=subprocess.PIPE, stderr=subprocess.STDOUT,
                                 timeout=180, check=False)
-    except (OSError, subprocess.TimeoutExpired) as exc:
-        raise SnapshotProofError("disposable Linux phase did not finish") from exc
+    except subprocess.TimeoutExpired as exc:
+        output = exc.stdout or b""
+        if isinstance(output, str):
+            output = output.encode("utf-8", "replace")
+        tail = output[-1800:].decode("utf-8", "replace")
+        raise SnapshotProofError(
+            "disposable Linux phase timed out; guest output tail: "
+            + (tail or "<no guest output>")
+        ) from exc
+    except OSError as exc:
+        raise SnapshotProofError("disposable Linux phase could not launch") from exc
     output = result.stdout.decode("utf-8", "replace")
     if result.returncode or marker not in output:
         raise SnapshotProofError("QEMU phase failed: " + output[-1200:])
@@ -182,10 +191,13 @@ def prove(base: Path, qemu: Path, qemu_img: Path, *,
           git_bin: str = "git", awk_bin: str = "awk") -> dict:
     physical = _load("owner_dev_qemu_partition_readonly.py", "ordax_cow_physical")
     helper = _load("owner_dev_qemu_filesystem_proof.py", "ordax_cow_helper")
-    preflight = physical.probe(
-        base, qemu, disk_number=disk_number, serial=serial,
-        requested_commit=requested_commit, git_bin=git_bin, awk_bin=awk_bin,
-    )
+    try:
+        preflight = physical.probe(
+            base, qemu, disk_number=disk_number, serial=serial,
+            requested_commit=requested_commit, git_bin=git_bin, awk_bin=awk_bin,
+        )
+    except physical.ReadonlyProbeError as exc:
+        raise SnapshotProofError("canonical physical USB read-only gate failed: " + str(exc)) from exc
     volume = "\\\\.\\" + preflight["volume_letter"] + ":"
     original_identity = physical.inventory(disk_number)
     if physical.confirmed_volume(original_identity, disk_number, serial) != preflight["volume_letter"]:

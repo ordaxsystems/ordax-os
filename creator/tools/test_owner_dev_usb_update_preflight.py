@@ -1,0 +1,151 @@
+"""Safety and authority checks for the host-only Owner DEV update preflight."""
+from pathlib import Path
+from types import SimpleNamespace
+import importlib.util
+import sys
+import tempfile
+import unittest
+from unittest import mock
+
+HERE = Path(__file__).resolve().parent
+sys.path.insert(0, str(HERE))
+SPEC = importlib.util.spec_from_file_location(
+    "owner_usb_update_preflight_test", HERE / "owner_dev_usb_update_preflight.py",
+)
+MOD = importlib.util.module_from_spec(SPEC)
+SPEC.loader.exec_module(MOD)
+
+SOURCE = "f" * 40
+BASE = "a" * 40
+SERIAL = "6699E36B"
+
+
+def media():
+    return {
+        "Number": 1, "Serial": SERIAL, "BusType": "USB",
+        "IsBoot": False, "IsSystem": False, "Size": 8053063680,
+        "Partitions": [
+            {"Number": 1, "Letter": "", "Type": "System", "Offset": 1048576, "Size": 268435456},
+            {"Number": 2, "Letter": "D", "Type": "Unknown", "Offset": 269484032, "Size": 6708789248},
+            {"Number": 3, "Letter": "E", "Type": "Basic", "Offset": 6978273280, "Size": 1074773504},
+        ],
+    }
+
+
+def good_evidence():
+    return {
+        "status": "pass", "physical_usb_write": False,
+        "physical_write_authorized": False,
+        "source_commit": BASE, "requested_source_commit": SOURCE,
+        "usb_serial": SERIAL, "disk_number": 1,
+        "guest_stage_verified": True, "cold_readback_verified": True,
+        "physical_absence_verified": True, "physical_sample_sha256_unchanged": True,
+    }
+
+
+class USBUpdatePreflightTests(unittest.TestCase):
+    def setUp(self):
+        self.real_verify_data_label = MOD._verify_data_label
+        self.real_base_directory = MOD._base_directory
+        self.temp = tempfile.TemporaryDirectory()
+        self.addCleanup(self.temp.cleanup)
+        self.base = Path(self.temp.name) / BASE
+        self.base.mkdir()
+        (self.base / "dev-base.json").write_bytes(b"publisher-bytes")
+        self.channel = SimpleNamespace(
+            DevBaseChannelError=ValueError,
+            resolve_published_source=lambda *args, **kwargs: (BASE, b"publisher-bytes"),
+            verify_materialized=lambda *args: {},
+        )
+        self.patches = [
+            mock.patch.object(MOD, "inventory", return_value=media()),
+            mock.patch.object(MOD, "confirmed_volume", return_value="D"),
+            mock.patch.object(MOD, "verify_superblock"),
+            mock.patch.object(MOD, "_verify_data_label"),
+            mock.patch.object(MOD, "_real_directory", return_value=True),
+            mock.patch.object(MOD, "_real_regular", return_value=True),
+            mock.patch.object(MOD, "_current_source", return_value=SOURCE),
+            mock.patch.object(MOD, "_channel", return_value=self.channel),
+            mock.patch.object(MOD, "_base_directory", return_value=self.base),
+            mock.patch.object(MOD, "prove", return_value=good_evidence()),
+        ]
+        for patch in self.patches:
+            patch.start()
+            self.addCleanup(patch.stop)
+
+    def test_success_reports_only_disposable_feasibility_not_installed_or_write(self):
+        result = MOD.preflight(1, SERIAL)
+        self.assertEqual(result["status"], "verified-offline-candidate-feasibility")
+        self.assertEqual(result["requested_main_commit"], SOURCE)
+        self.assertEqual(result["published_base_source_commit"], BASE)
+        for field in ("physical_write", "physical_write_authorized",
+                      "update_executed", "installed_revision_proven",
+                      "activation_performed"):
+            self.assertIs(result[field], False, field)
+        self.assertIs(result["rootfs_cow_stage_verified"], True)
+
+    def test_cached_manifest_uses_exact_publisher_bytes(self):
+        (self.base / "dev-base.json").write_bytes(b"modified")
+        with mock.patch.object(MOD, "prove") as guest:
+            with self.assertRaisesRegex(MOD.USBUpdatePreflightError, "differs"):
+                MOD.preflight(1, SERIAL)
+            guest.assert_not_called()
+
+    def test_untrusted_guest_receipt_and_identity_fail_closed(self):
+        for mutate in (
+            {"status": "error"}, {"physical_usb_write": True},
+            {"physical_write_authorized": True}, {"guest_stage_verified": False},
+            {"cold_readback_verified": False}, {"physical_absence_verified": False},
+            {"source_commit": SOURCE}, {"requested_source_commit": BASE},
+            {"usb_serial": "SWAPPED"}, {"disk_number": 2},
+            {"physical_sample_sha256_unchanged": False},
+        ):
+            with self.subTest(mutate=mutate):
+                evidence = {**good_evidence(), **mutate}
+                with mock.patch.object(MOD, "prove", return_value=evidence):
+                    with self.assertRaisesRegex(MOD.USBUpdatePreflightError, "did not bind"):
+                        MOD.preflight(1, SERIAL)
+
+    def test_media_disappeared_after_guest_stage(self):
+        changed = media()
+        changed["Serial"] = "OTHER"
+        with mock.patch.object(MOD, "inventory", side_effect=[media(), media(), changed]):
+            with self.assertRaisesRegex(MOD.USBUpdatePreflightError, "changed"):
+                MOD.preflight(1, SERIAL)
+
+    def test_no_published_base_rejects_before_qemu(self):
+        bad = SimpleNamespace(
+            DevBaseChannelError=ValueError,
+            resolve_published_source=mock.Mock(side_effect=ValueError("no Base")),
+        )
+        with mock.patch.object(MOD, "_channel", return_value=bad):
+            with mock.patch.object(MOD, "prove") as guest:
+                with self.assertRaisesRegex(MOD.USBUpdatePreflightError, "no compatible"):
+                    MOD.preflight(1, SERIAL)
+                guest.assert_not_called()
+
+    def test_data_filesystem_is_required(self):
+        valid = SimpleNamespace(returncode=0,
+                                stdout=b'{"label":"ORDAX-DATA","filesystem":"exFAT"}')
+        invalid = SimpleNamespace(returncode=0,
+                                  stdout=b'{"label":"MISMATCH","filesystem":"NTFS"}')
+        with mock.patch.object(MOD.subprocess, "run", return_value=valid):
+            self.real_verify_data_label("E")
+        with mock.patch.object(MOD.subprocess, "run", return_value=invalid):
+            with self.assertRaisesRegex(MOD.USBUpdatePreflightError, "does not match"):
+                self.real_verify_data_label("E")
+        with self.assertRaises(MOD.USBUpdatePreflightError):
+            self.real_verify_data_label("C")
+
+    def test_paths_are_selected_from_media_not_from_external_argument(self):
+        candidate = self.real_base_directory("E", BASE)
+        self.assertEqual(candidate, Path("E:\\.ordax\\updates\\owner-base") / BASE)
+        self.assertEqual(MOD.preflight.__code__.co_argcount, 2)
+        with self.assertRaises(MOD.USBUpdatePreflightError):
+            MOD._data_volume_letter({
+                **media(), "Partitions": [{}, {"Letter": "D"}, {"Letter": "C"}],
+            })
+
+
+if __name__ == "__main__":
+    unittest.main()
