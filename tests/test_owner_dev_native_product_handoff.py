@@ -175,6 +175,11 @@ class OwnerDevNativeHandoffTests(unittest.TestCase):
             supervisor.index('if ! /bin/busybox umount "$owner_cache_mount"'),
         )
         self.assertIn('owner_dev_native_verified_plan',native)
+        self.assertIn(
+            'system/services/device-agent/owner-dev-native-product.sh|'
+            'system/services/device-agent/owner-dev-native-product.txt)',
+            supervisor,
+        )
         self.assertIn('owner-development-portable)',native)
         self.assertIn('native_product_run_selected "$@"',native)
         self.assertIn('if native_product_verified_plan;',native)

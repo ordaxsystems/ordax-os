@@ -1862,8 +1862,8 @@ classify_changes() {
         case "$path" in
             system/*.md|boot/*.md|bootstrap/*.md|boot/*/prove_*|bootstrap/*/prove_*)
                 ;;
-            system/entrypoint|system/supervisor|system/services/device-agent/native-product-lifecycle.sh)
-                # The Supervisor sources this library at startup. A live
+            system/entrypoint|system/supervisor|system/services/device-agent/native-product-lifecycle.sh|system/services/device-agent/owner-dev-native-product.sh|system/services/device-agent/owner-dev-native-product.txt)
+                # The Supervisor sources these libraries/pin at startup. A live
                 # reload would retain old function bodies and lose lifecycle
                 # changes until reboot; use the canonical restart/rollback.
                 supervisor_changed=1
