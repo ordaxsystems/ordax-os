@@ -403,6 +403,15 @@ prepare_efivarfs_preflight_evidence() {
            /bin/busybox grep -Fq '"variable_written": false' "$temporary" &&
            /bin/busybox grep -Fq '"reboot_requested": false' "$temporary"
         then
+            # Recheck the real mount each pass so a lost/readonly efivarfs still
+            # invalidates old evidence. Only persist a changed valid receipt;
+            # rewriting and logging identical evidence every 30s burns flash.
+            if [ -f "$EFIVARFS_PREFLIGHT_FILE" ] &&
+               [ ! -L "$EFIVARFS_PREFLIGHT_FILE" ] &&
+               /bin/busybox cmp -s "$temporary" "$EFIVARFS_PREFLIGHT_FILE"; then
+                /bin/busybox rm -f "$temporary" >/dev/null 2>&1 || true
+                return 0
+            fi
             /bin/busybox chmod 600 "$temporary" >/dev/null 2>&1 || true
             if /bin/busybox mv -f "$temporary" "$EFIVARFS_PREFLIGHT_FILE"; then
                 log "real efivarfs preflight evidence recorded without activation authorization"
