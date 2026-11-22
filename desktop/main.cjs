@@ -670,7 +670,11 @@ app.whenReady().then(async()=>{
     title:'OrdaX OS Desktop Dev',backgroundColor:'#101820',
     webPreferences:{nodeIntegration:false,contextIsolation:true,
       preload:join(__dirname,'browser-preload.cjs'),
-      sandbox:true,webSecurity:true,allowRunningInsecureContent:false},
+      sandbox:true,webSecurity:true,allowRunningInsecureContent:false,
+      // The Native Surface is the OS shell, not an ordinary background tab.
+      // Its 5s state report must remain scheduled below the Host's 15s
+      // freshness budget even when Chrome/Forge has foreground focus.
+      backgroundThrottling:false},
   });
   const geometry=createDesktopWindowLayoutPersistence({
     userData,preferredBounds:preferredWindow,

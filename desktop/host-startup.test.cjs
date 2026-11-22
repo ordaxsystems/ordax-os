@@ -9,6 +9,21 @@ const {join}=require('node:path');
 const {tmpdir}=require('node:os');
 
 
+test('Native Desktop Surface timers remain scheduled while the window is backgrounded',()=>{
+  const source=readFileSync(join(__dirname,'main.cjs'),'utf8');
+  const start=source.indexOf('window=new BrowserWindow({');
+  assert.ok(start>=0,'the canonical Native Desktop BrowserWindow must exist');
+  const options=source.slice(start,source.indexOf('});',start));
+  assert.match(options,/webPreferences:\\{[^}]*backgroundThrottling:false/, 
+    'Native Surface reports must not expire under background timer throttling');
+  assert.match(options,/nodeIntegration:false/);
+  assert.match(options,/contextIsolation:true/);
+  assert.match(options,/sandbox:true/);
+  const browser=readFileSync(join(__dirname,'browser-host.cjs'),'utf8');
+  assert.doesNotMatch(browser,/backgroundThrottling:false/,
+    'Internet tab views must retain independent normal background scheduling');
+});
+
 test('installed Desktop awaits its splash navigation before Native host startup',()=>{
   const source=readFileSync(join(__dirname,'main.cjs'),'utf8');
   assert.match(source,/const navigation=window\.loadURL\('data:text\/html/);
