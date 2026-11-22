@@ -2782,6 +2782,17 @@ owner_stage_usb_git_once() {
         fi
         /bin/busybox rm -f "$owner_cache_receipt"
     fi
+    # Consume the new Native Linux artifact through the SAME disk-identity
+    # bound, read-only data mount. This is a DEV-only optional stage; signed
+    # component slots, boot health, update authority and grants are untouched.
+    if command -v owner_dev_native_stage_on_mounted_data >/dev/null 2>&1 &&
+       [ -d "$owner_cache_mount/.ordax/updates/owner-native-product" ]; then
+        if owner_dev_native_stage_on_mounted_data "$owner_cache_mount"; then
+            log "Owner USB Native component copied and hash-verified into private state"
+        else
+            log "Owner USB Native component rejected; active Runtime remains unchanged"
+        fi
+    fi
     if ! /bin/busybox umount "$owner_cache_mount" >>"$UPDATE_LOG" 2>&1; then
         log "Owner USB DATA read-only mount remains; no writable mount was attempted"
     fi
