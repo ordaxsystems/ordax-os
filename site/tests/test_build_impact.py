@@ -130,7 +130,7 @@ class SiteVercelImpactTests(unittest.TestCase):
         )
         for path in expected:
             with self.subTest(path=path):
-                self.assertEqual(workflow.count('"' + path + '"'), 2)
+                self.assertEqual(workflow.splitlines().count('      - "' + path + '"'), 2)
         self.assertNotIn('"api/**"', workflow)
         self.assertNotIn('"infra/supabase/functions/**"', workflow)
 
