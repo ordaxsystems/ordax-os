@@ -37,6 +37,17 @@ class DesktopSourceOwnerTests(unittest.TestCase):
         self.assertIn("ref: ${{ inputs.os_sha }}", workflow)
         self.assertNotIn("inputs.desktop_sha", workflow)
         self.assertIn("node desktop/standalone-stage.cjs", workflow)
+        self.assertIn(
+            "$verified = & python tools/surface-source/materialize.py verify --os-root .",
+            workflow,
+        )
+        self.assertIn("[IO.File]::WriteAllText(", workflow)
+        self.assertIn("$proof.source_commit -cne $sha", workflow)
+        self.assertLess(
+            workflow.index("surface-source-receipt.json"),
+            workflow.index("name: Bind installer to exact OS + Surface Native provenance"),
+            "The canonical same-commit Surface receipt must exist before binding",
+        )
 
     def test_windows_installer_preserves_verified_private_dependencies(self):
         workflow = PRODUCER.read_text(encoding="utf-8")
