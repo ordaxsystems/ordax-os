@@ -21,6 +21,7 @@ import (
 type portableWindowsUpdateRuntime struct {
 	base *portableWindowsRuntime
 	expectedCopies int
+	candidatePlan creatorcore.PortableMediaPlan
 	roots portableUpdateRoots
 }
 
@@ -209,27 +210,53 @@ func (u *portableWindowsUpdateRuntime) Flush() error {
 	return nil
 }
 
-func (u *portableWindowsUpdateRuntime) ArmCandidate(sha string) error {
-	if len(sha)!=40 || strings.Trim(sha,"0123456789abcdef")!="" {
-		return errors.New("candidate source commit is invalid")
-	}
+// Persist advisory metadata for the exact signed candidate. The Supervisor
+// promotes it to the installed receipt ONLY after its ext4 cold-health
+// transaction has committed. The Windows caller never changes current.
+func (u *portableWindowsUpdateRuntime) writeBoundUpdateFile(target string, data []byte, allowReplace bool) error {
 	if err:=u.verifyBoundVolumes();err!=nil{return err}
-	target,err:=checkPortableUpdateParent(u.base.roots["ORDAX-DATA"],"/.ordax/updates/portable-release-request.txt")
+	path,err:=checkPortableUpdateParent(u.base.roots["ORDAX-DATA"],target)
 	if err!=nil{return err}
-	payload:=[]byte("schema=ordax.portable-update-request/1"+string(byte(10))+"source_commit="+sha+string(byte(10)))
-	pending,err:=os.CreateTemp(filepath.Dir(target),".ordax-activation-pending-*")
+	if info,err:=os.Lstat(path);err==nil {
+		if !info.Mode().IsRegular() || info.Mode()&os.ModeSymlink!=0 ||
+			info.Size()>2<<20 {return errors.New("existing Portable metadata file has unsafe identity")}
+		old,err:=os.ReadFile(path)
+		if err!=nil{return err}
+		if string(old)==string(data){return nil}
+		if !allowReplace {return errors.New("existing signed-release metadata differs for same source commit")}
+	}else if !os.IsNotExist(err) {return err}
+	pending,err:=os.CreateTemp(filepath.Dir(path),".ordax-update-transaction-*")
 	if err!=nil{return err}
 	defer os.Remove(pending.Name())
-	if _,err:=pending.Write(payload);err!=nil{pending.Close();return err}
+	if _,err:=pending.Write(data);err!=nil{pending.Close();return err}
 	if err:=pending.Sync();err!=nil{pending.Close();return err}
 	if err:=pending.Close();err!=nil{return err}
-	if err:=revalidatePortableTarget(u.base.target);err!=nil{return err}
-	if info,err:=os.Lstat(target);err==nil && (!info.Mode().IsRegular() || info.Mode()&os.ModeSymlink!=0){
-		return errors.New("activation request path is unsafe")
-	}else if err!=nil && !os.IsNotExist(err){return err}
-	if err:=os.Rename(pending.Name(),target);err!=nil{return err}
-	readback,err:=os.ReadFile(target)
-	if err!=nil || string(readback)!=string(payload){return errors.New("candidate request readback failed")}
+	if err:=u.verifyBoundVolumes();err!=nil{return err}
+	if err:=os.Rename(pending.Name(),path);err!=nil{return err}
+	readback,err:=os.ReadFile(path)
+	if err!=nil || string(readback)!=string(data) {
+		return errors.New("Portable update metadata readback failed")
+	}
+	return nil
+}
+
+func (u *portableWindowsUpdateRuntime) ArmCandidate(sha string) error {
+	if len(sha)!=40 || strings.Trim(sha,"0123456789abcdef")!="" ||
+		u.candidatePlan.SourceCommit!=sha {
+		return errors.New("candidate source commit is invalid or not signed")
+	}
+	// Materialize and hash the per-release plan before the boot request.
+	// A power failure before the request leaves an unarmed, inert candidate.
+	mediaBytes,err:=creatorcore.PortableMediaPlanReceiptBytes(u.candidatePlan)
+	if err!=nil{return err}
+	candidatePath:=creatorcore.PortableCandidateMediaPlanRoot+"/"+sha+".json"
+	if err:=u.writeBoundUpdateFile(candidatePath,mediaBytes,false);err!=nil{
+		return fmt.Errorf("stage verified candidate receipt: %w",err)
+	}
+	request:=[]byte("schema=ordax.portable-update-request/1\nsource_commit="+sha+"\n")
+	if err:=u.writeBoundUpdateFile("/.ordax/updates/portable-release-request.txt",request,true);err!=nil{
+		return fmt.Errorf("stage Creator request for one-shot boot verification: %w",err)
+	}
 	return nil
 }
 
@@ -294,7 +321,7 @@ func ApplyPortablePhysicalUpdateWithProgress(request PortablePhysicalUpdateReque
 		}),
 	}
 	defer base.close()
-	runtime:=&portableWindowsUpdateRuntime{base:base,expectedCopies:len(sources),roots:roots}
+	runtime:=&portableWindowsUpdateRuntime{base:base,expectedCopies:len(sources),candidatePlan:request.CandidateMediaPlan,roots:roots}
 	receipt,err:=creatorcore.ExecutePortableUpdate(
 		request.InstalledMediaPlan,request.CandidateMediaPlan,request.UpdatePlan,
 		sources,creatorcore.PortableUpdateGrant{
