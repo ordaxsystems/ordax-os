@@ -50,7 +50,7 @@ Instalação Native e escrita destrutiva em disco interno continuam dependentes 
 
 ## Site publico
 
-O site público pertence exclusivamente a [`ordaxsystems/ordax-site`](https://github.com/ordaxsystems/ordax-site), com landing, catálogo visual de downloads, login/cadastro, Conta e páginas legais. A revisão consumida pelo OS em **Dev** é fixada por `docs/contracts/public-site-source.json`; builds OS/Vercel verificam o source independente e não mantêm cópias em `sites/public/`. O OS conserva gateway de Identity, autorizações e publicação de releases. OrdaX Web é outro produto e consome apenas a apresentação de login necessária do bundle verificado. Esta migração não autoriza release pública ou Stable.
+O site público pertence exclusivamente ao [módulo `site/` do `ordax-os/main`](site/). `site/public/` contém o frontend; `site/api/` reexporta as funções de Conta e OAuth de `api/` e `lib/` do **mesmo commit**, sem checkout externo nem cópias do gateway. O contrato `docs/contracts/public-site-source.json` fixa essa fonte. A produção `ordax.com.br` usa o projeto Vercel `ordax-os-public`, conectado ao monorepo; `ordaxsystems/ordax-site` foi arquivado para histórico somente. OrdaX Web permanece produto distinto. A publicação do bundle não autoriza cadastro, Conta integral, downloads ou Stable.
 
 Enquanto identidade e catalogo de releases nao estiverem configurados, essas integracoes falham fechado e mostram estado indisponivel sem formularios ou downloads ficticios. Ver `docs/PUBLIC-SITE.md` e `docs/contracts/public-site.json`.
 
@@ -110,7 +110,7 @@ owners externos consumidos por contrato/artefato:
   creator/                 # Creator Core/UI/media consumer no mesmo commit OS
   ordax-runtime            # Runtime/Device Host local
   ordax-platform           # Control Plane/Product MCP/grants remotos
-  ordax-site               # apresentação/distribuição pública
+  site/                    # apresentação/distribuição pública no OS
 ```
 
 Esta árvore é de **ownership/composição**, não uma exigência de checkout monorepo. Paths externos podem aparecer materializados no staging/release sem mudar de owner.

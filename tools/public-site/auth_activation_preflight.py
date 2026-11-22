@@ -370,11 +370,14 @@ def readiness(root: Path) -> tuple[list[str], dict[str, bool]]:
     need(routing.get("same_origin_identity_required") is True, "same-origin-identity-contract")
     need(routing.get("gateway_public_activation_gate_required") is True, "server-activation-gate-contract")
 
-    # The independent Site owns its frontend release. The OS only validates its
-    # source/deployment attestation; it must not keep a mirrored Site config.
+    # Site and Account share one committed OS source; rollout remains gated.
     site_deployed = (
-        site_source.get("$schema") == "prototype-ordax.external-public-site-source/1"
-        and site_source.get("repository") == "ordaxsystems/ordax-site"
+        site_source.get("$schema") == "prototype-ordax.site-module-source/1"
+        and site_source.get("repository") == "ordaxsystems/ordax-os"
+        and site_source.get("module_path") == "site"
+        and site_source.get("frontend_path") == "site/public"
+        and site_source.get("render_helper") == "site/scripts/public_html_render.py"
+        and site_source.get("source_revision") == "same-git-commit-as-os"
         and site_source.get("production_deployment_activated") is True
     )
     site_routes = public_site.get("routes", {})

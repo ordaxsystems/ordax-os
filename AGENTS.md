@@ -136,9 +136,9 @@ mesmo domínio e o mesmo Action Gateway, sem backend paralelo por plataforma.
 
 Antes de alterar landing page, download, login/cadastro ou futura area publica da conta, leia `MVP.md`, `docs/PUBLIC-SITE.md` e `docs/contracts/public-site.json`.
 
-O source da apresentacao do portal pertence **exclusivamente** a `ordaxsystems/ordax-site`; a revisao consumida pelo OS e fixada por `docs/contracts/public-site-source.json`. Nao reintroduzir `sites/public/`, `tools/public-site/build.py`, compiladores de UI ou tokens visuais como segunda autoridade. O portal e separado do modo **OrdaX Web**; no OS permanecem somente gateways, Identity, autorizacao e contratos de publicacao. Nao importar Surface para montar o Site, duplicar identidade/conta ou hard-codear release como "latest". Login/cadastro e download ficam fail-closed sem gates de seus owners.
+O código de apresentação do portal pertence **exclusivamente a `ordax-os/main:site/`**. `site/public/` hospeda o frontend; `site/api/` reexporta os módulos canônicos de `api/` e `lib/` no mesmo commit Git. A identidade de source está em `docs/contracts/public-site-source.json`. O repositório antigo `ordaxsystems/ordax-site` está arquivado **somente para histórico**: nenhum código ou workflow novo deve ser desenvolvido nele.
 
-Excecao transitória conhecida: o host Dev do `ordax-site` materializa uma closure imutável do gateway de Conta do owner OS por `contracts/canonical-gateway-source.json`. Isso é staging-only, não transfere ownership, não autoriza produção e deve conter owner/consumer + condição de remoção. Não usar essa exceção para importar outro source do OS no Site.
+Não reintroduzir `sites/public/`, `tools/public-site/build.py`, `contracts/canonical-gateway-source.json`, `scripts/stage_canonical_gateway.py`, clones, locks ou cópias de Identity. Ferramentas em `tools/public-site/` executam gates/provas operacionais; frontend, catálogo de releases e política de estado da identidade têm única implementação em `site/`. O portal continua separado do **produto OrdaX Web**, mas não do monorepo. Não importar Surface para montar o Site, duplicar Identity/Conta ou inventar releases "latest". Cadastro, Conta integral e downloads ficam fail-closed até autorização de seus owners e evidências E2E.
 
 ## 4. Arquitetura fisica alvo
 

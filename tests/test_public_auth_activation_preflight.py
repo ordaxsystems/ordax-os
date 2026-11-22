@@ -51,6 +51,42 @@ class PublicAuthActivationPreflightTests(unittest.TestCase):
             shutil.copyfile(source, target)
         return temporary, root
 
+    def test_site_source_owner_is_same_commit_and_rollout_is_independent(self):
+        temporary, root = self.fixture_root()
+        try:
+            source_path = root / preflight.SITE_SOURCE
+            canonical = preflight.load_json(root, preflight.SITE_SOURCE)
+            self.assertEqual(canonical["$schema"], "prototype-ordax.site-module-source/1")
+            self.assertEqual(canonical["repository"], "ordaxsystems/ordax-os")
+            self.assertFalse(canonical["production_deployment_activated"])
+            blockers, controls = preflight.readiness(root)
+            self.assertFalse(controls["site_published"])
+            self.assertTrue(blockers)
+
+            canonical["production_deployment_activated"] = True
+            source_path.write_text(json.dumps(canonical), encoding="utf-8")
+            blockers, controls = preflight.readiness(root)
+            self.assertTrue(controls["site_published"])
+            self.assertIn("registration-legal-activation", blockers)
+            self.assertFalse(controls["edge_account_registration"])
+
+            for key, value in (
+                ("repository", "ordaxsystems/ordax-site"),
+                ("$schema", "prototype-ordax.external-public-site-source/1"),
+                ("module_path", "old-site"),
+                ("frontend_path", "sites/public"),
+                ("render_helper", "tools/public-site/build.py"),
+                ("source_revision", "independent-git"),
+            ):
+                with self.subTest(field=key):
+                    source_path.write_text(
+                        json.dumps({**canonical, key: value}), encoding="utf-8"
+                    )
+                    _, controls = preflight.readiness(root)
+                    self.assertFalse(controls["site_published"])
+        finally:
+            temporary.cleanup()
+
     def test_current_repository_is_safe_disabled_with_current_runtime_proofs(self):
         blockers, controls = preflight.readiness(ROOT)
         hardening = preflight.load_json(ROOT, preflight.HARDENING)
