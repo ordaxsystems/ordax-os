@@ -1,5 +1,137 @@
 # Forge GPT-first — execução canônica e Administrador de Projeto
 
+
+## Direção vigente — Forge MCP independente, multichat e App passivo (22/11/2026)
+
+**DECISÃO DO OWNER — PLANO EXECUTIVO CANÔNICO, PARA RETOMADA POR QUALQUER CHAT.** Esta seção prevalece sobre orientações históricas conflitantes de 20–21/11 e fases antigas deste arquivo. Continua sujeita aos contratos transversais de ownership, autorização, Runtime e Platform do OrdaX OS. É **arquitetura-alvo + roadmap**, não declaração de que tudo está entregue.
+
+**Objetivo:** o **Forge MCP é o único plano de controle do trabalho feito pelo Forge**. Várias conversas GPT conectadas ao Forge MCP compartilham o mesmo projeto, registram e assumem Tasks, publicam progresso e resultados e consultam o estado das demais instâncias. O **Forge App é apenas braço visual e de persistência física**: SQLite único, transações, leituras, projeções e interface. Não decide, despacha, executa terminal, chama GPT, coordena trabalhos ou inventa status. O GPT raciocina e chama ferramentas; o Forge MCP opera e registra; o App armazena e mostra. Não criar produto, Store, scheduler, executor, banco, worker pool ou serviço MCP paralelo.
+
+**Fronteira com OrdaX:** o **OrdaX MCP é ferramenta independente utilizada temporariamente no DEV para desenvolver/recuperar o Forge**, não peça necessária do funcionamento final do Forge. O OrdaX OS **não precisa do Forge App** para operar. A instalação Forge DEV hoje tem um único projeto denominado OrdaX OS, composto por vários owners Git; isso define apenas o escopo de *trabalho gerenciado pelo Forge*, não uma dependência do OS para com a UI. O Forge MCP deve possuir as ferramentas de trabalho necessárias **em seu próprio catálogo/serviço**, reutilizando quando cabível os **contratos públicos, os Runtime hosts e a autoridade OAuth/grants da Platform**. Não consumir o MCP público do OrdaX como subprocesso obrigatório, não clonar o Runtime/Platform, não tratar uma sessão OAuth do OrdaX como grant do Forge, não copiar ferramentas irrelevantes.
+
+### 1. Modelo de autoridade e fluxo único
+
+~~~text
+Chat GPT A ─┐
+Chat GPT B ─┼──> Forge MCP (operações de domínio + executor autorizado)
+Chat GPT C ─┘           │
+                       ├── Task / claim exclusivo / geração / dependências
+                       ├── identidade de instância OBSERVADA / progresso / eventos
+                       ├── arquivos / terminal / Git / processos / artefatos, por grant real
+                       └── recibos de efeitos + conciliação / handoff / memória
+                                   │
+                      Serviço de armazenamento do Forge
+                    (transações e consultas, sem decisões)
+                                   │
+                    SQLite canônico existente, único
+                                   │
+                      Forge App / Forge Git (visual)
+                   estado projetado; nenhuma execução
+~~~
+
+| Camada | Deve fazer | Não deve fazer |
+| --- | --- | --- |
+| GPT conectado | Escolher tarefa, ler handoff, adquirir claim, solicitar ferramentas e registrar fatos observados | Presumir que texto próprio comprova arquivo, Run ou deploy; inventar grants ou identidade de outro chat |
+| Forge MCP / executor | Validar projeto/Task, registrar instâncias e claims, expor operações executáveis autorizadas, emitir eventos/recibos, conciliar efeitos e entregar projeções ao App | Usar App para iniciar trabalhos; exigir o OrdaX MCP como backend obrigatório; duplicar Store/dispatcher |
+| Core do App (alvo) | Persistir SQLite, CAS e transações atômicas; publicar/servir leituras/eventos da Store; manter renderer | Executar provider, processos de projetos, decisões, agentes ou continuidade automática |
+| App/Forge Git | Apresentar Tasks, instâncias, responsáveis, evidências, estados e última atividade | Detectar chats por conta própria, fazer polling custoso permanente, fabricar atividade ou executar tarefas |
+| Runtime / Platform compartilhados | Atestar dispositivos, executar capacidades locais pelas interfaces autorizadas e governar OAuth/grants, conforme seus contratos | Herdar autorização de outro cliente apenas porque ele usa o mesmo computador |
+| OrdaX MCP independente | Ajudar o desenvolvimento enquanto a migração não terminou, por acesso autorizado e transitório | Ser requisito de produção ou autoridade de armazenamento/coordenação do Forge |
+
+**Cutover obrigatório:** o Core/Electron ainda contém caminhos históricos de provider, despacho e processos. Identificar o owner efetivo de cada operação; migrar para o executor do Forge MCP sem manter dois dispatchers ativos. Somente após prova E2E desligar/remover execução no App, preservando SQLite, recibos, IDs e dados. **Passivo é o destino arquitetural; o fato de um endpoint retornar engine=passive-app não prova, sozinho, que o cutover físico está concluído.**
+
+### 2. Contrato de instâncias, trabalho e progresso
+
+**Unidades distintas e não intercambiáveis:** projeto dedicado, Task canônica, claim/lease, instância do agente observada pelo gateway, conversa GPT de provedor (quando ID comprovável), Run, evento, recibo e sessão de armazenamento. **Não gerar uma nova Task em cada reconexão**, nem transformar evento de chamada MCP em execução GPT concluída.
+
+**Estado mínimo a projetar sem segundo ledger:**
+- **Task:** taskId, projectId, título, status persistido, dependências, repositórios vinculados, último progresso, bloqueio, recibos e lastActivityAt (com proveniência).
+- **Claim:** taskId, geração, titular, estado acquired/renewed/released/expired, leaseUntil, heartbeatAt. Claim precisa de comparação atômica e token sigiloso: token nunca deve aparecer na UI, logs ou outros chats. Expiração de lease **não certifica fim** e não autoriza repetir efeitos incertos.
+- **Instância observada:** identificador estável oferecido pelo gateway quando disponível (ex.: gatewayAgentInstanceId), ingress, último requestId, última chamada observada e rótulo informado. **Rótulo não é identidade autenticada de conversa**; sem prova real do provedor, exibir “instância do gateway observada” e chatIdentityVerified=false. Considerar agentSessionId lógico persistente apenas se os IDs existentes não bastarem; não duplicar workspace_session nem construir vínculo por aba/URL.
+- **Efeito:** requestId idempotente, origem, operação, Task, destino autorizado, estado queued/running/succeeded/failed/uncertain, hashes/artefatos verificáveis e data da observação. Texto do GPT ou heartbeat isolado não é prova de efeito.
+- **Continuidade:** memória e handoff associados à mesma Task, sem criar outro projeto, outra memória global ou nova execução por reconexão.
+
+**Fluxo interchat obrigatório:** (1) forge_discover → memória/handoff → forge_work_list/plan e forge_project_activity; (2) localizar Task existente ou criar somente quando a missão nova exigir; (3) associar repositórios pelo catálogo canônico; (4) forge_work_claim acquire, com conflito legível e um único vencedor por Task; (5) executar ferramentas próprias do Forge MCP apenas sob grant adequado; (6) forge_work_progress checkpoint/blocked/result, eventos e recibos; (7) renew durante trabalho, release no encerramento/handoff; (8) outro chat consulta o mesmo estado e nunca reexecuta comando incerto sem reconciliação. **A aplicação não envia comandos ao GPT por causa dessas mudanças.**
+
+**Estados legíveis na UI:** “trabalho registrado”, “claim ocupado”, “atividade MCP recente”, “sem atualização”, “claim expirado”, “bloqueado”, “resultado aguardando verificação”, “execução comprovada por recibo”, “concluído com evidência”. Mostrar timestamp e fonte; não usar “online”, porcentagem ou “em execução” quando só houver claim, rótulo ou ausência de nova chamada. Um chat que não usa o Forge MCP não é automaticamente observável. O servidor MCP não desperta arbitrariamente uma conversa GPT Web sem suporte explícito do cliente.
+
+### 3. Inventário por responsabilidade — reaproveitar antes de acrescentar
+
+| Grupo | Recurso já existente / prova a revalidar | Lacuna para a direção final |
+| --- | --- | --- |
+| Identidade e descoberta | forge_discover, forge_project_context, projeto dedicado OrdaX OS | Vincular instâncias observadas, Task e atividade com identidade/proveniência explícitas; não alegar ID de conversa verificado |
+| Coordenação concorrente | forge_work_create/list/get/plan, forge_work_claim, forge_work_progress, forge_work_dependency_set, forge_work_repositories_set | Usar claims existentes e receipts de forma consistente entre chats; registrar progresso verificável, não apenas texto |
+| Memória e continuidade | forge_project_memory, forge_work_memory_set, forge_project_handoff, forge_project_activity, forge_work_messages, forge_continuity_status | Exibir o estado persistido e reconstruir handoff pós-reinício; não introduzir outro banco |
+| UI do Forge | forge_app_ui_inspect/click/fill/scroll, forge_app_view_capture, preview de Views | Completar projeção de instâncias, claims, eventos e recibos, sem novo executor no App |
+| Arquivos, paths e Git | Catálogo de oito owners + metadata Task→repo; no modo dedicado execução filesystem ainda indisponível | Ferramentas **nativas do Forge MCP** para stat/list/read/search/write/patch/transfers atômicas e Git por repositório verificado, com hash e grants |
+| Terminal e processos | Diagnóstico project_development_status; no modo dedicado nativeProcessExecution=false | Execução por argv/cwd/env/timeout, processo supervisionado start/status/logs/stdin/stop, requestId e recibos de efeitos |
+| Navegador e evidências | Inspeção segura do Forge App e HTML Views existentes | Somente se a tarefa exigir, operações reais de navegador/artefatos com escopo e recibo; não importar controle global de computador irrelevante |
+| Transporte/infraestrutura | Gateway Forge MCP, Runtime/Platform como owners externos | Encaminhamento autorizado do **cliente Forge** às capacidades necessárias; sem depender do conjunto público de tools do OrdaX MCP |
+
+**Regra de seleção das ferramentas:** comparar a funcionalidade dos MCPs por *necessidade de uso*, e não copiar os nomes ou o código indiscriminadamente. Priorizar terminal, arquivos, Git, processos e recibos por owner. Usar contratos da Platform/Runtime somente nas suas autoridades. Não incorporar Blender, controle remoto geral ou tools não exigidas pelo Forge. Se precisar de ação cross-repo, criar o menor contrato reutilizável no owner correto e fazer o Forge consumir diretamente esse contrato, não o outro produto MCP.
+
+**Pontos de implementação existentes em ordax-apps:** forge/product/src/forge-contract.mjs; forge-loopback-mcp.mjs; orchestrator-service.mjs; forge-work-claims.mjs; forge-mcp-observation.mjs; forge-project-activity-view.mjs; forge-executor-context.mjs; work-plan-read-model.mjs; desktop/orchestrator-ui.mjs; testes do MCP/claims/activity; Forge Git somente como consumidor da mesma projeção. Usar os arquivos reais da main; estes caminhos orientam localização e não são autorização ou garantia de capacidade.
+
+### 4. Roadmap executável em lotes verticais — sem nova SSOT
+
+**R0 — Reconciliar baseline e bloqueio, sem refazer trabalho.**
+- Verificar ordax-apps/main, o índice forge/docs/README.md, esta seção e as ferramentas realmente anunciadas em tools/list; comparar com o Forge MCP instalado e os contratos de ownership.
+- Registrar em cada entrega o resultado concreto: código existente, código faltante, teste e prova física. Não anunciar passividade ou execução nativa apenas por documentação.
+- **Gate:** uma matriz curta implementado/parcial/bloqueado, com arquivos e APIs reais. Documentação não exige build, screenshot, QEMU ou deploy.
+
+**R1 — Execução física de arquivos/Git pelo Forge MCP (primeiro desbloqueio).**
+- Reaproveitar os ports locais por owner; no modo dedicado implementar as tools de leitura e descoberta verificável (repo/cwd/HEAD, arquivos e listagem), depois escrita atômica com SHA/CAS e recibos. Não depender de uma chamada ao OrdaX MCP público.
+- Respeitar grants, paths, repos vinculados à Task, revogação e idempotência; não criar filesystem irrestrito a partir de texto GPT.
+- **Gate:** GPT externo → Forge MCP → leitura e edição limitada em repositório realmente autorizado → conteúdo/hash observados → recibo ligado à Task, sem invocar OrdaX MCP para aquele efeito.
+
+**R2 — Terminal, Git e processos supervisionados sob o mesmo executor.**
+- Expor argv/cwd/env e execução com limites recuperáveis; longos trabalhos via start/status/logs/stop, não chamada síncrona infinita. Reutilizar o executor/Runtime físico autorizado e o mesmo mecanismo de recibos.
+- Confirmar Git status/commit somente quando o repositório real foi verificado; falha ou timeout retorna estado preciso, nunca “sucesso”.
+- **Gate:** teste físico de comando + processo durável + consulta de logs + reconciliação após reconexão, sem duplicar processo/efeito.
+
+**R3 — Coordenação de instâncias e estados observados, não inferidos.**
+- Amarrar observações do gateway, geração do claim e progresso à mesma Task/instância. Reusar forge-mcp-observation, forge-work-claims e forge-project-activity-view; somente acrescentar campos necessários, no SQLite existente.
+- Distinguir *chatLabel* (autodeclarado), instância gateway (observada) e conversa GPT/Run (verificável apenas quando o provedor permitir). Não fabricar IDs.
+- **Gate:** duas chamadas de chats distintos em Tasks distintas aparecem separadamente; dois claims na mesma Task produzem um vencedor; heartbeat expirado nunca é tratado como conclusão; recibo incerto impede replay.
+
+**R4 — Projeção e eventos para o App passivo.**
+- Uma projeção read-only única para Tasks, agentes observados, claim, último progresso, bloqueios, evidências e timestamps; consumir eventos existentes da Store por IPC/transporte local, quando suportado, com revisão/cursor e atualização após reconexão; fallback por refresh explícito. Sem polling agressivo, scheduler, outro ledger ou lógica de gestão no renderer.
+- Deixar claro quando não há Run GPT confirmado, quando evento é apenas MCP e quando dados estão desatualizados. Manter a UI dedicada de OrdaX OS e as sete áreas sem duplicar tarefas/histórico.
+- **Gate:** mudanças no MCP atualizam App pela mesma Store; fechar/minimizar o App não cancela um processo MCP que deva permanecer ativo; abrir o App sozinho não cria Task, Run nem provider call.
+
+**R5 — Cutover do executor e remoção do legado de execução do App.**
+- Rastrear o dispatcher, provider, worker pool e recuperação atualmente embutidos no Core/Electron. Transferir ownership para **um único executor do Forge MCP**, com armazenamento transacional no serviço do App; durante cutover, nunca dois dispatchers produzindo o mesmo efeito.
+- Remover/fechar código e botões que ainda disparem trabalho pelo App após validação do novo caminho. Preservar IDs, histórico, recibos incertos e persistência.
+- **Gate:** com App aberto e Forge MCP sem solicitação, zero execuções; pedido GPT via Forge MCP gera um único efeito verificado; App desligado não apaga estado ou reproduz efeito ao religar.
+
+**R6 — Aceite concorrente e operacional + encerramento DEV.**
+- Exercício físico com **dois chats reais** conectados pelo mesmo Forge MCP: Task A e Task B em paralelo, owners de repositório distintos, progressos e recibos próprios; terceira tentativa de claim na mesma Task recusada.
+- Interromper um chat e reiniciar o App: Task, geração, último estado e handoff permanecem; tratar claim expirado, offline e efeito incerto separadamente. A UI retorna sem atividade fictícia; reconciliação só com prova.
+- Validar tool schemas/compatibilidade do conector existente e autorização por owner. Aplicar testes dirigidos e smoke físico proporcionais; reutilizar cache; build/install **somente** quando a entrega exigir novo binário. Integrar main e encerrar branches/PRs próprias quando houver.
+- **Gate final:** Forge MCP executa, registra, supervisiona e reporta várias instâncias sem dependência operacional do OrdaX MCP; Forge App apenas persiste/mostra, com dados compartilhados, statuses verdadeiros e sem sistemas paralelos.
+
+**Critério de prioridade:** concluir R1 → R2 primeiro porque o modo dedicado ainda não dispõe de execução física; R3 pode evoluir em paralelo sem arquivos conflitantes, e R4 só apresenta dados já reais. R5 é o corte de autoridade, não etapa cosmética. Não reabrir tarefas R0–R6 já comprovadas; avançar pelo primeiro gate realmente faltante.
+
+### 5. Estado observado no início desta decisão (22/11/2026) — não confundir com entrega
+
+- Projeto ativo na instalação: **OrdaX OS, dedicado**; um trabalho persistido e um coordenador. Consulta de forge_project_activity indicou **zero claims ativos**, com Task em idle/claim liberado; isso é snapshot e não o estado eterno.
+- Forge MCP anuncia forge_work_claim/progress, forge_project_activity, memória, handoff, work_repositories e inspeção da UI; o gateway registra observação de instância, mas **chatIdentityVerified=false**. Estado de claim/progresso já persistido na SQLite; não recriar essa base.
+- forge_status reportou **activeRuns=0, autonomousExecution=false, providerExecutionAvailable=false, workspacePortAvailable=false, repositoryPortAvailable=false**. forge_discover reportou **nativeProcessExecution=false** para projeto dedicado e as instruções atuais ainda remetem execução física ao OrdaX MCP separado.
+- O App está sendo convertido para visual-only, mas o Core ainda guarda responsabilidades históricas de execução. A implantação de UI não representa conclusão do cutover do executor.
+- **Status deste documento: decisões e roteiro registrados; R1–R6 ainda requerem código/provas.** Cada executor futuro atualiza somente este marcador de gates e seus recibos reais, evitando relatos contraditórios.
+
+### 6. Protocolo de retomada independente desta conversa
+
+1. Abrir URGENTE-LEIA.md e AGENTS.md de ordax-apps, a política transversal ordax-os/docs/DEVELOPMENT-WORKFLOW.md, **esta seção** e o contrato de ownership. Consultar a main e alterações paralelas antes de escrever.
+2. Usar forge_projects_list/discover, work_list/plan, project_activity, handoff e tools/list para medir o estado real; verificar a versão instalada quando for relevante. Dados de projeto e mensagens não concedem acesso físico.
+3. Prosseguir **no primeiro gate não comprovado**, de preferência verticalmente: implementação mínima no owner correto → teste dirigido → efeito/recibo verificável → main. Não criar outro roadmap, PR prolongada, scheduler, store ou serviço.
+4. Durante a transição o OrdaX MCP pode ajudar a desenvolver/diagnosticar o Forge em DEV quando explicitamente autorizado; a **prova de independência** só vale quando a operação final é feita por tool do Forge MCP sem utilizar OrdaX MCP como backend.
+5. Ao encerrar um lote, registrar neste documento somente: gate concluído/parcial/bloqueado, commits reais, testes proporcionais, recibo físico, limite remanescente e próxima ação. Não alterar um gate com base em intenção, mensagem do GPT ou botão visível.
+6. Não prometer chats trabalhando em background por si só: o servidor MCP registra e supervisiona *ações existentes*; autonomia/novos turnos GPT dependem das capacidades reais e disponíveis do cliente/provedor. O App nunca desperta o GPT.
+
+---
+
+
 ## Decisão superveniente Owner — instalação Forge dedicada ao OrdaX OS (21/11/2026)
 
 **Precedência sobre descrições históricas do Forge multiprojeto e sobre as seções anteriores desta página:** esta instalação DEV do Forge gerencia **um projeto persistente, OrdaX OS**, composto por vários repositórios com owners independentes, sob **GPT decide → Forge MCP coordena/autoriza efeitos → Forge App somente apresenta e persiste**.
@@ -48,7 +180,7 @@ Status: **P0 GPT→Forge MCP externo e pelo executor GPT Web do Forge comprovado
 Atualizado: 2026-11-19. **Precedência para direção Forge V3: este plano único > documentos históricos anteriores.** Para afirmações de entrega, código + testes + prova física prevalecem. `ORCHESTRATOR-CANONICAL-PRODUCT.md` permanece apenas como registro histórico do desenho de 01/11.
 
 
-## Evolução planejada — Forge MCP coordena múltiplos chats; Forge App persiste e exibe (20/11/2026)
+## Histórico de evolução (20/11/2026) — coordenação multichat; subordinado à decisão 22/11
 
 > **Decisão do Owner — planejamento, não implementação.** Aplicar ao Forge o princípio definido para o OrdaX Host Local: **GPT decide e escreve; Forge MCP executa operações de memória e coordenação; aplicativo Forge guarda e mostra o estado**. Vários chats GPT devem compartilhar contexto e indicar quais tarefas estão em andamento, evitando trabalho duplicado. Esta seção amplia **o roadmap único vigente**, sem criar novo produto, segunda fonte de verdade, banco, scheduler ou servidor MCP.
 
