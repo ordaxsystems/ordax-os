@@ -288,9 +288,9 @@ func parseOwnerUSBReceipt(data []byte) (ownerUSBReceipt, error) {
 }
 
 func verifyCanonicalCreatorSource(ctx context.Context, repo string) error {
-    // Do not execute a mutable local Python file merely because a scheduled
-    // task points to it. Require the exact Creator source bound into this
-    // published EXE and the canonical remote main, with a clean worktree.
+    // Source scripts are permitted to advance with canonical main while the
+    // installed Windows binary remains an ancestor of that same Git history.
+    // The registered task is not authority to run scripts from a foreign repo.
     if !validLowerHexString(buildCreatorSourceCommit, 40) {
         return errors.New("Creator executable has no canonical source binding")
     }
@@ -306,6 +306,10 @@ func verifyCanonicalCreatorSource(ctx context.Context, repo string) error {
         }
         return strings.TrimSpace(string(output)), nil
     }
+    return verifyCanonicalCreatorSourceWithGit(runGit)
+}
+
+func verifyCanonicalCreatorSourceWithGit(runGit func(...string) (string, error)) error {
     origin, err := runGit("remote", "get-url", "origin")
     if err != nil || origin != "https://github.com/ordaxsystems/ordax-os.git" {
         return errors.New("Creator source origin differs from canonical GitHub")
@@ -313,10 +317,10 @@ func verifyCanonicalCreatorSource(ctx context.Context, repo string) error {
     branch, err := runGit("branch", "--show-current")
     if err != nil || branch != "main" { return errors.New("Creator source is not on main") }
     head, err := runGit("rev-parse", "HEAD")
-    if err != nil { return errors.New("canonical Creator HEAD is unavailable") }
+    if err != nil || !validLowerHexString(head, 40) {
+        return errors.New("canonical Creator HEAD is unavailable")
+    }
     if head != buildCreatorSourceCommit {
-        // An installed Creator can lag canonical main: a fast-forward must not
-        // disable its USB updater while the verified local scripts advance.
         if _, err := runGit("cat-file", "-e", buildCreatorSourceCommit+"^{commit}"); err != nil {
             return errors.New("installed Creator source revision is not available")
         }
@@ -327,8 +331,40 @@ func verifyCanonicalCreatorSource(ctx context.Context, repo string) error {
     dirty, err := runGit("status", "--porcelain=v1")
     if err != nil || dirty != "" { return errors.New("Creator source has unverified local changes") }
     remote, err := runGit("ls-remote", "--heads", "origin", "refs/heads/main")
-    if err != nil || remote != head + "\trefs/heads/main" {
-        return errors.New("Creator local source is not current GitHub main")
+    if err != nil { return errors.New("canonical remote main is unavailable") }
+    if remote == head+"\trefs/heads/main" { return nil }
+
+    // A dedicated main worktree must not require manual Git maintenance after
+    // unrelated OS commits. Fetch *only* the canonical main and fast-forward
+    // only an already-clean checkout; never reset, merge with conflicts or
+    // accept a rewritten/non-descendant branch.
+    fields := strings.Split(remote, "\t")
+    if len(fields) != 2 || !validLowerHexString(fields[0], 40) ||
+        fields[1] != "refs/heads/main" {
+        return errors.New("canonical remote main identity is invalid")
+    }
+    if _, err := runGit("fetch", "--no-tags", "--quiet", "origin", "refs/heads/main"); err != nil {
+        return errors.New("Creator could not fetch canonical main")
+    }
+    fetched, err := runGit("rev-parse", "FETCH_HEAD")
+    if err != nil || fetched != fields[0] {
+        return errors.New("Creator remote main changed during verification")
+    }
+    if _, err := runGit("merge-base", "--is-ancestor", head, fetched); err != nil {
+        return errors.New("Creator main cannot fast-forward")
+    }
+    if _, err := runGit("merge", "--ff-only", "--quiet", "FETCH_HEAD"); err != nil {
+        return errors.New("Creator main fast-forward failed")
+    }
+    current, err := runGit("rev-parse", "HEAD")
+    if err != nil || current != fetched {
+        return errors.New("Creator source did not advance to verified main")
+    }
+    dirty, err = runGit("status", "--porcelain=v1")
+    if err != nil || dirty != "" { return errors.New("Creator source changed during main fast-forward") }
+    latest, err := runGit("ls-remote", "--heads", "origin", "refs/heads/main")
+    if err != nil || latest != current+"\trefs/heads/main" {
+        return errors.New("Creator remote main advanced again; retry")
     }
     return nil
 }

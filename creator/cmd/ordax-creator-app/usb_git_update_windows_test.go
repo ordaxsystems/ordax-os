@@ -117,6 +117,83 @@ func TestOwnerUSBTaskReusesCanonicalInstalledTransport(t *testing.T) {
     }
 }
 
+func TestVerifyCanonicalCreatorSourceFastForwardsOnlyVerifiedMain(t *testing.T) {
+    before := buildCreatorSourceCommit
+    defer func() { buildCreatorSourceCommit = before }()
+    binary := strings.Repeat("a", 40)
+    oldMain := strings.Repeat("b", 40)
+    nextMain := strings.Repeat("c", 40)
+    buildCreatorSourceCommit = binary
+
+    for _, tc := range []struct {
+        name string
+        remote string
+        dirty string
+        diverged bool
+        changedDuringFetch bool
+        wrongOrigin bool
+        shouldPass bool
+        expectMerge bool
+    }{
+        {name: "fresh main", remote: oldMain, shouldPass: true},
+        {name: "fast forward unrelated OS changes", remote: nextMain, shouldPass: true, expectMerge: true},
+        {name: "reject rewritten main", remote: nextMain, diverged: true},
+        {name: "reject remote race", remote: nextMain, changedDuringFetch: true},
+        {name: "reject local edits", remote: nextMain, dirty: " M creator/tools/owner_usb_git_delivery.py"},
+        {name: "reject foreign origin", remote: nextMain, wrongOrigin: true},
+    } {
+        t.Run(tc.name, func(t *testing.T) {
+            head := oldMain
+            merged := false
+            fetched := false
+            run := func(args ...string) (string, error) {
+                key := strings.Join(args, " ")
+                switch key {
+                case "remote get-url origin":
+                    if tc.wrongOrigin { return "https://github.com/ordaxsystems/ordax-creator.git", nil }
+                    return "https://github.com/ordaxsystems/ordax-os.git", nil
+                case "branch --show-current":
+                    return "main", nil
+                case "rev-parse HEAD":
+                    return head, nil
+                case "cat-file -e " + binary + "^{commit}":
+                    return "", nil
+                case "merge-base --is-ancestor " + binary + " " + oldMain:
+                    return "", nil
+                case "status --porcelain=v1":
+                    return tc.dirty, nil
+                case "ls-remote --heads origin refs/heads/main":
+                    return tc.remote + "\trefs/heads/main", nil
+                case "fetch --no-tags --quiet origin refs/heads/main":
+                    fetched = true
+                    return "", nil
+                case "rev-parse FETCH_HEAD":
+                    if tc.changedDuringFetch { return strings.Repeat("d", 40), nil }
+                    return tc.remote, nil
+                case "merge-base --is-ancestor " + oldMain + " " + nextMain:
+                    if tc.diverged { return "", errors.New("not an ancestor") }
+                    return "", nil
+                case "merge --ff-only --quiet FETCH_HEAD":
+                    if !fetched { t.Fatal("merged without verifying fetched remote main") }
+                    merged = true
+                    head = tc.remote
+                    return "", nil
+                default:
+                    t.Fatalf("unexpected Git verification operation: %s", key)
+                    return "", nil
+                }
+            }
+            err := verifyCanonicalCreatorSourceWithGit(run)
+            if (err == nil) != tc.shouldPass {
+                t.Fatalf("unexpected verification result: err=%v", err)
+            }
+            if merged != tc.expectMerge {
+                t.Fatalf("unexpected main mutation: merged=%v", merged)
+            }
+        })
+    }
+}
+
 func TestOwnerUSBTrustedHotplugRequiresUniqueAuthorizedSerial(t *testing.T) {
     home := t.TempDir()
     sourceRoot := filepath.Join(home, "GitHub", "ordax-os")
