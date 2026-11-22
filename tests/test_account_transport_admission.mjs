@@ -7,7 +7,7 @@ import {
   isNativeBootstrapRoute,
   isPublicBridgeRoute,
   isPublicAccountPreActivationRoute,
-  isPublicMcpOwnerPreActivationRoute,
+  isPublicMcpOwnerPreActivationRoute, isReleasedOwnerDeviceConsoleRoute,
 } from "../infra/supabase/functions/_shared/account_transport_admission.mjs";
 
 const bridgeName = "ordax_account_public_bridge";
@@ -86,11 +86,13 @@ test("pre-activation public Account capability is exact and read-only", () => {
   }
 });
 
-test("pre-activation Owner MCP release is exact, separately gated and never opens public Account", () => {
+test("Owner device console is exact while Project/GitHub remain gated", () => {
   const allowed = [
     ["GET", "/account/mcp/devices"],
     ["GET", "/account/mcp/authority"],
     ["POST", "/account/mcp/revoke"],
+    ["POST", "/account/mcp/reauthorize"],
+    ["POST", "/account/mcp/device-grants"],
     ["GET", "/account/mcp/central-targets"],
     ["GET", "/account/mcp/central-selections"],
     ["POST", "/account/mcp/central-selections"],
@@ -98,9 +100,20 @@ test("pre-activation Owner MCP release is exact, separately gated and never open
   for (const [method,path] of allowed) {
     assert.equal(isPublicBridgeRoute(method,path),true);
     assert.equal(isPublicMcpOwnerPreActivationRoute(method,path,true),true);
-    assert.equal(isPublicMcpOwnerPreActivationRoute(method,path,false),false);
-    assert.equal(isPublicMcpOwnerPreActivationRoute(method,path,undefined),false);
+    assert.equal(isReleasedOwnerDeviceConsoleRoute(method,path),true);
+    assert.equal(isPublicMcpOwnerPreActivationRoute(method,path,false),true);
+    assert.equal(isPublicMcpOwnerPreActivationRoute(method,path,undefined),true);
     assert.equal(isPublicAccountPreActivationRoute(method,path),false);
+  }
+  // Project/GitHub actions are NOT part of device-console availability.
+  for (const [method,path] of [
+    ["GET","/account/mcp/project-onboarding"],
+    ["POST","/account/mcp/project-grants"],
+    ["POST","/account/mcp/github/authorization-challenges"],
+  ]) {
+    assert.equal(isReleasedOwnerDeviceConsoleRoute(method,path),false);
+    assert.equal(isPublicMcpOwnerPreActivationRoute(method,path,true),true);
+    assert.equal(isPublicMcpOwnerPreActivationRoute(method,path,false),false);
   }
   for (const [method,path] of [
     ["GET","/account/export"],["GET","/account/spaces"],

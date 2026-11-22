@@ -76,11 +76,34 @@ export function isPublicBridgeRoute(method, pathname) {
 // accounts without enabling public account registration or unrelated Account
 // features. Derive the exact route/method list from the ONE public bridge
 // catalog, and require the separate Owner release flag at the caller.
-export function isPublicMcpOwnerPreActivationRoute(method, pathname, ownerEnabled) {
-  return ownerEnabled === true
-    && typeof pathname === "string"
-    && pathname.startsWith("/account/mcp/")
+// Device inventory and Owner-controlled permissions are a core Account
+// capability for EXISTING authenticated users. The one shared transport
+// allowlist is still exact by method/path; the downstream Account session,
+// Platform Owner identity, per-device consent and CSRF remain mandatory.
+// No Project, GitHub, public registration or native root is released here.
+const RELEASED_OWNER_DEVICE_ROUTES = new Set([
+  "GET /account/mcp/devices",
+  "GET /account/mcp/authority",
+  "POST /account/mcp/revoke",
+  "POST /account/mcp/reauthorize",
+  "POST /account/mcp/device-grants",
+  "GET /account/mcp/central-targets",
+  "GET /account/mcp/central-selections",
+  "POST /account/mcp/central-selections",
+]);
+
+export function isReleasedOwnerDeviceConsoleRoute(method, pathname) {
+  return typeof pathname === "string"
+    && RELEASED_OWNER_DEVICE_ROUTES.has(method + " " + pathname)
     && isPublicBridgeRoute(method, pathname);
+}
+
+export function isPublicMcpOwnerPreActivationRoute(method, pathname, ownerEnabled) {
+  return isReleasedOwnerDeviceConsoleRoute(method, pathname)
+    || (ownerEnabled === true
+      && typeof pathname === "string"
+      && pathname.startsWith("/account/mcp/")
+      && isPublicBridgeRoute(method, pathname));
 }
 
 export function isPublicAccountPreActivationRoute(method, pathname) {

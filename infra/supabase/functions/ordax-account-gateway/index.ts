@@ -12,7 +12,7 @@ import { verifyTrustedPublicRequestContext } from "../ordax-public-account-gatew
 import { accountPrivilegedRpc } from "../_shared/account_privileged_rpc.mjs";
 import { revokeSupabaseLocalSession } from "../_shared/account_local_signout.mjs";
 import { projectAccountSubscription } from "../_shared/account_subscription.mjs";
-import { authorizeAccountTransport, accountGatewayRoutePath, isPublicAccountPreActivationRoute, isPublicMcpOwnerPreActivationRoute } from "../_shared/account_transport_admission.mjs";
+import { authorizeAccountTransport, accountGatewayRoutePath, isPublicAccountPreActivationRoute, isPublicMcpOwnerPreActivationRoute, isReleasedOwnerDeviceConsoleRoute } from "../_shared/account_transport_admission.mjs";
 import { parseSpaceCreateRequest, projectSpaceCreateResult, spaceCreateRpcArgs } from "../_shared/space_create_contract.mjs";
 import { PUBLIC_CONFIRMATION_PATH, PUBLIC_SIGNUP_REDIRECT, PUBLIC_RECOVERY_VERIFY_PATH, PUBLIC_RECOVERY_VERIFY_URL, parseSignupConfirmation, parseRecoveryLink } from "../_shared/account_email_confirmation.mjs";
 
@@ -1421,7 +1421,11 @@ Deno.serve(async (req: Request) => {
     }
     // Code and SQL can be deployed independently without opening the public
     // Owner console before its authenticated gateway E2E is approved.
-    if (Deno.env.get("ORDAX_MCP_OWNER_ACCOUNT_ENABLED") !== "1") {
+    // The signed-in Owner device console is a canonical Account capability.
+    // Project/GitHub remain separately gated; DEV grants still require one
+    // explicit signed Owner POST, OAuth consent and exact Platform readback.
+    if (!isReleasedOwnerDeviceConsoleRoute(req.method, path)
+        && Deno.env.get("ORDAX_MCP_OWNER_ACCOUNT_ENABLED") !== "1") {
       return error(503, "mcp-owner-console-unavailable", "A administração MCP ainda não está disponível.");
     }
     if (path === ACCOUNT_MCP_DEVICES_PATH) {

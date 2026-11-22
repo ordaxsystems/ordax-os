@@ -85,17 +85,17 @@ class AccountGatewayDestinationDeployTests(unittest.TestCase):
         self.assertIn("ACCOUNT_GATEWAY_MCP_USAGE_UNAUTH=PASS", text)
         self.assertIn('Deno.env.get("ORDAX_MCP_USAGE_READ_ENABLED")', text)
         self.assertIn("node --test tests/test_account_mcp_usage_bridge.mjs", text)
-        self.assertIn("      owner_device_console_rollout:", text)
-        self.assertIn("inputs.owner_device_console_rollout != 'unchanged'", text)
+        self.assertIn("      owner_central_selection_rollout:", text)
+        self.assertIn("inputs.owner_central_selection_rollout != 'unchanged'", text)
         self.assertIn("ORDAX_MCP_OWNER_CENTRAL_SELECTION_ENABLED", text)
-        self.assertIn("ACCOUNT_GATEWAY_OWNER_DEVICE_CONSOLE_SECRET_VALUES_PRINTED=NO", text)
-        self.assertIn("ACCOUNT_GATEWAY_OWNER_DEVICE_CONSOLE_ROLLOUT=", text)
-        self.assertIn("Only existing-account MCP devices", text)
+        self.assertIn("ACCOUNT_GATEWAY_OWNER_CENTRAL_SELECTION_SECRET_VALUES_PRINTED=NO", text)
+        self.assertIn("ACCOUNT_GATEWAY_OWNER_CENTRAL_SELECTION_ROLLOUT=", text)
+        self.assertIn("Only signed Owner central-session selection", text)
         self.assertIn("        default: unchanged", text)
         # Existing Project/GitHub release remains independent. A console-only
         # rollout does not introduce a second Account gateway or expand grants.
-        console_step=text.split("      - name: Apply independent Owner device MCP console rollout",1)[1].split("      - name: Smoke destination gateway",1)[0]
-        self.assertIn("ORDAX_MCP_OWNER_ACCOUNT_ENABLED",console_step)
+        console_step=text.split("      - name: Apply independent Owner central-session selection rollout",1)[1].split("      - name: Smoke destination gateway",1)[0]
+        self.assertNotIn("ORDAX_MCP_OWNER_ACCOUNT_ENABLED",console_step)
         self.assertIn("ORDAX_MCP_OWNER_CENTRAL_SELECTION_ENABLED",console_step)
         self.assertNotIn("ORDAX_MCP_OWNER_PROJECT_",console_step)
         self.assertNotIn("ORDAX_MCP_OWNER_GITHUB_",console_step)
@@ -111,7 +111,7 @@ class AccountGatewayDestinationDeployTests(unittest.TestCase):
         project_step = text.split(
             "      - name: Apply explicit Owner Project setup rollout", 1,
         )[1].split(
-            "      - name: Apply independent Owner device MCP console rollout", 1,
+            "      - name: Apply independent Owner central-session selection rollout", 1,
         )[0]
         for key in (
             "ORDAX_MCP_OWNER_ACCOUNT_ENABLED=1",

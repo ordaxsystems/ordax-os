@@ -319,23 +319,36 @@ de devices, GitHub installation ou estado de projeto paralelos.
 - `GET /account/mcp/github/repository-candidates?challenge_id=UUID`;
 - `POST /account/mcp/github/repository-selections`.
 
-As rotas Owner gerais permanecem fechadas enquanto
-`ORDAX_MCP_OWNER_ACCOUNT_ENABLED` não estiver explicitamente em `1`.
+**Console Owner de dispositivos publicado na Conta autenticada (2026-11-22).**
+O catálogo único `account_transport_admission.mjs` admite somente métodos
+e caminhos exatos para o **dispositivo pertencente ao Owner**:
+inventário (`GET /account/mcp/devices`), grants (`GET /account/mcp/authority`),
+concessão DEV, reautorização e revogação (`POST /account/mcp/device-grants`,
+`/reauthorize`, `/revoke`), além de seleção de conversa
+(`/central-targets`, `/central-selections`).
 
-A publicação do **console de dispositivos MCP para contas existentes**, sem
-liberar Project/GitHub ou cadastro público, possui agora o input
-`owner_device_console_rollout=enable` no workflow manual
-`.github/workflows/ordax-account-gateway-destination.yml`. Esse input
-atualiza no **mesmo** Supabase canônico `ORDAX_MCP_OWNER_ACCOUNT_ENABLED=1`
-e `ORDAX_MCP_OWNER_CENTRAL_SELECTION_ENABLED=1`; `disable` recoloca ambos
-em 0, e `unchanged` preserva o estado real. Não modifica grants, JWT,
-instalação, Runtime, nem chaves de transporte. O workflow continua exigindo
-`approved_sha` igual à `main` atual e
-`release_confirmation=DEPLOY_ACCOUNT_GATEWAY_PRODUCTION`, seguido de
-prova autenticada pelo Owner do GET de dispositivos, seleção exata e atestação
-Device. O input `owner_project_rollout` continua independente; se ambos
-forem configurados, a decisão explícita de console é aplicada por último
-para o gate compartilhado.
+Nenhuma dessas rotas é anônima: o gateway exige sessão Supabase autenticada,
+identidade Owner verificada pela Platform e, para as mutações, consentimento
+OAuth, origem/CSRF e confirmação explícita. A concessão
+`full-computer-control` exige um dispositivo `development` cadastrado,
+sem herdar o grant do Windows e sem concessão automática.
+
+**A publicação do inventário e dos grants do Owner é autoridade do código
+na `ordax-os/main`**, e não depende da alteração de um secret administrativo.
+Esse modelo evita uma segunda decisão de rollout invisível ao usuário
+quando a Conta e o gateway já foram publicados e verificados. Cadastro
+público, Project/GitHub, binding e grants de projeto mantêm gates
+independentes. A seleção de conversa continua exigindo
+`ORDAX_MCP_OWNER_CENTRAL_SELECTION_ENABLED=1` além do desafio e grant.
+O workflow manual de Account Gateway usa agora o input
+`owner_central_selection_rollout=enable` somente para essa seleção.
+Requer SHA exato da `main`, confirmação de release e verificação de paridade.
+A falta de `edge_functions_secrets_write` na credencial CI deve ser
+corrigida para futuras mutações administrativas de secrets; ela não altera
+a autoridade nem a autenticação.
+
+As rotas Owner **fora do console de dispositivos** permanecem fechadas
+enquanto `ORDAX_MCP_OWNER_ACCOUNT_ENABLED` não estiver em `1`.
 
 **Atualização do gate de release (2026-11-21):** a opção manual
 `owner_project_rollout=enable` autoriza **somente** o registro de Project e
