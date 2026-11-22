@@ -24,6 +24,6 @@ python3 -m unittest discover -s tests -q
 node --test tests/*.mjs
 ```
 
-`site/vercel.json` define o build verificável e as políticas de roteamento e segurança. `site/scripts/build_impact.py` ignora mudanças de outros módulos do OS, mas não ignora alterações nas APIs canônicas, contratos, dependências ou arquivos do Site; ausência de diff confiável força build. Não executar builds de kernel, QEMU, USB ou Creator por alterações do Site.
+`site/vercel.json` define o build verificável e as políticas de roteamento e segurança. Os artefatos DEV assinados de Marca e Surface são fixados exclusivamente por `contracts/dev-artifact-lock.json` (relativo a `site/`), sem cópias ou contratos antigos. `site/scripts/build_impact.py` ignora mudanças de outros módulos do OS, mas não ignora alterações nas APIs canônicas, contratos, dependências ou arquivos do Site; ausência de diff confiável força build. Não executar builds de kernel, QEMU, USB ou Creator por alterações do Site.
 
 Para provas de produção, bloqueios e estados atuais, consultar [docs/HANDOFF.md](docs/HANDOFF.md). A política DEV única permanece em `ordax-os/docs/DEVELOPMENT-WORKFLOW.md`. Nunca habilitar recursos públicos ou grants apenas por existir um deployment READY.
