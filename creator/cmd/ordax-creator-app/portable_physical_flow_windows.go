@@ -62,6 +62,25 @@ func executePhysicalWrite(state appRefreshState, target physicalTarget) error {
 	}
 }
 
+// The first-install and incremental update use the same signed physical
+// payload projection. Neither owns a second list of media artifacts.
+func portableMediaBindingsFromSignedPayload(payload physicalchannel.PortablePayloadManifest) (creatorcore.PortableMediaBindings, error) {
+	if payload.Schema != physicalchannel.PortablePayloadSchema || len(payload.Artifacts) != 17 {
+		return creatorcore.PortableMediaBindings{}, errors.New("signed Portable payload is incomplete")
+	}
+	bindings := creatorcore.PortableMediaBindings{
+		Schema:creatorcore.PortableMediaBindingsSchema,
+		Artifacts:make([]creatorcore.PortableMediaArtifactBinding,0,len(payload.Artifacts)),
+	}
+	for _,artifact:=range payload.Artifacts {
+		if artifact.SizeBytes<=0 {return creatorcore.PortableMediaBindings{},fmt.Errorf("invalid signed Portable artifact %s",artifact.ID)}
+		bindings.Artifacts=append(bindings.Artifacts,creatorcore.PortableMediaArtifactBinding{
+			ID:artifact.ID,SHA256:artifact.SHA256,SizeBytes:uint64(artifact.SizeBytes),
+		})
+	}
+	return bindings,nil
+}
+
 func portableSourceSpecs(
 	directory string,
 	payload physicalchannel.PortablePayloadManifest,
@@ -135,20 +154,8 @@ func executePortablePhysicalWrite(
 		return errors.New("pacote físico inválido: backend não é arquivo regular")
 	}
 
-	bindings := creatorcore.PortableMediaBindings{
-		Schema:    creatorcore.PortableMediaBindingsSchema,
-		Artifacts: make([]creatorcore.PortableMediaArtifactBinding, 0, len(payload.Artifacts)),
-	}
-	for _, artifact := range payload.Artifacts {
-		if artifact.SizeBytes <= 0 {
-			return fmt.Errorf("payload Portable inválido: %s", artifact.ID)
-		}
-		bindings.Artifacts = append(bindings.Artifacts, creatorcore.PortableMediaArtifactBinding{
-			ID:        artifact.ID,
-			SHA256:    artifact.SHA256,
-			SizeBytes: uint64(artifact.SizeBytes),
-		})
-	}
+	bindings, err := portableMediaBindingsFromSignedPayload(payload)
+	if err != nil { return err }
 	mediaPlan, err := creatorcore.PlanPortableMedia(
 		target.PhysicalDiskBytes,
 		payload.ReleaseSourceCommit,
