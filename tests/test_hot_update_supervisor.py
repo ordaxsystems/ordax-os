@@ -1119,7 +1119,7 @@ class HotUpdateSupervisorContractTests(unittest.TestCase):
         # The Native Product lifecycle library is sourced by the Supervisor,
         # so updating it must use the same guardian-mediated restart path.
         self.assertIn(
-            "system/entrypoint|system/supervisor|system/services/device-agent/native-product-lifecycle.sh)",
+            "system/entrypoint|system/supervisor|system/services/device-agent/native-product-lifecycle.sh|system/services/device-agent/owner-dev-native-product.sh|system/services/device-agent/owner-dev-native-product.txt)",
             text,
         )
         self.assertIn("SUPERVISOR_SCRIPT=$SYSTEM_ROOT/supervisor", text)

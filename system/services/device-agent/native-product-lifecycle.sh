@@ -16,6 +16,15 @@ NATIVE_PRODUCT_PLAN_KIND=""
 NATIVE_PRODUCT_RUNTIME_ROOT=""
 NATIVE_PRODUCT_RUNTIME_PYTHON=""
 NATIVE_PRODUCT_RUNTIME_SITE=""
+NATIVE_PRODUCT_OWNER_LIB=""
+# Only this Git-owned Supervisor sources its optional Owner USB handoff.
+native_product_owner_adapter=$SYSTEM_ROOT/services/device-agent/owner-dev-native-product.sh
+if [ "$DISTRIBUTION_PROFILE" = owner-development ] &&
+   [ "$PRODUCT_MODE" = usb ] &&
+   [ -f "$native_product_owner_adapter" ] &&
+   [ ! -L "$native_product_owner_adapter" ]; then
+    . "$native_product_owner_adapter"
+fi
 
 native_product_stop() {
     [ -n "$NATIVE_PRODUCT_PID" ] || return 0
@@ -183,8 +192,14 @@ native_product_resolve_plan() {
     NATIVE_PRODUCT_RUNTIME_ROOT=""
     NATIVE_PRODUCT_RUNTIME_PYTHON=""
     NATIVE_PRODUCT_RUNTIME_SITE=""
+    NATIVE_PRODUCT_OWNER_LIB=""
     if native_product_verified_plan; then
         NATIVE_PRODUCT_PLAN_KIND=signed
+        return 0
+    fi
+    if command -v owner_dev_native_verified_plan >/dev/null 2>&1 &&
+       owner_dev_native_verified_plan; then
+        NATIVE_PRODUCT_PLAN_KIND=owner-development-portable
         return 0
     fi
     if native_product_owner_dev_buildroot_plan; then
@@ -215,6 +230,10 @@ native_product_run_selected() {
         signed)
             [ -n "$NATIVE_PRODUCT_EXECUTABLE" ] || return 1
             exec "$NATIVE_PRODUCT_EXECUTABLE" "$@"
+            ;;
+        owner-development-portable)
+            command -v owner_dev_native_run_verified >/dev/null 2>&1 || return 1
+            owner_dev_native_run_verified "$@"
             ;;
         owner-development-buildroot)
             [ -n "$NATIVE_PRODUCT_RUNTIME_PYTHON" ] || return 1

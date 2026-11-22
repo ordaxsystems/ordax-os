@@ -162,28 +162,28 @@ jobs:
               assert provenance['physical_apply_authorized'] is False
               assert provenance['component_publish_authorized'] is False
               assert len(provenance['injected_tools']) == 2
-               from hashlib import sha1
-               import subprocess
-               policy=json.loads(pathlib.Path('docs/contracts/intelligence-source.json').read_text())
-               assert policy['source_repository']=='ordaxsystems/ordax-os'
-               assert policy['activation_authorized'] is False
-               proof=json.loads(archive.extractfile('system/intelligence/source-provenance.json').read())
-               binding=provenance['intelligence_source']
-               os_sha=subprocess.check_output(['git','rev-parse','HEAD'],text=True).strip()
-               assert binding['source_commit']==proof['source_commit']==os_sha
-               assert binding['source_sha256']==proof['source_sha256']
-               assert binding['activation_authorized'] is False
-               assert proof['activation_authorized'] is False
-               entries=subprocess.check_output(['git','ls-tree','-r','HEAD','--','system/intelligence/src',
-                            'system/intelligence/tools'],text=True).splitlines()
-               for entry in entries:
-                   meta,key=entry.split('\t',1)
-                   mode,kind,blob=meta.split()
-                   assert mode=='100644' and kind=='blob'
-                   assert key in members and members[key].isfile(),key
-                   payload=archive.extractfile(key).read()
-                   actual=sha1(b'blob '+str(len(payload)).encode()+b'\0'+payload).hexdigest()
-                   assert actual==blob,(key,actual,blob)
+              from hashlib import sha1
+              import subprocess
+              policy=json.loads(pathlib.Path('docs/contracts/intelligence-source.json').read_text())
+              assert policy['source_repository']=='ordaxsystems/ordax-os'
+              assert policy['activation_authorized'] is False
+              proof=json.loads(archive.extractfile('system/intelligence/source-provenance.json').read())
+              binding=provenance['intelligence_source']
+              os_sha=subprocess.check_output(['git','rev-parse','HEAD'],text=True).strip()
+              assert binding['source_commit']==proof['source_commit']==os_sha
+              assert binding['source_sha256']==proof['source_sha256']
+              assert binding['activation_authorized'] is False
+              assert proof['activation_authorized'] is False
+              entries=subprocess.check_output(['git','ls-tree','-r','HEAD','--','system/intelligence/src',
+                           'system/intelligence/tools'],text=True).splitlines()
+              for entry in entries:
+                  meta,key=entry.split('\t',1)
+                  mode,kind,blob=meta.split()
+                  assert mode=='100644' and kind=='blob'
+                  assert key in members and members[key].isfile(),key
+                  payload=archive.extractfile(key).read()
+                  actual=sha1(b'blob '+str(len(payload)).encode()+b'\0'+payload).hexdigest()
+                  assert actual==blob,(key,actual,blob)
               tools = {tool['path']: tool for tool in provenance['injected_tools']}
               install = tools['system/bin/ordax-native-install-targets']
               assert install['role'] == 'native-install-read-only-target-discovery'

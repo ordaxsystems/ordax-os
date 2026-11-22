@@ -1862,8 +1862,8 @@ classify_changes() {
         case "$path" in
             system/*.md|boot/*.md|bootstrap/*.md|boot/*/prove_*|bootstrap/*/prove_*)
                 ;;
-            system/entrypoint|system/supervisor|system/services/device-agent/native-product-lifecycle.sh)
-                # The Supervisor sources this library at startup. A live
+            system/entrypoint|system/supervisor|system/services/device-agent/native-product-lifecycle.sh|system/services/device-agent/owner-dev-native-product.sh|system/services/device-agent/owner-dev-native-product.txt)
+                # The Supervisor sources these libraries/pin at startup. A live
                 # reload would retain old function bodies and lose lifecycle
                 # changes until reboot; use the canonical restart/rollback.
                 supervisor_changed=1
@@ -2781,6 +2781,17 @@ owner_stage_usb_git_once() {
             /bin/busybox cat "$owner_cache_receipt" >>"$UPDATE_LOG" 2>/dev/null || true
         fi
         /bin/busybox rm -f "$owner_cache_receipt"
+    fi
+    # Consume the new Native Linux artifact through the SAME disk-identity
+    # bound, read-only data mount. This is a DEV-only optional stage; signed
+    # component slots, boot health, update authority and grants are untouched.
+    if command -v owner_dev_native_stage_on_mounted_data >/dev/null 2>&1 &&
+       [ -d "$owner_cache_mount/.ordax/updates/owner-native-product" ]; then
+        if owner_dev_native_stage_on_mounted_data "$owner_cache_mount"; then
+            log "Owner USB Native component copied and hash-verified into private state"
+        else
+            log "Owner USB Native component rejected; active Runtime remains unchanged"
+        fi
     fi
     if ! /bin/busybox umount "$owner_cache_mount" >>"$UPDATE_LOG" 2>&1; then
         log "Owner USB DATA read-only mount remains; no writable mount was attempted"
