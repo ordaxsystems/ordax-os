@@ -40,6 +40,55 @@ class DeliveryTests(unittest.TestCase):
     def make_bundle(self):
         return APP.build_bundle(self.source, self.bundle, self.sha)
 
+    def _make_transport_base(self, volume, commit, age):
+        folder = volume / APP.BASE_SUBDIR / commit
+        folder.mkdir(parents=True, exist_ok=True)
+        (folder / "dev-base.json").write_text(json.dumps({
+            "$schema": "prototype-ordax.dev-base-candidate/3",
+            "source_repository": "ordaxsystems/ordax-os",
+            "source_commit": commit,
+        }), encoding="utf-8")
+        for name in ("vmlinuz", "initrd.gz", "rootfs.tar"):
+            (folder / name).write_bytes(b"test-cache")
+        import os
+        os.utime(folder, (age, age))
+        return folder
+
+    def test_base_reclaim_keeps_current_and_one_prior_without_user_data_loss(self):
+        volume = self.root / "volume"
+        first = self._make_transport_base(volume, "1" * 40, 100)
+        prior = self._make_transport_base(volume, "2" * 40, 200)
+        current = self._make_transport_base(volume, "3" * 40, 300)
+        unknown = self._make_transport_base(volume, "4" * 40, 50)
+        (unknown / "user-document.txt").write_text("user data")
+        identity = {"disk": 1, "serial": "6699E36B"}
+        with mock.patch.object(APP, "checked_volume", return_value=identity):
+            removed = APP.reclaim_superseded_base_transports(
+                volume, "E", identity, current.name,
+            )
+        self.assertEqual(removed, 1)
+        self.assertFalse(first.exists())
+        self.assertTrue(prior.exists())
+        self.assertTrue(current.exists())
+        self.assertTrue((unknown / "user-document.txt").is_file())
+
+    def test_base_reclaim_rejects_changed_physical_disk_without_removal(self):
+        volume = self.root / "volume"
+        first = self._make_transport_base(volume, "1" * 40, 100)
+        prior = self._make_transport_base(volume, "2" * 40, 200)
+        current = self._make_transport_base(volume, "3" * 40, 300)
+        identity = {"disk": 1, "serial": "6699E36B"}
+        with mock.patch.object(APP, "checked_volume", return_value={
+            "disk": 2, "serial": "SWAPPED",
+        }):
+            with self.assertRaisesRegex(APP.DeliveryError, "physical USB identity"):
+                APP.reclaim_superseded_base_transports(
+                    volume, "E", identity, current.name,
+                )
+        self.assertTrue(first.exists())
+        self.assertTrue(prior.exists())
+        self.assertTrue(current.exists())
+
     def test_remote_main_advancing_during_bundle_blocks_stale_usb_write(self):
         import argparse
         import contextlib
@@ -290,10 +339,13 @@ class BaseMediaBridgeTests(unittest.TestCase):
             mock.patch.object(APP, "checked_volume", return_value=self.before) as identity,
             mock.patch.object(APP.subprocess, "run",
                               return_value=subprocess.CompletedProcess([], 0, stdout=receipt)) as run,
+            mock.patch.object(APP, "reclaim_superseded_base_transports",
+                              return_value=0) as reclaim,
         ):
             result = APP.stage_canonical_base(self.args, self.volume, "E", self.before)
         self.assertEqual(result["status"], "BASE_STAGED_NOT_ACTIVATED")
         self.assertEqual(identity.call_count, 2)
+        reclaim.assert_called_once_with(self.volume, "E", self.before, self.sha)
         command = run.call_args.args[0]
         self.assertEqual(command[1], "-I")
         self.assertIn("--import-only", command)

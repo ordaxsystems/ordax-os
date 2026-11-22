@@ -537,6 +537,78 @@ def discover_trusted_volume(expected_serial: str) -> str | None:
         raise DeliveryError("multiple volumes claim the authorized USB serial")
     return matches[0] if matches else None
 
+def _staged_base_transport_candidate(path: Path) -> bool:
+    # This is only an internal transport-cache shape check, NOT release trust.
+    if not SHA.fullmatch(path.name) or path.is_symlink() or (
+        hasattr(path, "is_junction") and path.is_junction()
+    ) or not path.is_dir():
+        return False
+    try:
+        members = list(path.iterdir())
+        if {member.name for member in members} != set(BASE_FILES):
+            return False
+        if any(
+            member.is_symlink() or
+            (hasattr(member, "is_junction") and member.is_junction()) or
+            not member.is_file()
+            for member in members
+        ):
+            return False
+        metadata = path / "dev-base.json"
+        if metadata.stat().st_size > 64 * 1024:
+            return False
+        manifest = json.loads(metadata.read_text(encoding="utf-8"))
+        return (
+            type(manifest) is dict and
+            manifest.get("$schema") == "prototype-ordax.dev-base-candidate/3" and
+            manifest.get("source_repository") == "ordaxsystems/ordax-os" and
+            manifest.get("source_commit") == path.name
+        )
+    except (OSError, ValueError, UnicodeError):
+        return False
+
+
+def reclaim_superseded_base_transports(
+    volume: Path, letter: str, identity: dict, current_commit: str,
+) -> int:
+    '''Keep current and one prior USB-only Base cache; never touch installed OS.
+
+    Runs only after the OS-owned Base importer has verified all current bytes.
+    Unknown paths, incomplete transfers, links and user files are never removed.
+    The exact physical disk is rechecked before and after every removal.
+    '''
+    if not SHA.fullmatch(current_commit):
+        raise DeliveryError("invalid current Base transport commit")
+    root = volume / BASE_SUBDIR
+    ensure_real_ancestors(volume, root)
+    current = root / current_commit
+    if not _staged_base_transport_candidate(current):
+        raise DeliveryError("new Base transport is not a complete canonical cache")
+    candidates = [
+        entry for entry in root.iterdir()
+        if entry.name != current_commit and
+        _staged_base_transport_candidate(entry)
+    ]
+    candidates.sort(key=lambda entry: entry.stat().st_mtime_ns, reverse=True)
+    retired = 0
+    # One prior candidate remains for cheap fallback after source changes.
+    for entry in candidates[1:]:
+        if checked_volume(letter) != identity:
+            raise DeliveryError("physical USB identity changed before Base cache reclaim")
+        if not _staged_base_transport_candidate(entry):
+            continue
+        for name in BASE_FILES:
+            member = entry / name
+            if member.is_symlink() or (
+                hasattr(member, "is_junction") and member.is_junction()
+            ) or not member.is_file():
+                raise DeliveryError("Base cache entry changed during reclaim")
+            member.unlink()
+        entry.rmdir()
+        retired += 1
+        if checked_volume(letter) != identity:
+            raise DeliveryError("physical USB identity changed after Base cache reclaim")
+    return retired
 
 def stage_canonical_base(args: argparse.Namespace, volume: Path, letter: str,
                          before: dict) -> dict:
@@ -594,8 +666,9 @@ def stage_canonical_base(args: argparse.Namespace, volume: Path, letter: str,
         raise DeliveryError("OS Base import did not attest exact on-USB bytes")
     if checked_volume(letter) != before:
         raise DeliveryError("physical USB identity changed after Base import")
+    reclaimed = reclaim_superseded_base_transports(volume, letter, before, sha)
     return {"status": "BASE_STAGED_NOT_ACTIVATED", "base_artifact_commit": sha,
-            "reused": response["reused"]}
+            "reused": response["reused"], "reclaimed_base_caches": reclaimed}
 
 
 def main() -> int:
