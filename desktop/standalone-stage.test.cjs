@@ -237,12 +237,18 @@ function detachedFixture(f) {
     assert.equal(r.status,0,r.stderr||'OS Git fixture failed');
     return r.stdout.trim();
   };
-  osGit('init','-q');
-  osGit('config','user.name','OrdaX OS Test');
-  osGit('config','user.email','ordax-os-fixture@invalid.example');
-  osGit('remote','add','origin','https://github.com/ordaxsystems/ordax-os.git');
-  osGit('add','-A');
-  osGit('commit','-qm','Same-commit Desktop and Native OS fixture');
+  if (!fs.existsSync(join(f.root,'.git'))) {
+    osGit('init','-q');
+    osGit('config','user.name','OrdaX OS Test');
+    osGit('config','user.email','ordax-os-fixture@invalid.example');
+    osGit('remote','add','origin','https://github.com/ordaxsystems/ordax-os.git');
+    osGit('add','-A');
+    osGit('commit','-qm','Same-commit Desktop and Native OS fixture');
+  } else {
+    assert.ok(fs.lstatSync(join(f.root,'.git')).isDirectory());
+    assert.equal(osGit('remote','get-url','origin'),
+      'https://github.com/ordaxsystems/ordax-os.git');
+  }
   const osSha=osGit('rev-parse','HEAD');
   const provenanceFile=join(f.root,'out','windows-desktop-native','source-provenance.json');
   const provenance=JSON.parse(fs.readFileSync(provenanceFile,'utf8'));
