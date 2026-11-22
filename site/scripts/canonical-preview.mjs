@@ -76,9 +76,14 @@ for(const file of [...used].sort()){
   const expected=tracked.get(name);
   if(!expected)throw Error('Untracked canonical dependency: '+name);
   const bytes=await readFile(file);
-  if(gitBlob(bytes)!==expected)throw Error('Modified canonical dependency: '+name);
+  const committed=execFileSync('git',['-C',root,'show',osSha+':'+name]);
+  // Windows clean checkouts may use CRLF; hash original committed LF bytes.
+  const normalized=Buffer.from(bytes.toString('utf8').replaceAll('\r\n','\n'));
+  if(gitBlob(committed)!==expected
+      ||(!bytes.equals(committed)&&!normalized.equals(committed)))
+    throw Error('Modified canonical dependency: '+name);
   sources.push({repository:'ordaxsystems/ordax-os',commit:osSha,path:name,
-    git_blob:expected,sha256:digest(bytes)});
+    git_blob:expected,sha256:digest(committed)});
 }
 const assets=resolve(out,'assets');
 const cssFiles=(await readdir(assets)).filter(name=>name.endsWith('.css'));
