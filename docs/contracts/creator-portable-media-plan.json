@@ -92,5 +92,33 @@
     "content_addressed": true,
     "release_manifest_schema": "prototype-ordax.release-manifest/4",
     "physical_write_authorized": false
+  },
+  "incremental_update": {
+    "status": "implemented-unpublished-physical-validation-pending",
+    "core_policy": "creator/core/portable_update.go",
+    "core_transaction": "creator/core/portable_update_executor.go",
+    "source_of_installation_receipt": "creator/core/portable_installed_receipt.go",
+    "physical_host": "creator/host/windows/portable_update_windows.go",
+    "elevated_commands": [
+      "prepare-portable-update",
+      "apply-portable-update"
+    ],
+    "gui_owner": "creator/cmd/ordax-creator-app/portable_update_windows.go",
+    "signed_release_owner": "creator/physicalchannel",
+    "trusted_boot_request_owner": "bootstrap/initramfs/portable_init.sh",
+    "cold_health_authority": "system/supervisor",
+    "physical_media_requires": "exact-two-partition-ORDAX-ESP-ORDAX-DATA",
+    "installed_media_receipt": "/.ordax/installation/portable-media-plan.json",
+    "candidate_media_receipts": "/.ordax/installation/candidates/<source_commit>.json",
+    "boot_request": "/.ordax/updates/portable-release-request.txt",
+    "preflight": "physical-device-GUID-and-extent-verified+signed-Ed25519-v4-release+full-installed-readback",
+    "activation": "verified-one-shot-boot-only-after-cold-health",
+    "no_ext4_windows_mutation": true,
+    "no_repartition_or_format_during_update": true,
+    "legacy_owner_dev_three_partition_media_supported": false,
+    "foundation_boot_artifact_update_supported": false,
+    "current_physical_end_to_end_proven": false,
+    "current_owner_dev_portable_signed_release_published": false,
+    "public_enabled": false
   }
 }
