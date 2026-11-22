@@ -48,8 +48,7 @@ const PortableUpdateReceiptSchema = "prototype-ordax.portable-incremental-update
 func PortableUpdatePlanCanonicalBytes(plan PortableUpdatePlan) ([]byte, error) {
 	data, err := json.MarshalIndent(plan, "", "  ")
 	if err != nil { return nil, err }
-	return append(data, '
-'), nil
+	return append(data, byte(10)), nil
 }
 
 func PortableUpdatePlanSHA256(plan PortableUpdatePlan) (string, error) {
