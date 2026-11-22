@@ -26,6 +26,7 @@ class OwnerRootfsCapabilitiesTest(unittest.TestCase):
         self.assertIn("blkid", inventory["explicit_busybox_applets"])
         self.assertNotIn("basename", inventory["commands"])
         self.assertIn("system/services/device-agent/native-product-lifecycle.sh", inventory["sources"])
+        self.assertIn("system/services/device-agent/owner-dev-native-product.sh", inventory["sources"])
         self.assertNotIn("native_product_reconcile", inventory["commands"])
         self.assertNotIn("native_product_stop", inventory["commands"])
         self.assertIn("mktemp", inventory["busybox_applets"])
@@ -47,15 +48,17 @@ class OwnerRootfsCapabilitiesTest(unittest.TestCase):
         functions = capabilities._supervisor_sourced_functions(ROOT)
         self.assertIn("native_product_reconcile", functions)
         self.assertIn("native_product_stop", functions)
+        self.assertIn("owner_dev_native_stage_on_mounted_data", functions)
+        self.assertIn("owner_dev_native_verified_plan", functions)
         self.assertNotIn("native_product_reconcile", capabilities.extract_commands(
             supervisor, sourced_functions=functions,
         ))
         # Scanning without the verified import still surfaces the unresolved
         # shell command; a missing library cannot invent an executable.
         self.assertIn("native_product_reconcile", capabilities.extract_commands(supervisor))
-        self.assertTrue(capabilities.extract_commands(source).issubset(
-            set(capabilities.owner_inventory(ROOT)["commands"])
-        ))
+        self.assertTrue(capabilities.extract_commands(
+            source, sourced_functions=functions,
+        ).issubset(set(capabilities.owner_inventory(ROOT)["commands"])))
 
     def test_explicit_busybox_calls_are_separately_proven(self) -> None:
         inventory = capabilities.owner_inventory(ROOT)
