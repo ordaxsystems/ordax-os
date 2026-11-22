@@ -120,6 +120,18 @@ Chat GPT C ─┘           │
 - O App está sendo convertido para visual-only, mas o Core ainda guarda responsabilidades históricas de execução. A implantação de UI não representa conclusão do cutover do executor.
 - **Status deste documento: decisões e roteiro registrados; R1–R6 ainda requerem código/provas.** Cada executor futuro atualiza somente este marcador de gates e seus recibos reais, evitando relatos contraditórios.
 
+### 5.1. Checkpoint executado — R0 encerrado; R1 leitura nativa parcial (22/11/2026)
+
+**Estado comprovado em `ordaxsystems/ordax-apps/main`:**
+- **R0 — concluído para diagnóstico/contrato:** após consultar o Forge MCP real, o projeto dedicado continuava com `repositoryPortAvailable=false`, `nativeProcessExecution=false`, catálogo de oito owners apenas informativo e nenhum grant Forge nativo de leitura física por repositório. O protocolo executável e o read model deixaram de prescrever o OrdaX MCP como executor do produto final. Código `8bfed462`, `a479cd7d`; teste de fail-closed `148c8267`.
+- **R1 — parcial no código, NÃO homologado fisicamente no Forge instalado:** `forge/product/src/forge-repository-owner-read-port.mjs` define uma porta de leitura independente do OrdaX MCP e **sem concessão automática**. Reutiliza `ForgeProjectFiles` (limites, SHA-256, negação de traversal/reparse), confere a associação Task→repo na SQLite canônica, catálogo de ownership, permissão Owner explícita/atual, raiz física, `git rev-parse --show-toplevel`, `remote.origin` e `HEAD` antes/depois da leitura. Não aceita diretório ou grant vindo do GPT e não divulga root.
+- Duas ferramentas tipadas, `forge_repository_files_list` e `forge_repository_file_read`, foram ligadas a `OrchestratorService`/kernel. `dedicatedForgeMcpOperations` e o gateway **não as anunciam** sem um `repositoryReadPort` nativo realmente composto. Nenhuma nova Store, dispatcher ou executor foi criada; nenhuma escrita/terminal/Git mutation foi habilitada.
+- Revisão de código validada: `ordax-apps/main@efdd9571c2c9306947c57d7a9cdb0bec6bb754f1`. **9 testes direcionados aprovados, 0 falhas**, no checkout Windows isolado, incluindo leitura pelo adaptador MCP, negativa sem grant, root/remote inválido, Task sem associação, revogação entre verificações e UI dedicada passiva. Esse teste usa uma autorização de fixture, **não é prova de grant Owner real ou instalação física**.
+- **Bloqueio do R1:** compor `repositoryReadPort` a partir do vínculo Owner/Runtime atestado do **cliente Forge**, por repositório, com grant independente de OrdaX MCP. A instalação atual não fornece essa ligação, portanto as tools novas devem permanecer ocultas. Só depois comprovar GPT externo → Forge MCP → leitura de um repo realmente autorizado → hash/recibo. Posteriormente avançar escrita atômica/CAS e R2 processos; não chamar um teste isolado de E2E físico.
+- Checkout de desenvolvimento com alterações paralelas foi preservado; validações ocorreram em diretório temporário. Nenhum build/instalação do Forge foi realizado neste lote.
+
+**Próximo passo obrigatório:** implementar a composição do Owner binding de leitura por repositório na fonte autoritativa apropriada, sem reutilizar um grant do OrdaX MCP nem criar permissão com base no catálogo; testar o modo negado antes do modo autorizado. Atualizar este mesmo checkpoint com commit, teste, receipt e status real.
+
 ### 6. Protocolo de retomada independente desta conversa
 
 1. Abrir URGENTE-LEIA.md e AGENTS.md de ordax-apps, a política transversal ordax-os/docs/DEVELOPMENT-WORKFLOW.md, **esta seção** e o contrato de ownership. Consultar a main e alterações paralelas antes de escrever.

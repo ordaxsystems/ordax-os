@@ -106,6 +106,35 @@ class DeliveryTests(unittest.TestCase):
         self.assertFalse((self.delivery / (APP.MANIFEST + ".pending")).exists())
         self.assertFalse((self.delivery / (APP.BUNDLE + ".pending")).exists())
 
+    def test_update_request_only_arms_after_verified_bundle(self):
+        digest, size = self.make_bundle()
+        with self.assertRaisesRegex(APP.DeliveryError, "verified Git bundle"):
+            APP.arm_update_request(self.delivery, self.sha, digest, size)
+        self.assertFalse((self.delivery / APP.UPDATE_REQUEST).exists())
+        APP.install_bundle(self.delivery, self.bundle, self.sha, digest, size)
+        APP.arm_update_request(self.delivery, self.sha, digest, size)
+        expected = APP.update_request_bytes(self.sha)
+        self.assertEqual((self.delivery / APP.UPDATE_REQUEST).read_bytes(), expected)
+        APP.arm_update_request(self.delivery, self.sha, digest, size)
+        self.assertEqual((self.delivery / APP.UPDATE_REQUEST).read_bytes(), expected)
+        self.assertFalse((self.delivery / (APP.UPDATE_REQUEST + ".pending")).exists())
+        self.assertTrue(APP.existing_current(self.delivery, self.sha))
+
+    def test_update_request_rejects_wrong_sha_and_symlink(self):
+        digest, size = self.make_bundle()
+        APP.install_bundle(self.delivery, self.bundle, self.sha, digest, size)
+        with self.assertRaisesRegex(APP.DeliveryError, "verified Git bundle"):
+            APP.arm_update_request(self.delivery, "f" * 40, digest, size)
+        with self.assertRaisesRegex(APP.DeliveryError, "SHA is invalid"):
+            APP.update_request_bytes("invalid")
+        pending = self.delivery / (APP.UPDATE_REQUEST + ".pending")
+        try:
+            pending.symlink_to(self.root / "victim")
+        except OSError:
+            self.skipTest("Windows symlink creation not permitted")
+        with self.assertRaisesRegex(APP.DeliveryError, "linked"):
+            APP.arm_update_request(self.delivery, self.sha, digest, size)
+
     def test_read_only_inspection_verifies_local_bundle_without_activation(self):
         self.assertIsNone(APP.verified_local_bundle(self.delivery))
         digest, size = self.make_bundle()
