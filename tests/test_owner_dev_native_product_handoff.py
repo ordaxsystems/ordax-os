@@ -155,7 +155,11 @@ class OwnerDevNativeHandoffTests(unittest.TestCase):
     def test_staged_slot_corruption_is_denied(self):
         step = self.execute(f"owner_dev_native_stage_on_mounted_data '{self.data}'")
         self.assertEqual(step.returncode, 0, step.stderr)
-        (self.slot() / "portable-lib/libz.so.1").write_bytes(b"corrupted-after-copy")
+        library = self.slot() / "portable-lib/libz.so.1"
+        # The installer made it read-only. Simulate privileged corruption,
+        # not accidental ordinary-user writes (which are correctly denied).
+        library.chmod(0o600)
+        library.write_bytes(b"corrupted-after-copy")
         self.assertNotEqual(self.execute("owner_dev_native_verified_plan").returncode, 0)
         # Cannot overwrite even from a valid USB when an installed version
         # already conflicts. Leave state unchanged for explicit diagnosis.
