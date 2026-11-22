@@ -207,19 +207,28 @@ class DevelopmentBaseStageTests(unittest.TestCase):
                     dev_stage._channel, "verify_versioned_rootfs",
                     return_value=None,
                 ),
+                mock.patch.object(
+                    dev_stage._channel, "resolve_published_source",
+                    return_value=(
+                        SOURCE, (candidates / SOURCE / "dev-base.json").read_bytes(),
+                    ),
+                ) as authority,
             ):
                 receipt = dev_stage.stage_offline_candidate(
                     repo_root=ROOT, esp_root=esp, active_slot="a",
                     candidate_root=candidates, version_root=versions,
-                    source_commit=SOURCE,
+                    source_commit=SOURCE, requested_source_commit=SOURCE,
                 )
             materialize.assert_called_once_with(
                 candidates / SOURCE, SOURCE, versions,
             )
+            authority.assert_called_once_with(SOURCE, ROOT)
             self.assertEqual(receipt["status"], "staged-not-activated")
             self.assertEqual(
                 receipt["$schema"], "prototype-ordax.dev-base-offline-stage/1",
             )
+            self.assertTrue(receipt["published_base_manifest_verified"])
+            self.assertEqual(receipt["requested_source_commit"], SOURCE)
             self.assertTrue(receipt["versioned_rootfs_materialized"])
             self.assertTrue(receipt["versioned_rootfs_reused"])
             self.assertTrue(receipt["inactive_esp_candidate_staged"])
@@ -241,10 +250,18 @@ class DevelopmentBaseStageTests(unittest.TestCase):
             root = Path(temporary)
             esp, candidates, versions, _kernel, _initramfs = self.fixture(root)
             current = (esp / "loader/entries/ordax.conf").read_bytes()
-            with mock.patch.object(
-                dev_stage._channel, "materialize_versioned_rootfs",
-                side_effect=dev_stage._channel.DevBaseChannelError(
-                    "candidate archive rejected",
+            with (
+                mock.patch.object(
+                    dev_stage._channel, "resolve_published_source",
+                    return_value=(
+                        SOURCE, (candidates / SOURCE / "dev-base.json").read_bytes(),
+                    ),
+                ),
+                mock.patch.object(
+                    dev_stage._channel, "materialize_versioned_rootfs",
+                    side_effect=dev_stage._channel.DevBaseChannelError(
+                        "candidate archive rejected",
+                    ),
                 ),
             ):
                 with self.assertRaisesRegex(
@@ -253,10 +270,41 @@ class DevelopmentBaseStageTests(unittest.TestCase):
                     dev_stage.stage_offline_candidate(
                         repo_root=ROOT, esp_root=esp, active_slot="a",
                         candidate_root=candidates, version_root=versions,
-                        source_commit=SOURCE,
+                        source_commit=SOURCE, requested_source_commit=SOURCE,
                     )
             self.assertEqual(
                 (esp / "loader/entries/ordax.conf").read_bytes(), current,
+            )
+            self.assertFalse(
+                (esp / "loader/entries/ordax-candidate+01-00.conf").exists()
+            )
+
+    def test_offline_unpublished_manifest_blocks_before_any_write(self):
+        with tempfile.TemporaryDirectory() as temporary:
+            root = Path(temporary)
+            esp, candidates, versions, _kernel, _initramfs = self.fixture(root)
+            original = (esp / "loader/entries/ordax.conf").read_bytes()
+            with (
+                mock.patch.object(
+                    dev_stage._channel, "resolve_published_source",
+                    return_value=(SOURCE, b'{"untrusted":"different"}'),
+                ) as authority,
+                mock.patch.object(
+                    dev_stage._channel, "materialize_versioned_rootfs",
+                ) as materialize,
+            ):
+                with self.assertRaisesRegex(
+                    dev_stage.DevStageError, "canonical published authority",
+                ):
+                    dev_stage.stage_offline_candidate(
+                        repo_root=ROOT, esp_root=esp, active_slot="a",
+                        candidate_root=candidates, version_root=versions,
+                        source_commit=SOURCE, requested_source_commit=SOURCE,
+                    )
+                authority.assert_called_once_with(SOURCE, ROOT)
+                materialize.assert_not_called()
+            self.assertEqual(
+                (esp / "loader/entries/ordax.conf").read_bytes(), original,
             )
             self.assertFalse(
                 (esp / "loader/entries/ordax-candidate+01-00.conf").exists()
@@ -273,7 +321,7 @@ class DevelopmentBaseStageTests(unittest.TestCase):
                     dev_stage.stage_offline_candidate(
                         repo_root=ROOT, esp_root=esp, active_slot="a",
                         candidate_root=candidates, version_root=esp,
-                        source_commit=SOURCE,
+                        source_commit=SOURCE, requested_source_commit=SOURCE,
                     )
                 materialize.assert_not_called()
 

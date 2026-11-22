@@ -991,6 +991,28 @@ class DevBaseConsumerTests(unittest.TestCase):
             self.assertFalse(consumer.prove_compatible_source(repo, foreign, requested))
             self.assertTrue(consumer.prove_compatible_source(repo, published, requested))
 
+            # On Windows core.autocrlf the worktree policy is CRLF, but Git's
+            # source-of-truth blob is LF. Accept only that encoding difference,
+            # and always execute the immutable Git blob rather than a worktree
+            # script which may have been modified.
+            if os.name == "nt":
+                policy_override = Path(temporary) / "windows-impact.awk"
+                worktree_policy = consumer.IMPACT_POLICY.read_bytes()
+                policy_override.write_bytes(
+                    worktree_policy.replace(b"\r\n", b"\n").replace(b"\n", b"\r\n")
+                )
+                with patch.object(consumer, "IMPACT_POLICY", policy_override):
+                    self.assertTrue(
+                        consumer.prove_compatible_source(repo, published, requested)
+                    )
+                    policy_override.write_bytes(
+                        policy_override.read_bytes() + b"\r\n# unauthorized alteration\r\n"
+                    )
+                    with self.assertRaisesRegex(
+                        consumer.DevBaseChannelError, "impact policy differs"
+                    ):
+                        consumer.prove_compatible_source(repo, published, requested)
+
             kernel, initramfs, rootfs = b"kernel", b"initrd", b"rootfs"
             descriptor = self.descriptor(kernel, initramfs, rootfs, published)
             payloads = {

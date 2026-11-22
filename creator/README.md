@@ -18,7 +18,9 @@ O produtor canônico system/services/base-update/dev_stage.py com a opção
 --offline-materialize-rootfs materializa rootfs.tar já validado pelo canal
 DEV no armazenamento de versões ext4 previamente montado e utiliza o
 mesmo stager A/B para o kernel e initramfs no slot EFI inativo.
-O resultado é staged-not-activated: não muda a entrada de boot,
+O canal Git/HTTPS precisa confirmar a revisão solicitada e o manifesto
+publicado da Base antes de qualquer materialização. O resultado é
+staged-not-activated: não muda a entrada de boot,
 não grava EFI NVRAM e não comprova que a mídia física foi atualizada.
 
 O Creator Windows precisa primeiro atestar que ESP e ext4 pertencem ao

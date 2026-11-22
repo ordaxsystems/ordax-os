@@ -750,10 +750,17 @@ def prove_compatible_source(
         return False
     if ancestor.returncode != 0:
         raise DevBaseChannelError("development Base ancestry evidence unavailable")
-    # Execute the installed policy only. Require its bytes to match the
-    # requested source, so a stale or unrelated policy cannot prove reuse.
-    if _git_bytes(worktree, "show", f"{requested_commit}:{IMPACT_POLICY_REPO_PATH}",
-                  git_bin=git_bin) != IMPACT_POLICY.read_bytes():
+    # Require the installed policy to match the requested immutable Git blob.
+    # Windows core.autocrlf checks out text files with CRLF; compare their
+    # canonical LF representation, but execute only the exact Git blob below.
+    canonical_policy = _git_bytes(
+        worktree, "show", f"{requested_commit}:{IMPACT_POLICY_REPO_PATH}",
+        git_bin=git_bin,
+    )
+    installed_policy = IMPACT_POLICY.read_bytes()
+    if os.name == "nt":
+        installed_policy = installed_policy.replace(b"\r\n", b"\n")
+    if canonical_policy != installed_policy:
         raise DevBaseChannelError("development Base impact policy differs from requested source")
     manifest = _git_bytes(
         worktree, "show", f"{requested_commit}:{HELPER_MANIFEST_REPO_PATH}",
@@ -772,11 +779,13 @@ def prove_compatible_source(
     if any(not path or b"\n" in path or b"\r" in path for path in paths):
         raise DevBaseChannelError("development Base changed path is ambiguous")
     with tempfile.TemporaryDirectory(prefix="ordax-base-impact-") as temp:
+        policy_path = Path(temp) / "dev-impact.awk"
+        policy_path.write_bytes(canonical_policy)
         manifest_path = Path(temp) / "helpers.tsv"
         manifest_path.write_bytes(manifest)
         try:
             impact = subprocess.check_output(
-                [awk_bin, "-f", str(IMPACT_POLICY), str(manifest_path), "-"],
+                [awk_bin, "-f", str(policy_path), str(manifest_path), "-"],
                 input=b"\n".join(paths) + b"\n", stderr=subprocess.PIPE, timeout=20,
             ).strip()
         except (OSError, subprocess.SubprocessError) as exc:

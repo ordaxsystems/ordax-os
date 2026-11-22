@@ -118,6 +118,7 @@ def stage_offline_candidate(
     candidate_root: Path,
     version_root: Path,
     source_commit: str,
+    requested_source_commit: str,
 ) -> dict:
     '''Prepare verified rootfs and inactive ESP slot through canonical owners.
 
@@ -128,6 +129,7 @@ def stage_offline_candidate(
     '''
     try:
         _channel.candidate_tag(source_commit)
+        _channel.candidate_tag(requested_source_commit)
         if not esp_root.is_dir() or esp_root.is_symlink():
             raise DevStageError("offline ESP root is unavailable or linked")
         if not version_root.is_dir() or version_root.is_symlink():
@@ -136,6 +138,16 @@ def stage_offline_candidate(
         versions = version_root.resolve(strict=True)
         if esp == versions or esp in versions.parents or versions in esp.parents:
             raise DevStageError("offline ESP and rootfs version store overlap")
+        # The Git/HTTPS channel, not the USB manifest, authenticates this Base.
+        # A valid self-declared SHA alone is not permission to install a rootfs.
+        resolved, published_manifest = _channel.resolve_published_source(
+            requested_source_commit, repo_root,
+        )
+        manifest_path = candidate_root / source_commit / "dev-base.json"
+        if resolved != source_commit or manifest_path.is_symlink() or (
+            not manifest_path.is_file()
+        ) or manifest_path.read_bytes() != published_manifest:
+            raise DevStageError("offline Base does not match canonical published authority")
         # This OS-owned operation verifies published Base bytes, validates the
         # archive, creates one immutable version in a temporary sibling, fsyncs,
         # and checks the materialized rootfs before its atomic rename.
@@ -160,6 +172,8 @@ def stage_offline_candidate(
         **staged,
         "$schema": "prototype-ordax.dev-base-offline-stage/1",
         "status": "staged-not-activated",
+        "requested_source_commit": requested_source_commit,
+        "published_base_manifest_verified": True,
         "versioned_rootfs_materialized": True,
         "versioned_rootfs_reused": reused,
         "inactive_esp_candidate_staged": True,
@@ -178,6 +192,8 @@ def main() -> int:
     parser.add_argument("--candidate-root", type=Path, required=True)
     parser.add_argument("--version-root", type=Path, required=True)
     parser.add_argument("--source-commit", required=True)
+    parser.add_argument("--requested-source-commit",
+                        help="exact canonical Git main revision for offline Base compatibility")
     parser.add_argument(
         "--offline-materialize-rootfs", action="store_true",
         help="pre-mounted offline media only; host owns exact physical disk authorization",
@@ -188,9 +204,14 @@ def main() -> int:
     # This producer requires a real Linux-mounted filesystem (e.g. in a VM).
     if args.offline_materialize_rootfs and os.name != "posix":
         parser.error("offline rootfs materialization requires a Linux-mounted ext4 version store")
+    if args.offline_materialize_rootfs and not args.requested_source_commit:
+        parser.error("offline rootfs materialization requires a canonical requested source commit")
+    if not args.offline_materialize_rootfs and args.requested_source_commit:
+        parser.error("--requested-source-commit requires --offline-materialize-rootfs")
 
     try:
         stage = stage_offline_candidate if args.offline_materialize_rootfs else stage_ready_candidate
+        kwargs = {"requested_source_commit": args.requested_source_commit} if args.offline_materialize_rootfs else {}
         result = stage(
             repo_root=args.repo_root,
             esp_root=args.esp_root,
@@ -198,6 +219,7 @@ def main() -> int:
             candidate_root=args.candidate_root,
             version_root=args.version_root,
             source_commit=args.source_commit,
+            **kwargs,
         )
     except DevStageError as exc:
         print(f"dev-base-stage: ERROR: {exc}", file=sys.stderr)
