@@ -60,10 +60,10 @@ class DeliveryTests(unittest.TestCase):
             mock.patch.object(APP, "install_bundle") as install,
             contextlib.redirect_stderr(io.StringIO()) as error,
         ):
-            self.assertEqual(APP.deliver(args), 2)
+            self.assertEqual(APP.deliver(args), 3)
         install.assert_not_called()
         self.assertEqual(source.call_count, 2)
-        self.assertIn("main advanced", error.getvalue())
+        self.assertIn("OWNER_USB_GIT_DELIVERY=MAIN_ADVANCED:", error.getvalue())
 
     def test_remote_main_advancing_after_readback_never_reports_current(self):
         import argparse
@@ -86,10 +86,10 @@ class DeliveryTests(unittest.TestCase):
             contextlib.redirect_stderr(io.StringIO()) as error,
             contextlib.redirect_stdout(io.StringIO()) as output,
         ):
-            self.assertEqual(APP.deliver(args), 2)
+            self.assertEqual(APP.deliver(args), 3)
         install.assert_called_once()
         self.assertNotIn("STAGED_NOT_ACTIVATED", output.getvalue())
-        self.assertIn("not latest", error.getvalue())
+        self.assertIn("OWNER_USB_GIT_DELIVERY=MAIN_ADVANCED:", error.getvalue())
 
     def test_bundles_only_exact_main_with_matching_sha(self):
         digest, size = self.make_bundle()
