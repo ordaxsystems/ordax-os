@@ -142,9 +142,10 @@ def verify_published_site_manifest(expected_commit: str) -> None:
         or manifest.get("$schema") != "prototype-ordax.independent-public-site-bundle/1"
         or manifest.get("artifact_class") != "public-site"
         or manifest.get("seo_origin") != origin
-        or manifest.get("source_commit") != expected_commit
+        or not isinstance(manifest.get("source_commit"), str)
+        or SOURCE_COMMIT_RE.fullmatch(manifest["source_commit"]) is None
     ):
-        fail("published-site-source-commit-mismatch")
+        fail("published-site-manifest-invalid")
     # Compare the actual published manifest bytes against the locally built,
     # verified same-commit artifact; public metadata alone is not attestation.
     expected_path = SITE / "public-site-manifest.json"
@@ -156,7 +157,29 @@ def verify_published_site_manifest(expected_commit: str) -> None:
         fail("verified-site-manifest-unavailable")
     if not expected_bytes or len(expected_bytes) > MAX_PUBLIC_DOCUMENT_BYTES:
         fail("verified-site-manifest-invalid-size")
-    if raw != expected_bytes:
+    try:
+        built_manifest = json.loads(expected_bytes)
+    except (UnicodeError, json.JSONDecodeError):
+        fail("verified-site-manifest-invalid")
+    if (
+        not isinstance(built_manifest, dict)
+        or built_manifest.get("source_commit") != expected_commit
+        or built_manifest.get("$schema") != manifest["$schema"]
+        or built_manifest.get("artifact_class") != "public-site"
+        or built_manifest.get("seo_origin") != origin
+    ):
+        fail("verified-site-manifest-invalid")
+    # Vercel skips a build when the Site is unchanged; the deployed SHA can
+    # then predate OS/main. Every other attested artifact field must match.
+    deployed_content = {key: value for key, value in manifest.items()
+                        if key != "source_commit"}
+    built_content = {key: value for key, value in built_manifest.items()
+                     if key != "source_commit"}
+    if deployed_content != built_content:
+        fail("published-site-manifest-artifact-mismatch")
+    # If both SHAs are identical, the published manifest must also be
+    # byte-identical, not merely semantically equal.
+    if manifest["source_commit"] == expected_commit and raw != expected_bytes:
         fail("published-site-manifest-artifact-mismatch")
 
 

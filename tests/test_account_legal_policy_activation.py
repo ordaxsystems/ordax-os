@@ -525,17 +525,26 @@ class AccountLegalPolicyActivationTests(unittest.TestCase):
                     activation.verify_published_site_manifest(expected)
 
         check(source)
-        with self.assertRaisesRegex(SystemExit, "published-site-manifest-artifact-mismatch"):
-            check({**source, "files": [{"path": "unexpected.html"}]})
+        # Vercel may correctly skip a later OS commit with no Site changes.
+        check({**source, "source_commit": "b" * 40})
+        for published in (
+            {**source, "files": [{"path": "unexpected.html"}]},
+            {**source, "source_commit": "b" * 40,
+             "files": [{"path": "wrong.html"}]},
+        ):
+            with self.assertRaisesRegex(
+                SystemExit, "published-site-manifest-artifact-mismatch"
+            ):
+                check(published)
         for key, invalid in (
-            ("source_commit", "b" * 40),
+            ("source_commit", "not-a-git-commit"),
             ("$schema", "unrecognized"),
             ("artifact_class", "wrong-product"),
             ("seo_origin", "https://another.invalid"),
         ):
             with self.subTest(field=key):
                 with self.assertRaisesRegex(
-                    SystemExit, "published-site-source-commit-mismatch"
+                    SystemExit, "published-site-manifest-invalid"
                 ):
                     check({**source, key: invalid})
 
