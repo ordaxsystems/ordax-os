@@ -478,6 +478,11 @@ test('active Git runtime survives CI-only main changes, but Native and contracts
     'infra/supabase/functions/ordax-account-gateway/index.ts',
     'infra/supabase/product/migrations/20261118163000_account_export_preferences_v1.sql',
     'tools/account/prove_gateway_negative_boundary.mjs',
+    'creator/cmd/ordax-creator-app/usb_git_update_windows.go',
+    'creator/tools/owner_local_sync.py',
+    'site/app/page.tsx',
+    'desktop/docs/CUTOVER-2026-11-21.md',
+    'system/adapters/desktop/README.md',
   ];
   for(const path of externalPaths){
     const target=join(f.source,...path.split('/'));
@@ -529,6 +534,8 @@ test('unknown paths and Native source changes cannot hide behind unrelated docum
                       'docs/contracts/update-policy.json',
                       'infra/supabase/product/native-contract.json',
                       'tools/windows-emulator/dev-supervisor.mjs',
+                      'system/adapters/desktop/native-host.mjs',
+                      'desktop/host.cjs',
                       'new-owner/unknown.txt']) {
     const f=fixture(t);
     installVerifiedBundledFixture(f,f.first);
