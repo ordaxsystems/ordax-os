@@ -227,6 +227,7 @@ def package(media: Path, root: Path, bundle: Path, release: Path,
         "version": version,
         "source_commit": m["source_commit"],
         "creator_source_commit": source,
+        "creator_source_tree": tree,
         "os_media_payload_sha256": owner_media_payload_sha256(m),
         "artifact": BUNDLE,
         "download_url": RELEASE_BASE + BUNDLE,
@@ -262,12 +263,14 @@ def verify_published(release: Path, remote: Path) -> None:
             manifest.get("download_url") != RELEASE_BASE + BUNDLE or
             manifest.get("sha256") != sha or manifest.get("size") != size or
             not isinstance(manifest.get("os_media_payload_sha256"), str) or
-            not SHA256.fullmatch(manifest["os_media_payload_sha256"])):
+            not SHA256.fullmatch(manifest["os_media_payload_sha256"]) or
+            not SHA40.fullmatch(manifest.get("creator_source_tree", ""))):
         raise ValueError("published Creator manifest mismatch")
     print("CREATOR_PUBLISHED_READBACK=PASS " + sha)
 
 
-def up_to_date(media_manifest: Path, existing: Path | None, root: Path, source: str) -> bool:
+def up_to_date(media_manifest: Path, existing: Path | None, root: Path,
+               source: str, tree: str | None = None) -> bool:
     current = json.loads(media_manifest.read_text(encoding="utf-8"))
     if (current.get("$schema") != "prototype-ordax.creator-owner-media/1"
             or current.get("source_repository") != OWNER
@@ -280,13 +283,19 @@ def up_to_date(media_manifest: Path, existing: Path | None, root: Path, source: 
         p = json.loads(existing.read_text(encoding="utf-8"))
     except (ValueError, OSError, json.JSONDecodeError):
         return False
+    # The Creator tree is the exact build input identity, independent of
+    # unrelated OS commits. Old callers without tree retain SHA semantics.
+    if tree is not None and not SHA40.fullmatch(tree):
+        raise ValueError("Creator source tree identity is invalid")
+    creator_current = (p.get("creator_source_tree") == tree if tree is not None
+                       else p.get("creator_source_commit") == source)
     return (p.get("$schema") == "prototype-ordax.creator-owner-bundle-update/2"
             and p.get("owner_repository") == CREATOR_REPO
             and p.get("source_commit") == current["source_commit"]
             # A mutable release tag must be bound to the actual USB image
             # and trust bytes. A legacy manifest is simply not CURRENT.
             and p.get("os_media_payload_sha256") == owner_media_payload_sha256(current)
-            and p.get("creator_source_commit") == source
+            and creator_current
             and p.get("version") == canonical_version(root)
             and p.get("download_url") == RELEASE_BASE + BUNDLE
             and SHA256.fullmatch(p.get("sha256", "")) is not None)
@@ -308,7 +317,10 @@ def main() -> int:
     if args.action == "status":
         if not SHA40.fullmatch(args.creator_sha or ""):
             raise ValueError("Creator SHA missing")
-        fresh = not up_to_date(args.media, args.existing, args.root, args.creator_sha)
+        if not SHA40.fullmatch(args.creator_tree or ""):
+            raise ValueError("Creator source tree missing")
+        fresh = not up_to_date(args.media, args.existing, args.root,
+                               args.creator_sha, args.creator_tree)
         if args.github_output:
             with args.github_output.open("a", encoding="utf-8") as dst:
                 dst.write("publish_required=" + str(fresh).lower() + "\n")

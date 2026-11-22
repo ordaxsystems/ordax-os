@@ -47,8 +47,10 @@ jobs:
             404) rm -f "$RUNNER_TEMP/creator-owner-previous.json" ;;
             *) echo "Existing Creator channel check returned HTTP $status" >&2; exit 1 ;;
           esac
+          tree="$(git rev-parse HEAD:creator)"
           args=(--media "$RUNNER_TEMP/creator-owner-media.json" \
-            --root . --creator-sha "$CREATOR_SHA" --github-output "$GITHUB_OUTPUT")
+            --root . --creator-sha "$CREATOR_SHA" --creator-tree "$tree" \
+            --github-output "$GITHUB_OUTPUT")
           if [ -s "$RUNNER_TEMP/creator-owner-previous.json" ]; then
             args+=(--existing "$RUNNER_TEMP/creator-owner-previous.json")
           fi
@@ -150,7 +152,16 @@ jobs:
         run: |
           set -euo pipefail
           repo='ordaxsystems/ordax-os'
-          test "$(git ls-remote https://github.com/ordaxsystems/ordax-os.git refs/heads/main | cut -f1)" = "$CREATOR_SHA"
+          latest="$(git ls-remote https://github.com/ordaxsystems/ordax-os.git refs/heads/main | cut -f1)"
+          test "$latest" != ""
+          if [ "$latest" != "$CREATOR_SHA" ]; then
+            # Ignore unrelated OS commits but never publish a stale Creator.
+            ancestry="$(gh api "repos/$repo/compare/$CREATOR_SHA...$latest?per_page=1" --jq '[.status, .behind_by] | @tsv')"
+            test "$ancestry" = "$(printf 'ahead\\t0')"
+            root_tree="$(gh api "repos/$repo/git/commits/$latest" --jq '.tree.sha')"
+            current_creator_tree="$(gh api "repos/$repo/git/trees/$root_tree" --jq '.tree[] | select(.path == "creator" and .type == "tree") | .sha')"
+            test "$current_creator_tree" = "$CREATOR_SOURCE_TREE"
+          fi
           base='https://github.com/ordaxsystems/ordax-os/releases/download/creator-owner-media'
           curl --fail --silent --show-error --location --max-time 50 \
             "$base/creator-owner-media.json" -o "$RUNNER_TEMP/owner-media-latest.json"

@@ -84,12 +84,19 @@ class OwnerReleaseTests(unittest.TestCase):
         self.assertEqual(manifest["os_media_payload_sha256"],
                          owner_media_payload_sha256(self.metadata))
         self.assertEqual(manifest["creator_source_commit"], CREATOR_SHA)
+        self.assertEqual(manifest["creator_source_tree"], CREATOR_TREE)
         self.assertEqual(manifest["owner_repository"], "ordaxsystems/ordax-os")
         self.assertFalse(manifest["automatic_in_app_update"])
         self.assertTrue(up_to_date(self.media / "creator-owner-media.json",
                                    self.release / "creator-owner-update.json", self.root, CREATOR_SHA))
         self.assertFalse(up_to_date(self.media / "creator-owner-media.json",
                                     self.release / "creator-owner-update.json", self.root, "1"*40))
+        self.assertTrue(up_to_date(self.media / "creator-owner-media.json",
+                                   self.release / "creator-owner-update.json", self.root,
+                                   "1"*40, CREATOR_TREE))
+        self.assertFalse(up_to_date(self.media / "creator-owner-media.json",
+                                    self.release / "creator-owner-update.json", self.root,
+                                    CREATOR_SHA, "e"*40))
         import zipfile
         with zipfile.ZipFile(self.release / BUNDLE) as z:
             names = z.namelist()
@@ -148,6 +155,13 @@ class OwnerReleaseTests(unittest.TestCase):
         valid_media(self.media, verify_gzip=True)
         self.assertFalse(up_to_date(media_manifest, creator_manifest,
                                     self.root, CREATOR_SHA))
+
+        # Missing Creator tree is not proof that a previous binary is current.
+        current = json.loads(creator_manifest.read_text(encoding="utf-8"))
+        current.pop("creator_source_tree", None)
+        creator_manifest.write_text(json.dumps(current), encoding="utf-8")
+        self.assertFalse(up_to_date(media_manifest, creator_manifest, self.root,
+                                    CREATOR_SHA, CREATOR_TREE))
 
         # Earlier v2 manifests have no media identity and must republish once.
         legacy = json.loads(creator_manifest.read_text(encoding="utf-8"))
