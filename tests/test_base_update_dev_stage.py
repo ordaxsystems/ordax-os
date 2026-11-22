@@ -6,9 +6,11 @@ from __future__ import annotations
 import hashlib
 from importlib.util import module_from_spec, spec_from_file_location
 import json
+import os
 from pathlib import Path
 import tempfile
 import unittest
+from unittest import mock
 
 ROOT = Path(__file__).resolve().parents[1]
 MODULE = ROOT / "system/services/base-update/dev_stage.py"
@@ -178,6 +180,102 @@ class DevelopmentBaseStageTests(unittest.TestCase):
             )
             self.assertFalse((esp / "ordax/base/b").exists())
 
+
+    def test_offline_rootfs_materializes_before_shared_esp_staging(self):
+        with tempfile.TemporaryDirectory() as temporary:
+            root = Path(temporary)
+            esp, candidates, versions, kernel, initramfs = self.fixture(root)
+            active = (esp / "loader/entries/ordax.conf").read_bytes()
+            version = versions / SOURCE
+            # The Windows fixture cannot represent POSIX execute mode or fsync
+            # directories. Keep the real Linux gates unchanged and tested there.
+            original_load = dev_stage._load
+
+            def load_stager(path, name):
+                module = original_load(path, name)
+                if os.name == "nt":
+                    module.fsync_directory = lambda _path: None
+                return module
+
+            with (
+                mock.patch.object(dev_stage, "_load", side_effect=load_stager),
+                mock.patch.object(
+                    dev_stage._channel, "materialize_versioned_rootfs",
+                    return_value=(version, True),
+                ) as materialize,
+                mock.patch.object(
+                    dev_stage._channel, "verify_versioned_rootfs",
+                    return_value=None,
+                ),
+            ):
+                receipt = dev_stage.stage_offline_candidate(
+                    repo_root=ROOT, esp_root=esp, active_slot="a",
+                    candidate_root=candidates, version_root=versions,
+                    source_commit=SOURCE,
+                )
+            materialize.assert_called_once_with(
+                candidates / SOURCE, SOURCE, versions,
+            )
+            self.assertEqual(receipt["status"], "staged-not-activated")
+            self.assertEqual(
+                receipt["$schema"], "prototype-ordax.dev-base-offline-stage/1",
+            )
+            self.assertTrue(receipt["versioned_rootfs_materialized"])
+            self.assertTrue(receipt["versioned_rootfs_reused"])
+            self.assertTrue(receipt["inactive_esp_candidate_staged"])
+            self.assertFalse(receipt["physical_disk_identity_verified"])
+            self.assertFalse(receipt["activation_performed"])
+            self.assertFalse(receipt["efi_variable_written"])
+            self.assertFalse(receipt["reboot_requested"])
+            self.assertEqual(
+                (esp / "loader/entries/ordax.conf").read_bytes(), active,
+            )
+            self.assertTrue(
+                (esp / "loader/entries/ordax-candidate+01-00.conf").is_file()
+            )
+            self.assertEqual((esp / "ordax/base/b/vmlinuz").read_bytes(), kernel)
+            self.assertEqual((esp / "ordax/base/b/initrd.gz").read_bytes(), initramfs)
+
+    def test_offline_materialization_failure_cannot_stage_efi(self):
+        with tempfile.TemporaryDirectory() as temporary:
+            root = Path(temporary)
+            esp, candidates, versions, _kernel, _initramfs = self.fixture(root)
+            current = (esp / "loader/entries/ordax.conf").read_bytes()
+            with mock.patch.object(
+                dev_stage._channel, "materialize_versioned_rootfs",
+                side_effect=dev_stage._channel.DevBaseChannelError(
+                    "candidate archive rejected",
+                ),
+            ):
+                with self.assertRaisesRegex(
+                    dev_stage.DevStageError, "candidate archive rejected",
+                ):
+                    dev_stage.stage_offline_candidate(
+                        repo_root=ROOT, esp_root=esp, active_slot="a",
+                        candidate_root=candidates, version_root=versions,
+                        source_commit=SOURCE,
+                    )
+            self.assertEqual(
+                (esp / "loader/entries/ordax.conf").read_bytes(), current,
+            )
+            self.assertFalse(
+                (esp / "loader/entries/ordax-candidate+01-00.conf").exists()
+            )
+
+    def test_offline_stage_rejects_overlapping_esp_and_ext4_paths(self):
+        with tempfile.TemporaryDirectory() as temporary:
+            root = Path(temporary)
+            esp, candidates, _versions, _kernel, _initramfs = self.fixture(root)
+            with mock.patch.object(
+                dev_stage._channel, "materialize_versioned_rootfs",
+            ) as materialize:
+                with self.assertRaisesRegex(dev_stage.DevStageError, "overlap"):
+                    dev_stage.stage_offline_candidate(
+                        repo_root=ROOT, esp_root=esp, active_slot="a",
+                        candidate_root=candidates, version_root=esp,
+                        source_commit=SOURCE,
+                    )
+                materialize.assert_not_called()
 
 if __name__ == "__main__":
     unittest.main()

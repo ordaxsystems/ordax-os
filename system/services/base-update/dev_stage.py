@@ -12,6 +12,7 @@ from __future__ import annotations
 import argparse
 import importlib.util
 import json
+import os
 from pathlib import Path
 import sys
 
@@ -109,6 +110,66 @@ def stage_ready_candidate(
     }
 
 
+def stage_offline_candidate(
+    *,
+    repo_root: Path,
+    esp_root: Path,
+    active_slot: str,
+    candidate_root: Path,
+    version_root: Path,
+    source_commit: str,
+) -> dict:
+    '''Prepare verified rootfs and inactive ESP slot through canonical owners.
+
+    The caller must independently prove that the destination mounts belong to
+    the same explicitly authorized removable device. This primitive does not
+    mount disks, choose a device, change firmware variables or activate a slot.
+    It works on pre-mounted disposable images as well as eligible offline media.
+    '''
+    try:
+        _channel.candidate_tag(source_commit)
+        if not esp_root.is_dir() or esp_root.is_symlink():
+            raise DevStageError("offline ESP root is unavailable or linked")
+        if not version_root.is_dir() or version_root.is_symlink():
+            raise DevStageError("offline version store is unavailable or linked")
+        esp = esp_root.resolve(strict=True)
+        versions = version_root.resolve(strict=True)
+        if esp == versions or esp in versions.parents or versions in esp.parents:
+            raise DevStageError("offline ESP and rootfs version store overlap")
+        # This OS-owned operation verifies published Base bytes, validates the
+        # archive, creates one immutable version in a temporary sibling, fsyncs,
+        # and checks the materialized rootfs before its atomic rename.
+        target, reused = _channel.materialize_versioned_rootfs(
+            candidate_root / source_commit, source_commit, version_root,
+        )
+        if target != version_root / source_commit:
+            raise DevStageError("offline rootfs materializer returned a different version")
+        _channel.verify_versioned_rootfs(target, source_commit)
+    except (_channel.DevBaseChannelError, OSError) as exc:
+        raise DevStageError(str(exc)) from exc
+
+    staged = stage_ready_candidate(
+        repo_root=repo_root,
+        esp_root=esp_root,
+        active_slot=active_slot,
+        candidate_root=candidate_root,
+        version_root=version_root,
+        source_commit=source_commit,
+    )
+    return {
+        **staged,
+        "$schema": "prototype-ordax.dev-base-offline-stage/1",
+        "status": "staged-not-activated",
+        "versioned_rootfs_materialized": True,
+        "versioned_rootfs_reused": reused,
+        "inactive_esp_candidate_staged": True,
+        # A directory-level stager is not the host's physical-disk proof.
+        "physical_disk_identity_verified": False,
+        "activation_performed": False,
+        "efi_variable_written": False,
+        "reboot_requested": False,
+    }
+
 def main() -> int:
     parser = argparse.ArgumentParser()
     parser.add_argument("--repo-root", type=Path, default=SOURCE_ROOT)
@@ -117,10 +178,20 @@ def main() -> int:
     parser.add_argument("--candidate-root", type=Path, required=True)
     parser.add_argument("--version-root", type=Path, required=True)
     parser.add_argument("--source-commit", required=True)
+    parser.add_argument(
+        "--offline-materialize-rootfs", action="store_true",
+        help="pre-mounted offline media only; host owns exact physical disk authorization",
+    )
     args = parser.parse_args()
 
+    # Native Windows directories cannot preserve the required Linux mode bits.
+    # This producer requires a real Linux-mounted filesystem (e.g. in a VM).
+    if args.offline_materialize_rootfs and os.name != "posix":
+        parser.error("offline rootfs materialization requires a Linux-mounted ext4 version store")
+
     try:
-        result = stage_ready_candidate(
+        stage = stage_offline_candidate if args.offline_materialize_rootfs else stage_ready_candidate
+        result = stage(
             repo_root=args.repo_root,
             esp_root=args.esp_root,
             active_slot=args.active_slot,

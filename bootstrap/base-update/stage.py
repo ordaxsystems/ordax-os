@@ -127,11 +127,13 @@ def _atomic_copy(esp_root: Path, source: Path, target: Path, expected_sha256: st
         | os.O_EXCL
         | getattr(os, "O_CLOEXEC", 0)
         | getattr(os, "O_NOFOLLOW", 0)
+        | getattr(os, "O_BINARY", 0)
     )
     try:
         source_fd = os.open(
             source,
-            os.O_RDONLY | getattr(os, "O_CLOEXEC", 0) | getattr(os, "O_NOFOLLOW", 0),
+            os.O_RDONLY | getattr(os, "O_CLOEXEC", 0)
+            | getattr(os, "O_NOFOLLOW", 0) | getattr(os, "O_BINARY", 0),
         )
         try:
             source_meta_before = os.fstat(source_fd)
@@ -194,6 +196,7 @@ def write_candidate_entry(esp_root: Path, target: Path, plan: dict) -> None:
         | os.O_EXCL
         | getattr(os, "O_CLOEXEC", 0)
         | getattr(os, "O_NOFOLLOW", 0)
+        | getattr(os, "O_BINARY", 0)
     )
     try:
         descriptor = os.open(target, flags, ENTRY_MODE)
