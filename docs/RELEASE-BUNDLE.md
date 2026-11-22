@@ -20,20 +20,20 @@ The bootstrap activates that immutable release through `/ordax/current` only aft
 
 The bundler receives a source root containing `system/` and emits a new `system.tar`. For the Native product release, that source root is prepared by `tools/native-release-assembly/build.py`: it starts from the canonical shared `system/` source and injects only explicitly contracted, prebuilt Native release tools plus their provenance. The bundler itself remains platform-neutral and does not compile or invent Native content.
 
-### External Surface assembly (canonical source cutover)
+### Same-commit Surface assembly (canonical source)
 
-The UI presentation code is now owned by `ordaxsystems/ordax-surface` as a
-pinned Git revision in [`docs/contracts/surface-source.json`](contracts/surface-source.json).
-The `tools/surface-source/assemble.py` recipe (invoked through the single
-`.github/actions/assemble-surface` action) creates a disposable release source
-root. It retains the OS-owned services/Native host, omits every tracked OS copy
-under `system/surface/{ui,workspace}`, and inserts only the verified external
-visual source. The assembled output includes
-`system/surface/source-provenance.json` with both commit identities and the
-source fingerprint. It is the *same system/ input* for the existing deterministic
-release-bundle and portable EROFS builders, not another bundler or update channel.
+The visual UI and Workspace are tracked in `ordaxsystems/ordax-os/main` under
+`system/surface/ui/` and `system/surface/workspace/`. The contract
+[`docs/contracts/surface-source.json`](contracts/surface-source.json) enforces
+`same-commit` and `tracked-git-blobs-only`.
 
-The **source ownership cutover is complete**, but source assembly is not Native activation authority. `tools/native-release-assembly/build.py` injects OS-owned Native helpers into the final composed/signed system payload after the exact external visual revision has been verified. Owner/Development and Stable activation retain their own QEMU/health/rollback/physical gates. `ordax-os` no longer tracks a competing visual source under `system/surface/{ui,workspace}`; those paths exist only in disposable staging/release trees. No network checkout of Surface is allowed during ordinary Stable device boot.
+`tools/surface-source/assemble.py` verifies and stages committed visual blobs from
+the **same OS Git revision**, writing the Surface provenance receipt. The result
+feeds the existing release-bundle, Native and portable EROFS builders. No
+external clone, independent Surface pin or parallel publisher is introduced.
+
+Staging does not authorize activation: signature, integrity, health, rollback,
+promotion and physical-write gates remain unchanged.
 
 Required:
 

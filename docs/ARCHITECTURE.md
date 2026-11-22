@@ -256,9 +256,9 @@ Release protocol evolution is versioned. Current `release-manifest/1` intentiona
 
 ### 4. Universal Surface and component ownership
 
-There is exactly one canonical **visual Surface owner**: `ordaxsystems/ordax-surface`. Removable first-party application source is owned separately by `ordaxsystems/ordax-apps`; OS structural UI/services remain in `ordax-os`.
+There is exactly one canonical **visual Surface owner**: `ordaxsystems/ordax-os/main:system/surface/`. Removable first-party application source is owned separately by `ordaxsystems/ordax-apps`; OS structural UI/services remain in `ordax-os`.
 
-A product candidate composes exact compatible revisions and materializes the visual tree at release-layout paths under `system/surface/{ui,workspace}`. Those staged paths are consumed by the applicable Web, Desktop, USB and Native compositions; they do not create a second source owner.
+A product candidate verifies one OS source revision and materializes the visual tree at release-layout paths under `system/surface/{ui,workspace}`. Those staged paths are consumed by the applicable Web, Desktop, USB and Native compositions; they do not create a second source owner.
 
 1. hosted/local Web consumes the verified composed Surface;
 2. mobile clients consume compatible public contracts and the shared visual owner where applicable;

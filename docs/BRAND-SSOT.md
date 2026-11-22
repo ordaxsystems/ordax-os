@@ -1,6 +1,6 @@
 # OrdaX — Design System e publicação dos e-mails (SSOT de marca derivada)
 
-**Ownership vigente — 13/11/2026:** a fonte visual da marca pertence a `ordaxsystems/ordax-surface`. O `ordax-os` **não** mantém cópia editável de `system/surface/ui`; ele seleciona a revisão exata pelo contrato [`docs/contracts/surface-source.json`](contracts/surface-source.json) e a materializa somente em staging descartável de build/CI. Os caminhos `system/surface/ui/*` vistos por `tools/brand/build.py` são essa árvore materializada e verificada, não uma segunda source authority. Templates de e-mail e a política de publicação permanecem owners do OS.
+**Ownership vigente — 22/11/2026:** a fonte visual da marca pertence a `ordaxsystems/ordax-os/main:system/surface/ui/`. Os arquivos são versionados no OS e verificados pelo contrato [`docs/contracts/surface-source.json`](contracts/surface-source.json) com `same-commit`. `tools/brand/build.py` consome a mesma árvore canônica, sem cópia externa. Templates de e-mail e a política de publicação permanecem owners do OS.
 
 **Checkpoint histórico (09/10/2026):** ponte de distribuição implementada; publicação
 de templates de produção somente mediante autorização e segredo configurado.
@@ -10,10 +10,10 @@ a implementação original da PR #1532, encerrada como substituída.
 
 ## Owners únicos por responsabilidade
 
-- Paleta semântica/tema: `ordaxsystems/ordax-surface/system/surface/ui/tokens.css`. Não copiar cores
+- Paleta semântica/tema: `ordaxsystems/ordax-os/system/surface/ui/tokens.css`. Não copiar cores
   para CSS do site, aplicativos ou HTML de e-mails.
-- Composição e símbolo: `ordaxsystems/ordax-surface/system/surface/ui/identity.css` e
-  `ordaxsystems/ordax-surface/system/surface/ui/brand/ordax-symbol.png`. A imagem transparente aprovada
+- Composição e símbolo: `ordaxsystems/ordax-os/system/surface/ui/identity.css` e
+  `ordaxsystems/ordax-os/system/surface/ui/brand/ordax-symbol.png`. A imagem transparente aprovada
   pelo usuário em 09/10/2026 é a única fonte do símbolo. O compilador público
   deriva `/assets/ordax-symbol.png` por cópia verificada; o site não mantém
   outra imagem no source. OS, inicialização, Minha conta e acesso Web
@@ -151,7 +151,7 @@ ainda elegíveis a migrações posteriores, sem bloquear o MVP.
 
 A aprovação explícita do usuário substitui o vetor simplificado no OS, na
 inicialização e em todos os cabeçalhos do site público, incluindo Minha
-conta/Web. A fonte `ordaxsystems/ordax-surface/system/surface/ui/brand/symbol.css` concentra a apresentação e as
+conta/Web. A fonte `ordaxsystems/ordax-os/system/surface/ui/brand/symbol.css` concentra a apresentação e as
 silhuetas acessíveis; o compilador distribui essas regras junto da exportação
 de tokens. Os desenhos antigos em CSS foram removidos. Os registros anteriores sobre
 preservação da marca pública descrevem aquela etapa. O arquivo tem SHA-256

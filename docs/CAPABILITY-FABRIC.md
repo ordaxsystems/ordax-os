@@ -430,7 +430,7 @@ Para o app **Notas** a ação semântica declarada `notes.create-note` é um bom
 | Fonte de efeitos e recibos | Personal Action Gateway/Executor + Native File Space | Apenas ação registrada, recurso/grant atual e consentimento exato podem produzir efeito; recibo/erro incerto seguem fluxo existente |
 | Runtime MCP externo | `ordaxsystems/ordax-runtime`, `ordax_dev_agent/capability_snapshot.py`, Product gateway | Contrato separado `ordax.device-agent-capabilities/1` limitado às ações suportadas; Fabric não adiciona automaticamente nenhuma tool |
 | Plataforma OAuth/Owner/grants | `ordaxsystems/ordax-platform` | Única autoridade de sessão, Device e grants remotos; presença não equivale a prontidão ou permissão |
-| UX visual | `ordaxsystems/ordax-surface` | Owner da experiência gráfica; teste real de uso visual e aprovação ainda não homologado pelo Fabric v1 |
+| UX visual | `ordaxsystems/ordax-os/main:system/surface/` | Owner da experiência gráfica; teste real de uso visual e aprovação ainda não homologado pelo Fabric v1 |
 
 **Exemplo nativo já exercitado em teste:** `system:action.native-file.ensure-directory` é mostrado declarativamente. Personal pede aprovação vinculada ao `Work`, `resourceValue`, identidade do artefato e `expectedRevision`. Somente depois de consentimento, gateway e grant válidos o executor já existente pode criar diretório no File Space e registrar o resultado. Repetição idempotente, retirada do provedor, travessia de caminho, concorrência e resposta incerta são cenários cobertos. A **entrada Fabric continua `execution=unavailable`**: o efeito, quando autorizado, acontece por outra fronteira canônica.
 

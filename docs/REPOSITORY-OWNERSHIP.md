@@ -174,14 +174,12 @@ ordaxsystems/ordax-os/main:site/
 
 ### Surface visual compartilhada Web / Native
 
-```text
-ordaxsystems/ordax-surface (revisão fixa em docs/contracts/surface-source.json)
-  -> composição com serviços e adapters de ordaxsystems/ordax-os
-  -> build/release verificada com uma única interface
-  -> host Web/Native do OS e rollback da própria release
-```
-
-O repositório da Surface não instala serviços nativos nem atualiza dispositivos; a verificação, staging e ativação pertencem aos owners do OS.
+`ordaxsystems/ordax-os/main` versiona `system/surface/ui/` e
+`system/surface/workspace/` no mesmo commit dos serviços/host Native.
+`docs/contracts/surface-source.json` valida `same-commit` e as composições
+Web/Native consomem somente a fonte local, preservando verificação e rollback.
+`ordax-surface` é repositório histórico e não deve ser dependência de execução,
+compilação ou publicação.
 
 ### Creator integrado com artefatos OS verificados
 
