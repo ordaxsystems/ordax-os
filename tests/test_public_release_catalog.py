@@ -5,8 +5,8 @@ import unittest
 from pathlib import Path
 
 ROOT = Path(__file__).resolve().parents[1]
-TOOLS = ROOT / "tools" / "public-site"
-sys.path.insert(0, str(TOOLS))
+SITE_SCRIPTS = ROOT / "site" / "scripts"
+sys.path.insert(0, str(SITE_SCRIPTS))
 
 import public_release_catalog as catalog  # noqa: E402
 
@@ -125,6 +125,26 @@ class PublicReleaseCatalogTests(unittest.TestCase):
             "relative/file",
             "/release/file?token=secret",
             "/release/file#fragment",
+        ):
+            release = self.base_release()
+            release["targets"][0]["href"] = href
+            value = {
+                "$schema": catalog.PUBLICATIONS_SCHEMA,
+                "status": "candidate",
+                "releases": [release],
+            }
+            with self.subTest(href=href):
+                with self.assertRaises(catalog.PublicReleaseCatalogError):
+                    self.render(value)
+
+    def test_encoded_or_traversal_download_path_rejected(self):
+        # Runtime and release authorization must use the same strict path policy.
+        for href in (
+            "/releases/v1/%2fsecret",
+            "/releases/../internal",
+            "/releases/./file",
+            "/releases/v1//file",
+            "/releases/v1/file%2eexe",
         ):
             release = self.base_release()
             release["targets"][0]["href"] = href
