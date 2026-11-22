@@ -7,6 +7,12 @@ on:
       - "tests/test_studio_runtime_source_lock.mjs"
       - "tools/ci/verify_native_product_candidate.py"
       - "tests/test_native_product_candidate_verifier.py"
+      - "tests/test_owner_dev_native_product_handoff.py"
+      - "tests/test_native_product_lifecycle.py"
+      - "system/services/device-agent/owner-dev-native-product.sh"
+      - "system/services/device-agent/owner-dev-native-product.txt"
+      - "system/services/device-agent/native-product-lifecycle.sh"
+      - "system/supervisor"
       - "system/surface/runtime/product_device_presence.py"
       - "tests/test_product_device_presence_native.py"
       - ".github/workflows/native-product-candidate-handoff.yml"
@@ -17,6 +23,12 @@ on:
       - "tests/test_studio_runtime_source_lock.mjs"
       - "tools/ci/verify_native_product_candidate.py"
       - "tests/test_native_product_candidate_verifier.py"
+      - "tests/test_owner_dev_native_product_handoff.py"
+      - "tests/test_native_product_lifecycle.py"
+      - "system/services/device-agent/owner-dev-native-product.sh"
+      - "system/services/device-agent/owner-dev-native-product.txt"
+      - "system/services/device-agent/native-product-lifecycle.sh"
+      - "system/supervisor"
       - "system/surface/runtime/product_device_presence.py"
       - "tests/test_product_device_presence_native.py"
       - ".github/workflows/native-product-candidate-handoff.yml"
@@ -34,6 +46,10 @@ jobs:
           persist-credentials: false
       - name: Verify candidate gate regressions
         run: python3 -m unittest discover -s tests -p test_native_product_candidate_verifier.py -v
+      - name: Verify Owner USB Native handoff without a kernel/Creator rebuild
+        run: python3 -m unittest discover -s tests -p test_owner_dev_native_product_handoff.py -v
+      - name: Preserve signed and legacy Native lifecycle denial tests
+        run: python3 -m unittest discover -s tests -p test_native_product_lifecycle.py -v
       - name: Prove exclusive Native presence heartbeat against canonical Runtime singleton
         run: python3 -m unittest discover -s tests -p test_product_device_presence_native.py -v
       - name: Verify canonical source lock and closed dispatch
