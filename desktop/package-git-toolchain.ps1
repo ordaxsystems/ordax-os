@@ -1,6 +1,6 @@
 param([string]$Archive = "")
 $ErrorActionPreference = 'Stop'
-$root = (Resolve-Path (Join-Path $PSScriptRoot '../..')).Path
+$root = (Resolve-Path (Join-Path $PSScriptRoot '..')).Path
 $lock = Get-Content -LiteralPath (Join-Path $PSScriptRoot 'git-toolchain-lock.json') -Raw | ConvertFrom-Json
 if ($lock.schema -ne 'ordax.windows-min-git-lock/1' -or
     $lock.version -notmatch '^\d+\.\d+\.\d+\.\d+$' -or
