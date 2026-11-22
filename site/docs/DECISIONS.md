@@ -3,6 +3,17 @@
 
 > **Regra vigente:** ADR-042 substitui somente a separação física de repositório da ADR-001 (preservando a separação de responsabilidades); ADR-032 substitui os snapshots transitórios (ADR-010/011); ADR-041 atualiza a composição móvel (ADR-035/038). Os demais ADRs não conflitantes continuam válidos. A documentação operacional é o [README](../README.md) e o [handoff](HANDOFF.md). Paths antigos referem-se ao módulo anterior à reintegração; não são instruções para reconstruir fontes, duplicar contratos ou operar repositórios independentes.
 
+**SITE-ADR-043 — Artefatos visuais da mesma revisão OS (2026-11-22):**
+A marca e a apresentação Meridian deixam de consumir prereleases históricas
+de outro repositório. A autoridade é `ordax-os/main`, com os pacotes
+produzidos de seus próprios blobs Git por `site/scripts/canonical_artifacts.py`
+e `site/scripts/canonical-preview.mjs`. A marca reutiliza
+`tools/brand/build.py`; a Surface usa o contrato
+`docs/contracts/surface-source.json`. O lock v3 indica a fonte no mesmo
+SHA, e o manifest de cada pacote vincula o inventário SHA-256 e a origem Git.
+**Supersede a ADR-032 quanto à origem técnica da apresentação**. Não concede
+sessão, publicação oficial ou downloads.
+
 **SITE-ADR-042 — Site como módulo canônico do monorepo (2026-11-21):** a autoridade única de apresentação pública é `ordaxsystems/ordax-os/main`, na pasta `site/`; `site/public/` é a raiz visual, e as APIs compartilhadas de Conta e OAuth são importadas de `api/` e `lib/` da mesma revisão Git, sem outra implementação e sem clone do repositório `ordax-site`. Um único `package-lock.json` na raiz e o workspace npm `site` garantem a resolução de dependências da API compartilhada. O domínio público `ordax.com.br` já é servido pelo projeto Vercel `ordax-os-public` conectado a `ordax-os/main`, confirmado pelo manifesto do bundle e SHA do deployment. O projeto de staging `ordax-site` é separado; seu vínculo Git anterior deve ser reconectado ao monorepo (`site/`, com arquivos externos à raiz) caso continue necessário, ou descontinuado mediante decisão operacional, nunca usado como segunda fonte de código. O repositório `ordaxsystems/ordax-site` já está arquivado com somente histórico; não restaurar código ativo nem abrir novo owner. O CI do módulo roda sobre o commit do OS e não repete builds de kernel, USB ou Creator por mudanças apenas do Site.
 
 **SITE-ADR-034 — Geração do shell público a partir de um contrato (2026-10-29):** cabeçalhos e rodapés das rotas comuns não são markup mantida por página. `contracts/public-shell.json` contém conteúdo, perfis reutilizáveis e exceções; `scripts/public_shell.py` valida as referências e gera os fragmentos no build. `site/assets/site.css` é o owner da geometria compartilhada; `site/i18n/catalog.js`/`runtime.js` são o owner de traduções. `contracts/site-routes.json` permanece o único inventário de rotas. `/conta/` tem shell de aplicação próprio. Privacidade e Termos preservam seus bytes de origem por causa dos hashes de Identity; o runtime normaliza a marca e as ações na apresentação.

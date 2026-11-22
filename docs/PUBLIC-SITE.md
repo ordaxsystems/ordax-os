@@ -138,7 +138,7 @@ ordax-surface/system/surface/ui/tokens.css
   -> login / cadastro / recuperação
 ```
 
-O path `system/surface/ui/tokens.css` pode existir **temporariamente no staging descartável do OS** durante o pipeline, mas não é fonte versionada do `ordax-os`. O Site consome a saída derivada; não mantém pin direto da Surface nem outra paleta.
+O path `system/surface/ui/tokens.css` é versionado exclusivamente no `ordax-os`. O Site usa os CSS derivados por `tools/brand/build.py`, conferidos pelo SHA do commit Git, sem criar uma paleta ou repositório concorrente.
 
 `account.css` pode definir aliases semânticos locais, mas não pode se tornar uma segunda autoridade de cor, raio, tipografia ou estado.
 
@@ -219,7 +219,7 @@ comprova implantação, ativação das flags, coleta real nem E2E público.
 
 ## Build e validação
 
-O source e o builder do Site vivem apenas em `ordax-os/main:site/`. Os artefatos DEV de Marca e Surface são fixados por `site/contracts/dev-artifact-lock.json`; nunca clonar o repositório histórico. Na raiz do monorepo:
+O source e o builder do Site vivem apenas em `ordax-os/main:site/`. Os artefatos DEV de Marca e Meridian são gerados da **mesma revisão Git do OS** pelo produtor canônico, sob `site/contracts/dev-artifact-lock.json` v3, conferindo origem Git, hashes e inventário; não clonar ou baixar releases do repositório histórico. Na raiz do monorepo:
 
 ```bash
 python3 site/scripts/build.py check

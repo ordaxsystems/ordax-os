@@ -34,3 +34,14 @@
 3. Staging legado **pausado e fora de operação**. Para futuras provas de autenticação, usar `ordax-os/main` e um ambiente autorizado; eventual reutilização do projeto antigo exige reconexão Git ao monorepo, nunca restauração de código legado.
 
 Histórico da migração e recibos anteriores permanece no Git. Este handoff documenta **autoridades e gates operacionais**; para o estado em tempo real usar a conexão Git do projeto, o deployment ativo e o manifesto publicado. Não restaurar repositórios ou pipelines legados.
+
+## Cutover dos releases históricos de marca e Meridian
+
+Os dois pacotes de apresentação são gerados no próprio checkout Git
+`ordax-os/main`, referenciando **exatamente o mesmo SHA** do bundle Site.
+`site/contracts/dev-artifact-lock.json` v3 exige prova do contrato
+`docs/contracts/surface-source.json`. Os inputs são conferidos contra
+blobs Git, cada payload tem SHA-256 e inventário verificado. O status dos
+pacotes permanece `candidate-not-published`. O Site não consome releases
+de `ordax-surface` nem publica releases oficiais; catálogo público
+`empty` até autorização independente.

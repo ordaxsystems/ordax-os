@@ -27,3 +27,16 @@ node --test tests/*.mjs
 A configuração Vercel executável é exclusivamente `vercel.json` na raiz do OS; `tools/vercel/build.py` compõe o Site verificável e `tools/vercel/should_skip_build.sh` aplica o impacto canônico de `site/scripts/build_impact.py`. O `site/vercel.json` foi excluído junto ao encerramento do staging legado. Os artefatos DEV assinados de Marca e Surface são fixados exclusivamente por `contracts/dev-artifact-lock.json` (relativo a `site/`), sem cópias ou contratos antigos. `site/scripts/build_impact.py` ignora mudanças de outros módulos do OS, mas não ignora alterações nas APIs canônicas, contratos, dependências ou arquivos do Site; ausência de diff confiável força build. Não executar builds de kernel, QEMU, USB ou Creator por alterações do Site.
 
 Para provas de produção, bloqueios e estados atuais, consultar [docs/HANDOFF.md](docs/HANDOFF.md). A política DEV única permanece em `ordax-os/docs/DEVELOPMENT-WORKFLOW.md`. Nunca habilitar recursos públicos ou grants apenas por existir um deployment READY.
+
+## Artefatos canônicos de apresentação
+
+A marca e a prévia estática Meridian vêm exclusivamente do mesmo commit de
+`ordax-os/main` que publica o Site. `site/contracts/dev-artifact-lock.json`
+(v3) exige o contrato `docs/contracts/surface-source.json`: os produtores
+`site/scripts/canonical_artifacts.py` e `site/scripts/canonical-preview.mjs`
+verificam os blobs Git da Surface e exportam inventário com SHA-256 de cada
+arquivo. A prévia inclui 11 telas **somente de leitura**, sem sessão nem
+capacidade de executar comandos. Não há checkout do repositório histórico,
+URL de release externa ou fonte concorrente de tokens. O renderizador de marca
+`tools/brand/build.py` permanece a autoridade de CSS. Downloads oficiais,
+cadastro e Conta permanecem sujeitos a seus próprios gates.

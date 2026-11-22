@@ -11,7 +11,6 @@ ROOT = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(ROOT / "scripts"))
 import build
 
-SURFACE_SHA = "a" * 40
 OS_SHA = "b" * 40
 
 
@@ -20,7 +19,7 @@ class SurfaceDevPreviewTests(unittest.TestCase):
         root = Path(tmp) / "producer"
         (root / "assets").mkdir(parents=True)
         sources = [
-            {"repository": "ordaxsystems/ordax-surface", "commit": SURFACE_SHA,
+            {"repository": "ordaxsystems/ordax-os", "commit": OS_SHA,
              "path": "system/surface/ui/meridian.css", "git_blob": "c" * 40,
              "sha256": "d" * 64},
             {"repository": "ordaxsystems/ordax-os", "commit": OS_SHA,
@@ -56,10 +55,8 @@ class SurfaceDevPreviewTests(unittest.TestCase):
             "artifact_class": "ordax-meridian-preview",
             "status": "candidate-not-published",
             "runtime_authority": False,
-            "source_repository": "ordaxsystems/ordax-surface",
-            "source_commit": SURFACE_SHA,
-            "os_host_repository": "ordaxsystems/ordax-os",
-            "os_host_commit": OS_SHA,
+            "source_repository": "ordaxsystems/ordax-os",
+            "source_commit": OS_SHA,
             "catalog_schema": "ordax.os-public-catalog-projection/1",
             "catalog_sha256": "0" * 64,
             "sources": sources,
@@ -82,7 +79,7 @@ class SurfaceDevPreviewTests(unittest.TestCase):
             font.write_bytes(b"test-inter-font")
             result = build.stage_surface_preview(stage, directory, pin)
             self.assertEqual(result["status"], "candidate-not-published")
-            self.assertEqual(result["source_repository"], "ordaxsystems/ordax-surface")
+            self.assertEqual(result["source_repository"], "ordaxsystems/ordax-os")
             self.assertEqual(result["file_count"], 4)
             self.assertTrue((stage / "assets/playground-fixture.json").is_file())
             self.assertTrue((stage / "assets/public-theme-image.jpg").is_file())
@@ -114,7 +111,7 @@ class SurfaceDevPreviewTests(unittest.TestCase):
             stage = Path(tmp) / "site"
             stage.mkdir()
             altered = copy.deepcopy(manifest)
-            altered["sources"][0]["commit"] = OS_SHA
+            altered["sources"][0]["commit"] = "a" * 40
             (directory / "manifest.json").write_text(json.dumps(altered))
             with self.assertRaisesRegex(build.SiteError, "provenance"):
                 build.stage_surface_preview(

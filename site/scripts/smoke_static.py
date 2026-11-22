@@ -144,10 +144,10 @@ def assert_candidate(out: Path) -> dict:
         if relative == "index.html":
             receipt = manifest["surface_preview"]
             if (receipt.get("status") != "candidate-not-published"
-                    or receipt.get("source_repository") != "ordaxsystems/ordax-surface"
-                    or not receipt.get("os_host_commit")
+                    or receipt.get("source_repository") != "ordaxsystems/ordax-os"
+                    or receipt.get("source_commit") != manifest["source_commit"]
                     or receipt.get("font_url_rebased") is not True):
-                raise AssertionError("invalid signed Dev Surface producer receipt")
+                raise AssertionError("invalid same-commit OS Surface producer receipt")
             css_path = out / "assets/surface-snapshot.css"
             css = css_path.read_bytes()
             delivered_digest = hashlib.sha256(css).hexdigest()

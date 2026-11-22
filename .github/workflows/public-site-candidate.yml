@@ -106,6 +106,13 @@ jobs:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
         with:
           persist-credentials: false
+      - name: Set up Node 24 for the canonical OS presentation producer
+        uses: actions/setup-node@249970729cb0ef3589644e2896645e5dc5ba9c38 # v6
+        with:
+          node-version: "24"
+          check-latest: false
+      - name: Install locked presentation dependencies (no native rebuild)
+        run: npm ci --ignore-scripts --no-audit --no-fund
       - name: Produce Site from current OS commit (no deployment)
         env:
           VERCEL_PROJECT_ID: prj_mA9ew6hOfjdqlBr1cC757iMLPQJC

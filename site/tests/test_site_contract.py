@@ -20,8 +20,7 @@ from site_seo import validate_origin, render_html
 from smoke_static import check_css_dependencies
 
 DEV_LOCK = build.load_dev_artifact_lock(ROOT / "contracts/dev-artifact-lock.json")
-BRAND_PIN = DEV_LOCK["brand"]["manifest_sha256"]
-PREVIEW_PIN = DEV_LOCK["surface_preview"]["manifest_sha256"]
+INVALID_MANIFEST_SHA256 = "0" * 64
 PUBLIC_SHELL_LAYOUT_PROPERTIES = {
     "align-content", "align-items", "border", "border-top", "column-gap",
     "display", "flex", "flex-basis", "flex-direction", "flex-flow",
@@ -643,29 +642,35 @@ class SiteContractTests(unittest.TestCase):
     def test_brand_not_implicitly_read_from_os(self):
         with tempfile.TemporaryDirectory() as tmp:
             with self.assertRaises(build.SiteError):
-                build.stage_brand(Path(tmp), Path(tmp) / "nonexistent", BRAND_PIN)
-        self.assertNotIn("system/surface/", (ROOT / "scripts/build.py").read_text().split("def stage_brand(")[1].split("def build(")[0])
+                build.stage_brand(Path(tmp), Path(tmp) / "nonexistent", INVALID_MANIFEST_SHA256)
+        # The Site now verifies the actual canonical OS visual sources instead
+        # of excluding them and trusting historical Surface release metadata.
+        exporter = (ROOT / "scripts/canonical_artifacts.py").read_text()
+        self.assertIn('surface.verify_source(ROOT', exporter)
+        self.assertIn('source_repository', (ROOT / "scripts/build.py").read_text())
 
-    def test_development_lock_accepts_only_owner_releases(self):
-        self.assertEqual(set(DEV_LOCK), {"brand", "surface_preview"})
-        pin = DEV_LOCK["brand"]["release"]
-        self.assertEqual(pin["source_repository"], "ordaxsystems/ordax-surface")
-        self.assertEqual(pin["release_tag"], "brand-dev-" + pin["source_commit"])
-        self.assertRegex(pin["archive_sha256"], r"^[0-9a-f]{64}$")
-        self.assertEqual(pin["manifest_sha256"], BRAND_PIN)
-        self.assertFalse((ROOT / "artifacts/brand/os-migration-70b0f7eb").exists())
+    def test_same_commit_artifact_lock_rejects_archived_releases(self):
+        self.assertEqual(DEV_LOCK, {"brand": "source-bound", "surface_preview": "source-bound"})
+        doc = json.loads((ROOT / "contracts/dev-artifact-lock.json").read_text("utf-8"))
+        self.assertEqual(doc["$schema"], "ordax.site-dev-artifact-lock/3")
+        self.assertEqual(doc["source_repository"], "ordaxsystems/ordax-os")
+        self.assertEqual(doc["source_ref"], "same-commit")
+        self.assertEqual(doc["visual_source_contract"], "docs/contracts/surface-source.json")
+        self.assertEqual(doc["producer"], "site/scripts/canonical_artifacts.py")
+        self.assertNotIn("release_tag", str(doc))
+        self.assertNotIn("ordaxsystems/ordax-surface", str(doc))
         with tempfile.TemporaryDirectory() as tmp:
-            path = Path(tmp) / "fake.json"
-            original = json.loads((ROOT / "contracts/dev-artifact-lock.json").read_text("utf-8"))
-            original["status"] = "official"
-            path.write_text(json.dumps(original), encoding="utf-8")
-            with self.assertRaisesRegex(build.SiteError, "lock"):
-                build.load_dev_artifact_lock(path)
-            original["status"] = build.DEV_ARTIFACT_STATUS
-            original["artifacts"]["brand"]["release"]["release_tag"] = "brand-dev-main"
-            path.write_text(json.dumps(original), encoding="utf-8")
-            with self.assertRaisesRegex(build.SiteError, "signed Dev release"):
-                build.load_dev_artifact_lock(path)
+            path = Path(tmp) / "forged.json"
+            for key, invalid in (
+                ("source_repository", "ordaxsystems/ordax-surface"),
+                ("source_ref", "legacy-git-release"),
+                ("status", "official"),
+                ("producer", "tools/public-artifacts/brand.py"),
+            ):
+                with self.subTest(field=key):
+                    path.write_text(json.dumps({**doc, key: invalid}), encoding="utf-8")
+                    with self.assertRaisesRegex(build.SiteError, "canonical Dev artifact lock"):
+                        build.load_dev_artifact_lock(path)
 
     def test_active_operational_docs_use_only_current_signed_dev_artifacts(self):
         """Retired migration inputs must not return via published runbooks."""
@@ -938,23 +943,17 @@ class SiteContractTests(unittest.TestCase):
         self.assertNotIn('const response = await fetch(', controller)
         self.assertIn("for (const nestedMain of screen.querySelectorAll('main'))", controller)
 
-    def test_surface_preview_is_one_pinned_external_release_without_legacy_copy(self):
-        pin = DEV_LOCK["surface_preview"]["release"]
-        self.assertEqual(pin["source_repository"], "ordaxsystems/ordax-surface")
-        self.assertEqual(pin["release_tag"], "meridian-dev-" + pin["source_commit"])
-        self.assertEqual(pin["manifest_sha256"], PREVIEW_PIN)
-        self.assertRegex(pin["archive_sha256"], r"^[0-9a-f]{64}$")
+    def test_readonly_preview_is_same_commit_os_output_without_source_copy(self):
+        self.assertEqual(DEV_LOCK["surface_preview"], "source-bound")
         self.assertFalse((ROOT / "artifacts/surface-preview/os-migration-70b0f7eb").exists())
         self.assertFalse((ROOT / "public/assets/playground-fixture.json").exists())
         self.assertFalse((ROOT / "public/assets/surface-snapshot.css").exists())
         self.assertFalse((ROOT / "public/assets/surface-snapshot.json").exists())
-        with tempfile.TemporaryDirectory() as tmp:
-            fake = Path(tmp) / "forged-lock.json"
-            lock = json.loads((ROOT / "contracts/dev-artifact-lock.json").read_text("utf-8"))
-            lock["artifacts"]["surface_preview"]["release"]["release_tag"] = "meridian-dev-main"
-            fake.write_text(json.dumps(lock), encoding="utf-8")
-            with self.assertRaisesRegex(build.SiteError, "invalid signed Dev release lock"):
-                build.load_dev_artifact_lock(fake)
+        source = (ROOT / "scripts/build.py").read_text(encoding="utf-8")
+        self.assertIn("build_canonical_preview", source)
+        self.assertNotIn("download_surface_release", source)
+        self.assertFalse((ROOT / "scripts/surface_release.py").exists())
+        self.assertFalse((ROOT / "scripts/brand_release.py").exists())
 
     def test_retired_os_surface_preview_cannot_reenter_signed_dev_bundle(self):
         """Even a correctly hashed OS-era manifest must not be accepted."""

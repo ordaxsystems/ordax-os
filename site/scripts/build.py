@@ -16,8 +16,7 @@ from public_shell import load_contract as load_public_shell, render_public_shell
 from public_release_catalog import render_catalog, validate_catalog
 from site_routes import ROUTES, ROUTE_RECORDS
 from site_seo import validate_origin, render_html, write_robots_sitemap
-from surface_release import validate_pin as validate_surface_release_pin, materialize as download_surface_release, SurfaceReleaseError
-from brand_release import validate_pin as validate_brand_release_pin, materialize as download_brand_release, BrandReleaseError
+from canonical_artifacts import brand as build_canonical_brand, preview as build_canonical_preview, ArtifactError
 
 ROOT = Path(__file__).resolve().parents[1]
 SOURCE = ROOT / "public"
@@ -45,7 +44,7 @@ MAX_BUNDLE_FILES = 500
 MAX_BUNDLE_BYTES = 64 * 1024 * 1024
 PREVIEW_FILES = {"assets/playground-fixture.json", "assets/surface-snapshot.css"}
 PREVIEW_SCHEMA = "prototype-ordax.public-playground-fixture/1"
-DEV_ARTIFACT_LOCK_SCHEMA = "ordax.site-dev-artifact-lock/2"
+DEV_ARTIFACT_LOCK_SCHEMA = "ordax.site-dev-artifact-lock/3"
 DEV_ARTIFACT_STATUS = "development-only-not-authorized-for-production"
 
 class SiteError(ValueError):
@@ -113,7 +112,7 @@ def check_source(strict_assets: bool = False) -> dict:
     paths = {p.relative_to(SOURCE).as_posix() for p in files}
     missing_routes = set(ROUTES) - paths
     if paths.intersection(PREVIEW_FILES | {"assets/surface-snapshot.json"}):
-        raise SiteError("generated Surface preview must come only from a pinned external artifact")
+        raise SiteError("generated Surface preview must come only from a verified OS build")
     if missing_routes:
         raise SiteError("missing routes: " + ", ".join(sorted(missing_routes)))
     public_shell = load_public_shell(ROUTE_RECORDS)
@@ -158,27 +157,22 @@ def check_source(strict_assets: bool = False) -> dict:
     return {"source_files": len(files), "missing_source_assets": missing_binary}
 
 def load_dev_artifact_lock(path: Path) -> dict:
-    """One Dev-only SSOT for two separately signed, owner-generated packages."""
+    """One same-commit OS owner, not two historical GitHub release sources."""
     if path.is_symlink() or not path.is_file():
-        raise SiteError("Dev artifact lock missing or symlinked")
+        raise SiteError("canonical Dev artifact lock missing")
     data = json.loads(path.read_text(encoding="utf-8"))
-    if (set(data) != {"$schema", "status", "artifacts"}
-            or data["$schema"] != DEV_ARTIFACT_LOCK_SCHEMA
-            or data["status"] != DEV_ARTIFACT_STATUS
-            or not isinstance(data["artifacts"], dict)
-            or set(data["artifacts"]) != {"brand", "surface_preview"}):
-        raise SiteError("invalid Dev artifact lock")
-    if set(data["artifacts"]["brand"]) != {"release"} or set(data["artifacts"]["surface_preview"]) != {"release"}:
-        raise SiteError("Dev artifacts must be external owner releases")
-    try:
-        brand = validate_brand_release_pin(data["artifacts"]["brand"]["release"])
-        preview = validate_surface_release_pin(data["artifacts"]["surface_preview"]["release"])
-    except (BrandReleaseError, SurfaceReleaseError, TypeError, AttributeError) as error:
-        raise SiteError("invalid signed Dev release lock") from error
-    return {
-        "brand": {"release": brand, "manifest_sha256": brand["manifest_sha256"]},
-        "surface_preview": {"release": preview, "manifest_sha256": preview["manifest_sha256"]},
+    expected = {
+        "$schema": DEV_ARTIFACT_LOCK_SCHEMA,
+        "status": DEV_ARTIFACT_STATUS,
+        "source_repository": "ordaxsystems/ordax-os",
+        "source_ref": "same-commit",
+        "visual_source_contract": "docs/contracts/surface-source.json",
+        "producer": "site/scripts/canonical_artifacts.py",
+        "artifacts": {"brand": "source-bound", "surface_preview": "source-bound"},
     }
+    if data != expected:
+        raise SiteError("invalid canonical Dev artifact lock")
+    return data["artifacts"]
 
 
 def load_pinned_manifest(directory: Path, expected_sha256: str | None, label: str) -> tuple[dict, str]:
@@ -194,16 +188,34 @@ def load_pinned_manifest(directory: Path, expected_sha256: str | None, label: st
     return json.loads(payload), expected_sha256
 
 
-def stage_brand(stage: Path, brand_dir: Path, expected_sha256: str | None) -> dict:
-    """Use only a Surface-owned bundle already pinned and authenticated."""
+def stage_brand(stage: Path, brand_dir: Path, expected_sha256: str | None, expected_commit: str | None = None) -> dict:
+    """Verify OS Git-owned brand before copying its SHA-256-pinned output."""
     ledger, pinned_sha256 = load_pinned_manifest(brand_dir, expected_sha256, "brand")
-    if (ledger.get("$schema") != "ordax.surface-brand-artifact/1"
+    if (ledger.get("$schema") != "ordax.surface-brand-artifact/2"
             or ledger.get("artifact_class") != "ordax-brand"
-            or ledger.get("source_repository") != "ordaxsystems/ordax-surface"
+            or ledger.get("source_repository") != "ordaxsystems/ordax-os"
             or ledger.get("status") != "candidate-not-published"
             or ledger.get("immutable") is not True
-            or not SHA40.fullmatch(str(ledger.get("source_commit", "")))):
+            or not SHA40.fullmatch(str(ledger.get("source_commit", "")))
+            or (expected_commit is not None and ledger.get("source_commit") != expected_commit)):
         raise SiteError("wrong owner or unverified brand artifact")
+    proofs = ledger.get("sources")
+    if (not isinstance(proofs, list) or len(proofs) != 7
+            or {r.get("path") for r in proofs if isinstance(r, dict)} !=
+            {"system/surface/ui/brand/ordax-symbol.png",
+             "system/surface/ui/brand/midnight-landscape.png",
+             "system/surface/ui/fonts/inter-latin-wght-normal.woff2",
+             "third_party/licenses/Inter-OFL-1.1.txt",
+             "system/surface/ui/tokens.css",
+             "system/surface/ui/meridian.tokens.css",
+             "system/surface/ui/brand/symbol.css"}):
+        raise SiteError("brand canonical source inventory mismatch")
+    for proof in proofs:
+        if (proof.get("repository") != "ordaxsystems/ordax-os"
+                or proof.get("commit") != ledger["source_commit"]
+                or not SHA40.fullmatch(str(proof.get("git_blob", "")))
+                or not SHA256.fullmatch(str(proof.get("sha256", "")))):
+            raise SiteError("brand source provenance invalid")
     rows = ledger.get("files")
     if (not isinstance(rows, list) or len(rows) != len(BRAND_FILES)
             or {r.get("path") for r in rows if isinstance(r, dict)} != BRAND_FILES):
@@ -270,21 +282,16 @@ def coalesce_verified_site_images(stage: Path, payloads: dict[str, bytes]) -> in
 
 
 def stage_surface_dev_preview(stage: Path, directory: Path, manifest: dict,
-                              manifest_sha256: str) -> dict:
-    """Consume the Surface-owned read-only Dev bundle, not source code.
-
-    This is a dev-only integration and MUST follow an authenticated GitHub
-    producer-run check by the build workflow. A self-asserted manifest status
-    or locally computed hash does not grant production authority.
-    """
+                              manifest_sha256: str,
+                              expected_commit: str | None = None) -> dict:
+    """Only same-commit Git-verified OS assets; never a live Surface session."""
     if (manifest.get("$schema") != "ordax.meridian-readonly-preview-artifact/2"
             or manifest.get("artifact_class") != "ordax-meridian-preview"
             or manifest.get("status") != "candidate-not-published"
             or manifest.get("runtime_authority") is not False
-            or manifest.get("source_repository") != "ordaxsystems/ordax-surface"
-            or manifest.get("os_host_repository") != "ordaxsystems/ordax-os"
+            or manifest.get("source_repository") != "ordaxsystems/ordax-os"
             or not SHA40.fullmatch(str(manifest.get("source_commit", "")))
-            or not SHA40.fullmatch(str(manifest.get("os_host_commit", "")))
+            or (expected_commit is not None and manifest.get("source_commit") != expected_commit)
             or manifest.get("catalog_schema") != "ordax.os-public-catalog-projection/1"
             or not SHA256.fullmatch(str(manifest.get("catalog_sha256", "")))):
         raise SiteError("untrusted or wrong-authority Surface dev preview")
@@ -314,20 +321,13 @@ def stage_surface_dev_preview(stage: Path, directory: Path, manifest: dict,
     sources = manifest.get("sources")
     if not isinstance(sources, list) or not sources:
         raise SiteError("Surface preview is missing provenance source graph")
-    owners = set()
     for row in sources:
-        if not isinstance(row, dict):
-            raise SiteError("invalid Surface dev source graph")
-        repo = row.get("repository")
-        commit = row.get("commit")
-        if (repo not in ("ordaxsystems/ordax-os", "ordaxsystems/ordax-surface")
-                or commit != manifest["source_commit" if repo.endswith("surface") else "os_host_commit"]
+        if (not isinstance(row, dict)
+                or row.get("repository") != "ordaxsystems/ordax-os"
+                or row.get("commit") != manifest["source_commit"]
                 or not SHA40.fullmatch(str(row.get("git_blob", "")))
                 or not SHA256.fullmatch(str(row.get("sha256", "")))):
-            raise SiteError("untrusted Surface preview source provenance")
-        owners.add(repo)
-    if owners != {"ordaxsystems/ordax-os", "ordaxsystems/ordax-surface"}:
-        raise SiteError("Surface preview missing one of its real source owners")
+            raise SiteError("untrusted same-commit OS preview source provenance")
     present = {
         p.relative_to(directory).as_posix()
         for p in directory.rglob("*") if p.is_file() or p.is_symlink()
@@ -389,7 +389,6 @@ def stage_surface_dev_preview(stage: Path, directory: Path, manifest: dict,
         dst.write_bytes(raw)
     return {"source_repository": manifest["source_repository"],
             "source_commit": manifest["source_commit"],
-            "os_host_commit": manifest["os_host_commit"],
             "status": manifest["status"],
             "manifest_sha256": manifest_sha256,
             "file_count": len(files),
@@ -397,14 +396,14 @@ def stage_surface_dev_preview(stage: Path, directory: Path, manifest: dict,
             "font_url_rebased": True, "reused_site_images": reused_images}
 
 
-def stage_surface_preview(stage: Path, directory: Path, expected_manifest_sha256: str) -> dict:
-    """Accept only the currently pinned Surface-owned signed Dev preview."""
+def stage_surface_preview(stage: Path, directory: Path, expected_manifest_sha256: str, expected_commit: str | None = None) -> dict:
+    """Accept only the verified same-commit OS read-only preview."""
     manifest, pinned_sha256 = load_pinned_manifest(
         directory, expected_manifest_sha256, "Surface preview"
     )
     if manifest.get("artifact_class") != "ordax-meridian-preview":
         raise SiteError("retired OS Surface migration preview is forbidden")
-    return stage_surface_dev_preview(stage, directory, manifest, pinned_sha256)
+    return stage_surface_dev_preview(stage, directory, manifest, pinned_sha256, expected_commit)
 
 
 INACTIVE_PLANS_HTML = '<p class="commercial-notice">Planos em preparação — contratação indisponível.</p>'
@@ -432,11 +431,11 @@ def build(out: Path, sha: str, brand: Path, publications: Path | None,
     temp = Path(tempfile.mkdtemp(prefix=".ordax-site-", dir=out.parent))
     try:
         shutil.copytree(SOURCE, temp, dirs_exist_ok=True)
-        brand_receipt = stage_brand(temp, brand, brand_manifest_sha256)
+        brand_receipt = stage_brand(temp, brand, brand_manifest_sha256, sha)
         if surface_preview_dir is None:
             raise SiteError("Surface preview artifact required; no embedded Surface copy")
         preview_receipt = stage_surface_preview(
-            temp, surface_preview_dir, surface_preview_manifest_sha256 or ""
+            temp, surface_preview_dir, surface_preview_manifest_sha256 or "", sha
         )
         route_by_source = {item["source"]: item for item in ROUTE_RECORDS}
         for page in temp.rglob("*.html"):
@@ -543,35 +542,29 @@ def main() -> None:
         report = check_source()
         print(json.dumps({"structural_check": "PASS", **report}, sort_keys=True))
     elif args.command == "build":
-        brand = Path(args.brand_dir) if args.brand_dir else None
-        brand_hash = args.brand_manifest_sha256
-        preview = Path(args.surface_preview_dir) if args.surface_preview_dir else None
-        preview_hash = args.surface_preview_manifest_sha256
-        external_release = None
-        external_brand = None
-        if args.dev_lock:
-            if any(x is not None for x in (brand, brand_hash, preview, preview_hash)):
-                raise SiteError("migration lock and individual artifact overrides are mutually exclusive")
-            pinned = load_dev_artifact_lock(Path(args.dev_lock))
-            external_brand = pinned["brand"]["release"]
-            brand_hash = pinned["brand"]["manifest_sha256"]
-            external_release = pinned["surface_preview"]["release"]
-            preview_hash = pinned["surface_preview"]["manifest_sha256"]
-        if external_brand is None and brand is None:
-            raise SiteError("signed brand release required; no OS fallback")
-        if external_brand is not None and external_release is not None:
-            with tempfile.TemporaryDirectory(prefix="ordax-owner-releases-") as temporary:
-                brand = download_brand_release(external_brand, Path(temporary) / "brand")
-                preview = download_surface_release(external_release, Path(temporary) / "preview")
-                receipt = build(Path(args.out), args.source_commit or "", brand,
-                                Path(args.publications) if args.publications else None,
-                                args.public_origin, preview, preview_hash, brand_hash)
-        elif external_brand is None:
-            receipt = build(Path(args.out), args.source_commit or "", brand,
-                            Path(args.publications) if args.publications else None,
-                            args.public_origin, preview, preview_hash, brand_hash)
-        else:
-            raise SiteError("partial Dev release lock is invalid")
+        if not args.dev_lock:
+            raise SiteError("canonical same-commit OS artifact lock required")
+        if any(value is not None for value in
+               (args.brand_dir, args.brand_manifest_sha256,
+                args.surface_preview_dir, args.surface_preview_manifest_sha256)):
+            raise SiteError("individual artifact overrides are forbidden")
+        load_dev_artifact_lock(Path(args.dev_lock))
+        sha = args.source_commit or ""
+        if not SHA40.fullmatch(sha):
+            raise SiteError("exact OS source SHA required")
+        with tempfile.TemporaryDirectory(prefix="ordax-canonical-site-") as temporary:
+            directory = Path(temporary)
+            brand_dir = directory / "brand"
+            preview_dir = directory / "preview"
+            brand_receipt = build_canonical_brand(brand_dir, sha)
+            preview_receipt = build_canonical_preview(preview_dir, sha)
+            receipt = build(
+                Path(args.out), sha, brand_dir,
+                Path(args.publications) if args.publications else None,
+                args.public_origin, preview_dir,
+                preview_receipt["manifest_sha256"],
+                brand_receipt["manifest_sha256"]
+            )
         print(json.dumps(receipt, sort_keys=True))
     else:
         verify(Path(args.out))
@@ -580,5 +573,5 @@ def main() -> None:
 if __name__ == "__main__":
     try:
         main()
-    except (SiteError, ValueError, OSError) as error:
+    except (SiteError, ArtifactError, ValueError, OSError) as error:
         raise SystemExit(f"SITE_ERROR: {error}")
