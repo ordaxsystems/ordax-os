@@ -17,11 +17,16 @@ OWNER_NON_HELPER_SHELL_SOURCES = (
     "system/entrypoint",
     "system/supervisor",
     "system/services/device-agent/native-product-lifecycle.sh",
+    "system/services/device-agent/owner-dev-native-product.sh",
 )
 # This service library is owned by the OS and sourced into the Supervisor.
 # Its functions are not host binaries, but every external command within
 # the library still belongs to the same audited Owner rootfs closure.
 SUPERVISOR_NATIVE_PRODUCT_LIBRARY = "system/services/device-agent/native-product-lifecycle.sh"
+# Optional Owner-only library is imported by Native lifecycle, which is
+# already imported by the Supervisor. Validate both import edges rather than
+# masking unknown commands with a new hand-written allowlist.
+OWNER_NATIVE_PRODUCT_ADAPTER = "system/services/device-agent/owner-dev-native-product.sh"
 SHELL_ONLY = {
     ".", ":", "[", "alias", "break", "cd", "continue", "echo", "eval", "exec",
     "exit", "export", "getopts", "hash", "printf", "pwd", "read", "readonly",
@@ -424,7 +429,16 @@ def _supervisor_sourced_functions(root: Path) -> frozenset[str]:
         or '. "$native_product_lifecycle"' not in source
     ):
         return frozenset()
-    return frozenset(_FUNCTION_RE.findall(library.read_text(encoding="utf-8")))
+    lifecycle_source = library.read_text(encoding="utf-8")
+    functions = set(_FUNCTION_RE.findall(lifecycle_source))
+    adapter = root / OWNER_NATIVE_PRODUCT_ADAPTER
+    if (
+        'native_product_owner_adapter=$SYSTEM_ROOT/services/device-agent/owner-dev-native-product.sh' in lifecycle_source
+        and '. "$native_product_owner_adapter"' in lifecycle_source
+        and adapter.is_file() and not adapter.is_symlink()
+    ):
+        functions.update(_FUNCTION_RE.findall(adapter.read_text(encoding="utf-8")))
+    return frozenset(functions)
 
 
 def owner_inventory(root: Path = ROOT) -> dict[str, object]:
@@ -442,7 +456,9 @@ def owner_inventory(root: Path = ROOT) -> dict[str, object]:
             continue
         found = extract_commands(
             path,
-            sourced_functions=sourced_functions if relative == "system/supervisor" else frozenset(),
+            sourced_functions=sourced_functions if relative in (
+                "system/supervisor", SUPERVISOR_NATIVE_PRODUCT_LIBRARY,
+            ) else frozenset(),
         )
         per_source[relative] = sorted(found)
         all_commands.update(found)
