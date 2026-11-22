@@ -55,7 +55,7 @@ func TestPortableUpdateExecutesNoReformatAndArmsOnlyAfterReadback(t *testing.T) 
 	receipt,err:=ExecutePortableUpdate(old,next,plan,sources,grant,runtime)
 	if err!=nil { t.Fatal(err) }
 	if receipt.Status!="staged-not-activated" || receipt.Activated ||
-		!receipt.CandidateRequestArmed || receipt.ImmutableReadbacks!=10 ||
+		!receipt.CandidateRequestArmed || receipt.InstalledReadbacks!=17 ||
 		receipt.ReleaseReadbacks!=7 || receipt.ReleaseMaterialized!=len(sources) {
 		t.Fatalf("incorrect physical update receipt: %+v",receipt)
 	}
@@ -64,7 +64,7 @@ func TestPortableUpdateExecutesNoReformatAndArmsOnlyAfterReadback(t *testing.T) 
 			t.Fatalf("destructive operation %q",event)
 		}
 	}
-	if len(runtime.events)<18 || runtime.events[0]!="layout" ||
+	if len(runtime.events)<25 || runtime.events[0]!="layout" ||
 		runtime.events[len(runtime.events)-1]!="arm:"+next.SourceCommit {
 		t.Fatalf("wrong gate order: %v",runtime.events)
 	}
@@ -88,7 +88,7 @@ func TestPortableUpdateNeverWritesWithoutExactSignedGrant(t *testing.T) {
 
 func TestPortableUpdateNeverArmsAfterReadbackOrCopyFailure(t *testing.T) {
 	old,next,plan,sources,grant:=portableUpdateExecutionFixture(t)
-	for _,failing:=range []string{"layout","readback:kernel","copy:system-image","readback:system-image","flush"} {
+	for _,failing:=range []string{"layout","readback:kernel","readback:system-image","copy:system-image","flush"} {
 		r:=&portableUpdateFakeRuntime{fail:failing}
 		if _,err:=ExecutePortableUpdate(old,next,plan,sources,grant,r);err==nil {
 			t.Fatalf("injected failure %q was accepted",failing)
