@@ -97,6 +97,17 @@ test("public OIDC boundary rejects forged success and missing body",async()=>{
   }));
 });
 
+test("Owner central-session routes are guarded by the exact same unauthenticated release proof",()=>{
+  const cases=RELEASE_NEGATIVE_CASES.internal;
+  for(const [method,path] of [
+    ["GET","/account/mcp/central-targets?client_id=00000000-0000-4000-8000-000000000001"],
+    ["GET","/account/mcp/central-selections?client_id=00000000-0000-4000-8000-000000000001"],
+    ["POST","/account/mcp/central-selections"],
+  ]) assert.equal(cases.some(([m,p])=>m===method&&p===path),true,
+    "central-selection negative route must remain covered: "+method+" "+path);
+  assert.equal(cases.filter(([m,p])=>p.startsWith("/account/mcp/central-")).length,3);
+});
+
 test("no change to release authorizations or public Account rollout flags",()=>{
   assert.equal(RELEASE_NEGATIVE_CASES.internal.some(([method,path])=>
     method==="POST"&&path==="/account/preferences/communications"),true);

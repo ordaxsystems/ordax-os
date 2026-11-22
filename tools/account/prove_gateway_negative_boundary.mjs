@@ -11,6 +11,11 @@ export const RELEASE_NEGATIVE_CASES = Object.freeze({
     ["POST", "/account/profile/display-name"],
     ["POST", "/account/preferences/locale"],
     ["POST", "/account/preferences/communications"],
+    // Owner central-session selection is authenticated even when its rollout
+    // flag is enabled. These are unauthenticated negative probes only.
+    ["GET", "/account/mcp/central-targets?client_id=00000000-0000-4000-8000-000000000001"],
+    ["GET", "/account/mcp/central-selections?client_id=00000000-0000-4000-8000-000000000001"],
+    ["POST", "/account/mcp/central-selections"],
   ]),
   public: Object.freeze([
     ["GET", "/auth/session"],
