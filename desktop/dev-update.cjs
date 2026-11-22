@@ -315,6 +315,12 @@ function isNonRuntimeSourcePath(path) {
       path.startsWith('infra/supabase/functions/') ||
       path.startsWith('infra/supabase/product/migrations/') ||
       path.startsWith('tools/account/')) return true;
+  // Creator and Site are neighboring monorepo modules, never inputs to the
+  // installed Desktop Native compiler. Documentation does not alter runtime
+  // bytes; retain a narrow exception for the adapter's own README.
+  if (path.startsWith('creator/') || path.startsWith('site/') ||
+      path.startsWith('desktop/docs/') ||
+      path === 'system/adapters/desktop/README.md') return true;
   if (path.startsWith('docs/') &&
       !path.startsWith('docs/contracts/') &&
       !path.startsWith('docs/evidence/')) return true;
