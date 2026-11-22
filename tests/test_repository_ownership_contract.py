@@ -27,6 +27,8 @@ class RepositoryOwnershipContractTests(unittest.TestCase):
         self.assertEqual(repos["desktop"]["repo"], "ordaxsystems/ordax-os")
         self.assertIn("desktop-windows-shell", repos["desktop"]["owns"])
         self.assertIn("desktop-windows-shell", repos["platform"]["must_not_own"])
+        self.assertTrue(self.contract["invariants"]["desktop_shell_is_same_commit_os_module"])
+        self.assertNotIn("desktop_shell_is_not_os_source", self.contract["invariants"])
 
     def test_ninth_intelligence_source_is_pinned_without_premature_owner_cutover(self):
         # Eight active runtime/product authorities plus one separately owned, pinned
@@ -36,10 +38,10 @@ class RepositoryOwnershipContractTests(unittest.TestCase):
         )
         repos = self.contract["repositories"]
         active = {record["repo"] for record in repos.values()}
-        self.assertEqual(len(active), len(repos) - 2, "Surface and Site share the OS repository")
+        self.assertEqual(len(active), len(repos) - 3, "Surface, Site and Desktop share the OS repository")
         self.assertEqual(source["source_repository"], "ordaxsystems/ordax-intelligence")
         self.assertNotIn(source["source_repository"], active)
-        self.assertEqual(len(active | {source["source_repository"]}), 7)
+        self.assertEqual(len(active | {source["source_repository"]}), 6)
         self.assertEqual(source["status"], "integration-candidate")
         self.assertIs(source["cutover_complete"], False)
         self.assertIs(source["activation_authorized"], False)
