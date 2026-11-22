@@ -20,7 +20,12 @@ runs:
         test -f "$source/go.mod"
         test -f "$source/cmd/ordax-creator-native-targets/main.go"
         test "$(head -n 1 "$source/go.mod")" = 'module github.com/ordaxsystems/ordax-os/creator'
-        test "$(git rev-parse HEAD)" = "$GITHUB_SHA"
+        # Pull requests check out the exact PR head, while GITHUB_SHA is a
+        # synthetic merge commit. Compare with the workflow-owned source
+        # identity when supplied; never compare two different Git objects.
+        source_commit="${ORDAX_OWNER_SOURCE_COMMIT:-$GITHUB_SHA}"
+        [[ "$source_commit" =~ ^[0-9a-f]{40}$ ]]
+        test "$(git rev-parse HEAD)" = "$source_commit"
         test -z "$(git status --porcelain --untracked-files=all -- creator)"
         python3 - <<'PY'
         import json
@@ -35,7 +40,7 @@ runs:
         PY
         tree="$(git rev-parse 'HEAD:creator')"
         test -n "$tree"
-        printf '%s\n' "ORDAX_CREATOR_NATIVE_SOURCE=$source" "ORDAX_CREATOR_SOURCE_COMMIT=$GITHUB_SHA" "ORDAX_CREATOR_SOURCE_TREE=$tree" "ORDAX_CREATOR_SOURCE_REPOSITORY=ordaxsystems/ordax-os" >> "$GITHUB_ENV"
-        echo "CREATOR_MONOREPO_COMMIT=$GITHUB_SHA"
+        printf '%s\n' "ORDAX_CREATOR_NATIVE_SOURCE=$source" "ORDAX_CREATOR_SOURCE_COMMIT=$source_commit" "ORDAX_CREATOR_SOURCE_TREE=$tree" "ORDAX_CREATOR_SOURCE_REPOSITORY=ordaxsystems/ordax-os" >> "$GITHUB_ENV"
+        echo "CREATOR_MONOREPO_COMMIT=$source_commit"
         echo "CREATOR_MONOREPO_TREE=$tree"
         echo 'CREATOR_SOURCE_PHYSICAL_WRITE_AUTHORIZED=NO'
