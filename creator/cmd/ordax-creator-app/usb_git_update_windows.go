@@ -475,7 +475,7 @@ func startCreatorUSBUpdateTask(mode string, execute func()(ownerUSBReceipt,error
     ownerUSBUpdateMu.Lock()
     ownerUSBUpdateResult = ownerUSBUpdateStatus{Active: true,Mode:mode}
     ownerUSBUpdateMu.Unlock()
-    setCreatorStatus(creatorT(msgUSBUpdateWorking))
+    if mode=="portable" {setCreatorStatus(creatorT(msgPortableUSBUpdateWorking))} else {setCreatorStatus(creatorT(msgUSBUpdateWorking))}
     setCreatorHint(creatorT(msgUSBUpdateWorkingHint))
     setProgressActive()
     enable(usbUpdateButton, false)
@@ -507,7 +507,7 @@ func startCreatorUSBUpdateTask(mode string, execute func()(ownerUSBReceipt,error
 func ownerUSBComponentSummary(state ownerUSBUpdateStatus) string {
     if state.Mode=="portable" {
         if !validLowerHexString(state.SourceCommit,40) {return ""}
-        return fmt.Sprintf("Release portátil %s gravada e verificada no pendrive.",state.SourceCommit[:12])+"\n"+creatorT(msgUSBUpdateNotActivated)
+        return creatorTValues(msgPortableUSBUpdateEvidence,map[string]string{"commit":state.SourceCommit[:12]})+"\n"+creatorT(msgUSBUpdateNotActivated)
     }
     if state.Result != "CURRENT" && state.Result != "STAGED_NOT_ACTIVATED" {
         return ""
@@ -541,11 +541,13 @@ func renderOwnerUSBUpdateDone() {
     ownerUSBUpdateMu.Unlock()
     if state.Active || (state.Result == "" && state.Error == "") { return }
     if state.Error != "" {
-        setCreatorStatus(creatorT(msgUSBUpdateFailed))
+        if state.Mode=="portable" {setCreatorStatus(creatorT(msgPortableUSBUpdateFailed))} else {setCreatorStatus(creatorT(msgUSBUpdateFailed))}
         setCreatorHint(state.Error)
         setProgressIdle()
     } else {
-        if state.Result == "CURRENT" {
+        if state.Mode=="portable" {
+            setCreatorStatus(creatorT(msgPortableUSBUpdateComplete))
+        } else if state.Result == "CURRENT" {
             setCreatorStatus(creatorT(msgUSBUpdateCurrent))
         } else {
             setCreatorStatus(creatorT(msgUSBUpdateComplete))
