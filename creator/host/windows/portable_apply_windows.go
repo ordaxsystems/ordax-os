@@ -378,6 +378,36 @@ if (([string]$v1.FileSystemLabel).Trim() -ne 'ORDAX-ESP' -or ([string]$v2.FileSy
 	return nil
 }
 
+// This is derived installation metadata, not a trust anchor. The next host
+// update must independently read back every artifact and verify the new
+// release signature before using it. It is written only after all first-install
+// readbacks and filesystem checks have passed.
+func (r *portableWindowsRuntime) WriteInstalledMediaReceipt(plan creatorcore.PortableApplicationPlan) error {
+	if err := revalidatePortableTarget(r.target); err != nil { return err }
+	media, err := creatorcore.PortableMediaPlanFromApplication(plan)
+	if err != nil { return err }
+	data, err := creatorcore.PortableMediaPlanReceiptBytes(media)
+	if err != nil { return err }
+	destination, err := checkPortableUpdateParent(r.roots["ORDAX-DATA"], creatorcore.PortableInstalledMediaPlanTargetPath)
+	if err != nil { return err }
+	if _, err := os.Lstat(destination); err == nil {
+		return errors.New("first installation unexpectedly has an existing media receipt")
+	} else if !os.IsNotExist(err) { return err }
+	pending, err := os.CreateTemp(filepath.Dir(destination), ".ordax-media-receipt-*")
+	if err != nil { return err }
+	defer os.Remove(pending.Name())
+	if _, err := pending.Write(data); err != nil { pending.Close(); return err }
+	if err := pending.Sync(); err != nil { pending.Close(); return err }
+	if err := pending.Close(); err != nil { return err }
+	if err := revalidatePortableTarget(r.target); err != nil { return err }
+	if err := os.Rename(pending.Name(), destination); err != nil { return err }
+	actual, err := os.ReadFile(destination)
+	if err != nil || string(actual) != string(data) {
+		return errors.New("portable installation media receipt readback failed")
+	}
+	return nil
+}
+
 func ApplyPortablePhysicalWithProgress(request PortablePhysicalApplyRequest, report func(PhysicalApplyProgress)) (PortablePhysicalApplyResult, error) {
 	elevated, err := currentProcessElevated()
 	if err != nil { return PortablePhysicalApplyResult{}, err }
@@ -405,6 +435,9 @@ func ApplyPortablePhysicalWithProgress(request PortablePhysicalApplyRequest, rep
 		ApplicationPlanSHA256: planSHA, PhysicalWriteAuthorized:true,
 	}, runtime)
 	if err != nil { return PortablePhysicalApplyResult{}, err }
+	if err := runtime.WriteInstalledMediaReceipt(request.ApplicationPlan); err != nil {
+		return PortablePhysicalApplyResult{}, fmt.Errorf("record readback-verified Portable install: %w",err)
+	}
 
 	return PortablePhysicalApplyResult{
 		Schema:"prototype-ordax.creator-portable-physical-apply/1",
