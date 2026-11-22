@@ -610,21 +610,28 @@ def _fsync_directory(path: Path) -> None:
         os.close(descriptor)
 
 
-def _atomic_write(path: Path, payload: bytes) -> None:
+def _assert_safe_output_destination(path: Path) -> bool:
+    """Check a fixed repository output before any mutation and again at write."""
     parent = path.parent
-    metadata = parent.lstat()
+    try:
+        metadata = parent.lstat()
+    except OSError as exc:
+        raise PromotionError(f"output parent is unavailable: {parent}") from exc
     if stat.S_ISLNK(metadata.st_mode) or not stat.S_ISDIR(metadata.st_mode):
         raise PromotionError(f"output parent must be a real directory: {parent}")
 
     try:
         existing = path.lstat()
     except FileNotFoundError:
-        existing = None
-    if existing is not None and (
-        stat.S_ISLNK(existing.st_mode) or not stat.S_ISREG(existing.st_mode)
-    ):
+        return False
+    if stat.S_ISLNK(existing.st_mode) or not stat.S_ISREG(existing.st_mode):
         raise PromotionError(f"refusing unsafe output path: {path}")
+    return True
 
+
+def _atomic_write(path: Path, payload: bytes) -> None:
+    _assert_safe_output_destination(path)
+    parent = path.parent
     temporary = path.with_name(f".{path.name}.tmp-{os.getpid()}")
     flags = (
         os.O_WRONLY
@@ -745,19 +752,24 @@ def apply_repository_promotion(
         PROOF_RELEASE_REPOSITORY_PATH.as_posix(),
         RECOVERY_ENVELOPE_REPOSITORY_PATH.as_posix(),
     }
+    # Validate EVERY destination before writing the first public anchor or
+    # policy. A late immutable conflict or invalid parent must not leave a
+    # partially pinned repository. Recheck each path inside _atomic_write.
     for relative, payload in plan["outputs"].items():
         destination = root / relative
-        if destination.exists():
+        if _assert_safe_output_destination(destination) and relative in immutable_public_paths:
             existing = _require_regular(
                 destination,
                 f"existing {relative}",
                 max_bytes=4 * 1024 * 1024,
             )
-            if relative in immutable_public_paths and existing != payload:
+            if existing != payload:
                 raise PromotionError(
                     f"refusing to replace different canonical public material: {relative}"
                 )
-        _atomic_write(destination, payload)
+
+    for relative, payload in plan["outputs"].items():
+        _atomic_write(root / relative, payload)
 
     return validate_promoted_repository(root, verifier)
 

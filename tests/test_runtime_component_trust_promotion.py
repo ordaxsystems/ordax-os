@@ -318,6 +318,47 @@ class RuntimeComponentTrustPromotionTests(unittest.TestCase):
             self.assertFalse(package["native_slot_serving_available"])
             self.assertNotIn("internet_release_mode", package)
 
+    def test_late_immutable_conflict_rejects_before_writing_any_public_trust(self):
+        with tempfile.TemporaryDirectory() as temporary:
+            root = Path(temporary)
+            repo = root / "repo"
+            repo.mkdir()
+            self.make_repo(repo)
+            verifier = self.make_verifier(root)
+            promotion = self.write_promotion_dir(root, self.make_public_files(root))
+            conflict = repo / promoter.RECOVERY_ENVELOPE_REPOSITORY_PATH
+            conflict.write_bytes(b"existing-conflicting-public-envelope")
+            trust_policy = (repo / promoter.POLICY_PATH).read_bytes()
+            package_policy = (repo / promoter.PACKAGE_POLICY_PATH).read_bytes()
+
+            with self.assertRaisesRegex(promoter.PromotionError, "refusing to replace"):
+                promoter.apply_repository_promotion(repo, promotion, verifier)
+
+            self.assertFalse((repo / promoter.TRUST_REPOSITORY_PATH).exists())
+            self.assertFalse((repo / promoter.EVIDENCE_REPOSITORY_PATH).exists())
+            self.assertFalse((repo / promoter.PROOF_RELEASE_REPOSITORY_PATH).exists())
+            self.assertEqual(conflict.read_bytes(), b"existing-conflicting-public-envelope")
+            self.assertEqual((repo / promoter.POLICY_PATH).read_bytes(), trust_policy)
+            self.assertEqual((repo / promoter.PACKAGE_POLICY_PATH).read_bytes(), package_policy)
+
+    def test_late_missing_parent_rejects_before_writing_any_public_trust(self):
+        with tempfile.TemporaryDirectory() as temporary:
+            root = Path(temporary)
+            repo = root / "repo"
+            repo.mkdir()
+            self.make_repo(repo)
+            verifier = self.make_verifier(root)
+            promotion = self.write_promotion_dir(root, self.make_public_files(root))
+            (repo / "docs" / "evidence").rmdir()
+
+            with self.assertRaisesRegex(promoter.PromotionError, "output parent"):
+                promoter.apply_repository_promotion(repo, promotion, verifier)
+
+            self.assertFalse((repo / promoter.TRUST_REPOSITORY_PATH).exists())
+            self.assertFalse((repo / promoter.EVIDENCE_REPOSITORY_PATH).exists())
+            policy = json.loads((repo / promoter.POLICY_PATH).read_text(encoding="utf-8"))
+            self.assertFalse(policy["public_anchor"]["pinned"])
+
     def test_zip_rejects_secret_looking_or_extra_entry(self):
         with tempfile.TemporaryDirectory() as temporary:
             root = Path(temporary)
