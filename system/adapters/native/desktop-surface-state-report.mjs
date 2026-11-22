@@ -1,7 +1,9 @@
 // The Native Surface (not the Windows host) reports its displayed app and
 // executes only OS-authorized application activation through the shared port.
-import {assertProjectCloudLinksReaderPort}
+import {assertProjectCloudLinksReaderPort,validateProjectCloudLinksSnapshot}
   from "../../contracts/project-cloud-links-reader.mjs";
+import {assertProjectCatalogReader,validateProjectCatalogSnapshot}
+  from "../../contracts/project-catalog.mjs";
 
 const ROUTE = "/__ordax/native/desktop-surface-state";
 const COMMAND = "/__ordax/native/desktop-surface-command";
@@ -28,6 +30,7 @@ export function readMountedDesktopSurfaceApp(lifecycle) {
 
 export function mountNativeDesktopSurfaceStateReport(
   windowRef,lifecycle,activationPort=null,projectCloudLinksReader=null,
+  projectCatalogReader=null,
 ) {
   if(typeof windowRef?.fetch!=="function"||
      typeof windowRef?.setInterval!=="function"||
@@ -38,6 +41,10 @@ export function mountNativeDesktopSurfaceStateReport(
     throw new TypeError("Mounted Surface and Native activation transport required");
   const cloudLinks = projectCloudLinksReader===null
     ? null : assertProjectCloudLinksReaderPort(projectCloudLinksReader);
+  const localProjects = projectCatalogReader===null
+    ? null : assertProjectCatalogReader(projectCatalogReader);
+  if((cloudLinks===null)!==(localProjects===null))
+    throw new TypeError("Project links require the Native Project Catalog reader");
   let disposed=false;
   let pendingReport=null;
   let pendingProjectLinksReport=null;
@@ -72,20 +79,26 @@ export function mountNativeDesktopSurfaceStateReport(
     if(pendingProjectLinksReport)
       return force?pendingProjectLinksReport.then(()=>reportProjectLinks())
         :pendingProjectLinksReport;
-    let snapshot;
-    try{snapshot=cloudLinks.getSnapshot()}catch{return Promise.resolve(false)}
-    // Only durable local Project Catalog links may reach the Product Runtime.
-    // A session snapshot explicitly withdraws any prior host projection.
-    const durable=snapshot.persistence==="device";
-    const body={
-      schema:"ordax.desktop-project-links/1",
-      persistence:durable?"device":"session",
-      links:durable?snapshot.links.map(link=>({
-        localProjectId:link.localProjectId,
-        cloudProjectId:link.cloudProjectId,
-        spaceId:link.spaceId,
-      })):[],
-    };
+    let body;
+    try{
+      const snapshot=validateProjectCloudLinksSnapshot(cloudLinks.getSnapshot());
+      const catalog=validateProjectCatalogSnapshot(localProjects.getSnapshot());
+      // The canonical Project Catalog, not the model or cloud, owns the path.
+      // Join its durable logical path to each explicitly authorized cloud link.
+      const durable=snapshot.persistence==="device" && catalog.persistence==="device";
+      const paths=new Map(catalog.projects.map(project=>[project.id,project.path]));
+      const links=durable?snapshot.links.map(link=>{
+        const localProjectPath=paths.get(link.localProjectId);
+        if(!localProjectPath)throw new TypeError("Cloud link lacks a local Project Catalog entry");
+        return {localProjectId:link.localProjectId,localProjectPath,
+          cloudProjectId:link.cloudProjectId,spaceId:link.spaceId};
+      }):[];
+      body={schema:"ordax.desktop-project-links/1",
+        persistence:durable?"device":"session",links};
+    }catch{
+      // Invalid or session-only local state withdraws prior Runtime authority.
+      body={schema:"ordax.desktop-project-links/1",persistence:"session",links:[]};
+    }
     pendingProjectLinksReport=(async()=>{
       try{
         const response=await windowRef.fetch(PROJECT_LINKS,{
@@ -160,6 +173,8 @@ export function mountNativeDesktopSurfaceStateReport(
   const unsubscribe=lifecycle.subscribeRender(()=>{void report()});
   const unsubscribeProjectLinks=cloudLinks===null?()=>{}:
     cloudLinks.subscribe(()=>{void reportProjectLinks(true)});
+  const unsubscribeProjectCatalog=localProjects===null?()=>{}:
+    localProjects.subscribe(()=>{void reportProjectLinks(true)});
   const reportTimer=windowRef.setInterval(()=>{
     void report();
     void reportProjectLinks();
@@ -176,6 +191,7 @@ export function mountNativeDesktopSurfaceStateReport(
       if(commandTimer!==null)windowRef.clearInterval(commandTimer);
       unsubscribe();
       unsubscribeProjectLinks();
+      unsubscribeProjectCatalog();
     },
   });
 }

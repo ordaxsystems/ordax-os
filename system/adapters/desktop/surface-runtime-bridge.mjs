@@ -1,6 +1,7 @@
 // The OS Native Host is the sole authority for the Surface/Runtime channel.
 // This bridge never exposes Windows automation or direct app implementation.
 import {randomBytes,timingSafeEqual} from "node:crypto";
+import {validateProjectPath} from "../../contracts/project-catalog.mjs";
 
 export const DESKTOP_SURFACE_BRIDGE_PATH = "/__ordax/native/desktop-surface-state";
 export const DESKTOP_SURFACE_COMMAND_PATH = "/__ordax/native/desktop-surface-command";
@@ -90,15 +91,22 @@ export function createDesktopSurfaceRuntimeBridge({
     const localIds=new Set(),cloudIds=new Set(),links=[];
     for(const raw of data.links){
       if(!raw||typeof raw!=="object"||Array.isArray(raw)||
-         Object.keys(raw).length!==3||
-         !["localProjectId","cloudProjectId","spaceId"].every(key=>key in raw)||
+         Object.keys(raw).length!==4||
+         !["localProjectId","localProjectPath","cloudProjectId","spaceId"].every(key=>key in raw)||
          !LOCAL_PROJECT_ID.test(raw.localProjectId??"")||
          !UUID.test(raw.cloudProjectId??"")||!UUID.test(raw.spaceId??"")||
+         typeof raw.localProjectPath!=="string"||
+         raw.localProjectPath.length>2048||raw.localProjectPath.includes("\\")||
+         /[\u0000-\u001f\u007f]/.test(raw.localProjectPath)||
          localIds.has(raw.localProjectId)||cloudIds.has(raw.cloudProjectId))
         return null;
+      let localProjectPath;
+      try{localProjectPath=validateProjectPath(raw.localProjectPath)}
+      catch{return null}
       localIds.add(raw.localProjectId);cloudIds.add(raw.cloudProjectId);
       links.push(Object.freeze({
         localProjectId:raw.localProjectId,
+        localProjectPath,
         cloudProjectId:raw.cloudProjectId,
         spaceId:raw.spaceId,
       }));

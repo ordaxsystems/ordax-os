@@ -40,6 +40,7 @@ const durable=(overrides={})=>({
   persistence:"device",
   links:[{
     localProjectId:"project-7",
+    localProjectPath:"/Projects/Repo-7",
     cloudProjectId:projectId,
     spaceId,
   }],
@@ -62,6 +63,7 @@ test("Project links bridge exposes only authenticated durable explicit links",as
       persistence:"device",
       links:[{
         localProjectId:"project-7",
+        localProjectPath:"/Projects/Repo-7",
         cloudProjectId:projectId,
         spaceId,
       }],
@@ -94,6 +96,10 @@ test("Project links bridge rejects inferred or ambiguous authority",async()=>{
     for(const body of [
       {...durable(),repository_full_name:"ordaxsystems/ordax-os"},
       {...durable(),links:[{...link,path:"C:/model/supplied"}]},
+      {...durable(),links:[{...link,localProjectPath:"C:/Windows"}]},
+      {...durable(),links:[{...link,localProjectPath:"/../Windows"}]},
+      {...durable(),links:[{...link,localProjectPath:"/Projects\\wrong"}]},
+      {...durable(),links:[{...link,localProjectPath:"/Projects/\nmalformed"}]},
       {...durable(),links:[{...link,localProjectId:"ordax-os"}]},
       {...durable(),links:[
         link,{...link,localProjectId:"project-8"},

@@ -9,7 +9,8 @@ const spaceId="44444444-4444-4444-8444-444444444444";
 
 test("Native Surface projects only durable explicit Project Catalog cloud links",async()=>{
   const posts=[];
-  let timer=null,linkListener=null,unsubscribed=false;
+  let timer=null,linkListener=null,projectListener=null,unsubscribed=false;
+  let projectUnsubscribed=false,projectPath="/Projects/Repo-7";
   let snapshot={
     schema:"ordax.project-cloud-links/1",
     persistence:"device",
@@ -26,6 +27,20 @@ test("Native Surface projects only durable explicit Project Catalog cloud links"
     subscribe(listener){
       linkListener=listener;
       return ()=>{unsubscribed=true};
+    },
+  };
+  const catalogReader={
+    schema:"ordax.project-catalog/1",
+    getSnapshot(){return {
+      persistence:"device",
+      projects:[{
+        id:"project-7",name:"Repo 7",path:projectPath,
+        createdAt:1,lastOpenedAt:2,lastFilePath:null,
+      }],
+    }},
+    subscribe(listener){
+      projectListener=listener;
+      return ()=>{projectUnsubscribed=true};
     },
   };
   const win={
@@ -45,6 +60,7 @@ test("Native Surface projects only durable explicit Project Catalog cloud links"
     {getActiveAppId:()=>"system",subscribeRender:()=>()=>{}},
     null,
     reader,
+    catalogReader,
   );
   await new Promise(resolve=>setImmediate(resolve));
   assert.equal(posts.some(x=>x.path==="/__ordax/native/desktop-surface-state"),true);
@@ -54,10 +70,18 @@ test("Native Surface projects only durable explicit Project Catalog cloud links"
     persistence:"device",
     links:[{
       localProjectId:"project-7",
+      localProjectPath:"/Projects/Repo-7",
       cloudProjectId:projectId,
       spaceId,
     }],
-  },"linkedAt and local filesystem metadata never cross the Runtime boundary");
+  },"Only the logical path from the canonical Project Catalog reaches Runtime");
+
+  projectPath="/Projects/Moved-7";
+  projectListener();
+  await new Promise(resolve=>setImmediate(resolve));
+  const relocated=posts.filter(x=>x.path==="/__ordax/native/desktop-project-links").at(-1);
+  assert.equal(relocated.body.links[0].localProjectPath,projectPath,
+    "Path changes follow the same Project Catalog rather than a second registry");
 
   snapshot={
     schema:"ordax.project-cloud-links/1",
@@ -84,6 +108,7 @@ test("Native Surface projects only durable explicit Project Catalog cloud links"
   assert.ok(posts.length>before,"existing heartbeat timer refreshes both projections");
   reporter.dispose();
   assert.equal(unsubscribed,true);
+  assert.equal(projectUnsubscribed,true);
 });
 
 test("Project Cloud Links reader must be the canonical read-only port",()=>{
