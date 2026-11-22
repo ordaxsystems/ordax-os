@@ -60,6 +60,27 @@ class OwnerRootfsCapabilitiesTest(unittest.TestCase):
             source, sourced_functions=functions,
         ).issubset(set(capabilities.owner_inventory(ROOT)["commands"])))
 
+    def test_private_musl_loader_is_not_a_rootfs_binary_or_global_exception(self) -> None:
+        inventory = capabilities.owner_inventory(ROOT)
+        self.assertEqual(inventory["verified_private_component_executables"], [
+            "ld-musl-x86_64.so.1",
+        ])
+        self.assertNotIn("ld-musl-x86_64.so.1", inventory["unknown_commands"])
+        with tempfile.TemporaryDirectory() as temp:
+            root = Path(temp)
+            adapter = root / capabilities.OWNER_NATIVE_PRODUCT_ADAPTER
+            pin = root / "system/services/device-agent/owner-dev-native-product.txt"
+            adapter.parent.mkdir(parents=True, exist_ok=True)
+            shutil.copyfile(ROOT / capabilities.OWNER_NATIVE_PRODUCT_ADAPTER, adapter)
+            shutil.copyfile(ROOT / "system/services/device-agent/owner-dev-native-product.txt", pin)
+            self.assertEqual(capabilities.verified_private_native_executables(root), {
+                "ld-musl-x86_64.so.1",
+            })
+            pin.write_text(pin.read_text().replace(
+                "loader_sha256=", "loader_sha256=INVALID-",
+            ))
+            self.assertEqual(capabilities.verified_private_native_executables(root), set())
+
     def test_explicit_busybox_calls_are_separately_proven(self) -> None:
         inventory = capabilities.owner_inventory(ROOT)
         explicit = set(inventory["explicit_busybox_applets"])
