@@ -9,6 +9,8 @@ import (
 	"reflect"
 )
 
+const PortableInstalledMediaPlanTargetPath = "/.ordax/installation/portable-media-plan.json"
+
 // PortableMediaPlanFromApplication reconstructs the canonical, target-specific
 // initial installation receipt from the already-authorized 39-operation plan.
 // It never treats untrusted disk metadata as an authority. The strict exact
