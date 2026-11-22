@@ -237,5 +237,5 @@ func runApplyPortableUpdate(args []string) error {
 		UpdateAuthorization:opt.Authorize,
 	},report)
 	if err!=nil{return err}
-	return finalizeElevatedApply(progressPath,"complete-portable-update",func()error{return encode(receipt)})
+	return finalizeElevatedPortableUpdate(progressPath,receipt)
 }
