@@ -10,6 +10,7 @@ on:
       - 'system/services/local-ai/*.mjs'
       - 'docs/contracts/intelligence-source.json'
       - 'tests/test_intelligence_windows_artifact_distribution.py'
+      - 'tests/test_intelligence_product_consumers.py'
       - '.github/workflows/windows-desktop-dev.yml'
       - 'system/services/local-ai/source-lock.json'
       - 'tools/intelligence/**'
@@ -26,6 +27,7 @@ on:
       - 'system/services/local-ai/*.mjs'
       - 'docs/contracts/intelligence-source.json'
       - 'tests/test_intelligence_windows_artifact_distribution.py'
+      - 'tests/test_intelligence_product_consumers.py'
       - '.github/workflows/windows-desktop-dev.yml'
       - 'system/services/local-ai/source-lock.json'
       - 'tools/intelligence/**'
@@ -55,6 +57,7 @@ jobs:
           python -m unittest discover -s tests -p 'test_intelligence_canonical_integrity.py' -v
           python -m unittest discover -s tests -p 'test_intelligence_owner_first_boot_workflow.py' -v
           python -m unittest discover -s tests -p 'test_intelligence_windows_artifact_distribution.py' -v
+          python -m unittest discover -s tests -p 'test_intelligence_product_consumers.py' -v
           /bin/sh -n system/intelligence/owner-stage.sh
           python -m unittest discover -s system/intelligence/tests -p 'test_inference_builder_isolation.py' -v
           python -m unittest discover -s system/intelligence/tests -p 'test_windows_inference_candidate.py' -v

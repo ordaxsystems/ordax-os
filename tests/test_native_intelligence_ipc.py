@@ -50,6 +50,10 @@ def ipc_request(request_id="request-1"):
 
 
 class NativeIntelligenceIpcTests(unittest.TestCase):
+    @unittest.skipIf(
+        os.name == "nt",
+        "Unix socket/mode proof targets Linux; Windows uses Native host bridge",
+    )
     def test_private_unix_socket_roundtrip_and_mode(self):
         module = load_module()
         with tempfile.TemporaryDirectory() as directory:

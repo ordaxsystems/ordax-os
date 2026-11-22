@@ -1,4 +1,5 @@
 from pathlib import Path
+import json
 import unittest
 
 ROOT = Path(__file__).resolve().parents[1]
@@ -12,6 +13,38 @@ LIVE_VERIFIED_APP_SEMANTICS = ROOT / "system/services/intelligence/live-verified
 
 
 class IntelligenceProductConsumerTests(unittest.TestCase):
+    def test_desktop_runtime_includes_same_commit_intelligence_module(self):
+        # The Windows Desktop packages the OS-owned system tree, not an external Intelligence checkout.
+        manifest = json.loads((ROOT / "desktop/package.json").read_text(encoding="utf-8"))
+        entries = [item for item in manifest["build"]["extraResources"]
+                   if item.get("to") == "runtime-template/system"]
+        self.assertEqual(len(entries), 1)
+        self.assertEqual(entries[0]["from"], "../system")
+        self.assertIn("**/*", entries[0]["filter"])
+        self.assertFalse(any(item.startswith(("!intelligence/", "!services/intelligence/",
+                                              "!services/local-ai/"))
+                             for item in entries[0]["filter"]))
+        for path in (
+            "intelligence/src/index.mjs",
+            "intelligence/src/intelligence/runtime.mjs",
+            "intelligence/src/local-ai/runtime.mjs",
+            "services/intelligence/runtime.mjs",
+            "services/intelligence/model-router.mjs",
+            "services/local-ai/runtime.mjs",
+            "services/local-ai/completion-stream.mjs",
+            "services/local-ai/model-compatibility.mjs",
+        ):
+            self.assertTrue((ROOT / "system" / path).is_file(), path)
+        for path in (
+            "services/intelligence/runtime.mjs",
+            "services/intelligence/model-router.mjs",
+            "services/local-ai/runtime.mjs",
+            "services/local-ai/completion-stream.mjs",
+            "services/local-ai/model-compatibility.mjs",
+        ):
+            source = (ROOT / "system" / path).read_text(encoding="utf-8")
+            self.assertIn("../../intelligence/src/index.mjs", source, path)
+
     def test_native_composes_intelligence_once_and_injects_consumers(self):
         text = NATIVE.read_text(encoding="utf-8")
         self.assertEqual(text.count("createLocalAiRuntime({"), 1)
