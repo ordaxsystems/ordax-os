@@ -63,9 +63,9 @@ func openInstalledPortableRoots(target Target, parts []creatorcore.PortableAppli
 		"  }",
 		"  $data=Get-Partition -DiskNumber $d -PartitionNumber 2 -ErrorAction Stop",
 		"  if([int][char]$esp.DriveLetter -eq 0 -or [int][char]$data.DriveLetter -eq 0){throw 'mounted Portable partitions lack a drive letter'}",
-		"  [pscustomobject]@{esp=([string]$esp.DriveLetter)+':\';data=([string]$data.DriveLetter)+':\';temporary_esp=$espTemp}|ConvertTo-Json -Compress",
+		"  [pscustomobject]@{esp=([string]$esp.DriveLetter)+':' + [char]92;data=([string]$data.DriveLetter)+':' + [char]92;temporary_esp=$espTemp}|ConvertTo-Json -Compress",
 		"}catch{",
-		"  if($espTemp){$mounted=Get-Partition -DiskNumber $d -PartitionNumber 1 -ErrorAction SilentlyContinue;if($mounted -and [int][char]$mounted.DriveLetter -ne 0){try{$mounted|Remove-PartitionAccessPath -AccessPath (([string]$mounted.DriveLetter)+':\') -ErrorAction Stop|Out-Null}catch{}}}",
+		"  if($espTemp){$mounted=Get-Partition -DiskNumber $d -PartitionNumber 1 -ErrorAction SilentlyContinue;if($mounted -and [int][char]$mounted.DriveLetter -ne 0){try{$mounted|Remove-PartitionAccessPath -AccessPath (([string]$mounted.DriveLetter)+':' + [char]92) -ErrorAction Stop|Out-Null}catch{}}}",
 		"  throw",
 		"}",
 	},"\n")
@@ -73,7 +73,7 @@ func openInstalledPortableRoots(target Target, parts []creatorcore.PortableAppli
 	if err!=nil{return portableUpdateRoots{},fmt.Errorf("existing Portable mount: %w",err)}
 	var roots portableUpdateRoots
 	if json.Unmarshal([]byte(out),&roots)!=nil || len(roots.ESP)!=3 || len(roots.Data)!=3 ||
-		roots.ESP[1:]!=":\" || roots.Data[1:]!=":\" || strings.EqualFold(roots.ESP,roots.Data) {
+		roots.ESP[1:] != ":"+string(os.PathSeparator) || roots.Data[1:] != ":"+string(os.PathSeparator) || strings.EqualFold(roots.ESP,roots.Data) {
 		return portableUpdateRoots{},errors.New("existing Portable mount returned unsafe volume roots")
 	}
 	return roots,nil
@@ -82,7 +82,7 @@ func openInstalledPortableRoots(target Target, parts []creatorcore.PortableAppli
 func closeInstalledPortableRoots(target Target, roots portableUpdateRoots) {
 	if !roots.TemporaryESP {return}
 	if revalidatePortableTarget(target)!=nil{return}
-	script:=fmt.Sprintf("$ErrorActionPreference='Stop';$p=Get-Partition -DiskNumber %d -PartitionNumber 1 -ErrorAction Stop;if(([string]$p.DriveLetter)+':\' -ne %s){throw 'Portable ESP access path changed'};$p|Remove-PartitionAccessPath -AccessPath %s -ErrorAction Stop|Out-Null",
+	script:=fmt.Sprintf("$ErrorActionPreference='Stop';$p=Get-Partition -DiskNumber %d -PartitionNumber 1 -ErrorAction Stop;if(([string]$p.DriveLetter)+':' + [char]92 -ne %s){throw 'Portable ESP access path changed'};$p|Remove-PartitionAccessPath -AccessPath %s -ErrorAction Stop|Out-Null",
 		target.DiskNumber,psSingle(roots.ESP),psSingle(roots.ESP))
 	_,_=runPortablePS(script)
 }
@@ -177,9 +177,7 @@ func (u *portableWindowsUpdateRuntime) ArmCandidate(sha string) error {
 	if err:=revalidatePortableTarget(u.base.target);err!=nil{return err}
 	target,err:=checkPortableUpdateParent(u.base.roots["ORDAX-DATA"],"/.ordax/updates/portable-release-request.txt")
 	if err!=nil{return err}
-	payload:=[]byte("schema=ordax.portable-update-request/1
-source_commit="+sha+"
-")
+	payload:=[]byte("schema=ordax.portable-update-request/1"+string(byte(10))+"source_commit="+sha+string(byte(10)))
 	pending,err:=os.CreateTemp(filepath.Dir(target),".ordax-activation-pending-*")
 	if err!=nil{return err}
 	defer os.Remove(pending.Name())
