@@ -5,7 +5,7 @@ const { mkdtempSync, mkdirSync, copyFileSync, renameSync, rmSync,
   existsSync, lstatSync, readFileSync, realpathSync } = require('node:fs');
 const { join, dirname, resolve } = require('node:path');
 const { createHash, randomUUID } = require('node:crypto');
-const pathToRoot = resolve(__dirname,'../..');
+const pathToRoot = resolve(__dirname,'..');
 
 const VC_NAMES = Object.freeze(['msvcp140.dll','vcruntime140.dll','vcruntime140_1.dll']);
 function verifyPinnedVcSource(sourceDir, records) {
