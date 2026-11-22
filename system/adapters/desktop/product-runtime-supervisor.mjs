@@ -589,6 +589,19 @@ export function createDesktopProductRuntimeSupervisor({
       ORDAX_RUNTIME_STATUS_NONCE:launchNonce,
       PYTHONNOUSERSITE:"1",
     });
+    if(plan.dev===true){
+      // The verified Owner/Development candidate reuses the ONE canonical
+      // Runtime's Windows computer handlers, but as a separate Desktop Product
+      // device. Enable the existing local DEV policy only for this pinned
+      // launch. Never inherit the auxiliary Windows agent's identity/grants
+      // or allow this profile for signed Stable/MVP components.
+      Object.assign(childEnv,{
+        ORDAX_DESKTOP_DEV_MCP:"1",
+        ORDAX_COMPUTER_ACCESS_ENABLED:"1",
+        ORDAX_COMPUTER_FULL_ACCESS:"1",
+        ORDAX_COMPUTER_FULL_FILESYSTEM:"1",
+      });
+    }
     if(bridge){
       // Only the validated, current Native loopback grant is passed to the
       // owned child. Never reuse stale bridge credentials or Win32 APIs.

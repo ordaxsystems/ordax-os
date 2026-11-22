@@ -262,6 +262,34 @@ test("DEV candidate selection is a single strict path pin, never a filesystem es
   sup.stop();
 });
 
+test("verified DEV component gets canonical Windows computer handlers without inheriting another agent",async t=>{
+  const f=fixture(t,{approved:false});
+  stagePinnedDesktopDevCandidate(f);
+  let childEnvironment=null;
+  const sup=createDesktopProductRuntimeSupervisor({
+    systemRoot:f.systemRoot,userData:f.userData,platform:"win32",
+    developmentCandidate:true,
+    env:{
+      ORDAX_DEVICE_ID:"other-device",
+      ORDAX_COMPUTER_ALLOWED_ROOTS:"C:\\\\untrusted",
+      ORDAX_AGENT_STATE_DIR:"C:\\\\WindowsAgent",
+      UNRELATED:"retained",
+    },
+    spawnImpl:(_file,_args,options)=>{childEnvironment=options.env;return child()},
+  });
+  assert.equal((await sup.reconcile()).state,"running");
+  assert.equal(childEnvironment.ORDAX_RUNTIME_HOST_PROFILE,"ordax-desktop");
+  assert.equal(childEnvironment.ORDAX_DESKTOP_DEV_MCP,"1");
+  assert.equal(childEnvironment.ORDAX_COMPUTER_ACCESS_ENABLED,"1");
+  assert.equal(childEnvironment.ORDAX_COMPUTER_FULL_ACCESS,"1");
+  assert.equal(childEnvironment.ORDAX_COMPUTER_FULL_FILESYSTEM,"1");
+  assert.equal(childEnvironment.ORDAX_COMPUTER_ALLOWED_ROOTS,undefined);
+  assert.equal(childEnvironment.ORDAX_AGENT_STATE_DIR,
+    join(f.userData,"native-state","product-runtime"));
+  assert.equal(childEnvironment.UNRELATED,"retained");
+  sup.stop();
+});
+
 test("new OS-pinned DEV candidate materializes from fixed staging filename only",async t=>{
   const f=fixture(t,{approved:false});
   const prior=stagePinnedDesktopDevCandidate(f);
@@ -377,9 +405,11 @@ test("opted-in, hash-pinned DEV candidate starts ONE canonical scoped process",a
   assert.equal(one.centralSessionAttested,false);
   assert.equal(one.capabilityDigest,null);
   assert.equal(settings.env.ORDAX_RUNTIME_HOST_PROFILE,"ordax-desktop");
+ assert.equal(settings.env.ORDAX_DESKTOP_DEV_MCP,"1");
+ assert.equal(settings.env.ORDAX_COMPUTER_FULL_ACCESS,"1");
   assert.equal(settings.env.ORDAX_AGENT_STATE_DIR,f.state);
   assert.equal(settings.env.ORDAX_MCP_DEV,undefined);
-  assert.equal(settings.env.ORDAX_COMPUTER_FULL_ACCESS,undefined);
+  assert.equal(settings.env.ORDAX_COMPUTER_FULL_ACCESS,"1");
   assert.equal(settings.env.NODE_OPTIONS,undefined);
   assert.equal(settings.env.UNRELATED,"safe");
   sup.stop();
@@ -933,7 +963,7 @@ test("scoped Surface bridge is injected only into the owned Product child", asyn
   assert.equal(launched.env.ORDAX_DESKTOP_SURFACE_BRIDGE_TOKEN,"c".repeat(64));
   assert.equal(launched.env.ORDAX_DESKTOP_SURFACE_BRIDGE_URL,
     "http://127.0.0.1:45678/__ordax/native/desktop-surface-state");
-  assert.equal(launched.env.ORDAX_COMPUTER_FULL_ACCESS,undefined);
+  assert.equal(launched.env.ORDAX_COMPUTER_FULL_ACCESS,"1");
   assert.equal(launched.env.UNRELATED,"safe");
   sup.stop();
 });
