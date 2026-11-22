@@ -87,9 +87,11 @@ jobs:
           auth = json.loads(pathlib.Path('docs/contracts/physical-write-authorization.json').read_text(encoding='utf-8'))
           pin = json.loads(pathlib.Path('docs/contracts/native-release-assembly.json').read_text(encoding='utf-8'))['creator_source']
           assert pin['repository'] == os.environ['ORDAX_CREATOR_SOURCE_REPOSITORY']
-          assert pin['commit'] == os.environ['ORDAX_CREATOR_SOURCE_COMMIT']
-          assert pin['tree'] == os.environ['ORDAX_CREATOR_SOURCE_TREE']
-          assert pin['module'] == 'github.com/ordaxsystems/ordax-os'
+          assert pin['path'] == 'creator'
+          assert pin['module'] == 'github.com/ordaxsystems/ordax-os/creator'
+          # The immutable head/tree identities above come from Git, not a
+          # mutable on-disk contract containing stale commit/tree pins.
+          assert 'commit' not in pin and 'tree' not in pin
           assert pin['publisher_authority'] == 'ordaxsystems/ordax-os'
           assert pin['physical_apply_authorized'] is False
           consent = auth.get('physical_write_allowed')

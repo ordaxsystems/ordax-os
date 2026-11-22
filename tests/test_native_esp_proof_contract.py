@@ -125,7 +125,7 @@ class NativeESPProofContractTests(unittest.TestCase):
         self.assertIn(f"ORDAX_SOURCE_COMMIT: {identity}", WORKFLOW)
         self.assertIn('uses: ./.github/actions/resolve-creator-source', WORKFLOW)
         self.assertIn('ORDAX_CREATOR_SOURCE_REPOSITORY', WORKFLOW)
-        self.assertIn("rev-parse 'HEAD^{tree}'", WORKFLOW)
+        self.assertIn('git -C "$creator" rev-parse \'HEAD:creator\'', WORKFLOW)
         self.assertIn('"$creator_cli" render-native-boot', WORKFLOW)
         self.assertIn("ORDAX_OS_CONTRACTS_DIR=", WORKFLOW)
         self.assertNotIn("cd tools/creator", WORKFLOW)
