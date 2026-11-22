@@ -488,6 +488,8 @@ build proves a released Desktop, Web login, Space creation UI, or Profile Pack.
 
 ## ADR-030 - First usable integrated Windows delivery before independent USB completion (2026-11-06)
 
+> **Owner update (2026-11-21):** the separate Desktop, Surface and Site repository roles described in this historical decision were superseded by same-commit modules in `ordax-os/main`. The physical Windows installer acceptance criteria below remain mandatory. See `docs/contracts/repository-ownership.json`.
+
 > **Operational sequencing superseded on 2026-11-13.** The Windows acceptance criteria below remain valid for declaring the Desktop channel usable, but Windows is no longer a global prerequisite or priority queue for OS/USB, Surface, Apps, Creator, Site or Intelligence. ADR-031 and the current `MVP.md` define parallel owner execution and synchronization only at real adoption points.
 
 **Decision:** Prioritize one verified **operational first-user release** of OrdaX Desktop Windows, rather than counting isolated repository PRs as product completion or waiting for the separate USB/Buildroot/Creator path. “MVP operacional” means a complete, honest vertical journey for the declared channel, **not** a fork, a second product, a simulated feature or removal of started capabilities from the integrated launch baseline (ADR-026 and `MVP.md`).
@@ -499,6 +501,8 @@ build proves a released Desktop, Web login, Space creation UI, or Profile Pack.
 **Scope retained:** USB, Native disk, Runtime/MCP and already started product capabilities remain in their current owners and baseline. They are not prerequisites for an independent Windows release unless they are part of that release's declared user journey or a real safety dependency. Security, isolation, signing, authorization, honest status, update and rollback/recovery gates cannot be deferred merely to claim launch. Record proven state in `docs/CURRENT-STATE.md`; use `MVP.md` as the single scope/acceptance SSOT, not another roadmap or per-repository MVP.
 
 ## ADR-031 - Repository separation is ownership; product integration is composition (2026-11-13)
+
+> **Partial supersession (2026-11-21):** this original cross-repo topology is historical for Desktop, Surface and public Site. They now reside respectively in `desktop/`, `system/surface/` and `site/` of `ordax-os/main`. The original independent-owner boundaries still apply to Runtime, Platform, Apps, Creator and other sources according to the **current ownership contract**. Do not resurrect retired checkouts or source locks.
 
 **Decision:** OrdaX repositories remain separated by responsibility, but they form one product through versioned contracts, immutable artifacts and direct-dependency composition. Repository separation must reduce coordination, not create a distributed monolith that requires synchronized PRs across every owner.
 
