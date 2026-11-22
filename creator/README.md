@@ -57,6 +57,17 @@ A identidade Windows do dispositivo é conferida antes e depois. O diagnóstico
 não instala arquivos, não habilita escrita, não atualiza o boot e não constitui
 permissão de gravação física.
 
+O diagnóstico creator/tools/owner_dev_qemu_partition_snapshot.py avança
+um passo: sobre o mesmo USB identificado e Base publicada, cria uma camada
+QCOW2 temporária cujo backing é a partição Linux física. QEMU só escreve
+na camada QCOW2; materializa o rootfs completo nela, reinicia para validar
+o commit e SHA-256, depois monta a partição original em modo ro,noload
+para confirmar que o marcador exclusivo do ensaio não existe na mídia.
+Uma amostra física inicial/final também é comparada por SHA-256. O arquivo
+temporário é descartado ao encerrar. Esse resultado não grava o USB e
+não implementa um segundo atualizador: é exclusivamente uma prova para
+a futura adaptação de gravação física do Update Engine canônico.
+
 ## Desenvolvimento e distribuição
 
 O resolvedor em ../.github/actions/resolve-creator-source/ valida a versão de creator/ contida no próprio commit do OS. Workflows e releases pertencem ao ordax-os; os contratos de mídia, assinatura, atualização e publicação ficam em ../docs/contracts/ e produtores em ../tools/creator/.
