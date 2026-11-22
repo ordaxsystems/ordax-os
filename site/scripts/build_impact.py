@@ -16,13 +16,27 @@ import sys
 from pathlib import Path
 
 ROOT = Path(__file__).resolve().parents[1]
-GIT_ROOT = ROOT.parent if (ROOT.parent / ".git").exists() else ROOT
-PREFIX = "site/" if GIT_ROOT != ROOT else ""
+GIT_ROOT = ROOT.parent  # Site is exclusively an ordax-os workspace.
+PREFIX = "site/"
 SHA40 = re.compile(r"[0-9a-f]{40}\Z")
 DOC_FILES = frozenset({PREFIX + "README.md", PREFIX + "AGENTS.md", PREFIX + "URGENTE-LEIA.md"})
 DOC_PREFIXES = ("docs/", PREFIX + "docs/")
 HOST_ONLY_PREFIXES = (PREFIX + "tests/", PREFIX + ".github/")
 
+# Only code used by the public Site (and its canonical gateway) can invalidate
+# the deployment. Native OS, Desktop and Forge remain independent.
+SITE_DEPLOYMENT_PREFIXES = (
+    PREFIX,
+    "api/",
+    "tools/vercel/",
+    "infra/supabase/functions/_shared/",
+    "infra/supabase/functions/ordax-public-account-gateway/",
+)
+SITE_DEPLOYMENT_FILES = frozenset({
+    "lib/account-proxy-core.mjs",
+    "package.json",
+    "package-lock.json",
+})
 
 def changed_paths(baseline: str | None) -> tuple[str, ...] | None:
     """Return every changed tracked path; None is an uncertain/invalid diff."""
@@ -49,10 +63,20 @@ def is_doc(path: str) -> bool:
     return path in DOC_FILES or path.startswith(DOC_PREFIXES)
 
 
+def affects_site_deployment(path: str) -> bool:
+    """Only canonical owners of Site source and shared gateway require a build."""
+    if is_doc(path) or path.startswith(HOST_ONLY_PREFIXES):
+        return False
+    if path in SITE_DEPLOYMENT_FILES:
+        return True
+    if path.startswith("docs/contracts/public-site") and path.endswith(".json"):
+        return True
+    return path.startswith(SITE_DEPLOYMENT_PREFIXES)
+
+
 def may_skip_vercel(paths: tuple[str, ...] | None) -> bool:
-    return paths is not None and all(
-        is_doc(path) or path.startswith(HOST_ONLY_PREFIXES) for path in paths
-    )
+    # Missing/unreadable diffs fail closed and build the site.
+    return paths is not None and not any(map(affects_site_deployment, paths))
 
 
 def may_skip_full_ci(paths: tuple[str, ...] | None, event: str) -> bool:
