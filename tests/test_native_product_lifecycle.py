@@ -140,7 +140,7 @@ class NativeProductLifecycleTests(unittest.TestCase):
         self.assertIn('if ! native_product_reconcile;', supervisor)
         self.assertIn('if ! native_product_stop;', supervisor)
         self.assertIn(
-            'system/entrypoint|system/supervisor|system/services/device-agent/native-product-lifecycle.sh)',
+            'system/entrypoint|system/supervisor|system/services/device-agent/native-product-lifecycle.sh|system/services/device-agent/owner-dev-native-product.sh|system/services/device-agent/owner-dev-native-product.txt)',
             supervisor,
         )
         self.assertLess(
