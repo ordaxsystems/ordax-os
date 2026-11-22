@@ -54,6 +54,13 @@ const (
 	msgActionCreate              creatorMessageID = "creator.action.create"
 	msgUSBUpdateAction          creatorMessageID = "creator.usbUpdate.action"
 	msgUSBUpdateConfirm         creatorMessageID = "creator.usbUpdate.confirm"
+	msgPortableUSBUpdateAction creatorMessageID = "creator.portableUpdate.action"
+	msgPortableUSBUpdateConfirm creatorMessageID = "creator.portableUpdate.confirm"
+	msgPortableUSBUpdateBlocked creatorMessageID = "creator.portableUpdate.blocked"
+	msgPortableUSBUpdateWorking creatorMessageID = "creator.portableUpdate.working"
+	msgPortableUSBUpdateComplete creatorMessageID = "creator.portableUpdate.complete"
+	msgPortableUSBUpdateFailed creatorMessageID = "creator.portableUpdate.failed"
+	msgPortableUSBUpdateEvidence creatorMessageID = "creator.portableUpdate.evidence"
 	msgUSBUpdateWorking         creatorMessageID = "creator.usbUpdate.working"
 	msgUSBUpdateWorkingHint     creatorMessageID = "creator.usbUpdate.workingHint"
 	msgUSBUpdateBlocked         creatorMessageID = "creator.usbUpdate.blocked"
@@ -189,6 +196,13 @@ var creatorPTBRMessages = map[creatorMessageID]string{
 	msgReviewDetail:              "Os discos internos ficam fora da seleção. A validação, a gravação e a leitura de verificação acontecem automaticamente.",
 	msgActionCreate:              "Criar OrdaX",
 	msgUSBUpdateAction:          "Preparar Git Dev no USB",
+	msgPortableUSBUpdateAction: "Atualizar USB",
+	msgPortableUSBUpdateConfirm: "Instalar a release e a Surface no pendrive {device} (disco {disk}, serial {serial}) sem formatar? Os dados e a versão anterior serão preservados. O boot do OrdaX fará a validação de ativação.",
+	msgPortableUSBUpdateBlocked: "O pendrive ainda não usa o formato Portable verificável. É necessária uma instalação única no novo formato para habilitar atualizações diretas.",
+	msgPortableUSBUpdateWorking: "Instalando e verificando a release portátil no USB.",
+	msgPortableUSBUpdateComplete: "Release instalada e verificada no pendrive; aguardando ativação após o boot e o teste de saúde.",
+	msgPortableUSBUpdateFailed: "Não foi possível instalar a atualização portátil no pendrive.",
+	msgPortableUSBUpdateEvidence: "Release portátil {commit}: gravada e verificada no pendrive.",
 	msgUSBUpdateConfirm:         "Preparar atualização incremental no USB selecionado? Esta operação não formata o pendrive nem altera a Base ou o boot. O pacote Git não atualiza os componentes executáveis; o Supervisor do OrdaX aplica apenas as mudanças de código elegíveis após validação.",
 	msgUSBUpdateWorking:         "Preparando Git e Base verificada no USB.",
 	msgUSBUpdateWorkingHint:     "Não remova o USB durante a cópia e a leitura de verificação.",
@@ -325,6 +339,13 @@ var creatorENUSMessages = map[creatorMessageID]string{
 	msgReviewDetail:              "Internal disks are excluded from selection. Validation, writing and readback run automatically.",
 	msgActionCreate:              "Create OrdaX",
 	msgUSBUpdateAction:          "Stage Dev Git on USB",
+	msgPortableUSBUpdateAction: "Update USB",
+	msgPortableUSBUpdateConfirm: "Install the signed release and Surface on USB {device} (disk {disk}, serial {serial}) without formatting? Data and the previous release will be preserved. OrdaX boot will verify activation.",
+	msgPortableUSBUpdateBlocked: "This USB does not have a verifiable Portable layout yet. A one-time installation of the new layout is required before direct updates.",
+	msgPortableUSBUpdateWorking: "Installing and verifying the Portable USB release.",
+	msgPortableUSBUpdateComplete: "Release installed and verified on USB; activation awaits next boot and health check.",
+	msgPortableUSBUpdateFailed: "Could not install the Portable release on USB.",
+	msgPortableUSBUpdateEvidence: "Portable release {commit}: written and verified on USB.",
 	msgUSBUpdateConfirm:         "Stage an incremental update on the selected USB drive? This does not format the drive or change the Base or boot files. The Git bundle does not update executable components; the OrdaX Supervisor applies eligible source changes only after validation.",
 	msgUSBUpdateWorking:         "Staging verified Git and Base files on USB.",
 	msgUSBUpdateWorkingHint:     "Do not disconnect the USB drive during copying and readback verification.",
