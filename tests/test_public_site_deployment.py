@@ -128,12 +128,12 @@ class PublicSiteDeploymentTests(unittest.TestCase):
                 )
                 return git("rev-parse", "HEAD")
 
-            def ignored(previous, current, environment="preview"):
+            def ignored(previous, current, environment="preview", project_id=PUBLIC_VERCEL_PROJECT_ID):
                 env = dict(os.environ)
                 env["VERCEL_GIT_PREVIOUS_SHA"] = previous
                 env["VERCEL_GIT_COMMIT_SHA"] = current
                 env["VERCEL_ENV"] = environment
-                env["VERCEL_PROJECT_ID"] = PUBLIC_VERCEL_PROJECT_ID
+                env["VERCEL_PROJECT_ID"] = project_id
                 result = subprocess.run(
                     [shutil.which("sh") or str(Path(__import__("os").environ.get("ProgramFiles", r"C:\Program Files")) / "Git/bin/sh.exe"), str(script)], cwd=work, env=env,
                     capture_output=True, text=True, check=False,
@@ -143,6 +143,7 @@ class PublicSiteDeploymentTests(unittest.TestCase):
             git("init")
             write("docs/contracts/public-site-source.json", '{"commit":"site-a"}')
             write("docs/README.md", "initial documentation")
+            write("site/scripts/build_impact.py", (ROOT / "site/scripts/build_impact.py").read_text(encoding="utf-8"))
             initial = commit("initial")
             self.assertEqual(ignored("", initial), 1)
             self.assertEqual(ignored(initial, ""), 1)
@@ -157,6 +158,42 @@ class PublicSiteDeploymentTests(unittest.TestCase):
             write("docs/contracts/public-site-source.json", '{"commit":"site-b"}')
             site_change = commit("public site change")
             self.assertEqual(ignored(docs_only, site_change), 1)
+
+            # Public and Web must both rebuild for source in site/, not the
+            # removed tools/public-site tree. Documentation-only changes skip.
+            spec = importlib.util.spec_from_file_location(
+                "vercel_impact_build_projects", ROOT / "tools/vercel/build.py",
+            )
+            dispatcher = importlib.util.module_from_spec(spec)
+            spec.loader.exec_module(dispatcher)
+            web_id = dispatcher.WEB_PROJECT_ID
+
+            write("site/docs/HANDOFF.md", "new documentation")
+            site_docs = commit("site documentation only")
+            self.assertEqual(ignored(site_change, site_docs), 0)
+            self.assertEqual(ignored(site_change, site_docs, project_id=web_id), 0)
+
+            write("site/public/index.html", "<main>site changed</main>")
+            site_source = commit("canonical site source changed")
+            self.assertEqual(ignored(site_docs, site_source), 1)
+            self.assertEqual(ignored(site_docs, site_source, project_id=web_id), 1)
+
+            write("desktop/README.md", "other module")
+            desktop_only = commit("unrelated desktop source")
+            self.assertEqual(ignored(site_source, desktop_only), 0)
+            self.assertEqual(ignored(site_source, desktop_only, project_id=web_id), 0)
+
+            write("site/scripts/build.py", "# changed build implementation")
+            site_builder = commit("site builder changed")
+            self.assertEqual(ignored(desktop_only, site_builder), 1)
+            self.assertEqual(ignored(desktop_only, site_builder, project_id=web_id), 1)
+
+            # An unrelated root API is not a dependency of the public Site.
+            write("api/unrelated-service.mjs", "export default {};")
+            other_api = commit("unrelated root API")
+            self.assertEqual(ignored(site_builder, other_api), 0)
+            # A mismatched checkout SHA must fail closed rather than skip.
+            self.assertEqual(ignored(site_docs, site_source), 1)
 
     def test_cloudflare_zone_remains_dedicated_and_independently_proven(self):
         migration = self.contract["cloudflare_dns_migration"]
