@@ -251,8 +251,15 @@ class NativeComponentPendingDecisionOwnerTests(unittest.TestCase):
         self.assertFalse(native_policy.NATIVE_CANONICAL_COMPONENT_TRUST_ANCHOR_PINNED)
         self.assertFalse(native_policy.NATIVE_SLOT_ACTIVATION_AVAILABLE)
         self.assertFalse(native_policy.NATIVE_PENDING_HEALTH_PROMOTION_AVAILABLE)
-        self.assertEqual(native_policy.NATIVE_PROBATION_COMPONENT_IDS, frozenset({"calculator", "files", "notes"}))
-        self.assertEqual(native_policy.NATIVE_PENDING_DECISION_COMPONENT_IDS, frozenset({"notes"}))
+        self.assertEqual(
+            native_policy.NATIVE_PROBATION_COMPONENT_IDS,
+            frozenset(policy["runtime_health_bridge_supported_components"]),
+        )
+        self.assertEqual(
+            native_policy.NATIVE_PENDING_DECISION_COMPONENT_IDS,
+            frozenset(policy["native_pending_decision_supported_components"]),
+        )
+        self.assertNotIn("assistant", native_policy.NATIVE_PENDING_DECISION_COMPONENT_IDS)
 
     def test_execution_request_cannot_retarget_runtime_bindings(self):
         lifecycle_owner = owner.ComponentPendingDecisionOwner(
