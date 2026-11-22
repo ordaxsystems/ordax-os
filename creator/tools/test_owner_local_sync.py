@@ -133,7 +133,7 @@ class LocalSyncTests(unittest.TestCase):
     def test_manifest_rejects_unsafe_redirect_and_digest(self):
         self.assertIs(SYNC.validate_manifest(self.manifest), self.manifest)
         # Old packages remain readable; the new digest is strictly checked
-        # when supplied by the canonical independent Creator publisher.
+        # when supplied by the canonical OS Creator publisher.
         current = dict(self.manifest, os_media_payload_sha256="f" * 64)
         self.assertIs(SYNC.validate_manifest(current), current)
         for key, replacement in [
@@ -143,7 +143,7 @@ class LocalSyncTests(unittest.TestCase):
             ("os_media_payload_sha256", "not-a-digest"),
             ("os_media_payload_sha256", None),
             ("source_commit", "not-a-commit"),
-            ("owner_repository", "ordaxsystems/ordax-os"),
+            ("owner_repository", "ordaxsystems/ordax-creator"),
         ]:
             value = dict(self.manifest, **{key: replacement})
             with self.assertRaises(SYNC.SyncError):

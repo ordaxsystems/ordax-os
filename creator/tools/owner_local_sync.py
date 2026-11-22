@@ -1,8 +1,8 @@
 #!/usr/bin/env python3
 """Owner Dev local Creator synchronizer. Never writes a USB or upgrades a running EXE.
 
-Consumes only the immutable Creator release channel, checked against the two
-independent GitHub histories. The installed application directory is replaced
+Consumes only the canonical OS Creator release channel, with both application
+and OS media revisions checked against the same verified OS Git history. The installed application directory is replaced
 as a unit, only after digest, provenance and offline executable smoke checks.
 """
 from __future__ import annotations
@@ -128,7 +128,10 @@ def current_provenance(root: Path) -> dict:
 
 
 def local_repo_path(repository: str) -> Path:
-    return Path(__file__).resolve().parents[2] / repository
+    if repository != "ordax-os":
+        raise SyncError("invalid local source owner")
+    # tools/ sits in creator/ of the current OS checkout, not beside a second repo.
+    return Path(__file__).resolve().parents[2]
 
 
 def local_source_relation(repository: str, installed: str, candidate: str) -> int | None:
