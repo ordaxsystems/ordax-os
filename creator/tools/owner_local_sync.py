@@ -137,7 +137,11 @@ def local_repo_path(repository: str) -> Path:
 def local_source_relation(repository: str, installed: str, candidate: str) -> int | None:
     """Use the canonical local Git history, without transferring a giant Compare diff."""
     repo = local_repo_path(repository)
-    if repo.is_symlink() or not (repo / ".git").is_dir() or (repo / ".git").is_symlink():
+    # In a linked Git worktree .git is a regular gitdir pointer file.
+    # Both a normal checkout and a linked worktree are valid read-only sources.
+    marker = repo / ".git"
+    if (repo.is_symlink() or marker.is_symlink()
+            or not (marker.is_dir() or marker.is_file())):
         return None
 
     def git(*args: str) -> subprocess.CompletedProcess:

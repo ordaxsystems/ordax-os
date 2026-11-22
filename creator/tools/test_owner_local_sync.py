@@ -269,6 +269,20 @@ class LocalSyncTests(unittest.TestCase):
                 SYNC.source_relation("ordax-os", new, old)
             remote.assert_not_called()
 
+        # A linked Git worktree uses a regular .git pointer instead of a
+        # directory. It must reuse local ancestry without fetching Compare.
+        run("checkout", "--detach")
+        worktree = self.root / "os-main-worktree"
+        subprocess.run(["git", "-C", str(repo), "worktree", "add",
+                        str(worktree), "main"], check=True, capture_output=True)
+        self.assertTrue((worktree / ".git").is_file())
+        with (
+            mock.patch.object(SYNC, "local_repo_path", return_value=worktree),
+            mock.patch.object(SYNC, "request_json") as remote,
+        ):
+            self.assertEqual(SYNC.source_relation("ordax-os", old, new), 1)
+            remote.assert_not_called()
+
     def test_noncanonical_local_source_falls_back_to_remote_authority(self):
         with (
             mock.patch.object(SYNC, "local_repo_path", return_value=self.root / "missing"),
