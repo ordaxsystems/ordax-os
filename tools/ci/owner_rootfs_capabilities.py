@@ -441,6 +441,72 @@ def _supervisor_sourced_functions(root: Path) -> frozenset[str]:
     return frozenset(functions)
 
 
+def verified_private_native_executables(root: Path = ROOT) -> set[str]:
+    """Derive a private ELF loader from an exact Git-owned, hash-pinned slot.
+
+    Never report it as an OS/Buildroot applet. An unpinned or partially verified
+    external executable must remain an unknown rootfs command and fail CI.
+    """
+    manifest = root / "system/services/device-agent/owner-dev-native-product.txt"
+    adapter = root / OWNER_NATIVE_PRODUCT_ADAPTER
+    if any(path.is_symlink() or not path.is_file() or path.stat().st_size > 16384
+           for path in (manifest, adapter)):
+        return set()
+    try:
+        values = manifest.read_text(encoding="ascii").splitlines()
+        pairs = [line.split("=", 1) for line in values]
+    except (OSError, UnicodeError):
+        return set()
+    expected = (
+        "schema", "runtime_source_commit", "os_base_commit",
+        "os_base_rootfs_sha256", "runtime_ci_run_id", "offline_base_proof_run_id",
+        "binary_sha256", "binary_bytes", "loader_sha256", "loader_bytes",
+        "libc_sha256", "libc_bytes", "zlib_sha256", "zlib_bytes",
+    )
+    if (len(pairs) != len(expected)
+            or [p[0] for p in pairs if len(p) == 2] != list(expected)
+            or any(len(p) != 2 for p in pairs)):
+        return set()
+    pin = dict(pairs)
+    if pin["schema"] != "ordax.owner-dev-native-product/1":
+        return set()
+    for key, length in (
+        ("runtime_source_commit", 40), ("os_base_commit", 40),
+        ("os_base_rootfs_sha256", 64), ("binary_sha256", 64),
+        ("loader_sha256", 64), ("libc_sha256", 64), ("zlib_sha256", 64),
+    ):
+        if not re.fullmatch(rf"[0-9a-f]{{{length}}}", pin[key]):
+            return set()
+    for key, bound in (
+        ("runtime_ci_run_id", 10**15),
+        ("offline_base_proof_run_id", 10**15),
+        ("binary_bytes", 134217728),
+        ("loader_bytes", 16777216),
+        ("libc_bytes", 16777216),
+        ("zlib_bytes", 16777216),
+    ):
+        if (not re.fullmatch(r"[1-9][0-9]*", pin[key])
+                or int(pin[key]) > bound):
+            return set()
+    if (pin["loader_sha256"] != pin["libc_sha256"]
+            or pin["loader_bytes"] != pin["libc_bytes"]):
+        return set()
+    source = adapter.read_text(encoding="utf-8")
+    # Pin, physical same-disk proof and actual checksum validation are each
+    # required. A filename in a shell string is never sufficient to authorize
+    # a runtime-private executable.
+    required = (
+        'owner_dev_native_load_pin',
+        'owner_dev_native_stage_on_mounted_data',
+        'owner_dev_native_slot_valid',
+        'owner_dev_native_file_valid "$onp_slot/portable-lib/ld-musl-x86_64.so.1" "$ONP_LOADER_SHA" "$ONP_LOADER_BYTES"',
+        'exec "$NATIVE_PRODUCT_OWNER_LIB/ld-musl-x86_64.so.1" --library-path',
+    )
+    if not all(item in source for item in required):
+        return set()
+    return {"ld-musl-x86_64.so.1"}
+
+
 def owner_inventory(root: Path = ROOT) -> dict[str, object]:
     per_source: dict[str, list[str]] = {}
     all_commands: set[str] = set()
@@ -467,13 +533,15 @@ def owner_inventory(root: Path = ROOT) -> dict[str, object]:
     programs = sorted(all_commands & BUILDROOT_PROGRAMS.keys())
     busybox = sorted(all_commands & BUSYBOX_SYMBOLS.keys())
     fixed = fixed_initramfs_commands(root)
-    known = set(internal) | set(programs) | set(busybox) | fixed
+    private = verified_private_native_executables(root)
+    known = set(internal) | set(programs) | set(busybox) | fixed | private
     return {
         "$schema": "prototype-ordax.owner-rootfs-capabilities/1",
         "sources": per_source,
         "commands": sorted(all_commands),
         "internal_commands": internal,
         "fixed_initramfs_commands": sorted(all_commands & fixed),
+        "verified_private_component_executables": sorted(all_commands & private),
         "buildroot_programs": programs,
         "busybox_applets": busybox,
         "explicit_busybox_applets": sorted(explicit_busybox),
