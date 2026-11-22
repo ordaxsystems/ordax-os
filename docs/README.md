@@ -65,8 +65,8 @@ Para mudanças cross-repo, **comece por `AGENTS.md`, o owner e o contrato aplic�
 | Current state / handoff | `docs/CURRENT-STATE.md` |
 | Architecture | `docs/ARCHITECTURE.md` |
 | Repository ownership + dependency direction | `docs/REPOSITORY-OWNERSHIP.md` + `docs/contracts/repository-ownership.json` |
-| External Surface source / staging | `docs/contracts/surface-source.json` + `docs/REPOSITORY-OWNERSHIP.md` + `system/surface/README.md` |
-| Brand tokens / derived public + email artifacts | `docs/BRAND-SSOT.md` (visual source remains `ordax-surface`; OS materializes the pinned revision) |
+| Same-commit Surface source / staging | `docs/contracts/surface-source.json` + `docs/REPOSITORY-OWNERSHIP.md` + `system/surface/README.md` |
+| Brand tokens / derived public + email artifacts | `docs/BRAND-SSOT.md` (visual source is `system/surface/` in the OS; staged assets are verified against the same commit) |
 | External Intelligence source / verified staging | `docs/EXTERNAL-SOURCE-INTEGRATION.md` (source lock e materialização) + `docs/OWNER-INTELLIGENCE-TRANSACTION.md` (Supervisor/Owner) + `docs/contracts/intelligence-source.json` (estado/flags atuais). Histórico datado: [migração anterior](https://github.com/ordaxsystems/ordax-os/blob/f8c8f76d62de41fe5b91ef05904ce1f3d79068c8/docs/INTELLIGENCE-REPOSITORY-MIGRATION.md); não é autoridade vigente. |
 | Personal OrdaX orchestration | `docs/PERSONAL-ORDAX.md` |
 | Web Research source boundary (providers disabled) | `docs/WEB-RESEARCH.md`, `system/contracts/web-research.mjs` |
