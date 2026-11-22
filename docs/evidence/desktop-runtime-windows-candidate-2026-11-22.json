@@ -4,12 +4,12 @@
   "candidate": {
     "schema": "ordax.desktop-runtime-candidate/1",
     "source_repository": "ordaxsystems/ordax-runtime",
-    "source_commit": "a6232e3a2f53446a8c0d9686bb629d3122ecaadb",
+    "source_commit": "8ebdd70bb38222ecc0deb88b9b3f61966a9cbf42",
     "profile": "ordax-desktop",
     "platform": "windows-amd64",
     "artifact": "ordax-product-agent.exe",
-    "sha256": "51818a8ba9316c4da7d48481b8409a0183fdb26bcbb452fadd97cd6829d9e570",
-    "size_bytes": 20621473,
+    "sha256": "83ae1fa5ed6f1453d631ab1d31069a6d2e09005188a12ea73e12e64325132c30",
+    "size_bytes": 20621995,
     "runtime_version": "0.4.8",
     "build_python_version": "3.12.10",
     "python_required_on_device": false,
@@ -24,24 +24,24 @@
     "requirements_sha256": "ec8e7c0a91787a9660669fa6af50f48666643046797ed7b973d813bff0c4de3c",
     "component_package": {
       "name": "product-runtime.zip",
-      "sha256": "17fea437748ec1c67b0333a209383cd1f78180ad88cb10c9fca2c283512116b7",
-      "size": 20622895,
-      "manifest_sha256": "5af24792ea9f9501387eb71d23e6f390092714abe8a8e83706fa5c4922fa1347"
+      "sha256": "1bcc42af4b82d6c1c0893c96a2ef66ec978dfa8ac3e4cffb6ab12e6b70d787da",
+      "size": 20623417,
+      "manifest_sha256": "e1583bf9d629b57787781579002124959c3763521d988246bd5de8bd03bb29fd"
     }
   },
   "ci_provenance": {
     "workflow": "OrdaX Desktop Runtime Component",
-    "workflow_run_id": 45010418712,
-    "artifact_id": 14750005773,
-    "artifact_name": "ordax-desktop-runtime-candidate-a6232e3a2f53446a8c0d9686bb629d3122ecaadb",
-    "artifact_digest_sha256": "4524d4d83aec2aa3f5ac6f15cb02b3e0ffac28f1c508f565a365c473966123a4",
-    "head_sha": "a6232e3a2f53446a8c0d9686bb629d3122ecaadb"
+    "workflow_run_id": 45047680063,
+    "artifact_id": 14764391376,
+    "artifact_name": "ordax-desktop-runtime-candidate-8ebdd70bb38222ecc0deb88b9b3f61966a9cbf42",
+    "artifact_digest_sha256": "999e45b3e408dc7ef7235630262d05d7fd152776a04f42161f360f30bfd56272",
+    "head_sha": "8ebdd70bb38222ecc0deb88b9b3f61966a9cbf42"
   },
   "physical_offline_proof": {
     "device": "DESKTOP-4UFL03B",
     "os": "Windows 10 Pro x64",
-    "source_commit": "a6232e3a2f53446a8c0d9686bb629d3122ecaadb",
-    "executable_sha256": "51818a8ba9316c4da7d48481b8409a0183fdb26bcbb452fadd97cd6829d9e570",
+    "source_commit": "8ebdd70bb38222ecc0deb88b9b3f61966a9cbf42",
+    "executable_sha256": "83ae1fa5ed6f1453d631ab1d31069a6d2e09005188a12ea73e12e64325132c30",
     "exit_code": 0,
     "passed": true,
     "python_on_path": false,
@@ -72,7 +72,7 @@
     "public-only-handoff-reverification-and-anchor-promotion",
     "source-lock-and-signed-windows-component-promotion"
   ],
-  "local_verification_at_utc": "2026-11-22T10:07:34.734286+00:00",
+  "local_verification_at_utc": "2026-11-22T17:12:20.070Z",
   "current_remote_action_attested": false,
   "owner_challenge_state": "not_part_of_offline_candidate_proof"
 }
