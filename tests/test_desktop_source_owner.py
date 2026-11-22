@@ -1,6 +1,7 @@
 """Single-owner Desktop cutover gates: OS ships exactly one Electron host."""
 import json
 import pathlib
+import re
 import unittest
 
 ROOT = pathlib.Path(__file__).resolve().parents[1]
@@ -48,6 +49,40 @@ class DesktopSourceOwnerTests(unittest.TestCase):
             workflow.index("name: Bind installer to exact OS + Surface Native provenance"),
             "The canonical same-commit Surface receipt must exist before binding",
         )
+
+    def test_dev_release_guard_accepts_only_unrelated_monorepo_owner_drift(self):
+        workflow = PRODUCER.read_text(encoding="utf-8")
+        self.assertIn("$comparison.merge_base_commit.sha -cne $desktopSha", workflow)
+        self.assertIn("$comparison.total_commits -gt 250", workflow)
+        self.assertIn("@($comparison.files).Count -ge 300", workflow)
+        self.assertIn("$change.previous_filename", workflow)
+        self.assertIn("DESKTOP_RELEASE_UNRELATED_MAIN_DRIFT_VERIFIED", workflow)
+        self.assertIn("Canonical main moved during release source attestation", workflow)
+        match = re.search(r"\$path -cmatch '([^']+)'", workflow)
+        self.assertIsNotNone(match, "Release drift guard needs explicit owner allowlist")
+        allowed = re.compile(match.group(1))
+        for path in (
+            "creator/cmd/ordax-creator-app/usb_git_update_windows.go",
+            ".github/workflows/creator-owner-release.yml",
+            "site/app/page.tsx",
+            "tools/public-site/activate_account_legal_policy.py",
+            "tests/test_account_legal_policy_activation.py",
+            "README.md",
+        ):
+            self.assertIsNotNone(allowed.match(path), path)
+        for path in (
+            "desktop/main.cjs",
+            "desktop/dev-update.cjs",
+            ".github/workflows/windows-desktop-dev.yml",
+            "system/surface/ui/account-overview-controls.mjs",
+            "system/composition/native/main.mjs",
+            "system/services/local-ai/source-lock.json",
+            "tests/test_desktop_source_owner.py",
+            "AGENTS.md",
+        ):
+            self.assertIsNone(allowed.match(path), path)
+        self.assertIn("$path -cnotmatch '^docs/(contracts|evidence)/'", workflow)
+        self.assertIn("$path -cne 'docs/DEVELOPMENT-WORKFLOW.md'", workflow)
 
     def test_windows_installer_preserves_verified_private_dependencies(self):
         workflow = PRODUCER.read_text(encoding="utf-8")
