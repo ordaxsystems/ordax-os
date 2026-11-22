@@ -4,7 +4,7 @@ const assert=require('node:assert/strict');
 const {readFileSync}=require('node:fs');
 const {join}=require('node:path');
 const {planRuntimePackages}=require('./runtime-toolchain.cjs');
-const root=join(__dirname,'../..');
+const root=join(__dirname,'..');
 const manifest=JSON.parse(readFileSync(join(root,'package.json'),'utf8'));
 const lock=JSON.parse(readFileSync(join(root,'package-lock.json'),'utf8'));
 
@@ -23,8 +23,8 @@ test('Native installed toolchain is generated, not sourced from entire developme
   const build=require('./package.json').build;
   const entry=build.extraResources.find(e=>e.to==='runtime-template/toolchain/node_modules.tar.gz');
   const receipt=build.extraResources.find(e=>e.to==='runtime-template/toolchain/toolchain-receipt.json');
-  assert.equal(entry.from,'../../out/windows-desktop-toolchain/node_modules.tar.gz');
-  assert.equal(receipt.from,'../../out/windows-desktop-toolchain/toolchain-receipt.json');
+  assert.equal(entry.from,'../out/windows-desktop-toolchain/node_modules.tar.gz');
+  assert.equal(receipt.from,'../out/windows-desktop-toolchain/toolchain-receipt.json');
   assert.ok(!build.extraResources.some(e=>e.to==='runtime-template/node_modules'),
     'NSIS must never extract a 12k-file compiler into Program Files');
   const workflow=readFileSync(join(root,'.github/workflows/windows-desktop-dev.yml'),'utf8');
