@@ -155,6 +155,21 @@ class DeliveryTests(unittest.TestCase):
         self.assertFalse((self.delivery / (APP.MANIFEST + ".pending")).exists())
         self.assertFalse((self.delivery / (APP.BUNDLE + ".pending")).exists())
 
+    def test_atomic_replacement_uses_one_pending_copy_and_reserves_free_space(self):
+        digest, size = self.make_bundle()
+        APP.install_bundle(self.delivery, self.bundle, self.sha, digest, size)
+        reserve = 32 * 1024 * 1024
+        # A replacement keeps the old bundle on disk, but needs room for
+        # only one additional pending copy. Reject even one byte short.
+        with mock.patch.object(APP.shutil, "disk_usage",
+                               return_value=mock.Mock(free=size + reserve - 1)):
+            with self.assertRaisesRegex(APP.DeliveryError, "insufficient ORDAX-DATA"):
+                APP.install_bundle(self.delivery, self.bundle, self.sha, digest, size)
+        with mock.patch.object(APP.shutil, "disk_usage",
+                               return_value=mock.Mock(free=size + reserve)):
+            APP.install_bundle(self.delivery, self.bundle, self.sha, digest, size)
+        self.assertTrue(APP.existing_current(self.delivery, self.sha))
+
     def test_update_request_only_arms_after_verified_bundle(self):
         digest, size = self.make_bundle()
         with self.assertRaisesRegex(APP.DeliveryError, "verified Git bundle"):

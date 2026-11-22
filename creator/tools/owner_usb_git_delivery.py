@@ -455,7 +455,10 @@ def ensure_real_ancestors(volume: Path, target: Path) -> None:
 def install_bundle(target: Path, bundle: Path, commit: str, digest: str, size: int) -> None:
     # Save manifest last: any interruption before that leaves mismatched data
     # that the OS verifier rejects. No raw block device is opened or formatted.
-    if shutil.disk_usage(target.anchor).free < 2 * size + 32 * 1024 * 1024:
+    # Only one new .pending bundle resides on ORDAX-DATA; the producer's
+    # bundle is on Windows temp, and the existing verified bundle is already
+    # accounted for in free space. Preserve 32 MiB for the filesystem.
+    if shutil.disk_usage(target.anchor).free < size + 32 * 1024 * 1024:
         raise DeliveryError("insufficient ORDAX-DATA free space for atomic transfer")
     target.mkdir(parents=True, exist_ok=True)
     temp_bundle = target / (BUNDLE + ".pending")
