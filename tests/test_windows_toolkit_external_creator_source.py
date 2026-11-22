@@ -23,14 +23,14 @@ class WindowsToolkitExternalCreatorSourceTests(unittest.TestCase):
 
     def test_one_external_source_lock_shared_with_native_os_release(self):
         pin = self.contract["creator_source"]
-        self.assertEqual(pin["repository"], "ordaxsystems/ordax-creator")
-        self.assertEqual(pin["module"], "github.com/ordaxsystems/ordax-creator")
+        self.assertEqual(pin["repository"], "ordaxsystems/ordax-os")
+        self.assertEqual(pin["module"], "github.com/ordaxsystems/ordax-os/creator")
         self.assertFalse(pin["physical_apply_authorized"])
         self.assertIn("docs/contracts/native-release-assembly.json", self.action)
         # Exact source action handles CRLF safely for native Windows runners.
-        self.assertIn("pin=", self.action)
-        self.assertIn("mapfile -t pinned", self.action)
-        self.assertIn('test "${pinned[0]}" = "ordaxsystems/ordax-creator"', self.action)
+        self.assertIn("root=", self.action)
+        self.assertIn("HEAD:creator", self.action)
+        self.assertIn("ordaxsystems/ordax-os", self.action)
         self.assertEqual(
             self.workflow.count("uses: ./.github/actions/resolve-creator-source"), 2
         )
@@ -61,8 +61,8 @@ class WindowsToolkitExternalCreatorSourceTests(unittest.TestCase):
     def test_ubuntu_and_windows_both_resolve_external_source(self):
         self.assertIn("ubuntu-24.04", self.workflow)
         self.assertIn("windows-latest", self.workflow)
-        self.assertIn("ordax-creator-toolkit-source", self.workflow)
-        self.assertIn("ordax-creator-native-win-source", self.workflow)
+        self.assertIn("ORDAX_CREATOR_NATIVE_SOURCE", self.workflow)
+        self.assertIn("creator", self.workflow)
         self.assertIn("go test -count=1 -tags ordax_raw_backend ./host/windows", self.workflow)
 
 

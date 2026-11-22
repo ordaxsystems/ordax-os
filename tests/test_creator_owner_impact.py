@@ -61,7 +61,7 @@ class CreatorOwnerImpactTests(unittest.TestCase):
         self.assertIn("Publish verified OS media for independent Creator owner", text)
         self.assertIn("tag='creator-owner-media'", text)
         self.assertIn('gh release upload "$tag"', text)
-        self.assertIn("OWNER_CREATOR_WINDOWS_RELEASE_OWNED_BY=ordaxsystems/ordax-creator", text)
+        self.assertIn("OWNER_CREATOR_WINDOWS_RELEASE_OWNED_BY=ordaxsystems/ordax-os", text)
         self.assertNotIn("OrdaX-Creator.exe", text)
         self.assertEqual(text.count("build-and-publish:"), 1)
 

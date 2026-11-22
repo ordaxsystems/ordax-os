@@ -159,8 +159,6 @@ jobs:
 
       - name: Resolve exact standalone Creator source from OS canonical contract
         uses: ./.github/actions/resolve-creator-source
-        with:
-          checkout-root: ${{ runner.temp }}/ordax-creator-payload-source
 
       - name: Set up Python
         uses: actions/setup-python@ece7cb06caefa5fff74198d8649806c4678c61a1 # v6
@@ -179,10 +177,10 @@ jobs:
         run: |
           set -euo pipefail
           creator="${ORDAX_CREATOR_NATIVE_SOURCE:?missing standalone Creator source}"
-          test "${ORDAX_CREATOR_SOURCE_REPOSITORY:?}" = 'ordaxsystems/ordax-creator'
+          test "${ORDAX_CREATOR_SOURCE_REPOSITORY:?}" = 'ordaxsystems/ordax-os'
           test "$(git -C "$creator" rev-parse HEAD)" = "${ORDAX_CREATOR_SOURCE_COMMIT:?}"
-          test "$(git -C "$creator" rev-parse 'HEAD^{tree}')" = "${ORDAX_CREATOR_SOURCE_TREE:?}"
-          test "$(head -n 1 "$creator/go.mod")" = 'module github.com/ordaxsystems/ordax-creator'
+          test "$(git -C "$creator" rev-parse 'HEAD:creator')" = "${ORDAX_CREATOR_SOURCE_TREE:?}"
+          test "$(head -n 1 "$creator/go.mod")" = 'module github.com/ordaxsystems/ordax-os/creator'
           mkdir -p "$RUNNER_TEMP/creator-payload-cli"
           (
             cd "$creator"

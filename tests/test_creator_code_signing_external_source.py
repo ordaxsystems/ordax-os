@@ -20,11 +20,11 @@ class CreatorCodeSigningExternalSourceTests(unittest.TestCase):
         cls.signing = json.loads(CODE_SIGNING.read_text(encoding="utf-8"))
 
     def test_one_verified_creator_implementation_source(self):
-        self.assertEqual(self.pin["repository"], "ordaxsystems/ordax-creator")
-        self.assertEqual(self.pin["module"], "github.com/ordaxsystems/ordax-creator")
+        self.assertEqual(self.pin["repository"], "ordaxsystems/ordax-os")
+        self.assertEqual(self.pin["module"], "github.com/ordaxsystems/ordax-os/creator")
         self.assertFalse(self.pin["physical_apply_authorized"])
         self.assertIn("docs/contracts/native-release-assembly.json", self.resolver)
-        self.assertIn("rev-parse 'HEAD^{tree}'", self.resolver)
+        self.assertIn("rev-parse 'HEAD:creator'", self.resolver)
         self.assertIn("uses: ./.github/actions/resolve-creator-source", self.workflow)
         self.assertIn("Push-Location $env:ORDAX_CREATOR_NATIVE_SOURCE", self.workflow)
         self.assertNotIn("Push-Location tools/creator", self.workflow)
@@ -54,7 +54,7 @@ class CreatorCodeSigningExternalSourceTests(unittest.TestCase):
             self.assertIn(indicator, self.workflow)
         for name in ("OrdaX-Creator.exe", "OrdaX-Creator-App.exe"):
             self.assertIn(name, self.signing["artifacts"])
-        self.assertIn("checkout-root: ${{ runner.temp }}/ordax-creator-authenticode-source", self.workflow)
+        self.assertNotIn("checkout-root:", self.workflow)
 
 
 if __name__ == "__main__":

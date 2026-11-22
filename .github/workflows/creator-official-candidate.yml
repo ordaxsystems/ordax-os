@@ -63,8 +63,6 @@ jobs:
           persist-credentials: false
       - name: Resolve immutable external Creator source
         uses: ./.github/actions/resolve-creator-source
-        with:
-          checkout-root: ${{ runner.temp }}/ordax-creator-official-source
 
       - name: Require canonical public trust and exact official contracts
         id: gate
@@ -82,7 +80,7 @@ jobs:
           physical_channel = (pathlib.Path(os.environ['ORDAX_CREATOR_NATIVE_SOURCE']) / 'physicalchannel/channel.go').read_text(encoding='utf-8')
 
           assert app['$schema'] == 'prototype-ordax.creator-app-channel/1'
-          assert app['implementation_repository'] == 'ordaxsystems/ordax-creator'
+          assert app['implementation_repository'] == 'ordaxsystems/ordax-os'
           assert app['publisher_repository'] == 'ordaxsystems/ordax-os'
           assert app['implementation_source_contract'] == 'docs/contracts/native-release-assembly.json#creator_source'
           assert app['source_repository_semantics'] == 'publisher-recipe-source-legacy-v1'
@@ -110,7 +108,7 @@ jobs:
           assert isinstance(app['release_sequence'], int) and not isinstance(app['release_sequence'], bool) and app['release_sequence'] > 0
 
           assert component['$schema'] == 'prototype-ordax.creator-component-channel/1'
-          assert component['implementation_repository'] == 'ordaxsystems/ordax-creator'
+          assert component['implementation_repository'] == 'ordaxsystems/ordax-os'
           assert component['publisher_repository'] == 'ordaxsystems/ordax-os'
           assert component['implementation_source_contract'] == 'docs/contracts/native-release-assembly.json#creator_source'
           assert component['source_repository_semantics'] == 'publisher-recipe-source-legacy-v1'
@@ -216,8 +214,6 @@ jobs:
           persist-credentials: false
       - name: Resolve immutable external Creator source
         uses: ./.github/actions/resolve-creator-source
-        with:
-          checkout-root: ${{ runner.temp }}/ordax-creator-official-source
 
       - name: Set up Go
         uses: actions/setup-go@b7ad1dad31e06c5925ef5d2fc7ad053ef454303e # v7
@@ -300,8 +296,6 @@ jobs:
           persist-credentials: false
       - name: Resolve immutable external Creator source
         uses: ./.github/actions/resolve-creator-source
-        with:
-          checkout-root: ${{ runner.temp }}/ordax-creator-official-source
 
       - name: Set up Go
         uses: actions/setup-go@b7ad1dad31e06c5925ef5d2fc7ad053ef454303e # v7

@@ -14,8 +14,8 @@ class IndependentCreatorOwnershipContractTests(unittest.TestCase):
         pin = json.loads(PIN.read_text(encoding="utf-8"))["creator_source"]
         plan = json.loads(PLAN.read_text(encoding="utf-8"))
         flow = json.loads(FLOW.read_text(encoding="utf-8"))
-        prefix = "github.com/ordaxsystems/ordax-creator/"
-        self.assertEqual(pin["repository"], "ordaxsystems/ordax-creator")
+        prefix = "github.com/ordaxsystems/ordax-os/creator/"
+        self.assertEqual(pin["repository"], "ordaxsystems/ordax-os")
         self.assertEqual(pin["module"], prefix[:-1])
         self.assertIs(pin["physical_apply_authorized"], False)
         self.assertEqual(pin["publisher_authority"], "ordaxsystems/ordax-os")
@@ -33,11 +33,11 @@ class IndependentCreatorOwnershipContractTests(unittest.TestCase):
 
     def test_os_documentation_does_not_claim_go_source_ownership(self):
         readme = (ROOT / "tools/creator/README.md").read_text(encoding="utf-8")
-        self.assertIn("ordaxsystems/ordax-creator", readme)
+        self.assertIn("ordaxsystems/ordax-os", readme)
         self.assertIn("docs/contracts/native-release-assembly.json#creator_source", readme)
         self.assertNotIn("is the single source root for OrdaX physical-media creation", readme)
         action = (ROOT / ".github/actions/resolve-creator-source/action.yml").read_text(encoding="utf-8")
-        self.assertIn("rev-parse 'HEAD^{tree}'", action)
+        self.assertIn("rev-parse 'HEAD:creator'", action)
         self.assertIn("creator_source", action)
 
 if __name__ == "__main__":

@@ -33,8 +33,6 @@ jobs:
           persist-credentials: false
       - name: Resolve exact independent Creator source from OS canonical pin
         uses: ./.github/actions/resolve-creator-source
-        with:
-          checkout-root: ${{ runner.temp }}/ordax-creator-dev-source
 
 
       - name: Set up Go
@@ -49,7 +47,7 @@ jobs:
         run: |
           Set-StrictMode -Version Latest
           $ErrorActionPreference = 'Stop'
-          if ($env:ORDAX_CREATOR_SOURCE_REPOSITORY -cne 'ordaxsystems/ordax-creator' -or
+          if ($env:ORDAX_CREATOR_SOURCE_REPOSITORY -cne 'ordaxsystems/ordax-os' -or
               [string]::IsNullOrWhiteSpace($env:ORDAX_CREATOR_NATIVE_SOURCE)) {
             throw 'Creator source resolution failed'
           }
@@ -72,13 +70,13 @@ jobs:
           $version = 'dev-' + $sha.Substring(0, 12)
           if ($sha -cnotmatch '^[0-9a-f]{40}$' -or
               (git -C $env:ORDAX_CREATOR_NATIVE_SOURCE rev-parse HEAD).Trim() -cne $sha -or
-              (git -C $env:ORDAX_CREATOR_NATIVE_SOURCE rev-parse 'HEAD^{tree}').Trim() -cne $env:ORDAX_CREATOR_SOURCE_TREE) {
+              (git -C $env:ORDAX_CREATOR_NATIVE_SOURCE rev-parse 'HEAD:creator').Trim() -cne $env:ORDAX_CREATOR_SOURCE_TREE) {
             throw 'Creator source does not match the exact pinned commit and tree'
           }
           New-Item -ItemType Directory -Force -Path $release | Out-Null
           New-Item -ItemType Directory -Force -Path $payload | Out-Null
 
-          if ($env:ORDAX_CREATOR_SOURCE_REPOSITORY -cne 'ordaxsystems/ordax-creator' -or
+          if ($env:ORDAX_CREATOR_SOURCE_REPOSITORY -cne 'ordaxsystems/ordax-os' -or
               [string]::IsNullOrWhiteSpace($env:ORDAX_CREATOR_NATIVE_SOURCE)) {
             throw 'Creator source resolution failed'
           }
@@ -269,7 +267,7 @@ jobs:
           }
           $utf8 = [Text.UTF8Encoding]::new($false)
           [IO.File]::WriteAllText((Join-Path $release 'creator-dev-source-provenance.json'), (($data | ConvertTo-Json -Depth 6) + "`n"), $utf8)
-          if ($data.creator_source_repository -cne 'ordaxsystems/ordax-creator' -or
+          if ($data.creator_source_repository -cne 'ordaxsystems/ordax-os' -or
               $data.creator_source_commit -cnotmatch '^[0-9a-f]{40}$' -or
               $data.creator_source_tree -cnotmatch '^[0-9a-f]{40}$') {
             throw 'Creator candidate source provenance is invalid'
@@ -317,7 +315,7 @@ jobs:
           if ($prov.'$schema' -cne 'prototype-ordax.creator-dev-source-provenance/1' -or
               $prov.publisher_repository -cne 'ordaxsystems/ordax-os' -or
               $prov.publisher_commit -cne '${{ github.sha }}' -or
-              $prov.creator_source_repository -cne 'ordaxsystems/ordax-creator' -or
+              $prov.creator_source_repository -cne 'ordaxsystems/ordax-os' -or
               $prov.creator_source_commit -cne [string]$pin.commit -or
               $prov.creator_source_tree -cne [string]$pin.tree -or
               $prov.public_release_authorized -ne $false -or

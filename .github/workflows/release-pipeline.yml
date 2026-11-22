@@ -93,8 +93,6 @@ jobs:
 
       - name: Resolve exact standalone Creator source for Native helper (read-only)
         uses: ./.github/actions/resolve-creator-source
-        with:
-          checkout-root: ${{ runner.temp }}/ordax-creator-native-source
 
       - name: Assemble single external Surface for Native signed release candidate
         uses: ./.github/actions/assemble-surface

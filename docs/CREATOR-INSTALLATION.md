@@ -6,11 +6,11 @@ The first physical OrdaX USB must not depend on Codex, WSL, QEMU, a Linux workst
 
 ## Product path
 
-The permanent source owner of the Creator application/Core is **`ordaxsystems/ordax-creator`**. The OS remains owner of Base/kernel/boot/media contracts, official artifact production, signing/promotion policy and OS-side disposable proof producers.
+The permanent source owner of the Creator application/Core is **ordaxsystems/ordax-os/creator/**. The OS remains owner of Base/kernel/boot/media contracts, official artifact production, signing/promotion policy and OS-side disposable proof producers.
 
 ```text
 ordax-os verified media/artifact candidate
-  -> ordax-creator
+  -> creator/ (same ordax-os commit)
      -> verify exact artifact/provenance
      -> discover + revalidate removable target
      -> explicit per-target authorization
@@ -29,7 +29,7 @@ The invariant that remains valid is: Creator consumes prebuilt, verified OS arti
 
 ## Creator Core responsibilities
 
-The independent Core in `ordaxsystems/ordax-creator` owns host-neutral media-consumer policy. Paths under `ordax-os/tools/creator/` are OS-owned artifact/proof/signing/authorization producers and must not become a second Creator Core.
+The Core in ordax-os/creator/ owns host-neutral media-consumer policy. Paths under `ordax-os/tools/creator/` are OS-owned artifact/proof/signing/authorization producers and must not become a second Creator Core.
 
 Creator Core responsibilities include:
 

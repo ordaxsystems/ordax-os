@@ -13,7 +13,7 @@ This does not mean hardware can be accessed without platform APIs. It means plat
 Portable behavior remains split by canonical owner rather than copied into one repository:
 
 ```text
-ordaxsystems/ordax-creator     # Creator Core + host adapters + media consumer
+ordaxsystems/ordax-os/creator/     # Creator Core + host adapters + media consumer
 ordaxsystems/ordax-os          # OS artifact/media contracts + producers/proofs
 ordaxsystems/ordax-os/desktop/ # Windows shell/packaging module; no raw-media ownership
 ```
@@ -22,7 +22,7 @@ Creator host adapters may use unavoidable Windows/Linux/macOS device APIs, but t
 
 ## OrdaX Creator
 
-The intended end-user media-preparation product is one independently owned product: `OrdaX Creator` (`ordaxsystems/ordax-creator`).
+The intended end-user media-preparation product is one canonical module with a separate user-facing app: `OrdaX Creator` (`ordaxsystems/ordax-os/creator/`).
 
 Responsibilities:
 

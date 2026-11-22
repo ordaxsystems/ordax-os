@@ -72,18 +72,16 @@ jobs:
 
       - name: Verify exact independent Creator source for pre-authorization
         uses: ./.github/actions/resolve-creator-source
-        with:
-          checkout-root: ${{ runner.temp }}/ordax-creator-physical-preflight
 
       - name: Prove Creator pin and physical consent remain independent
         shell: bash
         run: |
           set -euo pipefail
           creator="${ORDAX_CREATOR_NATIVE_SOURCE:?missing immutable Creator checkout}"
-          test "${ORDAX_CREATOR_SOURCE_REPOSITORY:?}" = 'ordaxsystems/ordax-creator'
+          test "${ORDAX_CREATOR_SOURCE_REPOSITORY:?}" = 'ordaxsystems/ordax-os'
           test "$(git -C "$creator" rev-parse HEAD)" = "${ORDAX_CREATOR_SOURCE_COMMIT:?}"
-          test "$(git -C "$creator" rev-parse 'HEAD^{tree}')" = "${ORDAX_CREATOR_SOURCE_TREE:?}"
-          test "$(head -n 1 "$creator/go.mod")" = 'module github.com/ordaxsystems/ordax-creator'
+          test "$(git -C "$creator" rev-parse 'HEAD:creator')" = "${ORDAX_CREATOR_SOURCE_TREE:?}"
+          test "$(head -n 1 "$creator/go.mod")" = 'module github.com/ordaxsystems/ordax-os/creator'
           python3 - <<'PY'
           import json, os, pathlib
           auth = json.loads(pathlib.Path('docs/contracts/physical-write-authorization.json').read_text(encoding='utf-8'))
@@ -91,7 +89,7 @@ jobs:
           assert pin['repository'] == os.environ['ORDAX_CREATOR_SOURCE_REPOSITORY']
           assert pin['commit'] == os.environ['ORDAX_CREATOR_SOURCE_COMMIT']
           assert pin['tree'] == os.environ['ORDAX_CREATOR_SOURCE_TREE']
-          assert pin['module'] == 'github.com/ordaxsystems/ordax-creator'
+          assert pin['module'] == 'github.com/ordaxsystems/ordax-os'
           assert pin['publisher_authority'] == 'ordaxsystems/ordax-os'
           assert pin['physical_apply_authorized'] is False
           consent = auth.get('physical_write_allowed')
@@ -193,8 +191,6 @@ jobs:
 
       - name: Verify immutable independent Creator for authorized candidate
         uses: ./.github/actions/resolve-creator-source
-        with:
-          checkout-root: ${{ runner.temp }}/ordax-creator-physical-candidate
 
       - name: Set up Python
         uses: actions/setup-python@ece7cb06caefa5fff74198d8649806c4678c61a1 # v6
@@ -216,10 +212,10 @@ jobs:
         run: |
           set -euo pipefail
           creator="${ORDAX_CREATOR_NATIVE_SOURCE:?missing pinned independent Creator source}"
-          test "${ORDAX_CREATOR_SOURCE_REPOSITORY:?}" = 'ordaxsystems/ordax-creator'
+          test "${ORDAX_CREATOR_SOURCE_REPOSITORY:?}" = 'ordaxsystems/ordax-os'
           test "$(git -C "$creator" rev-parse HEAD)" = "${ORDAX_CREATOR_SOURCE_COMMIT:?}"
-          test "$(git -C "$creator" rev-parse 'HEAD^{tree}')" = "${ORDAX_CREATOR_SOURCE_TREE:?}"
-          test "$(head -n 1 "$creator/go.mod")" = 'module github.com/ordaxsystems/ordax-creator'
+          test "$(git -C "$creator" rev-parse 'HEAD:creator')" = "${ORDAX_CREATOR_SOURCE_TREE:?}"
+          test "$(head -n 1 "$creator/go.mod")" = 'module github.com/ordaxsystems/ordax-os/creator'
           (cd "$creator" && ORDAX_OS_CONTRACTS_DIR="$GITHUB_WORKSPACE/docs/contracts" go test -count=1 ./physicalchannel)
           echo 'PHYSICAL_WRITER_CREATOR_SOURCE=PINNED_INDEPENDENT'
           (cd tools/release-signing && go test -count=1 ./cmd/ordax-physical-release-signing)
@@ -295,9 +291,9 @@ jobs:
           cp docs/evidence/canonical-v4-release-proof.json "$out/canonical-v4-release-proof.json"
 
           creator="${ORDAX_CREATOR_NATIVE_SOURCE:?missing pinned independent Creator source}"
-          test "${ORDAX_CREATOR_SOURCE_REPOSITORY:?}" = 'ordaxsystems/ordax-creator'
+          test "${ORDAX_CREATOR_SOURCE_REPOSITORY:?}" = 'ordaxsystems/ordax-os'
           test "$(git -C "$creator" rev-parse HEAD)" = "${ORDAX_CREATOR_SOURCE_COMMIT:?}"
-          test "$(git -C "$creator" rev-parse 'HEAD^{tree}')" = "${ORDAX_CREATOR_SOURCE_TREE:?}"
+          test "$(git -C "$creator" rev-parse 'HEAD:creator')" = "${ORDAX_CREATOR_SOURCE_TREE:?}"
           (
             cd "$creator"
             ORDAX_OS_CONTRACTS_DIR="$GITHUB_WORKSPACE/docs/contracts" \

@@ -17,11 +17,11 @@ class CreatorDisposableExternalSourceTests(unittest.TestCase):
 
     def test_exact_one_pinned_implementation_and_read_only_cli(self):
         w = self.workflow
-        self.assertEqual(self.source["repository"], "ordaxsystems/ordax-creator")
+        self.assertEqual(self.source["repository"], "ordaxsystems/ordax-os")
         self.assertFalse(self.source["physical_apply_authorized"])
         self.assertEqual(self.source["publisher_authority"], "ordaxsystems/ordax-os")
         self.assertEqual(w.count("uses: ./.github/actions/resolve-creator-source"), 1)
-        self.assertIn("rev-parse 'HEAD^{tree}'", w)
+        self.assertIn("rev-parse 'HEAD:creator'", w)
         self.assertIn('ORDAX_OS_CONTRACTS_DIR="$GITHUB_WORKSPACE/docs/contracts"', w)
         self.assertIn('go test -count=1 ./core ./cmd/ordax-creator', w)
         self.assertIn('creator="$RUNNER_TEMP/creator-disposable-cli"', w)

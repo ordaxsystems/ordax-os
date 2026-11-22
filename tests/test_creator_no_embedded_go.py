@@ -69,14 +69,15 @@ class CreatorExternalGoOnlyTests(unittest.TestCase):
     def test_exact_immutable_external_source_and_os_producers_coexist(self):
         contract = json.loads(PIN.read_text(encoding="utf-8"))
         source = contract["creator_source"]
-        self.assertEqual(source["repository"], "ordaxsystems/ordax-creator")
-        self.assertEqual(source["module"], "github.com/ordaxsystems/ordax-creator")
+        self.assertEqual(source["repository"], "ordaxsystems/ordax-os")
+        self.assertEqual(source["module"], "github.com/ordaxsystems/ordax-os/creator")
         self.assertEqual(source["publisher_authority"], "ordaxsystems/ordax-os")
         self.assertIs(source["physical_apply_authorized"], False)
-        self.assertEqual(len(source["commit"]), 40)
-        self.assertEqual(len(source["tree"]), 40)
+        self.assertEqual(source["path"], "creator")
+        self.assertNotIn("commit", source)
+        self.assertNotIn("tree", source)
         resolver = (ROOT / ".github/actions/resolve-creator-source/action.yml").read_text(encoding="utf-8")
-        self.assertIn("HEAD^{tree}", resolver)
+        self.assertIn("HEAD:creator", resolver)
         self.assertIn("status --porcelain --untracked-files=all", resolver)
         for path in (
             "tools/creator/assemble.py",

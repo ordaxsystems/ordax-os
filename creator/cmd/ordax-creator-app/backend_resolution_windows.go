@@ -1,0 +1,118 @@
+//go:build windows
+
+package main
+
+import (
+	"fmt"
+
+	componentchannel "github.com/ordaxsystems/ordax-os/creator/componentchannel"
+	creatorupdate "github.com/ordaxsystems/ordax-os/creator/update"
+)
+
+// markCachedChannelFallback distinguishes a failed update attempt from a
+// failed offline cache verification. Only a previously verified Current()
+// result may produce an informational notice; missing or invalid cache remains
+// fatal, and the physical channel retains its independent authorization gates.
+func markCachedChannelFallback(result *appRefreshState, signed bool, acquireErr, currentErr error) {
+	if currentErr == nil {
+		if signed {
+			result.NoticeID = msgRefreshSignedCacheNotice
+		} else {
+			result.NoticeID = msgRefreshDevCacheNotice
+		}
+		return
+	}
+	if signed {
+		result.Error = fmt.Sprintf("O canal oficial assinado de componentes não está disponível: %v", acquireErr)
+	} else {
+		result.Error = fmt.Sprintf("Não foi possível atualizar o Creator e nenhuma versão válida está instalada: %v", acquireErr)
+	}
+}
+
+func finishRefreshState(result appRefreshState, backendDirectory string) appRefreshState {
+	if backendDirectory == "" {
+		return result
+	}
+	result.BackendDirectory = backendDirectory
+
+	targets, readiness, targetErr := loadTargets(backendDirectory)
+	if targetErr != nil {
+		if result.Error == "" {
+			result.Error = targetErr.Error()
+		} else {
+			result.Error += "\n" + targetErr.Error()
+		}
+		return result
+	}
+	result.Targets = targets
+	switch result.PhysicalMode {
+	case "legacy-owner":
+		result.PhysicalReady = readiness.LegacyOwner
+	case "portable-public":
+		result.PhysicalReady = readiness.Portable && result.PortablePayload != nil
+	default:
+		result.PhysicalReady = false
+	}
+	return result
+}
+
+// resolveRefreshState keeps each distribution channel isolated. The
+// write-enabled owner prototype is a self-contained package: it must not
+// download or depend on the creator-dev payload before it can create a USB.
+// Normal development and future official-trust builds retain their existing
+// independently verified component channels.
+func resolveRefreshState() appRefreshState {
+	if ownerDirectory, owner := ownerPrototypePhysicalBackend(); owner {
+		result := appRefreshState{BackendDirectory: ownerDirectory, PhysicalMode: "legacy-owner"}
+		if version, sourceCommit, ok := ownerPrototypeBuildInfo(); ok {
+			result.Version = version
+			result.SourceCommit = sourceCommit
+		}
+		return finishRefreshState(result, ownerDirectory)
+	}
+
+	result := appRefreshState{}
+	backendDirectory := ""
+
+	if trust, trustSHA, official := physicalTrustBinding(); official {
+		installed, changed, err := componentchannel.AcquireCached(nil, "", "", trust, trustSHA)
+		if err != nil {
+			current, currentErr := componentchannel.Current("", trust, trustSHA)
+			markCachedChannelFallback(&result, true, err, currentErr)
+			if currentErr == nil {
+				installed = current
+			}
+		}
+		if installed.Version != "" {
+			result.Version = installed.Version
+			result.SourceCommit = installed.SourceCommit
+			result.Updated = changed
+			backendDirectory = installed.Directory
+		}
+	} else {
+		installed, changed, err := creatorupdate.Ensure(nil, "", "")
+		if err != nil {
+			current, currentErr := creatorupdate.Current("")
+			markCachedChannelFallback(&result, false, err, currentErr)
+			if currentErr == nil {
+				installed = current
+			}
+		}
+		if installed.Version != "" {
+			result.Version = installed.Version
+			result.SourceCommit = installed.SourceCommit
+			result.Updated = changed
+			backendDirectory = installed.Directory
+		}
+	}
+
+	// A physical backend can override only after its independent purpose-bound
+	// signature, trust, anti-rollback and file-integrity checks have succeeded.
+	if physical, ok := resolvePhysicalBackend(); ok {
+		backendDirectory = physical.Directory
+		result.PhysicalMode = physical.Mode
+		result.PortablePayload = physical.PortablePayload
+		result.PhysicalCandidate = physical.Installed
+	}
+	return finishRefreshState(result, backendDirectory)
+}

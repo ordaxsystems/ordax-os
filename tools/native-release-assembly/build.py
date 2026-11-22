@@ -32,8 +32,8 @@ HELPERS = (
         "module": None,  # Bound only to verified external Creator source.
         "package": "./cmd/ordax-creator-native-targets",
         "role": "native-install-read-only-target-discovery",
-        "source_package": "github.com/ordaxsystems/ordax-creator/cmd/ordax-creator-native-targets",
-        "external_creator_source": True,
+        "source_package": "github.com/ordaxsystems/ordax-os/creator/cmd/ordax-creator-native-targets",
+        "monorepo_creator_source": True,
         "physical_apply_authorized": False,
         "component_publish_authorized": False,
     },
@@ -87,27 +87,26 @@ def ensure_clean_destination(destination: Path) -> Path:
 
 
 def creator_source_pin() -> dict:
-    """Read the one authoritative OS Native assembly source contract."""
+    """Resolve Creator source from this OS commit, without an external Git pin."""
     try:
         contract = json.loads(CREATOR_SOURCE_CONTRACT.read_text(encoding="utf-8"))
     except (OSError, ValueError) as exc:
         raise AssemblyError("canonical Creator source contract is unreadable") from exc
     pin = contract.get("creator_source")
     if not isinstance(pin, dict) or contract.get("$schema") != SCHEMA:
-        raise AssemblyError("canonical Creator source lock is missing or invalid")
+        raise AssemblyError("canonical Creator source contract is missing or invalid")
     if (
-        pin.get("repository") != "ordaxsystems/ordax-creator"
-        or pin.get("module") != "github.com/ordaxsystems/ordax-creator"
+        pin.get("repository") != "ordaxsystems/ordax-os"
+        or pin.get("path") != "creator"
+        or pin.get("module") != "github.com/ordaxsystems/ordax-os/creator"
         or pin.get("helper_package") != "./cmd/ordax-creator-native-targets"
         or pin.get("physical_apply_authorized") is not False
         or pin.get("publisher_authority") != "ordaxsystems/ordax-os"
+        or "commit" in pin or "tree" in pin
     ):
-        raise AssemblyError("Creator source authority or physical policy mismatch")
-    for field in ("commit", "tree"):
-        value = pin.get(field)
-        if not isinstance(value, str) or len(value) != 40 or any(c not in "0123456789abcdef" for c in value):
-            raise AssemblyError(f"Creator source {field} must be immutable lowercase Git SHA")
-    return pin
+        raise AssemblyError("Creator monorepo ownership or physical policy mismatch")
+    return {**pin, "commit": checked_git(ROOT, "rev-parse", "HEAD"),
+            "tree": checked_git(ROOT, "rev-parse", "HEAD:creator")}
 
 
 def checked_git(source: Path, *args: str) -> str:
@@ -120,26 +119,24 @@ def checked_git(source: Path, *args: str) -> str:
         raise AssemblyError("cannot verify immutable external Creator source") from exc
 
 
-def verify_external_creator_source(source: Path) -> dict:
-    """Reject mutable, dirty, wrong-owner or floating Creator trees before Go build."""
+def verify_monorepo_creator_source(source: Path) -> dict:
+    """Require the Creator module from the exact checked-out OS commit."""
     pin = creator_source_pin()
     if not source.is_dir() or source.is_symlink():
-        raise AssemblyError("external Creator source must be a real directory")
+        raise AssemblyError("Creator module source must be a real directory")
     absolute = source.resolve()
-    if Path(checked_git(absolute, "rev-parse", "--show-toplevel")).resolve() != absolute:
-        raise AssemblyError("Creator source must be a standalone Git checkout root")
-    if checked_git(absolute, "rev-parse", "HEAD") != pin["commit"]:
-        raise AssemblyError("Creator source Git commit differs from canonical OS pin")
-    if checked_git(absolute, "rev-parse", "HEAD^{tree}") != pin["tree"]:
-        raise AssemblyError("Creator source Git tree differs from canonical OS pin")
-    if checked_git(absolute, "status", "--porcelain", "--untracked-files=all"):
-        raise AssemblyError("Creator source checkout is dirty or contains extra untrusted files")
+    if absolute != (ROOT / "creator").resolve():
+        raise AssemblyError("Creator source must be the current OS creator/ module")
+    if Path(checked_git(absolute, "rev-parse", "--show-toplevel")).resolve() != ROOT.resolve():
+        raise AssemblyError("Creator module must belong to the OS Git worktree")
+    if checked_git(ROOT, "status", "--porcelain", "--untracked-files=all", "--", "creator"):
+        raise AssemblyError("Creator source differs from the checked-out OS commit")
     mod = absolute / "go.mod"
     package = absolute / "cmd/ordax-creator-native-targets/main.go"
     if not mod.is_file() or mod.is_symlink() or not package.is_file() or package.is_symlink():
         raise AssemblyError("Creator module or Native helper source is missing or linked")
     if f"module {pin['module']}" not in mod.read_text(encoding="utf-8").splitlines():
-        raise AssemblyError("Creator Go module does not match canonical source owner")
+        raise AssemblyError("Creator Go module does not match canonical OS ownership")
     return pin
 
 
@@ -152,7 +149,7 @@ def validate_source_tree(system_source: Path = SYSTEM, creator_source: Path | No
     if stat.S_IMODE(entrypoint.stat().st_mode) != 0o755:
         raise AssemblyError("system entrypoint must be mode 0755")
     for helper in HELPERS:
-        module = creator_source if helper.get("external_creator_source") else helper["module"]
+        module = creator_source if helper.get("monorepo_creator_source") else helper["module"]
         if not isinstance(module, Path) or not (module / "go.mod").is_file():
             raise AssemblyError("Native helper Go module is missing or unverified")
     for path in system_source.rglob("*"):
@@ -293,7 +290,7 @@ def copy_system_tree(destination: Path, system_source: Path = SYSTEM) -> Path:
 
 def build_helper(destination: Path, spec: dict, creator_source: Path) -> Path:
     relative = spec["relative"]
-    module = creator_source if spec.get("external_creator_source") else spec["module"]
+    module = creator_source if spec.get("monorepo_creator_source") else spec["module"]
     package = spec["package"]
     output = destination / relative
     output.parent.mkdir(parents=True, exist_ok=True)
@@ -335,7 +332,7 @@ def tool_provenance(spec: dict, helper: Path) -> dict:
         "physical_apply_authorized": spec["physical_apply_authorized"],
         "component_publish_authorized": spec["component_publish_authorized"],
     }
-    if spec.get("external_creator_source"):
+    if spec.get("monorepo_creator_source"):
         pin = creator_source_pin()
         record.update({
             "source_repository": pin["repository"],
@@ -380,10 +377,10 @@ def write_provenance(
 
 def assemble(destination: Path, system_source: Path = SYSTEM, creator_source: Path | None = None, *, require_external_intelligence: bool = False) -> dict:
     if creator_source is None:
-        raise AssemblyError('Native assembly requires an explicit pinned external Creator source')
+        creator_source = ROOT / 'creator'
     if require_external_intelligence and system_source == SYSTEM:
         raise AssemblyError("external Intelligence requires a disposable Native release source")
-    verify_external_creator_source(creator_source)
+    verify_monorepo_creator_source(creator_source)
     validate_source_tree(system_source, creator_source)
     if system_source != SYSTEM:
         verify_same_commit_surface_system(system_source)
@@ -483,7 +480,7 @@ def main() -> int:
     assemble_parser = sub.add_parser("assemble")
     assemble_parser.add_argument("--out", type=Path, required=True)
     assemble_parser.add_argument("--system-source", type=Path, default=SYSTEM)
-    assemble_parser.add_argument("--creator-source", type=Path, required=True, help="standalone exact-commit Creator checkout; must match canonical OS Native contract")
+    assemble_parser.add_argument("--creator-source", type=Path, default=ROOT / "creator", help="creator/ module from same OS Git commit")
     assemble_parser.add_argument("--require-external-intelligence", action="store_true", help="fail closed unless the Native candidate contains verified Intelligence source")
     verify_parser = sub.add_parser("verify")
     verify_parser.add_argument("--root", type=Path, required=True)

@@ -48,8 +48,6 @@ jobs:
 
       - name: Resolve Creator source from single immutable OS contract
         uses: ./.github/actions/resolve-creator-source
-        with:
-          checkout-root: ${{ runner.temp }}/ordax-creator-toolkit-source
 
       - name: Set up Go
         uses: actions/setup-go@b7ad1dad31e06c5925ef5d2fc7ad053ef454303e # v7
@@ -63,7 +61,7 @@ jobs:
           ORDAX_OS_CONTRACTS_DIR: ${{ github.workspace }}/docs/contracts
         run: |
           set -euo pipefail
-          test "$ORDAX_CREATOR_SOURCE_REPOSITORY" = "ordaxsystems/ordax-creator"
+          test "$ORDAX_CREATOR_SOURCE_REPOSITORY" = "ordaxsystems/ordax-os"
           test "$(git -C "$ORDAX_CREATOR_NATIVE_SOURCE" rev-parse HEAD)" = "$ORDAX_CREATOR_SOURCE_COMMIT"
           (cd "$ORDAX_CREATOR_NATIVE_SOURCE" && go test -count=1 ./...)
           (cd tools/release-signing && go test -count=1 ./...)
@@ -89,7 +87,7 @@ jobs:
           PY
           pushd "$ORDAX_CREATOR_NATIVE_SOURCE" >/dev/null
           deps="$(CGO_ENABLED=0 GOOS=windows GOARCH=amd64 go list -deps ./cmd/ordax-creator)"
-          if grep -qx 'github.com/ordaxsystems/ordax-creator/host/windows' <<<"$deps"; then
+          if grep -qx 'github.com/ordaxsystems/ordax-os/creator/host/windows' <<<"$deps"; then
             echo 'Windows toolkit Creator unexpectedly links the native raw-disk host package' >&2
             exit 1
           fi
@@ -317,7 +315,7 @@ jobs:
           assert provenance['source_repository'] == os.environ['GITHUB_REPOSITORY']
           assert provenance['source_ref'] == os.environ['GITHUB_REF']
           assert provenance['source_event'] == os.environ['GITHUB_EVENT_NAME']
-          assert provenance['creator_source_repository'] == 'ordaxsystems/ordax-creator'
+          assert provenance['creator_source_repository'] == 'ordaxsystems/ordax-os'
           assert provenance['creator_source_commit'] == os.environ['ORDAX_CREATOR_SOURCE_COMMIT']
           assert provenance['creator_source_tree'] == os.environ['ORDAX_CREATOR_SOURCE_TREE']
           assert provenance['creator_build_from_external_verified_source'] is True
@@ -362,8 +360,6 @@ jobs:
 
       - name: Resolve Creator source at exact canonical OS revision on Windows
         uses: ./.github/actions/resolve-creator-source
-        with:
-          checkout-root: ${{ runner.temp }}/ordax-creator-native-win-source
 
       - name: Set up Go
         uses: actions/setup-go@b7ad1dad31e06c5925ef5d2fc7ad053ef454303e # v7
@@ -396,12 +392,12 @@ jobs:
 
       - name: Test public/default Creator Windows host adapter natively
         shell: pwsh
-        working-directory: ${{ runner.temp }}/ordax-creator-native-win-source
+        working-directory: ${{ github.workspace }}/creator
         env:
           ORDAX_OS_CONTRACTS_DIR: ${{ github.workspace }}/docs/contracts
         run: go test -count=1 ./...
 
       - name: Test tagged native raw backend guards
         shell: pwsh
-        working-directory: ${{ runner.temp }}/ordax-creator-native-win-source
+        working-directory: ${{ github.workspace }}/creator
         run: go test -count=1 -tags ordax_raw_backend ./host/windows

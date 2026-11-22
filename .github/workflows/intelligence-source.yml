@@ -155,8 +155,6 @@ jobs:
           cache: false
       - name: Resolve exact Creator helper source through OS-owned action
         uses: ./.github/actions/resolve-creator-source
-        with:
-          checkout-root: ${{ runner.temp }}/ordax-creator-native-source
       - name: Build Native system.tar from verified Intelligence and Surface using existing release pipeline
         run: |
           set -euo pipefail

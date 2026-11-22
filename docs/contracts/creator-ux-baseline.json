@@ -48,7 +48,7 @@
     "gui_raw_backend_separate": false,
     "standalone_gui_published": false,
     "bundle_extraction_required": true,
-    "publisher_repository": "ordaxsystems/ordax-creator",
+    "publisher_repository": "ordaxsystems/ordax-os",
     "os_media_repository": "ordaxsystems/ordax-os"
   },
   "owner_update": {

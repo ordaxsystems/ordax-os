@@ -123,7 +123,7 @@
       ]
     },
     "creator": {
-      "repo": "ordaxsystems/ordax-creator",
+      "repo": "ordaxsystems/ordax-os",
       "owns": [
         "creator-standalone-application-source",
         "creator-media-verification-core",

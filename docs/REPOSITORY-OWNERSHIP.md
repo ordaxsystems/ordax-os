@@ -138,15 +138,13 @@ Os entrypoints Vercel de Conta e OAuth são apenas interfaces de host para as AP
 
 A origem Git legada somente pode ser arquivada após confirmar que a produção aponta para o commit do ordax-os/main, sem branches, commits ou PRs pendentes.
 
-### 8. ordaxsystems/ordax-creator
+### 8. Creator no monorepo ordax-os/creator/
 
-**Papel:** aplicativo independente do Creator, Core de verificação de mídia e interface/adapters Windows.
+**Owner ativo:** ordaxsystems/ordax-os/main, módulo creator/.
 
-É owner do código-fonte do Creator, seus consumidores dos canais assinados, verificações de integridade de payload, UI e adapters limitados do host. Sua CI de aplicativo/Core é independente de compilar kernel, Base, Surface ou USB.
+O aplicativo Win32, Go Core, consumidores assinados e adaptadores físicos pertencem ao mesmo commit do OS. Os produtores de mídia e provas continuam exclusivamente em tools/creator/; assinatura, autorização de escrita física e trust permanecem nos contratos e publicadores do OS, com os gates já existentes. Não manter Core Go, criador ou atualizador paralelo em desktop/, tools/creator/ ou repositório Git externo.
 
-**Não** é owner dos produtores de kernel, boot, Base, prova descartável de ESP/QEMU, política de release/assinatura nem autorização da gravação física. Esses componentes permanecem no `ordaxsystems/ordax-os`, inclusive os produtores Python de `tools/creator/`. O Core pode consumir contratos OS imutáveis sem duplicá-los; um CI verde do Creator não autoriza gravar USB nem lançar Stable.
-
-O corte de fonte do Creator já foi concluído (C6), mas esta declaração de owner **não** promove payload, dispositivo físico, release assinada ou qualquer alteração à PR USB Dev #2243.
+O repositório histórico ordaxsystems/ordax-creator será arquivado somente quando a distribuição e os demais consumidores estiverem reconfigurados e verificados. A consolidação de fonte não autoriza escrita física nem release Stable/MVP.
 
 ### 9. ordaxsystems/ordax-intelligence — fonte portátil candidata, não autoridade ativa
 
@@ -194,13 +192,13 @@ ordaxsystems/ordax-surface (revisão fixa em docs/contracts/surface-source.json)
 
 O repositório da Surface não instala serviços nativos nem atualiza dispositivos; a verificação, staging e ativação pertencem aos owners do OS.
 
-### Creator independente com artefatos OS assinados
+### Creator integrado com artefatos OS verificados
 
 ```text
 ordaxsystems/ordax-os
   -> Base / boot / componentes físicos / contratos / assinatura (owner produtor)
   -> artefatos com proveniência verificável
-  -> ordaxsystems/ordax-creator (Core + UI + adapters Windows consumidores)
+  -> creator/ (Core + UI + adaptadores Windows no mesmo commit)
   -> verificação independente de integridade + gates de autorização física
 ```
 
@@ -335,7 +333,7 @@ Atualizado em **2026-11-13**. Esta tabela resume roles; a autoridade executável
 | Apps first-party / Forge / Studio | `ordaxsystems/ordax-apps` | canônico |
 | Runtime / Device Host Windows | `ordaxsystems/ordax-runtime` | canônico |
 | Product MCP / Control Plane / connectors | `ordaxsystems/ordax-platform` | canônico |
-| Creator Core/UI/consumer Windows | `ordaxsystems/ordax-creator` | canônico; mídia/release continuam produzidas pelo OS |
+| Creator Core/UI/consumer Windows | ordaxsystems/ordax-os:creator/ | canônico; mídia/release produzidas pelo OS |
 | Site público | `ordaxsystems/ordax-os:site/` | canônico para apresentação/build público |
 | Intelligence portátil | `ordaxsystems/ordax-intelligence` | source candidate; autoridade ativa depende do lock/cutover do OS |
 | Incubação antiga | `washingtonmsdj/mcp-blender` | legado aposentado; não recebe novas features |

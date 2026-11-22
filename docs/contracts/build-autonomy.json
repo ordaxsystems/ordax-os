@@ -126,7 +126,7 @@
       "system/bin/ordax-runtime-component-channel"
     ],
     "component_helper_publish_authorized": false,
-    "creator_source_owner": "ordaxsystems/ordax-creator"
+    "creator_source_owner": "ordaxsystems/ordax-os"
   },
   "client_build_independence": {
     "desktop-client": {

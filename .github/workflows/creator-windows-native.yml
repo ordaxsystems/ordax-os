@@ -1,0 +1,160 @@
+name: Creator monorepo Windows native UI and trust smoke (no media access)
+
+on:
+  push:
+    branches:
+      - main
+    paths:
+      - .github/workflows/creator-windows-native.yml
+      - docs/contracts/native-release-assembly.json
+      - creator/cmd/**
+      - creator/core/**
+      - creator/host/**
+      - creator/appchannel/**
+      - creator/componentchannel/**
+      - creator/physicalchannel/**
+      - creator/internal/**
+      - creator/update/**
+      - creator/tools/owner_local_sync.py
+      - creator/tools/owner_usb_git_delivery.py
+      - creator/tools/test_owner_local_sync.py
+      - creator/tools/test_owner_usb_git_delivery.py
+      - creator/go.mod
+      - creator/version.json
+  pull_request:
+    paths:
+      - .github/workflows/creator-windows-native.yml
+      - docs/contracts/native-release-assembly.json
+      - creator/cmd/**
+      - creator/core/**
+      - creator/host/**
+      - creator/appchannel/**
+      - creator/componentchannel/**
+      - creator/physicalchannel/**
+      - creator/internal/**
+      - creator/update/**
+      - creator/tools/owner_local_sync.py
+      - creator/tools/owner_usb_git_delivery.py
+      - creator/tools/test_owner_local_sync.py
+      - creator/tools/test_owner_usb_git_delivery.py
+      - creator/go.mod
+      - creator/version.json
+
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  windows-native:
+    runs-on: windows-2025
+    defaults:
+      run:
+        working-directory: creator
+    env:
+      ORDAX_OS_CONTRACTS_DIR: ${{ github.workspace }}/docs/contracts
+    timeout-minutes: 25
+    steps:
+      - name: Checkout OS monorepo (no writable Git credentials)
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
+        with:
+          persist-credentials: false
+      - name: Setup Go
+        uses: actions/setup-go@b7ad1dad31e06c5925ef5d2fc7ad053ef454303e # v7
+        with:
+          go-version: '1.27.1'
+          check-latest: false
+          cache: false
+      - name: Verify same-commit OS source and safe release authorization
+        shell: pwsh
+        run: |
+          $ErrorActionPreference = 'Stop'
+          $root = $env:GITHUB_WORKSPACE
+          if (-not (Test-Path (Join-Path $root 'creator/go.mod'))) { throw 'Creator module absent from OS source' }
+          if ((Get-Content (Join-Path $root 'creator/go.mod') -TotalCount 1) -ne 'module github.com/ordaxsystems/ordax-os/creator') {
+            throw 'Creator Go module is not owned by this OS commit'
+          }
+          $contract = Get-Content (Join-Path $root 'docs/contracts/native-release-assembly.json') -Raw | ConvertFrom-Json
+          if ($contract.creator_source.repository -ne 'ordaxsystems/ordax-os' -or
+              $contract.creator_source.path -ne 'creator' -or
+              $contract.creator_source.physical_apply_authorized -ne $false) {
+            throw 'OS Creator source contract or physical safety invalid'
+          }
+          Write-Output 'CREATOR_WINDOWS_OS_MODULE=VERIFIED'
+
+      - name: Verify the single Owner Dev USB Git transport without disk writes
+        shell: pwsh
+        run: |
+          $ErrorActionPreference = 'Stop'
+          python -m unittest discover -s tools -p 'test_owner_usb_git_delivery.py' -q
+          if ($LASTEXITCODE -ne 0) { throw 'Owner USB transport regressions failed' }
+          python -m unittest discover -s tools -p 'test_owner_local_sync.py' -q
+          if ($LASTEXITCODE -ne 0) { throw 'Owner Dev local sync regressions failed' }
+          python -m py_compile tools/owner_usb_git_delivery.py
+          if ($LASTEXITCODE -ne 0) { throw 'Owner USB transport Python compile failed' }
+          Write-Output 'OWNER_USB_GIT_SINGLE_WRITER_TESTS=PASS_NO_PHYSICAL_USB'
+
+      - name: Native Windows Go tests including isolated real Win32 control creation
+        shell: pwsh
+        env:
+          ORDAX_CREATOR_WINDOWS_UI_SMOKE: "1"
+        run: |
+          $ErrorActionPreference = 'Stop'
+          go test -count=1 ./core ./appchannel ./componentchannel ./physicalchannel ./internal/archivebounds ./internal/atomicfile ./internal/cachepath ./internal/releaseidentity ./internal/safefile ./update ./host/windows ./cmd/ordax-creator-app ./cmd/ordax-creator-launcher ./cmd/ordax-creator ./cmd/ordax-creator-native-targets
+          if ($LASTEXITCODE -ne 0) { throw 'Native Windows Go tests failed' }
+          # Execute only the synthetic Portable progress unit tests of the
+          # build-tagged writer package. No writer entrypoint, disk discovery,
+          # elevation or media-access test is run.
+          go test -count=1 -tags ordax_raw_backend -run '^TestPortableProgress' ./host/windows
+          if ($LASTEXITCODE -ne 0) { throw 'Native Windows Portable progress unit tests failed' }
+          # Win32 WndProc LPARAM is a caller-owned borrowed struct pointer.
+          # Go vet's unsafeptr heuristic flags four necessary callback casts;
+          # keep default vet on all other packages and all other GUI checks.
+          go vet ./core ./appchannel ./componentchannel ./physicalchannel ./internal/archivebounds ./internal/atomicfile ./internal/cachepath ./internal/releaseidentity ./internal/safefile ./update ./host/windows ./cmd/ordax-creator-launcher ./cmd/ordax-creator
+          if ($LASTEXITCODE -ne 0) { throw 'Native Windows Go vet failed in Core or adapters' }
+          $abiCasts = @(Select-String -Path @('cmd/ordax-creator-app/main_windows.go','cmd/ordax-creator-app/creator_controls_windows.go') -Pattern 'unsafe\.Pointer\(lParam\)')
+          if ($abiCasts.Count -ne 4) { throw 'Win32 callback ABI pointer boundary changed; audit required' }
+          go vet -unsafeptr=false ./cmd/ordax-creator-app
+          if ($LASTEXITCODE -ne 0) { throw 'Native Windows Go vet failed outside documented Win32 ABI pointer conversion' }
+          go test -count=1 -v -run '^TestWindowsNativeUIInitializesWithoutAnyPhysicalIO$' ./cmd/ordax-creator-app
+          if ($LASTEXITCODE -ne 0) { throw 'Explicit native Win32 control smoke failed' }
+          Write-Output 'WIN32_UI_TEST_RUN_ON_WINDOWS=PASS'
+          Write-Output 'PHYSICAL_TARGETS_ENUMERATED_BY_CI=NO'
+      - name: Verify standalone Owner fast read-only discovery without OS media
+        shell: pwsh
+        run: |
+          $ErrorActionPreference = 'Stop'
+          $payload = 'cmd/ordax-creator-app/owner_payload'
+          if (Test-Path -LiteralPath $payload) { throw 'Untrusted Owner payload already exists' }
+          try {
+            New-Item -ItemType Directory -Path $payload | Out-Null
+            Copy-Item 'cmd/ordax-creator-app/testdata/owner-readonly-synthetic-provenance.json' (Join-Path $payload 'provenance.json')
+            python -c "import gzip,pathlib;pathlib.Path('cmd/ordax-creator-app/owner_payload/ordax-bootstrap-seed.raw.gz').write_bytes(gzip.compress(b'synthetic-not-an-OS-image'))"
+            if ($LASTEXITCODE -ne 0) { throw 'Synthetic standalone fixture creation failed' }
+            go test -count=1 -tags 'ordax_owner_prototype ordax_single_exe ordax_raw_backend' -run '^TestOwnerStandaloneReadOnlyUsesInstalledExeWithoutStaging$' ./cmd/ordax-creator-app
+            if ($LASTEXITCODE -ne 0) { throw 'Standalone Owner read-only startup regression failed' }
+            Write-Output 'OWNER_STANDALONE_READONLY=PASS_WITHOUT_MEDIA_OR_USB'
+          } finally {
+            Remove-Item -LiteralPath $payload -Recurse -Force -ErrorAction SilentlyContinue
+          }
+      - name: Invoke only explicitly non-destructive Windows CLI operations
+        shell: pwsh
+        run: |
+          $ErrorActionPreference = 'Stop'
+          $exe = Join-Path $env:RUNNER_TEMP 'ordax-creator-inspection.exe'
+          go build -trimpath -buildvcs=false -o $exe ./cmd/ordax-creator-inspection
+          if ($LASTEXITCODE -ne 0) { throw 'Inspection build failed' }
+          $raw = (& $exe status | Out-String)
+          if ($LASTEXITCODE -ne 0) { throw 'Inspection status failed' }
+          $inspection = $raw | ConvertFrom-Json
+          if ($inspection.mode -ne 'development-inspection-only' -or $inspection.raw_backend_linked -ne $false -or $inspection.build.physical_write_authorized -ne $false -or $inspection.build.ready -ne $false) {
+            throw 'Unexpected physical authority in public Windows development inspection status'
+          }
+          $launcher = Join-Path $env:RUNNER_TEMP 'ordax-creator-launcher.exe'
+          go build -trimpath -buildvcs=false -o $launcher ./cmd/ordax-creator-launcher
+          if ($LASTEXITCODE -ne 0) { throw 'Launcher build failed' }
+          $version = (& $launcher --launcher-version | Out-String).Trim()
+          if ($LASTEXITCODE -ne 0 -or $version -ne 'ORDAX_CREATOR_LAUNCHER_VERSION=2') { throw 'Windows launcher version smoke failed' }
+          Write-Output $version
+          Write-Output 'WINDOWS_UNPRIVILEGED_EXECUTION=PASS'
+          Write-Output 'PHYSICAL_WRITE_AUTHORIZED=NO'

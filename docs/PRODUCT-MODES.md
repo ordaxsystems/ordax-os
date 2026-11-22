@@ -51,7 +51,7 @@ A normally installed desktop application for Windows first, with other host plat
 
 It provides capabilities a browser cannot safely or reliably provide, including controlled local filesystem access, native notifications, background tasks where allowed, local application integration and signed application updates. It may **launch or present** the independent OrdaX Creator experience, but it does not own Creator Core, raw-media policy or physical-write authority.
 
-OrdaX Desktop is not the OrdaX operating system and must never own raw host hardware by default. Removable-media preparation belongs to `ordaxsystems/ordax-creator` and remains behind its narrow, explicitly authorized target/write/readback boundary.
+OrdaX Desktop is not the OrdaX operating system and must never own raw host hardware by default. Removable-media preparation belongs to `ordaxsystems/ordax-os/creator/` and remains behind its narrow, explicitly authorized target/write/readback boundary.
 
 ### 4. OrdaX OS — USB
 
