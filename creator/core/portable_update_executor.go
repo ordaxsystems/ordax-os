@@ -36,7 +36,7 @@ type PortableUpdateReceipt struct {
 	FromSourceCommit      string `json:"from_source_commit"`
 	ToSourceCommit        string `json:"to_source_commit"`
 	PlanSHA256            string `json:"plan_sha256"`
-	ImmutableReadbacks    int    `json:"immutable_readbacks"`
+	InstalledReadbacks    int    `json:"installed_readbacks"`
 	ReleaseMaterialized   int    `json:"release_materialized"`
 	ReleaseReadbacks      int    `json:"release_readbacks"`
 	CandidateRequestArmed bool   `json:"candidate_request_armed"`
@@ -106,29 +106,28 @@ func ExecutePortableUpdate(
 		}
 		byID[source.ArtifactID] = source
 	}
-	// Verify the actual installed immutable boot/kernel/state bytes BEFORE any
+	// Verify EVERY installed artifact, including known-good release bytes, before any
 	// candidate materialization; the trusted plan alone cannot establish the
 	// condition of a physical pendrive.
 	if err := runtime.VerifyLayout(plan.Partitions, plan.TargetBytes); err != nil {
 		return PortableUpdateReceipt{}, fmt.Errorf("installed Portable layout: %w", err)
 	}
-	immutableCount := 0
+	installedCount := 0
 	for _, artifact := range installed.Artifacts {
-		if !portableImmutableArtifacts[artifact.ID] { continue }
 		op := PortableApplicationOperation{
-			ID: "verify-immutable-" + artifact.ID,
+			ID: "verify-installed-" + artifact.ID,
 			Kind: "readback-sha256-size", Partition: artifact.Partition,
 			TargetPath: artifact.TargetPath, ArtifactID: artifact.ID,
 			SHA256: artifact.SHA256, SizeBytes: artifact.SizeBytes,
 			ReadbackRequired: true,
 		}
 		if err := runtime.Readback(op); err != nil {
-			return PortableUpdateReceipt{}, fmt.Errorf("installed foundation %q failed readback: %w", artifact.ID, err)
+			return PortableUpdateReceipt{}, fmt.Errorf("installed artifact %q failed readback: %w", artifact.ID, err)
 		}
-		immutableCount++
+		installedCount++
 	}
-	if immutableCount != len(portableImmutableArtifacts) {
-		return PortableUpdateReceipt{}, errors.New("installed Portable foundation is incomplete")
+	if installedCount != len(installed.Artifacts) {
+		return PortableUpdateReceipt{}, errors.New("installed Portable artifact set is incomplete")
 	}
 	materialized, readbacks := 0, 0
 	for _, op := range plan.Operations {
@@ -162,7 +161,7 @@ func ExecutePortableUpdate(
 	return PortableUpdateReceipt{
 		Schema: PortableUpdateReceiptSchema, Status: "staged-not-activated",
 		FromSourceCommit: installed.SourceCommit, ToSourceCommit: candidate.SourceCommit,
-		PlanSHA256: sha, ImmutableReadbacks: immutableCount,
+		PlanSHA256: sha, InstalledReadbacks: installedCount,
 		ReleaseMaterialized: materialized, ReleaseReadbacks: readbacks,
 		CandidateRequestArmed: true, Activated: false,
 	}, nil
