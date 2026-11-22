@@ -11,7 +11,6 @@ import (
 	"strings"
 
 	creatorcore "github.com/ordaxsystems/ordax-os/creator/core"
-	physicalchannel "github.com/ordaxsystems/ordax-os/creator/physicalchannel"
 )
 
 // The same Creator "Atualizar USB" action selects the canonical transport
@@ -62,14 +61,15 @@ func beginCreatorUSBUpdate() {
 	if refreshInProgress || writeInProgress() || ownerUSBUpdateInProgress() {return}
 	index:=selectedTargetIndex()
 	if !portableUSBUpdateEligible(state,index) {
-		messageBox("A instalação do pendrive ainda não tem o formato Portable verificável. Use Criar USB para a migração única do perfil Dev.",windowTitle,mbOK|mbIconWarning)
+		messageBox(creatorT(msgPortableUSBUpdateBlocked),windowTitle,mbOK|mbIconWarning)
 		return
 	}
 	target:=state.Targets[index]
-	message:=fmt.Sprintf(
-		"Atualizar a release e a Surface diretamente no pendrive %s (disco %d, serial %s), sem formatar?\n\nOs dados e a versão anterior serão preservados. A nova release será testada no próximo boot antes de ser ativada.",
-		targetDisplayName(target),target.DiskNumber,target.DeviceSerial,
-	)
+	message:=creatorTValues(msgPortableUSBUpdateConfirm,map[string]string{
+		"device":targetDisplayName(target),
+		"disk":fmt.Sprint(target.DiskNumber),
+		"serial":target.DeviceSerial,
+	})
 	if messageBox(message,windowTitle,mbYesNo|mbIconWarning|mbDefButton2)!=idYes{return}
 	startCreatorUSBUpdateTask("portable",func()(ownerUSBReceipt,error){
 		return executePortableUSBUpdate(state,target)
@@ -185,6 +185,3 @@ func executePortableUSBUpdate(state appRefreshState,target physicalTarget) (owne
 	},nil
 }
 
-// Compile-time assertion prevents forgetting the same signed payload owner
-// when changing the updater's GUI-facing candidate representation.
-var _ physicalchannel.PortablePayloadManifest
