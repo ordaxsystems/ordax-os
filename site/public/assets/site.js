@@ -19,6 +19,7 @@
     // exactly one OAuth client ID. Keep this distinction at the URL gate.
     if (value === "/account/mcp/central-selections" && method === "POST") return true;
     if (value === "/account/mcp/project-grants"
+        || value === "/account/mcp/device-grants"
         || value === "/account/mcp/reauthorize") return method === "POST";
     if (value === "/account/mcp/project-onboarding/projects"
         || value === "/account/mcp/project-onboarding/device-binding-intents") {
@@ -967,6 +968,27 @@
         profile_key: canonical.profile_key,
         valid_until: canonical.valid_until,
       };
+    },
+    async createMcpDeviceDevGrant(input, signal) {
+      const uuid=/^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/;
+      const owner=sessionView;
+      if (owner.status!=="authenticated") throw Error("public-account-session-required");
+      if (!input || Object.keys(input).sort().join(",")!=="client_id,confirm,device_id,profile_key"
+          || !uuid.test(input.device_id) || !uuid.test(input.client_id)
+          || !["full-computer-control","ordax-surface-control"].includes(input.profile_key)
+          || input.confirm!=="authorize_device_dev")
+        throw Error("mcp-owner-device-dev-grant-invalid");
+      const value=await loadJson("/account/mcp/device-grants",signal,
+        {maxBytes:4096,method:"POST",jsonBody:input});
+      if (!value || value.ok!==true || value.schema!=="ordax.owner-device-dev-grant/1"
+          || !uuid.test(value.grant_group_id)
+          || value.device_id!==input.device_id || value.client_id!==input.client_id
+          || value.profile_key!==input.profile_key || value.valid_until!==null
+          || !Number.isSafeInteger(value.capability_count) || value.capability_count<1)
+        throw Error("mcp-owner-device-dev-grant-unconfirmed");
+      if (owner!==sessionView || sessionView.status!=="authenticated")
+        throw Error("public-account-session-changed");
+      return value;
     },
     async reauthorizeMcpGrant(input, signal) {
       const uuid = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/;

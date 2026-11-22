@@ -839,6 +839,53 @@
     }
   }
 
+  async function authorizeMcpDeviceDevGrant(control) {
+    if (mcpRevoking || mcpCentralSelecting || mcpProjectGrantCreating
+        || !signedIn() || mcpAuthorityStatus!=="ready" || !mcpAuthority) return;
+    const deviceId=control.dataset.mcpDevice;
+    const clientId=control.dataset.mcpClient;
+    const profile=control.dataset.mcpProfile;
+    const device=mcpDevices?.find(d=>d.device_id===deviceId
+      && d.channel==="development" && d.state==="active");
+    const client=mcpAuthority.clients.find(c=>c.client_id===clientId);
+    if (!device || !client || deviceId!==mcpAuthorityDevice
+        || deviceId!==mcpAuthority.device_id
+        || !["full-computer-control","ordax-surface-control"].includes(profile)
+        || mcpAuthority.grant_groups.some(g=>g.client_id===clientId
+          && g.scope_kind==="device" && g.profile_key===profile)) return;
+    const label=profile==="full-computer-control" ? "controle completo do computador"
+      : "controle da Surface";
+    if (!window.confirm(tx("Autorizar")+" "+label+" — "+client.client_name+" / "+
+      device.name+"?\n\n"+tx("Somente neste dispositivo DEV. Persistente até revogação, sem herdar privilégios de outros computadores."))) return;
+    const revision=++mcpAuthorityRevision;
+    mcpRevoking=true;mcpRevocationNotice="";renderContent();
+    try {
+      const receipt=await account.createMcpDeviceDevGrant({
+        device_id:deviceId,client_id:clientId,profile_key:profile,
+        confirm:"authorize_device_dev",
+      });
+      if (revision!==mcpAuthorityRevision || !signedIn()
+          || mcpAuthorityDevice!==deviceId) return;
+      const confirmed=await account.readMcpAuthority(deviceId);
+      if (revision!==mcpAuthorityRevision || !signedIn()) return;
+      if (confirmed.grant_groups.filter(g=>g.grant_group_id===receipt.grant_group_id
+          && g.client_id===clientId && g.profile_key===profile
+          && g.scope_kind==="device" && g.client_consent_active===true).length!==1)
+        throw Error("mcp-owner-device-dev-grant-not-reflected");
+      mcpAuthority=confirmed;mcpAuthorityStatus="ready";resetMcpCentral();
+      mcpRevocationNotice="Autorização DEV confirmada na Platform para este dispositivo.";
+    } catch {
+      if (revision!==mcpAuthorityRevision || !signedIn()) return;
+      mcpAuthority=null;mcpAuthorityStatus="unavailable";
+      mcpRevocationNotice="Não foi possível confirmar o grant. Consulte novamente antes de tentar outra ação.";
+    } finally {
+      if (revision===mcpAuthorityRevision && signedIn()) {
+        mcpRevoking=false;
+        if (state.section==="dispositivos") renderContent();
+      }
+    }
+  }
+
   async function reauthorizeMcpDeviceGrant(control) {
     if (mcpRevoking || mcpCentralSelecting || mcpProjectGrantCreating
         || !signedIn() || mcpAuthorityStatus !== "ready" || !mcpAuthority) return;
@@ -1462,6 +1509,24 @@
           data:`data-mcp-central-select="${esc(mcpCentralClient)}"`,
         }) : ""}</div>`;
     }
+    const devButtons = device.channel==="development" && device.state==="active"
+      ? mcpAuthority.clients.flatMap(client=>
+        ["full-computer-control","ordax-surface-control"].filter(profile=>
+          !grants.some(g=>g.client_id===client.client_id && g.scope_kind==="device"
+            && g.profile_key===profile)).map(profile=>
+          action(profile==="full-computer-control"
+            ? "Autorizar controle completo DEV" : "Autorizar controle da Surface DEV",
+            "shield",{
+              disabled:mcpRevoking || mcpCentralSelecting || mcpProjectGrantCreating,
+              small:true,
+              data:'data-mcp-dev-grant data-mcp-device="'+esc(device.device_id)
+                +'" data-mcp-client="'+esc(client.client_id)
+                +'" data-mcp-profile="'+esc(profile)+'"',
+            }))).join("")
+      : "";
+    const devPanel = devButtons
+      ? '<div class="panel-actions" aria-label="Autorizações DEV">'+devButtons+'</div>'
+      : "";
     const centralPanel = availableClients.length
       ? `<div class="panel-actions" aria-label="${tx("Vínculo MCP Owner")}">
         <p>${tx("Selecione o cliente OAuth autorizado somente para um desafio pendente. O vínculo confirmado persiste na Platform até revogação explícita; offline, heartbeat atrasado ou reinício não escolhem outra instalação.")}</p>
@@ -1472,7 +1537,7 @@
     return `<section class="settings-section" aria-labelledby="mcp-grants-heading">
       <h3 id="mcp-grants-heading">${tx("Autorizações de aplicativos")} · ${esc(device.name)}</h3>
       <p class="panel-description">${tx("Reautorizar reaplica o mesmo perfil canônico atual; revogar remove apenas o grant selecionado, sem desconectar outros computadores.")}</p>
-      ${table}${centralPanel}${centralNotice}${notice}</section>`;
+      ${table}${devPanel}${centralPanel}${centralNotice}${notice}</section>`;
   }
   function field(label, placeholder, type = "text", capabilityId = "", { id = "", hint = "" } = {}) {
     const emailAvailable = capabilityId === "accountEmail" && capabilityState(capabilityId).status === "verified";
@@ -2026,7 +2091,11 @@
     } else if (control.matches("[data-mcp-central-client]")) {
       event.preventDefault();
       if (!layoutPreview) void loadMcpCentralClient(control.dataset.mcpCentralClient);
-    } else if (control.matches("[data-mcp-device]") && !control.matches("[data-mcp-revoke]")) {
+    } else if (control.matches("[data-mcp-dev-grant]")) {
+      event.preventDefault();
+      if (!layoutPreview) void authorizeMcpDeviceDevGrant(control);
+    } else if (control.matches("[data-mcp-device]") &&
+        !control.matches("[data-mcp-revoke],[data-mcp-reauthorize]")) {
       event.preventDefault();
       if (!layoutPreview) {
         void loadMcpAuthority(control.dataset.mcpDevice);

@@ -6,6 +6,7 @@ export const ACCOUNT_MCP_DEVICES_PATH = "/account/mcp/devices";
 export const ACCOUNT_MCP_AUTHORITY_PATH = "/account/mcp/authority";
 export const ACCOUNT_MCP_REVOKE_PATH = "/account/mcp/revoke";
 export const ACCOUNT_MCP_REAUTHORIZE_PATH = "/account/mcp/reauthorize";
+export const ACCOUNT_MCP_DEVICE_GRANTS_PATH = "/account/mcp/device-grants";
 export const ACCOUNT_MCP_PROJECT_GRANTS_PATH = "/account/mcp/project-grants";
 export const ACCOUNT_MCP_CENTRAL_TARGETS_PATH = "/account/mcp/central-targets";
 export const ACCOUNT_MCP_CENTRAL_SELECTIONS_PATH = "/account/mcp/central-selections";
@@ -657,6 +658,55 @@ export async function createAccountOwnerProjectGrant(
     profile_key:input.profile_key,
     valid_until:input.valid_until,
   };
+}
+
+// One authenticated Owner decision for one active DEV device and OAuth client.
+// Canonical Platform profiles and PostgreSQL alone issue the actual grant.
+const OWNER_DEV_DEVICE_PROFILES=new Set(["full-computer-control","ordax-surface-control"]);
+export function parseAccountOwnerDeviceDevGrant(raw) {
+  if (!isRecord(raw) || Object.keys(raw).sort().join(",")!=="client_id,confirm,device_id,profile_key"
+      || !isOwnerUuid(raw.device_id) || !isOwnerUuid(raw.client_id)
+      || !OWNER_DEV_DEVICE_PROFILES.has(raw.profile_key)
+      || raw.confirm!=="authorize_device_dev") return null;
+  return {device_id:raw.device_id,client_id:raw.client_id,profile_key:raw.profile_key};
+}
+export async function createAccountOwnerDeviceDevGrant(access,raw,fetcher=fetch) {
+  const input=parseAccountOwnerDeviceDevGrant(raw);
+  if (!input) throw Error("mcp-owner-device-dev-grant-invalid");
+  const devices=await readAccountOwnerDevices(access,fetcher);
+  if (!devices.devices.some(d=>d.device_id===input.device_id
+      && d.channel==="development" && d.state==="active"))
+    throw Error("mcp-owner-device-dev-target-invalid");
+  const before=await readAccountOwnerAuthority(access,input.device_id,fetcher);
+  if (!before.clients.some(c=>c.client_id===input.client_id))
+    throw Error("mcp-owner-device-dev-client-not-consented");
+  if (before.grant_groups.some(g=>g.client_id===input.client_id
+      && g.profile_key===input.profile_key && g.scope_kind==="device"))
+    throw Error("mcp-owner-device-dev-profile-already-exists");
+  const receipt=await ownerRequest(access,OWNER_MCP_GRANTS_URL,"POST",fetcher,{
+    device_id:input.device_id,client_id:input.client_id,
+    profile_key:input.profile_key,space_id:null,project_id:null,valid_until:null,
+  });
+  if (!isRecord(receipt) || receipt.ok!==true || !isOwnerUuid(receipt.grant_group_id)
+      || receipt.scope_kind!=="device" || !Number.isSafeInteger(receipt.capability_count)
+      || receipt.capability_count<1 || receipt.capability_count>256)
+    throw Error("mcp-owner-device-dev-grant-unconfirmed");
+  const after=await readAccountOwnerAuthority(access,input.device_id,fetcher);
+  const granted=after.grant_groups.filter(g=>g.grant_group_id===receipt.grant_group_id
+    && g.client_id===input.client_id && g.profile_key===input.profile_key
+    && g.scope_kind==="device" && g.space_id===null && g.project_id===null
+    && g.valid_until===null && g.client_consent_active===true);
+  if (granted.length!==1 || after.grant_groups.length!==before.grant_groups.length+1)
+    throw Error("mcp-owner-device-dev-grant-unconfirmed");
+  const unchanged=new Map(after.grant_groups.map(g=>[g.grant_group_id,g]));
+  for(const previous of before.grant_groups)
+    if (!unchanged.has(previous.grant_group_id)
+        || !sameGrantIdentity(previous,unchanged.get(previous.grant_group_id)))
+      throw Error("mcp-owner-device-dev-isolation-unverified");
+  return {ok:true,schema:"ordax.owner-device-dev-grant/1",
+    device_id:input.device_id,client_id:input.client_id,
+    profile_key:input.profile_key,grant_group_id:receipt.grant_group_id,
+    capability_count:receipt.capability_count,valid_until:null};
 }
 
 export function parseAccountOwnerProfileReauthorization(value) {

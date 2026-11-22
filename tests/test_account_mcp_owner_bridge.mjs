@@ -4,10 +4,11 @@ import {readFileSync} from "node:fs";
 import {isPublicBridgeRoute,isPublicAccountPreActivationRoute} from "../infra/supabase/functions/_shared/account_transport_admission.mjs";
 import {
   ACCOUNT_MCP_DEVICES_PATH, ACCOUNT_MCP_AUTHORITY_PATH, ACCOUNT_MCP_REVOKE_PATH,
-  ACCOUNT_MCP_REAUTHORIZE_PATH, ACCOUNT_MCP_PROJECT_GRANTS_PATH,
+  ACCOUNT_MCP_REAUTHORIZE_PATH, ACCOUNT_MCP_DEVICE_GRANTS_PATH, ACCOUNT_MCP_PROJECT_GRANTS_PATH,
   OWNER_MCP_DEVICES_URL, validateAccountOwnerDevices,validateAccountOwnerAuthority,
   readAccountOwnerDevices,readAccountOwnerAuthority,revokeAccountOwnerGrant,parseAccountOwnerRevoke,
   parseAccountOwnerProfileReauthorization,reauthorizeAccountOwnerGrant,
+  parseAccountOwnerDeviceDevGrant,createAccountOwnerDeviceDevGrant,
   parseAccountOwnerProjectGrant,createAccountOwnerProjectGrant,
   ACCOUNT_MCP_CENTRAL_TARGETS_PATH,ACCOUNT_MCP_CENTRAL_SELECTIONS_PATH,
   readAccountOwnerCentralTargets,readAccountOwnerCentralSelections,
@@ -67,6 +68,7 @@ test("MCP Owner routes remain exact and never publicly preactivated",()=>{
                               ["GET",ACCOUNT_MCP_AUTHORITY_PATH],
                               ["POST",ACCOUNT_MCP_REVOKE_PATH],
                               ["POST",ACCOUNT_MCP_REAUTHORIZE_PATH],
+                              ["POST",ACCOUNT_MCP_DEVICE_GRANTS_PATH],
                               ["POST",ACCOUNT_MCP_PROJECT_GRANTS_PATH]]) {
     assert.equal(isPublicBridgeRoute(method,path),true);
     assert.equal(isPublicAccountPreActivationRoute(method,path),false);
@@ -186,6 +188,56 @@ test("Authority read ties every group to the requested device",async()=>{
   }]},device),null);
   assert.deepEqual(await readAccountOwnerAuthority(access,device,transport([authority])),result);
 });
+test("Owner DEV grants only a specific device/client through the canonical Platform",async()=>{
+  const input={device_id:device,client_id:client,profile_key:"full-computer-control",
+    confirm:"authorize_device_dev"};
+  assert.deepEqual(parseAccountOwnerDeviceDevGrant(input),{
+    device_id:device,client_id:client,profile_key:"full-computer-control",
+  });
+  for(const bad of [
+    {...input,confirm:"ok"}, {...input,profile_key:"project-native-terminal"},
+    {...input,capabilities:["computer.terminal_exec"]},
+    {...input,valid_until:null}, {...input,device_id:"bad"},
+  ]) assert.equal(parseAccountOwnerDeviceDevGrant(bad),null);
+  const existing={...authority.grant_groups[0],profile_key:"computer-observe"};
+  const created={...authority.grant_groups[0],
+    grant_group_id:"aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa"};
+  const before={...authority,grant_groups:[existing]};
+  const after={...authority,grant_groups:[existing,created]};
+  const calls=[];
+  const receipt=await createAccountOwnerDeviceDevGrant(access,input,transport([
+    inventory,before,{ok:true,scope_kind:"device",
+      grant_group_id:created.grant_group_id,capability_count:38},after,
+  ],calls));
+  assert.deepEqual(receipt,{ok:true,schema:"ordax.owner-device-dev-grant/1",
+    device_id:device,client_id:client,profile_key:"full-computer-control",
+    grant_group_id:created.grant_group_id,capability_count:38,valid_until:null});
+  assert.deepEqual(calls.map(call=>call.options.method),["GET","GET","POST","GET"]);
+  assert.deepEqual(JSON.parse(calls[2].options.body),{
+    device_id:device,client_id:client,profile_key:"full-computer-control",
+    space_id:null,project_id:null,valid_until:null,
+  });
+});
+
+test("Owner DEV device grants refuse Stable, duplicates and nonconsented clients",async()=>{
+  const input={device_id:device,client_id:client,profile_key:"ordax-surface-control",
+    confirm:"authorize_device_dev"};
+  let calls=[];
+  await assert.rejects(createAccountOwnerDeviceDevGrant(access,input,
+    transport([{...inventory,devices:[{...row,channel:"stable-mvp"}]}],calls)));
+  assert.equal(calls.length,1);
+  calls=[];
+  const prior={...authority,grant_groups:[{...authority.grant_groups[0],
+    profile_key:"ordax-surface-control"}]};
+  await assert.rejects(createAccountOwnerDeviceDevGrant(access,input,
+    transport([inventory,prior],calls)));
+  assert.deepEqual(calls.map(call=>call.options.method),["GET","GET"]);
+  calls=[];
+  await assert.rejects(createAccountOwnerDeviceDevGrant(access,input,
+    transport([inventory,{...authority,clients:[]}],calls)));
+  assert.deepEqual(calls.map(call=>call.options.method),["GET","GET"]);
+});
+
 test("Device profile reauthorization derives the canonical profile from one existing grant",async()=>{
   const input={device_id:device,client_id:client,grant_group_id:group,confirm:"reauthorize"};
   assert.deepEqual(parseAccountOwnerProfileReauthorization(input),{

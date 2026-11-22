@@ -36,6 +36,8 @@ test("real same-origin gate permits only a single exact MCP authority UUID query
   assert.equal(sameOriginPath("/account/mcp/project-onboarding/device-binding-intents","POST"),true);
   assert.equal(sameOriginPath("/account/mcp/project-onboarding/device-binding-intents","GET"),false);
   assert.equal(sameOriginPath("/account/mcp/project-grants","POST"),true);
+  assert.equal(sameOriginPath("/account/mcp/device-grants","POST"),true);
+  assert.equal(sameOriginPath("/account/mcp/device-grants","GET"),false);
   assert.equal(sameOriginPath("/account/mcp/project-grants","GET"),false);
   assert.equal(sameOriginPath("/account/mcp/github/authorization-challenges","POST"),true);
   assert.equal(sameOriginPath("/account/mcp/github/authorization-challenges","GET"),false);
@@ -903,6 +905,8 @@ test("Project UI keeps Runtime binding separate and exposes Terminal/Process/Ble
   assert.match(portal,/await account\.readMcpGithubCandidates\(challengeId\)/);
   assert.match(portal,/await account\.selectMcpGithubRepository\(/);
   assert.doesNotMatch(portal,/local_project_ref|name="installation_id"|data-mcp-device-bind/);
-  assert.doesNotMatch(portal,/full-computer-control|project-browser-automation|project-workspace-read/);
+  assert.match(portal,/full-computer-control/);
+  assert.match(portal,/data-mcp-dev-grant/);
+  assert.doesNotMatch(portal,/project-browser-automation|project-workspace-read/);
   assert.doesNotMatch(portal,/searchParams\.get\("code"\)|searchParams\.get\("state"\)/);
 });
