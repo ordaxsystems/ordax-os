@@ -91,6 +91,7 @@ type Installed struct {
 	SourceCommit string
 	Directory    string
 	Manifest     Manifest
+	SignedEnvelope []byte // verified Ed25519 envelope bytes for the elevated physical backend
 }
 
 func decodeStrict(data []byte, max int, target any) error {
@@ -527,7 +528,7 @@ func Acquire(client *http.Client, root, envelopeURL string, trustBytes []byte, e
 		if err := VerifyInstalled(finalDir, manifest); err != nil {
 			return Installed{}, false, err
 		}
-		return Installed{SourceCommit: manifest.SourceCommit, Directory: finalDir, Manifest: manifest}, false, nil
+		return Installed{SourceCommit: manifest.SourceCommit, Directory: finalDir, Manifest: manifest, SignedEnvelope: append([]byte(nil), envelopeBytes...)}, false, nil
 	} else if !errors.Is(err, os.ErrNotExist) {
 		return Installed{}, false, err
 	}
@@ -560,5 +561,5 @@ func Acquire(client *http.Client, root, envelopeURL string, trustBytes []byte, e
 	if !samePath(finalDir, filepath.Join(versions, manifest.SourceCommit)) {
 		return Installed{}, false, errors.New("physical candidate escaped its version slot")
 	}
-	return Installed{SourceCommit: manifest.SourceCommit, Directory: finalDir, Manifest: manifest}, true, nil
+	return Installed{SourceCommit: manifest.SourceCommit, Directory: finalDir, Manifest: manifest, SignedEnvelope: append([]byte(nil), envelopeBytes...)}, true, nil
 }
