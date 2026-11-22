@@ -79,7 +79,7 @@ COMPONENTS = {
             # any cached
             # EROFS when the external builder source changes.
             "docs/contracts/intelligence-source.json",
-            "tools/intelligence-source/materialize.py",
+            "tools/intelligence/verify.py",
             ".github/actions/resolve-intelligence-builder/action.yml",
             # Retained only for cross-verification until signed v4 cutover.
             "bootstrap/local-ai-runtime/build.py",

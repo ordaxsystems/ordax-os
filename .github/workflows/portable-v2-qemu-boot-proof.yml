@@ -381,8 +381,6 @@ jobs:
 
       - name: Resolve exact Intelligence builder for real local AI QEMU payload
         uses: ./.github/actions/resolve-intelligence-builder
-        with:
-          out-root: ${{ runner.temp }}/ordax-intelligence-builder
 
       - name: Set up Go
         uses: actions/setup-go@b7ad1dad31e06c5925ef5d2fc7ad053ef454303e # v7
@@ -412,11 +410,11 @@ jobs:
         run: |
           set -euo pipefail
           work="$RUNNER_TEMP/portable-v2-qemu"
-          python "$ORDAX_EXTERNAL_AI_BUILDER" --os-source "$GITHUB_WORKSPACE" build \
+          python "$ORDAX_AI_BUILDER" --os-source "$GITHUB_WORKSPACE" build \
             --cache-dir "$work/local-ai-runtime-cache" \
             --out-dir "$work/local-ai-runtime" \
             > "$work/metadata/local-ai-runtime-build.json"
-          python "$ORDAX_EXTERNAL_AI_BUILDER" --os-source "$GITHUB_WORKSPACE" verify \
+          python "$ORDAX_AI_BUILDER" --os-source "$GITHUB_WORKSPACE" verify \
             --out-dir "$work/local-ai-runtime" \
             > "$work/metadata/local-ai-runtime-build-verify.json"
 
@@ -464,7 +462,7 @@ jobs:
             test ! -e "$source"
             git worktree add --detach "$source" "$build_source_commit"
             test "$(git -C "$source" rev-parse --verify HEAD)" = "$build_source_commit"
-            ORDAX_SOURCE_COMMIT="$build_source_commit" python "$ORDAX_EXTERNAL_AI_BUILDER" \
+            ORDAX_SOURCE_COMMIT="$build_source_commit" python "$ORDAX_AI_BUILDER" \
               --os-source "$source" verify \
               --out-dir "$work/local-ai-runtime" \
               > "$work/metadata/local-ai-runtime-verify.json"
@@ -474,7 +472,7 @@ jobs:
               > "$work/metadata/local-ai-runtime-legacy-abi-verify.json"
           else
             # A fresh build is produced and verified against the current exact HEAD.
-            python "$ORDAX_EXTERNAL_AI_BUILDER" --os-source "$GITHUB_WORKSPACE" verify \
+            python "$ORDAX_AI_BUILDER" --os-source "$GITHUB_WORKSPACE" verify \
               --out-dir "$work/local-ai-runtime" \
               > "$work/metadata/local-ai-runtime-verify.json"
             python bootstrap/local-ai-runtime/build.py verify \

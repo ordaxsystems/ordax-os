@@ -1,0 +1,81 @@
+name: OrdaX OS Windows local AI candidate proof
+on:
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  windows-inference:
+    runs-on: windows-2022
+    timeout-minutes: 60
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
+        with:
+          persist-credentials: false
+      - uses: actions/setup-python@ece7cb06caefa5fff74198d8649806c4678c61a1 # v6
+        with:
+          python-version: '3.12'
+      - name: Verify non-promotable Windows target boundary
+        shell: pwsh
+        run: |
+          python -m unittest discover -s system/intelligence/tests -p 'test_windows_inference_candidate.py' -v
+          if ($LASTEXITCODE -ne 0) { throw 'Windows inference source validation failed' }
+      # The PR gate tests path/authority invariants without two expensive
+      # identical native builds. Full executable/GGUF proof remains explicit.
+      - name: Compile exact llama.cpp and prove real offline GGUF inference
+        if: github.event_name == 'workflow_dispatch'
+        shell: pwsh
+        run: |
+          python system/intelligence/tools/inference-builder/windows-candidate.py --os-source . --out-dir "$env:RUNNER_TEMP/ordax-windows-inference-proof" --cache-dir "$env:RUNNER_TEMP/ordax-windows-model-cache"
+          if ($LASTEXITCODE -ne 0) { throw 'Real Windows inference candidate is not proven' }
+          $receipt = Get-Content "$env:RUNNER_TEMP/ordax-windows-inference-proof/candidate-receipt.json" -Raw | ConvertFrom-Json
+          if ($receipt.activation_authorized -ne $false -or $receipt.signed_release -ne $false -or
+              $receipt.proof.real_completion -ne $true -or $receipt.proof.real_model_loaded -ne $true -or
+              $receipt.model_bytes_included -ne $false) {
+            throw 'Unsafe or unproven Windows inference artifact'
+          }
+      - name: Rebuild independent Windows PE files and reject nonreproducible digests
+        if: github.event_name == 'workflow_dispatch'
+        shell: pwsh
+        run: |
+          $ErrorActionPreference = 'Stop'
+          $previous = Get-Content "$env:RUNNER_TEMP/ordax-windows-inference-proof/candidate-receipt.json" -Raw | ConvertFrom-Json
+          python system/intelligence/tools/inference-builder/windows-candidate.py --os-source . --out-dir "$env:RUNNER_TEMP/ordax-windows-inference-proof-second" --cache-dir "$env:RUNNER_TEMP/ordax-windows-model-cache"
+          if ($LASTEXITCODE -ne 0) { throw 'Second Windows pinned inference proof failed' }
+          $again = Get-Content "$env:RUNNER_TEMP/ordax-windows-inference-proof-second/candidate-receipt.json" -Raw | ConvertFrom-Json
+          $firstHashes = @($previous.files | Sort-Object name | ForEach-Object { "$($_.name):$($_.size_bytes):$($_.sha256)" })
+          $secondHashes = @($again.files | Sort-Object name | ForEach-Object { "$($_.name):$($_.size_bytes):$($_.sha256)" })
+          # Every PE/DLL in the dynamic multi-ISA package must be repeated
+          # byte-identically in a second clean build. The old fixed count of
+          # eight files rejected every correct multi-variant package even when
+          # no binary hash diverged. At least nine mandatory files are checked
+          # by windows-candidate.py; do not silently drop an ISA backend.
+          if ($firstHashes.Count -lt 9 -or
+              $firstHashes.Count -ne $secondHashes.Count -or
+              ($firstHashes -join ';') -cne ($secondHashes -join ';')) {
+            # Diagnostico deterministico de bytes PE: nao altera, normaliza
+            # nem dispensa um unico hash; falha continua sendo fatal.
+            foreach ($original in $previous.files) {
+              $rebuild = $again.files | Where-Object name -eq $original.name | Select-Object -First 1
+              if (-not $rebuild -or $rebuild.sha256 -ceq $original.sha256) { continue }
+              $a = [IO.File]::ReadAllBytes((Join-Path $env:RUNNER_TEMP "ordax-windows-inference-proof/engine/$($original.name)"))
+              $b = [IO.File]::ReadAllBytes((Join-Path $env:RUNNER_TEMP "ordax-windows-inference-proof-second/engine/$($original.name)"))
+              $firstDifference = -1
+              for ($index=0; $index -lt [Math]::Min($a.Length,$b.Length); $index++) {
+                if ($a[$index] -ne $b[$index]) { $firstDifference=$index; break }
+              }
+              $peA=[BitConverter]::ToInt32($a,0x3c)
+              $peB=[BitConverter]::ToInt32($b,0x3c)
+              $timestampA=[BitConverter]::ToUInt32($a,$peA+8)
+              $timestampB=[BitConverter]::ToUInt32($b,$peB+8)
+              Write-Output "WINDOWS_PE_DIFF file=$($original.name) first_offset=$firstDifference length_before=$($a.Length) length_after=$($b.Length) timestamp_before=$timestampA timestamp_after=$timestampB"
+            }
+            throw 'Pinned Windows EXE/DLL outputs are not byte-reproducible'
+          }
+          Write-Output 'WINDOWS_PE_REBUILD_HASH_EQUIVALENCE=PASS'
+      - uses: actions/upload-artifact@b7c566a772e6b6bfb58ed0dc250532a479d7789f # v6
+        if: github.event_name == 'workflow_dispatch'
+        with:
+          name: unsigned-windows-local-ai-engine-candidate
+          path: ${{ runner.temp }}/ordax-windows-inference-proof/
+          if-no-files-found: error
+          retention-days: 3

@@ -534,7 +534,7 @@ class PortableQemuImpactTests(unittest.TestCase):
     def test_intelligence_disposable_composition_uses_focused_gates_not_qemu(self):
         changed = [
             "system/services/intelligence-source/wrappers/intelligence-runtime.mjs",
-            "tools/intelligence-source/compose.py",
+            "tools/intelligence/verify.py",
             "tests/test_native_release_intelligence_source.py",
             ".github/workflows/local-ai-runtime-candidate.yml",
         ]

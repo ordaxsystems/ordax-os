@@ -10,7 +10,7 @@ on:
       - 'docs/contracts/intelligence-source.json'
       # Only the immutable engine materializer can change this real EROFS build.
       # Disposable OS composition is validated by intelligence-source/release gates.
-      - 'tools/intelligence-source/materialize.py'
+      - 'tools/intelligence/verify.py'
       - '.github/actions/resolve-intelligence-builder/**'
       - 'bootstrap/release-acquisition/**'
       - 'tools/release-manifest/**'
@@ -97,15 +97,13 @@ jobs:
 
       - name: Resolve exact external Intelligence inference builder
         uses: ./.github/actions/resolve-intelligence-builder
-        with:
-          out-root: ${{ runner.temp }}/ordax-intelligence-builder
 
       - name: Verify external builder consumes only OS-owned runtime policy
         env:
           PYTHONDONTWRITEBYTECODE: '1'
         run: |
           set -euo pipefail
-          python - "$ORDAX_EXTERNAL_AI_BUILDER" <<'PY'
+          python - "$ORDAX_AI_BUILDER" <<'PY'
           import importlib.util, pathlib, sys
           spec=importlib.util.spec_from_file_location("pinned_intelligence_builder", sys.argv[1])
           module=importlib.util.module_from_spec(spec)
@@ -123,7 +121,7 @@ jobs:
           assert "--host 127.0.0.1" in module.launcher_text(lock)
           print("EXTERNAL_INFERENCE_BUILDER_OS_POLICY=PASS")
           PY
-          test ! -e "$RUNNER_TEMP/ordax-intelligence-builder/system/intelligence-source/tools/inference-builder/__pycache__"
+          test ! -e "$RUNNER_TEMP/ordax-intelligence-builder/system/intelligence/tools/inference-builder/__pycache__"
 
       - name: Validate local AI source and builder contracts
         run: |
@@ -142,16 +140,16 @@ jobs:
           set -euo pipefail
           work="$RUNNER_TEMP/local-ai-runtime"
           mkdir -p "$work"
-          python "$ORDAX_EXTERNAL_AI_BUILDER" --os-source "$GITHUB_WORKSPACE" build \
+          python "$ORDAX_AI_BUILDER" --os-source "$GITHUB_WORKSPACE" build \
             --cache-dir "$work/cache" \
             --out-dir "$work/build-a"
-          python "$ORDAX_EXTERNAL_AI_BUILDER" --os-source "$GITHUB_WORKSPACE" verify \
+          python "$ORDAX_AI_BUILDER" --os-source "$GITHUB_WORKSPACE" verify \
             --out-dir "$work/build-a"
 
-          python "$ORDAX_EXTERNAL_AI_BUILDER" --os-source "$GITHUB_WORKSPACE" build \
+          python "$ORDAX_AI_BUILDER" --os-source "$GITHUB_WORKSPACE" build \
             --cache-dir "$work/cache" \
             --out-dir "$work/build-b"
-          python "$ORDAX_EXTERNAL_AI_BUILDER" --os-source "$GITHUB_WORKSPACE" verify \
+          python "$ORDAX_AI_BUILDER" --os-source "$GITHUB_WORKSPACE" verify \
             --out-dir "$work/build-b"
 
           # Transitional cross-verification: unchanged signed v4 policy and EROFS ABI.

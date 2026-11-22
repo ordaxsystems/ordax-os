@@ -192,84 +192,26 @@ def verify_same_commit_surface_system(system_source: Path) -> dict:
         raise AssemblyError("Native visual source fingerprint differs from OS Git") from exc
     return receipt
 
-def verify_external_intelligence_system(system_source: Path, *, lock_path: Path | None = None) -> dict:
-    """Prove that a disposable Native tree has exactly one pinned Intelligence owner.
-
-    Uses the existing OS source verifier and wrapper graph; never imports a model,
-    executes untrusted source, or changes the source or device.
-    """
-    path = Path(__file__).resolve().parents[2] / "tools/intelligence-source/compose.py"
-    spec = importlib.util.spec_from_file_location("ordax_native_intelligence_source_proof", path)
+def verify_canonical_intelligence_system(system_source: Path) -> dict:
+    """Verify same-commit OS Intelligence and staged non-activating receipt."""
+    module_path = ROOT / "tools/intelligence/verify.py"
+    spec = importlib.util.spec_from_file_location("ordax_native_intelligence_integrity", module_path)
     if spec is None or spec.loader is None:
-        raise AssemblyError("canonical Intelligence verifier is unavailable")
+        raise AssemblyError("same-commit Intelligence verifier unavailable")
     module = importlib.util.module_from_spec(spec)
     spec.loader.exec_module(module)
     try:
-        lock = module.source.load_lock(lock_path) if lock_path is not None else module.source.load_lock()
-    except (ValueError, OSError) as exc:
-        raise AssemblyError("canonical Intelligence source lock is invalid") from exc
-    base = system_source / "intelligence-source"
-    receipt_path = base / "source-provenance.json"
-    if base.is_symlink() or not base.is_dir() or receipt_path.is_symlink() or not receipt_path.is_file():
-        raise AssemblyError("Native Intelligence source requires verified external provenance")
-    try:
-        receipt = json.loads(receipt_path.read_text(encoding="utf-8"))
-    except (OSError, ValueError) as exc:
-        raise AssemblyError("Native Intelligence receipt is invalid") from exc
-    expected = set(lock["source_paths"])
-    entries = list(base.rglob("*"))
-    files = set()
-    for entry in entries:
-        if entry.is_symlink():
-            raise AssemblyError("Native Intelligence source contains a symlink")
-        if entry.is_file():
-            files.add(entry.relative_to(base).as_posix())
-        elif not entry.is_dir():
-            raise AssemblyError("Native Intelligence source contains a special file")
-    if files != expected | {"source-provenance.json"}:
-        raise AssemblyError("Native Intelligence source contains missing or injected files")
-    fingerprint = hashlib.sha256()
-    for name in sorted(expected):
-        blob = (base / name).read_bytes()
-        if len(blob) > module.source.MAX_FILE_BYTES or module.source.git_blob_sha(blob) != lock["source_paths"][name]:
-            raise AssemblyError("Native Intelligence source blob differs from immutable OS pin")
-        fingerprint.update(name.encode("utf-8") + b"\0" + hashlib.sha256(blob).digest())
-    # The assembled input and trusted OS checkout must agree byte-for-byte:
-    # checking only the candidate would let a tampered template bless its own
-    # replacement, while checking only the tool checkout would mix revisions.
-    try:
-        trusted_wrappers = module.load_wrappers(ROOT)
-        staged_wrappers = module.load_wrappers(system_source.parent)
-    except (module.CompositionError, OSError) as exc:
-        raise AssemblyError("Native Intelligence OS wrapper templates are missing or linked") from exc
-    if staged_wrappers != trusted_wrappers:
-        raise AssemblyError("Native Intelligence OS wrapper templates drifted from trusted OS checkout")
-    for name, wrapper in trusted_wrappers.items():
-        file = system_source.parent / name
-        if file.is_symlink() or not file.is_file() or file.read_text(encoding="utf-8") != wrapper:
-            raise AssemblyError("Native Intelligence wrapper is missing or contains legacy implementation")
-    if (
-        receipt.get("$schema") != "ordax.intelligence-disposable-composition/1"
-        or receipt.get("source_repository") != module.source.REPO
-        or receipt.get("source_commit") != lock["source_commit"]
-        or receipt.get("source_sha256") != fingerprint.hexdigest()
-        or receipt.get("replaced_services") != sorted(trusted_wrappers)
-        or receipt.get("legacy_implementation_bytes_packaged") is not False
-        or receipt.get("activation_authorized") is not False
-        or receipt.get("os_checkout_mutated") is not False
-        or receipt.get("surface_ownership_unchanged") is not True
-        or receipt.get("memory_ownership_unchanged") is not True
-    ):
-        raise AssemblyError("Native Intelligence provenance differs from verified source and OS policy")
-    return receipt
+        record = module.verify(system_source.parent, need_receipt=True)
+    except (module.IntelligenceIntegrityError, ValueError, OSError) as exc:
+        raise AssemblyError("Native Intelligence bytes do not match OS Git or receipt") from exc
+    return record
 
 
 def intelligence_binding(receipt: dict) -> dict:
     return {
-        "source_repository": receipt["source_repository"],
+        "source_repository": "ordaxsystems/ordax-os",
         "source_commit": receipt["source_commit"],
         "source_sha256": receipt["source_sha256"],
-        "legacy_implementation_bytes_packaged": False,
         "activation_authorized": False,
     }
 
@@ -375,20 +317,20 @@ def write_provenance(
     return path
 
 
-def assemble(destination: Path, system_source: Path = SYSTEM, creator_source: Path | None = None, *, require_external_intelligence: bool = False) -> dict:
+def assemble(destination: Path, system_source: Path = SYSTEM, creator_source: Path | None = None, *, require_intelligence: bool = False) -> dict:
     if creator_source is None:
         creator_source = ROOT / 'creator'
-    if require_external_intelligence and system_source == SYSTEM:
-        raise AssemblyError("external Intelligence requires a disposable Native release source")
+    if require_intelligence and system_source == SYSTEM:
+        raise AssemblyError("Intelligence requires verified same-commit Native staging")
     verify_monorepo_creator_source(creator_source)
     validate_source_tree(system_source, creator_source)
     if system_source != SYSTEM:
         verify_same_commit_surface_system(system_source)
     intelligence = None
-    if require_external_intelligence:
+    if require_intelligence:
         if system_source == SYSTEM:
-            raise AssemblyError("external Intelligence requires a disposable Native release source")
-        intelligence = verify_external_intelligence_system(system_source)
+            raise AssemblyError("Intelligence requires verified same-commit Native staging")
+        intelligence = verify_canonical_intelligence_system(system_source)
     destination = ensure_clean_destination(destination)
     destination.mkdir(mode=0o755)
     copy_system_tree(destination, system_source)
@@ -428,7 +370,7 @@ def verify_tool(destination: Path, spec: dict, record: object) -> dict:
     return expected
 
 
-def verify(destination: Path, *, require_external_intelligence: bool = False) -> dict:
+def verify(destination: Path, *, require_intelligence: bool = False) -> dict:
     destination = destination.resolve()
     provenance_path = destination / PROVENANCE_RELATIVE
     try:
@@ -458,10 +400,10 @@ def verify(destination: Path, *, require_external_intelligence: bool = False) ->
         for spec in HELPERS
     ]
     bound = provenance.get("intelligence_source")
-    if require_external_intelligence and bound is None:
+    if require_intelligence and bound is None:
         raise AssemblyError("Native release is missing required external Intelligence binding")
     if bound is not None:
-        checked = verify_external_intelligence_system(destination / "system")
+        checked = verify_canonical_intelligence_system(destination / "system")
         if bound != intelligence_binding(checked):
             raise AssemblyError("Native release Intelligence binding differs from packaged bytes")
     return {
@@ -481,15 +423,15 @@ def main() -> int:
     assemble_parser.add_argument("--out", type=Path, required=True)
     assemble_parser.add_argument("--system-source", type=Path, default=SYSTEM)
     assemble_parser.add_argument("--creator-source", type=Path, default=ROOT / "creator", help="creator/ module from same OS Git commit")
-    assemble_parser.add_argument("--require-external-intelligence", action="store_true", help="fail closed unless the Native candidate contains verified Intelligence source")
+    assemble_parser.add_argument("--require-intelligence", action="store_true", help="fail closed unless the Native candidate contains verified Intelligence source")
     verify_parser = sub.add_parser("verify")
     verify_parser.add_argument("--root", type=Path, required=True)
-    verify_parser.add_argument("--require-external-intelligence", action="store_true")
+    verify_parser.add_argument("--require-intelligence", action="store_true")
     args = parser.parse_args()
     try:
-        result = (assemble(args.out, args.system_source, args.creator_source, require_external_intelligence=args.require_external_intelligence)
+        result = (assemble(args.out, args.system_source, args.creator_source, require_intelligence=args.require_intelligence)
                   if args.command == "assemble"
-                  else verify(args.root, require_external_intelligence=args.require_external_intelligence))
+                  else verify(args.root, require_intelligence=args.require_intelligence))
         print(json.dumps(result, indent=2, sort_keys=True))
         return 0
     except (AssemblyError, OSError) as exc:

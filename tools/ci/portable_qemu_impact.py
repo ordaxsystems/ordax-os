@@ -164,7 +164,7 @@ IMPACT_POLICY_LIGHT_EXACT = {
     "tests/test_update_presentation_pinned.mjs",
     "tests/test_portable_qemu_high_level_light.py",
     # Source-only Intelligence composition remains covered by focused gates.
-    "tools/intelligence-source/compose.py",
+    "tools/intelligence/verify.py",
     "tests/test_native_release_intelligence_source.py",
     ".github/workflows/local-ai-runtime-candidate.yml",
 }

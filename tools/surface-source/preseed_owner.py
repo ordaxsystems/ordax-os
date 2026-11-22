@@ -111,7 +111,7 @@ def preseed(repo: Path, assembled: Path, rootfs: Path, sha: str) -> dict:
         pinned = json.loads(intelligence_lock_file.read_text(encoding="utf-8"))
         if pinned.get("status") not in ("integration-candidate", "canonical"):
             raise PreseedError("unrecognized Intelligence source status")
-        receipt_path = source / "intelligence-source/source-provenance.json"
+        receipt_path = source / "intelligence/source-provenance.json"
         if pinned["status"] != "canonical" and receipt_path.exists():
             raise PreseedError("unpromoted Intelligence candidate cannot replace Owner boot code")
         if pinned["status"] == "canonical":
@@ -122,9 +122,7 @@ def preseed(repo: Path, assembled: Path, rootfs: Path, sha: str) -> dict:
             verifier = importlib.util.module_from_spec(spec)
             spec.loader.exec_module(verifier)
             try:
-                intelligence = verifier.verify_external_intelligence_system(
-                    source, lock_path=intelligence_lock_file,
-                )
+                intelligence = verifier.verify_canonical_intelligence_system(source)
             except (ValueError, OSError) as exc:
                 raise PreseedError("exact Intelligence source proof cannot be verified") from exc
             if intelligence["activation_authorized"] is not False:
@@ -166,16 +164,26 @@ def preseed(repo: Path, assembled: Path, rootfs: Path, sha: str) -> dict:
         if intelligence is not None:
             # A Native CI receipt is never runtime authority. Owner slots
             # have one offline hash manifest and the exact OS/source identity.
-            (stage / "system/intelligence-source/source-provenance.json").unlink()
             manifest = []
-            for relative in list(pinned["source_paths"]) + intelligence["replaced_services"]:
-                file = stage / ("system/intelligence-source/" + relative
-                                if relative in pinned["source_paths"] else relative)
+            source_paths = [
+                item.relative_to(repo).as_posix()
+                for item in (repo / "system/intelligence/src").rglob("*.mjs")
+            ]
+            source_paths.append("system/intelligence/tools/inference-builder/build.py")
+            source_paths.extend([
+                "system/services/intelligence/runtime.mjs",
+                "system/services/intelligence/model-router.mjs",
+                "system/services/local-ai/runtime.mjs",
+                "system/services/local-ai/completion-stream.mjs",
+                "system/services/local-ai/model-compatibility.mjs",
+            ])
+            for relative in source_paths:
+                file = stage / relative
                 if file.is_symlink() or not file.is_file():
                     raise PreseedError("missing real Owner Intelligence source or OS wrapper")
                 manifest.append(f"{hashlib.sha256(file.read_bytes()).hexdigest()}  {file.relative_to(stage).as_posix()}\n")
             (stage / ".intelligence-file-hashes").write_text("".join(manifest), encoding="utf-8")
-            (stage / ".intelligence-source-sha").write_text(pinned["source_commit"] + "\n", encoding="ascii")
+            (stage / ".intelligence-source-sha").write_text(sha + "\n", encoding="ascii")
         (stage / ".surface-file-hashes").write_text("".join(lines), encoding="utf-8")
         (stage / ".sha").write_text(sha + "\n", encoding="ascii")
         (stage / ".surface-source-sha").write_text(sha + "\n", encoding="ascii")
@@ -183,8 +191,8 @@ def preseed(repo: Path, assembled: Path, rootfs: Path, sha: str) -> dict:
         regular_tree(stage)
         os.rename(stage, slot)
         return {"os_commit": sha, "surface_commit": sha,
-                "intelligence_commit": pinned["source_commit"] if intelligence is not None else None,
-                "intelligence_files": len(pinned["source_paths"]) if intelligence is not None else 0,
+                "intelligence_commit": sha if intelligence is not None else None,
+                "intelligence_files": len(source_paths) if intelligence is not None else 0,
                 "visual_files": count, "target": str(slot), "physical_device_written": False}
     finally:
         if stage.exists():

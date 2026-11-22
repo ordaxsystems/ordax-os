@@ -58,7 +58,7 @@
     "legacy-materialize-and-activate-exact-must-reject-portable-v2"
   ],
   "external_intelligence_candidate": {
-    "owner": "ordaxsystems/ordax-intelligence",
+    "owner": "ordaxsystems/ordax-os",
     "lock": "docs/contracts/intelligence-source.json",
     "source_action": ".github/actions/assemble-intelligence",
     "preceded_by": "verified-pinned-surface",

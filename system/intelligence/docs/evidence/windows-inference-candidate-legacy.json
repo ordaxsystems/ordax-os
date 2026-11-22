@@ -1,0 +1,15 @@
+{
+  "$schema": "ordax.intelligence-windows-engine-promotion/1",
+  "status": "proven-unsigned-candidate",
+  "engine_source_commit": "7ab4ee7baad2d920464cbacfad4f4b07cf111fd2",
+  "builder_commit": "70fc05715e1eb99a43d513caec9f4ac13fbcb1f3",
+  "proof_head_commit": "20ffa79651401b2e03732f3878025bbd30b4b52e",
+  "proof_run_id": 43309006398,
+  "artifact_id": 13985193466,
+  "artifact_name": "unsigned-windows-local-ai-engine-candidate",
+  "artifact_sha256": "21680ead38fbbd34848826badb1ec30ee489b5a8c25fca29deb9d1da74e2cc29",
+  "release_tag": "windows-local-ai-engine-70fc057-43309006398",
+  "release_asset": "ordax-windows-local-ai-engine-candidate-70fc057.zip",
+  "activation_authorized": false,
+  "signed_release": false
+}

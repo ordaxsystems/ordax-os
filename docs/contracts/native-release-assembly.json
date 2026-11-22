@@ -63,12 +63,12 @@
     "path": "creator"
   },
   "intelligence_source_candidate": {
-    "owner": "ordaxsystems/ordax-intelligence",
+    "owner": "ordaxsystems/ordax-os",
     "source_lock": "docs/contracts/intelligence-source.json",
     "source_action": ".github/actions/assemble-intelligence",
     "precondition": "verified-canonical-surface",
     "required_in_release_pipeline_ci": true,
-    "required_native_flag": "--require-external-intelligence",
+    "required_native_flag": "--require-intelligence",
     "legacy_code_packaging_allowed": false,
     "activation_authorized": false,
     "owner_dev_device_cutover_complete": false,

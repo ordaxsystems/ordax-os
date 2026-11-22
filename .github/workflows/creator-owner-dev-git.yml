@@ -61,8 +61,8 @@ on:
       # Keep this scoped to the actual cold-boot composition entrypoints.
       - 'system/supervisor'
       - 'docs/contracts/intelligence-source.json'
-      - 'system/services/intelligence-source/**'
-      - 'tools/intelligence-source/**'
+      - 'system/intelligence/**'
+      - 'tools/intelligence/**'
       - '.github/actions/assemble-intelligence/**'
       - 'tools/surface-source/**'
       - '.github/actions/prepare-verified-surface/**'
@@ -626,21 +626,18 @@ jobs:
           # A candidate source is verified but MUST NOT replace the engine
           # that executes at first boot. Use external bytes only when the
           # pinned OS source lock itself has reached canonical status.
-          intelligence_status=$(python3 - <<'PY'
-          import json
-          from pathlib import Path
-          pin=json.loads(Path('docs/contracts/intelligence-source.json').read_text())
-          assert pin['source_repository']=='ordaxsystems/ordax-intelligence'
-          assert pin['source_only'] is True and pin['activation_authorized'] is False
-          assert pin['status'] in ('integration-candidate','canonical')
-          print(pin['status'])
-          PY
-          )
-          if [ "$intelligence_status" = canonical ]; then
-            prepared_source="$RUNNER_TEMP/ordax-verified-intelligence-ci"
-          else
-            prepared_source="$RUNNER_TEMP/ordax-verified-surface-ci"
-          fi
+           intelligence_status=$(python3 - <<'PY'
+           import json
+           from pathlib import Path
+           policy=json.loads(Path('docs/contracts/intelligence-source.json').read_text())
+           assert policy['source_repository']=='ordaxsystems/ordax-os'
+           assert policy['source_revision']=='same-os-commit'
+           assert policy['source_only'] is True and policy['activation_authorized'] is False
+           assert policy['status']=='canonical'
+           print('canonical')
+           PY
+           )
+           prepared_source="$RUNNER_TEMP/ordax-verified-intelligence-ci"
           sudo -E python3 tools/surface-source/preseed_owner.py \
             --repo-root "$GITHUB_WORKSPACE" \
             --assembled-root "$prepared_source" \
@@ -650,20 +647,13 @@ jobs:
             "$rootfs/workspace/ordax" "$ORDAX_OWNER_SOURCE_COMMIT" \
             "$rootfs/state/ordax/releases/$ORDAX_OWNER_SOURCE_COMMIT"
           # Revalidate source status against the exact staged OS checkout.
-          runtime_status=$(sudo -E /bin/sh system/services/intelligence-source/owner-stage.sh status "$rootfs/workspace/ordax" "$ORDAX_OWNER_SOURCE_COMMIT")
+          runtime_status=$(sudo -E /bin/sh system/intelligence/owner-stage.sh status "$rootfs/workspace/ordax" "$ORDAX_OWNER_SOURCE_COMMIT")
           test "$runtime_status" = "$intelligence_status"
-          if [ "$runtime_status" = canonical ]; then
-            test -s "$rootfs/state/ordax/releases/$ORDAX_OWNER_SOURCE_COMMIT/.intelligence-file-hashes"
-            test -s "$rootfs/state/ordax/releases/$ORDAX_OWNER_SOURCE_COMMIT/.intelligence-source-sha"
-            sudo -E /bin/sh system/services/intelligence-source/owner-stage.sh ready \
-              "$rootfs/workspace/ordax" "$ORDAX_OWNER_SOURCE_COMMIT" \
-              "$rootfs/state/ordax/releases/$ORDAX_OWNER_SOURCE_COMMIT"
-            echo 'ORDAX_OWNER_FIRST_BOOT_INTELLIGENCE_OFFLINE_READY=YES'
-          else
-            test ! -e "$rootfs/state/ordax/releases/$ORDAX_OWNER_SOURCE_COMMIT/.intelligence-source-sha"
-            test ! -e "$rootfs/state/ordax/releases/$ORDAX_OWNER_SOURCE_COMMIT/system/intelligence-source"
-            echo 'ORDAX_OWNER_FIRST_BOOT_UNPROMOTED_INTELLIGENCE=NOT_PACKAGED'
-          fi
+           test "$runtime_status" = canonical
+           test -s "$rootfs/state/ordax/releases/$ORDAX_OWNER_SOURCE_COMMIT/.intelligence-file-hashes"
+           test -s "$rootfs/state/ordax/releases/$ORDAX_OWNER_SOURCE_COMMIT/.intelligence-source-sha"
+           sudo -E /bin/sh system/intelligence/owner-stage.sh ready              "$rootfs/workspace/ordax" "$ORDAX_OWNER_SOURCE_COMMIT"              "$rootfs/state/ordax/releases/$ORDAX_OWNER_SOURCE_COMMIT"
+           echo 'ORDAX_OWNER_FIRST_BOOT_INTELLIGENCE_SAME_COMMIT_READY=YES'
           echo 'ORDAX_OWNER_FIRST_BOOT_EXTERNAL_SURFACE_OFFLINE_READY=YES'
           sudo touch "$rootfs/dev/null"
           cleanup_dev_null() {

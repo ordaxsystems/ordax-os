@@ -462,7 +462,7 @@ test("Intelligence incremental transport composes with the real Local AI SSE por
       if (!body.stream) {
         return new Response(JSON.stringify({
           model: "qwen-small",
-          choices: [{ message: { content: "buffered" } }],
+          choices: [{ finish_reason: "stop", message: { content: "buffered" } }],
         }), { status: 200, headers: { "content-type": "application/json" } });
       }
       const encoder = new TextEncoder();

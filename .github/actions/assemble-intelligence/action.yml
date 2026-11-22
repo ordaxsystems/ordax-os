@@ -1,11 +1,11 @@
-name: Assemble verified OrdaX Intelligence
-description: Integrate exactly pinned Intelligence code into a disposable OS and Surface release tree, never touching devices
+name: Compose verified OrdaX Intelligence from same OS commit
+description: Copy and verify the canonical Intelligence module without external checkout or activation
 inputs:
   source-root:
-    description: Absolute verified OS + Surface staging root
+    description: Absolute existing same-commit OS+Surface stage
     required: true
   out-root:
-    description: New absolute candidate staging root
+    description: New disposable candidate staging root
     required: true
 outputs:
   root:
@@ -22,48 +22,13 @@ runs:
         ORDAX_OUTPUT_ROOT: ${{ inputs.out-root }}
       run: |
         set -euo pipefail
-        case "$ORDAX_INPUT_ROOT" in /*) ;; *) echo "::error::Absolute input required"; exit 1 ;; esac
-        case "$ORDAX_OUTPUT_ROOT" in /*) ;; *) echo "::error::Absolute output required"; exit 1 ;; esac
+        case "$ORDAX_INPUT_ROOT" in /*) ;; *) exit 1 ;; esac
+        case "$ORDAX_OUTPUT_ROOT" in /*) ;; *) exit 1 ;; esac
         test -f "$ORDAX_INPUT_ROOT/system/surface/source-provenance.json"
         test ! -e "$ORDAX_OUTPUT_ROOT"
-        intelligence_sha="$(python3 - <<'PY'
-        import importlib.util
-        from pathlib import Path
-        p=Path("tools/intelligence-source/materialize.py")
-        spec=importlib.util.spec_from_file_location("ordax_intelligence_source_verifier", p)
-        mod=importlib.util.module_from_spec(spec)
-        spec.loader.exec_module(mod)
-        print(mod.load_lock()["source_commit"])
-        PY
-        )"
-        [[ "$intelligence_sha" =~ ^[0-9a-f]{40}$ ]]
-        scratch="$(mktemp -d)"
-        trap 'rm -rf -- "$scratch"' EXIT
-        git clone --quiet --no-tags --filter=blob:none --no-checkout \
-          https://github.com/ordaxsystems/ordax-intelligence.git "$scratch/intelligence"
-        git -C "$scratch/intelligence" checkout --quiet --detach "$intelligence_sha"
-        test "$(git -C "$scratch/intelligence" rev-parse HEAD)" = "$intelligence_sha"
-        python3 tools/intelligence-source/materialize.py verify --source-dir "$scratch/intelligence"
-        python3 tools/intelligence-source/materialize.py stage \
-          --source-dir "$scratch/intelligence" --out-dir "$scratch/verified"
-        python3 tools/intelligence-source/compose.py \
-          --os-root "$ORDAX_INPUT_ROOT" \
-          --intelligence-stage "$scratch/verified" \
-          --out-root "$ORDAX_OUTPUT_ROOT"
-        python3 - <<'PY'
-        import importlib.util
-        import os
-        from pathlib import Path
-        p=Path("tools/native-release-assembly/build.py")
-        spec=importlib.util.spec_from_file_location("ordax_native_release_verifier", p)
-        mod=importlib.util.module_from_spec(spec)
-        spec.loader.exec_module(mod)
-        root=Path(os.environ["ORDAX_OUTPUT_ROOT"])
-        intel=mod.verify_external_intelligence_system(root/"system")
-        visual=mod.verify_external_surface_system(root/"system")
-        assert intel["activation_authorized"] is False
-        assert visual["single_visual_source"] is True
-        assert (root/"system/intelligence-source/tools/inference-builder/build.py").is_file()
-        print("ORDAX_SURFACE_INTELLIGENCE_SOURCE_VERIFIED=PASS")
-        PY
+        python3 tools/intelligence/verify.py --root "$ORDAX_INPUT_ROOT"
+        mkdir -p "$ORDAX_OUTPUT_ROOT"
+        cp -a "$ORDAX_INPUT_ROOT/." "$ORDAX_OUTPUT_ROOT/"
+        python3 tools/intelligence/verify.py --root "$ORDAX_OUTPUT_ROOT" --write-receipt
+        python3 tools/intelligence/verify.py --root "$ORDAX_OUTPUT_ROOT" --require-receipt
         echo "root=$ORDAX_OUTPUT_ROOT" >> "$GITHUB_OUTPUT"
