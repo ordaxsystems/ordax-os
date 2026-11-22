@@ -1,0 +1,78 @@
+{
+  "$schema": "ordax.desktop-runtime-candidate-evidence/1",
+  "status": "unsigned-candidate-physically-offline-proven",
+  "candidate": {
+    "schema": "ordax.desktop-runtime-candidate/1",
+    "source_repository": "ordaxsystems/ordax-runtime",
+    "source_commit": "a6232e3a2f53446a8c0d9686bb629d3122ecaadb",
+    "profile": "ordax-desktop",
+    "platform": "windows-amd64",
+    "artifact": "ordax-product-agent.exe",
+    "sha256": "51818a8ba9316c4da7d48481b8409a0183fdb26bcbb452fadd97cd6829d9e570",
+    "size_bytes": 20621473,
+    "runtime_version": "0.4.8",
+    "build_python_version": "3.12.10",
+    "python_required_on_device": false,
+    "studio_required": false,
+    "offline_proof_verified": true,
+    "device_execution_proven": false,
+    "signature_present": false,
+    "signed_distribution_authorized": false,
+    "installation_authorized_by_candidate": false,
+    "stable_activation_authorized": false,
+    "recipe_sha256": "23a35d66aba235fab0868ab169c6c8625c7bb35c310be085e7e39dde34fd2e5d",
+    "requirements_sha256": "ec8e7c0a91787a9660669fa6af50f48666643046797ed7b973d813bff0c4de3c",
+    "component_package": {
+      "name": "product-runtime.zip",
+      "sha256": "17fea437748ec1c67b0333a209383cd1f78180ad88cb10c9fca2c283512116b7",
+      "size": 20622895,
+      "manifest_sha256": "5af24792ea9f9501387eb71d23e6f390092714abe8a8e83706fa5c4922fa1347"
+    }
+  },
+  "ci_provenance": {
+    "workflow": "OrdaX Desktop Runtime Component",
+    "workflow_run_id": 45010418712,
+    "artifact_id": 14750005773,
+    "artifact_name": "ordax-desktop-runtime-candidate-a6232e3a2f53446a8c0d9686bb629d3122ecaadb",
+    "artifact_digest_sha256": "4524d4d83aec2aa3f5ac6f15cb02b3e0ffac28f1c508f565a365c473966123a4",
+    "head_sha": "a6232e3a2f53446a8c0d9686bb629d3122ecaadb"
+  },
+  "physical_offline_proof": {
+    "device": "DESKTOP-4UFL03B",
+    "os": "Windows 10 Pro x64",
+    "source_commit": "a6232e3a2f53446a8c0d9686bb629d3122ecaadb",
+    "executable_sha256": "51818a8ba9316c4da7d48481b8409a0183fdb26bcbb452fadd97cd6829d9e570",
+    "exit_code": 0,
+    "passed": true,
+    "python_on_path": false,
+    "checkout_required": false,
+    "studio_required": false,
+    "device_credential_used": false,
+    "network_used": false,
+    "action": "agent.status",
+    "remote_action_proven": false,
+    "product_slot_activated": false,
+    "foreign_profile_failed_closed": true,
+    "unbound_desktop_failed_closed": true,
+    "verified_actions": [
+      "agent.status",
+      "computer.access_status",
+      "ordax.surface.open",
+      "ordax.surface.status"
+    ],
+    "evidence_origin": "physical-windows-main-ci-artifact-isolated-frozen-self-test"
+  },
+  "canonical_source_lock_promoted": false,
+  "trust_policy": "docs/contracts/runtime-component-trust-policy.json",
+  "trust_status": "operator-ceremony-pending",
+  "component_publish_allowed": false,
+  "production_component_slot_activation_allowed": false,
+  "remaining_gates": [
+    "external-component-trust-custody-and-recovery-ceremony",
+    "public-only-handoff-reverification-and-anchor-promotion",
+    "source-lock-and-signed-windows-component-promotion"
+  ],
+  "local_verification_at_utc": "2026-11-22T10:07:34.734286+00:00",
+  "current_remote_action_attested": false,
+  "owner_challenge_state": "not_part_of_offline_candidate_proof"
+}
