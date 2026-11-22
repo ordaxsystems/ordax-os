@@ -9,6 +9,7 @@ on:
       - 'system/surface/runtime/native_request_boundary.py'
       - 'tests/test_native_request_boundary.py'
       - 'tests/test_native_opaque_component_json.py'
+      - 'tests/prove_aura_webkit_sandbox.py'
       - 'tests/test_native_isolated_component_executor.mjs'
       - 'system/composition/native/intelligence-client-trusted-context.mjs'
       - 'tests/test_native_aura_trusted_context.mjs'
@@ -32,6 +33,7 @@ on:
       - 'system/surface/runtime/native_request_boundary.py'
       - 'tests/test_native_request_boundary.py'
       - 'tests/test_native_opaque_component_json.py'
+      - 'tests/prove_aura_webkit_sandbox.py'
       - 'tests/test_native_isolated_component_executor.mjs'
       - 'system/composition/native/intelligence-client-trusted-context.mjs'
       - 'tests/test_native_aura_trusted_context.mjs'
@@ -47,6 +49,12 @@ on:
       - 'tests/test_native_app_data_composition_bootstrap.mjs'
       - '.github/workflows/component-trusted-context.yml'
   workflow_dispatch:
+    inputs:
+      aura_webkit_smoke:
+        description: 'Run optional real WebKitGTK unsigned Aura package smoke (no OS build)'
+        required: false
+        type: boolean
+        default: false
 
 permissions:
   contents: read
@@ -74,6 +82,7 @@ jobs:
           node --check system/composition/native/component-pending-host.mjs
           node --check system/adapters/native/isolated-component-executor.mjs
           python -m py_compile system/surface/runtime/native_request_boundary.py tests/test_native_opaque_component_json.py tests/test_native_request_boundary.py
+          python -m py_compile tests/prove_aura_webkit_sandbox.py
           node --check tests/test_native_isolated_component_executor.mjs
           node --check system/composition/native/intelligence-client-trusted-context.mjs
           node --check tests/test_native_aura_trusted_context.mjs
@@ -97,3 +106,37 @@ jobs:
           python -m unittest tests.test_native_opaque_component_json -v
           python -m unittest tests.test_native_request_boundary.NativeRequestBoundaryPolicyTests.test_opaque_component_package_read_is_the_only_foreign_native_api_exception -v
           python -m unittest tests.test_native_request_boundary.NativeRequestBoundaryIntegrationTests.test_opaque_module_origin_can_read_verified_code_but_not_native_files -v
+
+  aura-webkit-unsigned-smoke:
+    # Manual opt-in only. No Buildroot, QEMU, OS image, signature, or device.
+    if: ${{ github.event_name == 'workflow_dispatch' && inputs.aura_webkit_smoke == true }}
+    runs-on: ubuntu-24.04
+    timeout-minutes: 12
+    steps:
+      - name: Checkout canonical OS contracts
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
+        with:
+          persist-credentials: false
+
+      - name: Checkout independent canonical Aura owner
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
+        with:
+          repository: ordaxsystems/ordax-apps
+          ref: main
+          path: aura-source
+          persist-credentials: false
+
+      - name: Install stock GTK3 WebKit runtime for temporary browser-engine proof
+        run: |
+          set -euo pipefail
+          sudo apt-get update -qq
+          sudo DEBIAN_FRONTEND=noninteractive apt-get install -y --no-install-recommends gir1.2-webkit2-4.1 python3-gi xvfb xauth
+          /usr/bin/python3 -c "import gi; gi.require_version('WebKit2', '4.1'); from gi.repository import WebKit2; print('WEBKIT_MAJOR_VERSION=' + str(WebKit2.get_major_version()))"
+
+      - name: Prove real unsigned Aura ZIP mount in opaque WebKit sandbox
+        env:
+          GDK_BACKEND: x11
+          LIBGL_ALWAYS_SOFTWARE: '1'
+        run: |
+          set -euo pipefail
+          xvfb-run -a /usr/bin/python3 tests/prove_aura_webkit_sandbox.py --apps-root "$GITHUB_WORKSPACE/aura-source"
