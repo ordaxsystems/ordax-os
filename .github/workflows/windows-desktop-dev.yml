@@ -83,10 +83,14 @@ jobs:
           Write-Output "WINDOWS_SINGLE_SURFACE_SOURCE=OS_COMMIT"
 
       - name: Audit exact Windows packaged Native system footprint
+        shell: pwsh
         run: |
           node --test desktop/package-inventory.test.cjs
+          if ($LASTEXITCODE -ne 0) { throw 'Desktop inventory unit tests failed' }
           node desktop/package-inventory.cjs
+          if ($LASTEXITCODE -ne 0) { throw 'Desktop system inventory failed' }
           node --test desktop/standalone-stage.test.cjs
+          if ($LASTEXITCODE -ne 0) { throw 'Desktop standalone staging contract failed' }
       - name: Install canonical workspace
         run: npm ci --no-audit --no-fund
       - name: Test Native host and desktop contracts
