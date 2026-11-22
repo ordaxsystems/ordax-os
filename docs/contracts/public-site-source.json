@@ -1,5 +1,5 @@
 {
-  "$schema": "ordax.site-module-source/1",
+  "$schema": "prototype-ordax.site-module-source/1",
   "repository": "ordaxsystems/ordax-os",
   "module_path": "site",
   "frontend_path": "site/public",
