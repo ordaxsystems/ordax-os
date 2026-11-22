@@ -27,12 +27,13 @@ HOST_ONLY_PREFIXES = (PREFIX + "tests/", PREFIX + ".github/")
 # the deployment. Native OS, Desktop and Forge remain independent.
 SITE_DEPLOYMENT_PREFIXES = (
     PREFIX,
-    "api/",
     "tools/vercel/",
     "infra/supabase/functions/_shared/",
     "infra/supabase/functions/ordax-public-account-gateway/",
 )
 SITE_DEPLOYMENT_FILES = frozenset({
+    "api/account-proxy.mjs",
+    "api/oauth-consent.mjs",
     "lib/account-proxy-core.mjs",
     "package.json",
     "package-lock.json",

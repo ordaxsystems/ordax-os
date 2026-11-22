@@ -11,6 +11,7 @@ class SiteVercelImpactTests(unittest.TestCase):
     def test_unrelated_os_work_does_not_rebuild_site(self):
         paths = (
             "desktop/runtime.test.cjs",
+            "api/unrelated-service.mjs",
             "system/supervisor/main.py",
             "docs/ARCHITECTURE.md",
             "docs/forge/FORGE-GPT-FIRST-ADMINISTRADOR-ROADMAP.md",
@@ -59,6 +60,23 @@ class SiteVercelImpactTests(unittest.TestCase):
         self.assertIsNone(build_impact.changed_paths("not-a-commit"))
         self.assertTrue(build_impact.may_skip_vercel(()))
 
+
+    def test_ci_path_filters_match_deploy_source_owners(self):
+        workflow = (Path(__file__).resolve().parents[2] / ".github/workflows/public-site-candidate.yml").read_text(encoding="utf-8")
+        expected = (
+            "api/account-proxy.mjs",
+            "api/oauth-consent.mjs",
+            "lib/account-proxy-core.mjs",
+            "infra/supabase/functions/_shared/**",
+            "infra/supabase/functions/ordax-public-account-gateway/**",
+            "package.json",
+            "package-lock.json",
+        )
+        for path in expected:
+            with self.subTest(path=path):
+                self.assertEqual(workflow.count('"' + path + '"'), 2)
+        self.assertNotIn('"api/**"', workflow)
+        self.assertNotIn('"infra/supabase/functions/**"', workflow)
 
 if __name__ == "__main__":
     unittest.main()
