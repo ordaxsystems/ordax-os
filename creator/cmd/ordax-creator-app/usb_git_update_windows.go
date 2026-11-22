@@ -473,6 +473,16 @@ func startOwnerUSBUpdate(target physicalTarget) {
     })
 }
 
+// The Portable updater displays physical write progress through the common
+// tracker, but it completes through the USB-update UI lifecycle. Restore the
+// common physical state at that boundary, including on elevation cancellation.
+func clearPortableUSBWriteProgress(mode string) {
+    if mode!="portable" {return}
+    writeMu.Lock()
+    writeState=physicalWriteState{}
+    writeMu.Unlock()
+}
+
 // Only one UI lifecycle and progress observer. The selected physical
 // transport and Core update policy own the actual media operations.
 func startCreatorUSBUpdateTask(mode string, execute func()(ownerUSBReceipt,error)) {
@@ -493,6 +503,7 @@ func startCreatorUSBUpdateTask(mode string, execute func()(ownerUSBReceipt,error
     enable(localeCombo, false)
     go func() {
         receipt,runErr:=execute()
+        clearPortableUSBWriteProgress(mode)
         ownerUSBUpdateMu.Lock()
         ownerUSBUpdateResult.Active=false
         ownerUSBUpdateResult.Error=""
