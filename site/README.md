@@ -23,7 +23,7 @@ Quando for necessário build/deploy do Site, executar o builder site/scripts/bui
 
 A regra DEV transversal reside somente em URGENTE-LEIA.md e docs/DEVELOPMENT-WORKFLOW.md da raiz do OS. Documentação histórica permanece preservada no Git da origem e não é instrução operacional.
 
-Arquivar ordax-site somente após conferir o deploy real do mesmo SHA do OS e a inexistência de alterações/branches/PRs não importadas.
+O repositório antigo `ordaxsystems/ordax-site` foi limpo e arquivado como histórico somente leitura em 21/11/2026: `main@2369a051` e branch documental `f26f231b` possuem somente `README.md`. Nenhum código ativo nem workflow permanece lá. A publicação Git automática ainda depende de reconectar o projeto Vercel existente a `ordax-os/main` (Root Directory `site`, inclusão de arquivos externos à raiz). Para impedir que a remoção dispare um deployment vazio pela conexão antiga, o projeto Vercel recebeu temporariamente **Ignored Build Step = `exit 0`**; remover essa supressão somente após a reconexão e validação das configurações, sem criar segundo projeto.
 
 
 ## Dependências do host Vercel
