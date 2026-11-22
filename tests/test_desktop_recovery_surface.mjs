@@ -20,7 +20,7 @@ test("Windows recovery transport consumes typed read-only same-origin response",
  assert.deepEqual(requests.map(x=>x.url),["/__ordax/desktop/recovery","/__ordax/desktop/recovery"]);
  assert.ok(requests.every(x=>x.options.method==="GET"&&x.options.credentials==="same-origin"));
 });
-test("Windows recovery stays an OS capability adapter after independent Surface cutover",()=>{
+test("Windows recovery remains an OS capability adapter with same-commit Surface source",()=>{
  const root=new URL("../",import.meta.url);
  const lock=JSON.parse(readFileSync(new URL("docs/contracts/surface-source.json",root),"utf8"));
  const native=readFileSync(new URL("system/composition/native/main.mjs",root),"utf8");
@@ -29,12 +29,12 @@ test("Windows recovery stays an OS capability adapter after independent Surface 
  assert.equal(lock.source_repository,"ordaxsystems/ordax-os");
  assert.equal(lock.source_ref,"same-commit");
  assert.equal(lock.status,"canonical");
- // CI deliberately overlays pinned visual files. They must remain untracked
- // by the OS source checkout, independently of their temporary presence.
+ // Same-commit Surface is owned by the OS; its visual source must be tracked
+ // by the exact repository being packaged, not overlaid from another checkout.
  const tracked = execFileSync("git", ["ls-files", "--", "system/surface/ui/system-overview-controls.mjs"], {
    cwd:fileURLToPath(root),encoding:"utf8"
  }).trim();
- assert.equal(tracked,"");
+ assert.equal(tracked,"system/surface/ui/system-overview-controls.mjs");
  assert.ok(native.includes("createNativeRecoveryStatus"));
  assert.ok(adapter.includes("DESKTOP_RECOVERY_SCHEMA"));
  assert.ok(adapter.includes("validateDesktopRecoverySnapshot"));
