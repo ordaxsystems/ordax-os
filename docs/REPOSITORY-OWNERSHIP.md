@@ -144,7 +144,7 @@ A origem Git legada somente pode ser arquivada após confirmar que a produção 
 
 O aplicativo Win32, Go Core, consumidores assinados e adaptadores físicos pertencem ao mesmo commit do OS. Os produtores de mídia e provas continuam exclusivamente em tools/creator/; assinatura, autorização de escrita física e trust permanecem nos contratos e publicadores do OS, com os gates já existentes. Não manter Core Go, criador ou atualizador paralelo em desktop/, tools/creator/ ou repositório Git externo.
 
-O repositório histórico ordaxsystems/ordax-creator será arquivado somente quando a distribuição e os demais consumidores estiverem reconfigurados e verificados. A consolidação de fonte não autoriza escrita física nem release Stable/MVP.
+O repositório histórico ordaxsystems/ordax-creator foi arquivado após a migração verificada do executável Windows, do sincronizador local e da publicação. Sua `main` contém apenas README de encaminhamento, preservando o histórico Git; o código e os releases ativos pertencem a `ordax-os/creator/`. A consolidação de fonte não autoriza escrita física nem release Stable/MVP.
 
 ### 9. ordaxsystems/ordax-intelligence — fonte portátil candidata, não autoridade ativa
 

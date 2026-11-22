@@ -48,7 +48,7 @@ The OS-side Windows Store transport is owned by this adapter (`verified-store-ca
 
 ## Creator boundary
 
-Creator is an independent product/source owner in `ordaxsystems/ordax-creator`. Desktop may expose or launch the Creator experience, but this adapter does not own Creator Core, media policy or physical-write authorization.
+Creator is a single independent product module in `ordaxsystems/ordax-os/creator/`, governed by `ordax-os/main`. The historical `ordaxsystems/ordax-creator` repository is archived and is never a source or binary dependency. Desktop may expose or launch the Creator experience, but this adapter does not own Creator Core, media policy or physical-write authorization.
 
 The direct dependency is a verified OrdaX media/candidate contract. Creator validates the authorized artifact, requests explicit target consent and performs its own bounded write/readback path. Do not rebuild Creator or duplicate its device policy inside this adapter.
 

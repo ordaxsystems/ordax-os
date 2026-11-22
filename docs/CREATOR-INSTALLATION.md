@@ -21,11 +21,13 @@ ordax-os verified media/artifact candidate
 
 OrdaX Desktop may launch/present Creator, but it does not embed a second Core or inherit raw-disk authority. A standalone Creator Windows app and a Desktop entry point are two presentation paths to the **same independent Creator owner**, not duplicate implementations.
 
-## Historical extraction sequence
+## Consolidated source and distribution
 
-Early plans described a temporary `ordax-creator.exe` and later embedding its Core inside Desktop. That sequence is historical. Source extraction/cutover created `ordaxsystems/ordax-creator`; do not move the Core back into `ordax-os` or `ordax-desktop`.
+The historical `ordaxsystems/ordax-creator` repository has been archived. Its `main` contains only a redirect README; its Git ancestry and historical tag are preserved. It is not a source, release, updater, workflow or package owner.
 
-The invariant that remains valid is: Creator consumes prebuilt, verified OS artifacts and never requires the user to compile kernel/Base/Surface/Runtime. Physical writes still require explicit target authorization and readback.
+The Windows UI, Creator Core and its component/application/physical channels live exclusively under `ordax-os/creator/` at the same canonical OS commit. Desktop may launch the Creator but must not copy its Core or introduce a second writer.
+
+Creator consumes prebuilt, verified OS media without requiring the user to compile kernel/Base/Surface/Runtime. Physical media writes always require exact target authorization and readback.
 
 ## Creator Core responsibilities
 
@@ -135,7 +137,7 @@ The Creator Core implements verification and planning, and the narrow Windows ph
 
 The Creator never compiles the kernel on the user's Windows machine.
 
-The product uses **three independently versioned delivery channels**: the Creator application, its inspection components, and the signed Portable physical release. Their existing implementations are `tools/creator/appchannel`, `tools/creator/componentchannel` and `tools/creator/physicalchannel`. The official Portable release acquires the exact 17 signed artifacts; it does **not** require a new whole-disk RAW download whenever OrdaX changes. The Owner/Development ZIP containing `ordax-bootstrap-seed.raw` is a separate offline development profile, not a second public Creator.
+The product uses **three independently versioned delivery channels**: the Creator application, its inspection components, and the signed Portable physical release. Their existing implementations are `creator/appchannel`, `creator/componentchannel` and `creator/physicalchannel`. The official Portable release acquires the exact 17 signed artifacts; it does **not** require a new whole-disk RAW download whenever OrdaX changes. The Owner/Development ZIP containing `ordax-bootstrap-seed.raw` is a separate offline development profile, not a second public Creator.
 
 The authoritative consumer-media behavior is `docs/contracts/creator-consumer-flow.json` (`media_acquisition` and `physical_candidate_integrity`). The signed release—not an image name, local cache or Git branch—defines the target version, source, hashes and sizes. Before downloading, the existing version store may supply a regular file with matching size and hash. Mismatched-size files are rejected before hashing; reused files are rehashed during copying, and the final candidate is independently checked. Missing or corrupted bytes are downloaded from the signed URL. If offline, only a previously signed, reverified candidate can be used; no fallback can bypass physical-write authorization. The final online/offline candidate check reuses `creatorcore.VerifyPortableSources` to require exactly the signed 17 flat regular artifact files (no extra entries or symbolic links); it does not duplicate Core's source verification or authorize a physical write. The Windows Creator now also runs that same Core verification immediately before its physical preparation/elevation request, so a mutated cached source or unexpected extra file fails without UAC. Its `prepare-portable` response must also preserve the original disk capacity, serial, disk number and confirmation token and return a lowercase 64-hex authorization value before UAC. This is only a GUI consistency check: the privileged backend still recomputes the authorization token from the live USB and exact application plan. The privileged backend still independently verifies and locks source bytes at APPLY; GUI preflight is not physical-write authorization.
 
@@ -151,7 +153,7 @@ The signed Portable payload's release commit controls every artifact download UR
 
 The signed Portable v3 physical-candidate consumer also checks producer provenance against its 17-artifact release source, proof SHA-256 and canonical HTTPS envelope while keeping the writer commit independent. No second release index or activation authority is introduced.
 
-All three Creator delivery channels now use the shared `tools/creator/internal/atomicfile` writer for their signed current/pending/previous envelope pointers. A failed pointer replacement preserves the previous signed offline pointer; version monotonicity, source re-verification and physical write authorization remain independent.
+All three Creator delivery channels now use the shared `creator/internal/atomicfile` writer for their signed current/pending/previous envelope pointers. A failed pointer replacement preserves the previous signed offline pointer; version monotonicity, source re-verification and physical write authorization remain independent.
 
 
 ```text
@@ -188,16 +190,15 @@ Those foundations must be completed and homologated **within the integrated MVP 
 When Native is promoted through the MVP-cycle gates, it must continue through the same Creator Core, signed release trust, exact-target identity, destructive authorization and hardware-validation gates documented in `docs/NATIVE-INSTALLATION.md` and `docs/contracts/native-installation.json`.
 
 
-## Transition into the full Desktop product
+## Desktop integration
 
-When OrdaX Desktop is ready, its button such as `Create OrdaX USB` invokes the same Core. The standalone prototype shell can then disappear without changing provisioning policy or media format.
+The Windows Creator remains a standalone published application built from `ordax-os/creator/`. The `ordax-os/desktop/` module may launch it or present its verified state, but must not embed a second Creator Core, download catalog or raw-media writer.
 
 ```text
-prototype ordax-creator.exe
-           \
-            -> same Creator Core -> same Windows helper -> same media contract
-           /
-OrdaX Desktop Creator UI
+ordax-os/main
+  ├─ creator/          single Windows UI, Core and trusted media consumer
+  ├─ desktop/          launch/presentation only
+  └─ tools/creator/    OS-owned media artifact/proof producers
 ```
 
-No parallel flasher implementation is allowed.
+No copy of the Creator source, parallel flasher or independent update engine may exist outside the canonical module.
