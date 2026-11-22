@@ -328,39 +328,46 @@ func verifyCanonicalCreatorSourceWithGit(runGit func(...string) (string, error))
     if err != nil || !validLowerHexString(head, 40) {
         return errors.New("canonical Creator HEAD is unavailable")
     }
-    if head != buildCreatorSourceCommit {
-        if _, err := runGit("cat-file", "-e", buildCreatorSourceCommit+"^{commit}"); err != nil {
-            return errors.New("installed Creator source revision is not available")
-        }
-        if _, err := runGit("merge-base", "--is-ancestor", buildCreatorSourceCommit, head); err != nil {
-            return errors.New("Creator source is not an ancestor of canonical main")
-        }
-    }
     dirty, err := runGit("status", "--porcelain=v1")
     if err != nil || dirty != "" { return errors.New("Creator source has unverified local changes") }
     remote, err := runGit("ls-remote", "--heads", "origin", "refs/heads/main")
     if err != nil { return errors.New("canonical remote main is unavailable") }
-    if remote == head+"\trefs/heads/main" { return nil }
-
-    // A dedicated main worktree must not require manual Git maintenance after
-    // unrelated OS commits. Fetch *only* the canonical main and fast-forward
-    // only an already-clean checkout; never reset, merge with conflicts or
-    // accept a rewritten/non-descendant branch.
+    // First resolve canonical remote main. A newly installed Creator can be
+    // ahead of an otherwise clean local worktree; its commit may not exist
+    // locally until the verified fetch completes. Requiring it before fetch
+    // incorrectly blocked deliberate Update USB actions.
     fields := strings.Split(remote, "\t")
     if len(fields) != 2 || !validLowerHexString(fields[0], 40) ||
         fields[1] != "refs/heads/main" {
         return errors.New("canonical remote main identity is invalid")
     }
-    if _, err := runGit("fetch", "--no-tags", "--quiet", "origin", "refs/heads/main"); err != nil {
-        return errors.New("Creator could not fetch canonical main")
+    candidate := head
+    if fields[0] != head {
+        // Fetch only the authorized main ref; never reset, force or borrow
+        // a foreign checkout. All ancestry checks precede local mutation.
+        if _, err := runGit("fetch", "--no-tags", "--quiet", "origin", "refs/heads/main"); err != nil {
+            return errors.New("Creator could not fetch canonical main")
+        }
+        fetched, err := runGit("rev-parse", "FETCH_HEAD")
+        if err != nil || fetched != fields[0] {
+            return errors.New("Creator remote main changed during verification")
+        }
+        if _, err := runGit("merge-base", "--is-ancestor", head, fetched); err != nil {
+            return errors.New("Creator main cannot fast-forward")
+        }
+        candidate = fetched
     }
-    fetched, err := runGit("rev-parse", "FETCH_HEAD")
-    if err != nil || fetched != fields[0] {
-        return errors.New("Creator remote main changed during verification")
+    // The binary's source commit must belong to the same canonical main
+    // history. Check this AFTER fetching objects, BEFORE advancing HEAD.
+    if candidate != buildCreatorSourceCommit {
+        if _, err := runGit("cat-file", "-e", buildCreatorSourceCommit+"^{commit}"); err != nil {
+            return errors.New("installed Creator source revision is not available")
+        }
+        if _, err := runGit("merge-base", "--is-ancestor", buildCreatorSourceCommit, candidate); err != nil {
+            return errors.New("Creator source is not an ancestor of canonical main")
+        }
     }
-    if _, err := runGit("merge-base", "--is-ancestor", head, fetched); err != nil {
-        return errors.New("Creator main cannot fast-forward")
-    }
+    if candidate == head { return nil }
     if _, err := runGit("merge", "--ff-only", "--quiet", "FETCH_HEAD"); err != nil {
         return errors.New("Creator main fast-forward failed")
     }
