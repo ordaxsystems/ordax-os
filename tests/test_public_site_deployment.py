@@ -95,6 +95,16 @@ class PublicSiteDeploymentTests(unittest.TestCase):
                 self.assertIn("assets/ordax-symbol.png", receipt["identity_support_files"])
                 self.assertIn("assets/ordax-symbol.png", {item["path"] for item in receipt["files"]})
 
+    def test_vercel_node_major_is_pinned_and_lockfile_matches(self):
+        # Vercel otherwise uses Node 26 for an open root engines range, even
+        # when the existing project and the Site workspace select Node 24.
+        manifest = json.loads((ROOT / "package.json").read_text(encoding="utf-8"))
+        lock = json.loads((ROOT / "package-lock.json").read_text(encoding="utf-8"))
+        site = json.loads((ROOT / "site/package.json").read_text(encoding="utf-8"))
+        self.assertEqual(manifest["engines"]["node"], "24.x")
+        self.assertEqual(lock["packages"][""]["engines"]["node"], manifest["engines"]["node"])
+        self.assertEqual(site["engines"]["node"], manifest["engines"]["node"])
+
     def test_vercel_ignore_build_is_fail_safe_on_first_deploy_and_git_history_gaps(self):
         self.assertEqual(
             self.vercel["ignoreCommand"],
