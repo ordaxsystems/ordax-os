@@ -55,6 +55,16 @@ on:
         required: false
         type: boolean
         default: false
+      aura_source_commit:
+        description: 'Exact 40-hex ordax-apps commit for the optional WebKit proof'
+        required: false
+        type: string
+        default: ''
+      aura_package_sha256:
+        description: 'Expected SHA-256 of the unsigned Aura package from Windows'
+        required: false
+        type: string
+        default: ''
 
 permissions:
   contents: read
@@ -118,11 +128,28 @@ jobs:
         with:
           persist-credentials: false
 
+      - name: Require exact owner revision and independently expected package bytes
+        env:
+          ORDAX_AURA_SOURCE_COMMIT: ${{ inputs.aura_source_commit }}
+          ORDAX_AURA_PACKAGE_SHA256: ${{ inputs.aura_package_sha256 }}
+        run: |
+          set -euo pipefail
+          [[ "$ORDAX_AURA_SOURCE_COMMIT" =~ ^[a-f0-9]{40}$ ]] || {
+            echo '::error title=Aura owner not pinned::Supply a lowercase 40-hex source commit.' >&2
+            exit 1
+          }
+          [[ "$ORDAX_AURA_PACKAGE_SHA256" =~ ^[a-f0-9]{64}$ ]] || {
+            echo '::error title=Aura artifact not pinned::Supply the independently verified 64-hex package SHA-256.' >&2
+            exit 1
+          }
+          echo "AURA_OWNER_SOURCE_PINNED=$ORDAX_AURA_SOURCE_COMMIT"
+          echo "AURA_PACKAGE_DIGEST_PINNED=$ORDAX_AURA_PACKAGE_SHA256"
+
       - name: Checkout independent canonical Aura owner
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
         with:
           repository: ordaxsystems/ordax-apps
-          ref: main
+          ref: ${{ inputs.aura_source_commit }}
           path: aura-source
           persist-credentials: false
 
@@ -137,6 +164,11 @@ jobs:
         env:
           GDK_BACKEND: x11
           LIBGL_ALWAYS_SOFTWARE: '1'
+          ORDAX_AURA_SOURCE_COMMIT: ${{ inputs.aura_source_commit }}
+          ORDAX_AURA_PACKAGE_SHA256: ${{ inputs.aura_package_sha256 }}
         run: |
           set -euo pipefail
-          xvfb-run -a /usr/bin/python3 tests/prove_aura_webkit_sandbox.py --apps-root "$GITHUB_WORKSPACE/aura-source"
+          xvfb-run -a /usr/bin/python3 tests/prove_aura_webkit_sandbox.py \
+            --apps-root "$GITHUB_WORKSPACE/aura-source" \
+            --expected-source-commit "$ORDAX_AURA_SOURCE_COMMIT" \
+            --expected-package-sha256 "$ORDAX_AURA_PACKAGE_SHA256"
