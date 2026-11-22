@@ -26,6 +26,8 @@ DIGEST = re.compile(r"[0-9a-f]{64}\Z")
 MAX_BUNDLE = 1_000_000_000
 SUBDIR = Path(".ordax") / "updates" / "owner-git"
 BASE_SUBDIR = Path(".ordax") / "updates" / "owner-base"
+NATIVE_SUBDIR = Path(".ordax") / "updates" / "owner-native-product"
+NATIVE_SOURCE_PIN = "system/services/device-agent/owner-dev-native-product.txt"
 BASE_FILES = ("dev-base.json", "vmlinuz", "initrd.gz", "rootfs.tar")
 BUNDLE = "ordax-main.bundle"
 MANIFEST = "owner-git-bundle.txt"
@@ -238,6 +240,82 @@ def arm_update_request(target: Path, commit: str, digest: str, size: int) -> Non
     finally:
         pending.unlink(missing_ok=True)
 
+
+
+def synchronize_verified_native_pin(repo: Path, volume: Path) -> str:
+    """Rebind a previously staged Owner Native payload to the exact Git main pin.
+
+    Only the existing Creator transport writes to ORDAX-DATA. Binary files are
+    never replaced here. The OS alone verifies active Base and launches Native.
+    """
+    native = volume / NATIVE_SUBDIR
+    if not native.exists() and not native.is_symlink():
+        return "NOT_STAGED"
+    ensure_real_ancestors(volume, native)
+    if not native.is_dir() or native.is_symlink():
+        raise DeliveryError("unsafe staged Owner Native directory")
+    try:
+        # The checkout has already passed canonical origin, branch, clean
+        # worktree and exact remote-main verification.
+        source = git(repo, "show", "HEAD:" + NATIVE_SOURCE_PIN) + "\n"
+        raw = source.encode("ascii")
+    except (UnicodeError, ValueError) as exc:
+        raise DeliveryError("invalid canonical Owner Native source pin") from exc
+    fields = (
+        "schema", "runtime_source_commit", "os_base_commit",
+        "os_base_rootfs_sha256", "runtime_ci_run_id",
+        "offline_base_proof_run_id", "binary_sha256", "binary_bytes",
+        "loader_sha256", "loader_bytes", "libc_sha256", "libc_bytes",
+        "zlib_sha256", "zlib_bytes",
+    )
+    pairs = [line.split("=", 1) for line in source.splitlines()]
+    if (not 350 < len(raw) < 1500 or len(pairs) != len(fields)
+            or any(len(pair) != 2 or pair[0] != fields[i]
+                   for i, pair in enumerate(pairs))):
+        raise DeliveryError("invalid canonical Owner Native pin structure")
+    data = dict(pairs)
+    if data["schema"] != "ordax.owner-dev-native-product/1":
+        raise DeliveryError("unrecognized Owner Native pin schema")
+    for key in ("runtime_source_commit", "os_base_commit"):
+        if not SHA.fullmatch(data[key]):
+            raise DeliveryError("invalid Owner Native source identity")
+    for key in ("os_base_rootfs_sha256", "binary_sha256", "loader_sha256",
+                "libc_sha256", "zlib_sha256"):
+        if not DIGEST.fullmatch(data[key]):
+            raise DeliveryError("invalid Owner Native SHA-256")
+    for path, key in (
+        ("ordax-product-agent", "binary"),
+        ("portable-lib/ld-musl-x86_64.so.1", "loader"),
+        ("portable-lib/libc.musl-x86_64.so.1", "libc"),
+        ("portable-lib/libz.so.1", "zlib"),
+    ):
+        file = native.joinpath(*path.split("/"))
+        if (file.is_symlink() or not file.is_file()
+                or not data[key + "_bytes"].isdecimal()
+                or int(data[key + "_bytes"]) <= 0
+                or file.stat().st_size != int(data[key + "_bytes"])
+                or sha256_file(file) != data[key + "_sha256"]):
+            raise DeliveryError("staged Owner Native bytes differ from canonical pin")
+    pin = native / "owner-dev-native-product.txt"
+    pending = native / "owner-dev-native-product.txt.pending"
+    for path in (pin, pending):
+        if path.is_symlink() or (hasattr(path, "is_junction") and path.is_junction()):
+            raise DeliveryError("Owner Native pin path is linked")
+        if path.exists() and not path.is_file():
+            raise DeliveryError("Owner Native pin path is unsafe")
+    if pin.is_file() and pin.read_bytes() == raw:
+        return "CURRENT"
+    try:
+        with pending.open("wb") as stream:
+            stream.write(raw)
+            stream.flush()
+            os.fsync(stream.fileno())
+        os.replace(pending, pin)
+        if pin.read_bytes() != raw:
+            raise DeliveryError("Owner Native pin readback failed")
+    finally:
+        pending.unlink(missing_ok=True)
+    return "STAGED_NOT_ACTIVATED"
 
 def verified_local_bundle(target: Path) -> tuple[str, str, int] | None:
     """Inspect only local Git transport bytes, never OS activation or provenance.
@@ -752,10 +830,12 @@ def deliver(args: argparse.Namespace) -> int:
                     raise DeliveryError("current USB bundle cannot be reverified")
                 if checked_volume(letter) != before:
                     raise DeliveryError("physical USB identity changed before update request")
+                native_pin_status = synchronize_verified_native_pin(args.repo.resolve(), volume)
                 arm_update_request(target, *verified)
                 if source_commit(args.repo.resolve()) != commit:
                     raise MainAdvanced("canonical OS main advanced after USB request")
-            print(json.dumps({"status": "CURRENT", "source_commit": commit}))
+            print(json.dumps({"status": "CURRENT", "source_commit": commit,
+                              "native_pin_status": native_pin_status if args.apply else "NOT_CHECKED"}))
             return 0
         if not args.apply:
             print(json.dumps({"status": "AVAILABLE", "source_commit": commit, "action": "staging-not-authorized"}))
@@ -774,11 +854,13 @@ def deliver(args: argparse.Namespace) -> int:
                 raise DeliveryError("physical USB identity changed after transfer")
             if source_commit(args.repo.resolve()) != commit:
                 raise MainAdvanced("canonical OS main advanced after USB readback; staged revision is not latest")
+            native_pin_status = synchronize_verified_native_pin(args.repo.resolve(), volume)
             arm_update_request(target, commit, digest, size)
             if checked_volume(letter) != before:
                 raise DeliveryError("physical USB identity changed after update request")
             print(json.dumps({"status": "STAGED_NOT_ACTIVATED", "source_commit": commit,
-                              "sha256": digest, "bytes": size}))
+                              "sha256": digest, "bytes": size,
+                              "native_pin_status": native_pin_status}))
         return 0
     except MainAdvanced as exc:
         print("OWNER_USB_GIT_DELIVERY=MAIN_ADVANCED:" + str(exc), file=sys.stderr)

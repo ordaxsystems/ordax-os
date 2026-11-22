@@ -147,6 +147,54 @@ class DeliveryTests(unittest.TestCase):
         self.assertEqual(git(self.source, "bundle", "list-heads", self.bundle),
                          self.sha + " refs/heads/main")
 
+    def test_native_pin_tracks_exact_main_only_when_all_staged_bytes_match(self):
+        native = self.root / "data" / APP.NATIVE_SUBDIR
+        (native / "portable-lib").mkdir(parents=True)
+        binaries = {
+            "ordax-product-agent": (b"valid-dev-native", "binary"),
+            "portable-lib/ld-musl-x86_64.so.1": (b"loader", "loader"),
+            "portable-lib/libc.musl-x86_64.so.1": (b"loader", "libc"),
+            "portable-lib/libz.so.1": (b"zlib", "zlib"),
+        }
+        for name, (payload, _) in binaries.items():
+            (native / name).write_bytes(payload)
+        entries = [
+            ("schema", "ordax.owner-dev-native-product/1"),
+            ("runtime_source_commit", "a" * 40),
+            ("os_base_commit", "b" * 40),
+            ("os_base_rootfs_sha256", "c" * 64),
+            ("runtime_ci_run_id", "45060798773"),
+            ("offline_base_proof_run_id", "45060943271"),
+        ]
+        for name, (_, key) in binaries.items():
+            payload = (native / name).read_bytes()
+            entries.extend([(key + "_sha256", hashlib.sha256(payload).hexdigest()),
+                            (key + "_bytes", str(len(payload)))])
+        # Canonical fields require SHA/length pairs in this fixed order.
+        data = dict(entries)
+        order = (
+            "schema", "runtime_source_commit", "os_base_commit",
+            "os_base_rootfs_sha256", "runtime_ci_run_id",
+            "offline_base_proof_run_id", "binary_sha256", "binary_bytes",
+            "loader_sha256", "loader_bytes", "libc_sha256", "libc_bytes",
+            "zlib_sha256", "zlib_bytes",
+        )
+        manifest = "".join(f"{key}={data[key]}\n" for key in order)
+        old = manifest.replace("os_base_commit=" + "b" * 40,
+                               "os_base_commit=" + "d" * 40)
+        (native / "owner-dev-native-product.txt").write_text(old, encoding="ascii")
+        with mock.patch.object(APP, "git", return_value=manifest.strip()):
+            self.assertEqual(APP.synchronize_verified_native_pin(self.source, self.root / "data"),
+                             "STAGED_NOT_ACTIVATED")
+            self.assertEqual((native / "owner-dev-native-product.txt").read_text(), manifest)
+            self.assertEqual(APP.synchronize_verified_native_pin(self.source, self.root / "data"),
+                             "CURRENT")
+        (native / "portable-lib/libz.so.1").write_bytes(b"tampered")
+        with mock.patch.object(APP, "git", return_value=manifest.strip()):
+            with self.assertRaisesRegex(APP.DeliveryError, "differ from canonical pin"):
+                APP.synchronize_verified_native_pin(self.source, self.root / "data")
+        self.assertEqual((native / "owner-dev-native-product.txt").read_text(), manifest)
+
     def test_atomic_install_stages_without_changing_git_checkout(self):
         digest, size = self.make_bundle()
         APP.install_bundle(self.delivery, self.bundle, self.sha, digest, size)
