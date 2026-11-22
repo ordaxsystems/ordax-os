@@ -57,10 +57,10 @@ test('the installer owns exactly one private Git rather than a global Git depend
   assert.equal(files.filter(x=>x.to==='runtime-template/toolchain/git').length,1);
   assert.equal(files.filter(x=>x.to==='runtime-template/toolchain/git-receipt.json').length,1);
   assert.equal(files.find(x=>x.to==='runtime-template/toolchain/git').from,
-    '../../out/windows-desktop-toolchain/git');
+    '../out/windows-desktop-toolchain/git');
   assert.ok(pkg.build.files.includes('git-toolchain-lock.json'));
   assert.equal(pkg.build.nsis.perMachine,false);
-  const workflow=readFileSync(require('node:path').join(__dirname,'../../.github/workflows/windows-desktop-dev.yml'),'utf8');
+  const workflow=readFileSync(require('node:path').join(__dirname,'../.github/workflows/windows-desktop-dev.yml'),'utf8');
   const stage=workflow.indexOf('name: Materialize pinned private MinGit for Windows Dev updates');
   const audit=workflow.indexOf('name: Reject unprovided MSVC dependencies in Windows Aura package');
   const build=workflow.indexOf('name: Build unsigned Windows installer');
@@ -71,8 +71,11 @@ test('the installer owns exactly one private Git rather than a global Git depend
 
 test('private MinGit caches only the upstream ZIP and revalidates every restored cache',()=>{
   const {join}=require('node:path');
-  const workflow=readFileSync(join(__dirname,'../../.github/workflows/windows-desktop-dev.yml'),'utf8');
+  const workflow=readFileSync(join(__dirname,'../.github/workflows/windows-desktop-dev.yml'),'utf8');
   const script=readFileSync(join(__dirname,'package-git-toolchain.ps1'),'utf8');
+  assert.match(script,/Join-Path \$PSScriptRoot '\.\.'/,
+    'MinGit packaging must use the canonical same-commit OS root');
+  assert.doesNotMatch(script,/Join-Path \$PSScriptRoot '\.\.\/\.\.'/);
   const restore=workflow.indexOf('name: Restore exact private MinGit source archive cache');
   const materialize=workflow.indexOf('name: Materialize pinned private MinGit for Windows Dev updates',restore);
   const verify=workflow.indexOf('name: Verify source-pinned private MinGit on cache hit and miss',materialize);
