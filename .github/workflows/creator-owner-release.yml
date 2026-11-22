@@ -156,8 +156,8 @@ jobs:
           test "$latest" != ""
           if [ "$latest" != "$CREATOR_SHA" ]; then
             # Ignore unrelated OS commits but never publish a stale Creator.
-            ancestry="$(gh api "repos/$repo/compare/$CREATOR_SHA...$latest?per_page=1" --jq '[.status, .behind_by] | @tsv')"
-            test "$ancestry" = "$(printf 'ahead\\t0')"
+            ancestry="$(gh api "repos/$repo/compare/$CREATOR_SHA...$latest?per_page=1" --jq '[.status, (.behind_by|tostring)] | join(":")')"
+            test "$ancestry" = "ahead:0"
             root_tree="$(gh api "repos/$repo/git/commits/$latest" --jq '.tree.sha')"
             current_creator_tree="$(gh api "repos/$repo/git/trees/$root_tree" --jq '.tree[] | select(.path == "creator" and .type == "tree") | .sha')"
             test "$current_creator_tree" = "$CREATOR_SOURCE_TREE"
