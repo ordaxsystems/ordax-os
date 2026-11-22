@@ -31,7 +31,10 @@ LEGAL = ROOT / "docs" / "contracts" / "public-legal-readiness.json"
 CANONICAL_ACCOUNT_DESTINATION = ROOT / "infra" / "supabase" / "product" / "account_destination_migration_plan.json"
 PUBLIC_AUTH_CONTRACT = ROOT / "docs" / "contracts" / "public-auth-provider-policy.json"
 MAX_PUBLIC_DOCUMENT_BYTES = 2 * 1024 * 1024
-SITE = ROOT / "out" / "verified-ordax-site"  # externally verified static bundle, never legacy source
+# Legal pages must be hashed from the exact canonical, already verified
+# same-commit Vercel public artifact. Never use another materialized Site tree.
+sys.path.insert(0, str(ROOT))
+from tools.vercel.build import OUTPUT as SITE
 SNAPSHOT_LEDGER = ROOT / "docs" / "contracts" / "public-legal-snapshots.json"
 SCHEMA = "prototype-ordax.account-legal-policy-candidate/1"
 RECEIPT_SCHEMA = "prototype-ordax.account-legal-policy-activation-receipt/1"
@@ -177,17 +180,17 @@ def route_file(route: str) -> Path:
 
 
 def sha256_published_html_source(path: Path) -> str:
-    """Hash exactly the bytes built and verified by ordax-site.
+    """Hash the canonical same-commit Site artifact already verified by Vercel.
 
-    The OS must not re-render the Site's HTML or own a duplicate renderer.
-    A missing verified static bundle fails closed in route_file/build_candidate.
-    Immutable versioned pages are additionally pinned by the legal ledger.
+    The activation workflow builds and verifies this artifact once. Missing
+    bytes fail closed; published HTML must independently match by SHA-256.
+    Immutable versioned pages remain pinned by the legal snapshot ledger.
     """
     if not path.is_file() or path.is_symlink():
-        raise ValueError("verified independent Site document unavailable")
+        raise ValueError("verified canonical Site document unavailable")
     data = path.read_bytes()
     if not data or len(data) > MAX_PUBLIC_DOCUMENT_BYTES:
-        raise ValueError("invalid independent Site document size")
+        raise ValueError("invalid canonical Site document size")
     return hashlib.sha256(data).hexdigest()
 
 

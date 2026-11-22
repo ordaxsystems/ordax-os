@@ -69,6 +69,15 @@ jobs:
           echo 'ACCOUNT_LEGAL_POLICY_OPERATOR_CREDENTIAL_PRESENT=YES'
           echo 'ACCOUNT_LEGAL_POLICY_OPERATOR_CREDENTIAL_PRINTED=NO'
 
+      - name: Build and verify canonical same-commit public Site for legal digest
+        shell: bash
+        env:
+          VERCEL_PROJECT_ID: prj_mA9ew6hOfjdqlBr1cC757iMLPQJC
+          VERCEL_GIT_COMMIT_SHA: ${{ github.sha }}
+        run: |
+          set -euo pipefail
+          python tools/vercel/build.py
+
       - name: Build reviewed activation candidate
         shell: bash
         run: |

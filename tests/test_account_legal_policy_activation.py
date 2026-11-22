@@ -56,6 +56,27 @@ class AccountLegalPolicyActivationTests(unittest.TestCase):
         )
         self.assertIn("to service_role", lower)
 
+    def test_legal_input_is_verified_same_commit_public_site_artifact(self):
+        # One build-output authority: policy activation reads the same
+        # path that the canonical production Vercel builder verifies.
+        from tools.vercel import build as vercel_build
+        self.assertEqual(activation.SITE, vercel_build.OUTPUT)
+        workflow = WORKFLOW.read_text(encoding="utf-8")
+        self.assertEqual(workflow.count("python tools/vercel/build.py"), 1)
+        self.assertIn("VERCEL_GIT_COMMIT_SHA: ${{ github.sha }}", workflow)
+        self.assertIn(
+            "VERCEL_PROJECT_ID: prj_mA9ew6hOfjdqlBr1cC757iMLPQJC",
+            workflow,
+        )
+        self.assertLess(
+            workflow.index("python tools/vercel/build.py"),
+            workflow.index("python tools/public-site/activate_account_legal_policy.py candidate"),
+        )
+        self.assertLess(
+            workflow.index("python tools/public-site/activate_account_legal_policy.py candidate"),
+            workflow.index("python tools/public-site/activate_account_legal_policy.py apply"),
+        )
+
     def test_current_repository_cannot_build_activation_candidate(self):
         with self.assertRaises(ValueError):
             activation.build_candidate("https://ordax-os-public.vercel.app")
@@ -381,7 +402,7 @@ class AccountLegalPolicyActivationTests(unittest.TestCase):
                 "redirect_policy": {"origin": "https://ordax.com.br"}
             }), encoding="utf-8")
             import hashlib
-            # Fixtures represent the final, byte-exact independent Site build.
+            # Fixtures represent final byte-exact output from the canonical Site builder.
             # The OS must never re-render legal presentation from Site markup.
             emitted = dict(contents)
             candidate = {
