@@ -10,7 +10,7 @@ Regras obrigatórias:
 - `ordaxsystems/ordax-os` é o compositor Native e owner dos módulos internos `desktop/`, `site/` e Surface, sem duplicar implementações dos owners ainda externos.
 - `desktop/` neste monorepo é o único owner do host/shell/NSIS Windows; consome a composição Native/Surface do mesmo commit OS, sem checkout ou pin externos do Desktop.
 - Consumidor fixa apenas dependência direta. Desktop consome a composição OrdaX/OS; não mantém pin separado da Surface. Creator consome mídia verificada; não recompila upstream.
-- Surface/Apps/Intelligence publicam seus próprios source/artefatos e não precisam de PR em consumidores enquanto não houver adoção real.
+- Surface e Intelligence pertencem ao mesmo commit de `ordax-os/main`, em `system/surface/` e `system/intelligence/`. Apps permanece owner independente; não existe pin ou checkout Git externo de Intelligence.
 - Owners independentes avançam em paralelo. Sincronizar somente no ponto de adoção de contrato/artefato/revisão.
 - Não usar SHA, PR, evidência ou estado datado em README/plano como instrução vigente se o contrato/source atual divergir.
 - `merged`/CI verde não equivale a produto instalado. Distinguir Implementado, Integrado, Entregável e Produto concluído.

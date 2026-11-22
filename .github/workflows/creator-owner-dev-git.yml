@@ -624,20 +624,20 @@ jobs:
           # visual source in the Supervisor's immutable release cache on
           # the Creator build host, NEVER a second Git tracked UI copy.
           # A candidate source is verified but MUST NOT replace the engine
-          # that executes at first boot. Use external bytes only when the
-          # pinned OS source lock itself has reached canonical status.
-           intelligence_status=$(python3 - <<'PY'
-           import json
-           from pathlib import Path
-           policy=json.loads(Path('docs/contracts/intelligence-source.json').read_text())
-           assert policy['source_repository']=='ordaxsystems/ordax-os'
-           assert policy['source_revision']=='same-os-commit'
-           assert policy['source_only'] is True and policy['activation_authorized'] is False
-           assert policy['status']=='canonical'
-           print('canonical')
-           PY
-           )
-           prepared_source="$RUNNER_TEMP/ordax-verified-intelligence-ci"
+          # Stage only canonical same-commit OS sources, never an engine.
+          # Model/engine signature and activation gates remain independent.
+          intelligence_status=$(python3 - <<'PY'
+          import json
+          from pathlib import Path
+          policy=json.loads(Path('docs/contracts/intelligence-source.json').read_text())
+          assert policy['source_repository']=='ordaxsystems/ordax-os'
+          assert policy['source_revision']=='same-os-commit'
+          assert policy['source_only'] is True and policy['activation_authorized'] is False
+          assert policy['status']=='canonical'
+          print('canonical')
+          PY
+          )
+          prepared_source="$RUNNER_TEMP/ordax-verified-intelligence-ci"
           sudo -E python3 tools/surface-source/preseed_owner.py \
             --repo-root "$GITHUB_WORKSPACE" \
             --assembled-root "$prepared_source" \
@@ -649,11 +649,13 @@ jobs:
           # Revalidate source status against the exact staged OS checkout.
           runtime_status=$(sudo -E /bin/sh system/intelligence/owner-stage.sh status "$rootfs/workspace/ordax" "$ORDAX_OWNER_SOURCE_COMMIT")
           test "$runtime_status" = "$intelligence_status"
-           test "$runtime_status" = canonical
-           test -s "$rootfs/state/ordax/releases/$ORDAX_OWNER_SOURCE_COMMIT/.intelligence-file-hashes"
-           test -s "$rootfs/state/ordax/releases/$ORDAX_OWNER_SOURCE_COMMIT/.intelligence-source-sha"
-           sudo -E /bin/sh system/intelligence/owner-stage.sh ready              "$rootfs/workspace/ordax" "$ORDAX_OWNER_SOURCE_COMMIT"              "$rootfs/state/ordax/releases/$ORDAX_OWNER_SOURCE_COMMIT"
-           echo 'ORDAX_OWNER_FIRST_BOOT_INTELLIGENCE_SAME_COMMIT_READY=YES'
+          test "$runtime_status" = canonical
+          test -s "$rootfs/state/ordax/releases/$ORDAX_OWNER_SOURCE_COMMIT/.intelligence-file-hashes"
+          test -s "$rootfs/state/ordax/releases/$ORDAX_OWNER_SOURCE_COMMIT/.intelligence-source-sha"
+          sudo -E /bin/sh system/intelligence/owner-stage.sh ready \
+            "$rootfs/workspace/ordax" "$ORDAX_OWNER_SOURCE_COMMIT" \
+            "$rootfs/state/ordax/releases/$ORDAX_OWNER_SOURCE_COMMIT"
+          echo 'ORDAX_OWNER_FIRST_BOOT_INTELLIGENCE_SAME_COMMIT_READY=YES'
           echo 'ORDAX_OWNER_FIRST_BOOT_EXTERNAL_SURFACE_OFFLINE_READY=YES'
           sudo touch "$rootfs/dev/null"
           cleanup_dev_null() {

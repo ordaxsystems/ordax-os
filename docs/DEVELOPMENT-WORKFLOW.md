@@ -67,7 +67,7 @@ A separação de repositórios **separa ownership e ciclos de desenvolvimento; n
 
 - Surface visual e workspace pertencem a ordax-os, no mesmo commit Git dos servicos nativos. Desktop, Creator e apps nao selecionam um segundo repo ou SHA visual.
 - `ordax-apps` publica componentes/pacotes e catálogo pelos contratos existentes. A Surface apresenta estado e ações através dos ports do produto; não importa source de apps nem se torna autoridade de instalação.
-- `ordax-intelligence` publica source/artefatos reutilizáveis. A composição Native seleciona a revisão aplicável por contrato; clientes não copiam o motor.
+- Intelligence pertence a `system/intelligence/` do próprio `ordax-os`, no mesmo commit da composição Native. Não clonar, sincronizar nem fixar SHA de `ordax-intelligence` em builds ou instalação.
 - ordax-os e o compositor Native: host, servicos, Surface, lifecycle, contratos e verificacao de fontes externas restantes. A Surface pertence ao proprio OS.
 - `desktop/` no `ordax-os` consome **a composição/candidato OrdaX verificável do mesmo commit** para o host Windows. Não integra Surface, Apps ou Intelligence separadamente quando esses componentes já são transitivamente selecionados pela composição do OS.
 - `ordax-creator` consome artefatos de mídia OrdaX já produzidos e verificados. Não recompila kernel, Surface, Runtime, Apps ou Base para o usuário final.

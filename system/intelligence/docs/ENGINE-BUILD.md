@@ -1,16 +1,16 @@
 # Reproducible inference builder — source ownership
 
-This component is the extracted **technical inference builder** from `ordax-os/bootstrap/local-ai-runtime/build.py`. The canonical model choice, full engine SHA and exact ELF hash/size, `ordax.local-ai/1` policy, model license text, and signing/activation remain **owned by OrdaX OS**, not copied here.
+This module contains the **canonical technical inference builder** at `ordax-os/system/intelligence/tools/inference-builder/build.py`; its earlier extraction is historical. The canonical model choice, full engine SHA and exact ELF hash/size, `ordax.local-ai/1` policy, model license text, and signing/activation remain **owned by OrdaX OS**, not copied here.
 
 ## Invocation
 
 Run on a pinned, verified Linux x86_64 build runner with the OS source checkout and required native toolchain. The source lock must be `OS/system/services/local-ai/source-lock.json`; the versioned product contract is `OS/docs/contracts/local-ai.json`.
 
 ```sh
-python3 tools/inference-builder/build.py \
+python3 system/intelligence/tools/inference-builder/build.py \
   --os-source /path/to/verified/ordax-os \
   build --out-dir /tmp/ordax-local-ai-artifact --cache-dir /tmp/ordax-model-cache
-python3 tools/inference-builder/build.py \
+python3 system/intelligence/tools/inference-builder/build.py \
   --os-source /path/to/verified/ordax-os \
   verify --out-dir /tmp/ordax-local-ai-artifact
 ```
@@ -21,7 +21,7 @@ The CLI cannot silently select a different lock or use a copy within `ordax-inte
 
 The fast CI runs the adapted OS builder regressions with the exact OS checkout; it proves **lock validation and source-code behavior only**. It does **not** fetch ~563 MB of GGUF or compile llama.cpp and therefore makes no engine ABI, performance or physical run claim.
 
-The OS contract `docs/contracts/intelligence-source.json` **already pins** this Python builder source together with the portable Intelligence modules (`builder_source_pinned=true`). That pin proves source identity only: `builder_activation_authorized=false` and `cutover_complete=false` remain the current boundary. Before the coordinated cutover, keep the builder hash synchronized through the single OS contract and then switch the single OS image builder only after the existing real pinned-engine build, EROFS, QEMU, signature and rollback gates pass. Do not keep two builders active and do not create a second source lock, updater, keyring or release authority.
+The OS contract `docs/contracts/intelligence-source.json` declares the module canonical with `source_revision=same-os-commit` and `cutover_complete=true` for **source ownership only**. The builder shares the OS Git commit; no external source pin is used. `builder_activation_authorized=false` and `activation_authorized=false` remain authoritative. Engine, EROFS, QEMU, signature, recovery, and physical installation are separate gates; source integration does not promote them. Do not create another builder, source lock, updater, keyring or release authority.
 
 ## Windows x64 candidate proof (non-activating)
 

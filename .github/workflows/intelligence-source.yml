@@ -16,6 +16,8 @@ on:
       - '.github/actions/assemble-intelligence/**'
       - '.github/actions/resolve-intelligence-builder/**'
       - '.github/workflows/intelligence-source.yml'
+      - '.github/workflows/creator-owner-dev-git.yml'
+      - 'tests/test_intelligence_owner_first_boot_workflow.py'
   pull_request:
     paths:
       - 'system/intelligence/**'
@@ -30,6 +32,8 @@ on:
       - '.github/actions/assemble-intelligence/**'
       - '.github/actions/resolve-intelligence-builder/**'
       - '.github/workflows/intelligence-source.yml'
+      - '.github/workflows/creator-owner-dev-git.yml'
+      - 'tests/test_intelligence_owner_first_boot_workflow.py'
 permissions:
   contents: read
 jobs:
@@ -49,6 +53,7 @@ jobs:
         run: |
           python3 tools/intelligence/verify.py
           python -m unittest discover -s tests -p 'test_intelligence_canonical_integrity.py' -v
+          python -m unittest discover -s tests -p 'test_intelligence_owner_first_boot_workflow.py' -v
           python -m unittest discover -s tests -p 'test_intelligence_windows_artifact_distribution.py' -v
           /bin/sh -n system/intelligence/owner-stage.sh
           python -m unittest discover -s system/intelligence/tests -p 'test_inference_builder_isolation.py' -v
