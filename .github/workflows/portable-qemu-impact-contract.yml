@@ -7,6 +7,7 @@ on:
       - "tests/test_portable_qemu_impact.py"
       - "tests/test_portable_v2_qemu_boot_proof_contract.py"
       - "tests/test_portable_component_reuse_workflow.py"
+      - "tests/test_portable_creator_boot_request.py"
       - "tests/test_independent_surface_qemu_binding.py"
       - ".github/workflows/portable-qemu-impact-contract.yml"
       - ".github/workflows/portable-v2-qemu-boot-proof.yml"
@@ -17,6 +18,7 @@ on:
       - "tests/test_portable_qemu_impact.py"
       - "tests/test_portable_v2_qemu_boot_proof_contract.py"
       - "tests/test_portable_component_reuse_workflow.py"
+      - "tests/test_portable_creator_boot_request.py"
       - "tests/test_independent_surface_qemu_binding.py"
       - ".github/workflows/portable-qemu-impact-contract.yml"
       - ".github/workflows/portable-v2-qemu-boot-proof.yml"
@@ -49,6 +51,7 @@ jobs:
             tests.test_portable_qemu_impact \
             tests.test_portable_v2_qemu_boot_proof_contract \
             tests.test_portable_component_reuse_workflow \
+            tests.test_portable_creator_boot_request \
             tests.test_independent_surface_qemu_binding -v
 
       - name: Verify focused contract sources compile
@@ -58,4 +61,5 @@ jobs:
             tests/test_portable_qemu_impact.py \
             tests/test_portable_v2_qemu_boot_proof_contract.py \
             tests/test_portable_component_reuse_workflow.py \
+            tests/test_portable_creator_boot_request.py \
             tests/test_independent_surface_qemu_binding.py
