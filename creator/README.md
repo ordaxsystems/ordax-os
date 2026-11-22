@@ -47,6 +47,16 @@ autoriza escrita física. Não há instalação de distribuição externa, rebui
 do kernel ou segundo Update Engine. A ponte física segura e seu readback
 continuam pendentes no adaptador Windows canônico do Creator.
 
+O diagnóstico adicional creator/tools/owner_dev_qemu_partition_readonly.py
+aceita somente disco USB com serial autorizado, GPT Owner DEV de três
+partições e volume Linux com assinatura ext4. Antes de executar o kernel,
+ele valida os bytes da Base contra a publicação compatível com a revisão Git
+solicitada. O QEMU recebe exclusivamente a partição Linux com readonly=on,
+e o guest monta ext4 com ro,noload, desmonta e retorna uma prova estruturada.
+A identidade Windows do dispositivo é conferida antes e depois. O diagnóstico
+não instala arquivos, não habilita escrita, não atualiza o boot e não constitui
+permissão de gravação física.
+
 ## Desenvolvimento e distribuição
 
 O resolvedor em ../.github/actions/resolve-creator-source/ valida a versão de creator/ contida no próprio commit do OS. Workflows e releases pertencem ao ordax-os; os contratos de mídia, assinatura, atualização e publicação ficam em ../docs/contracts/ e produtores em ../tools/creator/.
