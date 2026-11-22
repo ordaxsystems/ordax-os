@@ -149,8 +149,7 @@ func finalizeElevatedPortableUpdate(progressPath string, receipt creatorcore.Por
 	}
 	data,err:=json.Marshal(doc)
 	if err!=nil{return err}
-	data=append(data,'
-')
+	data=append(data,byte(10))
 	if len(data)>4096{return errors.New("Portable completion receipt exceeds bounded sidecar")}
 	if err:=os.WriteFile(progressPath,data,0o600);err!=nil {
 		return fmt.Errorf("persist verified Portable update receipt: %w",err)
