@@ -108,6 +108,45 @@ class _NoRedirectHandler(urllib.request.HTTPRedirectHandler):
         return None
 
 
+def verify_published_site_manifest(expected_commit: str) -> None:
+    """Require the exact OS commit to be live before activating legal policy."""
+    if not SOURCE_COMMIT_RE.fullmatch(expected_commit):
+        fail("published-site-commit-invalid")
+    origin = canonical_public_origin()
+    request = urllib.request.Request(
+        origin + "/public-site-manifest.json",
+        headers={
+            "Accept": "application/json",
+            "Cache-Control": "no-cache",
+            "Accept-Encoding": "identity",
+            "User-Agent": "OrdaX-Legal-Policy-Activation/1",
+        },
+    )
+    try:
+        with urllib.request.build_opener(_NoRedirectHandler()).open(request, timeout=15) as response:
+            if response.status != 200:
+                fail("published-site-manifest-unexpected-status")
+            if response.headers.get("Content-Type", "").split(";", 1)[0].lower() != "application/json":
+                fail("published-site-manifest-content-type-invalid")
+            raw = response.read(MAX_PUBLIC_DOCUMENT_BYTES + 1)
+    except (urllib.error.HTTPError, urllib.error.URLError, OSError, TimeoutError):
+        fail("published-site-manifest-unavailable")
+    if len(raw) > MAX_PUBLIC_DOCUMENT_BYTES:
+        fail("published-site-manifest-too-large")
+    try:
+        manifest = json.loads(raw)
+    except (UnicodeError, json.JSONDecodeError):
+        fail("published-site-manifest-invalid-json")
+    if (
+        not isinstance(manifest, dict)
+        or manifest.get("$schema") != "prototype-ordax.independent-public-site-bundle/1"
+        or manifest.get("artifact_class") != "public-site"
+        or manifest.get("seo_origin") != origin
+        or manifest.get("source_commit") != expected_commit
+    ):
+        fail("published-site-source-commit-mismatch")
+
+
 def verify_published_legal_documents(candidate: dict) -> None:
     """Prove exact published HTML equals the immutable, approved source bytes.
 
@@ -269,6 +308,8 @@ def apply_candidate(candidate: dict) -> str:
 
     # A green source contract is not proof the legal terms are actually live.
     # Never activate an unseen/mismatched document or follow redirects.
+    # Source identity and published legal bytes are independent release gates.
+    verify_published_site_manifest(source_commit())
     verify_published_legal_documents(candidate)
 
     privacy = candidate["privacy"]

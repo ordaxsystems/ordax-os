@@ -345,7 +345,9 @@ class AccountLegalPolicyActivationTests(unittest.TestCase):
             patch.dict(os.environ, {
                 "ORDAX_SUPABASE_URL": activation.canonical_provider_url(),
                 "ORDAX_SUPABASE_SECRET_KEY": service_key,
+            "GITHUB_SHA": "a" * 40,
             }),
+            patch.object(activation, "verify_published_site_manifest"),
             patch.object(activation, "verify_published_legal_documents"),
             patch.object(activation.urllib.request, "build_opener", return_value=Opener()),
         ):
@@ -469,6 +471,73 @@ class AccountLegalPolicyActivationTests(unittest.TestCase):
                 policy.write_text(json.dumps(bad_policy), encoding="utf-8")
                 with self.assertRaisesRegex(SystemExit, "policy-not-ready"):
                     activation.verify_published_legal_documents(candidate)
+
+    def test_activation_requires_exact_live_manifest_before_provider_rpc(self):
+        from unittest.mock import patch
+        expected = "a" * 40
+        source = {
+            "$schema": "prototype-ordax.independent-public-site-bundle/1",
+            "artifact_class": "public-site",
+            "seo_origin": "https://ordax.com.br",
+            "source_commit": expected,
+        }
+
+        class Published:
+            status = 200
+            headers = {"Content-Type": "application/json; charset=utf-8"}
+            def __init__(self, raw):
+                self.raw = raw
+            def __enter__(self):
+                return self
+            def __exit__(self, *_):
+                return False
+            def read(self, max_bytes):
+                return self.raw[:max_bytes]
+
+        class Opener:
+            def __init__(self, raw):
+                self.raw = raw
+            def open(self, request, timeout):
+                self_test.assertEqual(timeout, 15)
+                self_test.assertEqual(
+                    request.full_url,
+                    "https://ordax.com.br/public-site-manifest.json",
+                )
+                self_test.assertFalse(request.has_header("Authorization"))
+                return Published(self.raw)
+
+        self_test = self
+        def check(manifest):
+            raw = json.dumps(manifest).encode("utf-8")
+            with patch.object(
+                activation.urllib.request,
+                "build_opener",
+                return_value=Opener(raw),
+            ):
+                activation.verify_published_site_manifest(expected)
+
+        check(source)
+        for key, invalid in (
+            ("source_commit", "b" * 40),
+            ("$schema", "unrecognized"),
+            ("artifact_class", "wrong-product"),
+            ("seo_origin", "https://another.invalid"),
+        ):
+            with self.subTest(field=key):
+                with self.assertRaisesRegex(
+                    SystemExit, "published-site-source-commit-mismatch"
+                ):
+                    check({**source, key: invalid})
+
+        with self.assertRaisesRegex(SystemExit, "published-site-commit-invalid"):
+            activation.verify_published_site_manifest("wrong-revision")
+
+        with patch.object(
+            activation.urllib.request, "build_opener",
+            return_value=Opener(b"<html>not a manifest</html>"),
+        ):
+            with self.assertRaisesRegex(SystemExit, "invalid-json"):
+                activation.verify_published_site_manifest(expected)
 
     def test_legal_document_http_redirects_are_rejected(self):
         handler = activation._NoRedirectHandler()
