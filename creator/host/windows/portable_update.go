@@ -94,6 +94,17 @@ func validatePortablePhysicalUpdateRequest(request PortablePhysicalUpdateRequest
 	return target,planSHA,nil
 }
 
+
+func validatePortableVolumeBinding(expectedGUID, observedGUID string, expectedDisk uint32, diskNumbers []uint32) error {
+	if expectedGUID == "" || observedGUID == "" || !strings.EqualFold(expectedGUID, observedGUID) {
+		return errors.New("Portable USB drive letter no longer resolves to the originally verified volume")
+	}
+	if len(diskNumbers) != 1 || diskNumbers[0] != expectedDisk {
+		return errors.New("Portable volume is not exclusively owned by the confirmed physical disk")
+	}
+	return nil
+}
+
 func ValidatePortablePhysicalUpdateRequest(request PortablePhysicalUpdateRequest) error {
 	_,_,err:=validatePortablePhysicalUpdateRequest(request)
 	return err

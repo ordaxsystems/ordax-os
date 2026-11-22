@@ -78,3 +78,27 @@ func TestPortableHostUpdateRejectsUnauthorizedOrTamperedRequest(t *testing.T) {
 		})
 	}
 }
+
+
+func TestPortableUpdateVolumeGUIDMustStayOnExactPhysicalDisk(t *testing.T) {
+	for _,tc:=range []struct {
+		name string
+		expected string
+		observed string
+		disk uint32
+		disks []uint32
+		pass bool
+	}{
+		{"same-volume","volume-guid-a","VOLUME-GUID-A",1,[]uint32{1},true},
+		{"wrong-drive-letter","volume-guid-a","volume-guid-b",1,[]uint32{1},false},
+		{"wrong-disk","volume-guid-a","volume-guid-a",1,[]uint32{0},false},
+		{"spanned-volume","volume-guid-a","volume-guid-a",1,[]uint32{1,0},false},
+		{"no-extent","volume-guid-a","volume-guid-a",1,nil,false},
+		{"missing-volume-id","","",1,[]uint32{1},false},
+	} {
+		t.Run(tc.name,func(t *testing.T){
+			err:=validatePortableVolumeBinding(tc.expected,tc.observed,tc.disk,tc.disks)
+			if (err==nil)!=tc.pass{t.Fatalf("allowed=%v expected=%v error=%v",err==nil,tc.pass,err)}
+		})
+	}
+}
