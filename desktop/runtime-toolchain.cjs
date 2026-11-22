@@ -9,7 +9,7 @@ const {join,resolve,dirname,sep}=require('node:path');
 const {createHash}=require('node:crypto');
 const {spawnSync}=require('node:child_process');
 const {calculateTreeDigest}=require('./toolchain-cache.cjs');
-const root=resolve(__dirname,'../..');
+const root=resolve(__dirname,'..');
 const out=join(root,'out','windows-desktop-toolchain');
 const sha256=bytes=>createHash('sha256').update(bytes).digest('hex');
 function assertName(name) {
