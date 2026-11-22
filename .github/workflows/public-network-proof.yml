@@ -5,7 +5,7 @@ on:
     paths:
       - '.github/workflows/public-network-proof.yml'
       - 'tools/public-site/probe_public_network.py'
-      - 'tools/public-site/public_identity_state.py'
+      - 'site/scripts/public_identity_state.py'
       - 'tests/test_public_site_network_proof.py'
       - 'docs/contracts/public-site-deployment.json'
   push:
@@ -13,7 +13,7 @@ on:
     paths:
       - '.github/workflows/public-network-proof.yml'
       - 'tools/public-site/probe_public_network.py'
-      - 'tools/public-site/public_identity_state.py'
+      - 'site/scripts/public_identity_state.py'
       - 'tests/test_public_site_network_proof.py'
       - 'docs/contracts/public-site-deployment.json'
   workflow_dispatch:

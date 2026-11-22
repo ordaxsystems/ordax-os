@@ -73,7 +73,7 @@ class PublicNetworkProofTests(unittest.TestCase):
         root = SOURCE.parents[2]
         for workflow in ("public-network-proof.yml", "public-legal-integrity.yml"):
             content = (root / ".github/workflows" / workflow).read_text(encoding="utf-8")
-            self.assertEqual(content.count("'tools/public-site/public_identity_state.py'"), 2, workflow)
+            self.assertEqual(content.count("'site/scripts/public_identity_state.py'"), 2, workflow)
             self.assertIn("test_public_site_network_proof.py", content)
         site = (root / ".github/workflows/public-site-candidate.yml").read_text(encoding="utf-8")
         self.assertIn("tests.test_public_site_network_proof", site)

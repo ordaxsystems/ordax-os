@@ -5,7 +5,7 @@ on:
     paths:
       - '.github/workflows/public-legal-integrity.yml'
       - 'tools/public-site/probe_public_network.py'
-      - 'tools/public-site/public_identity_state.py'
+      - 'site/scripts/public_identity_state.py'
       - 'tools/public-site/public_legal_integrity.py'
       - 'docs/contracts/public-legal-readiness.json'
       - 'docs/contracts/public-site-source.json'
@@ -21,7 +21,7 @@ on:
     paths:
       - '.github/workflows/public-legal-integrity.yml'
       - 'tools/public-site/probe_public_network.py'
-      - 'tools/public-site/public_identity_state.py'
+      - 'site/scripts/public_identity_state.py'
       - 'tools/public-site/public_legal_integrity.py'
       - 'docs/contracts/public-legal-readiness.json'
       - 'docs/contracts/public-site-source.json'

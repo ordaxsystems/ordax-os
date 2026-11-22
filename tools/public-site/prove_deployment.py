@@ -7,10 +7,13 @@ import argparse
 import json
 import ssl
 import sys
+from pathlib import Path
 from urllib.error import HTTPError, URLError
 from urllib.parse import urljoin, urlsplit
 from urllib.request import Request, urlopen
 
+# Resolve the single same-commit Site policy, never a local mirror.
+sys.path.insert(0, str(Path(__file__).resolve().parents[2] / "site" / "scripts"))
 from public_identity_state import PublicIdentityStateError, resolve_public_identity_mode
 from public_legal_integrity import PublicLegalIntegrityError, verify_public_legal_integrity
 

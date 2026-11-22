@@ -17,6 +17,8 @@ import sys
 from urllib.error import HTTPError, URLError
 from urllib.request import HTTPSHandler, HTTPRedirectHandler, ProxyHandler, Request, build_opener
 
+# Resolve the single same-commit Site policy, never a local mirror.
+sys.path.insert(0, str(Path(__file__).resolve().parents[2] / "site" / "scripts"))
 from public_identity_state import PublicIdentityStateError, resolve_public_identity_mode
 from public_legal_integrity import PublicLegalIntegrityError, verify_public_legal_integrity
 
