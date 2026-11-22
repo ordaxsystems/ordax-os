@@ -97,7 +97,11 @@ try {
     )
 
 
-def prove(apps: Path) -> dict:
+def prove(apps: Path, expected_source_commit: str, expected_package_sha256: str) -> dict:
+    if re.fullmatch(r"[0-9a-f]{40}", expected_source_commit) is None:
+        raise ValueError("Expected source revision must be a pinned lowercase 40-hex commit")
+    if re.fullmatch(r"[0-9a-f]{64}", expected_package_sha256) is None:
+        raise ValueError("Expected package digest must be a pinned lowercase SHA-256")
     import gi
     gi.require_version("Gtk", "3.0")
     gi.require_version("WebKit2", "4.1")
@@ -106,6 +110,8 @@ def prove(apps: Path) -> dict:
     commit = run("git", "rev-parse", "HEAD", cwd=apps)
     if not re.fullmatch(r"[a-f0-9]{40}", commit):
         raise ValueError("Aura checkout must identify an exact source commit")
+    if commit != expected_source_commit:
+        raise ValueError("Checked-out Aura source does not match the pinned revision")
     builder = apps / "tools/app-package/build.py"
     app = apps / "apps/assistant"
     with tempfile.TemporaryDirectory(prefix="ordax-aura-webkit-") as temporary:
@@ -124,6 +130,8 @@ def prove(apps: Path) -> dict:
         digest = hashlib.sha256(package_bytes).hexdigest()
         if digest != release["package"]["sha256"]:
             raise ValueError("Verified Aura package changed")
+        if digest != expected_package_sha256:
+            raise ValueError("Aura package SHA-256 differs from the operator-pinned digest")
         unpacked = scratch / "extracted"
         with zipfile.ZipFile(package) as archive:
             for info in archive.infolist():
@@ -287,9 +295,11 @@ def prove(apps: Path) -> dict:
 if __name__ == "__main__":
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--apps-root", type=Path, required=True)
+    parser.add_argument("--expected-source-commit", required=True)
+    parser.add_argument("--expected-package-sha256", required=True)
     args = parser.parse_args()
     try:
-        print(json.dumps(prove(args.apps_root.resolve()), sort_keys=True))
+        print(json.dumps(prove(args.apps_root.resolve(), args.expected_source_commit, args.expected_package_sha256), sort_keys=True))
     except (OSError, ValueError, RuntimeError, subprocess.CalledProcessError) as exc:
         print("AURA_NATIVE_WEBKIT_SMOKE_FAILED=" + str(exc)[:2500], file=sys.stderr)
         sys.exit(1)
