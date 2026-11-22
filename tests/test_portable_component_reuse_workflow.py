@@ -116,7 +116,7 @@ class PortableComponentReuseWorkflowTests(unittest.TestCase):
         self.assertIn("--receipt \"$work/metadata/local-ai-cache-preflight.json\"", block)
         self.assertIn('manifest.get("build_source_commit")', block)
         self.assertIn('git worktree add --detach "$source" "$build_source_commit"', block)
-        self.assertIn('ORDAX_SOURCE_COMMIT="$build_source_commit" python "$ORDAX_EXTERNAL_AI_BUILDER"', block)
+        self.assertIn('ORDAX_SOURCE_COMMIT="$build_source_commit" python "$ORDAX_AI_BUILDER"', block)
         self.assertIn('"$source/bootstrap/local-ai-runtime/build.py" verify', block)
         self.assertIn("--integration-commit \"$ORDAX_SOURCE_COMMIT\"", block)
         self.assertIn("--cache-hit \"$cache_hit\"", block)
