@@ -140,9 +140,39 @@ jobs:
             "${force[@]}" \
             --github-output "$GITHUB_OUTPUT"
 
-  buildroot-surface:
+  producer-availability:
+    name: Trusted Linux Surface producer availability
     needs: [contract, impact]
-    if: needs.impact.outputs.required == 'true' && (github.event_name != 'pull_request' || !github.event.pull_request.draft)
+    if: needs.impact.outputs.required == 'true' && github.event_name == 'workflow_dispatch' && github.ref == 'refs/heads/main'
+    runs-on: ubuntu-24.04
+    timeout-minutes: 3
+    steps:
+      - name: Reject missing or Codespace producer before scheduling Buildroot
+        env:
+          GH_TOKEN: ${{ github.token }}
+          ORDAX_SURFACE_LABEL: ${{ vars.ORDAX_SURFACE_RUNNER_LABEL }}
+        run: |
+          set -euo pipefail
+          if [ -z "$ORDAX_SURFACE_LABEL" ]; then
+            echo '::error::No trusted Linux Surface producer label configured. Never run Buildroot on an unqualified hosted runner.'
+            exit 1
+          fi
+          inventory="$(gh api "repos/$GITHUB_REPOSITORY/actions/runners?per_page=100")"
+          if ! jq -e --arg label "$ORDAX_SURFACE_LABEL" '
+            any(.runners[];
+              .os == "Linux" and .status == "online" and .busy == false
+              and ([.labels[].name] | index("self-hosted") != null)
+              and ([.labels[].name] | index($label) != null)
+              and ((.name | ascii_downcase | contains("codespace")) | not)
+            )' <<< "$inventory" >/dev/null; then
+            echo '::error title=Surface producer unavailable::No idle online non-Codespace Linux runner matches the configured label. Do not enqueue a stalled Buildroot job.'
+            exit 1
+          fi
+          echo 'ORDAX_SURFACE_TRUSTED_LINUX_PRODUCER=ONLINE_NON_CODESPACE'
+
+  buildroot-surface:
+    needs: [contract, impact, producer-availability]
+    if: ${{ !cancelled() && needs.contract.result == 'success' && needs.impact.outputs.required == 'true' && (github.event_name != 'workflow_dispatch' || needs.producer-availability.result == 'success') && (github.event_name != 'pull_request' || !github.event.pull_request.draft) }}
     # This repository is public: PRs must not reach a private, persistent runner.
     # A trusted maintainer may explicitly dispatch main to the dedicated producer.
     # Never register a personal workstation as a repo-level public PR runner.
