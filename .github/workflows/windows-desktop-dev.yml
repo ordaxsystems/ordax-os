@@ -78,8 +78,21 @@ jobs:
       - name: Verify committed Surface from the same OS revision
         shell: pwsh
         run: |
-          & python tools/surface-source/materialize.py verify --os-root .
-          if ($LASTEXITCODE -ne 0) { throw 'OS Surface source mismatch' }
+          $verified = & python tools/surface-source/materialize.py verify --os-root .
+          if ($LASTEXITCODE -ne 0 -or @($verified).Count -ne 1) {
+            throw 'OS Surface source mismatch'
+          }
+          $proof = $verified | ConvertFrom-Json
+          $sha = (& git rev-parse HEAD).Trim()
+          if ($LASTEXITCODE -ne 0 -or $proof.source_commit -cne $sha) {
+            throw 'Surface proof is not bound to the checked-out OS commit'
+          }
+          $directory = Join-Path $env:RUNNER_TEMP 'ordax-desktop-verified-surface'
+          if (Test-Path -LiteralPath $directory) { throw 'Surface proof destination already exists' }
+          New-Item -ItemType Directory -Path $directory -ErrorAction Stop | Out-Null
+          [IO.File]::WriteAllText(
+            (Join-Path $directory 'surface-source-receipt.json'),
+            ([string]$verified + [Environment]::NewLine), [Text.UTF8Encoding]::new($false))
           Write-Output "WINDOWS_SINGLE_SURFACE_SOURCE=OS_COMMIT"
 
       - name: Audit exact Windows packaged Native system footprint
