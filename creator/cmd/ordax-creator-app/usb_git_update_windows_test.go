@@ -57,10 +57,14 @@ func TestOwnerUSBUpdateRequiresDeliberatePhysicalSelection(t *testing.T) {
 
 func TestOwnerUSBTaskReusesCanonicalInstalledTransport(t *testing.T) {
     home := t.TempDir()
-    github := filepath.Join(home, "GitHub")
-    creator := filepath.Join(github, "ordax-os", "creator")
+    // A main worktree can live outside a fixed GitHub/ordax-os path.
+    ownerRoot := filepath.Join(home, "_worktrees", "owner-main")
+    creator := filepath.Join(ownerRoot, "creator")
     tools := filepath.Join(creator, "tools")
     if err := os.MkdirAll(tools, 0700); err != nil { t.Fatal(err) }
+    if err := os.WriteFile(filepath.Join(ownerRoot, ".git"), []byte("gitdir: fixture"), 0600); err != nil {
+        t.Fatal(err)
+    }
     for _, p := range []string{filepath.Join(tools, "owner_local_sync.py"),
         filepath.Join(tools, "owner_usb_git_delivery.py"), filepath.Join(home, "python.exe")} {
         if err := os.WriteFile(p, []byte("test"), 0600); err != nil { t.Fatal(err) }
@@ -96,13 +100,21 @@ func TestOwnerUSBTaskReusesCanonicalInstalledTransport(t *testing.T) {
     if _, err := ownerUSBTransportFromTask(task, testOwnerUSBTarget(), app); err == nil {
         t.Fatal("disabled scheduled task accepted")
     }
+    task.State = "Ready"
+    if err := os.Remove(filepath.Join(ownerRoot, ".git")); err != nil { t.Fatal(err) }
+    if _, err := ownerUSBTransportFromTask(task, testOwnerUSBTarget(), app); err == nil {
+        t.Fatal("task source without Git ownership accepted")
+    }
 }
 
 func TestOwnerUSBTrustedHotplugRequiresUniqueAuthorizedSerial(t *testing.T) {
     home := t.TempDir()
-    creatorRepo := filepath.Join(home, "GitHub", "ordax-os", "creator")
+    sourceRoot := filepath.Join(home, "GitHub", "ordax-os")
+    creatorRepo := filepath.Join(sourceRoot, "creator")
     tools := filepath.Join(creatorRepo, "tools")
     if err := os.MkdirAll(tools, 0700); err != nil { t.Fatal(err) }
+    // A normal checkout owns a .git directory, unlike the linked worktree.
+    if err := os.MkdirAll(filepath.Join(sourceRoot, ".git"), 0700); err != nil { t.Fatal(err) }
     python := filepath.Join(home, "python.exe")
     script := filepath.Join(tools, "owner_local_sync.py")
     deliver := filepath.Join(tools, "owner_usb_git_delivery.py")
