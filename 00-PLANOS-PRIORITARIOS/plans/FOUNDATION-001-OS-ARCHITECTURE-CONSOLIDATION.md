@@ -1,5 +1,7 @@
 # FOUNDATION-001 — Auditoria e consolidação da fundação do OrdaX OS
 
+> **Corte vigente de ownership (2026-11-21):** as afirmações de 01–17/11 abaixo sobre `ordax-desktop`, `ordax-surface` ou `ordax-site` como owners Git separados foram **substituídas**. Seu código atual pertence respectivamente a `ordax-os/desktop/`, `ordax-os/system/surface/` e `ordax-os/site/`, no mesmo commit. Este plano preserva contexto datado, não autoriza novo checkout, pin, release publisher ou owner externo. A fonte executável é `docs/contracts/repository-ownership.json`; para Desktop consultar `desktop/docs/CUTOVER-2026-11-21.md`. Runtime/Platform e demais owners ainda separados permanecem intocados.
+
 - **Tipo:** PLAN / MVP FOUNDATION / CROSS-AGENT HANDOFF
 - **Status documental:** REFERENCE — roteiro/handoff de auditoria e consolidação, alinhado ao `REGISTRY.md`; não é fila paralela de implementação.
 - **Elegibilidade de execução:** EXECUTION-ELIGIBLE **somente** para defeitos reais, limpeza e integração exigidos por owners/gates atuais. Nenhum owner é adiado apenas por pertencer a USB, Desktop, Surface, Apps ou Creator; publicação e escrita física continuam sujeitas a autorização própria.
