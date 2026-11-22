@@ -1124,8 +1124,8 @@ class SiteContractTests(unittest.TestCase):
         self.assertIn("python3 tools/vercel/build.py", workflow)
         self.assertNotIn("tests.test_external_site_source", workflow)
 
-    def test_vercel_ignored_build_uses_last_deployed_sha_and_fails_open(self):
-        # Only docs/tests/CI instructions are excluded from host artifacts.
+    def test_vercel_monorepo_ignore_build_uses_last_deployed_sha_and_fails_open(self):
+        # Only changes to the Site and its canonical dependencies invalidate the host artifact.
         # Compare against the last successful *deployment*, not HEAD^: queued
         # releases can contain code changes followed by a docs-only commit.
         command = json.loads((ROOT / "vercel.json").read_text(encoding="utf-8"))["ignoreCommand"]
@@ -1160,7 +1160,7 @@ class SiteContractTests(unittest.TestCase):
                 environment = os.environ.copy()
                 environment["VERCEL_GIT_PREVIOUS_SHA"] = previous_sha
                 return subprocess.run(
-                    ["sh", "-c", command], cwd=repo, env=environment,
+                    ["sh", "-c", command], cwd=repo / "site", env=environment,
                     capture_output=True, text=True,
                 ).returncode
 
@@ -1168,28 +1168,28 @@ class SiteContractTests(unittest.TestCase):
             git("config", "user.name", "Site Gate Test")
             git("config", "user.email", "gate-test@example.invalid")
             for path in (
-                "README.md", "AGENTS.md", "docs/AUDIT.md", "tests/test_site.py",
-                ".github/workflows/ci.yml", "public/index.html", "vercel.json",
+                "site/README.md", "site/AGENTS.md", "site/docs/AUDIT.md", "site/tests/test_site.py",
+                ".github/workflows/ci.yml", "site/public/index.html", "site/vercel.json",
             ):
                 write(path, "initial\\n")
-            write("scripts/build_impact.py", impact)
+            write("site/scripts/build_impact.py", impact)
             deployed = commit("initial")
             self.assertNotEqual(ignored_build(""), 0)
             self.assertNotEqual(ignored_build("f" * 40), 0)
 
             for path in (
-                "README.md", "AGENTS.md", "docs/AUDIT.md", "tests/test_site.py",
+                "site/README.md", "site/AGENTS.md", "site/docs/AUDIT.md", "site/tests/test_site.py",
                 ".github/workflows/ci.yml",
             ):
                 write(path, "docs-only\\n")
             commit("documentation and CI only")
             self.assertEqual(ignored_build(deployed), 0)
 
-            write("public/index.html", "product changed\\n")
+            write("site/public/index.html", "product changed\\n")
             deployed_product = commit("product code")
             self.assertNotEqual(ignored_build(deployed), 0)
 
-            write("docs/AUDIT.md", "newer docs\\n")
+            write("site/docs/AUDIT.md", "newer docs\\n")
             commit("docs after product")
             self.assertNotEqual(ignored_build(deployed), 0)
             self.assertEqual(ignored_build(deployed_product), 0)
@@ -1204,7 +1204,7 @@ class SiteContractTests(unittest.TestCase):
                     report = Path(outdir) / "github-output"
                     environment["GITHUB_OUTPUT"] = str(report)
                     outcome = subprocess.run(
-                        ["python3", "scripts/build_impact.py", "--ci"],
+                        ["python3", "site/scripts/build_impact.py", "--ci"],
                         cwd=repo, env=environment, capture_output=True, text=True,
                     )
                     self.assertEqual(outcome.returncode, 0, outcome.stderr)
@@ -1215,18 +1215,18 @@ class SiteContractTests(unittest.TestCase):
             self.assertTrue(ci_full(deployed, "pull_request"))
             self.assertTrue(ci_full(deployed, "push"))
             docs_base = git("rev-parse", "HEAD")
-            write("README.md", "docs-only again\\n")
+            write("site/README.md", "docs-only again\\n")
             commit("PR documentation without code or tests")
             self.assertFalse(ci_full(docs_base, "pull_request"))
             self.assertTrue(ci_full(docs_base, "push"))
             self.assertTrue(ci_full("f" * 40, "pull_request"))
             self.assertTrue(ci_full("", "pull_request"))
 
-            write("unrecognized-root-config.txt", "relevant by default\\n")
-            commit("unknown root input")
-            self.assertNotEqual(ignored_build(deployed_product), 0)
+            write("desktop/unrelated-config.txt", "not consumed by Site\\n")
+            commit("unrelated OS module")
+            self.assertEqual(ignored_build(deployed_product), 0)
 
-            write("vercel.json", "host config changed\\n")
+            write("site/vercel.json", "host config changed\\n")
             commit("host config change")
             self.assertNotEqual(ignored_build(deployed_product), 0)
 
