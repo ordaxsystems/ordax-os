@@ -13,7 +13,8 @@ const { compiledBundleSha256 } = require('./native-build.cjs');
 const { git } = require('./checkout.cjs');
 const { readState, writeState, validateState, versionRoot, stageMain,
   chooseBootVersion, confirmHealthy, retireHealthyPrevious, unpin, shouldAutoActivate, desktopFirstRunComplete, createDesktopIdleActivation, createDesktopWindowIdleTracker,
-  sweepStaleCandidates, sweepRetiredVersions, removeOwnedCandidate, prepareWindowsGitDeletion } = require('./dev-update.cjs');
+  sweepStaleCandidates, sweepRetiredVersions, removeOwnedCandidate, prepareWindowsGitDeletion,
+  onlyNonRuntimeChanges } = require('./dev-update.cjs');
 
 test('DEV candidate selects canonical OS source and never a separate Desktop/Suface checkout',()=>{
   const source=readFileSync(join(__dirname,'dev-update.cjs'),'utf8');
@@ -406,6 +407,80 @@ test('verified bundled main is current without staging, recompilation or a false
   assert.equal(cloneCalls,1);
 });
 
+
+test('only Electron shell changes skip Native compilation, while unknown owners fail closed',()=>{
+  const shellOnly=[
+    'desktop/main.cjs','desktop/background-lifecycle.cjs',
+    'desktop/browser-host.cjs','desktop/browser-preload.cjs',
+    'desktop/window-layout.cjs','desktop/native-grant-frame.cjs',
+    'desktop/installer.nsh','desktop/package.json','desktop/dev-update.cjs',
+    'desktop/background-lifecycle.test.cjs','desktop/dev-update.test.cjs',
+    'desktop/docs/CUTOVER-2026-11-21.md','creator/tools/usb_preflight.py',
+  ];
+  const nul=String.fromCharCode(0);
+  const diff=paths=>paths.join(nul)+nul;
+  assert.equal(onlyNonRuntimeChanges(diff(shellOnly)),true);
+  for(const path of [
+    'system/composition/native/index.html',
+    'system/adapters/desktop/intelligence-runtime-bridge.mjs',
+    'system/contracts/desktop-intelligence.mjs',
+    'tools/windows-emulator/native-host.mjs',
+    'docs/contracts/desktop-runtime-dev-candidate.json',
+    'docs/evidence/desktop-runtime-windows-candidate.json',
+    'desktop/native-build.cjs','desktop/vite-native-build.mjs',
+    'desktop/host.cjs','desktop/runtime.cjs','desktop/checkout.cjs',
+    'desktop/git-toolchain-lock.json','desktop/standalone-stage.cjs',
+    'desktop/unknown.cjs','desktop/ci/unknown.cjs',
+    'new-owner/unknown.txt',
+  ])assert.equal(onlyNonRuntimeChanges(diff([...shellOnly,path])),false,path);
+  for(const invalid of [
+    '', 'desktop/main.cjs', 'desktop/main.cjs'+nul+'system/composition/native/index.html',
+    diff(['desktop/main.cjs','desktop/../../system/composition/native/index.html']),
+    diff(['desktop/main.cjs','desktop/host.cjs']),
+    diff(['desktop/main.cjs','desktop/new-feature.test.js']),
+  ])assert.equal(onlyNonRuntimeChanges(invalid),false);
+});
+
+test('official Electron-only main never stages Native and a later Native change still does',async t=>{
+  const f=fixture(t);
+  installVerifiedBundledFixture(f,f.first);
+  for(const path of [
+    'desktop/main.cjs','desktop/background-lifecycle.cjs',
+    'desktop/package.json','desktop/dev-update.test.cjs',
+    'creator/tools/usb_preflight.py',
+  ]){
+    const target=join(f.source,...path.split('/'));
+    mkdirSync(require('node:path').dirname(target),{recursive:true});
+    writeFileSync(target,'verified separate Electron/Creator source');
+  }
+  gitCli(['add','.'],f.source);
+  gitCli(['commit','-qm','Electron-only main with Creator change'],f.source);
+  const shellSha=gitCli(['rev-parse','HEAD'],f.source);
+  let builds=0,clones=0;
+  const runGit=async(...args)=>{
+    if(args[0].includes('clone'))clones++;
+    return f.offlineGit(...args);
+  };
+  const params={userData:f.userData,template:f.template,runGit,
+    buildCandidate:async()=>{builds++;throw Error('Electron-only must not rebuild Native')}};
+  const unchanged=await stageMain(params);
+  assert.deepEqual(unchanged,{status:'no-runtime-change',sha:shellSha});
+  assert.equal(readState(f.userData).pendingSha,null);
+  assert.equal(readState(f.userData).activeSha,null);
+  assert.equal(readState(f.userData).nonRuntimeMainSha,shellSha);
+  assert.deepEqual(await stageMain(params),unchanged);
+  assert.equal(builds,0);
+  assert.equal(clones,1,'same main should not re-clone');
+  const nativeSha=f.advance();
+  const changed=await stageMain({...params,buildCandidate:async (...args)=>{
+    builds++;
+    return f.offlineBuild(...args);
+  }});
+  assert.equal(changed.status,'staged');
+  assert.equal(changed.sha,nativeSha);
+  assert.equal(builds,1);
+  assert.equal(readState(f.userData).nonRuntimeMainSha,null);
+});
 
 test('docs and CI-only main commits preserve bundled Native runtime without relaunch or repeat clone',async t=>{
   const f=fixture(t);
