@@ -20,16 +20,30 @@ class CreatorDevReleaseGate(unittest.TestCase):
         for label in ("push:", "pull_request:", "workflow_dispatch:"):
             self.assertIn(label, events)
         self.assertNotIn("tools/creator/**", events)
+        for path in ("creator/cmd/**", "creator/core/**", "creator/update/**",
+                     "creator/physicalchannel/**", "creator/version.json"):
+            self.assertIn(path, events)
+        self.assertNotIn("'system/**'", events)
+        self.assertNotIn("'bootstrap/**'", events)
         self.assertIn("permissions:\n  contents: read", text)
         candidate = text.split("  build-creator-dev-candidate:\n",1)[1].split("\n  publish-creator-dev:",1)[0]
         self.assertNotIn("gh release", candidate)
         self.assertNotIn("contents: write", candidate)
         self.assertIn("actions/upload-artifact@", candidate)
 
-    def test_publisher_requires_explicit_os_main_and_separate_credentials(self):
+    def test_publisher_requires_os_main_and_separate_credentials(self):
         publisher = self.workflow.split("\n  publish-creator-dev:\n", 1)[1]
         self.assertIn("needs: build-creator-dev-candidate", publisher)
         self.assertIn("github.event_name == 'workflow_dispatch'", publisher)
+        self.assertIn("github.event_name == 'push'", publisher)
+        self.assertIn("steps.creator-freshness.outputs.allowed == 'true'", publisher)
+        self.assertIn("CREATOR_PUBLISH=SKIP_SUPERSEDED_SOURCE", publisher)
+        self.assertIn("provenance.creator_source_tree", publisher)
+        self.assertIn("git rev-parse 'HEAD:creator'", publisher)
+        self.assertNotIn("$pin.commit", publisher)
+        self.assertNotIn("$pin.tree", publisher)
+        self.assertIn("$pin.publisher_authority", publisher)
+        self.assertIn("$pin.physical_apply_authorized", publisher)
         self.assertIn("github.ref == 'refs/heads/main'", publisher)
         self.assertIn("github.repository == 'ordaxsystems/ordax-os'", publisher)
         self.assertIn("contents: write", publisher)
@@ -46,6 +60,13 @@ class CreatorDevReleaseGate(unittest.TestCase):
         self.assertIn("Push-Location $env:ORDAX_CREATOR_NATIVE_SOURCE", text)
         self.assertNotIn("Push-Location tools/creator", text)
         self.assertIn("$sha = $env:ORDAX_CREATOR_SOURCE_COMMIT", text)
+        self.assertIn("main.buildCreatorVersion=$($product.version)", text)
+        self.assertIn("main.buildCreatorSourceCommit=$sha", text)
+        self.assertIn("-ldflags $creatorBuildFlags", text)
+        self.assertNotIn("-ldflags=$creatorBuildFlags", text)
+        self.assertIn("Creator GUI build failed", text)
+        self.assertIn("Creator inspection helper build failed", text)
+        self.assertIn("ordax.creator-product-version/1", text)
         self.assertIn("prototype-ordax.creator-update-channel/1", text)
         self.assertIn("https://github.com/ordaxsystems/ordax-os/releases/download/creator-dev/ordax-creator-dev-windows-amd64.zip", text)
         for path in ("1-Inspect-OrdaXUSB.cmd", "2-Legacy-Protocol-Compatibility.cmd", "ordax-creator-physical-test.exe"):

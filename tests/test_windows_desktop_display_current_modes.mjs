@@ -3,7 +3,7 @@ import assert from "node:assert/strict";
 import {createServer} from "node:http";
 import {mkdtemp,rm} from "node:fs/promises";
 import {join} from "node:path";
-import {tmpdir} from "node:os";
+import {tmpdir,homedir} from "node:os";
 import {createDesktopClientDiagnosticsMiddleware} from "../system/adapters/desktop/client-diagnostics-host.mjs";
 import {
   projectWindowsDisplayCurrentModes,
@@ -41,6 +41,8 @@ test("Win32 DEVMODEW reports real physical current pixels and refresh, no altern
   assert.deepEqual(simulated,result);
   assert.equal(observed.binary,"powershell.exe");
   assert.equal(observed.opts.timeout,12000);
+  assert.equal(observed.opts.cwd,homedir(),
+    "display observation must not retain a retired Native revision directory");
   const source=observed.args.at(-1);
   assert.match(source,/EnumDisplaySettings/);
   assert.match(source,/dmDisplayFrequency/);

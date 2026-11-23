@@ -1,5 +1,6 @@
 import test from "node:test";
 import assert from "node:assert/strict";
+import { homedir } from "node:os";
 import {
   projectWindowsNetworkStatus,readDesktopNetworkStatus,
 } from "../system/adapters/desktop/network-status.mjs";
@@ -31,6 +32,8 @@ test("Windows host uses real link status and physical interface type, not IP heu
   ]);
   assert.equal(observed.binary,"powershell.exe");
   assert.equal(observed.options.timeout,7000);
+  assert.equal(observed.options.cwd,homedir(),
+    "a suspended Windows probe must never lock a replaceable runtime version");
   const script=observed.args.at(-1);
   assert.match(script,/GetAllNetworkInterfaces/);
   assert.match(script,/NetworkInterfaceType/);

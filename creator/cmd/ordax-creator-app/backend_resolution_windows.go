@@ -46,8 +46,6 @@ func finishRefreshState(result appRefreshState, backendDirectory string) appRefr
 	}
 	result.Targets = targets
 	switch result.PhysicalMode {
-	case "legacy-owner":
-		result.PhysicalReady = readiness.LegacyOwner
 	case "portable-public":
 		result.PhysicalReady = readiness.Portable && result.PortablePayload != nil
 	default:
@@ -56,20 +54,10 @@ func finishRefreshState(result appRefreshState, backendDirectory string) appRefr
 	return result
 }
 
-// resolveRefreshState keeps each distribution channel isolated. The
-// write-enabled owner prototype is a self-contained package: it must not
-// download or depend on the creator-dev payload before it can create a USB.
-// Normal development and future official-trust builds retain their existing
-// independently verified component channels.
+// resolveRefreshState keeps the Creator executable and OS media independent.
+// A legacy embedded raw seed never authorizes a physical installation:
+// the only supported writer is the current purpose-bound signed Portable channel.
 func resolveRefreshState() appRefreshState {
-	if ownerDirectory, owner := ownerPrototypePhysicalBackend(); owner {
-		result := appRefreshState{BackendDirectory: ownerDirectory, PhysicalMode: "legacy-owner"}
-		if version, sourceCommit, ok := ownerPrototypeBuildInfo(); ok {
-			result.Version = version
-			result.SourceCommit = sourceCommit
-		}
-		return finishRefreshState(result, ownerDirectory)
-	}
 
 	result := appRefreshState{}
 	backendDirectory := ""

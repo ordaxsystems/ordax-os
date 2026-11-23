@@ -24,6 +24,7 @@ import os
 import re
 import sys
 from pathlib import Path
+from tools.ci.independent_surface_component_cache import FINGERPRINT_VERSION
 
 manifest_path = Path(sys.argv[1])
 mode = sys.argv[2]
@@ -36,7 +37,7 @@ if not isinstance(manifest, dict):
     raise SystemExit("invalid Surface manifest object")
 if manifest.get("$schema") != "prototype-ordax.independent-surface-component-cache/1":
     raise SystemExit("unexpected Surface manifest schema")
-if manifest.get("fingerprint_version") != "independent-surface-inputs-v1":
+if manifest.get("fingerprint_version") != FINGERPRINT_VERSION:
     raise SystemExit("unexpected Surface fingerprint version")
 if manifest.get("input_fingerprint") != os.environ["ORDAX_SURFACE_FINGERPRINT"]:
     raise SystemExit("Surface manifest fingerprint mismatch")

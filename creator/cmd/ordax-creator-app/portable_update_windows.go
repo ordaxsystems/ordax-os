@@ -44,10 +44,7 @@ func portableUSBUpdateEligible(state appRefreshState,index int) bool {
 }
 
 func creatorUSBUpdateEligible(state appRefreshState,index int) bool {
-	if state.PhysicalMode=="portable-public" {
-		return portableUSBUpdateEligible(state,index)
-	}
-	return ownerUSBCanStageSelected(state,index)
+	return portableUSBUpdateEligible(state,index)
 }
 
 func beginCreatorUSBUpdate() {
@@ -55,7 +52,7 @@ func beginCreatorUSBUpdate() {
 	state:=refreshState
 	stateMu.Unlock()
 	if state.PhysicalMode!="portable-public" {
-		beginOwnerUSBUpdate()
+		messageBox(creatorT(msgPortableUSBUpdateBlocked),windowTitle,mbOK|mbIconWarning)
 		return
 	}
 	if refreshInProgress || writeInProgress() || ownerUSBUpdateInProgress() {return}

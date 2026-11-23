@@ -30,14 +30,8 @@ func physicalTrustBinding() ([]byte, string, bool) {
 	return trust, digest, true
 }
 
-// resolvePhysicalBackend has two deliberately separate paths:
-//  1. owner-prototype builds compiled with ordax_owner_prototype may use only
-//     the raw backend and seed shipped beside that exact executable;
-//  2. normal builds accept only the dedicated purpose-bound Ed25519-signed
-//     physical channel.
-//
-// The special owner path is compile-time isolated. The ordinary creator-dev
-// build does not contain it and therefore remains non-destructive.
+// Only the purpose-bound Ed25519-signed Portable channel may authorize
+// physical media. Old embedded owner seeds are never a fallback writer.
 type physicalBackendResolution struct {
 	Directory       string
 	Mode            string
@@ -62,10 +56,6 @@ func resolutionFromInstalled(installed physicalchannel.Installed) physicalBacken
 }
 
 func resolvePhysicalBackend() (physicalBackendResolution, bool) {
-	if directory, ok := ownerPrototypePhysicalBackend(); ok {
-		return physicalBackendResolution{Directory: directory, Mode: "legacy-owner"}, true
-	}
-
 	trust, trustSHA, ok := physicalTrustBinding()
 	if !ok {
 		return physicalBackendResolution{}, false
@@ -74,9 +64,8 @@ func resolvePhysicalBackend() (physicalBackendResolution, bool) {
 	if err == nil {
 		return resolutionFromInstalled(installed), true
 	}
-	current, currentErr := physicalchannel.Current("", trust, trustSHA)
-	if currentErr != nil {
-		return physicalBackendResolution{}, false
-	}
-	return resolutionFromInstalled(current), true
+	// A stale signed cache is not proof of the newest available OS.
+	// A failed online acquisition must block physical writes, not silently
+	// downgrade to a previously installed physical payload.
+	return physicalBackendResolution{}, false
 }
