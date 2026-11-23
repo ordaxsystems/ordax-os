@@ -143,49 +143,17 @@ jobs:
             "${force[@]}" \
             --github-output "$GITHUB_OUTPUT"
 
-  producer-availability:
-    name: Non-Codespace Linux producer configuration
-    needs: [contract, impact]
-    if: needs.impact.outputs.required == 'true' && github.ref == 'refs/heads/main' && (github.event_name == 'workflow_dispatch' || (github.event_name == 'push' && vars.ORDAX_SURFACE_RUNNER_LABEL != ''))
-    runs-on: ubuntu-24.04
-    timeout-minutes: 3
-    steps:
-      - name: Require explicit non-Codespace producer configuration
-        env:
-          ORDAX_SURFACE_LABEL: ${{ vars.ORDAX_SURFACE_RUNNER_LABEL }}
-          ORDAX_SURFACE_ENVIRONMENT: ${{ vars.ORDAX_SURFACE_PRODUCER_ENVIRONMENT }}
-          ORDAX_SURFACE_CACHE_ROOT: ${{ vars.ORDAX_SURFACE_PERSISTENT_WORK_ROOT }}
-          ORDAX_SURFACE_BUILD_ROOT: ${{ vars.ORDAX_SURFACE_BUILD_WORK_ROOT }}
-        run: |
-          set -euo pipefail
-          for config in ORDAX_SURFACE_LABEL ORDAX_SURFACE_ENVIRONMENT ORDAX_SURFACE_CACHE_ROOT ORDAX_SURFACE_BUILD_ROOT; do
-            if [ -z "${!config}" ]; then
-              echo "::error title=Surface producer not configured::Missing $config; refusing to queue a potentially offline Linux producer."
-              exit 1
-            fi
-            case "${!config,,}" in
-              *codespace*)
-                echo "::error title=Codespace disallowed::The Surface producer configuration $config references Codespaces."
-                exit 1
-                ;;
-            esac
-          done
-          # No GitHub runner inventory API here: GITHUB_TOKEN does not carry
-          # Administration:read. The selected Linux runner itself verifies its
-          # runtime, capacity and disk identity before any expensive build.
-          echo 'ORDAX_SURFACE_PRODUCER_CONFIG=NON_CODESPACE_NOT_YET_RUNTIME_ATTESTED'
 
   buildroot-surface:
-    needs: [contract, impact, producer-availability]
-    if: ${{ !cancelled() && needs.contract.result == 'success' && needs.impact.outputs.required == 'true' && (github.event_name == 'pull_request' || (github.event_name == 'push' && vars.ORDAX_SURFACE_RUNNER_LABEL == '') || needs.producer-availability.result == 'success') && (github.event_name != 'pull_request' || !github.event.pull_request.draft) }}
+    needs: [contract, impact]
+    if: ${{ !cancelled() && needs.contract.result == 'success' && needs.impact.outputs.required == 'true' && (github.event_name != 'pull_request' || !github.event.pull_request.draft) }}
     # This repository is public: PRs must not reach a private, persistent runner.
     # Only canonical main (push or explicit dispatch) may select the trusted
     # dedicated Linux producer; public PRs always remain on hosted runners.
     # Never register a personal workstation as a repo-level public PR runner.
     runs-on: ${{ (github.event_name == 'workflow_dispatch' || github.event_name == 'push') && github.ref == 'refs/heads/main' && vars.ORDAX_SURFACE_RUNNER_LABEL != '' && vars.ORDAX_SURFACE_RUNNER_LABEL || 'ubuntu-24.04' }}
-    # Longer budget requires an explicit trusted runner, durable compiler/download
-    # cache, pinned producer identity and a separately sized Buildroot workspace.
-    # Preflight rejects hosted runners, undersized scratch and mixed storage roots.
+    # Default is the free GitHub-hosted Linux runner. Private producer is optional.
+    # An explicitly configured persistent producer may have a longer time budget.
     timeout-minutes: ${{ (github.event_name == 'workflow_dispatch' || github.event_name == 'push') && github.ref == 'refs/heads/main' && vars.ORDAX_SURFACE_RUNNER_LABEL != '' && vars.ORDAX_SURFACE_PERSISTENT_WORK_ROOT != '' && vars.ORDAX_SURFACE_BUILD_WORK_ROOT != '' && vars.ORDAX_SURFACE_PRODUCER_ENVIRONMENT != '' && 720 || 360 }}
     env:
       ORDAX_SURFACE_PRODUCER_ENVIRONMENT: ${{ vars.ORDAX_SURFACE_PRODUCER_ENVIRONMENT }}
@@ -201,23 +169,6 @@ jobs:
       artifact_reused: ${{ steps.surface-reuse-state.outputs.reused }}
       artifact_source: ${{ steps.surface-reuse-state.outputs.source }}
     steps:
-      - name: Reject Codespace runtime before any source or compiler work
-        if: ${{ (github.event_name == 'workflow_dispatch' || github.event_name == 'push') && github.ref == 'refs/heads/main' && vars.ORDAX_SURFACE_RUNNER_LABEL != '' }}
-        env:
-          ORDAX_RUNNER_NAME: ${{ runner.name }}
-          ORDAX_RUNNER_ENVIRONMENT: ${{ runner.environment }}
-        run: |
-          set -euo pipefail
-          if [ "$ORDAX_RUNNER_ENVIRONMENT" != self-hosted ]; then
-            echo '::error::Trusted Surface production requires an authorized self-hosted Linux runner.'
-            exit 1
-          fi
-          case "${ORDAX_RUNNER_NAME,,}" in
-            *codespace*)
-              echo '::error::Codespace execution is prohibited for this Surface producer.'
-              exit 1
-              ;;
-          esac
       - name: Checkout exact source
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
         with:
@@ -239,8 +190,7 @@ jobs:
           set -euo pipefail
           if [ -n "${ORDAX_SURFACE_PRODUCER_ENVIRONMENT:-}" ]; then
             # Exact producer identity is also needed by hosted read-only consumers.
-            # It never authorizes compilation: a cache miss still requires an
-            # independently verified persistent self-hosted workspace below.
+            # A pinned producer identity still requires exact artifact verification.
             export ORDAX_COMPONENT_CACHE_ENVIRONMENT="$ORDAX_SURFACE_PRODUCER_ENVIRONMENT"
           else
             test -n "${ImageOS:-}"
@@ -359,28 +309,19 @@ jobs:
             "$RUNNER_TEMP/ordax-independent-surface" "$ORDAX_SOURCE_COMMIT" \
             "$ORDAX_PRODUCER_BRANCH" "$GITHUB_OUTPUT"
 
-      - name: Require persistent producer on verified Surface artifact miss
-        if: steps.surface-artifact-cache.outputs.cache-hit != 'true' && steps.surface-r2.outputs.hit != 'true' && steps.surface-github-artifact.outputs.hit != 'true'
-        run: |
-          set -euo pipefail
-          if [ -z "${ORDAX_SURFACE_PERSISTENT_WORK_ROOT:-}" ] || [ -z "${ORDAX_SURFACE_BUILD_WORK_ROOT:-}" ]; then
-            echo "::error title=Surface EROFS requires trusted producer storage::No verified EROFS is available in the exact GitHub cache or R2. Refusing another hosted 330-minute rebuild. Configure the pinned Linux self-hosted producer with durable compiler/download cache and a separately sized build workspace before attempting the same WebKit build." >&2
-            exit 1
-          fi
-
       - name: Install Surface verification dependencies
         run: |
           sudo apt-get update
           sudo apt-get install -y --no-install-recommends erofs-utils util-linux
 
-      - name: Install full Surface Buildroot host dependencies on durable artifact miss
+      - name: Install full Surface Buildroot host dependencies on verified artifact miss
         if: steps.surface-artifact-cache.outputs.cache-hit != 'true' && steps.surface-r2.outputs.hit != 'true' && steps.surface-github-artifact.outputs.hit != 'true'
         run: |
           sudo apt-get install -y --no-install-recommends \
             build-essential bc perl bison flex gawk cpio unzip rsync file \
             wget curl patch git xz-utils
 
-      - name: Restore exact Surface compiler cache on durable artifact miss
+      - name: Restore exact Surface compiler cache on verified artifact miss
         if: steps.surface-artifact-cache.outputs.cache-hit != 'true' && steps.surface-r2.outputs.hit != 'true' && steps.surface-github-artifact.outputs.hit != 'true' && env.ORDAX_SURFACE_PERSISTENT_WORK_ROOT == ''
         id: surface-ccache
         uses: actions/cache/restore@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
@@ -392,7 +333,7 @@ jobs:
             ordax-independent-surface-ccache-v2-${{ runner.os }}-${{ runner.arch }}-
             ordax-independent-surface-ccache-v1-${{ runner.os }}-${{ runner.arch }}-
 
-      - name: Restore Surface Buildroot source downloads on durable artifact miss
+      - name: Restore Surface Buildroot source downloads on verified artifact miss
         if: steps.surface-artifact-cache.outputs.cache-hit != 'true' && steps.surface-r2.outputs.hit != 'true' && steps.surface-github-artifact.outputs.hit != 'true' && env.ORDAX_SURFACE_PERSISTENT_WORK_ROOT == ''
         id: surface-download-cache
         uses: actions/cache/restore@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
@@ -419,7 +360,7 @@ jobs:
           python3 bootstrap/surface-runtime/prepare_config.py preflight \
             --cache "${BR2_DL_DIR:?}"
 
-      - name: Build Buildroot/musl Surface runtime on durable artifact miss
+      - name: Build Buildroot/musl Surface runtime on verified artifact miss
         if: steps.surface-artifact-cache.outputs.cache-hit != 'true' && steps.surface-r2.outputs.hit != 'true' && steps.surface-github-artifact.outputs.hit != 'true'
         env:
           ORDAX_SOURCE_COMMIT: ${{ github.event.pull_request.head.sha || github.sha }}

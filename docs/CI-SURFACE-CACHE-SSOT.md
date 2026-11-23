@@ -94,18 +94,18 @@ Ambos reservam 30 minutos para encerramento controlado e verificações.
 A mudança de limite **não** substitui a retomada. Um resultado parcial do
 WebKit só é aproveitável quando o mesmo diretório `O=` permanece em disco,
 o fingerprint nativo e o Kconfig selado conferem, o `flock` é exclusivo e
-nenhum manifesto ou artefato incompleto é aceito. Não é permitido tratar o
-limite de 720 minutos como prova de sucesso, nem executar novo build caro em
-runner descartável apenas porque o anterior chegou a 330 minutos.
+nenhum manifesto ou artefato incompleto é aceito. Um timeout ou artefato
+incompleto não é prova de sucesso.
 
-**Bloqueio causal de miss em runner descartável:** com cache GitHub e R2 sem
-EROFs válido para o fingerprint atual, o workflow falha *antes* de instalar
-dependências gráficas ou compilar WebKit, caso não exista o workspace persistente
-configurado. Esse guard impede repetir a tentativa que encerrou em `330m`
-no runner hospedado. A compilação nova requer o produtor Linux x86_64
-self-hosted confiável, persistência do `O=` e ambiente pinado; a publicação
-somente ocorre depois da verificação de EROFS e recibos. Sem isso, o gate
-permanece vermelho e os consumidores Creator/QEMU não fabricam um artefato.
+**GitHub gratuito, repositório público:** sem configuração de produtor
+privado, o workflow usa o runner hospedado `ubuntu-24.04`. O cache exato
+GitHub, o R2 opcional e o artefato do produtor canônico são consultados
+antes de compilar. Um miss permite a compilação no próprio GitHub Actions,
+sem exigir runner self-hosted ou variáveis de infraestrutura. O limite físico
+de disco/RAM e a duração máxima do runner gratuito continuam reais; se
+o build falhar, nenhum EROFS é publicado como válido. Apenas artefatos
+com fingerprint, SHA-256, proveniência e verificação aprovados são publicados
+e consumidos por Creator e QEMU. Um runner persistente continua opcional.
 
 
 ## Operação de CI: gating e retomada sem duplicar produtores
