@@ -201,6 +201,44 @@ class CreatorOwnerImpactTests(unittest.TestCase):
             impact.classify(base, source, root=self.root, event="workflow_dispatch")[0]
         )
 
+    def test_source_addressed_desktop_dev_runtime_selection_skips_usb_only(self):
+        # The Windows Desktop Supervisor consumes this selected DEV binary.
+        # Its selector and source-addressed proof never enter USB/EROFS media.
+        base = self.commit(WORKFLOW.read_text(encoding="utf-8"), VISUAL)
+        pin = self.commit(path="docs/contracts/desktop-runtime-dev-candidate.json")
+        evidence_name = (
+            "docs/evidence/desktop-runtime-windows-candidate-"
+            + ("e" * 40) + ".json"
+        )
+        evidence = self.commit(path=evidence_name)
+        for event in ("push", "pull_request"):
+            self.assertEqual(
+                impact.classify(base, pin, root=self.root, event=event),
+                (False, "nonproducer-contract-only"),
+            )
+            self.assertEqual(
+                impact.classify(base, evidence, root=self.root, event=event),
+                (False, "nonproducer-contract-only"),
+            )
+        self.assertTrue(
+            impact.classify(base, evidence, root=self.root, event="workflow_dispatch")[0]
+        )
+        # Neither a nearby unrecognized evidence file nor a Stable trust,
+        # native boot or physical media change can borrow this exception.
+        previous = evidence
+        for disallowed in (
+            "docs/evidence/desktop-runtime-windows-candidate-not-source.json",
+            "docs/contracts/runtime-component-trust-policy.json",
+            "system/supervisor",
+            "bootstrap/surface-runtime/build.py",
+        ):
+            next_sha = self.commit(path=disallowed)
+            self.assertEqual(
+                impact.classify(previous, next_sha, root=self.root, event="pull_request"),
+                (True, "real-or-unknown-usb-producer:" + disallowed),
+            )
+            previous = next_sha
+
     def test_desktop_surface_reporter_is_source_only_not_usb_media(self):
         # The Desktop reporter ships through the existing Git-owned Native
         # source checkout; this module does not change any compiled EROFS.
