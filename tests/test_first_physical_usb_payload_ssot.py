@@ -216,24 +216,28 @@ class PhysicalUsbPayloadIdentityTests(unittest.TestCase):
         self.assertIn("app['physical_write_authorized'] is False", source)
         self.assertIn("contents: read", source)
 
-    def test_surface_policy_reads_only_pinned_ephemeral_external_source(self):
+    def test_surface_policy_reads_only_verified_same_commit_tracked_source(self):
+        import json
         source = WORKFLOW.read_text(encoding="utf-8")
         action = (ROOT / ".github/actions/assemble-surface/action.yml").read_text(encoding="utf-8")
-        self.assertEqual(
-            source.count("uses: ./operator/.github/actions/assemble-surface"), 1
-        )
+        lock = json.loads((ROOT / "docs/contracts/surface-source.json").read_text(encoding="utf-8"))
+        self.assertEqual(lock["source_repository"], "ordaxsystems/ordax-os")
+        self.assertEqual(lock["source_ref"], "same-commit")
+        self.assertEqual(lock["source_policy"], "tracked-git-blobs-only")
+        self.assertIs(lock["physical_disk_write_allowed"], False)
+        self.assertEqual(source.count("uses: ./operator/.github/actions/assemble-surface"), 1)
         self.assertIn("source-root: ${{ github.workspace }}/operator", source)
         self.assertIn("working-directory: ${{ inputs.source-root }}", action)
-        self.assertIn("docs/contracts/surface-source.json", action)
-        self.assertIn("PHYSICAL_POLICY_SURFACE_SOURCE=PINNED_EXTERNAL_DISPOSABLE", source)
-        self.assertIn("PHYSICAL_POLICY_SURFACE_TRACKED_COPY=NO", source)
-        self.assertIn("test -z \"$(git -C operator ls-files -- system/surface/ui system/surface/workspace)\"", source)
+        self.assertIn("tools/surface-source/materialize.py verify --os-root", action)
+        self.assertIn("tools/surface-source/assemble.py --os-root", action)
+        self.assertIn('receipt["os_commit"] == sha', action)
+        self.assertIn('receipt["surface_source_commit"] == sha', action)
+        self.assertIn('receipt["single_visual_source"] is True', action)
+        self.assertNotIn("Stage verified visual source only in disposable operator checkout", source)
+        self.assertNotIn("PHYSICAL_POLICY_SURFACE_SOURCE=PINNED_EXTERNAL_DISPOSABLE", source)
+        self.assertNotIn("cp -a", source)
         self.assertLess(
-            source.index("Stage verified visual source only in disposable operator checkout"),
-            source.index("Validate purpose-specific physical promotion gate before resolving payload"),
-        )
-        self.assertLess(
-            source.index("Assemble exact verified external Surface for read-only physical policy"),
+            source.index("Assemble verified same-commit Surface for read-only physical policy"),
             source.index("Validate purpose-specific physical promotion gate before resolving payload"),
         )
 

@@ -799,7 +799,7 @@ class PhysicalPromotionBoundaryTests(unittest.TestCase):
             )
             self.assertFalse(status["authorized_candidate_materialization_allowed"])
 
-    def test_physical_consent_binds_audited_ui_and_excludes_legacy_creator_sources(self):
+    def test_legacy_embedded_go_and_visual_checkout_cannot_define_physical_consent(self):
         governed = {
             path.relative_to(ROOT).as_posix()
             for path in promotion.authorization_context_files(ROOT)
@@ -812,7 +812,8 @@ class PhysicalPromotionBoundaryTests(unittest.TestCase):
         self.assertIn(".github/workflows/first-physical-usb-payload.yml", governed)
         self.assertTrue(all(
             not path.startswith(("tools/creator/core/", "tools/creator/host/",
-                                 "tools/creator/physicalchannel/", "tools/creator/cmd/"))
+                                "tools/creator/physicalchannel/",
+                                "tools/creator/cmd/"))
             for path in governed
         ))
         self.assertEqual(
