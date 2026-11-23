@@ -239,6 +239,42 @@ test("Owner DEV device grants refuse Stable, duplicates and nonconsented clients
   assert.deepEqual(calls.map(call=>call.options.method),["GET","GET"]);
 });
 
+test("repository catalog DEV grant uses the existing confirmed device Owner flow",async()=>{
+  const input={device_id:device,client_id:client,
+    profile_key:"repository-catalog-read",confirm:"authorize_device_dev"};
+  assert.deepEqual(parseAccountOwnerDeviceDevGrant(input),{
+    device_id:device,client_id:client,profile_key:"repository-catalog-read",
+  });
+  const created={...authority.grant_groups[0],profile_key:"repository-catalog-read",
+    grant_group_id:"aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa"};
+  const after={...authority,grant_groups:[...authority.grant_groups,created]};
+  const calls=[];
+  const result=await createAccountOwnerDeviceDevGrant(access,input,
+    transport([inventory,authority,{ok:true,scope_kind:"device",
+      grant_group_id:created.grant_group_id,capability_count:1},after],calls));
+  assert.equal(result.profile_key,"repository-catalog-read");
+  assert.equal(result.capability_count,1);
+  assert.deepEqual(calls.map(c=>c.options.method),["GET","GET","POST","GET"]);
+  assert.deepEqual(JSON.parse(calls[2].options.body),{
+    device_id:device,client_id:client,profile_key:"repository-catalog-read",
+    space_id:null,project_id:null,valid_until:null,
+  });
+  assert.equal(calls.filter(c=>c.options.method==="POST").length,1);
+  for(const wrong of [0,2,5]) {
+    const badCalls=[];
+    await assert.rejects(createAccountOwnerDeviceDevGrant(access,input,
+      transport([inventory,authority,{ok:true,scope_kind:"device",
+        grant_group_id:created.grant_group_id,capability_count:wrong}],badCalls)),
+      /grant-unconfirmed/);
+    assert.deepEqual(badCalls.map(c=>c.options.method),["GET","GET","POST"]);
+  }
+  const duplicate={...authority,grant_groups:[...authority.grant_groups,created]};
+  const duplicateCalls=[];
+  await assert.rejects(createAccountOwnerDeviceDevGrant(access,input,
+    transport([inventory,duplicate],duplicateCalls)),/already-exists/);
+  assert.deepEqual(duplicateCalls.map(c=>c.options.method),["GET","GET"]);
+});
+
 test("Device profile reauthorization derives the canonical profile from one existing grant",async()=>{
   const input={device_id:device,client_id:client,grant_group_id:group,confirm:"reauthorize"};
   assert.deepEqual(parseAccountOwnerProfileReauthorization(input),{
@@ -310,11 +346,14 @@ test("Project grant parser is explicit, bounded and limited to canonical Native 
     profile_key:"project-native-terminal",valid_until:null},now),{
       ...input,profile_key:"project-native-terminal",valid_until:null,
     });
+  assert.deepEqual(parseAccountOwnerProjectGrant({...input,
+    profile_key:"project-continuity",valid_until:null},now),{
+      ...input,profile_key:"project-continuity",valid_until:null,
+    });
   for(const bad of [
     {...input,profile_key:"full-computer-control"},
     {...input,profile_key:"project-browser-automation"},
     {...input,profile_key:"project-workspace-read"},
-    {...input,profile_key:"project-continuity"},
     {...input,profile_key:"constructor"},
     {...input,confirm:"yes"},
     {...input,valid_until:"2020-01-01T00:00:00Z"},
@@ -367,6 +406,43 @@ test("Project grant creation requires ready binding, one POST and exact scoped r
   });
   assert.equal("confirm" in JSON.parse(calls[2].options.body),false);
   assert.equal(calls.filter(call=>call.options.method==="POST").length,1);
+});
+
+test("project continuity grant reuses verified Project binding and immutable Owner read-back",async()=>{
+  const now=Date.parse("2026-11-13T23:00:00.000Z");
+  const input={device_id:device,client_id:client,space_id:space,project_id:project,
+    profile_key:"project-continuity",valid_until:null,confirm:"authorize_project"};
+  const onboarding={ok:true,device_id:device,
+    spaces:[{space_id:space,name:"Owner",kind:"work",state:"active"}],
+    projects:[{project_id:project,space_id:space,name:"Runtime",kind:"development",
+      state:"active",github_connection_count:1,
+      repository_full_name:"ordaxsystems/ordax-runtime",
+      space_device_execute:true,project_device_bound:true,next_state:"ready_without_grants"}],
+    next_state:null,onboarding_availability:onboardingAvailability};
+  const created={grant_group_id:"aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa",
+    client_id:client,device_id:device,profile_key:"project-continuity",
+    scope_kind:"project",space_id:space,project_id:project,
+    valid_until:null,client_consent_active:true};
+  const after={...authority,grant_groups:[...authority.grant_groups,created]};
+  const calls=[];
+  const result=await createAccountOwnerProjectGrant(access,input,
+    transport([onboarding,authority,{ok:true,grant_group_id:created.grant_group_id,
+      capability_count:5,scope_kind:"project"},after],calls),now);
+  assert.equal(result.profile_key,"project-continuity");
+  assert.equal(result.grant_group_id,created.grant_group_id);
+  assert.deepEqual(calls.map(c=>c.options.method),["GET","GET","POST","GET"]);
+  assert.deepEqual(JSON.parse(calls[2].options.body),{
+    client_id:client,device_id:device,profile_key:"project-continuity",
+    project_id:project,space_id:space,valid_until:null,
+  });
+  for(const wrong of [1,4,6]) {
+    const denied=[];
+    await assert.rejects(createAccountOwnerProjectGrant(access,input,
+      transport([onboarding,authority,{ok:true,grant_group_id:created.grant_group_id,
+        capability_count:wrong,scope_kind:"project"}],denied),now),
+      /grant-unconfirmed/);
+    assert.deepEqual(denied.map(c=>c.options.method),["GET","GET","POST"]);
+  }
 });
 
 test("Project grant creation fails closed before mutation unless binding and OAuth client are canonical",async()=>{
