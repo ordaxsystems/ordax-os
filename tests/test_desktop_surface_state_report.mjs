@@ -281,6 +281,52 @@ test("Native MCP waits for the displayed app instead of rejecting a delayed rend
   reporter.dispose();
 });
 
+test("Native renderer acknowledges newly mounted app immediately without another command poll",async()=>{
+  let active="system",renderListener,poll,requests=0,receipts=0,activations=0;
+  const command={schema:"ordax.desktop-surface-command/1",
+    requestId:"8".repeat(32),appId:"settings"};
+  const win={
+    async fetch(path,opts){
+      if(path==="/__ordax/native/desktop-surface-state")return {status:200};
+      if(path==="/__ordax/native/desktop-surface-command"){
+        requests++;
+        return {status:200,json:async()=>command};
+      }
+      if(path==="/__ordax/native/desktop-surface-receipt"){
+        const body=JSON.parse(opts.body);
+        assert.deepEqual(body,{schema:"ordax.desktop-surface-command/1",
+          requestId:command.requestId,state:"applied",activeAppId:"settings"});
+        receipts++;
+        return {status:200};
+      }
+      throw Error("Unexpected Native endpoint");
+    },
+    setInterval(callback,ms){if(ms===450)poll=callback;return ms},
+    clearInterval(){},
+  };
+  const lifecycle={
+    getActiveAppId:()=>active,
+    subscribeRender(callback){renderListener=callback;return ()=>{}},
+  };
+  const reporter=mountNativeDesktopSurfaceStateReport(win,lifecycle,
+    {publish({appId}){assert.equal(appId,"settings");activations++}});
+  await new Promise(resolve=>setImmediate(resolve));
+  poll();
+  await new Promise(resolve=>setImmediate(resolve));
+  assert.equal(activations,1);
+  assert.equal(receipts,0,"a requested app is not yet mounted");
+  assert.equal(requests,1);
+  active="settings";
+  renderListener();
+  await new Promise(resolve=>setTimeout(resolve,20));
+  assert.equal(receipts,1,"the render event completes the same command");
+  assert.equal(requests,1,"no second GET poll is needed to acknowledge the render");
+  renderListener();
+  await new Promise(resolve=>setImmediate(resolve));
+  assert.equal(receipts,1,"repeated renders do not duplicate the confirmed receipt");
+  reporter.dispose();
+});
+
 test("Native MCP does not reopen an already visible app",async()=>{
   let activationCount=0,reportCount=0,receiptCount=0,poll;
   const win={
