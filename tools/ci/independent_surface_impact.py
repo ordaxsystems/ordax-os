@@ -34,6 +34,7 @@ LIGHT_EXACT = {
     "bootstrap/surface-runtime/README.md",
     "bootstrap/surface-runtime/CUTOVER-CHECKLIST.md",
     "tests/test_independent_surface_runtime.py",
+    "tests/test_ci_two_stage_release_gate.py",
     "tests/test_independent_surface_qemu_binding.py",
     "tests/test_independent_surface_impact.py",
     "tests/test_independent_surface_component_cache.py",

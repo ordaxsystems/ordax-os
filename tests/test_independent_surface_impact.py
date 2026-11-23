@@ -1,6 +1,8 @@
 from pathlib import Path
 import importlib.util
+import subprocess
 import sys
+import tempfile
 import unittest
 
 ROOT = Path(__file__).resolve().parents[1]
@@ -40,6 +42,7 @@ class IndependentSurfaceImpactTests(unittest.TestCase):
             "bootstrap/surface-runtime/README.md",
             "bootstrap/surface-runtime/CUTOVER-CHECKLIST.md",
             "tests/test_independent_surface_runtime.py",
+            "tests/test_ci_two_stage_release_gate.py",
             "tests/test_independent_surface_qemu_binding.py",
             "tests/test_independent_surface_impact.py",
             "tests/test_independent_surface_component_cache.py",
@@ -63,6 +66,52 @@ class IndependentSurfaceImpactTests(unittest.TestCase):
         ])
         self.assertFalse(result.required)
         self.assertEqual(result.reasons, ("contract-only",))
+
+    def test_b68_surface_workflow_and_test_delta_is_light_across_push_commits(self):
+        paths = (
+            ".github/workflows/independent-surface-runtime.yml",
+            "tests/test_ci_two_stage_release_gate.py",
+            "tests/test_independent_surface_component_cache.py",
+            "tests/test_independent_surface_runtime.py",
+        )
+        with tempfile.TemporaryDirectory() as temporary:
+            root = Path(temporary)
+
+            def git(*args):
+                return subprocess.check_output(
+                    ["git", "-C", str(root), *args], stderr=subprocess.PIPE
+                ).decode("utf-8").strip()
+
+            git("init", "-q")
+            git("config", "user.name", "CI")
+            git("config", "user.email", "ci@example.invalid")
+            git("commit", "--allow-empty", "-qm", "push base")
+            for index, path in enumerate(paths):
+                file = root / path
+                file.parent.mkdir(parents=True, exist_ok=True)
+                file.write_text(f"change {index}\n", encoding="utf-8")
+                if index == 1:
+                    git("add", "-A")
+                    git("commit", "-qm", "first push commit")
+            git("add", "-A")
+            git("commit", "-qm", "second push commit")
+            base = git("rev-parse", "HEAD~2")
+            head = git("rev-parse", "HEAD")
+
+            changed = self.mod.changed_paths_between(base, head, root=root)
+            self.assertEqual(set(changed), set(paths))
+            result = self.mod.classify_paths(changed)
+            self.assertFalse(result.required)
+            self.assertEqual(result.reasons, ("contract-only",))
+
+    def test_workflow_uses_real_pr_base_and_push_before_sha(self):
+        workflow = (ROOT / ".github/workflows/independent-surface-runtime.yml").read_text(
+            encoding="utf-8"
+        )
+        self.assertIn(
+            "ORDAX_IMPACT_BASE: ${{ github.event.pull_request.base.sha || github.event.before || '' }}",
+            workflow,
+        )
 
     def test_unknown_path_fails_closed(self):
         result = self.mod.classify_paths(["bootstrap/something-new/runtime.py"])
