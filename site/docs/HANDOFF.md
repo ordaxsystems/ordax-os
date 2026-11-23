@@ -47,40 +47,57 @@ de `ordax-surface` nem publica releases oficiais; catálogo público
 `empty` até autorização independente.
 
 
-## Publicação seletiva por CI — preparada, ainda desativada
+## Publicação canônica no Hobby — Vercel Git da main (22/11/2026)
 
-O publicador canônico `tools/vercel/selective_site_delivery.py` é ligado ao resultado
-SUCCESS do workflow `Public Site Candidate` para `ordax-os/main`, via
-`.github/workflows/public-site-selective-deploy.yml`. Reutiliza sem copiar
-`site/scripts/build_impact.py`, compara o manifesto HTTP de produção à HEAD,
-trata renomeações e diferenças incertas como alterações relevantes e só cria
-um deployment quando houver impacto, com SHA Git fixado. Aguarda READY e
-atesta a origem de marca/Surface no domínio real; nunca contorna HTTP 402.
+**Um publicador em produção:** integração Git nativa do projeto
+`ordax-os-public` (`prj_mA9ew6hOfjdqlBr1cC757iMLPQJC`), na equipe
+`ordaxsystems`, conectada exclusivamente a `ordaxsystems/ordax-os/main`.
+A equipe Vercel foi verificada no plano **Hobby**, que não permite
+`deploymentPolicy.deploymentSources` com fonte exclusiva `rest-api`:
+a tentativa de configuração foi rejeitada pelo provedor com HTTP 403
+`pro_plan_required`, sem modificar a política do projeto. Portanto,
+**não existe um segundo publicador REST/CI habilitado**. O protótipo
+`tools/vercel/selective_site_delivery.py`, seu workflow e seus testes
+foram retirados do source ativo; o histórico permanece no Git.
 
-A condição `ORDAX_SITE_SELECTIVE_DEPLOY_ENABLED == true` **não está ativada**.
-Ela não deve ser ativada com a entrega automática Git do projeto de produção
-ainda ligada, pois seriam **duas autoridades** consumindo cota. Não modificar
-`vercel.json` compartilhado para desligar Git: isso também pararia o
-`ordax-web`. O corte exige política **específica do projeto** `ordax-os-public`, nunca
-do `ordax-web`: na Vercel, `deploymentPolicy.deploymentSources` deve
-permitir **somente `rest-api` em produção**, bloqueando a origem `git`
-(webhooks). O publicador executa leitura autenticada de
-`GET /v9/projects/prj_mA9ew6hOfjdqlBr1cC757iMLPQJC` e **falha antes
-de criar qualquer deployment** se a política não estiver aplicada exatamente.
-A configuração por projeto é independente de `vercel.json`; só aplicá-la
-**depois** de cadastrar e validar o secret de CI. Se o plano/provedor
-rejeitar essa política, manter Git automático e o workflow seletivo inerte.
+O mesmo `vercel.json` é consumido por `ordax-os-public` e `ordax-web`.
+Sua política Git existente deve continuar:
+`"deploymentEnabled": {"**": false, "main": true}`.
+Nunca desligar Git globalmente para corrigir o Site: isso afetaria Web.
+O build continua em `tools/vercel/build.py`; o único filtro compartilhado
+de impacto é `tools/vercel/should_skip_build.sh`, que usa
+`site/scripts/build_impact.py` para o Site. Deployments cancelados por
+esse filtro podem ser esperados, mas ainda devem ser analisados contra
+quota e conteúdo real. Não recriar scripts de publicação adormecidos,
+hooks paralelos, projetos adicionais ou credenciais de CI desnecessárias.
 
-Pré-requisitos operacionais: credencial `VERCEL_TOKEN` armazenada no GitHub
-Actions (secret do ambiente `Production – ordax-os-public` ou repositório),
-autorizada exclusivamente ao projeto/equipe atuais; desativação verificada
-das publicações automáticas Git no projeto Site; variável do repositório
-`ORDAX_SITE_SELECTIVE_DEPLOY_ENABLED=true` só após o corte. A credencial
-não pertence ao Git, logs, Site público ou arquivos locais. Não publicar
-a partir de CI falho, PR, outro repositório, revisão reescrita ou diff
-incompleto. O Web mantém produção independente. Testes locais do publicador:
-`python3 -m unittest tests.test_public_site_selective_delivery -q`.
+`Public Site Candidate` mantém a validação de frontend, contratos e
+composição Git. **Esse CI não é uma barreira síncrona pré-deploy** para
+commits enviados diretamente à main: a Vercel pode iniciar o deployment
+Git imediatamente. Testes e alterações relevantes devem ser validados
+antes da publicação da main; não confundir CI concluído com Site já
+atualizado. Manter o gate separado para Account Gateway no Supabase:
+nenhum deploy Git do Site concede grants, ativa cadastro ou substitui
+aprovação manual do SHA do Gateway.
 
-Enquanto os pré-requisitos externos não existirem, a Vercel Git continua
-como autoridade única: o novo workflow permanece inerte, e o Site não
-fica sem publicação automática.
+### Recibo de produção datado — não é ponteiro permanente
+
+Em 22/11/2026, a Vercel confirmou o deployment Git
+`dpl_6n8nJyiJ4KZpiwBGeuckgphnWWpi` como `READY` e com alias
+`ordax.com.br` e `www.ordax.com.br`, fonte
+`a1c9f93de5e31c8522905431d49d779874e9a626`.
+O GET HTTP de `https://ordax.com.br/public-site-manifest.json` devolveu
+`200`, `artifact_class=public-site`, `source_commit=a1c9f93d...`,
+e `brand` / `surface_preview` de `ordaxsystems/ordax-os` na mesma
+revisão. A ancestralidade Git comprovou que esse commit contém as
+correções de Conta/continuity (`c9503d29`) e as traduções (`65400432`).
+Um avanço posterior da main sem mudanças de Site não invalida
+automaticamente esse recibo, mas **a próxima conversa deve reconsultar
+o deployment associado ao domínio, a HEAD, o CI aplicável e o manifesto**.
+
+O alvo de publicação não pode ser deduzido de um número de commit
+anotado aqui. Se a Vercel não publicar um input de Site realmente
+alterado, investigar o webhook, a seleção de branch, os limites do plano
+e a causa do deployment (inclusive Ignored Build Step). Não iniciar
+deploy REST manual para compensar a demora, nem substituir a política
+Git pela exigência Pro sem nova decisão arquitetural.
