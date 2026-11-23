@@ -33,9 +33,12 @@ const MAX_OWNER_BODY = 65536;
 const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/;
 const TOKEN = /^[A-Za-z0-9_.-]{16,16384}$/;
 const PROFILE = /^[a-z][a-z0-9._-]{1,79}$/;
-const PROJECT_NATIVE_GRANT_PROFILES = Object.freeze({
+// The Platform remains the sole authority for capability definitions and grants.
+// Exact counts here verify the one Owner-issued receipt for Account's known flows.
+const PROJECT_OWNER_GRANT_PROFILES = Object.freeze({
   "project-native-process": 6,
   "project-native-terminal": 1,
+  "project-continuity": 5,
 });
 
 const isRecord = value => value && typeof value === "object" && !Array.isArray(value);
@@ -537,7 +540,7 @@ export function parseAccountOwnerProjectGrant(value, now=Date.now()) {
       || !isOwnerUuid(value.device_id) || !isOwnerUuid(value.client_id)
       || !isOwnerUuid(value.space_id) || !isOwnerUuid(value.project_id)
       || typeof value.profile_key !== "string"
-      || !Object.hasOwn(PROJECT_NATIVE_GRANT_PROFILES, value.profile_key)
+      || !Object.hasOwn(PROJECT_OWNER_GRANT_PROFILES, value.profile_key)
       || value.confirm !== "authorize_project") return null;
   let validUntil = null;
   if (value.valid_until !== null) {
@@ -620,7 +623,7 @@ export async function createAccountOwnerProjectGrant(
   if (!isRecord(receipt) || receipt.ok !== true
       || !isOwnerUuid(receipt.grant_group_id)
       || receipt.scope_kind !== "project"
-      || receipt.capability_count !== PROJECT_NATIVE_GRANT_PROFILES[input.profile_key])
+      || receipt.capability_count !== PROJECT_OWNER_GRANT_PROFILES[input.profile_key])
     throw new Error("mcp-owner-project-grant-unconfirmed");
 
   const after = await readAccountOwnerAuthority(access, input.device_id, fetcher);
@@ -662,7 +665,9 @@ export async function createAccountOwnerProjectGrant(
 
 // One authenticated Owner decision for one active DEV device and OAuth client.
 // Canonical Platform profiles and PostgreSQL alone issue the actual grant.
-const OWNER_DEV_DEVICE_PROFILES=new Set(["full-computer-control","ordax-surface-control"]);
+const OWNER_DEV_DEVICE_PROFILES=new Set([
+  "full-computer-control","ordax-surface-control","repository-catalog-read",
+]);
 export function parseAccountOwnerDeviceDevGrant(raw) {
   if (!isRecord(raw) || Object.keys(raw).sort().join(",")!=="client_id,confirm,device_id,profile_key"
       || !isOwnerUuid(raw.device_id) || !isOwnerUuid(raw.client_id)
@@ -689,7 +694,8 @@ export async function createAccountOwnerDeviceDevGrant(access,raw,fetcher=fetch)
   });
   if (!isRecord(receipt) || receipt.ok!==true || !isOwnerUuid(receipt.grant_group_id)
       || receipt.scope_kind!=="device" || !Number.isSafeInteger(receipt.capability_count)
-      || receipt.capability_count<1 || receipt.capability_count>256)
+      || receipt.capability_count<1 || receipt.capability_count>256
+      || (input.profile_key==="repository-catalog-read" && receipt.capability_count!==1))
     throw Error("mcp-owner-device-dev-grant-unconfirmed");
   const after=await readAccountOwnerAuthority(access,input.device_id,fetcher);
   const granted=after.grant_groups.filter(g=>g.grant_group_id===receipt.grant_group_id

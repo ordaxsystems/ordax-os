@@ -307,6 +307,8 @@ de devices, GitHub installation ou estado de projeto paralelos.
 - `GET /account/mcp/devices`;
 - `GET /account/mcp/authority?device_id=UUID`;
 - `POST /account/mcp/revoke`;
+- `POST /account/mcp/reauthorize`;
+- `POST /account/mcp/device-grants`;
 - `POST /account/mcp/project-grants`;
 - `GET /account/mcp/central-targets?client_id=UUID`;
 - `GET /account/mcp/central-selections?client_id=UUID`;
@@ -332,6 +334,36 @@ identidade Owner verificada pela Platform e, para as mutações, consentimento
 OAuth, origem/CSRF e confirmação explícita. A concessão
 `full-computer-control` exige um dispositivo `development` cadastrado,
 sem herdar o grant do Windows e sem concessão automática.
+
+**Concessão de continuidade MCP — extensão do contrato DEV (22/11/2026).**
+As duas operações de concessão **já existentes** no Account Gateway
+passam a aceitar, sob confirmação explícita do Owner, somente os perfis
+adicionais necessários para a continuidade entre conversas:
+
+- `repository-catalog-read`: `POST /account/mcp/device-grants` no dispositivo
+  `development` do Owner, para o cliente OAuth consentido. É um grant de
+  dispositivo, leitura apenas, com exatamente uma capability
+  `workspace.repository_catalog`.
+- `project-continuity`: `POST /account/mcp/project-grants` depois de
+  `ready_without_grants` no vínculo verificado entre Space, Project,
+  Git repository e Device. É um grant **de projeto** com exatamente
+  cinco capabilities: `agent.project_briefing`, `continuity.get`,
+  `continuity.update`, `handoff.get` e `handoff.create`.
+
+Os pedidos passam pelos validadores de sessão autenticada, origem/CSRF,
+client UUID, dev channel, escopo e prova de vínculo já existentes;
+o gateway faz **um POST** ao Owner da Platform e verifica recibo/grant e
+isolamento dos demais grants. Nunca converte `full-computer-control` em
+`project-continuity`, não cria grant local e não faz retry de mutação
+incerta. O catálogo de capacidades e sua emissão continuam sendo
+autoridade exclusiva de `ordax-platform`.
+
+**Código integrado não é concessão nem deploy:** respeitar os gates
+existentes `ORDAX_MCP_OWNER_DEVICE_GRANT_ENABLED` e
+`ORDAX_MCP_OWNER_PROJECT_GRANT_ENABLED`, Owner confirmado e release
+do Account Gateway. Depois de publicação, conferir `ordax_targets`,
+a descoberta de repositório e o esquema atual do cliente para
+`continuity_update(expected_revision)` antes de validar o E2E remoto.
 
 **A publicação do inventário e dos grants do Owner é autoridade do código
 na `ordax-os/main`**, e não depende da alteração de um secret administrativo.
