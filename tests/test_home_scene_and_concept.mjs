@@ -2,8 +2,6 @@ import assert from "node:assert/strict";
 import test from "node:test";
 import { resolveHomeScene } from "../system/services/surface/home-scene.mjs";
 import {
-  handleHomePreviewClick,
-  handleHomePreviewKeyDown,
   homeConceptSections,
 } from "../system/surface/ui/home-concept.mjs";
 
@@ -34,82 +32,33 @@ test("shared Home scene uses local time-zone boundaries for greeting and day/nig
   });
 });
 
-test("Central Home examples remain labelled and provide the existing real destinations", () => {
-  const labels = (key) => "translated:" + key;
+test("Home overview uses actual Native network, account, storage and Space routes", () => {
+  const t = (key) => "translated:" + key;
   const icons = Object.fromEntries(
-    ["studio", "apps", "networkWifi", "account", "clock", "folder", "system", "home"]
+    ["networkWifi", "account", "clock", "folder", "system", "home"]
       .map((name) => [name, "icon-" + name]),
   );
-  const sections = homeConceptSections(labels, icons);
-  assert.match(sections.continuation, /data-home-example="resume"/);
-  assert.match(sections.status, /data-home-copy="shell\.home\.preview\.badge"/);
-  assert.match(sections.status, /data-quick-panel-toggle="network"/);
-  assert.match(sections.status, /data-launch-app="system" data-app-target="storage"/);
-  assert.match(sections.status, /data-launch-app="system" data-app-target="updates"/);
-  assert.match(sections.currentSpace, /data-launch-app="account" data-app-target="spaces"/);
-  assert.match(sections.recent, /data-home-preview-notice/);
-  assert.match(sections.activity, /data-home-preview-notice/);
+  const { status, currentSpace } = homeConceptSections(t, icons);
+  assert.match(status, /data-home-status-value="internet"/);
+  assert.match(status, /data-home-status-value="updates"/);
+  assert.match(status, /data-quick-panel-toggle="network"/);
+  assert.match(status, /data-launch-app="system" data-app-target="storage"/);
+  assert.match(currentSpace, /data-launch-app="account" data-app-target="spaces"/);
+  assert.doesNotMatch(status + currentSpace, /data-home-example|data-home-preview-notice/);
+  assert.doesNotMatch(currentSpace, /ordax-home-space-art/);
 });
 
-test("Home suggestions, preview notice, Escape dismissal and keyboard submission stay local", () => {
-  const input = { value: "", focused: false, focus() { this.focused = true; } };
-  const feedbackText = { textContent: "" };
-  const feedback = {
-    hidden: true,
-    setAttribute(name) { if (name === "hidden") this.hidden = true; },
-    querySelector() { return feedbackText; },
-  };
-  const trigger = { isConnected: true, focused: false, focus(options) { this.focused = options.preventScroll; } };
-  let sent = 0;
-  let root;
-  const dismissButton = {
-    click() {
-      handleHomePreviewClick({
-        target: { closest(selector) { return selector === "[data-home-preview-dismiss]" ? {} : null; } },
-      }, root, localization);
-    },
-  };
-  root = {
-    querySelector(selector) {
-      if (selector === "[data-native-aura-prompt]") return input;
-      if (selector === "[data-home-preview-feedback]") return feedback;
-      if (selector === "[data-home-preview-feedback]:not([hidden])") return feedback.hidden ? null : feedback;
-      if (selector === "[data-home-preview-dismiss]") return dismissButton;
-      if (selector === "[data-home-preview-send]") return { click() { sent += 1; } };
-      return null;
-    },
-  };
-  const localization = { translate(key) { return "translated:" + key; } };
-
-  const suggestion = { dataset: { homePreviewCommand: "shell.home.preview.command.note" } };
-  assert.equal(handleHomePreviewClick({
-    target: { closest(selector) { return selector === "[data-home-preview-command]" ? suggestion : null; } },
-  }, root, localization), true);
-  assert.equal(input.value, "translated:shell.home.preview.command.note");
-  assert.equal(input.focused, true);
-
-  assert.equal(handleHomePreviewClick({
-    target: { closest(selector) { return selector === "[data-home-preview-notice]" ? trigger : null; } },
-  }, root, localization), true);
-  assert.equal(feedback.hidden, false);
-  assert.equal(feedbackText.textContent, "translated:shell.home.preview.feedback");
-
-  assert.equal(handleHomePreviewClick({
-    target: { closest(selector) { return selector === "[data-home-preview-dismiss]" ? {} : null; } },
-  }, root, localization), true);
-  assert.equal(feedback.hidden, true);
-  assert.equal(trigger.focused, true);
-
-  const enter = { key: "Enter", isComposing: false, target: input, prevented: false, preventDefault() { this.prevented = true; } };
-  input.matches = (selector) => selector === "[data-native-aura-prompt]";
-  input.value = "Criar uma nota";
-  assert.equal(handleHomePreviewKeyDown(enter, root), true);
-  assert.equal(enter.prevented, true);
-  assert.equal(sent, 1);
-
-  feedback.hidden = false;
-  const escape = { key: "Escape", target: input, prevented: false, preventDefault() { this.prevented = true; } };
-  assert.equal(handleHomePreviewKeyDown(escape, root), true);
-  assert.equal(escape.prevented, true);
-  assert.equal(feedback.hidden, true);
+test("real windows share one state and Home never invents recent activities", async () => {
+  const { readFile } = await import("node:fs/promises");
+  const shell = await readFile(new URL("../system/surface/ui/desktop-shell.mjs", import.meta.url), "utf8");
+  const surface = await readFile(new URL("../system/surface/ui/surface.mjs", import.meta.url), "utf8");
+  assert.match(shell, /data-home-running-windows[^>]*hidden/);
+  assert.match(shell, /data-home-running-list/);
+  assert.match(surface, /const renderHomeWindows = \(area\) => \{/);
+  assert.match(surface, /const open = area\.windows\.filter/);
+  assert.match(surface, /renderHomeWindows\(area\);/);
+  assert.match(surface, /!runningButton\.hasAttribute\("data-home-open-window"\)/,
+    "Home window buttons restore or focus without using the dock minimize behavior");
+  assert.match(surface, /const runningButton = event\.target\.closest\("\[data-open-window\]"\)/);
+  assert.doesNotMatch(shell, /data-home-scene|data-home-example|data-native-store-catalog-preview="home"/);
 });
