@@ -90,8 +90,12 @@ jobs:
           if ($LASTEXITCODE -ne 0) { throw 'Owner USB transport regressions failed' }
           python -m unittest discover -s tools -p 'test_owner_local_sync.py' -q
           if ($LASTEXITCODE -ne 0) { throw 'Owner Dev local sync regressions failed' }
-          python -m py_compile tools/owner_usb_git_delivery.py
-          if ($LASTEXITCODE -ne 0) { throw 'Owner USB transport Python compile failed' }
+          python -m py_compile tools/owner_usb_git_delivery.py tools/owner_local_sync.py tools/owner_dev_usb_installation_evidence.py
+          if ($LASTEXITCODE -ne 0) { throw 'Owner USB transport/installation evidence Python compile failed' }
+          python -m unittest discover -s tools -p 'test_owner_dev_qemu_partition_readonly.py' -q
+          if ($LASTEXITCODE -ne 0) { throw 'Read-only physical revision classification regressions failed' }
+          python -m unittest discover -s tools -p 'test_owner_dev_usb_installation_evidence.py' -q
+          if ($LASTEXITCODE -ne 0) { throw 'Transport-versus-installation regressions failed' }
           Write-Output 'OWNER_USB_GIT_SINGLE_WRITER_TESTS=PASS_NO_PHYSICAL_USB'
 
       - name: Native Windows Go tests including isolated real Win32 control creation

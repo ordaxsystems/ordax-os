@@ -34,6 +34,27 @@ MANIFEST = "owner-git-bundle.txt"
 UPDATE_REQUEST = "owner-git-update-request.txt"
 UPDATE_REQUEST_SCHEMA = "ordax.owner-usb-update-request/1"
 
+# Git transfer is never an installation or active-boot attestation.
+TRANSPORT_RECEIPT_SCHEMA = "ordax.owner-usb-git-transport/2"
+TRANSPORT_CURRENT = "GIT_BUNDLE_CURRENT_INSTALL_UNVERIFIED"
+TRANSPORT_STAGED = "GIT_BUNDLE_STAGED_INSTALL_UNVERIFIED"
+
+def transport_receipt(status: str, commit: str, *, sha256: str = "",
+                      size: int = 0, native_pin_status: str = "NOT_CHECKED") -> dict:
+    if status not in (TRANSPORT_CURRENT, TRANSPORT_STAGED) or not SHA.fullmatch(commit):
+        raise DeliveryError("invalid Git transport receipt")
+    if status == TRANSPORT_CURRENT:
+        if sha256 or size:
+            raise DeliveryError("unchanged transport cannot claim new payload")
+    elif not DIGEST.fullmatch(sha256) or size <= 0 or size > MAX_BUNDLE:
+        raise DeliveryError("staged Git transport has no verified readback")
+    return {"$schema": TRANSPORT_RECEIPT_SCHEMA, "status": status,
+            "source_commit": commit, "sha256": sha256, "bytes": size,
+            "native_pin_status": native_pin_status,
+            "evidence_type": "git-transport-only",
+            "os_activation_verified": False, "installed_source_commit": None}
+
+
 
 class DeliveryError(RuntimeError):
     pass
@@ -847,8 +868,9 @@ def deliver(args: argparse.Namespace) -> int:
                 arm_update_request(target, *verified)
                 if source_commit(args.repo.resolve()) != commit:
                     raise MainAdvanced("canonical OS main advanced after USB request")
-            print(json.dumps({"status": "CURRENT", "source_commit": commit,
-                              "native_pin_status": native_pin_status if args.apply else "NOT_CHECKED"}))
+            print(json.dumps(transport_receipt(
+                TRANSPORT_CURRENT, commit,
+                native_pin_status=native_pin_status if args.apply else "NOT_CHECKED")))
             return 0
         if not args.apply:
             print(json.dumps({"status": "AVAILABLE", "source_commit": commit, "action": "staging-not-authorized"}))
@@ -871,9 +893,9 @@ def deliver(args: argparse.Namespace) -> int:
             arm_update_request(target, commit, digest, size)
             if checked_volume(letter) != before:
                 raise DeliveryError("physical USB identity changed after update request")
-            print(json.dumps({"status": "STAGED_NOT_ACTIVATED", "source_commit": commit,
-                              "sha256": digest, "bytes": size,
-                              "native_pin_status": native_pin_status}))
+            print(json.dumps(transport_receipt(
+                TRANSPORT_STAGED, commit, sha256=digest, size=size,
+                native_pin_status=native_pin_status)))
         return 0
     except MainAdvanced as exc:
         print("OWNER_USB_GIT_DELIVERY=MAIN_ADVANCED:" + str(exc), file=sys.stderr)

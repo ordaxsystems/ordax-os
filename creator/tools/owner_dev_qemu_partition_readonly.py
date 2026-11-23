@@ -132,10 +132,32 @@ set -eu
 /bin/busybox mount -t ext4 -o ro,noload /dev/vda /mnt
 /bin/busybox echo ORDAX_OWNER_EXT4_READONLY_OK
 /bin/busybox cat /proc/mounts
+# Inspect the physical on-disk Git and release-state markers only. These
+# markers do NOT prove that a physical UEFI boot activated those bytes.
+/bin/busybox echo ORDAX_DISK_STATE_BEGIN
+/bin/busybox cat /mnt/dev-base/state/ordax/current-commit || true
+/bin/busybox echo ORDAX_DISK_STATE_END
+/bin/busybox echo ORDAX_DISK_GIT_BEGIN
+/bin/busybox cat /mnt/dev-base/workspace/ordax/.git/refs/heads/main || true
+/bin/busybox echo ORDAX_DISK_GIT_END
 /bin/busybox umount /mnt
 /bin/busybox echo ORDAX_OWNER_EXT4_READONLY_UNMOUNT_OK
 /bin/busybox poweroff -f
 """
+
+
+def read_guest_commit(log: str, stem: str) -> str | None:
+    # Match one exact line between one pair of markers. A corrupt or
+    # adversarial physical filesystem must never forge "installed" status.
+    lines = [row.strip() for row in log.splitlines()]
+    begin, end = "ORDAX_" + stem + "_BEGIN", "ORDAX_" + stem + "_END"
+    starts = [i for i, line in enumerate(lines) if line == begin]
+    stops = [i for i, line in enumerate(lines) if line == end]
+    if (len(starts) != 1 or len(stops) != 1
+            or stops[0] != starts[0] + 2):
+        return None
+    candidate = lines[starts[0] + 1]
+    return candidate if HEX40.fullmatch(candidate) else None
 
 
 def probe(base: Path, qemu: Path, *, disk_number: int, serial: str,
@@ -206,7 +228,15 @@ def probe(base: Path, qemu: Path, *, disk_number: int, serial: str,
         raise ReadonlyProbeError("Linux did not attest ro,noload ext4 mount")
     if inventory(disk_number) != before:
         raise ReadonlyProbeError("USB identity changed after QEMU inspection")
+    state_sha = read_guest_commit(log, "DISK_STATE")
+    git_sha = read_guest_commit(log, "DISK_GIT")
     return {"$schema": SCHEMA, "status": "pass",
+            "on_disk_state_commit": state_sha,
+            "on_disk_git_main_commit": git_sha,
+            "on_disk_revision_consistent": bool(state_sha and state_sha == git_sha),
+            "running_revision_verified": False,
+            "physical_boot_verified": False,
+            "disk_revision_is_not_installation_proof": True,
             "disk_number": disk_number, "usb_serial": serial.upper(),
             "partition_number": 2, "volume_letter": letter,
             "base_source_commit": base.name,

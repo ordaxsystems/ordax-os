@@ -293,8 +293,45 @@ class LocalSyncTests(unittest.TestCase):
             self.assertEqual(SYNC.source_relation("ordax-os", "a"*40, "b"*40), 1)
             remote.assert_called_once()
 
+    def test_transport_receipt_does_not_substitute_active_install(self):
+        import owner_usb_git_delivery as delivery
+        good = delivery.transport_receipt(delivery.TRANSPORT_CURRENT, "a" * 40)
+        self.assertEqual(SYNC.validate_owner_usb_transport_receipt(good),
+                         delivery.TRANSPORT_CURRENT)
+        staged = delivery.transport_receipt(
+            delivery.TRANSPORT_STAGED, "a" * 40,
+            sha256="b" * 64, size=2000)
+        self.assertEqual(SYNC.validate_owner_usb_transport_receipt(staged),
+                         delivery.TRANSPORT_STAGED)
+        corrupt = [
+            {**good, "status": "CURRENT"},
+            {**good, "os_activation_verified": True},
+            {**good, "installed_source_commit": "a" * 40},
+            {**good, "evidence_type": "os-installed"},
+            {**good, "bytes": 1},
+            {**staged, "sha256": ""},
+            {**staged, "bytes": 0},
+            {k: v for k, v in good.items() if k != "installed_source_commit"},
+            {**good, "base_status": "ACTIVATED"},
+        ]
+        for item in corrupt:
+            with self.subTest(item=item):
+                with self.assertRaises(SYNC.SyncError):
+                    SYNC.validate_owner_usb_transport_receipt(item)
+        for item in (None, [], "CURRENT", {"status": "INSTALLED"}):
+            with self.subTest(item=item):
+                with self.assertRaises(SYNC.SyncError):
+                    SYNC.validate_owner_usb_transport_receipt(item)
+
     def test_creator_gui_reuses_single_usb_transport_without_app_replacement(self):
-        receipt = {"status": "CURRENT", "source_commit": "a" * 40}
+        receipt = {
+            "$schema": "ordax.owner-usb-git-transport/2",
+            "status": "GIT_BUNDLE_CURRENT_INSTALL_UNVERIFIED",
+            "source_commit": "a" * 40,
+            "evidence_type": "git-transport-only",
+            "os_activation_verified": False,
+            "installed_source_commit": None,
+        }
         with (
             mock.patch.object(SYNC.sys, "argv", [
                 "owner_local_sync.py", "--creator-ui-stage",
@@ -435,7 +472,8 @@ class LocalSyncTests(unittest.TestCase):
         stale = SYNC.subprocess.CompletedProcess(
             ["python"], 3, "", "OWNER_USB_GIT_DELIVERY=MAIN_ADVANCED:OS checkout differs from current remote main")
         current = SYNC.subprocess.CompletedProcess(
-            ["python"], 0, '{"status":"CURRENT","source_commit":"' + "a" * 40 + '"}', "")
+            ["python"], 0,
+            json.dumps(delivery.transport_receipt(delivery.TRANSPORT_CURRENT, "a" * 40)), "")
         with (
             mock.patch.object(SYNC, "creator_process_active", return_value=False),
             mock.patch.object(SYNC, "owner_usb_stage_gate",
@@ -448,7 +486,7 @@ class LocalSyncTests(unittest.TestCase):
         ):
             self.assertEqual(
                 SYNC.stage_owner_usb_dev("6699E36B", expected_disk_number=1),
-                "CURRENT",
+                delivery.TRANSPORT_CURRENT,
             )
         self.assertEqual(fetch.call_count, 2)
         self.assertEqual(transport.call_count, 2)
