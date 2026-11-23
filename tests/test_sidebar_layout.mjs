@@ -190,6 +190,10 @@ test("Native USB keeps the computer shell instead of switching to mobile geometr
     "surface.css", "first-run.css", "workspace-areas.css", "system.css", "local-session-lock.css",
     "space-switcher.css",
   ].map(file => readFile(new URL(`../system/surface/ui/${file}`, import.meta.url), "utf8")));
+  assert.equal((nativeStyles.match(/\{/g) ?? []).length, (nativeStyles.match(/\}/g) ?? []).length,
+    "every Native CSS block must close before taskbar, sidebar and window rules");
+  assert.doesNotMatch(nativeStyles, /\.ordax-home-intro\s*\{\s*\.ordax-home-intro\s*\{/,
+    "Native compact typography must not create a nested duplicate selector");
   assert.doesNotMatch(nativeStyles, /@media\s*\(max-width:\s*(?:760|600|560|420)px/i, "Native must not switch to a phone layout at narrow viewport widths");
   assert.doesNotMatch(nativeStyles, /@media\s*\(max-width:\s*760px\)[\s\S]*?\.ordax-home-panel\s*\{[^}]*flex-direction:\s*column/i, "Native Home keeps its desktop information layout");
   assert.equal((nativeStyles.match(/@container\s+meridian-native-home\s*\(/g) ?? []).length, 3, "Native Home responds to the available computer workspace width");

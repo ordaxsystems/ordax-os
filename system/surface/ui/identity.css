@@ -543,7 +543,7 @@ body { background: var(--md-canvas); font-weight: 400; }
    Use the existing home container: a full-size OS window must not inherit a
    phone layout merely because the host screen is small or display-scaled. */
 @container meridian-native-home (max-width: 46rem) {
-  .meridian-native-workspace .ordax-home-intro {  .meridian-native-workspace .ordax-home-intro {
+  .meridian-native-workspace .ordax-home-intro {
     grid-template-columns: minmax(0, 1fr);
     grid-template-areas: "heading" "tagline" "search";
     align-items: start;
