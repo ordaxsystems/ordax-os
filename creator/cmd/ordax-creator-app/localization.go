@@ -68,6 +68,9 @@ const (
 	msgUSBUpdateComplete        creatorMessageID = "creator.usbUpdate.complete"
 	msgUSBUpdateCurrent         creatorMessageID = "creator.usbUpdate.current"
 	msgUSBUpdateNotActivated    creatorMessageID = "creator.usbUpdate.notActivated"
+    msgUSBUpdateDiskDiffers    creatorMessageID = "creator.usbUpdate.diskDiffers"
+    msgUSBUpdateDiskMatches    creatorMessageID = "creator.usbUpdate.diskMatches"
+    msgUSBUpdateDiskUnverified creatorMessageID = "creator.usbUpdate.diskUnverified"
 	msgUSBUpdateGitEvidence     creatorMessageID = "creator.usbUpdate.gitEvidence"
 	msgUSBUpdateSurfaceEvidence creatorMessageID = "creator.usbUpdate.surfaceEvidence"
 	msgUSBUpdateBaseEvidence    creatorMessageID = "creator.usbUpdate.baseEvidence"
@@ -211,6 +214,9 @@ var creatorPTBRMessages = map[creatorMessageID]string{
 	msgUSBUpdateComplete:        "Arquivos de atualização preparados e verificados; sistema executável não atualizado pelo Creator. Ativação depende do OrdaX OS.",
 	msgUSBUpdateCurrent:         "Pacote Git já corresponde à revisão remota; estado do sistema executável não verificado.",
 	msgUSBUpdateNotActivated:    "INSTALAÇÃO NÃO VERIFICADA: a cópia do Git não altera a revisão do OrdaX em execução; é necessária prova do boot e da versão ativa.",
+    msgUSBUpdateDiskDiffers:    "DIVERGÊNCIA FÍSICA: Linux no disco %s; pacote Git %s. Atualização executável NÃO instalada.",
+    msgUSBUpdateDiskMatches:    "Linux no disco %s coincide com o pacote; boot e saúde ainda NÃO verificados.",
+    msgUSBUpdateDiskUnverified: "Revisão Linux física não verificada; pacote Git não comprova instalação.",
 	msgUSBUpdateGitEvidence:     "Pacote Git no USB: verificado (%s); não aplicado.",
 	msgUSBUpdateSurfaceEvidence: "Surface EROFS: não verificável pelo Windows.",
 	msgUSBUpdateBaseEvidence:    "Base / Kernel: não alterados pelo Creator.",
@@ -354,6 +360,9 @@ var creatorENUSMessages = map[creatorMessageID]string{
 	msgUSBUpdateComplete:        "Update files staged and verified; executable OS not updated by Creator. Activation requires OrdaX OS validation.",
 	msgUSBUpdateCurrent:         "Git package matches the remote revision; executable OS state unverified.",
 	msgUSBUpdateNotActivated:    "INSTALLATION NOT VERIFIED: copying Git does not change the running OrdaX revision. Physical boot and active-version proof are required.",
+    msgUSBUpdateDiskDiffers:    "PHYSICAL MISMATCH: on-disk Linux %s; staged Git %s. Executable update NOT installed.",
+    msgUSBUpdateDiskMatches:    "On-disk Linux %s matches staged Git; boot and health are still NOT verified.",
+    msgUSBUpdateDiskUnverified: "Physical Linux revision unverified; a Git package does not prove installation.",
 	msgUSBUpdateGitEvidence:     "Git package on USB: verified (%s); not applied.",
 	msgUSBUpdateSurfaceEvidence: "Surface EROFS: not verifiable from Windows.",
 	msgUSBUpdateBaseEvidence:    "Base / Kernel: not changed by Creator.",

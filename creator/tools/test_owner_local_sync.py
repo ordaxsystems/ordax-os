@@ -293,6 +293,55 @@ class LocalSyncTests(unittest.TestCase):
             self.assertEqual(SYNC.source_relation("ordax-os", "a"*40, "b"*40), 1)
             remote.assert_called_once()
 
+    def test_creator_gui_physical_read_only_revision_is_separate_from_boot(self):
+        import owner_usb_git_delivery as delivery
+        source, base, disk_state = "a" * 40, "b" * 40, "c" * 40
+        receipt = {"source_commit": source, "base_status": "STAGED_NOT_ACTIVATED",
+                   "base_artifact_commit": base}
+        proof = {
+            "$schema": "ordax.creator.owner-usb-installation-evidence/1",
+            "status": "DISK_STATE_DIFFERS_FROM_STAGED_GIT",
+            "usb_serial": "6699E36B", "disk_number": 1,
+            "staged_git_source_commit": source,
+            "on_disk_state_commit": disk_state,
+            "physical_usb_write": False, "physical_boot_verified": False,
+            "running_revision_verified": False, "os_activation_verified": False,
+            "installed_source_commit": None,
+        }
+        command = SYNC.subprocess.CompletedProcess(
+            ["python"], 0, json.dumps(proof).encode(), b"")
+        identity = {"disk": 1, "serial": "6699E36B"}
+        with (mock.patch.object(delivery, "discover_trusted_volume", return_value="E"),
+              mock.patch.object(delivery, "checked_volume", return_value=identity),
+              mock.patch.object(Path, "is_file", return_value=True),
+              mock.patch.object(Path, "is_dir", return_value=True),
+              mock.patch.object(Path, "is_symlink", return_value=False),
+              mock.patch.object(SYNC.subprocess, "run", return_value=command) as run):
+            actual = SYNC.inspect_owner_usb_installation(
+                Path("safe-main"), receipt, "6699E36B", 1)
+            self.assertEqual(actual["disk_readonly_status"],
+                             "DISK_STATE_DIFFERS_FROM_STAGED_GIT")
+            self.assertEqual(actual["on_disk_state_commit"], disk_state)
+            self.assertNotIn("installed_source_commit", actual)
+            argv = run.call_args.args[0]
+            self.assertIn("--verified-base-dir", argv)
+            self.assertIn("--trusted-serial", argv)
+            self.assertNotIn("--apply", argv)
+            self.assertIs(run.call_args.kwargs["check"], False)
+            self.assertIs(run.call_args.kwargs["stdin"], SYNC.subprocess.DEVNULL)
+        forged = {**proof, "os_activation_verified": True}
+        with (mock.patch.object(delivery, "discover_trusted_volume", return_value="E"),
+              mock.patch.object(delivery, "checked_volume", return_value=identity),
+              mock.patch.object(Path, "is_file", return_value=True),
+              mock.patch.object(Path, "is_dir", return_value=True),
+              mock.patch.object(Path, "is_symlink", return_value=False),
+              mock.patch.object(SYNC.subprocess, "run", return_value=
+                  SYNC.subprocess.CompletedProcess(["python"], 0,
+                                                   json.dumps(forged).encode(), b""))):
+            self.assertEqual(SYNC.inspect_owner_usb_installation(
+                Path("safe-main"), receipt, "6699E36B", 1),
+                {"disk_readonly_status": "UNVERIFIED"})
+
     def test_transport_receipt_does_not_substitute_active_install(self):
         import owner_usb_git_delivery as delivery
         good = delivery.transport_receipt(delivery.TRANSPORT_CURRENT, "a" * 40)

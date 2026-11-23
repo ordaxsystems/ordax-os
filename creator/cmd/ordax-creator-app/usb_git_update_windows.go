@@ -29,6 +29,8 @@ type ownerUSBUpdateStatus struct {
     SourceCommit string
     BaseStatus string
     BaseArtifactCommit string
+    DiskReadOnlyStatus string
+    OnDiskStateCommit string
 }
 var (
     ownerUSBUpdateMu sync.Mutex
@@ -60,6 +62,10 @@ type ownerUSBReceipt struct {
     SourceCommit string `json:"source_commit"`
     SHA256 string `json:"sha256"`
     Bytes int64 `json:"bytes"`
+    NativePinStatus string `json:"native_pin_status"`
+    DiskReadOnlyStatus string `json:"disk_readonly_status,omitempty"`
+    OnDiskStateCommit string `json:"on_disk_state_commit,omitempty"`
+    PhysicalEvidenceSchema string `json:"physical_evidence_schema,omitempty"`
     BaseStatus string `json:"base_status,omitempty"`
     BaseArtifactCommit string `json:"base_artifact_commit,omitempty"`
 }
@@ -280,6 +286,26 @@ func parseOwnerUSBReceipt(data []byte) (ownerUSBReceipt, error) {
     }
     if !validLowerHexString(result.SourceCommit, 40) {
         return ownerUSBReceipt{}, errors.New("Owner USB transport revision is invalid")
+    }
+    switch result.NativePinStatus {
+    case "CURRENT", "STAGED_NOT_ACTIVATED", "NOT_STAGED", "NOT_CHECKED":
+    default:
+        return ownerUSBReceipt{}, errors.New("Owner USB native pin transport status is invalid")
+    }
+    switch result.DiskReadOnlyStatus {
+    case "", "UNVERIFIED":
+        if result.OnDiskStateCommit != "" || result.PhysicalEvidenceSchema != "" {
+            return ownerUSBReceipt{}, errors.New("USB physical state cannot be claimed without read-only proof")
+        }
+    case "DISK_STATE_DIFFERS_FROM_STAGED_GIT", "DISK_STATE_MATCHES_STAGED_GIT_BOOT_UNVERIFIED":
+        if result.PhysicalEvidenceSchema != "ordax.creator.owner-usb-installation-evidence/1" ||
+            !validLowerHexString(result.OnDiskStateCommit,40) ||
+            (result.DiskReadOnlyStatus == "DISK_STATE_DIFFERS_FROM_STAGED_GIT") !=
+            (result.OnDiskStateCommit != result.SourceCommit) {
+            return ownerUSBReceipt{}, errors.New("USB physical read-only revision evidence is inconsistent")
+        }
+    default:
+        return ownerUSBReceipt{}, errors.New("USB physical read-only result is not recognized")
     }
     switch result.Status {
     case "GIT_BUNDLE_CURRENT_INSTALL_UNVERIFIED":
@@ -525,6 +551,8 @@ func startCreatorUSBUpdateTask(mode string, execute func()(ownerUSBReceipt,error
             ownerUSBUpdateResult.SourceCommit=receipt.SourceCommit
             ownerUSBUpdateResult.BaseStatus=receipt.BaseStatus
             ownerUSBUpdateResult.BaseArtifactCommit=receipt.BaseArtifactCommit
+            ownerUSBUpdateResult.DiskReadOnlyStatus=receipt.DiskReadOnlyStatus
+            ownerUSBUpdateResult.OnDiskStateCommit=receipt.OnDiskStateCommit
         }
         ownerUSBUpdateMu.Unlock()
         procPostMessageW.Call(mainWindow,wmAppUSBUpdateDone,0,0)
@@ -560,6 +588,20 @@ func ownerUSBComponentSummary(state ownerUSBUpdateStatus) string {
         validLowerHexString(state.BaseArtifactCommit, 40) {
         componentEvidence = append(componentEvidence,
             fmt.Sprintf(creatorT(msgUSBUpdateBaseTransferred), state.BaseArtifactCommit[:12]))
+    }
+    switch state.DiskReadOnlyStatus {
+    case "DISK_STATE_DIFFERS_FROM_STAGED_GIT":
+        if validLowerHexString(state.OnDiskStateCommit, 40) {
+            componentEvidence=append(componentEvidence,fmt.Sprintf(
+                creatorT(msgUSBUpdateDiskDiffers),state.OnDiskStateCommit[:12],state.SourceCommit[:12]))
+        }
+    case "DISK_STATE_MATCHES_STAGED_GIT_BOOT_UNVERIFIED":
+        if validLowerHexString(state.OnDiskStateCommit, 40) {
+            componentEvidence=append(componentEvidence,fmt.Sprintf(
+                creatorT(msgUSBUpdateDiskMatches),state.OnDiskStateCommit[:12]))
+        }
+    case "UNVERIFIED","":
+        componentEvidence=append(componentEvidence,creatorT(msgUSBUpdateDiskUnverified))
     }
     componentEvidence = append(componentEvidence, creatorT(msgUSBUpdateNotActivated))
     return strings.Join(componentEvidence, "\n")

@@ -270,7 +270,7 @@ func validOwnerTransportReceipt(status, commit string) ownerUSBReceipt {
         EvidenceType: "git-transport-only",
         OSActivationVerified: &no,
         InstalledSourceCommit: json.RawMessage("null"),
-        Status: status, SourceCommit: commit,
+        Status: status, SourceCommit: commit, NativePinStatus: "NOT_CHECKED",
     }
 }
 
@@ -343,6 +343,9 @@ func TestOwnerUSBTransportRejectsFakeInstalledRevision(t *testing.T) {
     forged.InstalledSourceCommit = json.RawMessage(encodedCommit)
     invalid = append(invalid, forged)
     forged = valid
+    forged.NativePinStatus = "ACTIVATED"
+    invalid = append(invalid, forged)
+    forged = valid
     forged.Schema = ""
     invalid = append(invalid, forged)
     forged = valid
@@ -356,6 +359,29 @@ func TestOwnerUSBTransportRejectsFakeInstalledRevision(t *testing.T) {
         forged.Status = old
         invalid = append(invalid, forged)
     }
+    physical := valid
+    physical.DiskReadOnlyStatus = "DISK_STATE_DIFFERS_FROM_STAGED_GIT"
+    physical.OnDiskStateCommit = strings.Repeat("b",40)
+    physical.PhysicalEvidenceSchema = "ordax.creator.owner-usb-installation-evidence/1"
+    bytes, err := json.Marshal(physical)
+    if err!=nil {t.Fatal(err)}
+    if parsed, err := parseOwnerUSBReceipt(bytes); err != nil ||
+        parsed.OnDiskStateCommit != strings.Repeat("b",40) {t.Fatalf("read-only evidence rejected: %v",err)}
+    forged = physical
+    forged.DiskReadOnlyStatus = "DISK_STATE_MATCHES_STAGED_GIT_BOOT_UNVERIFIED"
+    invalid = append(invalid,forged)
+    forged = physical
+    forged.OnDiskStateCommit = sha
+    invalid = append(invalid,forged)
+    forged = physical
+    forged.PhysicalEvidenceSchema = ""
+    invalid = append(invalid,forged)
+    forged = physical
+    forged.DiskReadOnlyStatus = "INSTALLED"
+    invalid = append(invalid,forged)
+    forged = physical
+    forged.OnDiskStateCommit = ""
+    invalid = append(invalid,forged)
     for _, candidate := range invalid {
         data, err := json.Marshal(candidate)
         if err != nil { t.Fatal(err) }
@@ -404,6 +430,18 @@ func TestOwnerUSBComponentSummaryDoesNotClaimExecutableInstallation(t *testing.T
     if !strings.Contains(stagedView, "arquivos verificados") ||
         !strings.Contains(stagedView, "boot não atualizado") {
         t.Fatalf("physical Base transport misreported as boot activation: %q", stagedView)
+    }
+    divergence := ownerUSBComponentSummary(ownerUSBUpdateStatus{
+        Result: "GIT_BUNDLE_STAGED_INSTALL_UNVERIFIED",
+        SourceCommit: strings.Repeat("a",40),
+        DiskReadOnlyStatus: "DISK_STATE_DIFFERS_FROM_STAGED_GIT",
+        OnDiskStateCommit: strings.Repeat("b",40),
+    })
+    if !strings.Contains(divergence,"bbbbbbbbbbbb") ||
+        !strings.Contains(divergence,"aaaaaaaaaaaa") ||
+        !strings.Contains(divergence,"DIVERGÊNCIA FÍSICA") ||
+        !strings.Contains(divergence,"NÃO instalada") {
+        t.Fatalf("physical USB mismatch not displayed: %s",divergence)
     }
     for _, input := range []ownerUSBUpdateStatus{
         {Result: "AVAILABLE", SourceCommit: strings.Repeat("a", 40)},
