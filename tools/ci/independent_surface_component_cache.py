@@ -14,7 +14,7 @@ ROOT = Path(__file__).resolve().parents[2]
 MANIFEST = ".ordax-independent-surface-cache.json"
 SCHEMA = "prototype-ordax.independent-surface-component-cache/1"
 REUSE_SCHEMA = "prototype-ordax.independent-surface-component-reuse/1"
-FINGERPRINT_VERSION = "independent-surface-inputs-v1"
+FINGERPRINT_VERSION = "independent-surface-inputs-v2"
 SHA40 = re.compile(r"^[0-9a-f]{40}$")
 SHA256 = re.compile(r"^[0-9a-f]{64}$")
 CONFIG_RELATIVE = "bootstrap/surface-runtime/configs/ordax_surface_defconfig"
@@ -23,9 +23,12 @@ INPUTS = (
     "bootstrap/surface-runtime/prepare_config.py",
     "bootstrap/surface-runtime/source.json",
     CONFIG_RELATIVE,
-    "bootstrap/independent-base/source.json",
-    "bootstrap/kernel/source.json",
 )
+# Byte-affecting values in these SSOT documents are hashed semantically.
+# Unrelated Base profiles, network and kernel-signature metadata are not
+# reasons to recompile the independent Surface graphical runtime.
+BUILDROOT_CONTRACT = "bootstrap/independent-base/source.json"
+KERNEL_CONTRACT = "bootstrap/kernel/source.json"
 
 
 class CacheError(RuntimeError):
@@ -102,13 +105,55 @@ def input_files(root: Path = ROOT) -> list[Path]:
     return files
 
 
+def semantic_build_sources(root: Path) -> dict:
+    """Resolve only Base/kernel fields that affect the compiled Surface ABI."""
+    root = root.resolve()
+
+    def read(relative: str, schema: str) -> dict:
+        path = root / relative
+        if path.is_symlink() or getattr(path, "is_junction", lambda: False)() or not path.is_file():
+            raise CacheError(f"build source contract missing or unsafe: {relative}")
+        resolved = path.resolve()
+        if root not in resolved.parents or resolved.stat().st_size > 1 << 20:
+            raise CacheError(f"build source contract outside canonical bounds: {relative}")
+        try:
+            data = json.loads(resolved.read_text(encoding="utf-8"))
+        except (ValueError, OSError, UnicodeError) as exc:
+            raise CacheError(f"invalid build source contract: {relative}") from exc
+        if not isinstance(data, dict) or data.get("$schema") != schema:
+            raise CacheError(f"build source contract schema differs: {relative}")
+        return data
+
+    base = read(BUILDROOT_CONTRACT, "prototype-ordax.independent-base-experiment/1")
+    kernel = read(KERNEL_CONTRACT, "prototype-ordax.kernel-source/1")
+    buildroot = base.get("buildroot")
+    if not isinstance(buildroot, dict):
+        raise CacheError("canonical Buildroot source is absent")
+    version = buildroot.get("version")
+    digest = buildroot.get("sha256")
+    if not isinstance(version, str) or re.fullmatch(r"\d{4}\.\d{2}", version) is None:
+        raise CacheError("canonical Buildroot version is invalid")
+    if buildroot.get("url") != f"https://buildroot.org/downloads/buildroot-{version}.tar.xz":
+        raise CacheError("canonical Buildroot archive URL drift")
+    if not isinstance(digest, str) or SHA256.fullmatch(digest) is None:
+        raise CacheError("canonical Buildroot SHA-256 invalid")
+    headers = kernel.get("version")
+    if not isinstance(headers, str) or re.fullmatch(r"\d+\.\d+\.\d+", headers) is None:
+        raise CacheError("canonical Linux headers version invalid")
+    return {
+        "buildroot": {"version": version, "url": buildroot["url"], "sha256": digest},
+        "kernel_headers_version": headers,
+    }
+
+
 def fingerprint(
     root: Path = ROOT,
     *,
     build_environment: str | None = None,
 ) -> str:
-    # SSOT: hash only the immutable, checked-in producer inputs. A rendered
-    # Kconfig is a build output, not an alternative cache identity.
+    # The compiled EROFS depends on the graphical implementation, defconfig,
+    # Buildroot archive identity, and kernel header version. A changed Wi-Fi
+    # profile or detached upstream kernel signature cannot change these bytes.
     root = root.resolve()
     build_environment = validated_environment(build_environment, "build environment") if build_environment is not None else environment()
     digest = hashlib.sha256()
@@ -121,6 +166,9 @@ def fingerprint(
         digest.update(b"\0")
         digest.update(sha256_file(path).encode("ascii"))
         digest.update(b"\0")
+    semantic = json.dumps(semantic_build_sources(root), sort_keys=True, separators=(",", ":"))
+    digest.update(b"semantic-build-contract\0")
+    digest.update(semantic.encode("utf-8"))
     return digest.hexdigest()
 
 

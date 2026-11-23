@@ -115,6 +115,18 @@ The composed product graph may feed several delivery modes, but those delivery a
 - new artifact classes require a provenance owner;
 - caches may accelerate a verified build but may not replace verification.
 
+The Independent Surface EROFS cache uses a content-addressed **semantic build
+fingerprint v2**. It hashes the Surface builder and graphical defconfig in full,
+plus the exact Buildroot tarball version/URL/SHA-256 and Linux **headers version**
+from their canonical source contracts. Unrelated network/Wi-Fi profiles,
+kernel archive signature metadata and Base rollout flags do not change the
+compiled WebKit runtime, and therefore no longer invalidate that EROFS cache.
+Changing the actual Buildroot archive, kernel header version, graphical config,
+or builder implementation invalidates it. The source contracts must still be
+present, canonical and parseable; a cache hit is never permission to skip
+artifact SHA-256, provenance or QEMU/physical release gates. The producer
+environment identity remains pinned and separately checked.
+
 The Owner USB Creator CI uses the same exact Git diff impact decision on PRs
 and on integrated `main` pushes. An exact visual-only source-pin advancement,
 Windows-only Host change or specifically verified workflow routing change

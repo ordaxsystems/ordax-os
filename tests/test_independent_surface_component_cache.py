@@ -46,6 +46,26 @@ class IndependentSurfaceComponentCacheTests(unittest.TestCase):
             path = base / relative
             path.parent.mkdir(parents=True, exist_ok=True)
             path.write_text(relative + "\n", encoding="utf-8")
+        for relative, value in (
+            (self.mod.BUILDROOT_CONTRACT, {
+                "$schema": "prototype-ordax.independent-base-experiment/1",
+                "buildroot": {
+                    "version": "2026.08",
+                    "url": "https://buildroot.org/downloads/buildroot-2026.08.tar.xz",
+                    "sha256": "a" * 64,
+                },
+                "profiles": {"minimal": {"purpose": "unrelated-to-Surface"}},
+            }),
+            (self.mod.KERNEL_CONTRACT, {
+                "$schema": "prototype-ordax.kernel-source/1",
+                "version": "6.6.158",
+                "archive_sha256": "b" * 64,
+                "upstream_signature": {"algorithm": "openpgp"},
+            }),
+        ):
+            path = base / relative
+            path.parent.mkdir(parents=True, exist_ok=True)
+            path.write_text(json.dumps(value) + "\n", encoding="utf-8")
         return base
 
     def make_output(self, base: Path, commit: str) -> Path:
@@ -125,6 +145,62 @@ class IndependentSurfaceComponentCacheTests(unittest.TestCase):
             target = root / self.mod.INPUTS[0]
             target.write_text("changed\n", encoding="utf-8")
             self.assertNotEqual(first, self.mod.fingerprint(root))
+
+    def test_unrelated_base_and_kernel_metadata_preserve_webkit_cache(self):
+        with tempfile.TemporaryDirectory() as td:
+            root = self.make_root(Path(td) / "repo")
+            first = self.mod.fingerprint(root)
+            for relative, field, value in (
+                (self.mod.BUILDROOT_CONTRACT, "profiles", {"wifi": "new"}),
+                (self.mod.KERNEL_CONTRACT, "archive_sha256", "f" * 64),
+            ):
+                path = root / relative
+                payload = json.loads(path.read_text(encoding="utf-8"))
+                payload[field] = value
+                path.write_text(json.dumps(payload) + "\n", encoding="utf-8")
+                self.assertEqual(first, self.mod.fingerprint(root))
+
+    def test_byte_affecting_buildroot_and_kernel_headers_invalidate_cache(self):
+        with tempfile.TemporaryDirectory() as td:
+            root = self.make_root(Path(td) / "repo")
+            first = self.mod.fingerprint(root)
+            path = root / self.mod.BUILDROOT_CONTRACT
+            payload = json.loads(path.read_text(encoding="utf-8"))
+            payload["buildroot"]["sha256"] = "f" * 64
+            path.write_text(json.dumps(payload) + "\n", encoding="utf-8")
+            self.assertNotEqual(first, self.mod.fingerprint(root))
+            self.make_root(root)
+            path = root / self.mod.KERNEL_CONTRACT
+            payload = json.loads(path.read_text(encoding="utf-8"))
+            payload["version"] = "6.6.159"
+            path.write_text(json.dumps(payload) + "\n", encoding="utf-8")
+            self.assertNotEqual(first, self.mod.fingerprint(root))
+
+    def test_invalid_semantic_source_does_not_authorize_cache_reuse(self):
+        with tempfile.TemporaryDirectory() as td:
+            root = self.make_root(Path(td) / "repo")
+            path = root / self.mod.BUILDROOT_CONTRACT
+            original = path.read_text(encoding="utf-8")
+            cases = (
+                "{not-json",
+                '{"$schema":"wrong"}',
+                json.dumps({"$schema": "prototype-ordax.independent-base-experiment/1",
+                            "buildroot": {"version": "2026.08",
+                                          "url": "https://evil.example/a",
+                                          "sha256": "a"*64}}),
+            )
+            for invalid in cases:
+                path.write_text(invalid, encoding="utf-8")
+                with self.assertRaises(self.mod.CacheError):
+                    self.mod.fingerprint(root)
+            path.write_text(original, encoding="utf-8")
+
+    def test_github_preflight_excludes_unrelated_metadata_but_checks_semantics(self):
+        self.assertNotIn(self.mod.BUILDROOT_CONTRACT, self.mod.INPUTS)
+        self.assertNotIn(self.mod.KERNEL_CONTRACT, self.mod.INPUTS)
+        with tempfile.TemporaryDirectory() as td:
+            root = self.make_root(Path(td) / "repo")
+            self.assertEqual(self.mod.semantic_build_sources(root)["kernel_headers_version"], "6.6.158")
 
     def test_reuse_preserves_original_provenance_and_binds_new_commit(self):
         with tempfile.TemporaryDirectory() as td:
