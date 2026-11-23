@@ -441,7 +441,7 @@ class IndependentSurfaceComponentCacheTests(unittest.TestCase):
             "Restore verified Independent Surface EROFS from durable R2 store",
             "Restore verified Independent Surface from canonical GitHub producer artifact",
             "Install Surface verification dependencies",
-            "Build Buildroot/musl Surface runtime on verified artifact miss",
+            "Build Buildroot/musl Surface runtime on durable artifact miss",
             "Verify exact Independent Surface EROFS bytes",
         ]
         locations = [workflow.index("      - name: " + name) for name in steps]
@@ -485,7 +485,7 @@ class IndependentSurfaceComponentCacheTests(unittest.TestCase):
 
     def test_expensive_surface_build_requires_both_fast_and_durable_miss(self):
         workflow = WORKFLOW.read_text(encoding="utf-8")
-        marker = "      - name: Build Buildroot/musl Surface runtime on verified artifact miss\n"
+        marker = "      - name: Build Buildroot/musl Surface runtime on durable artifact miss\n"
         start = workflow.index(marker)
         end = workflow.find("\n      - name: ", start + len(marker))
         block = workflow[start:end]

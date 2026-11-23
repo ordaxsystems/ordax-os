@@ -313,7 +313,7 @@ class ReleaseCandidateGateTests(unittest.TestCase):
         self.assertNotIn("needs.producer-availability.result", workflow)
         self.assertNotIn("Require persistent producer on verified Surface artifact miss", build)
         self.assertIn("Restore verified Independent Surface EROFS component", build)
-        self.assertIn("Build Buildroot/musl Surface runtime on verified artifact miss", build)
+        self.assertIn("Build Buildroot/musl Surface runtime on durable artifact miss", build)
         self.assertIn("Verify exact Independent Surface EROFS bytes", build)
         self.assertIn("push:\n    branches: [main]\n    paths: *independent_surface_inputs", workflow)
 

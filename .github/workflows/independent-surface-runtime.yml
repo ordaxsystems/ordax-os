@@ -314,14 +314,14 @@ jobs:
           sudo apt-get update
           sudo apt-get install -y --no-install-recommends erofs-utils util-linux
 
-      - name: Install full Surface Buildroot host dependencies on verified artifact miss
+      - name: Install full Surface Buildroot host dependencies on durable artifact miss
         if: steps.surface-artifact-cache.outputs.cache-hit != 'true' && steps.surface-r2.outputs.hit != 'true' && steps.surface-github-artifact.outputs.hit != 'true'
         run: |
           sudo apt-get install -y --no-install-recommends \
             build-essential bc perl bison flex gawk cpio unzip rsync file \
             wget curl patch git xz-utils
 
-      - name: Restore exact Surface compiler cache on verified artifact miss
+      - name: Restore exact Surface compiler cache on durable artifact miss
         if: steps.surface-artifact-cache.outputs.cache-hit != 'true' && steps.surface-r2.outputs.hit != 'true' && steps.surface-github-artifact.outputs.hit != 'true' && env.ORDAX_SURFACE_PERSISTENT_WORK_ROOT == ''
         id: surface-ccache
         uses: actions/cache/restore@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
@@ -333,7 +333,7 @@ jobs:
             ordax-independent-surface-ccache-v2-${{ runner.os }}-${{ runner.arch }}-
             ordax-independent-surface-ccache-v1-${{ runner.os }}-${{ runner.arch }}-
 
-      - name: Restore Surface Buildroot source downloads on verified artifact miss
+      - name: Restore Surface Buildroot source downloads on durable artifact miss
         if: steps.surface-artifact-cache.outputs.cache-hit != 'true' && steps.surface-r2.outputs.hit != 'true' && steps.surface-github-artifact.outputs.hit != 'true' && env.ORDAX_SURFACE_PERSISTENT_WORK_ROOT == ''
         id: surface-download-cache
         uses: actions/cache/restore@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
@@ -360,7 +360,7 @@ jobs:
           python3 bootstrap/surface-runtime/prepare_config.py preflight \
             --cache "${BR2_DL_DIR:?}"
 
-      - name: Build Buildroot/musl Surface runtime on verified artifact miss
+      - name: Build Buildroot/musl Surface runtime on durable artifact miss
         if: steps.surface-artifact-cache.outputs.cache-hit != 'true' && steps.surface-r2.outputs.hit != 'true' && steps.surface-github-artifact.outputs.hit != 'true'
         env:
           ORDAX_SOURCE_COMMIT: ${{ github.event.pull_request.head.sha || github.sha }}

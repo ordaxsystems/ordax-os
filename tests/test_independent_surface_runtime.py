@@ -414,7 +414,7 @@ class IndependentSurfaceRuntimeTests(unittest.TestCase):
     def test_surface_producer_build_step_has_one_environment_mapping(self):
         workflow = WORKFLOW_PATH.read_text(encoding="utf-8")
         build_step = workflow.split(
-            "      - name: Build Buildroot/musl Surface runtime on verified artifact miss", 1
+            "      - name: Build Buildroot/musl Surface runtime on durable artifact miss", 1
         )[1].split("      - name: Verify exact Independent Surface EROFS bytes", 1)[0]
         self.assertEqual(build_step.count("\n        env:\n"), 1)
         self.assertIn("ORDAX_SOURCE_COMMIT:", build_step)
@@ -450,7 +450,7 @@ class IndependentSurfaceRuntimeTests(unittest.TestCase):
         self.assertNotIn("Require persistent producer on verified Surface artifact miss", workflow)
         restore = workflow.index("Restore verified Independent Surface EROFS component")
         github = workflow.index("Restore verified Independent Surface from canonical GitHub producer artifact")
-        build = workflow.index("Build Buildroot/musl Surface runtime on verified artifact miss")
+        build = workflow.index("Build Buildroot/musl Surface runtime on durable artifact miss")
         verify = workflow.index("Verify exact Independent Surface EROFS bytes")
         self.assertLess(restore, github)
         self.assertLess(github, build)
@@ -487,9 +487,9 @@ class IndependentSurfaceRuntimeTests(unittest.TestCase):
         self.assertIn('echo "ORDAX_SURFACE_RESOLVED_BUILD_WORK_ROOT=$build_work_root"', resolver)
         config = workflow.split(
             "      - name: Resolve exact Kconfig before expensive graphical build", 1
-        )[1].split("      - name: Build Buildroot/musl Surface runtime on verified artifact miss", 1)[0]
+        )[1].split("      - name: Build Buildroot/musl Surface runtime on durable artifact miss", 1)[0]
         build = workflow.split(
-            "      - name: Build Buildroot/musl Surface runtime on verified artifact miss", 1
+            "      - name: Build Buildroot/musl Surface runtime on durable artifact miss", 1
         )[1].split("      - name: Verify exact Independent Surface EROFS bytes", 1)[0]
         self.assertNotIn('BR2_CCACHE_DIR: ${{ runner.temp }}', config + build)
         self.assertNotIn('BR2_DL_DIR: ${{ runner.temp }}', config + build)
