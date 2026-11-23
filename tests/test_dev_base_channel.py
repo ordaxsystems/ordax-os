@@ -1109,7 +1109,9 @@ class DevBaseConsumerTests(unittest.TestCase):
                 consumer.manifest_url(published): json.dumps(descriptor).encode(),
                 descriptor["kernel"]["url"]: kernel,
                 descriptor["initramfs"]["url"]: initramfs,
-                descriptor["rootfs"]["url"]: rootfs,
+                descriptor["rootfs_transport"]["url"]: gzip.compress(
+                    rootfs, compresslevel=6, mtime=0,
+                ),
             }
             requests = []
 
@@ -1282,43 +1284,42 @@ class DevBaseConsumerTests(unittest.TestCase):
             self.assertTrue(reused)
             self.assertEqual(same, target)
 
-    @unittest.skipUnless(os.name == "posix", "requires POSIX executable mode preservation")
-    def test_failed_compressed_upgrade_preserves_previous_versioned_rootfs(self):
+    def test_interrupted_compressed_materialization_preserves_previous_versioned_rootfs(self):
         with tempfile.TemporaryDirectory() as temporary:
             root = Path(temporary)
-            old_kernel, old_initrd, old_rootfs = write_provenance_fixture(root, SOURCE)
-            old_candidate = root / "old-candidate"
-            builder.build(
-                source_commit=SOURCE, kernel_dir=old_kernel,
-                initramfs_dir=old_initrd, rootfs_dir=old_rootfs, out_dir=old_candidate,
-            )
             versions = root / "versions"
-            prior, reused = consumer.materialize_versioned_rootfs(
-                old_candidate, SOURCE, versions,
-            )
-            self.assertFalse(reused)
+            prior = versions / SOURCE
+            prior.mkdir(parents=True)
+            (prior / consumer.ROOTFS_MARKER).write_text(SOURCE + "\n", encoding="ascii")
+            (prior / "active-state").write_bytes(b"previous rootfs remains active")
             old_marker = (prior / consumer.ROOTFS_MARKER).read_bytes()
 
             newer = "5" * 40
-            kernel_dir, initramfs_dir, rootfs_dir = write_provenance_fixture(root, newer)
+            kernel_dir, initramfs_dir, rootfs_dir, _kernel, _initrd = (
+                write_provenance_fixture(root, newer)
+            )
             next_candidate = root / "next-candidate"
             builder.build(
                 source_commit=newer, kernel_dir=kernel_dir,
                 initramfs_dir=initramfs_dir, rootfs_dir=rootfs_dir, out_dir=next_candidate,
             )
-            manifest_path = next_candidate / "dev-base.json"
-            manifest = json.loads(manifest_path.read_text(encoding="utf-8"))
-            manifest["rootfs"]["sha256"] = "0" * 64
-            manifest_path.write_text(json.dumps(manifest, indent=2, sort_keys=True) + "\n")
+
+            def interrupt_after_partial_extract(_archive, destination, _expected):
+                (destination / "partial-file").write_bytes(b"incomplete candidate")
+                raise consumer.DevBaseChannelError("simulated rootfs extraction interruption")
 
             with self.assertRaisesRegex(
-                consumer.DevBaseChannelError, "rootfs content SHA-256 mismatch",
+                consumer.DevBaseChannelError, "extraction interruption",
+            ), patch.object(
+                consumer, "_extract_compressed_rootfs", side_effect=interrupt_after_partial_extract,
             ):
                 consumer.materialize_versioned_rootfs(next_candidate, newer, versions)
 
             self.assertEqual((prior / consumer.ROOTFS_MARKER).read_bytes(), old_marker)
+            self.assertEqual((prior / "active-state").read_bytes(), b"previous rootfs remains active")
             self.assertFalse((versions / newer).exists())
             self.assertEqual([entry.name for entry in versions.iterdir()], [SOURCE])
+            self.assertEqual(list(versions.glob(f".rootfs-{newer}-*")), [])
 
     def test_missing_exact_commit_candidate_is_retryable(self):
         def opener(url, timeout):
