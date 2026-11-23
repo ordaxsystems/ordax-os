@@ -87,7 +87,7 @@ class NeutralFirmwarePolicyTests(unittest.TestCase):
         with tempfile.TemporaryDirectory() as raw:
             root = self.make_rootfs(Path(raw), with_firmware=False)
             firmware = root / "lib/firmware/vendor"
-            compressed = firmware / "missing-example.bin.zst"
+            compressed = firmware / "example.bin.zst"
             compressed.write_bytes(b"compressed-firmware")
             link = firmware / "example.bin"
             try:
@@ -126,7 +126,7 @@ class NeutralFirmwarePolicyTests(unittest.TestCase):
             root = self.make_rootfs(Path(raw), with_firmware=False)
             firmware = root / "lib/firmware/vendor"
             firmware.mkdir(parents=True, exist_ok=True)
-            compressed = firmware / "example.bin.zst"
+            compressed = firmware / "missing-example.bin.zst"
             compressed.write_bytes(b"compressed-firmware")
             dangling = firmware / "example.bin"
             try:
