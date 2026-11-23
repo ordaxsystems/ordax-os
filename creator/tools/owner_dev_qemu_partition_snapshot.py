@@ -16,6 +16,7 @@ import subprocess
 import sys
 import tarfile
 import tempfile
+from typing import Callable
 
 HERE = Path(__file__).resolve().parent
 SCHEMA = "ordax.creator.owner-dev-ext4-cow-stage-proof/1"
@@ -188,7 +189,13 @@ def run_vm(qemu: Path, kernel: Path, ramdisk: Path, image: Path | str,
 
 def prove(base: Path, qemu: Path, qemu_img: Path, *,
           disk_number: int, serial: str, requested_commit: str,
-          git_bin: str = "git", awk_bin: str = "awk") -> dict:
+          git_bin: str = "git", awk_bin: str = "awk",
+          progress: Callable[[str], None] | None = None) -> dict:
+    def report(phase: str) -> None:
+        if progress is not None:
+            progress(phase)
+
+    report("readonly-physical-preflight")
     physical = _load("owner_dev_qemu_partition_readonly.py", "ordax_cow_physical")
     helper = _load("owner_dev_qemu_filesystem_proof.py", "ordax_cow_helper")
     try:
@@ -198,6 +205,7 @@ def prove(base: Path, qemu: Path, qemu_img: Path, *,
         )
     except physical.ReadonlyProbeError as exc:
         raise SnapshotProofError("canonical physical USB read-only gate failed: " + str(exc)) from exc
+    report("readonly-physical-verified")
     volume = "\\\\.\\" + preflight["volume_letter"] + ":"
     original_identity = physical.inventory(disk_number)
     if physical.confirmed_volume(original_identity, disk_number, serial) != preflight["volume_letter"]:
@@ -222,10 +230,12 @@ def prove(base: Path, qemu: Path, qemu_img: Path, *,
         helper.copy_verified(base / "rootfs.tar", payload, manifest["rootfs"])
         if physical.inventory(disk_number) != original_identity:
             raise SnapshotProofError("USB changed before creating overlay")
+        report("creating-disposable-cow")
         create_overlay(qemu_img, volume, overlay)
 
         evidence = {}
         for phase in ("stage", "readback", "physical"):
+            report("guest-" + phase)
             if physical.inventory(disk_number) != original_identity:
                 raise SnapshotProofError("USB target changed during overlay proof")
             stage_ramdisk = temp / f"{phase}.cpio.gz"
@@ -249,10 +259,33 @@ def prove(base: Path, qemu: Path, qemu_img: Path, *,
                     (phase == "readback" and base.name not in output)):
                 raise SnapshotProofError("staged rootfs lacks exact readback")
             evidence[phase] = True
+            report("guest-" + phase + "-verified")
         if sample_read_only(volume) != initial_hash:
             raise SnapshotProofError("original ext4 sample changed during COW proof")
+        if physical.inventory(disk_number) != original_identity:
+            raise SnapshotProofError("physical USB identity changed before COW delta planning")
+        report("cow-modified-blocks")
+        delta_owner = _load("owner_dev_qemu_delta_plan.py", "ordax_cow_delta_owner")
+        try:
+            delta = delta_owner.compile_delta(
+                qemu_img=qemu_img, overlay=overlay, volume=volume,
+                disk_number=disk_number, usb_serial=serial,
+                target_bytes=original_identity["Size"],
+                partition_offset=original_identity["Partitions"][1]["Offset"],
+                partition_bytes=original_identity["Partitions"][1]["Size"],
+            )
+        except delta_owner.DeltaPlanError as exc:
+            raise SnapshotProofError("canonical sparse COW delta plan failed: " + str(exc)) from exc
+        if (delta.get("physical_write") is not False
+                or delta.get("physical_write_authorized") is not False
+                or delta.get("physical_preimages_hashed") is not True
+                or delta.get("cow_postimages_hashed") is not True
+                or delta.get("modified_bytes", 0) <= 0):
+            raise SnapshotProofError("sparse COW delta plan is not safe to report")
+        report("cow-modified-blocks-hashed")
     if physical.inventory(disk_number) != original_identity:
         raise SnapshotProofError("USB changed after proof")
+    report("physical-identity-unchanged")
     return {"$schema": SCHEMA, "status": "pass",
             "source_commit": base.name,
             "requested_source_commit": requested_commit,
@@ -262,6 +295,11 @@ def prove(base: Path, qemu: Path, qemu_img: Path, *,
             "cold_readback_verified": evidence["readback"],
             "physical_absence_verified": evidence["physical"],
             "physical_sample_sha256_unchanged": True,
+            "cow_modified_bytes": delta["modified_bytes"],
+            "cow_modified_regions": delta["region_count"],
+            "cow_delta_plan_sha256": delta["plan_sha256"],
+            "cow_physical_preimages_hashed": True,
+            "cow_postimages_hashed": True,
             "rootfs_busybox_sha256": busybox_sha,
             "physical_usb_write": False,
             "physical_write_authorized": False,

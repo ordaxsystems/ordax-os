@@ -40,6 +40,9 @@ def good_evidence():
         "usb_serial": SERIAL, "disk_number": 1,
         "guest_stage_verified": True, "cold_readback_verified": True,
         "physical_absence_verified": True, "physical_sample_sha256_unchanged": True,
+        "cow_physical_preimages_hashed": True, "cow_postimages_hashed": True,
+        "cow_modified_bytes": 65536, "cow_modified_regions": 1,
+        "cow_delta_plan_sha256": "b" * 64,
     }
 
 
@@ -84,6 +87,16 @@ class USBUpdatePreflightTests(unittest.TestCase):
             self.assertIs(result[field], False, field)
         self.assertIs(result["rootfs_cow_stage_verified"], True)
 
+    def test_supervisor_progress_is_advisory_and_cannot_claim_physical_write(self):
+        phases = []
+        receipt = MOD.preflight(1, SERIAL, progress=phases.append)
+        self.assertEqual(phases, [
+            "physical-target-inventory", "resolving-published-base",
+            "published-base-verified", "physical-media-unchanged",
+        ])
+        self.assertFalse(receipt["update_executed"])
+        self.assertFalse(receipt["physical_write"])
+
     def test_cached_manifest_uses_exact_publisher_bytes(self):
         (self.base / "dev-base.json").write_bytes(b"modified")
         with mock.patch.object(MOD, "prove") as guest:
@@ -99,6 +112,10 @@ class USBUpdatePreflightTests(unittest.TestCase):
             {"source_commit": SOURCE}, {"requested_source_commit": BASE},
             {"usb_serial": "SWAPPED"}, {"disk_number": 2},
             {"physical_sample_sha256_unchanged": False},
+            {"cow_physical_preimages_hashed": False},
+            {"cow_postimages_hashed": False},
+            {"cow_modified_regions": 0}, {"cow_modified_bytes": 0},
+            {"cow_delta_plan_sha256": "untrusted"},
         ):
             with self.subTest(mutate=mutate):
                 evidence = {**good_evidence(), **mutate}

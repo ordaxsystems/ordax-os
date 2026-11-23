@@ -44,11 +44,13 @@ class SnapshotExt4Tests(unittest.TestCase):
         physical = mock.Mock()
         physical.ReadonlyProbeError = ProbeFailure
         physical.probe.side_effect = ProbeFailure("guest stalled")
+        phases = []
         with mock.patch.object(APP, "_load", return_value=physical):
             with self.assertRaisesRegex(APP.SnapshotProofError, "guest stalled"):
                 APP.prove(Path("base"), Path("qemu"), Path("qemu-img"),
                           disk_number=1, serial="6699E36B",
-                          requested_commit=SHA)
+                          requested_commit=SHA, progress=phases.append)
+        self.assertEqual(phases, ["readonly-physical-preflight"])
 
     def test_qemu_timeout_preserves_bounded_guest_diagnostic(self):
         with tempfile.TemporaryDirectory() as tmp:

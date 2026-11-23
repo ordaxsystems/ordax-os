@@ -87,8 +87,15 @@ verifies the \`ordax-os/main\` Git source and published manifest, and runs
 the already-owned QEMU ext4 COW staging and cold-readback evidence.
 It checks the same physical USB identity before and after the proof.
 
-The proof creates and removes a **temporary local QCOW2**. The physical
-ext4/ESP are never written; a positive result must not be called
+The proof creates and removes a **temporary local QCOW2**. The canonical
+COW delta compiler inspects only depth-0 allocated extents and explicit zero
+regions, validates their partition bounds, hashes both the prepared postimage
+and the original USB preimage, and reports a bounded plan fingerprint. This
+plan is temporary **evidence**, not a reusable physical-write grant; the
+existing Creator writer must revalidate every preimage under its physical
+volume lock before it may ever apply anything.
+
+The physical ext4/ESP are never written; a positive result must not be called
 'updated', 'installed', 'bootable' or 'activated'. Neither MCP nor Creator
 may infer the installed source commit from this result. The next owner
 gate is the existing physical writer / readback interface with a verified

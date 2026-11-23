@@ -136,7 +136,12 @@ def _base_directory(letter: str, commit: str) -> Path:
     return base
 
 
-def preflight(disk_number: int, serial: str) -> dict:
+def preflight(disk_number: int, serial: str, *, progress=None) -> dict:
+    def report(phase: str) -> None:
+        if progress is not None:
+            progress(phase)
+
+    report("physical-target-inventory")
     if os.name != "nt":
         raise USBUpdatePreflightError("physical USB preflight requires native Windows")
     before = inventory(disk_number)
@@ -151,6 +156,7 @@ def preflight(disk_number: int, serial: str) -> dict:
     ):
         raise USBUpdatePreflightError("verified Windows QEMU or Git AWK unavailable")
 
+    report("resolving-published-base")
     source = _current_source()
     channel = _channel()
     try:
@@ -170,11 +176,13 @@ def preflight(disk_number: int, serial: str) -> dict:
         raise USBUpdatePreflightError("USB Base integrity verification failed") from exc
     if inventory(disk_number) != before:
         raise USBUpdatePreflightError("physical target changed before guest proof")
+    report("published-base-verified")
 
     try:
         evidence = prove(base, qemu, qemu_img, disk_number=disk_number,
                          serial=serial, requested_commit=source,
-                         git_bin=str(GIT_EXE), awk_bin=str(AWK_EXE))
+                         git_bin=str(GIT_EXE), awk_bin=str(AWK_EXE),
+                         progress=progress)
     except (ReadonlyProbeError, SnapshotProofError) as exc:
         raise USBUpdatePreflightError("QEMU physical media proof failed: " + str(exc)) from exc
     if (evidence.get("status") != "pass"
@@ -187,12 +195,21 @@ def preflight(disk_number: int, serial: str) -> dict:
             or evidence.get("guest_stage_verified") is not True
             or evidence.get("cold_readback_verified") is not True
             or evidence.get("physical_absence_verified") is not True
-            or evidence.get("physical_sample_sha256_unchanged") is not True):
+            or evidence.get("physical_sample_sha256_unchanged") is not True
+            or evidence.get("cow_physical_preimages_hashed") is not True
+            or evidence.get("cow_postimages_hashed") is not True
+            or type(evidence.get("cow_modified_bytes")) is not int
+            or evidence["cow_modified_bytes"] <= 0
+            or type(evidence.get("cow_modified_regions")) is not int
+            or evidence["cow_modified_regions"] <= 0
+            or not re.fullmatch("[a-f0-9]{64}",
+                                str(evidence.get("cow_delta_plan_sha256", "")))):
         raise USBUpdatePreflightError("QEMU proof did not bind the requested USB/Base")
 
     if inventory(disk_number) != before:
         raise USBUpdatePreflightError("USB identity changed after guest proof")
     _verify_data_label(data_letter)
+    report("physical-media-unchanged")
     return {
         "$schema": SCHEMA,
         "status": "verified-offline-candidate-feasibility",
@@ -204,6 +221,11 @@ def preflight(disk_number: int, serial: str) -> dict:
         "published_manifest_verified": True,
         "rootfs_cow_stage_verified": True, "rootfs_cold_readback_verified": True,
         "original_media_sample_unchanged": True,
+        "cow_delta_regions": evidence["cow_modified_regions"],
+        "cow_delta_bytes": evidence["cow_modified_bytes"],
+        "cow_delta_plan_sha256": evidence["cow_delta_plan_sha256"],
+        "physical_preimages_hashed": True,
+        "prepared_postimages_hashed": True,
         "physical_write_authorized": False,
         "physical_write": False, "update_executed": False,
         "installed_revision_proven": False, "activation_performed": False,
@@ -217,7 +239,12 @@ def main() -> int:
     parser.add_argument("--serial", required=True)
     args = parser.parse_args()
     try:
-        print(json.dumps(preflight(args.disk_number, args.serial), sort_keys=True), flush=True)
+        def report(phase: str) -> None:
+            print("ordax-owner-usb-update-preflight: phase=" + phase,
+                  file=sys.stderr, flush=True)
+
+        result = preflight(args.disk_number, args.serial, progress=report)
+        print(json.dumps(result, sort_keys=True), flush=True)
         return 0
     except (USBUpdatePreflightError, ReadonlyProbeError, ValueError, OSError,
             UnicodeError) as exc:
