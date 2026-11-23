@@ -383,7 +383,12 @@ def existing_current(target: Path, commit: str) -> bool:
 
 
 def build_bundle(repo: Path, destination: Path, commit: str) -> tuple[str, int]:
-    git(repo, "-c", "pack.window=0", "-c", "pack.depth=0", "-c", "pack.compression=1", "bundle", "create", str(destination), "main", timeout=180)
+    # Reuse the pack's already-verified delta bases instead of rebuilding
+    # ~65k objects without deltas on every DEV update. Bound CPU concurrency.
+    # Git still owns bundle closure, exact tip, verify and SHA readback below.
+    git(repo, "-c", "pack.threads=2", "-c", "pack.reuseObjects=true",
+        "-c", "pack.reuseDeltas=true", "bundle", "create",
+        str(destination), "main", timeout=180)
     heads = git(repo, "bundle", "list-heads", str(destination))
     if heads != commit + " refs/heads/main":
         raise DeliveryError("bundle is not bound to one exact main revision")
