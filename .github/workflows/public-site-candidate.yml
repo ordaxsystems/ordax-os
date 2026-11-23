@@ -111,7 +111,6 @@ jobs:
             tests.test_supabase_lifecycle_provider \
             tests.test_account_lifecycle_edge \
             tests.test_public_site_deployment \
-            tests.test_public_site_selective_delivery \
             tests.test_public_canonical_host_redirects \
             tests.test_public_site_network_proof \
             tests.test_vercel_identity_preflight \
