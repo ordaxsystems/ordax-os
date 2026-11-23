@@ -2,7 +2,8 @@ import test from "node:test";
 import assert from "node:assert/strict";
 import { EventEmitter } from "node:events";
 import { createServer } from "node:http";
-import { mkdtemp, rm } from "node:fs/promises";
+import { mkdtemp, readdir, rm, utimes, writeFile } from "node:fs/promises";
+import { existsSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { availableParallelism } from "node:os";
@@ -23,7 +24,15 @@ async function runningServer(t, config = {}) {
   const process = new EventEmitter();
   process.pid = config.testPid ?? undefined;
   process.exitCode = null;
-  process.kill = () => { process.exitCode = 0; };
+  process.kill = () => {
+    if (config.delayedExitMs) {
+      setTimeout(() => { process.exitCode = 0; process.emit("exit", 0, null); },
+        config.delayedExitMs);
+      return true;
+    }
+    process.exitCode = 0;
+    return true;
+  };
   const fetchCalls = [];
   const priorities = [];
   const handle = createDesktopLocalAiMiddleware({
@@ -56,9 +65,60 @@ async function runningServer(t, config = {}) {
     await rm(profile,{force:true,recursive:true});
   });
   const base = "http://127.0.0.1:" + server.address().port;
-  return {base, launchCalls, fetchCalls, priorities, getPackages:()=>packages};
+  return {base, profile, handle, launchCalls, fetchCalls, priorities, getPackages:()=>packages};
 }
 const opts = {headers:{"x-ordax-local-ai-token":TOKEN}};
+test("dispose keeps the active llama key until the owned backend really exits", async t => {
+  const h = await runningServer(t, { delayedExitMs: 90 });
+  const route = h.base + "/__ordax/native/local-ai/health";
+  assert.equal((await fetch(route, opts)).status, 503);
+  for (let n = 0; n < 80; n++) {
+    if ((await fetch(route, opts)).status === 200) break;
+    await new Promise(resolve => setTimeout(resolve, 20));
+  }
+  assert.equal(h.launchCalls.length, 1);
+  const key = h.launchCalls[0].opts.env.LLAMA_ARG_API_KEY_FILE;
+  assert.ok(existsSync(key));
+  const stopping = h.handle.dispose();
+  assert.ok(existsSync(key), "stop signal alone must not remove an engine's key");
+  await stopping;
+  assert.ok(!existsSync(key), "verified exit retires the exact engine's key");
+});
+
+test("startup removes only stale verified llama keys and preserves other profile data", async t => {
+  const h = await runningServer(t);
+  const stale = await mkdtemp(join(h.profile, ".local-ai-auth-"));
+  await writeFile(join(stale, "key"), "a".repeat(64) + "\n");
+  const old = new Date(Date.now() - 2 * 24 * 60 * 60 * 1000);
+  await utimes(stale, old, old);
+  const recent = await mkdtemp(join(h.profile, ".local-ai-auth-"));
+  await writeFile(join(recent, "key"), "b".repeat(64) + "\n");
+  const suspicious = await mkdtemp(join(h.profile, ".local-ai-auth-"));
+  await writeFile(join(suspicious, "key"), "c".repeat(64) + "\n");
+  await writeFile(join(suspicious, "notes"), "user-owned");
+  await utimes(suspicious, old, old);
+  const invalid = await mkdtemp(join(h.profile, ".local-ai-auth-"));
+  await writeFile(join(invalid, "key"), "not-an-api-key\n");
+  await utimes(invalid, old, old);
+  const route = h.base + "/__ordax/native/local-ai/health";
+  assert.equal((await fetch(route, opts)).status, 503);
+  for (let n = 0; n < 80; n++) {
+    if ((await fetch(route, opts)).status === 200) break;
+    await new Promise(resolve => setTimeout(resolve, 20));
+  }
+  assert.equal(h.launchCalls.length, 1);
+  const items = await readdir(h.profile);
+  assert.ok(!items.includes(stale.split(/[\\/]/).at(-1)));
+  assert.ok(items.includes(recent.split(/[\\/]/).at(-1)),
+    "a potentially live/recent credential remains untouched");
+  assert.ok(items.includes(suspicious.split(/[\\/]/).at(-1)),
+    "unknown user files prevent destructive cleanup");
+  assert.ok(items.includes(invalid.split(/[\\/]/).at(-1)),
+    "unverified credential content is never deleted");
+  assert.ok(existsSync(h.launchCalls[0].opts.env.LLAMA_ARG_API_KEY_FILE),
+    "the live engine key must remain available");
+});
+
 test("Local AI Windows host denies other processes and refuses missing real payload", async t => {
   const h = await runningServer(t, {corrupt:true});
   const path="/__ordax/native/local-ai/health";

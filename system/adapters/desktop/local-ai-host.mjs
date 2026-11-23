@@ -4,7 +4,7 @@ import { randomBytes, timingSafeEqual } from "node:crypto";
 import { createServer } from "node:net";
 import { availableParallelism, constants as osConstants, getPriority, setPriority } from "node:os";
 import { spawn } from "node:child_process";
-import { mkdir, mkdtemp, rm, writeFile } from "node:fs/promises";
+import { lstat, mkdir, mkdtemp, readFile, readdir, rmdir, rm, unlink, writeFile } from "node:fs/promises";
 import { join } from "node:path";
 import { verifyWindowsLocalAiPackage } from "./local-ai-package.mjs";
 import {
@@ -89,6 +89,62 @@ function boundWindowsGreeting(value) {
     ...value, max_tokens: Math.min(value.max_tokens, 64),
     messages: [{ role: "system", content: styled }, { role: "user", content: prompt.trim() }],
   }};
+}
+
+// Recover only aged, recognizable credentials of this exact Native host.
+// Never traverse symlinks or delete arbitrary user files on a crash recovery.
+const LOCAL_AI_KEY_DIRECTORY = /^\.local-ai-auth-[A-Za-z0-9]{6}$/;
+const LOCAL_AI_KEY_MIN_AGE_MS = 24 * 60 * 60 * 1000;
+async function sweepStaleLocalAiKeys(userData) {
+  let entries;
+  try { entries = await readdir(userData, { withFileTypes: true }); }
+  catch { return; }
+  const now = Date.now();
+  let seen = 0;
+  for (const entry of entries) {
+    if (!LOCAL_AI_KEY_DIRECTORY.test(entry.name) || !entry.isDirectory()) continue;
+    if (++seen > 4096) break;
+    const dir = join(userData, entry.name);
+    try {
+      const info = await lstat(dir);
+      if (!info.isDirectory() || info.isSymbolicLink() ||
+          now - info.mtimeMs < LOCAL_AI_KEY_MIN_AGE_MS) continue;
+      if ((await readdir(dir)).join(",") !== "key") continue;
+      const key = join(dir, "key");
+      const file = await lstat(key);
+      if (!file.isFile() || file.isSymbolicLink() || file.size !== 65 ||
+          !/^[a-f0-9]{64}\n$/.test(await readFile(key, "utf8"))) continue;
+      await unlink(key);
+      await rmdir(dir); // Nonrecursive: unknown entries always survive.
+    } catch { /* Locked or modified profiles are never forcibly removed. */ }
+  }
+}
+
+// A Windows key file must not be retired before its exact engine exits.
+async function stopOwnedBackend(owned) {
+  if (!owned || owned.exitCode !== null || owned.signalCode != null) return true;
+  return new Promise(resolve => {
+    let settled = false;
+    let timer;
+    const onExit = () => done(true);
+    const onError = () => done(false);
+    const done = ok => {
+      if (settled) return;
+      settled = true;
+      clearTimeout(timer);
+      owned.off("exit", onExit);
+      owned.off("error", onError);
+      resolve(ok);
+    };
+    owned.once("exit", onExit);
+    owned.once("error", onError);
+    timer = setTimeout(() => done(false), 3000);
+    timer.unref?.();
+    try {
+      if (owned.kill() === false) done(false);
+      else if (owned.exitCode !== null || owned.signalCode != null) done(true);
+    } catch { done(false); }
+  });
 }
 
 async function portAvailable() {
@@ -178,6 +234,7 @@ export function createDesktopLocalAiMiddleware({
     starting = (async () => {
       model = await verifyPackage(packageRoot);
       await mkdir(userData, { recursive: true });
+      await sweepStaleLocalAiKeys(userData);
       secretDirectory = await mkdtemp(join(userData, ".local-ai-auth-"));
       secret = randomBytes(32).toString("hex");
       await writeFile(join(secretDirectory, "key"), secret + "\n", { flag: "wx", mode: 0o600 });
@@ -216,8 +273,8 @@ export function createDesktopLocalAiMiddleware({
       return true;
     })().catch(async error => {
       failed = true;
-      child?.kill();
-      if (secretDirectory) await rm(secretDirectory, { recursive: true, force: true });
+      if (await stopOwnedBackend(child) && secretDirectory)
+        await rm(secretDirectory, { recursive: true, force: true });
       secret = null;
       throw error;
     });
@@ -237,28 +294,10 @@ export function createDesktopLocalAiMiddleware({
       secret = null;
       secretDirectory = null;
       starting = null;
-      // Signaled children may have exitCode=null after an exit event. They
-      // are already dead: never target a reused PID or wait for a past event.
-      if (old && old.exitCode === null && old.signalCode == null) {
-        const exited = await new Promise(resolve => {
-          let complete = false;
-          const done = value => {
-            if (complete) return;
-            complete = true;
-            clearTimeout(timer);
-            old.removeListener("exit", onExit);
-            resolve(value);
-          };
-          const onExit = () => done(true);
-          const timer = setTimeout(() => done(false), 3000);
-          old.once("exit", onExit);
-          try { old.kill(); }
-          catch { done(false); }
-        });
-        if (!exited) {
-          failed = true; // Strictly refuse a second engine if old PID persists.
-          return;
-        }
+      // No second engine until the exact previous child is confirmed dead.
+      if (!await stopOwnedBackend(old)) {
+        failed = true;
+        return;
       }
       if (oldSecrets) await rm(oldSecrets, { recursive: true, force: true });
       if (!disposed) {
@@ -395,9 +434,9 @@ export function createDesktopLocalAiMiddleware({
   };
   const dispose = async () => {
     disposed = true;
-    if (child && child.exitCode === null && child.signalCode == null) child.kill();
     if (recycling) await recycling;
-    if (secretDirectory) await rm(secretDirectory, { recursive: true, force: true });
+    if (await stopOwnedBackend(child) && secretDirectory)
+      await rm(secretDirectory, { recursive: true, force: true });
     secret = null;
   };
   return { middleware, dispose };
