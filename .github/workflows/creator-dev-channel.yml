@@ -331,14 +331,27 @@ jobs:
           $ErrorActionPreference = 'Stop'
           $root = Join-Path $PWD 'out/creator-dev-release'
           $pin = (Get-Content -LiteralPath docs/contracts/native-release-assembly.json -Raw -Encoding UTF8 | ConvertFrom-Json).creator_source
+          if ($pin.repository -cne 'ordaxsystems/ordax-os' -or
+              $pin.module -cne 'github.com/ordaxsystems/ordax-os/creator' -or
+              $pin.path -cne 'creator' -or
+              $pin.publisher_authority -cne 'ordaxsystems/ordax-os' -or
+              $pin.physical_apply_authorized -ne $false) {
+            throw 'Creator canonical owner contract mismatch'
+          }
+          # Contract is a source-owner declaration, not a mutable commit pin.
+          # Exact commit/tree belong to this immutable workflow checkout.
+          $creatorTree = (git rev-parse 'HEAD:creator').Trim()
+          if ($LASTEXITCODE -ne 0 -or $creatorTree -cnotmatch '^[0-9a-f]{40}$') {
+            throw 'cannot resolve exact Creator source tree'
+          }
           $prov = Get-Content -LiteralPath (Join-Path $root 'creator-dev-source-provenance.json') -Raw -Encoding UTF8 | ConvertFrom-Json
           $manifest = Get-Content -LiteralPath (Join-Path $root 'creator-dev-manifest.json') -Raw -Encoding UTF8 | ConvertFrom-Json
           if ($prov.'$schema' -cne 'prototype-ordax.creator-dev-source-provenance/1' -or
               $prov.publisher_repository -cne 'ordaxsystems/ordax-os' -or
               $prov.publisher_commit -cne '${{ github.sha }}' -or
               $prov.creator_source_repository -cne 'ordaxsystems/ordax-os' -or
-              $prov.creator_source_commit -cne [string]$pin.commit -or
-              $prov.creator_source_tree -cne [string]$pin.tree -or
+              $prov.creator_source_commit -cne '${{ github.sha }}' -or
+              $prov.creator_source_tree -cne $creatorTree -or
               $prov.public_release_authorized -ne $false -or
               $prov.physical_write_authorized -ne $false -or
               $prov.private_key_included -ne $false) {
@@ -353,7 +366,7 @@ jobs:
           }
           if ($manifest.'$schema' -cne 'prototype-ordax.creator-update-channel/1' -or
               $manifest.channel -cne 'development' -or
-              $manifest.source_commit -cne [string]$pin.commit -or
+              $manifest.source_commit -cne '${{ github.sha }}' -or
               $manifest.payload.url -cne 'https://github.com/ordaxsystems/ordax-os/releases/download/creator-dev/ordax-creator-dev-windows-amd64.zip') {
             throw 'Creator legacy manifest source pin/schema/URL mismatch'
           }
