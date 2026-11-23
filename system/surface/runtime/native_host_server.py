@@ -5608,6 +5608,15 @@ class NativeHostHandler(SimpleHTTPRequestHandler):
                 print(f"ordax-native-host: network management IPC failure: {type(exc).__name__}", file=sys.stderr, flush=True)
                 self._write_json(503, {"reason": "network-broker-io-failed"})
                 return
+            except Exception as exc:
+                # Never let a missing native crypto/host primitive abort the
+                # HTTP connection: WebKit would report "host unreachable",
+                # masking an internal Wi-Fi failure as a broken Surface.
+                # The exception type is non-secret; never log credentials,
+                # derived keys or the raw exception body.
+                print(f"ordax-native-host: network action failed safely: {type(exc).__name__}", file=sys.stderr, flush=True)
+                self._write_json(503, {"reason": "network-native-failure"})
+                return
             self._write_json(200, snapshot)
             return
 

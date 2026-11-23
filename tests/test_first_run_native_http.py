@@ -78,6 +78,23 @@ class NativeFirstRunHttpTests(unittest.TestCase):
         with mock.patch.object(native.hashlib, "pbkdf2_hmac", None):
             self.assertEqual(native.derive_wpa_psk("IEEE", "password"), expected)
 
+    def test_wifi_connect_internal_exception_keeps_native_http_reachable(self):
+        # Native failures (including the old missing-PBKDF2 AttributeError)
+        # must not terminate the HTTP response and become a false "Surface
+        # unreachable" error. No POST replay and no secrets cross the wire.
+        with mock.patch.object(native, "queue_network_broker_request",
+                               side_effect=AttributeError("secret-password-must-not-leak")) as queued:
+            status, body = self.request(
+                "POST", path=native.NETWORK_MANAGEMENT_PATH,
+                headers={native.NETWORK_TOKEN_HEADER: self.server.network_token},
+                value={"action": "connect", "ssid": "IEEE", "password": "password"},
+            )
+        queued.assert_called_once()
+        self.assertEqual(status, 503)
+        self.assertEqual(json.loads(body), {"reason": "network-native-failure"})
+        self.assertNotIn(b"secret", body)
+        self.assertEqual(self.request()[0], 200)
+
     def test_wifi_connect_reports_missing_key_derivation_before_broker_dispatch(self):
         with mock.patch.object(native, "network_broker_available", return_value=True), \
                 mock.patch.object(native, "hashlib", spec=[]):
