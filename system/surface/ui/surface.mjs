@@ -1,4 +1,5 @@
 import { mountNativeSidebarFit, sidebarIsExpanded, sidebarItemIsActive } from "./sidebar-layout.mjs";
+import { notifySurfaceRenderObservers } from "./render-observers.mjs";
 import { mountSidebarHints } from "./sidebar-hints.mjs";
 import { assertAppRuntimeCatalog, defaultAppRuntimeCatalog } from "../../apps/runtime-catalog.mjs";
 import { externalAppCopy } from "../../apps/external-app-definition.mjs";
@@ -1162,7 +1163,9 @@ export function mountSurface(
   };
 
   const notifyRenderListeners = () => {
-    for (const listener of [...renderListeners]) listener();
+    notifySurfaceRenderObservers(renderListeners, (error) => {
+      console.error("OrdaX Surface observer failed during a verified render", error);
+    });
   };
 
   const renderSidebarModeOnly = () => {
