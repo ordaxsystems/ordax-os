@@ -130,6 +130,7 @@ jobs:
         env:
           ORDAX_IMPACT_BASE: ${{ github.event.pull_request.base.sha || github.event.before || '' }}
           ORDAX_IMPACT_HEAD: ${{ github.event.pull_request.head.sha || github.sha }}
+          ORDAX_IMPACT_USE_MERGE_BASE: ${{ github.event_name == 'pull_request' }}
           ORDAX_FORCE_SURFACE_BUILD: ${{ inputs.force_build || false }}
         run: |
           set -euo pipefail
@@ -137,9 +138,14 @@ jobs:
           if [ "$ORDAX_FORCE_SURFACE_BUILD" = true ]; then
             force=(--force)
           fi
+          merge_base=()
+          if [ "$ORDAX_IMPACT_USE_MERGE_BASE" = true ]; then
+            merge_base=(--merge-base)
+          fi
           python3 tools/ci/independent_surface_impact.py \
             --base "$ORDAX_IMPACT_BASE" \
             --head "$ORDAX_IMPACT_HEAD" \
+            "${merge_base[@]}" \
             "${force[@]}" \
             --github-output "$GITHUB_OUTPUT"
 

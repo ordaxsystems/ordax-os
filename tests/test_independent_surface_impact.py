@@ -104,6 +104,56 @@ class IndependentSurfaceImpactTests(unittest.TestCase):
             self.assertFalse(result.required)
             self.assertEqual(result.reasons, ("contract-only",))
 
+    def test_pr_delta_ignores_target_commits_after_the_branch_fork(self):
+        with tempfile.TemporaryDirectory() as temporary:
+            root = Path(temporary)
+
+            def git(*args):
+                return subprocess.check_output(
+                    ["git", "-C", str(root), *args], stderr=subprocess.PIPE
+                ).decode("utf-8").strip()
+
+            git("init", "-q")
+            git("config", "user.name", "CI")
+            git("config", "user.email", "ci@example.invalid")
+            (root / "base.txt").write_text("base\n", encoding="utf-8")
+            git("add", "-A")
+            git("commit", "-qm", "common base")
+            common = git("rev-parse", "HEAD")
+            git("branch", "-M", "target")
+            target_branch = "target"
+            git("branch", "feature")
+
+            git("checkout", "-q", "feature")
+            (root / "tests").mkdir()
+            (root / "tests/test_ci_two_stage_release_gate.py").write_text(
+                "contract test\n", encoding="utf-8"
+            )
+            git("add", "-A")
+            git("commit", "-qm", "PR test-only change")
+            head = git("rev-parse", "HEAD")
+
+            git("checkout", "-q", target_branch)
+            (root / "bootstrap/surface-runtime/configs").mkdir(parents=True)
+            (root / "bootstrap/surface-runtime/configs/ordax_surface_defconfig").write_text(
+                "target-only change\n", encoding="utf-8"
+            )
+            git("add", "-A")
+            git("commit", "-qm", "target advances independently")
+            base = git("rev-parse", "HEAD")
+
+            changed = self.mod.changed_paths_between(
+                base, head, root=root, use_merge_base=True
+            )
+            self.assertEqual(changed, ("tests/test_ci_two_stage_release_gate.py",))
+            self.assertFalse(self.mod.classify_paths(changed).required)
+            self.assertTrue(
+                self.mod.classify_paths(
+                    self.mod.changed_paths_between(base, head, root=root)
+                ).required
+            )
+            self.assertNotEqual(common, base)
+
     def test_workflow_uses_real_pr_base_and_push_before_sha(self):
         workflow = (ROOT / ".github/workflows/independent-surface-runtime.yml").read_text(
             encoding="utf-8"
@@ -112,6 +162,11 @@ class IndependentSurfaceImpactTests(unittest.TestCase):
             "ORDAX_IMPACT_BASE: ${{ github.event.pull_request.base.sha || github.event.before || '' }}",
             workflow,
         )
+        self.assertIn(
+            "ORDAX_IMPACT_USE_MERGE_BASE: ${{ github.event_name == 'pull_request' }}",
+            workflow,
+        )
+        self.assertIn('merge_base=(--merge-base)', workflow)
 
     def test_unknown_path_fails_closed(self):
         result = self.mod.classify_paths(["bootstrap/something-new/runtime.py"])
