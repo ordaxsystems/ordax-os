@@ -222,7 +222,10 @@ jobs:
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
         with:
           ref: ${{ github.event.pull_request.head.sha || github.sha }}
-          fetch-depth: 0
+          # Producer only needs immutable source, not the whole Git history.
+          # Artifact reuse independently validates input identity and digests
+          # even if older producer commits are not in this shallow clone.
+          fetch-depth: 1
           persist-credentials: false
 
       - name: Resolve exact Surface artifact fingerprint
