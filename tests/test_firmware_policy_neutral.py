@@ -121,36 +121,26 @@ class NeutralFirmwarePolicyTests(unittest.TestCase):
             self.assertEqual(receipt["selected_firmware_count"], 1)
             self.assertTrue((firmware / "vendor/example.bin").is_file())
 
-    def test_owner_prune_drops_dangling_declared_alias_when_zstd_fallback_exists(self) -> None:
+    def test_owner_prune_removes_alias_when_unselected_target_is_pruned(self) -> None:
         with tempfile.TemporaryDirectory() as raw:
-            root = self.make_rootfs(Path(raw), with_firmware=False)
-            firmware = root / "lib/firmware/vendor"
-            firmware.mkdir(parents=True, exist_ok=True)
-            compressed = firmware / "missing-example.bin.zst"
-            compressed.write_bytes(b"compressed-firmware")
-            dangling = firmware / "example.bin"
+            root = self.make_rootfs(Path(raw), with_firmware=True)
+            firmware = root / "lib/firmware"
+            target = firmware / "optional-target.ucode"
+            target.write_bytes(b"optional-firmware")
+            alias = firmware / "iwlwifi-100-5.ucode"
             try:
-                dangling.symlink_to("missing-example.bin")
+                alias.symlink_to(target.name)
             except OSError as exc:
                 self.skipTest(f"symlink creation is unavailable: {exc}")
 
-            self.assertEqual(
-                POLICY.resolve_firmware_source(
-                    firmware.parent, "vendor/example.bin",
-                ),
-                compressed,
-            )
             result = POLICY.prune_unreferenced_firmware(root)
 
-            self.assertFalse(dangling.is_symlink())
-            self.assertTrue(compressed.is_file())
-            self.assertEqual(result["removed_files"], 1)
+            self.assertFalse(alias.is_symlink())
+            self.assertFalse(target.exists())
+            self.assertEqual(result["removed_files"], 2)
             receipt = POLICY.coverage_receipt(root, log_prefix="ORDAX_TEST")
             self.assertEqual(receipt["selected_firmware_count"], 1)
-            self.assertEqual(
-                receipt["files"][0]["source"],
-                "/lib/firmware/vendor/missing-example.bin.zst",
-            )
+            self.assertTrue((firmware / "vendor/example.bin").is_file())
 
     def test_owner_prune_keeps_matrix_firmware_reached_through_directory_alias(self) -> None:
         with tempfile.TemporaryDirectory() as raw:

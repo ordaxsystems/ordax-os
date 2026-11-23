@@ -118,16 +118,10 @@ def resolve_firmware_source_chain(
                     f"firmware symlink escaped /lib/firmware: {name}"
                 ) from exc
             if not current.exists() and not current.is_symlink():
-                compressed = Path(str(current) + ".zst")
-                if compressed.exists() or compressed.is_symlink():
-                    # The uncompressed target does not exist. Any symlink
-                    # chain that led here is dangling too; keep the actual
-                    # compressed source without carrying those broken aliases
-                    # into the rootfs archive.
-                    chain = []
-                    current = compressed
-                else:
-                    return None
+                # The kernel retries the requested firmware name with a
+                # ``.zst`` suffix; it does not retry a dangling symlink's
+                # target with that suffix. Treat this alias as unavailable.
+                return None
         raise FirmwareSelectionError(f"firmware symlink depth exceeded: {name}")
     return None
 
@@ -207,6 +201,15 @@ def prune_unreferenced_firmware(rootfs: Path) -> dict[str, int]:
                 f"selected firmware disappeared before pruning: {name}"
             )
         keep.update(chain)
+        # Path.is_symlink() on a child follows symlinked parent directories,
+        # so retain those aliases explicitly when a matrix declaration
+        # reaches selected firmware through a vendor-directory alias.
+        requested = firmware_root / name
+        for parent in requested.parents:
+            if parent == firmware_root:
+                break
+            if parent.is_symlink():
+                keep.add(parent)
 
     def preserve_metadata(path: Path) -> bool:
         name = path.name.upper()
@@ -228,20 +231,15 @@ def prune_unreferenced_firmware(rootfs: Path) -> dict[str, int]:
                 f"unsupported object in /lib/firmware: {path.relative_to(firmware_root)}"
             )
 
-    # Keep aliases, including directory symlinks, when their targets exist.
-    # Some module declarations traverse a symlinked vendor directory before
-    # reaching the selected blob. Buildroot also installs dangling firmware
-    # aliases for optional blobs; they are neither usable offline alternatives
-    # nor valid rootfs archive entries, so remove those even though they are
-    # symlinks.
+    # Keep only aliases in selected firmware chains (including symlinked
+    # parent directories). A different alias may resolve before pruning and
+    # become dangling when its unselected target is removed below.
     removable = []
     for path in files:
         if path in keep:
             continue
         metadata = path.lstat()
         if stat.S_ISLNK(metadata.st_mode):
-            if path.exists():
-                continue
             removable.append(path)
         elif not preserve_metadata(path):
             removable.append(path)
