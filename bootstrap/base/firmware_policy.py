@@ -120,6 +120,11 @@ def resolve_firmware_source_chain(
             if not current.exists() and not current.is_symlink():
                 compressed = Path(str(current) + ".zst")
                 if compressed.exists() or compressed.is_symlink():
+                    # The uncompressed target does not exist. Any symlink
+                    # chain that led here is dangling too; keep the actual
+                    # compressed source without carrying those broken aliases
+                    # into the rootfs archive.
+                    chain = []
                     current = compressed
                 else:
                     return None
