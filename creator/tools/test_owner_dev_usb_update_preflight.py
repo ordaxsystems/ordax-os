@@ -137,6 +137,58 @@ class USBUpdatePreflightTests(unittest.TestCase):
                 with self.assertRaisesRegex(MOD.USBUpdatePreflightError, "disagrees"):
                     MOD.preflight(1, SERIAL, prepare_host_bundle=True)
 
+    def test_reuse_cached_bundle_checks_source_and_preimages_without_qemu(self):
+        import os
+        cache = (Path(self.temp.name) / "OrdaX" / "updates" /
+                 "creator" / "dev-delta")
+        package = cache / ("c0db578e6939be40-" + SERIAL + "-verified")
+        package.mkdir(parents=True)
+        current = media()
+        target = {
+            "disk_number": 1, "usb_serial": SERIAL,
+            "physical_size_bytes": current["Size"], "partition_number": 2,
+            "partition_offset_bytes": current["Partitions"][1]["Offset"],
+            "partition_bytes": current["Partitions"][1]["Size"],
+        }
+        manifest = {
+            "requested_main_commit": "0" * 40,
+            "published_base_source_commit": BASE,
+            "target": target,
+        }
+        proof = {
+            "bundle_manifest_sha256": "f" * 64,
+            "verified_regions": 136, "verified_bytes": 204537856,
+            "physical_write": False, "writer_lock_held": False,
+        }
+        candidate = SimpleNamespace(
+            DeltaBundleError=ValueError,
+            verify_bundle=lambda location: manifest,
+            verify_physical_preimages=lambda location, **kwargs: proof,
+        )
+        channel = SimpleNamespace(
+            DevBaseChannelError=ValueError,
+            resolve_published_source=lambda *args, **kwargs: (
+                BASE, b"publisher-bytes",
+            ),
+            verify_materialized=lambda *args: {},
+            prove_compatible_source=lambda *args, **kwargs: True,
+        )
+        with (mock.patch.object(MOD, "_channel", return_value=channel),
+              mock.patch.object(MOD, "_load_bundle", return_value=candidate),
+              mock.patch.object(MOD, "prove") as qemu,
+              mock.patch.dict(os.environ, {"LOCALAPPDATA": self.temp.name})):
+            result = MOD.preflight(1, SERIAL, reuse_host_bundle=True)
+            self.assertEqual(result["status"],
+                             "verified-cached-host-delta-preimages")
+            self.assertEqual(result["verified_regions"], 136)
+            self.assertFalse(result["physical_write"])
+            self.assertFalse(result["writer_lock_held"])
+            qemu.assert_not_called()
+            channel.prove_compatible_source = lambda *args, **kwargs: False
+            with self.assertRaisesRegex(MOD.USBUpdatePreflightError, "no compatible"):
+                MOD.preflight(1, SERIAL, reuse_host_bundle=True)
+            qemu.assert_not_called()
+
     def test_cached_manifest_uses_exact_publisher_bytes(self):
         (self.base / "dev-base.json").write_bytes(b"modified")
         with mock.patch.object(MOD, "prove") as guest:

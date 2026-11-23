@@ -148,12 +148,15 @@ def _base_directory(letter: str, commit: str) -> Path:
 
 
 def preflight(disk_number: int, serial: str, *, progress=None,
-              prepare_host_bundle: bool = False) -> dict:
+              prepare_host_bundle: bool = False,
+              reuse_host_bundle: bool = False) -> dict:
     def report(phase: str) -> None:
         if progress is not None:
             progress(phase)
 
     report("physical-target-inventory")
+    if prepare_host_bundle and reuse_host_bundle:
+        raise USBUpdatePreflightError("host bundle creation and reuse are exclusive")
     if os.name != "nt":
         raise USBUpdatePreflightError("physical USB preflight requires native Windows")
     before = inventory(disk_number)
@@ -163,10 +166,13 @@ def preflight(disk_number: int, serial: str, *, progress=None,
     _verify_data_label(data_letter)
     qemu, qemu_img = (QEMU_ROOT / "qemu-system-x86_64.exe",
                       QEMU_ROOT / "qemu-img.exe")
-    if not _real_directory(QEMU_ROOT) or not all(
-        _real_regular(tool) for tool in (qemu, qemu_img, AWK_EXE)
+    if not _real_regular(AWK_EXE):
+        raise USBUpdatePreflightError("canonical Git AWK policy unavailable")
+    if not reuse_host_bundle and (
+        not _real_directory(QEMU_ROOT)
+        or not _real_regular(qemu) or not _real_regular(qemu_img)
     ):
-        raise USBUpdatePreflightError("verified Windows QEMU or Git AWK unavailable")
+        raise USBUpdatePreflightError("verified Windows QEMU unavailable")
 
     report("resolving-published-base")
     source = _current_source()
@@ -189,6 +195,78 @@ def preflight(disk_number: int, serial: str, *, progress=None,
     if inventory(disk_number) != before:
         raise USBUpdatePreflightError("physical target changed before guest proof")
     report("published-base-verified")
+    if reuse_host_bundle:
+        bundle_owner = _load_bundle()
+        local_appdata = os.environ.get("LOCALAPPDATA", "")
+        if not local_appdata:
+            raise USBUpdatePreflightError("canonical local candidate cache missing")
+        cache = Path(local_appdata) / "OrdaX" / "updates" / "creator" / "dev-delta"
+        if not _real_directory(cache):
+            raise USBUpdatePreflightError("canonical local candidate cache missing or linked")
+        expected_target = {
+            "disk_number": disk_number, "usb_serial": serial.upper(),
+            "physical_size_bytes": before["Size"], "partition_number": 2,
+            "partition_offset_bytes": before["Partitions"][1]["Offset"],
+            "partition_bytes": before["Partitions"][1]["Size"],
+        }
+        found = False
+        for directory in sorted(cache.iterdir(), key=lambda item: item.name):
+            if ("-" + serial.upper() + "-") not in directory.name:
+                continue
+            if not _real_directory(directory):
+                raise USBUpdatePreflightError("cached candidate is linked or missing")
+            found = True
+            try:
+                manifest = bundle_owner.verify_bundle(directory)
+            except (bundle_owner.DeltaBundleError, OSError) as exc:
+                raise USBUpdatePreflightError("cached candidate integrity failed") from exc
+            if (manifest.get("published_base_source_commit") != compatible
+                    or manifest.get("target") != expected_target):
+                continue
+            try:
+                compatible_main = channel.prove_compatible_source(
+                    ROOT, manifest["requested_main_commit"], source,
+                    git_bin=str(GIT_EXE), awk_bin=str(AWK_EXE),
+                )
+            except channel.DevBaseChannelError as exc:
+                raise USBUpdatePreflightError("cached source compatibility could not be proved") from exc
+            if not compatible_main:
+                continue
+            report("rechecking-current-usb-preimages")
+            try:
+                previous = bundle_owner.verify_physical_preimages(
+                    directory, volume=r"\\.\ "[:-1] + letter + ":",
+                    disk_number=disk_number, serial=serial,
+                    disk_bytes=before["Size"],
+                    partition_offset=before["Partitions"][1]["Offset"],
+                    partition_bytes=before["Partitions"][1]["Size"],
+                )
+            except (bundle_owner.DeltaBundleError, OSError) as exc:
+                raise USBUpdatePreflightError("cached candidate is stale or USB preimage changed") from exc
+            if inventory(disk_number) != before:
+                raise USBUpdatePreflightError("USB changed during cached preimage verification")
+            _verify_data_label(data_letter)
+            report("cached-candidate-revalidated")
+            return {
+                "$schema": SCHEMA, "status": "verified-cached-host-delta-preimages",
+                "disk_number": disk_number, "usb_serial": serial.upper(),
+                "requested_main_commit": source,
+                "cached_source_commit": manifest["requested_main_commit"],
+                "published_base_source_commit": compatible,
+                "current_source_compatibility_proven": True,
+                "bundle_path": str(directory),
+                "bundle_manifest_sha256": previous["bundle_manifest_sha256"],
+                "verified_regions": previous["verified_regions"],
+                "verified_bytes": previous["verified_bytes"],
+                "physical_write": False, "physical_write_authorized": False,
+                "writer_lock_held": False, "installed_revision_proven": False,
+                "activation_performed": False,
+                "next_gate": "creator-native-writer-locked-revalidation",
+            }
+        raise USBUpdatePreflightError(
+            "no compatible cached delta for current authorized USB"
+            if found else "no cached delta for this authorized USB"
+        )
 
     try:
         evidence = prove(base, qemu, qemu_img, disk_number=disk_number,
@@ -285,6 +363,8 @@ def main() -> int:
     parser.add_argument("--serial", required=True)
     parser.add_argument("--prepare-host-bundle", action="store_true",
                         help="stage local verified data only; never write physical USB")
+    parser.add_argument("--reuse-host-bundle", action="store_true",
+                        help="verify local candidate and current USB preimages without QEMU")
     args = parser.parse_args()
     try:
         def report(phase: str) -> None:
@@ -292,7 +372,8 @@ def main() -> int:
                   file=sys.stderr, flush=True)
 
         result = preflight(args.disk_number, args.serial, progress=report,
-                           prepare_host_bundle=args.prepare_host_bundle)
+                           prepare_host_bundle=args.prepare_host_bundle,
+                           reuse_host_bundle=args.reuse_host_bundle)
         print(json.dumps(result, sort_keys=True), flush=True)
         return 0
     except (USBUpdatePreflightError, ReadonlyProbeError, ValueError, OSError,

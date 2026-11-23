@@ -2,11 +2,13 @@
 from __future__ import annotations
 
 import hashlib
+import io
 import importlib.util
 import json
 from pathlib import Path
 import tempfile
 import unittest
+from unittest import mock
 
 HERE = Path(__file__).resolve().parent
 spec = importlib.util.spec_from_file_location(
@@ -171,6 +173,31 @@ class DeltaBundleTests(unittest.TestCase):
         path.write_bytes(MODULE.canonical_json(manifest))
         with self.assertRaisesRegex(MODULE.DeltaBundleError, "receipt policy"):
             MODULE.verify_bundle(path.parent)
+
+    def test_cached_preimage_check_reads_only_current_usb_and_rejects_drift(self):
+        receipt = self.prepare()
+        package = Path(receipt["bundle_path"])
+        args = dict(directory=package, volume=chr(92) * 2 + "." + chr(92) + "D:",
+                    disk_number=1, serial=SERIAL, disk_bytes=PHYSICAL,
+                    partition_offset=OFFSET, partition_bytes=PARTITION)
+        with mock.patch("builtins.open", return_value=io.BytesIO(bytes([0x33]) * CHANGED)) as source:
+            result = MODULE.verify_physical_preimages(**args)
+        self.assertEqual(result["status"], "cached-preimages-still-match")
+        self.assertEqual(result["verified_regions"], 1)
+        self.assertEqual(result["verified_bytes"], CHANGED)
+        self.assertFalse(result["writer_lock_held"])
+        self.assertFalse(result["physical_write"])
+        self.assertEqual(source.call_args.args[1], "rb")
+
+        with mock.patch("builtins.open", return_value=io.BytesIO(bytes(CHANGED))):
+            with self.assertRaisesRegex(MODULE.DeltaBundleError, "stale"):
+                MODULE.verify_physical_preimages(**args)
+        with self.assertRaisesRegex(MODULE.DeltaBundleError, "target"):
+            MODULE.verify_physical_preimages(**{**args, "serial": "SWAPPED"})
+        with self.assertRaisesRegex(MODULE.DeltaBundleError, "volume"):
+            MODULE.verify_physical_preimages(
+                **{**args, "volume": chr(92) * 2 + "." + chr(92) + "C:"}
+            )
 
     def test_rejects_invalid_source_revision_or_plan_digest(self):
         fake = dict(self.delta)

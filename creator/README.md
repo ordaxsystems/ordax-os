@@ -143,6 +143,21 @@ The OS-owned Base channel and the Creator's existing Win32 raw-disk
 lease/readback are the authorities; do not implement a second updater in MCP.
 The `portable_update_windows.go` path is for a different **two-partition**
 Portable profile and does not authorize writes to this three-partition USB.
+For later checks of an already prepared package, use the same preflight
+with `--reuse-host-bundle` instead of `--prepare-host-bundle`. It verifies
+the latest selected OS source against the package's earlier source using the
+OS-owned Base impact policy, revalidates disk/serial and partition geometry,
+checks local bundle SHA-256, then reads the original physical Linux regions
+again and checks every preimage SHA-256. It does **not** boot QEMU, regenerate
+the Base, rewrite the cache or write the USB. A changed preimage, an
+incompatible revision, a missing cached artifact or a different physical
+USB blocks the reuse.
+
+This fast read-only check does not acquire the Creator's exclusive Win32
+volume lock. It is therefore advisory and MUST be repeated under that lock
+by the native physical writer before any write; neither command stages EFI
+or activates a new boot slot.
+
 The Win32 raw backend is still gated behind `ordax_raw_backend` for tests;
 the actual Owner DEV incremental writer must consume this bundle under the
 existing disk/volume lock, verify current device identity and all preimage

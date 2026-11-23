@@ -367,3 +367,61 @@ def _receipt(directory: Path, manifest: dict, *, reused: bool) -> dict:
         "physical_write": False,
         "activation_performed": False,
     }
+
+
+def verify_physical_preimages(
+    directory: Path, *, volume: str, disk_number: int, serial: str,
+    disk_bytes: int, partition_offset: int, partition_bytes: int,
+) -> dict:
+    """Recheck an immutable bundle against ORIGINAL ext4 bytes, never write.
+
+    This is a fast cache-reuse gate and cannot replace the Creator Win32
+    writer's revalidation after acquiring the exclusive volume lease.
+    """
+    manifest = verify_bundle(directory)
+    expected = {
+        "disk_number": disk_number, "usb_serial": serial.upper(),
+        "physical_size_bytes": disk_bytes, "partition_number": 2,
+        "partition_offset_bytes": partition_offset,
+        "partition_bytes": partition_bytes,
+    }
+    if manifest["target"] != expected:
+        raise DeltaBundleError("cached delta target no longer matches physical USB")
+    prefix = chr(92) + chr(92) + "." + chr(92)
+    if (not isinstance(volume, str) or len(volume) != 6
+            or volume[:4] != prefix
+            or volume[4] not in "DEFGHIJKLMNOPQRSTUVWXYZ"
+            or volume[5] != ":"):
+        raise DeltaBundleError("cached delta source must be an exact Windows volume")
+
+    verified = 0
+    try:
+        with open(volume, "rb", buffering=0) as original:
+            for region in manifest["regions"]:
+                original.seek(region["virtual_offset_bytes"])
+                digest = hashlib.sha256()
+                remaining = region["length_bytes"]
+                while remaining:
+                    chunk = original.read(min(BLOCK, remaining))
+                    if not chunk:
+                        raise DeltaBundleError("current physical ext4 preimage short read")
+                    digest.update(chunk)
+                    remaining -= len(chunk)
+                if digest.hexdigest() != region["preimage_sha256"]:
+                    raise DeltaBundleError(
+                        "cached delta is stale: physical ext4 preimage changed"
+                    )
+                verified += region["length_bytes"]
+    except OSError as exc:
+        raise DeltaBundleError("current USB ext4 volume unavailable read-only") from exc
+    return {
+        "$schema": SCHEMA,
+        "status": "cached-preimages-still-match",
+        "bundle_manifest_sha256": _hash_file(directory / "manifest.json"),
+        "verified_regions": len(manifest["regions"]),
+        "verified_bytes": verified,
+        "physical_write": False,
+        "physical_write_authorized": False,
+        "writer_lock_held": False,
+        "activation_performed": False,
+    }
