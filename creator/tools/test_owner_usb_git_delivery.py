@@ -37,6 +37,20 @@ class DeliveryTests(unittest.TestCase):
         self.delivery = self.root / "data" / APP.SUBDIR
         self.bundle = self.root / APP.BUNDLE
 
+    def test_canonical_clean_main_worktree_can_stage_without_switching_other_repo(self):
+        git(self.source, "branch", "-m", "fixture-owner")
+        worktree = self.root / "canonical-main-worktree"
+        git(self.source, "worktree", "add", "-b", "main", str(worktree), self.sha)
+        self.assertTrue((worktree / ".git").is_file())
+        git(self.source, "remote", "add", "origin", str(self.source))
+        with mock.patch.object(APP, "REPO_URL", str(self.source)):
+            self.assertEqual(APP.source_commit(worktree), self.sha)
+            (worktree / "uncommitted.txt").write_text("uncommitted")
+            with self.assertRaisesRegex(APP.DeliveryError, "pending edits"):
+                APP.source_commit(worktree)
+        self.assertEqual(git(self.source, "branch", "--show-current"),
+                         "fixture-owner")
+
     def make_bundle(self):
         return APP.build_bundle(self.source, self.bundle, self.sha)
 

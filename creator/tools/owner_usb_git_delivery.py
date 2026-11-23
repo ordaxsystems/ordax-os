@@ -174,8 +174,16 @@ def git(repo: Path, *args: str, timeout=90) -> str:
 
 
 def source_commit(repo: Path) -> str:
-    if repo.is_symlink() or not (repo / ".git").is_dir():
+    git_entry = repo / ".git"
+    # A normal checkout has a .git directory; an authorized Git worktree has
+    # a regular .git pointer file. Git itself owns and validates that pointer.
+    # Both must still pass canonical main/remote/clean/HEAD validation below.
+    if (repo.is_symlink() or git_entry.is_symlink()
+            or not (git_entry.is_dir() or git_entry.is_file())
+            or not repo.is_dir()):
         raise DeliveryError("canonical OS checkout missing or linked")
+    if Path(git(repo, "rev-parse", "--show-toplevel")).resolve() != repo.resolve():
+        raise DeliveryError("canonical OS Git toplevel differs from checkout")
     if git(repo, "remote", "get-url", "origin") != REPO_URL:
         raise DeliveryError("OS Git origin is not canonical")
     if git(repo, "branch", "--show-current") != "main":
