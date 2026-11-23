@@ -408,7 +408,7 @@ try {
       throw "Unauthenticated localhost client gained access to OrdaX local session"
     }
     Write-Output "DESKTOP_LOCAL_SESSION_AUTHORIZATION_SMOKE=PASS"
-    foreach ($path in @("/__ordax/native/first-run", "/__ordax/native/preferences", "/__ordax/native/first-run-cursor")) {
+    foreach ($path in @("/__ordax/native/first-run", "/__ordax/native/preferences", "/__ordax/native/first-run-cursor", "/__ordax/native/space-selection")) {
       $unauthorized = Invoke-WebRequest -Uri ($baseUrl + $path) -Method GET -TimeoutSec 15 -SkipHttpErrorCheck
       if ($unauthorized.StatusCode -ne 401) {
         throw "Unauthenticated localhost client can read or edit canonical OrdaX Desktop state: $path"

@@ -109,6 +109,8 @@ HEALTH_PATH = "/__ordax/native/health"
 SURFACE_HEARTBEAT_PATH = "/__ordax/native/surface-heartbeat"
 CLIENT_DIAGNOSTIC_PATH = "/__ordax/native/client-diagnostic"
 PREFERENCES_PATH = "/__ordax/native/preferences"
+SPACE_SELECTION_PATH = "/__ordax/native/space-selection"
+MAX_SPACE_SELECTION_BODY = 1024
 KEYBOARD_LAYOUT_PATH = "/__ordax/native/keyboard-layout"
 KEYBOARD_LAYOUT_APPLY_PATH = "/__ordax/native/keyboard-layout/apply"
 KEYBOARD_SESSION_RESTART_REQUEST = "/run/ordax-surface/keyboard-session-restart-request"
@@ -183,6 +185,7 @@ UPDATE_STATE_FILE = "/run/ordax-update/state.json"
 OWNER_USB_POWER_RECEIPTS = "/srv/ordax-power-receipts"
 HEALTH_STATE_FILE = "/run/ordax-update/healthy-sha"
 PREFERENCES_FILE = "/var/lib/ordax/preferences.json"
+SPACE_SELECTION_FILE = "/var/lib/ordax/space-selection.json"
 KEYBOARD_LAYOUT_FILE = "/var/lib/ordax/keyboard-layout"
 FIRST_RUN_FILE = "/var/lib/ordax/first-run.json"
 FIRST_RUN_CURSOR_FILE = "/var/lib/ordax/first-run-cursor.json"
@@ -805,24 +808,24 @@ def read_preferences() -> dict:
     return payload if valid_preference_record(payload) else {}
 
 
-def write_preferences(preferences: dict) -> None:
-    if not valid_preference_record(preferences):
-        raise ValueError("invalid preference record")
-    directory = os.path.dirname(PREFERENCES_FILE)
+def _write_private_native_json(file_path: str, payload: dict) -> None:
+    """One atomic Native JSON writer, used by Preferences and Space selection."""
+    directory = os.path.dirname(file_path)
     os.makedirs(directory, mode=0o700, exist_ok=True)
-    temporary = f"{PREFERENCES_FILE}.tmp.{os.getpid()}.{threading.get_ident()}"
+    if os.path.islink(file_path):
+        raise ValueError("Native state destination cannot be a symlink")
+    temporary = f"{file_path}.tmp.{os.getpid()}.{secrets.token_hex(8)}"
     try:
-        with open(temporary, "w", encoding="utf-8") as handle:
-            # Preferences are device-local user data; do not depend on umask.
+        with open(temporary, "x", encoding="utf-8") as handle:
             os.fchmod(handle.fileno(), 0o600)
-            json.dump(preferences, handle, separators=(",", ":"), sort_keys=True, allow_nan=False)
+            json.dump(payload, handle, separators=(",", ":"), sort_keys=True, allow_nan=False)
             handle.write("\n")
             handle.flush()
             os.fsync(handle.fileno())
-        os.replace(temporary, PREFERENCES_FILE)
+        if os.path.islink(file_path):
+            raise ValueError("Native state destination changed to a symlink")
+        os.replace(temporary, file_path)
     finally:
-        # On a failed replace, keep the last durable record and remove only
-        # this writer's uncommitted candidate. Never touch the destination.
         try:
             os.unlink(temporary)
         except FileNotFoundError:
@@ -835,6 +838,54 @@ def write_preferences(preferences: dict) -> None:
         os.fsync(directory_fd)
     finally:
         os.close(directory_fd)
+
+
+def write_preferences(preferences: dict) -> None:
+    if not valid_preference_record(preferences):
+        raise ValueError("invalid preference record")
+    _write_private_native_json(PREFERENCES_FILE, preferences)
+
+
+def validate_native_space_selection(value: object) -> dict:
+    """The Native host persists a choice, never membership or credentials."""
+    if not isinstance(value, dict) or set(value) != {"record"}:
+        raise ValueError("Native Space selection envelope is invalid")
+    record = value["record"]
+    if record is None:
+        return {"record": None}
+    if not isinstance(record, dict) or set(record) != {"schema", "subjectId", "selectedSpaceId"}:
+        raise ValueError("Native Space selection record fields are invalid")
+    if record["schema"] != "ordax.space-selection-record/1":
+        raise ValueError("Native Space selection record schema is invalid")
+    output = {"schema": "ordax.space-selection-record/1"}
+    for key in ("subjectId", "selectedSpaceId"):
+        ident = record[key]
+        if not isinstance(ident, str) or "\x00" in ident:
+            raise ValueError("Native Space selection id is invalid")
+        ident = ident.strip()
+        if not ident or len(ident) > 160:
+            raise ValueError("Native Space selection id is out of bounds")
+        output[key] = ident
+    return {"record": output}
+
+
+def read_space_selection() -> dict:
+    try:
+        info = os.lstat(SPACE_SELECTION_FILE)
+    except FileNotFoundError:
+        return {"record": None}
+    if not stat.S_ISREG(info.st_mode) or stat.S_ISLNK(info.st_mode) or info.st_size > 1024:
+        raise ValueError("Native Space selection file is unsafe")
+    try:
+        with open(SPACE_SELECTION_FILE, "r", encoding="utf-8") as handle:
+            return validate_native_space_selection(json.load(handle))
+    except (OSError, UnicodeError, json.JSONDecodeError) as exc:
+        raise ValueError("Native Space selection state is unreadable") from exc
+
+
+def write_space_selection(value: dict) -> None:
+    record = validate_native_space_selection(value)
+    _write_private_native_json(SPACE_SELECTION_FILE, record)
 
 
 def read_keyboard_layout_id() -> str:
@@ -4823,6 +4874,13 @@ class NativeHostHandler(SimpleHTTPRequestHandler):
         if self.path == PREFERENCES_PATH:
             self._write_json(200, read_preferences())
             return
+        if self.path == SPACE_SELECTION_PATH:
+            try:
+                self._write_json(200, read_space_selection())
+            except (OSError, ValueError) as exc:
+                print(f"ordax-native-host: could not read Space selection: {exc}", file=sys.stderr, flush=True)
+                self._empty(500)
+            return
         if parsed_path == KEYBOARD_LAYOUT_PATH:
             self._write_json(200, keyboard_layout_snapshot())
             return
@@ -5737,6 +5795,23 @@ class NativeHostHandler(SimpleHTTPRequestHandler):
             self._empty(204)
             return
 
+        if self.path == SPACE_SELECTION_PATH:
+            payload = self._read_json_body(MAX_SPACE_SELECTION_BODY)
+            if payload is None:
+                self._empty(400)
+                return
+            try:
+                normalized = validate_native_space_selection(payload)
+                write_space_selection(normalized)
+            except ValueError:
+                self._empty(400)
+                return
+            except OSError as exc:
+                print(f"ordax-native-host: could not persist Space selection: {exc}", file=sys.stderr, flush=True)
+                self._empty(500)
+                return
+            self._write_json(200, normalized)
+            return
         if self.path == PREFERENCES_PATH:
             payload = self._read_json_body(MAX_PREFERENCE_BODY)
             if payload is None or not valid_preference_record(payload):

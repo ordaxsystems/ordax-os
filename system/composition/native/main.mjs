@@ -621,7 +621,7 @@ async function start() {
   const spaceSelection = createSpaceSelectionRuntime({
     identitySession,
     spaces,
-    store: createNativeSpaceSelectionStore(window),
+    store: await createNativeSpaceSelectionStore(window),
   });
   const verifiedAppSemantics = await verifiedAppSemanticsPromise ?? [];
   // One verified generation supplies the SAME stable Awareness, Actions and

@@ -305,13 +305,14 @@ async function assertDesktopFileSpaceSmoke(browserWindow) {
   log('DESKTOP_DEVICE_PROFILE_TRUSTED_SURFACE_SMOKE=PASS');
   const privateState=await browserWindow.webContents.executeJavaScript(
     "(async()=>{const paths=['/__ordax/native/first-run',"+
-    "'/__ordax/native/preferences','/__ordax/native/first-run-cursor'];"+
+    "'/__ordax/native/preferences','/__ordax/native/first-run-cursor',"+
+    "'/__ordax/native/space-selection'];"+
     "const values=await Promise.all(paths.map(async p=>{"+
     "const r=await fetch(p,{cache:'no-store',credentials:'same-origin'});"+
     "return {status:r.status,body:r.ok?await r.json():null};}));"+
     "return values.map(v=>({status:v.status,valid:v.body!==null}));})()"
   );
-  if(privateState.length!==3 || !privateState.every(value=>value.status===200 && value.valid)){
+  if(privateState.length!==4 || !privateState.every(value=>value.status===200 && value.valid)){
     throw Error('Trusted Electron Surface cannot read canonical state with host authorization');
   }
   log('DESKTOP_PRIVATE_STATE_TRUSTED_SURFACE_SMOKE=PASS');

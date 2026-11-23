@@ -34,7 +34,9 @@ class SpaceSelectionSurfaceContractTests(unittest.TestCase):
         native = NATIVE_MAIN.read_text(encoding="utf-8")
         web = WEB_MAIN.read_text(encoding="utf-8")
 
-        self.assertIn('STORAGE_KEY = "ordax.native.space-selection.v1"', adapter)
+        self.assertIn('SPACE_SELECTION_ENDPOINT = "/__ordax/native/space-selection"', adapter)
+        self.assertNotIn("windowRef.localStorage", adapter)
+        self.assertIn("await createNativeSpaceSelectionStore(window)", native)
         self.assertNotIn("profilePack", adapter)
         self.assertNotIn("content", adapter)
         self.assertIn("createNativeSpaceSelectionStore", native)
