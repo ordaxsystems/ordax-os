@@ -179,6 +179,15 @@ PULL_SOURCE_ONLY_PATHS = frozenset({
     "system/surface/runtime/native_host_server.py",
     "system/adapters/native/desktop-surface-state-report.mjs",
 })
+# The OS Desktop DEV supervisor alone consumes this source-addressed
+# Windows executable selection and its evidence. Neither is embedded in the
+# USB/EROFS media. This is an impact decision, not Runtime trust validation:
+# boot, Stable source locks, signed component policy and USB producers remain
+# fail-closed in their existing owners.
+DESKTOP_DEV_RUNTIME_PIN = "docs/contracts/desktop-runtime-dev-candidate.json"
+DESKTOP_DEV_RUNTIME_EVIDENCE = re.compile(
+    r"docs/evidence/desktop-runtime-windows-candidate-[0-9a-f]{40}\.json\Z"
+)
 
 PUSH_EXCLUDES = ("!system/adapters/desktop/**", "!system/surface/ui/**", "!system/surface/workspace/**")
 PR_REMOVED = ("docs/contracts/surface-source.json", "system/surface/ui/**", "system/surface/workspace/**")
@@ -608,6 +617,8 @@ def classify(base, head, *, root=ROOT, event="push", media_only=False):
                 if not verified_windows_product_blob(head, path, root=root):
                     return True, "windows-product-untrusted-blob:" + path
             elif path in PULL_SOURCE_ONLY_PATHS:
+                continue
+            elif path == DESKTOP_DEV_RUNTIME_PIN or DESKTOP_DEV_RUNTIME_EVIDENCE.fullmatch(path):
                 continue
             elif path.startswith(("docs/", "00-PLANOS-PRIORITARIOS/")) and path.endswith(".md"):
                 continue
