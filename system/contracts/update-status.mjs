@@ -6,6 +6,7 @@ const UPDATE_PHASES = new Set([
   "fetching",
   "validating",
   "activating",
+  "restart-required",
   "health-wait",
   "rollback",
   "blocked",

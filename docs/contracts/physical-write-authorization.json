@@ -11,7 +11,7 @@
     "minimal_bootstrap_sha256": "d823580d91395139271b7d32d89f6cde049b2795b7c8f50905d46186fd2d2695",
     "release_trust_sha256": "d2836df77a3d5a54ccf64cc5643cfd5c19052efc83f2e3e2666c6d3197fce250",
     "portable_usb_contract_sha256": "7106217b1eaf9c1b412ebf60c5e740b1d7cc899d5506c821eb0bf32b91a5158a",
-    "creator_portable_media_contract_sha256": "5072c75da3c95195ac88eed73e341fbcb9b5a469bf4ba4423aa14f237da66a6a",
+    "creator_portable_media_contract_sha256": "ddd710cbdb6cafcdedbc3dad9252d1ed3975bc37d29dc07b5a0e7db414f3e77e",
     "canonical_v4_release_proof_sha256": "768e24011afc5cc20dd5f5e2bf8d2462359d2c348b51a6d81135aeca31475049"
   },
   "requirements": {

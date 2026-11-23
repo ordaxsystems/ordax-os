@@ -114,7 +114,7 @@ class StableReleaseActivationTransactionTests(unittest.TestCase):
         self.assertIn('portable_prepare_candidate "$remote_sha"', check)
         self.assertIn('write_state_value "$STAGED_RELEASE_FILE" "$remote_sha"', check)
         self.assertIn("candidate-armed signed-release", check)
-        self.assertIn("portable_reboot_now", check)
+        self.assertNotIn("portable_reboot_now", check)
         self.assertNotIn("git ", check.lower())
         self.assertNotIn("activate-exact", check)
 

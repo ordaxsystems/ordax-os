@@ -47,7 +47,7 @@ class PortableBootstrapV2ContractTests(unittest.TestCase):
         self.assertTrue(first["initial_rejected_absent"])
         self.assertEqual(
             first["update_activation_mode"],
-            "signed-v3-one-shot-reboot-cold-health",
+            "signed-one-shot-next-reboot-cold-health",
         )
         self.assertFalse(first["physical_update_activation_proven"])
         self.assertTrue(first["boot_must_reverify_exact_release_offline"])

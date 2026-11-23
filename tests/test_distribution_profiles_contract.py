@@ -158,7 +158,7 @@ class DistributionProfilesContractTests(unittest.TestCase):
         self.assertTrue(stable["portable_v2_update_activation_connected"])
         self.assertEqual(
             stable["portable_v2_update_activation_mode"],
-            "signed-v3-one-shot-reboot-cold-health",
+            "signed-one-shot-next-reboot-cold-health",
         )
         self.assertTrue(stable["portable_v2_update_requires_reboot"])
         self.assertTrue(stable["portable_v2_candidate_rejected_sha_persisted"])

@@ -49,7 +49,7 @@
     "stable_boot_package_download_allowed": false,
     "stable_boot_package_install_allowed": false,
     "initial_rejected_absent": true,
-    "update_activation_mode": "signed-v3-one-shot-reboot-cold-health",
+    "update_activation_mode": "signed-one-shot-next-reboot-cold-health",
     "physical_update_activation_proven": false
   },
   "esp_substrate": {

@@ -140,9 +140,16 @@ O código de apresentação do portal pertence **exclusivamente a `ordax-os/main
 
 Não reintroduzir `sites/public/`, `tools/public-site/build.py`, `contracts/canonical-gateway-source.json`, `scripts/stage_canonical_gateway.py`, clones, locks ou cópias de Identity. Ferramentas em `tools/public-site/` executam gates/provas operacionais; frontend, catálogo de releases e política de estado da identidade têm única implementação em `site/`. O portal continua separado do **produto OrdaX Web**, mas não do monorepo. Não importar Surface para montar o Site, duplicar Identity/Conta ou inventar releases "latest". Cadastro, Conta integral e downloads ficam fail-closed até autorização de seus owners e evidências E2E.
 
-## 4. Arquitetura fisica alvo
+## 4. Arquitetura física do USB
 
-O seed e o USB final preparado nao sao o mesmo artefato:
+O alvo Stable/MVP é [Portable v2](docs/contracts/portable-usb-v2.json):
+`ORDAX-ESP` FAT32 de 512 MiB para boot e recuperação e `ORDAX-DATA`
+exFAT no espaço restante. As imagens EROFS e a imagem ext4 de estado
+persistente ficam em `ORDAX-DATA/.ordax`. O Creator instala e recria
+a mídia. A atualização normal é feita dentro do OrdaX pelo Supervisor.
+
+O seed e a mídia de três partições abaixo descrevem apenas os fluxos
+anteriores de bootstrap e DEV, que ainda têm instalações em uso:
 
 ```text
 BOOTSTRAP_SEED_PARTITIONS=2

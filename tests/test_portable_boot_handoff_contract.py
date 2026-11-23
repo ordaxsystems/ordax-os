@@ -86,7 +86,7 @@ class PortableBootHandoffContractTests(unittest.TestCase):
         self.assertTrue(boundary["portable_update_activation_connected"])
         self.assertEqual(
             boundary["portable_update_activation_mode"],
-            "signed-v3-materialize-arm-reboot-cold-health",
+            "signed-one-shot-next-reboot-cold-health",
         )
         self.assertTrue(boundary["portable_update_reboot_required"])
         self.assertFalse(boundary["portable_guardian_refresh_connected"])
