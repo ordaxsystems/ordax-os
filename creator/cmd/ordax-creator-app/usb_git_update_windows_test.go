@@ -405,6 +405,11 @@ func TestOwnerUSBTransportRejectsFakeInstalledRevision(t *testing.T) {
 
 // A staged source bundle must never be presented as an activated system update.
 func TestOwnerUSBComponentSummaryDoesNotClaimExecutableInstallation(t *testing.T) {
+    // The summary is localized at render time. Do not let a preceding
+    // localization test determine which language these assertions observe.
+    previousLocale := currentCreatorLocale()
+    setCreatorLocale(string(creatorLocalePTBR))
+    t.Cleanup(func() { setCreatorLocale(string(previousLocale)) })
     for _, result := range []string{"GIT_BUNDLE_CURRENT_INSTALL_UNVERIFIED", "GIT_BUNDLE_STAGED_INSTALL_UNVERIFIED"} {
         view := ownerUSBComponentSummary(ownerUSBUpdateStatus{
             Result: result, SourceCommit: strings.Repeat("a", 40),
