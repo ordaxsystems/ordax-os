@@ -83,7 +83,7 @@ def write_candidate(root: Path, *, sh_target: str = "busybox", extra_link: tuple
     tag = consumer.candidate_tag(SOURCE)
     prefix = f"https://github.com/{consumer.REPOSITORY}/releases/download/{tag}"
     manifest = {
-        "$schema": consumer.SCHEMA,
+        "$schema": consumer.LEGACY_SCHEMA,
         "status": "development-candidate",
         "source_repository": consumer.REPOSITORY,
         "source_commit": SOURCE,

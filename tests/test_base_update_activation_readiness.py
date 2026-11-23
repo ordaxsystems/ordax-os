@@ -65,7 +65,7 @@ class DevelopmentActivationReadinessTests(unittest.TestCase):
             }
 
         manifest = {
-            "$schema": readiness._channel.SCHEMA,
+            "$schema": readiness._channel.LEGACY_SCHEMA,
             "status": "development-candidate",
             "source_repository": readiness._channel.REPOSITORY,
             "source_commit": SOURCE,

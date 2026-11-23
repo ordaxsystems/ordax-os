@@ -76,7 +76,7 @@ class DevelopmentBaseStageTests(unittest.TestCase):
             }
 
         manifest = {
-            "$schema": dev_stage._channel.SCHEMA,
+            "$schema": dev_stage._channel.LEGACY_SCHEMA,
             "status": "development-candidate",
             "source_repository": dev_stage._channel.REPOSITORY,
             "source_commit": SOURCE,
