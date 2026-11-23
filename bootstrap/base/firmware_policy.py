@@ -223,14 +223,23 @@ def prune_unreferenced_firmware(rootfs: Path) -> dict[str, int]:
                 f"unsupported object in /lib/firmware: {path.relative_to(firmware_root)}"
             )
 
-    # Keep aliases, including directory symlinks. Some module declarations
-    # traverse a symlinked vendor directory before reaching the selected blob.
-    removable = [
-        path for path in files
-        if path not in keep
-        and not stat.S_ISLNK(path.lstat().st_mode)
-        and not preserve_metadata(path)
-    ]
+    # Keep aliases, including directory symlinks, when their targets exist.
+    # Some module declarations traverse a symlinked vendor directory before
+    # reaching the selected blob. Buildroot also installs dangling firmware
+    # aliases for optional blobs; they are neither usable offline alternatives
+    # nor valid rootfs archive entries, so remove those even though they are
+    # symlinks.
+    removable = []
+    for path in files:
+        if path in keep:
+            continue
+        metadata = path.lstat()
+        if stat.S_ISLNK(metadata.st_mode):
+            if path.exists():
+                continue
+            removable.append(path)
+        elif not preserve_metadata(path):
+            removable.append(path)
 
     def unique_regular_bytes(paths) -> int:
         seen: set[tuple[int, int]] = set()

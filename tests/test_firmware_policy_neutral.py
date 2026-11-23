@@ -103,6 +103,24 @@ class NeutralFirmwarePolicyTests(unittest.TestCase):
             self.assertEqual(POLICY.resolve_firmware_source(root / "lib/firmware", "vendor/example.bin"), compressed)
             self.assertFalse((firmware / "unused.bin").exists())
 
+    def test_owner_prune_removes_dangling_optional_firmware_aliases(self) -> None:
+        with tempfile.TemporaryDirectory() as raw:
+            root = self.make_rootfs(Path(raw), with_firmware=True)
+            firmware = root / "lib/firmware"
+            dangling = firmware / "iwlwifi-100-5.ucode"
+            try:
+                dangling.symlink_to("iwlwifi-100-5-ucode-5.4.1.16.ucode")
+            except OSError as exc:
+                self.skipTest(f"symlink creation is unavailable: {exc}")
+
+            result = POLICY.prune_unreferenced_firmware(root)
+
+            self.assertFalse(dangling.is_symlink())
+            self.assertEqual(result["removed_files"], 1)
+            receipt = POLICY.coverage_receipt(root, log_prefix="ORDAX_TEST")
+            self.assertEqual(receipt["selected_firmware_count"], 1)
+            self.assertTrue((firmware / "vendor/example.bin").is_file())
+
     def test_owner_prune_keeps_matrix_firmware_reached_through_directory_alias(self) -> None:
         with tempfile.TemporaryDirectory() as raw:
             root = self.make_rootfs(Path(raw), with_firmware=True)
