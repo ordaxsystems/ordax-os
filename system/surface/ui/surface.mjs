@@ -25,6 +25,7 @@ import { COLOR_PALETTE_PREFERENCE_ID } from "../../services/preferences/color-pa
 import { DISPLAY_SCALE_PREFERENCE_ID } from "../../services/preferences/display.mjs";
 import {
   createDesktopShellMarkup,
+  getNativeAppGlyphMarkup,
   mountDesktopClock,
   syncDesktopShellLocalization,
   syncDesktopPresentationToggle,
@@ -791,8 +792,9 @@ export function mountSurface(
         button.append(element("span", "ordax-rail-icon"), copy);
       }
       const icon = button.querySelector(".ordax-rail-icon");
-      if (ICONS[app.id]) {
-        if (icon.innerHTML !== ICONS[app.id]) icon.innerHTML = ICONS[app.id];
+      const glyph = getNativeAppGlyphMarkup(app.id);
+      if (glyph) {
+        if (icon.innerHTML !== glyph) icon.innerHTML = glyph;
       } else syncText(icon, app.monogram);
       syncText(button.querySelector("strong"), title);
       syncText(button.querySelector("small"), localization.translate(
@@ -884,8 +886,9 @@ export function mountSurface(
         button.prepend(icon);
       }
       // Preserve the icon subtree on ordinary focus/window state changes.
-      if (ICONS[app.id]) {
-        if (icon.innerHTML !== ICONS[app.id]) icon.innerHTML = ICONS[app.id];
+      const glyph = getNativeAppGlyphMarkup(app.id);
+      if (glyph) {
+        if (icon.innerHTML !== glyph) icon.innerHTML = glyph;
       } else if (icon.textContent !== app.monogram) {
         icon.textContent = app.monogram;
       }

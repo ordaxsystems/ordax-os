@@ -7,7 +7,18 @@ import { SIDEBAR_ENGLISH_MESSAGES } from "../system/services/i18n/catalog/sideba
 import { MERIDIAN_RAIL_DESTINATIONS } from "../system/services/surface/meridian-navigation.mjs";
 import { getSurfaceWindowTitle } from "../system/services/surface/destination-catalog.mjs";
 import { listSurfaceShortcutAppIds } from "../system/services/surface/shortcut-catalog.mjs";
-import { syncDesktopSidebarToggle } from "../system/surface/ui/desktop-shell.mjs";
+import { syncDesktopSidebarToggle, getNativeAppGlyphMarkup } from "../system/surface/ui/desktop-shell.mjs";
+
+test("running Native app windows reuse shell icon authority without a private ICONS reference", async () => {
+  for (const appId of ["settings", "system", "account", "store", "apps"]) {
+    assert.match(getNativeAppGlyphMarkup(appId), /<svg\b/, appId);
+  }
+  assert.equal(getNativeAppGlyphMarkup("unknown-installed-app"), "");
+  assert.equal(getNativeAppGlyphMarkup("constructor"), "");
+  const native = await readFile(new URL("../system/surface/ui/surface.mjs", import.meta.url), "utf8");
+  assert.doesNotMatch(native, /\bICONS\s*\[/);
+  assert.match(native, /getNativeAppGlyphMarkup\(app\.id\)/);
+});
 
 test("sidebar slots preserve the same brand, home, navigation, account and auxiliary order", () => {
   assert.deepEqual(SIDEBAR_LAYOUT.map(slot => slot.key), ["brand", "home", "navigation", "account", "auxiliary"]);
