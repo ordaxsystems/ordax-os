@@ -560,7 +560,7 @@ def verified_retired_desktop_shell_deletion(base, head, name, *, root=ROOT):
         return False
 
 
-def classify(base, head, *, root=ROOT, event="push"):
+def classify(base, head, *, root=ROOT, event="push", media_only=False):
     try:
         if event not in ("pull_request", "push"):
             return True, "unsupported-event"
@@ -576,6 +576,11 @@ def classify(base, head, *, root=ROOT, event="push"):
                 and set(paths).issubset(PULL_REVIEW_ONLY_PATHS | LIGHT_EXACT)):
             return False, "pull-source-owner-preflight"
         for path in paths:
+            # Files under creator/ build the Windows consumer, never the
+            # OS-owned bootable USB media. Only this media freshness policy
+            # may exclude that owner; the main CI impact gate is unchanged.
+            if media_only and path.startswith("creator/"):
+                continue
             if path == WORKFLOW:
                 if not (workflow_trigger_only(base, head, root=root)
                         or verified_creator_freshness_wiring_only(base, head, root=root)):

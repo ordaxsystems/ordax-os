@@ -2,13 +2,15 @@
 import gzip
 import hashlib
 import json
+import shutil
+import subprocess
 from pathlib import Path
 import tempfile
 import unittest
 
 from owner_release import (
     BUNDLE, RELEASE_FILES, digest, owner_media_payload_sha256, package,
-    stage, up_to_date, valid_media, verify_published,
+    require_fresh_os_media, stage, up_to_date, valid_media, verify_published,
 )
 
 CREATOR_SHA = "a" * 40
@@ -191,6 +193,69 @@ class OwnerReleaseTests(unittest.TestCase):
         stage(self.media, self.root, self.bundle, CREATOR_SHA, CREATOR_TREE)
         with self.assertRaisesRegex(ValueError, "already contains"):
             stage(self.media, self.root, self.bundle, CREATOR_SHA, CREATOR_TREE)
+
+
+
+
+class FreshOwnerMediaSourceTests(unittest.TestCase):
+    def setUp(self):
+        self.tmp = tempfile.TemporaryDirectory()
+        self.addCleanup(self.tmp.cleanup)
+        self.root = Path(self.tmp.name)
+        (self.root / "creator").mkdir()
+        policy = self.root / "tools" / "ci" / "creator_owner_impact.py"
+        policy.parent.mkdir(parents=True)
+        shutil.copy2(
+            Path(__file__).resolve().parents[2] / "tools" / "ci" / "creator_owner_impact.py",
+            policy,
+        )
+        for args in (("init", "-q"), ("config", "user.name", "Test"),
+                     ("config", "user.email", "test@example.invalid")):
+            self.git(*args)
+        self.media = self.root / "media.json"
+
+    def git(self, *args):
+        return subprocess.run(["git", "-C", str(self.root), *args],
+                              check=True, stdout=subprocess.PIPE,
+                              stderr=subprocess.PIPE, timeout=15).stdout.decode().strip()
+
+    def commit(self, path, content):
+        target = self.root / path
+        target.parent.mkdir(parents=True, exist_ok=True)
+        target.write_text(content, encoding="utf-8")
+        self.git("add", "-A", "--", ".", ":!media.json")
+        self.git("commit", "-qm", "fixture")
+        return self.git("rev-parse", "HEAD")
+
+    def test_creator_consumer_changes_reuse_media_but_native_needs_new_image(self):
+        base = self.commit("creator/cmd/app.go", "initial")
+        self.media.write_text(json.dumps({
+            "$schema": "prototype-ordax.creator-owner-media/1",
+            "status": "qemu-accepted-development-media-only",
+            "source_repository": "ordaxsystems/ordax-os",
+            "qemu_two_boot_acceptance": True,
+            "source_commit": base}), encoding="utf-8")
+        same = self.commit("creator/cmd/app.go", "Windows UI change")
+        require_fresh_os_media(self.media, self.root / "creator", same)
+        affected = self.commit("bootstrap/surface-runtime/configs/ordax_surface_defconfig",
+                               "BR2_PACKAGE_PYTHON3_SSL=y")
+        with self.assertRaisesRegex(ValueError, "OBSOLETE_OS_MEDIA"):
+            require_fresh_os_media(self.media, self.root / "creator", affected)
+        with self.assertRaisesRegex(ValueError, "ancestor"):
+            self.media.write_text(json.dumps({
+                "$schema": "prototype-ordax.creator-owner-media/1",
+                "status": "qemu-accepted-development-media-only",
+                "source_repository": "ordaxsystems/ordax-os",
+                "qemu_two_boot_acceptance": True,
+                "source_commit": "f" * 40}), encoding="utf-8")
+            require_fresh_os_media(self.media, self.root / "creator", affected)
+
+    def test_invalid_or_missing_media_revision_never_publishes(self):
+        current = self.commit("creator/cmd/app.go", "initial")
+        for value in ({}, {"source_commit": "legacy"}, {"source_commit": "0" * 40}):
+            self.media.write_text(json.dumps(value), encoding="utf-8")
+            with self.assertRaises(ValueError):
+                require_fresh_os_media(self.media, self.root / "creator", current)
 
 
 if __name__ == "__main__":

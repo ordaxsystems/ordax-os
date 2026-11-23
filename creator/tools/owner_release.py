@@ -10,10 +10,12 @@ from __future__ import annotations
 import argparse
 import gzip
 import hashlib
+import importlib.util
 import json
 from pathlib import Path
 import re
 import shutil
+import subprocess
 import sys
 import zipfile
 
@@ -269,6 +271,64 @@ def verify_published(release: Path, remote: Path) -> None:
     print("CREATOR_PUBLISHED_READBACK=PASS " + sha)
 
 
+def require_fresh_os_media(media_manifest: Path, root: Path,
+                           creator_source: str) -> None:
+    """Reject stale physical media before a Creator package can be issued.
+
+    Consume the sole canonical Owner USB impact classifier. This gate
+    excludes only Creator Windows-consumer files; native, Surface, boot,
+    kernel, recovery, and unknown changes remain mandatory new media.
+    """
+    if not SHA40.fullmatch(creator_source):
+        raise ValueError("invalid Creator source commit for USB media gate")
+    root = root.resolve()
+    repo = root.parent
+    if root.name != "creator" or not (repo / ".git").exists():
+        raise ValueError("canonical ordax-os Creator checkout unavailable")
+    try:
+        meta = json.loads(media_manifest.read_text(encoding="utf-8"))
+        media_source = meta.get("source_commit") if isinstance(meta, dict) else None
+        if (not isinstance(meta, dict) or
+                meta.get("$schema") != "prototype-ordax.creator-owner-media/1" or
+                meta.get("source_repository") != OWNER or
+                meta.get("status") != "qemu-accepted-development-media-only" or
+                meta.get("qemu_two_boot_acceptance") is not True):
+            raise ValueError("published OS media is not a QEMU-accepted canonical image")
+        if not isinstance(media_source, str) or not SHA40.fullmatch(media_source):
+            raise ValueError("published OS media source is invalid")
+        def git(*argv):
+            return subprocess.run(
+                ["git", "-C", str(repo), *argv], stdout=subprocess.PIPE,
+                stderr=subprocess.PIPE, timeout=35, check=False,
+            )
+        head = git("rev-parse", "HEAD")
+        if head.returncode or head.stdout.decode("ascii", "strict").strip() != creator_source:
+            raise ValueError("Creator source does not match checked-out OS authority")
+        ancestor = git("merge-base", "--is-ancestor", media_source, creator_source)
+        if ancestor.returncode:
+            raise ValueError("published OS media is not an ancestor of current OS source")
+        policy = repo / "tools" / "ci" / "creator_owner_impact.py"
+        if not policy.is_file() or policy.is_symlink():
+            raise ValueError("single canonical USB impact policy unavailable")
+        spec = importlib.util.spec_from_file_location("ordax_media_impact", policy)
+        if spec is None or spec.loader is None:
+            raise ValueError("canonical USB impact policy cannot be loaded")
+        module = importlib.util.module_from_spec(spec)
+        spec.loader.exec_module(module)
+        rebuild, reason = module.classify(
+            media_source, creator_source, root=repo, event="push", media_only=True)
+        if rebuild:
+            raise ValueError(
+                "OBSOLETE_OS_MEDIA: published boot media " + media_source[:12] +
+                " is incompatible with current OS " + creator_source[:12] +
+                " (" + reason[:180] + "); publish a new QEMU-verified "
+                "Owner USB image before any Creator release")
+        print("CREATOR_OS_MEDIA_FRESH=PASS " + media_source +
+              " consumer=" + creator_source, flush=True)
+    except (OSError, UnicodeError, json.JSONDecodeError, subprocess.SubprocessError) as exc:
+        raise ValueError("cannot prove current Owner USB media identity") from exc
+
+
 def up_to_date(media_manifest: Path, existing: Path | None, root: Path,
                source: str, tree: str | None = None) -> bool:
     current = json.loads(media_manifest.read_text(encoding="utf-8"))
@@ -314,6 +374,12 @@ def main() -> int:
     p.add_argument("--creator-tree")
     p.add_argument("--github-output", type=Path)
     args = p.parse_args()
+    if args.action in ("status", "stage", "package"):
+        if args.media is None:
+            raise ValueError("published Owner OS media is required")
+        manifest_path = (args.media / "creator-owner-media.json"
+                         if args.action in ("stage", "package") else args.media)
+        require_fresh_os_media(manifest_path, args.root, args.creator_sha or "")
     if args.action == "status":
         if not SHA40.fullmatch(args.creator_sha or ""):
             raise ValueError("Creator SHA missing")

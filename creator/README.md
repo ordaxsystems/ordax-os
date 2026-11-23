@@ -222,3 +222,24 @@ existing disk/volume lock, verify current device identity and all preimage
 hashes, write only proven bounds, flush and read back all postimages. It
 must separately stage/activate the inactive ESP slot using the OS Update
 Engine; this read-only preflight does not claim to accomplish either step.
+
+### Proteção contra mídia antiga no publicador Owner DEV
+
+O código da interface Creator e o conteúdo executável da mídia USB são
+autoridades distintas. Antes de divulgar um EXE novo, os comandos do
+publicador `status`, `stage` e `package` comprovam que o
+`source_commit` da mídia publicada é ancestral da `main` exata
+e passam todo o intervalo pelo classificador canônico
+`tools/ci/creator_owner_impact.py`. Mudanças apenas no consumidor
+Windows `creator/` não exigem rebuild da Base; mudanças na Surface,
+kernel, boot, Supervisor ou entradas desconhecidas exigem nova mídia.
+Se houver diferença material, a publicação falha com
+`OBSOLETE_OS_MEDIA`. Verificar SHA de um pacote antigo não basta
+para declará-lo atual.
+
+A mídia publicada em 2026-11-16 com `c1484313` é um exemplo
+histórico de boot QEMU e não representa o OS atual. Nunca substituir
+o sistema real do USB por essa versão para fazer a UI parecer atual.
+A correção do Wi-Fi demanda gerar e provar novo runtime Surface com
+Python/OpenSSL, publicar a mídia e somente depois liberar a escrita
+física com confirmação/readback e prova de boot.
