@@ -343,9 +343,6 @@ func TestOwnerUSBTransportRejectsFakeInstalledRevision(t *testing.T) {
     forged.InstalledSourceCommit = json.RawMessage(encodedCommit)
     invalid = append(invalid, forged)
     forged = valid
-    forged.InstalledSourceCommit = nil
-    invalid = append(invalid, forged)
-    forged = valid
     forged.Schema = ""
     invalid = append(invalid, forged)
     forged = valid
@@ -365,6 +362,18 @@ func TestOwnerUSBTransportRejectsFakeInstalledRevision(t *testing.T) {
         if _, err := parseOwnerUSBReceipt(data); err == nil {
             t.Fatalf("forged installation proof or old status accepted: %s", data)
         }
+    }
+    // A nil RawMessage marshals as explicit JSON null; create a truly
+    // *absent* key to test that the transport receipt fails closed.
+    original, err := json.Marshal(valid)
+    if err != nil { t.Fatal(err) }
+    var fields map[string]json.RawMessage
+    if err := json.Unmarshal(original, &fields); err != nil { t.Fatal(err) }
+    delete(fields, "installed_source_commit")
+    absent, err := json.Marshal(fields)
+    if err != nil { t.Fatal(err) }
+    if _, err := parseOwnerUSBReceipt(absent); err == nil {
+        t.Fatalf("omitted installed-source field passed: %s", absent)
     }
 }
 
