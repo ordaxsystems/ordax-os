@@ -178,7 +178,12 @@ export function mountNativeDesktopSurfaceStateReport(
         try{
           if(readMountedDesktopSurfaceApp(lifecycle)!==command.appId)
             activationPort.publish({appId:command.appId});
-        }catch{handled.state="unavailable"}
+        }catch{
+          // A listener may throw after committing a real window to the Surface.
+          // Do not reject an in-flight activation based on a publisher error;
+          // wait for an authenticated post-command render or the Host deadline.
+          // No receipt is sent if the target never becomes visible.
+        }
       }
       await acknowledgeRenderedCommand();
     }catch{

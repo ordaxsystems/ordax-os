@@ -327,6 +327,75 @@ test("Native renderer acknowledges newly mounted app immediately without another
   reporter.dispose();
 });
 
+test("a publisher exception after a real render cannot falsely reject Native app activation",async()=>{
+  let selected="system",render,poll,activations=0,receipts=0;
+  const command={schema:"ordax.desktop-surface-command/1",
+    requestId:"7".repeat(32),appId:"settings"};
+  const reporter=mountNativeDesktopSurfaceStateReport({
+    async fetch(path,options){
+      if(path==="/__ordax/native/desktop-surface-state")return {status:200};
+      if(path==="/__ordax/native/desktop-surface-command")
+        return {status:200,json:async()=>command};
+      if(path==="/__ordax/native/desktop-surface-receipt"){
+        assert.deepEqual(JSON.parse(options.body),{
+          schema:"ordax.desktop-surface-command/1",
+          requestId:command.requestId,state:"applied",activeAppId:"settings",
+        });
+        receipts++;
+        return {status:200};
+      }
+      throw new Error("Unexpected Native endpoint");
+    },
+    setInterval(fn,ms){if(ms===450)poll=fn;return ms},
+    clearInterval(){},
+  },{
+    getActiveAppId:()=>selected,
+    subscribeRender(fn){render=fn;return ()=>{}},
+  },{
+    publish({appId}){
+      activations++;
+      selected=appId;
+      render();
+      // A downstream listener may fail after the canonical window is mounted.
+      throw new Error("post-commit listener failure");
+    },
+  });
+  await new Promise(resolve=>setImmediate(resolve));
+  poll();
+  await new Promise(resolve=>setTimeout(resolve,25));
+  assert.equal(activations,1);
+  assert.equal(receipts,1,"only verified mounted app and report can authorize success");
+  reporter.dispose();
+});
+
+test("a publisher exception without a visible app never produces a false receipt",async()=>{
+  let selected="system",poll,receipts=0,activations=0;
+  const reporter=mountNativeDesktopSurfaceStateReport({
+    async fetch(path){
+      if(path==="/__ordax/native/desktop-surface-state")return {status:200};
+      if(path==="/__ordax/native/desktop-surface-command")
+        return {status:200,json:async()=>({
+          schema:"ordax.desktop-surface-command/1",requestId:"6".repeat(32),appId:"settings",
+        })};
+      if(path==="/__ordax/native/desktop-surface-receipt"){
+        receipts++;return {status:200};
+      }
+      throw Error("Unexpected endpoint");
+    },
+    setInterval(fn,ms){if(ms===450)poll=fn;return ms;},
+    clearInterval(){},
+  },{
+    getActiveAppId:()=>selected,
+    subscribeRender:()=>()=>{},
+  },{publish(){activations++;throw Error("pre-commit failure");}});
+  await new Promise(resolve=>setImmediate(resolve));
+  poll();await new Promise(resolve=>setImmediate(resolve));
+  poll();await new Promise(resolve=>setImmediate(resolve));
+  assert.equal(activations,1);
+  assert.equal(receipts,0,"a missing Native window must remain unconfirmed");
+  reporter.dispose();
+});
+
 test("Native MCP does not reopen an already visible app",async()=>{
   let activationCount=0,reportCount=0,receiptCount=0,poll;
   const win={
