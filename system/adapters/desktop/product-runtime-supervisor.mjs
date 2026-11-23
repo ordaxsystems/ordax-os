@@ -574,7 +574,7 @@ export function createDesktopProductRuntimeSupervisor({
     const childEnv={};
     for(const [name,value] of Object.entries(env)){
       if(/^ORDAX_/i.test(name) ||
-         /^(?:PYTHONPATH|PYTHONHOME|PYTHONSTARTUP|PYTHONINSPECT|VIRTUAL_ENV|NODE_OPTIONS)$/i.test(name))
+         /^(?:PYTHONPATH|PYTHONHOME|PYTHONSTARTUP|PYTHONINSPECT|VIRTUAL_ENV|NODE_OPTIONS|ELECTRON_RUN_AS_NODE)$/i.test(name))
         continue;
       childEnv[name]=value;
     }
