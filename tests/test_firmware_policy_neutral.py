@@ -134,6 +134,12 @@ class NeutralFirmwarePolicyTests(unittest.TestCase):
             except OSError as exc:
                 self.skipTest(f"symlink creation is unavailable: {exc}")
 
+            self.assertEqual(
+                POLICY.resolve_firmware_source(
+                    firmware.parent, "vendor/example.bin",
+                ),
+                compressed,
+            )
             result = POLICY.prune_unreferenced_firmware(root)
 
             self.assertFalse(dangling.is_symlink())
