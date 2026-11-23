@@ -208,6 +208,8 @@ test("Native USB keeps the computer shell instead of switching to mobile geometr
     "without project history the same overview does not reserve a placeholder");
   assert.match(nativeStyles, /\.ordax-home-panel:not\(:has\(\[data-home-continuation\]\)\) \{\s*grid-template-areas: "intro intro" "quick current" "running status"/,
     "current Space must have an explicit compact desktop grid area without recent projects");
+  assert.match(nativeStyles, /\.ordax-home-action \.ordax-network-symbol-wifi,[\s\S]*?\.ordax-home-status-list \.ordax-network-symbol-wifi \{ display: block; \}/,
+    "Home network controls reuse the tray icon without inheriting its signal-only hiding");
   assert.match(nativeStyles, /\.ordax-home-status-details\[hidden\] \{ display: none; \}/,
     "healthy system details collapse without changing theme tokens");
   assert.match(nativeStyles, /\.ordax-home-running\[hidden\] \{ display: none; \}/,

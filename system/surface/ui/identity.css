@@ -484,6 +484,14 @@ body { background: var(--md-canvas); font-weight: 400; }
 .meridian-native-workspace .ordax-home-action-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(min(100%, 9rem), 1fr)); gap: .625rem; }
 .meridian-native-workspace .ordax-home-action { display: flex; flex-direction: row; align-items: center; justify-content: flex-start; min-height: 3.25rem; gap: .625rem; padding: .5rem .625rem; border: 1px solid var(--md-border); border-radius: var(--md-radius-small); background: var(--md-surface); font-size: .75rem; line-height: 1.4; font-weight: 450; text-align: start; }
 .meridian-native-workspace .ordax-home-action .ordax-rail-icon { display: grid; place-items: center; flex: 0 0 2.25rem; width: 2.25rem; height: 2.25rem; padding: .5rem; border: 1px solid var(--md-border); border-radius: var(--md-radius-small); background: var(--md-accent-soft); color: var(--md-accent); }
+/* The same Wi-Fi glyph is signal-masked only in the dynamic tray. Native Home
+   displays its static glyph without overriding real tray signal levels. */
+.meridian-native-workspace .ordax-home-action .ordax-network-symbol-wifi,
+.meridian-native-workspace .ordax-home-status-list .ordax-network-symbol-wifi { display: block; }
+.meridian-native-workspace .ordax-home-action .ordax-wifi-arc,
+.meridian-native-workspace .ordax-home-action .ordax-wifi-dot,
+.meridian-native-workspace .ordax-home-status-list .ordax-wifi-arc,
+.meridian-native-workspace .ordax-home-status-list .ordax-wifi-dot { opacity: 1; }
 .meridian-native-workspace .ordax-home-action[data-native-home-installed-app] .ordax-rail-icon { font-size: 1.125rem; font-weight: 600; }
 .meridian-native-workspace .ordax-home-action[data-launch-app="files"] .ordax-rail-icon { background: var(--md-sage-soft); color: var(--md-sage); }
 .meridian-native-workspace .ordax-home-action[data-launch-app="settings"] .ordax-rail-icon { background: var(--md-slate-soft); color: var(--md-slate); }
