@@ -110,14 +110,16 @@ jobs:
             }
             $creatorBuildFlags = "-s -w -H=windowsgui -X main.buildCreatorVersion=$($product.version) -X main.buildCreatorSourceCommit=$sha"
             go build -trimpath -buildvcs=false `
-              -ldflags=$creatorBuildFlags `
+              -ldflags $creatorBuildFlags `
               -o (Join-Path $release 'OrdaX-Creator.exe') `
               ./cmd/ordax-creator-app
+            if ($LASTEXITCODE -ne 0) { throw 'Creator GUI build failed' }
 
             go build -trimpath -buildvcs=false `
               -ldflags='-s -w' `
               -o (Join-Path $payload 'ordax-creator-physical-test.exe') `
               ./cmd/ordax-creator-inspection
+            if ($LASTEXITCODE -ne 0) { throw 'Creator inspection helper build failed' }
           } finally {
             Pop-Location
           }
