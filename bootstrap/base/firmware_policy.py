@@ -15,6 +15,7 @@ import json
 import os
 from pathlib import Path
 import re
+import stat
 
 FIRMWARE_FIELD_RE = re.compile(rb"(?:^|\x00)firmware=([^\x00]+)")
 
@@ -66,51 +67,69 @@ def module_firmware_declarations(rootfs: Path) -> dict[Path, set[str]]:
     return declarations
 
 
-def resolve_firmware_source(firmware_root: Path, name: str) -> Path | None:
+def resolve_firmware_source_chain(
+    firmware_root: Path, name: str,
+) -> tuple[Path, ...] | None:
+    if firmware_root.is_symlink() or not firmware_root.is_dir():
+        raise FirmwareSelectionError("firmware directory is missing or redirected")
+    firmware_root = firmware_root.resolve(strict=True)
     exact = firmware_root / name
     candidates = (exact, Path(str(exact) + ".zst"))
-    source = next(
-        (candidate for candidate in candidates if candidate.exists() or candidate.is_symlink()),
-        None,
-    )
-    if source is None:
-        return None
+    for source in candidates:
+        if not source.exists() and not source.is_symlink():
+            continue
+        current = source
+        chain: list[Path] = []
+        seen: set[Path] = set()
+        for _ in range(64):
+            try:
+                current.relative_to(firmware_root)
+            except ValueError as exc:
+                raise FirmwareSelectionError(
+                    f"firmware symlink escaped /lib/firmware: {name}"
+                ) from exc
 
-    current = source
-    seen: set[Path] = set()
-    for _ in range(64):
-        try:
-            current.relative_to(firmware_root)
-        except ValueError as exc:
-            raise FirmwareSelectionError(
-                f"firmware symlink escaped /lib/firmware: {name}"
-            ) from exc
+            if current in seen:
+                raise FirmwareSelectionError(f"firmware symlink loop: {name}")
+            seen.add(current)
+            chain.append(current)
+            if not current.is_symlink():
+                if not current.is_file():
+                    return None
+                resolved = current.resolve(strict=True)
+                try:
+                    resolved.relative_to(firmware_root)
+                except ValueError as exc:
+                    raise FirmwareSelectionError(
+                        f"firmware symlink escaped /lib/firmware: {name}"
+                    ) from exc
+                return tuple(dict.fromkeys((*chain, resolved)))
 
-        if not current.is_symlink():
-            return current if current.is_file() else None
-        if current in seen:
-            raise FirmwareSelectionError(f"firmware symlink loop: {name}")
-        seen.add(current)
-
-        value = os.readlink(current)
-        if os.path.isabs(value):
-            current = firmware_root / value.lstrip("/")
-        else:
-            current = current.parent / value
-        current = Path(os.path.normpath(current))
-        try:
-            current.relative_to(firmware_root)
-        except ValueError as exc:
-            raise FirmwareSelectionError(
-                f"firmware symlink escaped /lib/firmware: {name}"
-            ) from exc
-        if not current.exists() and not current.is_symlink():
-            compressed = Path(str(current) + ".zst")
-            if compressed.exists() or compressed.is_symlink():
-                current = compressed
+            value = os.readlink(current)
+            if os.path.isabs(value):
+                current = firmware_root / value.lstrip("/")
             else:
-                return None
-    raise FirmwareSelectionError(f"firmware symlink depth exceeded: {name}")
+                current = current.parent / value
+            current = Path(os.path.normpath(current))
+            try:
+                current.relative_to(firmware_root)
+            except ValueError as exc:
+                raise FirmwareSelectionError(
+                    f"firmware symlink escaped /lib/firmware: {name}"
+                ) from exc
+            if not current.exists() and not current.is_symlink():
+                compressed = Path(str(current) + ".zst")
+                if compressed.exists() or compressed.is_symlink():
+                    current = compressed
+                else:
+                    return None
+        raise FirmwareSelectionError(f"firmware symlink depth exceeded: {name}")
+    return None
+
+
+def resolve_firmware_source(firmware_root: Path, name: str) -> Path | None:
+    chain = resolve_firmware_source_chain(firmware_root, name)
+    return chain[-1] if chain else None
 
 
 def available_firmware_names(
@@ -136,7 +155,7 @@ def available_firmware_names(
         available = {
             name
             for name in names
-            if resolve_firmware_source(firmware_root, name) is not None
+            if resolve_firmware_source_chain(firmware_root, name) is not None
         }
         unavailable_alternatives += len(names - available)
         if not available:
@@ -166,6 +185,85 @@ def available_firmware_names(
     return selected
 
 
+def prune_unreferenced_firmware(rootfs: Path) -> dict[str, int]:
+    """Keep module-requested firmware and required license/regulatory files.
+
+    This is used only by the Owner/Development profile. Every available
+    firmware alternative declared by every installed module is retained, so
+    pruning does not narrow the existing offline coverage set.
+    """
+    firmware_root = rootfs / "lib" / "firmware"
+    selected_names = available_firmware_names(rootfs, log_prefix="ORDAX_PRUNE")
+    keep: set[Path] = set()
+    for name in selected_names:
+        chain = resolve_firmware_source_chain(firmware_root, name)
+        if chain is None:
+            raise FirmwareSelectionError(
+                f"selected firmware disappeared before pruning: {name}"
+            )
+        keep.update(chain)
+
+    def preserve_metadata(path: Path) -> bool:
+        name = path.name.upper()
+        return (
+            name in {"REGULATORY.DB", "REGULATORY.DB.P7S", "WHENCE"}
+            or name.startswith(("LICENCE", "LICENSE", "COPYING"))
+        )
+
+    files: list[Path] = []
+    directories: list[Path] = []
+    for path in firmware_root.rglob("*"):
+        metadata = path.lstat()
+        if stat.S_ISDIR(metadata.st_mode):
+            directories.append(path)
+        elif stat.S_ISREG(metadata.st_mode) or stat.S_ISLNK(metadata.st_mode):
+            files.append(path)
+        else:
+            raise FirmwareSelectionError(
+                f"unsupported object in /lib/firmware: {path.relative_to(firmware_root)}"
+            )
+
+    # Keep aliases, including directory symlinks. Some module declarations
+    # traverse a symlinked vendor directory before reaching the selected blob.
+    removable = [
+        path for path in files
+        if path not in keep
+        and not stat.S_ISLNK(path.lstat().st_mode)
+        and not preserve_metadata(path)
+    ]
+
+    def unique_regular_bytes(paths) -> int:
+        seen: set[tuple[int, int]] = set()
+        total = 0
+        for path in paths:
+            metadata = path.lstat()
+            if not stat.S_ISREG(metadata.st_mode):
+                continue
+            identity = (metadata.st_dev, metadata.st_ino)
+            if identity not in seen:
+                seen.add(identity)
+                total += metadata.st_size
+        return total
+
+    before_bytes = unique_regular_bytes(files)
+    for path in removable:
+        path.unlink()
+    for path in sorted(directories, key=lambda item: len(item.parts), reverse=True):
+        try:
+            path.rmdir()
+        except OSError:
+            pass
+
+    after_paths = list(firmware_root.rglob("*"))
+    after_bytes = unique_regular_bytes(after_paths)
+    return {
+        "removed_files": len(removable),
+        "removed_bytes": max(0, before_bytes - after_bytes),
+        "firmware_bytes_before": before_bytes,
+        "firmware_bytes_after": after_bytes,
+    }
+
+
 def coverage_receipt(rootfs: Path, *, log_prefix: str) -> dict:
     rootfs = rootfs.resolve()
     selected = sorted(available_firmware_names(rootfs, log_prefix=log_prefix))
@@ -192,12 +290,21 @@ def coverage_receipt(rootfs: Path, *, log_prefix: str) -> dict:
 
 def main() -> int:
     parser = argparse.ArgumentParser()
-    parser.add_argument("action", choices=("check",))
+    parser.add_argument("action", choices=("check", "prune"))
     parser.add_argument("--rootfs", type=Path, required=True)
     parser.add_argument("--receipt", type=Path)
     parser.add_argument("--log-prefix", default="ORDAX_FIRMWARE")
     args = parser.parse_args()
     try:
+        if args.action == "prune":
+            result = prune_unreferenced_firmware(args.rootfs)
+            print(
+                f"{args.log_prefix}_FIRMWARE_PRUNED_FILES={result['removed_files']} "
+                f"removed_bytes={result['removed_bytes']} "
+                f"before_bytes={result['firmware_bytes_before']} "
+                f"after_bytes={result['firmware_bytes_after']}",
+                flush=True,
+            )
         result = coverage_receipt(args.rootfs, log_prefix=args.log_prefix)
         if args.receipt is not None:
             receipt = args.receipt.resolve()

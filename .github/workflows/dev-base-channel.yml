@@ -229,9 +229,8 @@ jobs:
               test "$current_main" = "$GITHUB_SHA"
               tag="ordax-dev-base-$GITHUB_SHA"
               if release_json="$(gh api "repos/$GITHUB_REPOSITORY/releases/tags/$tag" 2>/dev/null)"; then
-                # A release shell can exist before all four immutable assets
-                # finish uploading. Never mistake that partial state for a
-                # complete Base or force another costly build unnecessarily.
+                # A complete legacy v3 release remains consumable. Never mix
+                # its raw tar into a v4 compressed release with the same tag.
                 if ! jq -e '
                   (.draft == false) and (.prerelease == true) and
                   (.target_commitish == env.GITHUB_SHA) and
@@ -239,21 +238,33 @@ jobs:
                   ([.assets[].name] as $names |
                     (($names | length) == ($names | unique | length)) and
                     all($names[]; . == "dev-base.json" or . == "vmlinuz" or
-                                   . == "initrd.gz" or . == "rootfs.tar"))
+                                   . == "initrd.gz" or . == "rootfs.tar" or
+                                   . == "rootfs.tar.gz") and
+                    (($names | index("rootfs.tar") == null) or
+                     ($names | index("rootfs.tar.gz") == null)))
                 ' <<<"$release_json" >/dev/null; then
                   echo "::error::Existing Base release has unsafe identity or assets" >&2
                   exit 1
                 fi
                 if jq -e '
-                  ([.assets[].name] | sort) ==
-                    (["dev-base.json", "vmlinuz", "initrd.gz", "rootfs.tar"] | sort) and
+                  ([.assets[].name] | sort) == ["dev-base.json", "initrd.gz", "rootfs.tar.gz", "vmlinuz"] or
+                  ([.assets[].name] | sort) == ["dev-base.json", "initrd.gz", "rootfs.tar", "vmlinuz"]
+                ' <<<"$release_json" >/dev/null; then
+                  if ! jq -e '
                   all(.assets[];
                     .state == "uploaded" and .size > 0 and
                     ((.digest // "") | test("^sha256:[0-9a-f]{64}$")))
-                ' <<<"$release_json" >/dev/null; then
+                  ' <<<"$release_json" >/dev/null; then
+                    echo "::error::Existing Base release contains incomplete or unverifiable assets" >&2
+                    exit 1
+                  fi
                   echo 'DEV_BASE_OWNER_BACKFILL=ALREADY_PUBLISHED'
                   echo 'publish=false' >> "$GITHUB_OUTPUT"
                   exit 0
+                fi
+                if jq -e '[.assets[].name] | index("rootfs.tar") != null' <<<"$release_json" >/dev/null; then
+                  echo "::error::Refusing to mix an incomplete legacy rootfs.tar release with v4 assets" >&2
+                  exit 1
                 fi
                 echo 'DEV_BASE_OWNER_BACKFILL=PARTIAL_RELEASE_REVERIFY'
               fi
@@ -500,7 +511,7 @@ jobs:
 
           tmp="$(mktemp -d)"
           trap 'rm -rf "$tmp"' EXIT
-          for asset in dev-base.json vmlinuz initrd.gz rootfs.tar; do
+          for asset in dev-base.json vmlinuz initrd.gz rootfs.tar.gz; do
             if gh release view "$tag" --repo "$repo" --json assets \
                 --jq '.assets[].name' | grep -Fxq "$asset"; then
               gh release download "$tag" --repo "$repo" \

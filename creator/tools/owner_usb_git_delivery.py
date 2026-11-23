@@ -28,7 +28,8 @@ SUBDIR = Path(".ordax") / "updates" / "owner-git"
 BASE_SUBDIR = Path(".ordax") / "updates" / "owner-base"
 NATIVE_SUBDIR = Path(".ordax") / "updates" / "owner-native-product"
 NATIVE_SOURCE_PIN = "system/services/device-agent/owner-dev-native-product.txt"
-BASE_FILES = ("dev-base.json", "vmlinuz", "initrd.gz", "rootfs.tar")
+BASE_FILES = ("dev-base.json", "vmlinuz", "initrd.gz", "rootfs.tar.gz")
+LEGACY_BASE_FILES = ("dev-base.json", "vmlinuz", "initrd.gz", "rootfs.tar")
 BUNDLE = "ordax-main.bundle"
 MANIFEST = "owner-git-bundle.txt"
 UPDATE_REQUEST = "owner-git-update-request.txt"
@@ -652,6 +653,23 @@ def discover_trusted_volume(expected_serial: str) -> str | None:
         raise DeliveryError("multiple volumes claim the authorized USB serial")
     return matches[0] if matches else None
 
+def _base_candidate_files(manifest: dict) -> tuple[str, ...]:
+    schema = manifest.get("$schema")
+    if schema == "prototype-ordax.dev-base-candidate/4":
+        rootfs = manifest.get("rootfs_transport")
+        expected_name = "rootfs.tar.gz"
+        files = BASE_FILES
+    elif schema == "prototype-ordax.dev-base-candidate/3":
+        rootfs = manifest.get("rootfs")
+        expected_name = "rootfs.tar"
+        files = LEGACY_BASE_FILES
+    else:
+        raise DeliveryError("unsupported cached Base transport manifest")
+    if type(rootfs) is not dict or rootfs.get("name") != expected_name:
+        raise DeliveryError("cached Base transport rootfs name is invalid")
+    return files
+
+
 def _staged_base_transport_candidate(path: Path) -> bool:
     # This is only an internal transport-cache shape check, NOT release trust.
     if not SHA.fullmatch(path.name) or path.is_symlink() or (
@@ -660,7 +678,10 @@ def _staged_base_transport_candidate(path: Path) -> bool:
         return False
     try:
         members = list(path.iterdir())
-        if {member.name for member in members} != set(BASE_FILES):
+        metadata = path / "dev-base.json"
+        if (metadata.is_symlink() or
+                (hasattr(metadata, "is_junction") and metadata.is_junction()) or
+                not metadata.is_file()):
             return False
         if any(
             member.is_symlink() or
@@ -669,13 +690,14 @@ def _staged_base_transport_candidate(path: Path) -> bool:
             for member in members
         ):
             return False
-        metadata = path / "dev-base.json"
         if metadata.stat().st_size > 64 * 1024:
             return False
         manifest = json.loads(metadata.read_text(encoding="utf-8"))
+        files = _base_candidate_files(manifest)
+        if {member.name for member in members} != set(files):
+            return False
         return (
             type(manifest) is dict and
-            manifest.get("$schema") == "prototype-ordax.dev-base-candidate/3" and
             manifest.get("source_repository") == "ordaxsystems/ordax-os" and
             manifest.get("source_commit") == path.name
         )
@@ -712,7 +734,8 @@ def reclaim_superseded_base_transports(
             raise DeliveryError("physical USB identity changed before Base cache reclaim")
         if not _staged_base_transport_candidate(entry):
             continue
-        for name in BASE_FILES:
+        manifest = json.loads((entry / "dev-base.json").read_text(encoding="utf-8"))
+        for name in _base_candidate_files(manifest):
             member = entry / name
             if member.is_symlink() or (
                 hasattr(member, "is_junction") and member.is_junction()
@@ -745,12 +768,13 @@ def stage_canonical_base(args: argparse.Namespace, volume: Path, letter: str,
     if (source.is_symlink() or not source.is_dir() or source.name != sha
             or script.is_symlink() or not script.is_file()):
         raise DeliveryError("verified Base candidate or OS helper is unavailable")
-    if any((source / name).is_symlink() or not (source / name).is_file()
-           for name in BASE_FILES):
+    if not _staged_base_transport_candidate(source):
         raise DeliveryError("verified Base candidate contains an unsafe file")
+    manifest = json.loads((source / "dev-base.json").read_text(encoding="utf-8"))
+    base_files = _base_candidate_files(manifest)
     target_root = volume / BASE_SUBDIR
     ensure_real_ancestors(volume, target_root)
-    total = sum((source / name).stat().st_size for name in BASE_FILES)
+    total = sum((source / name).stat().st_size for name in base_files)
     if (not (target_root / sha).is_dir() and
             shutil.disk_usage(volume).free <= total + 32 * 1024 * 1024):
         raise DeliveryError("insufficient ORDAX-DATA space for verified Base transport")

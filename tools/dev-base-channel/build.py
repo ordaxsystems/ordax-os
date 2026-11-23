@@ -4,6 +4,7 @@
 from __future__ import annotations
 
 import argparse
+import gzip
 import hashlib
 import importlib.util
 import json
@@ -12,7 +13,7 @@ import re
 import shutil
 import sys
 
-SCHEMA = "prototype-ordax.dev-base-candidate/3"
+SCHEMA = "prototype-ordax.dev-base-candidate/4"
 REPOSITORY = "ordaxsystems/ordax-os"
 SHA40_RE = re.compile(r"^[0-9a-f]{40}$")
 SHA256_RE = re.compile(r"^[0-9a-f]{64}$")
@@ -138,9 +139,9 @@ def validate_rootfs_source(
         MAX_ROOTFS_BYTES,
     )
 
-def verify_rootfs_tar(path: Path) -> None:
-    """Verify published rootfs bytes with the installed Dev Channel consumer policy."""
-    regular_file(path, "development rootfs tar", MAX_ROOTFS_BYTES)
+def verify_rootfs_transport(path: Path, content_binding: dict) -> None:
+    """Verify the compressed transport and its exact Buildroot tar contents."""
+    regular_file(path, "development rootfs transport", MAX_ROOTFS_BYTES)
     consumer_path = (
         Path(__file__).resolve().parents[2]
         / "system/services/base-update/dev_channel.py"
@@ -153,9 +154,12 @@ def verify_rootfs_tar(path: Path) -> None:
     consumer = importlib.util.module_from_spec(spec)
     spec.loader.exec_module(consumer)
     try:
-        consumer._validate_rootfs_archive(path)
+        consumer._validate_rootfs_archive(path, compressed=True)
+        consumer.verify_rootfs_content(
+            path, {"$schema": consumer.SCHEMA, "rootfs": content_binding},
+        )
     except consumer.DevBaseChannelError as exc:
-        raise CandidateError(f"Dev Channel rejected rootfs archive: {exc}") from exc
+        raise CandidateError(f"Dev Channel rejected compressed rootfs: {exc}") from exc
 
 
 def binding(name: str, path: Path, source_commit: str) -> dict:
@@ -294,13 +298,16 @@ def build(
 
     kernel_out = out_dir / "vmlinuz"
     initramfs_out = out_dir / "initrd.gz"
-    rootfs_out = out_dir / "rootfs.tar"
+    rootfs_out = out_dir / "rootfs.tar.gz"
     shutil.copyfile(kernel, kernel_out)
     shutil.copyfile(initramfs, initramfs_out)
-    # Exact Buildroot bytes; the source and release hashes identify the
-    # same verified archive. The Dev Channel is a publisher/consumer adapter,
-    # never a second rootfs or tar producer.
-    shutil.copyfile(rootfs, rootfs_out)
+    # Keep the Buildroot tar as the content identity, but publish only its
+    # deterministic gzip transport. No second rootfs or tar producer exists.
+    with rootfs.open("rb") as source, rootfs_out.open("xb") as output:
+        with gzip.GzipFile(
+            filename="", mode="wb", fileobj=output, compresslevel=6, mtime=0,
+        ) as compressed:
+            shutil.copyfileobj(source, compressed, length=1024 * 1024)
 
     tag = f"ordax-dev-base-{source_commit}"
     descriptor = {
@@ -314,7 +321,12 @@ def build(
         "manual_usb_rewrite_required": False,
         "kernel": binding("vmlinuz", kernel_out, source_commit),
         "initramfs": binding("initrd.gz", initramfs_out, source_commit),
-        "rootfs": binding("rootfs.tar", rootfs_out, source_commit),
+        "rootfs": {
+            "name": "rootfs.tar",
+            "sha256": sha256_file(rootfs),
+            "size": rootfs.stat().st_size,
+        },
+        "rootfs_transport": binding("rootfs.tar.gz", rootfs_out, source_commit),
     }
     (out_dir / "dev-base.json").write_text(
         json.dumps(descriptor, indent=2, sort_keys=True) + "\n",
@@ -355,6 +367,7 @@ def validate_descriptor(value: object) -> dict:
         "kernel",
         "initramfs",
         "rootfs",
+        "rootfs_transport",
     }
     if not isinstance(value, dict) or set(value) != expected:
         raise CandidateError("development Base descriptor fields are not canonical")
@@ -375,7 +388,17 @@ def validate_descriptor(value: object) -> dict:
         raise CandidateError("development Base unexpectedly requires USB rewrite")
     validate_binding(value["kernel"], "vmlinuz", source_commit)
     validate_binding(value["initramfs"], "initrd.gz", source_commit)
-    validate_binding(value["rootfs"], "rootfs.tar", source_commit)
+    content = value["rootfs"]
+    if not isinstance(content, dict) or set(content) != {"name", "sha256", "size"}:
+        raise CandidateError("development Base rootfs content binding is malformed")
+    if content["name"] != "rootfs.tar":
+        raise CandidateError("development Base rootfs content name is invalid")
+    if not isinstance(content["sha256"], str) or SHA256_RE.fullmatch(content["sha256"]) is None:
+        raise CandidateError("development Base rootfs content hash is invalid")
+    if (not isinstance(content["size"], int) or isinstance(content["size"], bool)
+            or content["size"] <= 0 or content["size"] > MAX_ROOTFS_BYTES):
+        raise CandidateError("development Base rootfs content size is invalid")
+    validate_binding(value["rootfs_transport"], "rootfs.tar.gz", source_commit)
     return value
 
 
@@ -386,7 +409,6 @@ def verify(out_dir: Path) -> dict:
     for key, max_bytes in (
         ("kernel", MAX_KERNEL_BYTES),
         ("initramfs", MAX_INITRAMFS_BYTES),
-        ("rootfs", MAX_ROOTFS_BYTES),
     ):
         item = descriptor[key]
         path = regular_file(
@@ -396,8 +418,13 @@ def verify(out_dir: Path) -> dict:
         )
         if path.stat().st_size != item["size"] or sha256_file(path) != item["sha256"]:
             raise CandidateError(f"development Base {key} differs from descriptor")
-        if key == "rootfs":
-            verify_rootfs_tar(path)
+    transport = descriptor["rootfs_transport"]
+    path = regular_file(
+        out_dir / transport["name"], "development Base rootfs transport", MAX_ROOTFS_BYTES,
+    )
+    if path.stat().st_size != transport["size"] or sha256_file(path) != transport["sha256"]:
+        raise CandidateError("development Base rootfs transport differs from descriptor")
+    verify_rootfs_transport(path, descriptor["rootfs"])
     return descriptor
 
 
@@ -429,6 +456,16 @@ def main() -> int:
                 initramfs_dir=args.initramfs_dir,
                 rootfs_dir=args.rootfs_dir,
                 out_dir=args.out_dir,
+            )
+            raw_bytes = result["rootfs"]["size"]
+            transport_bytes = result["rootfs_transport"]["size"]
+            saved_bytes = raw_bytes - transport_bytes
+            print(
+                "DEV_BASE_ROOTFS_TRANSPORT="
+                f"raw_bytes:{raw_bytes} compressed_bytes:{transport_bytes} "
+                f"saved_bytes:{saved_bytes} "
+                f"saved_percent:{saved_bytes * 100 / raw_bytes:.2f}",
+                flush=True,
             )
         else:
             result = verify(args.out_dir)

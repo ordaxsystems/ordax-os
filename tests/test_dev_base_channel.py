@@ -1,6 +1,7 @@
 from importlib.util import module_from_spec, spec_from_file_location
 from pathlib import Path
 import hashlib
+import gzip
 import io
 import os
 import tarfile
@@ -174,7 +175,7 @@ def write_provenance_fixture(root: Path, source_commit: str = SOURCE):
 
 
 class DevBaseProducerTests(unittest.TestCase):
-    def test_authenticated_independent_rootfs_is_published_byte_for_byte(self):
+    def test_authenticated_independent_rootfs_is_published_as_verified_gzip(self):
         with tempfile.TemporaryDirectory() as temporary:
             root = Path(temporary)
             kernel_dir, initramfs_dir, rootfs_dir, _, _ = write_provenance_fixture(root)
@@ -194,10 +195,9 @@ class DevBaseProducerTests(unittest.TestCase):
                 rootfs_dir=rootfs_dir,
                 out_dir=output,
             )
-            self.assertEqual(
-                (output / "rootfs.tar").read_bytes(),
-                original_tar.read_bytes(),
-            )
+            compressed = output / "rootfs.tar.gz"
+            self.assertEqual(gzip.decompress(compressed.read_bytes()), original_tar.read_bytes())
+            self.assertFalse((output / "rootfs.tar").exists())
             self.assertEqual(builder.verify(output)["source_commit"], SOURCE)
 
             for mutation in (
@@ -215,6 +215,7 @@ class DevBaseProducerTests(unittest.TestCase):
                         builder.validate_rootfs_source(rootfs_dir, SOURCE)
             provenance_path.write_text(json.dumps(provenance), encoding="utf-8")
 
+    @unittest.skipUnless(shutil.which("awk"), "requires canonical awk interpreter")
     def test_complete_main_push_range_gates_producer_before_queue(self):
         workflow = (ROOT / ".github/workflows/dev-base-channel.yml").read_text(encoding="utf-8")
         verify, publish = workflow.split("\n  publish:\n", 1)
@@ -510,7 +511,7 @@ class DevBaseProducerTests(unittest.TestCase):
                 for index in range(390)
             )
             write_test_rootfs_tar(archive, hardlinks=hardlinks)
-            builder.verify_rootfs_tar(archive)
+            consumer._validate_rootfs_archive(archive)
             members = consumer._validate_rootfs_archive(archive)
             self.assertEqual(sum(member.islnk() for member in members), 390)
 
@@ -522,11 +523,6 @@ class DevBaseProducerTests(unittest.TestCase):
                     archive,
                     hardlinks=(("zzz-unsafe", target),),
                 )
-                with self.assertRaisesRegex(
-                    builder.CandidateError,
-                    "Dev Channel rejected rootfs archive",
-                ):
-                    builder.verify_rootfs_tar(archive)
                 with self.assertRaisesRegex(
                     consumer.DevBaseChannelError,
                     "unsafe hardlink",
@@ -587,7 +583,7 @@ class DevBaseProducerTests(unittest.TestCase):
 
             self.assertEqual(
                 descriptor["$schema"],
-                "prototype-ordax.dev-base-candidate/3",
+                "prototype-ordax.dev-base-candidate/4",
             )
             self.assertEqual(descriptor["source_commit"], SOURCE)
             self.assertEqual(descriptor["tag"], f"ordax-dev-base-{SOURCE}")
@@ -600,9 +596,10 @@ class DevBaseProducerTests(unittest.TestCase):
             self.assertEqual(descriptor["kernel"]["name"], "vmlinuz")
             self.assertEqual(descriptor["initramfs"]["name"], "initrd.gz")
             self.assertEqual(descriptor["rootfs"]["name"], "rootfs.tar")
+            self.assertEqual(descriptor["rootfs_transport"]["name"], "rootfs.tar.gz")
             self.assertEqual((out / "vmlinuz").read_bytes(), kernel)
             self.assertEqual((out / "initrd.gz").read_bytes(), initramfs)
-            self.assertTrue((out / "rootfs.tar").is_file())
+            self.assertTrue((out / "rootfs.tar.gz").is_file())
             self.assertEqual(builder.verify(out), descriptor)
 
     def test_rootfs_tar_is_byte_deterministic(self):
@@ -630,8 +627,8 @@ class DevBaseProducerTests(unittest.TestCase):
             )
 
             self.assertEqual(
-                (first / "rootfs.tar").read_bytes(),
-                (second / "rootfs.tar").read_bytes(),
+                (first / "rootfs.tar.gz").read_bytes(),
+                (second / "rootfs.tar.gz").read_bytes(),
             )
 
     def test_build_rejects_rootfs_provenance_from_another_commit(self):
@@ -692,9 +689,14 @@ class DevBaseConsumerTests(unittest.TestCase):
             },
             "rootfs": {
                 "name": "rootfs.tar",
-                "url": f"{prefix}/rootfs.tar",
                 "sha256": hashlib.sha256(rootfs).hexdigest(),
                 "size": len(rootfs),
+            },
+            "rootfs_transport": {
+                "name": "rootfs.tar.gz",
+                "url": f"{prefix}/rootfs.tar.gz",
+                "sha256": hashlib.sha256(gzip.compress(rootfs, compresslevel=6, mtime=0)).hexdigest(),
+                "size": len(gzip.compress(rootfs, compresslevel=6, mtime=0)),
             },
         }
 
@@ -708,17 +710,22 @@ class DevBaseConsumerTests(unittest.TestCase):
         manifest_bytes = (
             json.dumps(manifest, indent=2, sort_keys=True) + "\n"
         ).encode("utf-8")
+        transport = consumer.rootfs_transport_binding(manifest)
+        rootfs_payload = (
+            gzip.compress(rootfs, compresslevel=6, mtime=0)
+            if consumer.rootfs_is_compressed(manifest) else rootfs
+        )
         payloads = {
             consumer.manifest_url(SOURCE): manifest_bytes,
             manifest["kernel"]["url"]: kernel,
             manifest["initramfs"]["url"]: initramfs,
-            manifest["rootfs"]["url"]: rootfs,
+            transport["url"]: rootfs_payload,
         }
 
         def open_url(url, timeout):
             expected_timeout = (
                 consumer.ROOTFS_DOWNLOAD_TIMEOUT_SECONDS
-                if url == manifest["rootfs"]["url"]
+                if url == transport["url"]
                 else consumer.DOWNLOAD_TIMEOUT_SECONDS
             )
             self.assertEqual(timeout, expected_timeout)
@@ -748,7 +755,7 @@ class DevBaseConsumerTests(unittest.TestCase):
             )
             self.assertTrue(reused)
             self.assertEqual(destination, destination2)
-            (original / "rootfs.tar").write_bytes(b"corrupted")
+            (original / "rootfs.tar.gz").write_bytes(b"corrupted")
             with self.assertRaises(consumer.DevBaseChannelError):
                 consumer.import_verified_candidate(original, SOURCE, root / "other")
             self.assertFalse((root / "other" / SOURCE).exists())
@@ -770,7 +777,9 @@ class DevBaseConsumerTests(unittest.TestCase):
             )
             self.assertFalse(reused)
             self.assertEqual(consumer.verify_materialized(target, SOURCE), manifest)
-            self.assertEqual((target / "rootfs.tar").read_bytes(), rootfs)
+            self.assertEqual(
+                gzip.decompress((target / "rootfs.tar.gz").read_bytes()), rootfs,
+            )
             again, reused = consumer.acquire(
                 SOURCE, root,
                 opener=lambda *_args, **_kwargs: self.fail("Windows acquired twice"),
@@ -844,7 +853,9 @@ class DevBaseConsumerTests(unittest.TestCase):
             self.assertEqual(target, root / SOURCE)
             self.assertEqual((target / "vmlinuz").read_bytes(), kernel)
             self.assertEqual((target / "initrd.gz").read_bytes(), initramfs)
-            self.assertEqual((target / "rootfs.tar").read_bytes(), rootfs)
+            self.assertEqual(
+                gzip.decompress((target / "rootfs.tar.gz").read_bytes()), rootfs,
+            )
             self.assertEqual(
                 consumer.verify_materialized(target, SOURCE)["source_commit"],
                 SOURCE,
@@ -856,6 +867,84 @@ class DevBaseConsumerTests(unittest.TestCase):
             same, reused = consumer.acquire(SOURCE, root, opener=no_network)
             self.assertTrue(reused)
             self.assertEqual(same, target)
+
+    def test_legacy_uncompressed_v3_candidate_remains_readable(self):
+        kernel, initramfs, rootfs = b"kernel-v3", b"initrd-v3", b"legacy-rootfs-tar"
+        manifest = self.descriptor(kernel, initramfs, rootfs)
+        prefix = f"https://github.com/{consumer.REPOSITORY}/releases/download/{manifest['tag']}"
+        manifest["$schema"] = consumer.LEGACY_SCHEMA
+        manifest["rootfs"] = {
+            "name": "rootfs.tar", "url": f"{prefix}/rootfs.tar",
+            "sha256": hashlib.sha256(rootfs).hexdigest(), "size": len(rootfs),
+        }
+        manifest.pop("rootfs_transport")
+
+        with tempfile.TemporaryDirectory() as temporary:
+            target, reused = consumer.acquire(
+                SOURCE, Path(temporary),
+                opener=self.opener_for(manifest, kernel, initramfs, rootfs),
+            )
+            self.assertFalse(reused)
+            self.assertEqual((target / "rootfs.tar").read_bytes(), rootfs)
+            self.assertEqual(consumer.verify_materialized(target, SOURCE), manifest)
+
+    def test_interrupted_upgrade_keeps_prior_candidate_and_cleans_staging(self):
+        kernel, initramfs, old_rootfs = b"kernel", b"initrd", b"old-rootfs"
+        prior_manifest = self.descriptor(kernel, initramfs, old_rootfs)
+        new_commit, new_rootfs = "4" * 40, b"new-rootfs"
+        next_manifest = self.descriptor(kernel, initramfs, new_rootfs, new_commit)
+        compressed = gzip.compress(new_rootfs, compresslevel=6, mtime=0)
+
+        class InterruptedResponse(FakeResponse):
+            def __init__(self, url, payload):
+                super().__init__(url, payload)
+                self.calls = 0
+
+            def read(self, limit):
+                self.calls += 1
+                if self.calls == 1:
+                    return self._payload[:max(1, len(self._payload) // 2)]
+                raise OSError("connection reset after partial gzip body")
+
+        with tempfile.TemporaryDirectory() as temporary:
+            root = Path(temporary)
+            prior, _ = consumer.acquire(
+                SOURCE, root,
+                opener=self.opener_for(prior_manifest, kernel, initramfs, old_rootfs),
+            )
+            next_bytes = (json.dumps(next_manifest, indent=2, sort_keys=True) + "\n").encode()
+            payloads = {
+                consumer.manifest_url(new_commit): next_bytes,
+                next_manifest["kernel"]["url"]: kernel,
+                next_manifest["initramfs"]["url"]: initramfs,
+            }
+
+            def opener(url, timeout):
+                if url == next_manifest["rootfs_transport"]["url"]:
+                    return InterruptedResponse(url, compressed)
+                return FakeResponse(url, payloads[url])
+
+            with self.assertRaises(consumer.DevBaseCandidateUnavailable):
+                consumer.acquire(new_commit, root, opener=opener)
+            self.assertEqual(consumer.verify_materialized(prior, SOURCE), prior_manifest)
+            self.assertFalse((root / new_commit).exists())
+            self.assertEqual(list(root.glob(f".staging-{new_commit}-*")), [])
+
+    def test_compressed_content_hash_is_verified_before_candidate_publish(self):
+        kernel, initramfs, rootfs = b"kernel", b"initrd", b"rootfs-content"
+        manifest = self.descriptor(kernel, initramfs, rootfs)
+        manifest["rootfs"]["sha256"] = "0" * 64
+        with tempfile.TemporaryDirectory() as temporary:
+            root = Path(temporary)
+            with self.assertRaisesRegex(
+                consumer.DevBaseChannelError, "rootfs content SHA-256 mismatch",
+            ):
+                consumer.acquire(
+                    SOURCE, root,
+                    opener=self.opener_for(manifest, kernel, initramfs, rootfs),
+                )
+            self.assertFalse((root / SOURCE).exists())
+            self.assertEqual(list(root.glob(f".staging-{SOURCE}-*")), [])
 
     def test_acquire_reuses_exact_assets_across_commits(self):
         kernel = b"same kernel"
@@ -874,7 +963,7 @@ class DevBaseConsumerTests(unittest.TestCase):
             requests = []
             payloads = {
                 consumer.manifest_url(second): json.dumps(next_manifest).encode(),
-                next_manifest["rootfs"]["url"]: new_rootfs,
+                next_manifest["rootfs_transport"]["url"]: gzip.compress(new_rootfs, compresslevel=6, mtime=0),
             }
 
             def opener(url, timeout):
@@ -898,7 +987,7 @@ class DevBaseConsumerTests(unittest.TestCase):
             donor.mkdir()
             (donor / "vmlinuz").write_bytes(b"broken")
             (donor / "initrd.gz").write_bytes(initramfs)
-            (donor / "rootfs.tar").write_bytes(rootfs)
+            (donor / "rootfs.tar.gz").write_bytes(gzip.compress(rootfs, compresslevel=6, mtime=0))
             requests = []
             payloads = {
                 consumer.manifest_url(SOURCE): json.dumps(manifest).encode(),
@@ -954,6 +1043,7 @@ class DevBaseConsumerTests(unittest.TestCase):
             with self.assertRaisesRegex(consumer.DevBaseChannelError, "ambiguous"):
                 consumer._published_source_commits(Path("."), git_bin="git")
 
+    @unittest.skipUnless(shutil.which("awk"), "requires canonical awk interpreter")
     def test_resolution_uses_published_first_parent_and_preserves_artifact_identity(self):
         with tempfile.TemporaryDirectory() as temporary:
             repo = Path(temporary) / "repo"
@@ -1116,7 +1206,7 @@ class DevBaseConsumerTests(unittest.TestCase):
             consumer.manifest_url(SOURCE): manifest_bytes,
             manifest["kernel"]["url"]: b"tampered-kernel\n",
             manifest["initramfs"]["url"]: initramfs,
-            manifest["rootfs"]["url"]: rootfs,
+            manifest["rootfs_transport"]["url"]: gzip.compress(rootfs, compresslevel=6, mtime=0),
         }
 
         def opener(url, timeout):
@@ -1139,7 +1229,7 @@ class DevBaseConsumerTests(unittest.TestCase):
             consumer.manifest_url(SOURCE): manifest_bytes,
             manifest["kernel"]["url"]: kernel,
             manifest["initramfs"]["url"]: initramfs,
-            manifest["rootfs"]["url"]: b"tampered-rootfs\n",
+            manifest["rootfs_transport"]["url"]: b"tampered-rootfs\n",
         }
 
         def opener(url, timeout):
@@ -1152,6 +1242,7 @@ class DevBaseConsumerTests(unittest.TestCase):
             ):
                 consumer.acquire(SOURCE, Path(temporary), opener=opener)
 
+    @unittest.skipUnless(os.name == "posix", "requires POSIX executable mode preservation")
     def test_materialize_versioned_rootfs_is_atomic_and_reusable(self):
         with tempfile.TemporaryDirectory() as temporary:
             root = Path(temporary)
@@ -1190,6 +1281,44 @@ class DevBaseConsumerTests(unittest.TestCase):
             )
             self.assertTrue(reused)
             self.assertEqual(same, target)
+
+    @unittest.skipUnless(os.name == "posix", "requires POSIX executable mode preservation")
+    def test_failed_compressed_upgrade_preserves_previous_versioned_rootfs(self):
+        with tempfile.TemporaryDirectory() as temporary:
+            root = Path(temporary)
+            old_kernel, old_initrd, old_rootfs = write_provenance_fixture(root, SOURCE)
+            old_candidate = root / "old-candidate"
+            builder.build(
+                source_commit=SOURCE, kernel_dir=old_kernel,
+                initramfs_dir=old_initrd, rootfs_dir=old_rootfs, out_dir=old_candidate,
+            )
+            versions = root / "versions"
+            prior, reused = consumer.materialize_versioned_rootfs(
+                old_candidate, SOURCE, versions,
+            )
+            self.assertFalse(reused)
+            old_marker = (prior / consumer.ROOTFS_MARKER).read_bytes()
+
+            newer = "5" * 40
+            kernel_dir, initramfs_dir, rootfs_dir = write_provenance_fixture(root, newer)
+            next_candidate = root / "next-candidate"
+            builder.build(
+                source_commit=newer, kernel_dir=kernel_dir,
+                initramfs_dir=initramfs_dir, rootfs_dir=rootfs_dir, out_dir=next_candidate,
+            )
+            manifest_path = next_candidate / "dev-base.json"
+            manifest = json.loads(manifest_path.read_text(encoding="utf-8"))
+            manifest["rootfs"]["sha256"] = "0" * 64
+            manifest_path.write_text(json.dumps(manifest, indent=2, sort_keys=True) + "\n")
+
+            with self.assertRaisesRegex(
+                consumer.DevBaseChannelError, "rootfs content SHA-256 mismatch",
+            ):
+                consumer.materialize_versioned_rootfs(next_candidate, newer, versions)
+
+            self.assertEqual((prior / consumer.ROOTFS_MARKER).read_bytes(), old_marker)
+            self.assertFalse((versions / newer).exists())
+            self.assertEqual([entry.name for entry in versions.iterdir()], [SOURCE])
 
     def test_missing_exact_commit_candidate_is_retryable(self):
         def opener(url, timeout):

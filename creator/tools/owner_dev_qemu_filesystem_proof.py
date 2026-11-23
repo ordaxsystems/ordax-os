@@ -136,8 +136,9 @@ def prove(base: Path, qemu: Path) -> dict:
         raise ProofError("Base requires an exact-commit real directory")
     owner = channel_owner()
     manifest = owner.verify_materialized(base, base.name)
-    owner._validate_rootfs_archive(base / "rootfs.tar")
-    with tarfile.open(base / "rootfs.tar", "r:") as tar:
+    rootfs_path = base / owner.rootfs_transport_binding(manifest)["name"]
+    owner.validate_rootfs_archive(rootfs_path, manifest)
+    with owner.open_rootfs_archive(rootfs_path, manifest) as tar:
         member = tar.getmember("bin/busybox")
         if not member.isreg() or member.mode & 0o111 == 0:
             raise ProofError("Base BusyBox invalid")
@@ -147,7 +148,7 @@ def prove(base: Path, qemu: Path) -> dict:
         temp = Path(tmp)
         payload = temp / "rootfs.tar"
         kernel = temp / "vmlinuz"
-        copy_verified(base / "rootfs.tar", payload, manifest["rootfs"])
+        owner.materialize_rootfs_tar(rootfs_path, manifest, payload)
         copy_verified(base / "vmlinuz", kernel, manifest["kernel"])
         scratch = temp / "scratch.raw"
         with scratch.open("xb") as output:
