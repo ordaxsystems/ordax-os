@@ -803,9 +803,25 @@ with Path(os.environ["SURFACE_MOCK_CURL_LOG"]).open("a") as log:
                             self.assertEqual(requests.count("PUT_MANIFEST"), 1)
                             self.assertIn("Verified Surface ensured", result.stdout)
 
+    def test_surface_producer_checkout_is_shallow_and_reuse_stays_verified(self):
+        workflow = WORKFLOW.read_text(encoding="utf-8")
+        build_job = workflow.split("  buildroot-surface:", 1)[1].split("\n  portable-qemu:", 1)[0]
+        checkout = build_job.split("      - name: Checkout exact source\n", 1)[1].split("\n      - name:", 1)[0]
+        self.assertIn("fetch-depth: 1", checkout)
+        self.assertNotIn("fetch-depth: 0", checkout)
+        reuse = GITHUB_ARTIFACT_SCRIPT.read_text(encoding="utf-8")
+        self.assertIn("if git cat-file -e", reuse)
+        self.assertIn("compatible-inputs --out", reuse)
+        self.assertIn("independent_surface_component_cache.py verify", reuse)
+        self.assertIn("--cache-hit true --consumer", reuse)
+
     def test_github_artifact_reuse_is_content_addressed_across_squash_merges(self):
         script = GITHUB_ARTIFACT_SCRIPT.read_text(encoding="utf-8")
-        self.assertIn('item.get("event") != "workflow_dispatch"', script)
+        self.assertIn('event not in ("workflow_dispatch", "push")', script)
+        self.assertIn('event == "push" and item.get("head_branch") != "main"', script)
+        self.assertIn('event=push -f per_page=100', script)
+        self.assertIn('event=workflow_dispatch -f per_page=100', script)
+        self.assertNotIn('event=pull_request', script)
         self.assertIn('item.get("status") != "completed" or item.get("conclusion") != "success"', script)
         self.assertIn('(item.get("head_repository") or {}).get("full_name") != repo', script)
         self.assertNotIn('item.get("head_branch") != branch', script)
