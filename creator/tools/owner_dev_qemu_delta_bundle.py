@@ -204,6 +204,9 @@ def verify_bundle(directory: Path) -> dict:
             or canonical_json(m) != raw
             or m.get("$schema") != SCHEMA
             or m.get("status") != "prepared-not-authorized"
+            or m.get("purpose", "filesystem-proof-only") != "filesystem-proof-only"
+            or m.get("installable_candidate", False) is not False
+            or m.get("canonical_inactive_slot_staged", False) is not False
             or m.get("physical_write") is not False
             or m.get("physical_write_authorized") is not False
             or m.get("activation_performed") is not False
@@ -321,6 +324,9 @@ def prepare_bundle(*, delta: dict, overlay: Path, cache_root: Path,
         manifest = {
             "$schema": SCHEMA,
             "status": "prepared-not-authorized",
+            "purpose": "filesystem-proof-only",
+            "installable_candidate": False,
+            "canonical_inactive_slot_staged": False,
             "requested_main_commit": requested_main_commit,
             "published_base_source_commit": published_base_source_commit,
             "cow_plan_sha256": delta["plan_sha256"],
@@ -354,6 +360,9 @@ def prepare_bundle(*, delta: dict, overlay: Path, cache_root: Path,
 def _receipt(directory: Path, manifest: dict, *, reused: bool) -> dict:
     return {
         "$schema": SCHEMA, "status": "prepared-not-authorized",
+        "purpose": "filesystem-proof-only",
+        "installable_candidate": False,
+        "canonical_inactive_slot_staged": False,
         "bundle_path": str(directory),
         "manifest_sha256": _hash_file(directory / "manifest.json"),
         "payload_sha256": manifest["payload_sha256"],

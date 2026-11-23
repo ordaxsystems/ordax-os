@@ -260,8 +260,11 @@ def preflight(disk_number: int, serial: str, *, progress=None,
                 "verified_bytes": previous["verified_bytes"],
                 "physical_write": False, "physical_write_authorized": False,
                 "writer_lock_held": False, "installed_revision_proven": False,
+                "purpose": "filesystem-proof-only",
+                "installable_candidate": False,
+                "canonical_inactive_slot_staged": False,
                 "activation_performed": False,
-                "next_gate": "creator-native-writer-locked-revalidation",
+                "next_gate": "os-canonical-offline-rootfs-and-inactive-esp-stage-proof",
             }
         raise USBUpdatePreflightError(
             "no compatible cached delta for current authorized USB"
@@ -287,6 +290,9 @@ def preflight(disk_number: int, serial: str, *, progress=None,
             or evidence.get("cold_readback_verified") is not True
             or evidence.get("physical_absence_verified") is not True
             or evidence.get("physical_sample_sha256_unchanged") is not True
+            or evidence.get("purpose") != "filesystem-proof-only"
+            or evidence.get("installable_candidate") is not False
+            or evidence.get("canonical_inactive_slot_staged") is not False
             or evidence.get("cow_physical_preimages_hashed") is not True
             or evidence.get("cow_postimages_hashed") is not True
             or type(evidence.get("cow_modified_bytes")) is not int
@@ -350,10 +356,14 @@ def preflight(disk_number: int, serial: str, *, progress=None,
         "cow_delta_plan_sha256": evidence["cow_delta_plan_sha256"],
         "physical_preimages_hashed": True,
         "prepared_postimages_hashed": True,
+        "purpose": "filesystem-proof-only",
+        "canonical_versioned_rootfs_materialized": False,
+        "canonical_inactive_slot_staged": False,
+        "installable_candidate": False,
         "physical_write_authorized": False,
         "physical_write": False, "update_executed": False,
         "installed_revision_proven": False, "activation_performed": False,
-        "next_gate": "creator-physical-write-adapter-with-readback",
+        "next_gate": "os-canonical-offline-rootfs-and-inactive-esp-stage-proof",
     }
 
 

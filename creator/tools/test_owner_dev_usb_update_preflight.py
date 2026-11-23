@@ -40,6 +40,9 @@ def good_evidence():
         "usb_serial": SERIAL, "disk_number": 1,
         "guest_stage_verified": True, "cold_readback_verified": True,
         "physical_absence_verified": True, "physical_sample_sha256_unchanged": True,
+        "purpose": "filesystem-proof-only",
+        "installable_candidate": False,
+        "canonical_inactive_slot_staged": False,
         "cow_physical_preimages_hashed": True, "cow_postimages_hashed": True,
         "cow_modified_bytes": 65536, "cow_modified_regions": 1,
         "cow_delta_plan_sha256": "b" * 64,
@@ -208,6 +211,9 @@ class USBUpdatePreflightTests(unittest.TestCase):
             {"cow_postimages_hashed": False},
             {"cow_modified_regions": 0}, {"cow_modified_bytes": 0},
             {"cow_delta_plan_sha256": "untrusted"},
+            {"purpose": "installed"},
+            {"installable_candidate": True},
+            {"canonical_inactive_slot_staged": True},
         ):
             with self.subTest(mutate=mutate):
                 evidence = {**good_evidence(), **mutate}

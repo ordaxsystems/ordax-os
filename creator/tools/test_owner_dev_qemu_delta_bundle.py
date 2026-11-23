@@ -104,6 +104,9 @@ class DeltaBundleTests(unittest.TestCase):
         self.assertEqual(manifest["regions"][0]["payload_offset_bytes"], 0)
         self.assertNotIn("overlay_source_offset_bytes", manifest["regions"][0])
         self.assertEqual(manifest["status"], "prepared-not-authorized")
+        self.assertEqual(manifest["purpose"], "filesystem-proof-only")
+        self.assertIs(manifest["installable_candidate"], False)
+        self.assertIs(manifest["canonical_inactive_slot_staged"], False)
         second = self.prepare()
         self.assertEqual(second["bundle_path"], receipt["bundle_path"])
         self.assertTrue(second["cache_reused"])
@@ -164,6 +167,21 @@ class DeltaBundleTests(unittest.TestCase):
         payload = Path(receipt["bundle_path"]) / "delta.bin"
         self.assertEqual(payload.read_bytes(), bytes(CHANGED))
         self.assertEqual(MODULE.verify_bundle(payload.parent)["payload_bytes"], CHANGED)
+
+    def test_rejects_forged_physical_installability_flags(self):
+        receipt = self.prepare()
+        path = Path(receipt["bundle_path"]) / "manifest.json"
+        original = json.loads(path.read_text(encoding="utf-8"))
+        for changes in ({"purpose": "os-physical-update"},
+                        {"installable_candidate": True},
+                        {"canonical_inactive_slot_staged": True}):
+            with self.subTest(changes=changes):
+                path.write_bytes(MODULE.canonical_json({**original, **changes}))
+                with self.assertRaisesRegex(MODULE.DeltaBundleError, "policy"):
+                    MODULE.verify_bundle(path.parent)
+        path.write_bytes(MODULE.canonical_json(original))
+        self.assertEqual(MODULE.verify_bundle(path.parent)["purpose"],
+                         "filesystem-proof-only")
 
     def test_rejects_manifest_tampering_even_with_payload_still_intact(self):
         receipt = self.prepare()

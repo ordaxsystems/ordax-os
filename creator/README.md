@@ -139,6 +139,25 @@ error, not a reason to blindly overwrite it. A positive result is strictly
 `prepared-not-authorized`: no raw write, no activation and **no proof of an
 installed OS**.
 
+**Critical separation:** the current QEMU stage only unpacks a verified
+rootfs archive under /versions/<Base SHA> inside a disposable ext4 view
+and checks a test marker. It is NOT the OS-owned
+`dev_channel.materialize_versioned_rootfs` transaction and does NOT
+stage the inactive ESP through `dev_stage.stage_offline_candidate`.
+The real physical USB has /bootstrap and /dev-base roots, rather than
+the test /versions root. Copying the proof COW blocks to that USB would
+be an incorrect installation.
+
+The filesystem bundle is deliberately restricted to purpose
+`filesystem-proof-only`, `installable_candidate=false` and
+`canonical_inactive_slot_staged=false`. Existing cached proof bundles
+without this explicit purpose remain proof-only. The physical writer MUST
+reject these files as OS installation input.
+
+Required next gate: OS-owned offline rootfs and inactive ESP staging on
+the actual USB layout, with independent boot, integrity, rollback and
+device-lock evidence. Never substitute a QEMU marker or a raw block copy.
+
 The OS-owned Base channel and the Creator's existing Win32 raw-disk
 lease/readback are the authorities; do not implement a second updater in MCP.
 The `portable_update_windows.go` path is for a different **two-partition**
