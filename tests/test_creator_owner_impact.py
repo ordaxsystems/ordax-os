@@ -201,6 +201,20 @@ class CreatorOwnerImpactTests(unittest.TestCase):
             impact.classify(base, source, root=self.root, event="workflow_dispatch")[0]
         )
 
+    def test_desktop_surface_reporter_is_source_only_not_usb_media(self):
+        # The Desktop reporter ships through the existing Git-owned Native
+        # source checkout; this module does not change any compiled EROFS.
+        base = self.commit(WORKFLOW.read_text(encoding="utf-8"), VISUAL)
+        reporter = self.commit(path="system/adapters/native/desktop-surface-state-report.mjs")
+        for event in ("push", "pull_request"):
+            self.assertEqual(
+                impact.classify(base, reporter, root=self.root, event=event),
+                (False, "nonproducer-contract-only"),
+            )
+        # Boot/base producer changes are never suppressed by this exception.
+        combined = self.commit(path="bootstrap/surface-runtime/build.py")
+        self.assertTrue(impact.classify(base, combined, root=self.root)[0])
+
     def test_test_only_changes_skip_usb_but_mixed_product_delta_remains_gated(self):
         base = self.commit(WORKFLOW.read_text(encoding="utf-8"), VISUAL)
         tests_only = self.commit(path="tests/test_canonical_document_freshness.py")

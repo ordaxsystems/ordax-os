@@ -153,7 +153,6 @@ WINDOWS_PRODUCT_SHARED_ADDITIONS = {
 WINDOWS_PRODUCT_PINNED_BLOBS = {
     "docs/evidence/desktop-runtime-windows-candidate-2026-11-14.json": "c2a612880e4e5e96c0db9f3299c83bebd53eb15a",
     "system/adapters/native/desktop-product-runtime-status.mjs": "2e4b3f7aaaea1210cccac346c7f895fe7f576b35",
-    "system/adapters/native/desktop-surface-state-report.mjs": "a8e9a63b57de7061c681247483c38c29f0ad31dc",
 }
 
 # These already-installed Git-owned source entrypoints are delivered by Pull.
@@ -178,6 +177,7 @@ PULL_REVIEW_ONLY_PATHS = PULL_HELPER_SOURCE_PATHS | frozenset({
 # Keep the exemption exact: boot, Base, Supervisor and helper changes remain gated.
 PULL_SOURCE_ONLY_PATHS = frozenset({
     "system/surface/runtime/native_host_server.py",
+    "system/adapters/native/desktop-surface-state-report.mjs",
 })
 
 PUSH_EXCLUDES = ("!system/adapters/desktop/**", "!system/surface/ui/**", "!system/surface/workspace/**")
