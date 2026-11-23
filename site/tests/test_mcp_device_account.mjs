@@ -925,6 +925,32 @@ test("re-entering devices refreshes Owner data without interrupting a revocation
   assert.equal(granting.projectResets(),0,"revisit must preserve an uncertain Project grant receipt");
 });
 
+test("Owner grant controls display exact OAuth client UUID when names are duplicated", () => {
+  const portal=readFileSync(new URL("../public/assets/account-portal.js",import.meta.url),"utf8");
+  const optionStart=portal.indexOf("const clientOptions = grantClients.map(client =>");
+  assert.ok(optionStart>0,"Owner project grant must present client choices");
+  const optionCode=portal.slice(optionStart,optionStart+270);
+  assert.match(optionCode,/esc\(client\.client_name\)/);
+  assert.equal((optionCode.match(/esc\(client\.client_id\)/g)||[]).length,2,
+    "both the selected value and visible project label must identify the client");
+
+  const devStart=portal.indexOf('const devButtons = device.channel==="development"');
+  const devEnd=portal.indexOf("const centralPanel = availableClients.length",devStart);
+  assert.ok(devStart>0 && devEnd>devStart);
+  const devPanel=portal.slice(devStart,devEnd);
+  assert.match(devPanel,/mcpAuthority\.clients\.map\(client =>/);
+  assert.match(devPanel,/tx\("Cliente OAuth"\)/);
+  assert.match(devPanel,/esc\(client\.client_name\)/);
+  assert.match(devPanel,/esc\(client\.client_id\)/);
+  assert.match(devPanel,/data-mcp-client/);
+  assert.match(devPanel,/data-mcp-profile/);
+  assert.match(devPanel,/translate="no"/,
+    "do not translate or truncate OAuth identifiers");
+  assert.match(portal,/data-mcp-central-client/);
+  assert.match(portal,/esc\(c\.client_id\)/,
+    "challenge selection also needs a visible stable client ID");
+});
+
 test("Project UI keeps Runtime binding separate and exposes Terminal/Process/Blender grants after binding",()=>{
   const portal=readFileSync(new URL("../public/assets/account-portal.js",import.meta.url),"utf8");
   assert.match(portal,/data-mcp-project-form/);

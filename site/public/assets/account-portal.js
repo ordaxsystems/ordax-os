@@ -1327,8 +1327,9 @@
         : "";
       const grantClients = mcpAuthorityStatus === "ready" && mcpAuthority
         ? mcpAuthority.clients : [];
+      // Duplicate display names are common; select the exact OAuth client.
       const clientOptions = grantClients.map(client =>
-        `<option value="${esc(client.client_id)}">${esc(client.client_name)}</option>`).join("");
+        `<option value="${esc(client.client_id)}">${esc(client.client_name)} · ${esc(client.client_id)}</option>`).join("");
       const grantForm = project.next_state === "ready_without_grants" && clientOptions
         ? `<form data-mcp-project-grant-form="${esc(project.project_id)}"
             data-mcp-project-space="${esc(project.space_id)}" class="profile-field-group">
@@ -1480,7 +1481,8 @@
     const centralButtons = availableClients.map(c =>
       `<button type="button" class="button outline h-8"
         data-mcp-central-client="${esc(c.client_id)}"${mcpRevoking || mcpCentralSelecting || mcpProjectGrantCreating ? " disabled" : ""}>
-        ${icon("plug")}${tx("Vínculo MCP")} · ${esc(c.client_name)}</button>`).join("");
+        ${icon("plug")}${tx("Vínculo MCP")} · ${esc(c.client_name)}
+        <small translate="no">${esc(c.client_id)}</small></button>`).join("");
     let centralDetail = "";
     if (mcpCentralClient) {
       const target = mcpCentralTargets?.targets.find(t =>
@@ -1514,8 +1516,8 @@
         }) : ""}</div>`;
     }
     const devButtons = device.channel==="development" && device.state==="active"
-      ? mcpAuthority.clients.flatMap(client=>
-        ["full-computer-control","ordax-surface-control","repository-catalog-read"].filter(profile=>
+      ? mcpAuthority.clients.map(client => {
+        const controls = ["full-computer-control","ordax-surface-control","repository-catalog-read"].filter(profile=>
           !grants.some(g=>g.client_id===client.client_id && g.scope_kind==="device"
             && g.profile_key===profile)).map(profile=>
           action(profile==="full-computer-control"
@@ -1528,10 +1530,15 @@
               data:'data-mcp-dev-grant data-mcp-device="'+esc(device.device_id)
                 +'" data-mcp-client="'+esc(client.client_id)
                 +'" data-mcp-profile="'+esc(profile)+'"',
-            }))).join("")
+            })).join("");
+        return controls ? `<div class="profile-field-group">
+          <p class="device-revoke-note">${tx("Cliente OAuth")}: <strong>${esc(client.client_name)}</strong>
+            <code translate="no">${esc(client.client_id)}</code></p>
+          <div class="panel-actions">${controls}</div></div>` : "";
+      }).join("")
       : "";
     const devPanel = devButtons
-      ? '<div class="panel-actions" aria-label="'+esc(tx("Autorizações DEV"))+'">'+devButtons+'</div>'
+      ? '<section aria-label="'+esc(tx("Autorizações DEV"))+'">'+devButtons+'</section>'
       : "";
     const centralPanel = availableClients.length
       ? `<div class="panel-actions" aria-label="${tx("Vínculo MCP Owner")}">
