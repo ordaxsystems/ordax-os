@@ -3,10 +3,8 @@
 package main
 
 import (
-	"encoding/json"
 	"errors"
 	"fmt"
-	"os"
 	"path/filepath"
 	"strconv"
 	"strings"
@@ -362,70 +360,6 @@ func beginPhysicalWrite() {
 	go func() {
 		completeWrite(executePhysicalWrite(state, target))
 	}()
-}
-
-func executeLegacyPhysicalWrite(directory string, target physicalTarget) error {
-	backend := filepath.Join(directory, "ordax-creator-physical-test.exe")
-	seed := filepath.Join(directory, "ordax-bootstrap-seed.raw")
-	for _, path := range []string{backend, seed} {
-		info, err := os.Lstat(path)
-		if err != nil {
-			return fmt.Errorf("pacote físico incompleto: %s não está disponível", filepath.Base(path))
-		}
-		if !info.Mode().IsRegular() || info.Mode()&os.ModeSymlink != 0 {
-			return fmt.Errorf("pacote físico inválido: %s não é um arquivo regular", filepath.Base(path))
-		}
-	}
-
-	workRoot := filepath.Join(os.TempDir(), "OrdaX-Creator")
-	if err := os.MkdirAll(workRoot, 0o700); err != nil {
-		return fmt.Errorf("preparar área temporária: %w", err)
-	}
-	workDir, err := os.MkdirTemp(workRoot, "physical-write-*")
-	if err != nil {
-		return fmt.Errorf("criar área temporária: %w", err)
-	}
-	defer os.RemoveAll(workDir)
-	preparedPath := filepath.Join(workDir, "ordax-prepared.raw")
-	diagnosticPath := filepath.Join(workDir, "ordax-physical-error.txt")
-	progressPath := filepath.Join(workDir, "ordax-physical-progress.json")
-
-	updateWriteProgress(creatorT(msgProgressImageStatus), creatorT(msgWritePreparingHint))
-	output, err := runBackendHidden(
-		directory,
-		"prepare",
-		"--confirm", target.ConfirmationToken,
-		"--seed", seed,
-		"--out", preparedPath,
-	)
-	if err != nil {
-		return fmt.Errorf("preparar imagem física: %w", err)
-	}
-	var preparation physicalPreparationDocument
-	if err := json.Unmarshal(output, &preparation); err != nil {
-		return fmt.Errorf("ler resultado da preparação: %w", err)
-	}
-	if err := validatePhysicalPreparation(preparation, target, preparedPath); err != nil {
-		return err
-	}
-
-	updateWriteProgress(creatorT(msgProgressElevationStatus), creatorT(msgProgressElevationHint))
-	args := []string{
-		"apply",
-		"--confirm", target.ConfirmationToken,
-		"--image", preparation.PreparedImage.Path,
-		"--sha256", preparation.PreparedImage.SHA256,
-		"--size", strconv.FormatInt(preparation.PreparedImage.SizeBytes, 10),
-		"--authorize", preparation.DestructiveAuthorization,
-		"--diagnostic-log", diagnosticPath,
-		"--progress-log", progressPath,
-	}
-	if err := runElevatedAndWait(backend, directory, args, diagnosticPath, progressPath); err != nil {
-		return err
-	}
-
-	updateWritePercentage(creatorT(msgProgressCompleteStatus), creatorT(msgProgressCompleteHint), 100)
-	return nil
 }
 
 func validatePhysicalPreparation(preparation physicalPreparationDocument, target physicalTarget, preparedPath string) error {

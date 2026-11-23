@@ -128,3 +128,16 @@ func TestPortableUSBUpdatePreparationBindsOnePlanAndDisk(t *testing.T) {
 	mutated=prep;mutated.Authorization=strings.Repeat("e",32)
 	if checkPortableUSBPreparation(mutated,target,plan,sha)==nil {t.Fatal("invalid physical authorization admitted")}
 }
+
+
+// An obsolete owner embedded seed must never satisfy the current USB
+// update button, regardless of its target metadata or old rollout state.
+func TestLegacyOwnerCannotAuthorizeUSBUpdate(t *testing.T) {
+    state := appRefreshState{PhysicalMode:"legacy-owner", PhysicalReady:true}
+    if creatorUSBUpdateEligible(state, 0) {
+        t.Fatal("legacy Owner media authorized the current USB update")
+    }
+    if err := executePhysicalWrite(state, physicalTarget{}); err == nil {
+        t.Fatal("obsolete embedded physical media was accepted for writing")
+    }
+}
