@@ -87,6 +87,18 @@ verifies the \`ordax-os/main\` Git source and published manifest, and runs
 the already-owned QEMU ext4 COW staging and cold-readback evidence.
 It checks the same physical USB identity before and after the proof.
 
+On this Windows TCG host, the verified guest kernel required \`noapic\` to
+avoid an IO-APIC timer panic. The read-only and COW probes share **one**
+guest-only kernel command line. This setting is never applied to the OrdaX
+installation or firmware boot parameters.
+
+On Windows, QEMU may advertise the **entire physical USB capacity** for the
+raw Linux volume even though the authoritative Windows partition 2 is smaller.
+The Owner DEV proof shrinks only the fresh disposable QCOW2 to the exact
+partition byte length before booting its guest. If the backing identity or
+post-resize length differs, it fails closed; it never resizes a physical disk
+or changes the GPT.
+
 The proof creates and removes a **temporary local QCOW2**. The canonical
 COW delta compiler inspects only depth-0 allocated extents and explicit zero
 regions, validates their partition bounds, hashes both the prepared postimage

@@ -89,6 +89,64 @@ class SnapshotExt4Tests(unittest.TestCase):
                            VOL, "vmdk", "done", ro=True)
             launch.assert_not_called()
 
+    def test_qemu_readonly_and_cow_share_one_guest_boot_policy(self):
+        readonly = APP._load("owner_dev_qemu_partition_readonly.py",
+                             "ordax_cow_test_guest_boot")
+        self.assertEqual(APP.QEMU_GUEST_BOOT_FLAGS, readonly.QEMU_GUEST_BOOT_FLAGS)
+        self.assertIn("noapic", APP.QEMU_GUEST_BOOT_FLAGS.split())
+        self.assertNotIn("quiet", APP.QEMU_GUEST_BOOT_FLAGS.split())
+
+    def test_windows_whole_disk_raw_view_is_shrunk_to_exact_linux_partition(self):
+        """Only brand-new disposable overlay may be shrunk, never raw backing."""
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            exe = root / "qemu-img.exe"
+            exe.write_bytes(b"fixture")
+            virtual_disk = 8053063680
+            exact_linux_partition = 6708789248
+            calls = []
+            def invoke(args, **_):
+                calls.append(args)
+                if "info" in args:
+                    size = (virtual_disk if not any("resize" in x for x in calls)
+                            else exact_linux_partition)
+                    return mock.Mock(returncode=0, stdout=json.dumps({
+                        "format": "qcow2", "backing-filename": VOL,
+                        "backing-filename-format": "raw", "virtual-size": size,
+                    }).encode(), stderr=b"")
+                return mock.Mock(returncode=0, stdout=b"", stderr=b"")
+            with mock.patch.object(APP.subprocess, "run", side_effect=invoke):
+                APP.create_overlay(exe, VOL, root / "new.qcow2",
+                                   partition_bytes=exact_linux_partition)
+            shrinking = [x for x in calls if "resize" in x]
+            self.assertEqual(len(shrinking), 1)
+            self.assertIn("--shrink", shrinking[0])
+            self.assertIn(str(exact_linux_partition), shrinking[0])
+            self.assertNotIn(VOL, shrinking[0])
+            self.assertEqual(sum("info" in x for x in calls), 2)
+
+    def test_qcow_cannot_claim_shorter_than_authoritative_partition(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            exe = root / "qemu-img.exe"
+            exe.write_bytes(b"fixture")
+            metadata = {"format": "qcow2", "backing-filename": VOL,
+                        "backing-filename-format": "raw",
+                        "virtual-size": 536870912}
+            with mock.patch.object(APP.subprocess, "run",
+                                   side_effect=lambda args, **_: mock.Mock(
+                                       returncode=0,
+                                       stdout=(json.dumps(metadata).encode()
+                                               if "info" in args else b""),
+                                       stderr=b"")) as execute:
+                with self.assertRaisesRegex(APP.SnapshotProofError, "provenance"):
+                    APP.create_overlay(
+                        exe, VOL, root / "new.qcow2",
+                        partition_bytes=6708789248,
+                    )
+                self.assertFalse(any("resize" in call.args[0]
+                                     for call in execute.call_args_list))
+
     def test_sample_reads_raw_volume_only_for_read(self):
         sample = b"\x01" * (8 * APP.MIB)
         with mock.patch("builtins.open", return_value=io.BytesIO(sample)) as handle:
@@ -116,7 +174,9 @@ class SnapshotExt4Tests(unittest.TestCase):
                                  stderr=b"")
 
             with mock.patch.object(APP.subprocess, "run", side_effect=called) as run:
-                APP.create_overlay(exe, VOL, overlay)
+                APP.create_overlay(
+                    exe, VOL, overlay, partition_bytes=8053063680,
+                )
             first = run.call_args_list[0].args[0]
             self.assertIn("-F", first)
             self.assertIn("raw", first)
@@ -124,7 +184,9 @@ class SnapshotExt4Tests(unittest.TestCase):
             ok["backing-filename"] = r"\\.\PhysicalDrive0"
             with mock.patch.object(APP.subprocess, "run", side_effect=called):
                 with self.assertRaisesRegex(APP.SnapshotProofError, "provenance"):
-                    APP.create_overlay(exe, VOL, overlay)
+                    APP.create_overlay(
+                    exe, VOL, overlay, partition_bytes=8053063680,
+                )
 
 
 if __name__ == "__main__":

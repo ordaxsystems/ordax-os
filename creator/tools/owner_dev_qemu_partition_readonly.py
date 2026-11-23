@@ -25,6 +25,8 @@ SERIAL = re.compile(r"[A-Za-z0-9_-]{4,64}\Z")
 SCHEMA = "ordax.creator.owner-dev-ext4-physical-readonly/1"
 GUEST_MARKER = "ORDAX_OWNER_EXT4_READONLY_OK"
 GUEST_UNMOUNT = "ORDAX_OWNER_EXT4_READONLY_UNMOUNT_OK"
+# Single canonical QEMU TCG guest boot contract; never applied to physical OrdaX.
+QEMU_GUEST_BOOT_FLAGS = "console=ttyS0 rdinit=/init loglevel=7 earlyprintk=serial,ttyS0 panic=1 noapic"
 
 
 class ReadonlyProbeError(RuntimeError):
@@ -177,7 +179,7 @@ def probe(base: Path, qemu: Path, *, disk_number: int, serial: str,
             "-serial", "stdio", "-monitor", "none", "-net", "none",
             "-kernel", str(base / "vmlinuz"), "-initrd", str(initrd),
             "-drive", f"file={volume},format=raw,if=virtio,readonly=on",
-            "-append", "console=ttyS0 rdinit=/init loglevel=7 earlyprintk=serial,ttyS0 panic=1",
+            "-append", QEMU_GUEST_BOOT_FLAGS,
         ]
         try:
             result = subprocess.run(

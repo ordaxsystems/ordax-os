@@ -36,6 +36,12 @@ def _load(relative: str, name: str):
     return owner
 
 
+# The snapshot always uses the SAME TCG guest boot policy as physical RO.
+QEMU_GUEST_BOOT_FLAGS = _load(
+    "owner_dev_qemu_partition_readonly.py", "ordax_cow_shared_guest_boot"
+).QEMU_GUEST_BOOT_FLAGS
+
+
 def sample_read_only(volume: str) -> str:
     """Read a bounded physical sample. Never opens a device writable."""
     if not volume.startswith("\\\\.\\") or len(volume) != 6 or volume[-1] != ":":
@@ -55,12 +61,40 @@ def sample_read_only(volume: str) -> str:
     return h.hexdigest()
 
 
-def create_overlay(qemu_img: Path, volume: str, overlay: Path) -> None:
-    """Explicit QCOW2 backing: raw USB source is a read-only backing layer."""
-    if qemu_img.is_symlink() or not qemu_img.is_file():
-        raise SnapshotProofError("qemu-img executable missing")
-    if overlay.exists():
-        raise SnapshotProofError("temporary overlay already exists")
+def create_overlay(
+    qemu_img: Path, volume: str, overlay: Path, *, partition_bytes: int,
+) -> None:
+    r"""Bound a disposable QCOW2 view to the physical Linux PARTITION, not disk.
+
+    Windows QEMU reports the whole USB disk size for \\.\D: even when the
+    volume is partition 2. Only the Windows partition inventory is authoritative.
+    The brand-new QCOW2 may be shrunk; the physical raw backing is never resized.
+    """
+    if (qemu_img.is_symlink() or not qemu_img.is_file()
+            or overlay.exists()
+            or type(partition_bytes) is not int
+            or partition_bytes < 512 * 1024 * 1024
+            or partition_bytes % 512):
+        raise SnapshotProofError("QCOW2 executable, new target or partition size invalid")
+
+    def info() -> dict:
+        result = subprocess.run(
+            [str(qemu_img), "info", "--output=json", str(overlay)],
+            stdout=subprocess.PIPE, stderr=subprocess.PIPE,
+            stdin=subprocess.DEVNULL, timeout=40, check=False,
+        )
+        if result.returncode or len(result.stdout) > 256 * 1024:
+            raise SnapshotProofError("QCOW2 metadata unavailable")
+        record = json.loads(result.stdout.decode("utf-8"))
+        if (not isinstance(record, dict) or record.get("format") != "qcow2"
+                or record.get("backing-filename-format") != "raw"
+                or record.get("backing-filename") != volume
+                or record.get("encrypted", False) is not False
+                or type(record.get("virtual-size")) is not int
+                or record["virtual-size"] < partition_bytes):
+            raise SnapshotProofError("QCOW2 backing or physical partition provenance differs")
+        return record
+
     try:
         result = subprocess.run(
             [str(qemu_img), "create", "-f", "qcow2", "-F", "raw",
@@ -70,24 +104,23 @@ def create_overlay(qemu_img: Path, volume: str, overlay: Path) -> None:
         )
         if result.returncode:
             raise SnapshotProofError("QCOW2 copy-on-write creation failed")
-        info = subprocess.run(
-            [str(qemu_img), "info", "--output=json", str(overlay)],
-            stdout=subprocess.PIPE, stderr=subprocess.PIPE,
-            stdin=subprocess.DEVNULL, timeout=40, check=False,
-        )
-    except (OSError, subprocess.TimeoutExpired) as exc:
-        raise SnapshotProofError("QCOW2 tooling unavailable") from exc
-    try:
-        if info.returncode or len(info.stdout) > 256 * 1024:
-            raise SnapshotProofError("QCOW2 metadata unreadable")
-        record = json.loads(info.stdout.decode("utf-8"))
-        if (record.get("format") != "qcow2"
-                or record.get("backing-filename-format") != "raw"
-                or record.get("backing-filename") != volume
-                or record.get("virtual-size", 0) <= 0):
-            raise SnapshotProofError("QCOW2 backing provenance differs")
-    except (UnicodeError, ValueError, TypeError) as exc:
-        raise SnapshotProofError("QCOW2 metadata invalid") from exc
+        record = info()
+        if record["virtual-size"] > partition_bytes:
+            # This is a fresh disposable overlay. The Windows raw physical
+            # volume can report entire-disk length. Never resize the backing.
+            shrunk = subprocess.run(
+                [str(qemu_img), "resize", "--shrink", "-f", "qcow2",
+                 str(overlay), str(partition_bytes)],
+                stdout=subprocess.PIPE, stderr=subprocess.PIPE,
+                stdin=subprocess.DEVNULL, timeout=40, check=False,
+            )
+            if shrunk.returncode:
+                raise SnapshotProofError("QCOW2 partition-only resize failed")
+            record = info()
+        if record["virtual-size"] != partition_bytes:
+            raise SnapshotProofError("QCOW2 virtual length exceeds physical Linux partition")
+    except (OSError, subprocess.TimeoutExpired, UnicodeError, ValueError, TypeError) as exc:
+        raise SnapshotProofError("QCOW2 partition-bounded staging unavailable") from exc
 
 
 def guest_script(commit: str, nonce: str, phase: str) -> str:
@@ -161,7 +194,7 @@ def run_vm(qemu: Path, kernel: Path, ramdisk: Path, image: Path | str,
             "-serial", "stdio", "-monitor", "none", "-net", "none",
             "-kernel", str(kernel), "-initrd", str(ramdisk),
             "-drive", drive,
-            "-append", "console=ttyS0 rdinit=/init loglevel=7 earlyprintk=serial,ttyS0 panic=1"]
+            "-append", QEMU_GUEST_BOOT_FLAGS]
     if tar is not None:
         if tar.is_symlink() or not tar.is_file():
             raise SnapshotProofError("verified tar file unavailable")
@@ -231,7 +264,10 @@ def prove(base: Path, qemu: Path, qemu_img: Path, *,
         if physical.inventory(disk_number) != original_identity:
             raise SnapshotProofError("USB changed before creating overlay")
         report("creating-disposable-cow")
-        create_overlay(qemu_img, volume, overlay)
+        create_overlay(
+            qemu_img, volume, overlay,
+            partition_bytes=original_identity["Partitions"][1]["Size"],
+        )
 
         evidence = {}
         for phase in ("stage", "readback", "physical"):
