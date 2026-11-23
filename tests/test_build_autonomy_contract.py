@@ -98,6 +98,21 @@ class BuildAutonomyContractTest(unittest.TestCase):
                 self.assertIn(dependency, classes)
                 self.assertNotEqual(target, dependency)
 
+    def test_ci_selectors_use_the_artifact_graph_and_fail_closed(self):
+        selection = CONTRACT["ci_selection"]
+        self.assertEqual(
+            set(selection["product_dependency_authority"]),
+            {"artifact_graph", "target_relationships", "client_build_independence"},
+        )
+        self.assertTrue(selection["unknown_product_paths_run_applicable_full_proof"])
+        for owner in selection["product_impact_owners"].values():
+            self.assertTrue((ROOT / owner).is_file())
+        foundation = selection["foundation"]
+        self.assertEqual(foundation["selector"], "tools/ci/foundation_impact.py")
+        self.assertTrue(foundation["test_only_fast_path_requires_modified_modules_only"])
+        self.assertTrue(foundation["added_deleted_or_mixed_changes_run_full"])
+        self.assertTrue(foundation["invalid_or_unknown_diffs_run_full"])
+
     def test_graph_rules_keep_growth_incremental(self):
         rules = CONTRACT["graph_rules"]
         self.assertFalse(rules["dependency_cycle_allowed"])
