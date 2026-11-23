@@ -27,6 +27,7 @@ on:
       - 'tests/test_space_create_bridge.mjs'
       - 'tests/test_native_account_gateway.py'
       - 'tests/test_native_account_session_contract.py'
+      - 'tests/test_native_space_selection.py'
       - 'services/public-identity/supabase_account.py'
       - 'tests/test_supabase_account_provider.py'
       - 'tests/test_account_spaces_source.py'
@@ -81,6 +82,7 @@ on:
       - 'tests/test_space_create_bridge.mjs'
       - 'tests/test_native_account_gateway.py'
       - 'tests/test_native_account_session_contract.py'
+      - 'tests/test_native_space_selection.py'
       - 'services/public-identity/supabase_account.py'
       - 'tests/test_supabase_account_provider.py'
       - 'tests/test_account_spaces_source.py'
@@ -158,6 +160,7 @@ jobs:
           python tests/test_account_spaces_source.py -q
           python tests/test_native_account_gateway.py -q
           python tests/test_native_account_session_contract.py -q
+          python tests/test_native_space_selection.py -q
           python tests/test_space_members_read_authority.py -q
           python tests/test_space_actor_capability_authority.py -q
           node --test tests/test_space_foundation_nonblocking.mjs
