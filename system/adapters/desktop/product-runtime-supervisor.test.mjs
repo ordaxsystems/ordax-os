@@ -420,7 +420,7 @@ test("opted-in, hash-pinned DEV candidate starts ONE canonical scoped process",a
     systemRoot:f.systemRoot,userData:f.userData,platform:"win32",
     developmentCandidate:true,verifiedHandoff:null,
     env:{ORDAX_COMPUTER_FULL_ACCESS:"1",ORDAX_MCP_DEV:"1",
-      NODE_OPTIONS:"--require unsafe",UNRELATED:"safe"},
+      NODE_OPTIONS:"--require unsafe",ELECTRON_RUN_AS_NODE:"1",UNRELATED:"safe"},
     spawnImpl:(file,args,options)=>{
       assert.equal(file,candidate.executable);
       assert.deepEqual(args,[]);
@@ -443,6 +443,7 @@ test("opted-in, hash-pinned DEV candidate starts ONE canonical scoped process",a
   assert.equal(settings.env.ORDAX_MCP_DEV,undefined);
   assert.equal(settings.env.ORDAX_COMPUTER_FULL_ACCESS,"1");
   assert.equal(settings.env.NODE_OPTIONS,undefined);
+   assert.equal(settings.env.ELECTRON_RUN_AS_NODE,undefined);
   assert.equal(settings.env.UNRELATED,"safe");
   sup.stop();
   assert.deepEqual(actual.kills,["SIGTERM"]);
