@@ -46,6 +46,14 @@ LIGHT_EXACT = {
     "tests/test_portable_qemu_impact.py",
     "tests/test_ci_git_diff_exact_paths.py",
     "tests/test_creator_owner_impact.py",
+    # Foundation's suite selector, workflow and graph contract only affect CI
+    # selection; they cannot change the produced Surface EROFS bytes.
+    ".github/workflows/foundation.yml",
+    "docs/contracts/build-autonomy.json",
+    "tests/test_build_autonomy_contract.py",
+    "tests/test_foundation_impact.py",
+    "tests/test_kernel_candidate_ci_scope.py",
+    "tools/ci/foundation_impact.py",
     # Other impact policies only choose CI jobs; they do not change Surface EROFS bytes.
     "tools/ci/creator_owner_impact.py",
     "tools/ci/independent_surface_impact.py",
