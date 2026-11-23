@@ -66,6 +66,7 @@ on:
       - '.github/actions/assemble-intelligence/**'
       - 'tools/surface-source/**'
       - '.github/actions/prepare-verified-surface/**'
+      - '.github/actions/assemble-surface/**'
       - 'system/composition/native/main.mjs'
       - 'system/adapters/native/update-runtime.mjs'
       - 'tests/test_owner_usb_durable_power_transition.py'
@@ -213,8 +214,10 @@ jobs:
       - name: Resolve immutable standalone Creator implementation
         uses: ./.github/actions/resolve-creator-source
 
-      - name: Prepare pinned Surface from independent visual owner for exact Owner image
-        uses: ./.github/actions/prepare-verified-surface
+      - name: Assemble verified same-commit Surface into disposable Owner stage
+        uses: ./.github/actions/assemble-surface
+        with:
+          out-root: ${{ runner.temp }}/ordax-verified-surface-ci
 
       - name: Set up Python
         uses: actions/setup-python@ece7cb06caefa5fff74198d8649806c4678c61a1 # v6

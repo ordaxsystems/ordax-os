@@ -187,7 +187,8 @@ REQUIRED_PR = (
     "bootstrap/dev/**", "bootstrap/dev-base/**", "bootstrap/surface-runtime/**",
     "system/entrypoint", "system/supervisor", "system/surface/bin/ordax-surface",
     "system/surface/runtime/ordax_browser_host.py",
-    ".github/actions/prepare-verified-surface/**", WORKFLOW,
+    ".github/actions/prepare-verified-surface/**",
+    ".github/actions/assemble-surface/**", WORKFLOW,
 )
 REQUIRED_PUSH = (
     "boot/esp/**", "bootstrap/kernel/**", "bootstrap/initramfs/**",

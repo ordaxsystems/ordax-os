@@ -91,7 +91,10 @@ class CreatorOwnerExternalSourceTests(unittest.TestCase):
         self.assertIn("      - 'bootstrap/initramfs/**'", push)
         self.assertIn("      - 'bootstrap/surface-runtime/**'", push)
         self.assertIn("      - 'system/supervisor'", pr)
-        self.assertIn("Prepare pinned Surface from independent visual owner for exact Owner image", w)
+        self.assertIn("Assemble verified same-commit Surface into disposable Owner stage", w)
+        self.assertIn("uses: ./.github/actions/assemble-surface", w)
+        self.assertIn("out-root: ${{ runner.temp }}/ordax-verified-surface-ci", w)
+        self.assertNotIn("Prepare pinned Surface from independent visual owner", w)
 
     def test_os_authority_and_writer_gate_unchanged(self):
         w = self.workflow
