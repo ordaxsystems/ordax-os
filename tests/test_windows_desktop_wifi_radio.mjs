@@ -1,5 +1,6 @@
 import test from "node:test";
 import assert from "node:assert/strict";
+import { homedir } from "node:os";
 import { createServer } from "node:http";
 import { createDesktopWlanMiddleware,readWindowsWlanPresence } from "../system/adapters/desktop/wifi-radio-host.mjs";
 import { createDesktopClientDiagnosticsMiddleware } from "../system/adapters/desktop/client-diagnostics-host.mjs";
@@ -54,6 +55,8 @@ test("host WLAN provider inspects real .NET type 71 without scans, settings or c
   assert.equal(await readWindowsWlanPresence({platform:"win32",run}),false);
   assert.equal(observed.binary,"powershell.exe");
   assert.equal(observed.options.timeout,7000);
+  assert.equal(observed.options.cwd,homedir(),
+    "an orphaned WLAN probe must not keep a Native revision directory open");
   assert.match(observed.args.at(-1),/NetworkInterfaceType/);
   assert.match(observed.args.at(-1),/GetAllNetworkInterfaces/);
   assert.doesNotMatch(observed.args.at(-1),/netsh|Connect|Disconnect|Set-NetAdapter|Enable-NetAdapter/);

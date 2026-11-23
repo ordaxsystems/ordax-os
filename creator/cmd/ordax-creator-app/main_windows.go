@@ -535,7 +535,7 @@ func renderSelectionExperience(state appRefreshState) {
 	busy := writeInProgress() || ownerUSBUpdateInProgress()
 	enable(writeButton, !busy && view.Step == creatorStepReview && view.CanContinue)
 	enable(usbUpdateButton, !busy && creatorUSBUpdateEligible(state, selectedTargetIndex()))
-	if state.PhysicalMode=="portable-public" {setText(usbUpdateButton,creatorT(msgPortableUSBUpdateAction))} else {setText(usbUpdateButton,creatorT(msgUSBUpdateAction))}
+	setText(usbUpdateButton,creatorT(msgPortableUSBUpdateAction))
 	if view.Step == creatorStepReview && view.PrimaryAction != "" {
 		setText(writeButton, view.PrimaryAction)
 	} else {

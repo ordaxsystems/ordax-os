@@ -2,6 +2,7 @@
 // current Windows user's DPAPI identity. Never expose them to the renderer.
 import { randomUUID, createHash } from "node:crypto";
 import { spawn } from "node:child_process";
+import { homedir } from "node:os";
 import { mkdir, readFile, lstat, rename, unlink, writeFile } from "node:fs/promises";
 import { join } from "node:path";
 
@@ -47,7 +48,7 @@ if ('${mode}' -eq 'protect') {
   const encoded = Buffer.from(command, "utf16le").toString("base64");
   return new Promise((resolve, reject) => {
     const child = spawn("powershell.exe", ["-NoLogo", "-NoProfile", "-NonInteractive",
-      "-EncodedCommand", encoded], { windowsHide: true, stdio: ["pipe", "pipe", "ignore"] });
+      "-EncodedCommand", encoded], { cwd: homedir(), windowsHide: true, stdio: ["pipe", "pipe", "ignore"] });
     let output = "", failed = false;
     const timer = setTimeout(() => { failed = true; child.kill(); }, DPAPI_HELPER_TIMEOUT_MS);
     child.stdout.setEncoding("utf8");

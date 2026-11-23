@@ -4,6 +4,7 @@
 // before any management snapshot or action can be considered available.
 import { timingSafeEqual } from "node:crypto";
 import { execFile } from "node:child_process";
+import { homedir } from "node:os";
 import { promisify } from "node:util";
 import { validateNetworkManagementSnapshot } from "../../contracts/network-management.mjs";
 
@@ -23,7 +24,7 @@ export async function readWindowsWlanPresence({platform=process.platform,run=exe
   if(platform!=="win32")throw Error("Windows WLAN discovery requires Windows");
   const {stdout}=await run("powershell.exe",
     ["-NoLogo","-NoProfile","-NonInteractive","-Command",RADIO_SCRIPT],
-    {timeout:7000,windowsHide:true,maxBuffer:4096});
+    {cwd:homedir(),timeout:7000,windowsHide:true,maxBuffer:4096});
   const observed=String(stdout).trim();
   if(observed!=="absent" && observed!=="present")
     throw Error("Windows WLAN discovery response invalid");

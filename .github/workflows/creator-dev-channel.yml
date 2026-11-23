@@ -1,8 +1,9 @@
 name: Creator Development Update Channel
 
-# OS owns public GitHub Release publication; independent Creator owns Go source.
-# PR/main checks have read-only credentials. Only an explicitly dispatched main
-# job may publish the existing rolling legacy-compatible /1 developer assets.
+# OS owns rolling publication of Creator's independently versioned Go app.
+# Creator source changes on main publish the non-destructive app automatically.
+# No OS image is embedded or rebuilt by this channel; PR candidates are read-only.
+# Source-tree freshness prevents delayed jobs from rolling back the current app.
 on:
   push:
     branches: [main]
@@ -11,12 +12,32 @@ on:
       - '.github/actions/resolve-creator-source/**'
       - 'docs/contracts/native-release-assembly.json'
       - 'tests/test_creator_dev_release_gate.py'
+      - 'creator/cmd/**'
+      - 'creator/core/**'
+      - 'creator/host/**'
+      - 'creator/appchannel/**'
+      - 'creator/componentchannel/**'
+      - 'creator/physicalchannel/**'
+      - 'creator/internal/**'
+      - 'creator/update/**'
+      - 'creator/go.mod'
+      - 'creator/version.json'
   pull_request:
     paths:
       - '.github/workflows/creator-dev-channel.yml'
       - '.github/actions/resolve-creator-source/**'
       - 'docs/contracts/native-release-assembly.json'
       - 'tests/test_creator_dev_release_gate.py'
+      - 'creator/cmd/**'
+      - 'creator/core/**'
+      - 'creator/host/**'
+      - 'creator/appchannel/**'
+      - 'creator/componentchannel/**'
+      - 'creator/physicalchannel/**'
+      - 'creator/internal/**'
+      - 'creator/update/**'
+      - 'creator/go.mod'
+      - 'creator/version.json'
   workflow_dispatch:
 
 permissions:
@@ -82,15 +103,23 @@ jobs:
           }
           Push-Location $env:ORDAX_CREATOR_NATIVE_SOURCE
           try {
+            $product = Get-Content -LiteralPath 'version.json' -Raw -Encoding UTF8 | ConvertFrom-Json
+            if ($product.'$schema' -cne 'ordax.creator-product-version/1' -or
+                [string]$product.version -cnotmatch '^[0-9]+[.][0-9]+[.][0-9]+(-[a-z][a-z0-9]*([.][0-9]+)?)?$') {
+              throw 'Creator product version authority is invalid'
+            }
+            $creatorBuildFlags = "-s -w -H=windowsgui -X main.buildCreatorVersion=$($product.version) -X main.buildCreatorSourceCommit=$sha"
             go build -trimpath -buildvcs=false `
-              -ldflags='-s -w -H=windowsgui' `
+              -ldflags $creatorBuildFlags `
               -o (Join-Path $release 'OrdaX-Creator.exe') `
               ./cmd/ordax-creator-app
+            if ($LASTEXITCODE -ne 0) { throw 'Creator GUI build failed' }
 
             go build -trimpath -buildvcs=false `
               -ldflags='-s -w' `
               -o (Join-Path $payload 'ordax-creator-physical-test.exe') `
               ./cmd/ordax-creator-inspection
+            if ($LASTEXITCODE -ne 0) { throw 'Creator inspection helper build failed' }
           } finally {
             Pop-Location
           }
@@ -283,7 +312,7 @@ jobs:
 
   publish-creator-dev:
     needs: build-creator-dev-candidate
-    if: ${{ github.event_name == 'workflow_dispatch' && github.ref == 'refs/heads/main' && github.repository == 'ordaxsystems/ordax-os' }}
+    if: ${{ (github.event_name == 'push' || github.event_name == 'workflow_dispatch') && github.ref == 'refs/heads/main' && github.repository == 'ordaxsystems/ordax-os' }}
     runs-on: windows-latest
     timeout-minutes: 10
     permissions:
@@ -310,14 +339,27 @@ jobs:
           $ErrorActionPreference = 'Stop'
           $root = Join-Path $PWD 'out/creator-dev-release'
           $pin = (Get-Content -LiteralPath docs/contracts/native-release-assembly.json -Raw -Encoding UTF8 | ConvertFrom-Json).creator_source
+          if ($pin.repository -cne 'ordaxsystems/ordax-os' -or
+              $pin.module -cne 'github.com/ordaxsystems/ordax-os/creator' -or
+              $pin.path -cne 'creator' -or
+              $pin.publisher_authority -cne 'ordaxsystems/ordax-os' -or
+              $pin.physical_apply_authorized -ne $false) {
+            throw 'Creator canonical owner contract mismatch'
+          }
+          # Contract is a source-owner declaration, not a mutable commit pin.
+          # Exact commit/tree belong to this immutable workflow checkout.
+          $creatorTree = (git rev-parse 'HEAD:creator').Trim()
+          if ($LASTEXITCODE -ne 0 -or $creatorTree -cnotmatch '^[0-9a-f]{40}$') {
+            throw 'cannot resolve exact Creator source tree'
+          }
           $prov = Get-Content -LiteralPath (Join-Path $root 'creator-dev-source-provenance.json') -Raw -Encoding UTF8 | ConvertFrom-Json
           $manifest = Get-Content -LiteralPath (Join-Path $root 'creator-dev-manifest.json') -Raw -Encoding UTF8 | ConvertFrom-Json
           if ($prov.'$schema' -cne 'prototype-ordax.creator-dev-source-provenance/1' -or
               $prov.publisher_repository -cne 'ordaxsystems/ordax-os' -or
               $prov.publisher_commit -cne '${{ github.sha }}' -or
               $prov.creator_source_repository -cne 'ordaxsystems/ordax-os' -or
-              $prov.creator_source_commit -cne [string]$pin.commit -or
-              $prov.creator_source_tree -cne [string]$pin.tree -or
+              $prov.creator_source_commit -cne '${{ github.sha }}' -or
+              $prov.creator_source_tree -cne $creatorTree -or
               $prov.public_release_authorized -ne $false -or
               $prov.physical_write_authorized -ne $false -or
               $prov.private_key_included -ne $false) {
@@ -332,7 +374,7 @@ jobs:
           }
           if ($manifest.'$schema' -cne 'prototype-ordax.creator-update-channel/1' -or
               $manifest.channel -cne 'development' -or
-              $manifest.source_commit -cne [string]$pin.commit -or
+              $manifest.source_commit -cne '${{ github.sha }}' -or
               $manifest.payload.url -cne 'https://github.com/ordaxsystems/ordax-os/releases/download/creator-dev/ordax-creator-dev-windows-amd64.zip') {
             throw 'Creator legacy manifest source pin/schema/URL mismatch'
           }
@@ -352,7 +394,38 @@ jobs:
           Write-Host 'CREATOR_DEV_LEGACY_V1_COMPATIBILITY=PASS'
           Write-Host 'CREATOR_DEV_OS_PUBLISHER_OWNER=VERIFIED'
 
+      - name: Check current Creator source tree before publishing the rolling release
+        id: creator-freshness
+        shell: pwsh
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          Set-StrictMode -Version Latest
+          $ErrorActionPreference = 'Stop'
+          $repo = 'ordaxsystems/ordax-os'
+          $provenance = Get-Content -LiteralPath 'out/creator-dev-release/creator-dev-source-provenance.json' -Raw | ConvertFrom-Json
+          $latest = (gh api "repos/$repo/git/ref/heads/main" --jq '.object.sha').Trim()
+          if ($LASTEXITCODE -ne 0 -or $latest -cnotmatch '^[0-9a-f]{40}$') {
+            throw 'unable to verify latest OS main during Creator publication'
+          }
+          $rootTree = (gh api "repos/$repo/git/commits/$latest" --jq '.tree.sha').Trim()
+          if ($LASTEXITCODE -ne 0 -or $rootTree -cnotmatch '^[0-9a-f]{40}$') {
+            throw 'unable to verify latest main tree'
+          }
+          $currentCreatorTree = (gh api "repos/$repo/git/trees/$rootTree" --jq '.tree[] | select(.path == "creator" and .type == "tree") | .sha').Trim()
+          if ($LASTEXITCODE -ne 0 -or $currentCreatorTree -cnotmatch '^[0-9a-f]{40}$') {
+            throw 'cannot determine exact canonical Creator source tree'
+          }
+          if ($currentCreatorTree -cne [string]$provenance.creator_source_tree) {
+            'allowed=false' >> $env:GITHUB_OUTPUT
+            Write-Host "CREATOR_PUBLISH=SKIP_SUPERSEDED_SOURCE latest=$latest"
+          } else {
+            'allowed=true' >> $env:GITHUB_OUTPUT
+            Write-Host "CREATOR_PUBLISH=LATEST_CREATOR_TREE source=$latest"
+          }
+
       - name: Publish verified rolling read-only Creator development channel
+        if: steps.creator-freshness.outputs.allowed == 'true'
         shell: pwsh
         env:
           GH_TOKEN: ${{ github.token }}

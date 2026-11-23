@@ -3,6 +3,7 @@
 // The same ordax.display-outputs/1 contract feeds the shared Surface.
 import { timingSafeEqual } from "node:crypto";
 import { execFile } from "node:child_process";
+import { homedir } from "node:os";
 import { promisify } from "node:util";
 import {
   DISPLAY_OUTPUTS_SCHEMA,validateDisplayOutputsSnapshot,
@@ -93,7 +94,7 @@ export async function readWindowsDisplayCurrentModes({
   if(platform!=="win32")throw Error("Windows display observation requires Windows");
   const {stdout}=await run("powershell.exe",
     ["-NoLogo","-NoProfile","-NonInteractive","-Command",SCRIPT],
-    {timeout:12000,windowsHide:true,maxBuffer:16384});
+    {cwd:homedir(),timeout:12000,windowsHide:true,maxBuffer:16384});
   let records;
   try{records=JSON.parse(String(stdout).trim());}
   catch{throw Error("Windows display provider returned invalid JSON");}

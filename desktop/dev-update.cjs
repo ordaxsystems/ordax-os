@@ -120,7 +120,12 @@ function removeOwnedCandidate(candidate) {
 // Only the active or in-flight Native revision is retained after a healthy
 // Dev boot. Rejected/incompatible SHAs are journal markers, not installed
 // runtimes. Never traverse the Windows dependency junction.
-function sweepRetiredVersions(userData, {log=()=>{}}={}) {
+// Sharing violations from Windows directory handles are transient. Retain
+// the retired revision but do not retry the same deletion on every poll.
+const retiredDeleteRetries=new Map();
+const RETIRED_DELETE_RETRY_BASE_MS=60_000;
+const RETIRED_DELETE_RETRY_MAX_MS=60*60_000;
+function sweepRetiredVersions(userData, {log=()=>{},now=Date.now,removeVersion=rmSync}={}) {
   const state=readState(userData);
   const kept=new Set([state.activeSha,state.previousSha,state.pendingSha,
     state.attemptedSha,state.pinnedSha].filter(Boolean));
@@ -136,6 +141,8 @@ function sweepRetiredVersions(userData, {log=()=>{}}={}) {
     const live=readState(userData);
     if([live.activeSha,live.previousSha,live.pendingSha,live.attemptedSha,
         live.pinnedSha].includes(entry.name)) continue;
+    const prior=retiredDeleteRetries.get(candidate);
+    if(prior && now()<prior.nextRetry) { result.deferred++; continue; }
     try {
       prepareWindowsGitDeletion(join(candidate,'.git'));
       const dependencyMount=join(candidate,'node_modules');
@@ -147,11 +154,22 @@ function sweepRetiredVersions(userData, {log=()=>{}}={}) {
         if(!mounted.isSymbolicLink()) throw Error('Retired version has unexpected node_modules tree');
         unlinkSync(dependencyMount);
       }
-      rmSync(candidate,{recursive:true,force:true,maxRetries:10,retryDelay:200});
+      removeVersion(candidate,{recursive:true,force:true,maxRetries:10,retryDelay:200});
+      retiredDeleteRetries.delete(candidate);
       result.removed++;
     } catch(error) {
       result.deferred++;
-      log('Deferred retired Desktop version cleanup: '+entry.name+' '+error.message);
+      if(['EPERM','EBUSY'].includes(error?.code)) {
+        const attempts=Math.min((prior?.attempts??0)+1,7);
+        const delay=Math.min(RETIRED_DELETE_RETRY_BASE_MS*2**(attempts-1),
+          RETIRED_DELETE_RETRY_MAX_MS);
+        retiredDeleteRetries.set(candidate,{attempts,nextRetry:now()+delay});
+        log('Deferred retired Desktop version cleanup: '+entry.name+
+          ' '+error.code+' ('+error.message+'); next retry in '+Math.ceil(delay/60_000)+'m');
+      } else {
+        retiredDeleteRetries.delete(candidate);
+        log('Deferred retired Desktop version cleanup: '+entry.name+' '+error.message);
+      }
     }
   }
   return result;

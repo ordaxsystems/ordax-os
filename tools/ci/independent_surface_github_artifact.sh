@@ -14,21 +14,31 @@ repo="$GITHUB_REPOSITORY"
 command -v gh >/dev/null || { echo 'GitHub CLI is required for artifact reuse' >&2; exit 1; }
 scratch=$(mktemp -d "$RUNNER_TEMP/ordax-surface-handoff.XXXXXXXX")
 trap 'rm -rf -- "$scratch"' EXIT
-gh api --method GET "repos/$repo/actions/workflows/independent-surface-runtime.yml/runs"   -f event=workflow_dispatch -f per_page=100 > "$scratch/runs.json"
-python3 - "$scratch/runs.json" "$branch" "$repo" > "$scratch/candidates" <<'PY'
+# Explicit main push producer runs are as trusted as owner-dispatched runs.
+# Query each event separately: PR noise must never crowd out trusted results.
+gh api --method GET "repos/$repo/actions/workflows/independent-surface-runtime.yml/runs" -f event=workflow_dispatch -f per_page=100 > "$scratch/manual-runs.json"
+gh api --method GET "repos/$repo/actions/workflows/independent-surface-runtime.yml/runs" -f event=push -f per_page=100 > "$scratch/main-runs.json"
+python3 - "$scratch/manual-runs.json" "$scratch/main-runs.json" "$branch" "$repo" > "$scratch/candidates" <<'PY'
 import json
 from pathlib import Path
 import re
 import sys
 
-source, preferred_branch, repo = sys.argv[1:]
-items = json.loads(Path(source).read_text(encoding="utf-8"))["workflow_runs"]
+manual_source, main_source, preferred_branch, repo = sys.argv[1:]
+manual_items = json.loads(Path(manual_source).read_text(encoding="utf-8"))["workflow_runs"]
+main_items = json.loads(Path(main_source).read_text(encoding="utf-8"))["workflow_runs"]
+items = manual_items + main_items
 candidates = []
 for item in items:
     sha = item.get("head_sha", "")
     if not isinstance(sha, str) or not re.fullmatch(r"[0-9a-f]{40}", sha):
         continue
-    if item.get("event") != "workflow_dispatch":
+    event = item.get("event")
+    # Public PR artifacts can never become trusted. Automated pushes are
+    # accepted only from canonical main, not arbitrary feature branches.
+    if event not in ("workflow_dispatch", "push"):
+        continue
+    if event == "push" and item.get("head_branch") != "main":
         continue
     if (item.get("head_repository") or {}).get("full_name") != repo:
         continue
@@ -38,7 +48,7 @@ for item in items:
     if type(run_id) is int and run_id > 0:
         candidates.append((item.get("head_branch") == preferred_branch, run_id, sha))
 
-# Prefer the caller's branch when available, but permit a trusted manual
+# Prefer caller's branch when available, but permit a trusted owner-dispatch
 # producer from another branch after squash/merge. Acceptance is decided only
 # by the content-addressed verifier below against current inputs/environment.
 for preferred in (True, False):

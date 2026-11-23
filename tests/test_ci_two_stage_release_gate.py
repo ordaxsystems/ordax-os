@@ -12,7 +12,7 @@ ROOT = Path(__file__).resolve().parents[1] / ".github" / "workflows"
 TARGETS = {
     "creator-owner-dev-git.yml": ("build-and-publish:", "if: needs.impact.outputs.required == 'true' && (github.event_name != 'pull_request' || !github.event.pull_request.draft)"),
     "creator-payload-candidate.yml": ("creator-payload:", "if: needs.creator-payload-contract.outputs.required == 'true' && (github.event_name != 'pull_request' || !github.event.pull_request.draft)"),
-    "independent-surface-runtime.yml": ("buildroot-surface:", "if: ${{ !cancelled() && needs.contract.result == 'success' && needs.impact.outputs.required == 'true' && (github.event_name != 'workflow_dispatch' || needs.producer-availability.result == 'success') && (github.event_name != 'pull_request' || !github.event.pull_request.draft) }}"),
+    "independent-surface-runtime.yml": ("buildroot-surface:", "if: ${{ !cancelled() && needs.contract.result == 'success' && needs.impact.outputs.required == 'true' && (github.event_name == 'pull_request' || (github.event_name == 'push' && vars.ORDAX_SURFACE_RUNNER_LABEL == '') || needs.producer-availability.result == 'success') && (github.event_name != 'pull_request' || !github.event.pull_request.draft) }}"),
     "portable-v2-qemu-boot-proof.yml": ("qemu-portable-v2:", "if: needs.impact.outputs.required == 'true' && (github.event_name != 'pull_request' || !github.event.pull_request.draft)"),
     "independent-base-experiment.yml": ("buildroot-qemu:", "if: " + chr(36) + "{{ github.event_name == 'workflow_dispatch' || (github.event_name == 'pull_request' && !github.event.pull_request.draft) }}"),
     "independent-portable-v2-integration.yml": ("independent-real-portable-qemu:", "if: " + chr(36) + "{{ github.event_name == 'workflow_dispatch' || (github.event_name == 'pull_request' && !github.event.pull_request.draft) }}"),
@@ -325,6 +325,11 @@ class ReleaseCandidateGateTests(unittest.TestCase):
         ):
             self.assertIn("vars." + variable, preflight)
         self.assertIn("Codespace disallowed", preflight)
+        self.assertIn("github.event_name == 'push'", preflight)
+        self.assertIn("push:\n    branches: [main]\n    paths: *independent_surface_inputs", workflow)
+        self.assertIn("vars.ORDAX_SURFACE_RUNNER_LABEL != ''", preflight)
+        self.assertIn("vars.ORDAX_SURFACE_RUNNER_LABEL == ''", build)
+        self.assertIn("github.event_name == 'pull_request'", build)
         self.assertNotIn("bootstrap/surface-runtime/build.py build", preflight)
 
     def test_no_heavy_test_waiver_for_release(self):

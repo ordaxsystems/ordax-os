@@ -3,7 +3,7 @@ name: Independent Surface Runtime
 on:
   pull_request:
     types: [opened, synchronize, reopened, ready_for_review]
-    paths:
+    paths: &independent_surface_inputs
       - 'bootstrap/surface-runtime/**'
       - '!bootstrap/surface-runtime/**/*.md'
       - 'bootstrap/independent-base/source.json'
@@ -25,6 +25,9 @@ on:
       - '.github/workflows/independent-surface-runtime.yml'
       - '.github/workflows/portable-v2-qemu-boot-proof.yml'
       - 'docs/contracts/ci-supply-chain.json'
+  push:
+    branches: [main]
+    paths: *independent_surface_inputs
   workflow_dispatch:
     inputs:
       force_build:
@@ -143,7 +146,7 @@ jobs:
   producer-availability:
     name: Non-Codespace Linux producer configuration
     needs: [contract, impact]
-    if: needs.impact.outputs.required == 'true' && github.event_name == 'workflow_dispatch' && github.ref == 'refs/heads/main'
+    if: needs.impact.outputs.required == 'true' && github.ref == 'refs/heads/main' && (github.event_name == 'workflow_dispatch' || (github.event_name == 'push' && vars.ORDAX_SURFACE_RUNNER_LABEL != ''))
     runs-on: ubuntu-24.04
     timeout-minutes: 3
     steps:
@@ -174,19 +177,20 @@ jobs:
 
   buildroot-surface:
     needs: [contract, impact, producer-availability]
-    if: ${{ !cancelled() && needs.contract.result == 'success' && needs.impact.outputs.required == 'true' && (github.event_name != 'workflow_dispatch' || needs.producer-availability.result == 'success') && (github.event_name != 'pull_request' || !github.event.pull_request.draft) }}
+    if: ${{ !cancelled() && needs.contract.result == 'success' && needs.impact.outputs.required == 'true' && (github.event_name == 'pull_request' || (github.event_name == 'push' && vars.ORDAX_SURFACE_RUNNER_LABEL == '') || needs.producer-availability.result == 'success') && (github.event_name != 'pull_request' || !github.event.pull_request.draft) }}
     # This repository is public: PRs must not reach a private, persistent runner.
-    # A trusted maintainer may explicitly dispatch main to the dedicated producer.
+    # Only canonical main (push or explicit dispatch) may select the trusted
+    # dedicated Linux producer; public PRs always remain on hosted runners.
     # Never register a personal workstation as a repo-level public PR runner.
-    runs-on: ${{ github.event_name == 'workflow_dispatch' && github.ref == 'refs/heads/main' && vars.ORDAX_SURFACE_RUNNER_LABEL || 'ubuntu-24.04' }}
+    runs-on: ${{ (github.event_name == 'workflow_dispatch' || github.event_name == 'push') && github.ref == 'refs/heads/main' && vars.ORDAX_SURFACE_RUNNER_LABEL != '' && vars.ORDAX_SURFACE_RUNNER_LABEL || 'ubuntu-24.04' }}
     # Longer budget requires an explicit trusted runner, durable compiler/download
     # cache, pinned producer identity and a separately sized Buildroot workspace.
     # Preflight rejects hosted runners, undersized scratch and mixed storage roots.
-    timeout-minutes: ${{ github.event_name == 'workflow_dispatch' && github.ref == 'refs/heads/main' && vars.ORDAX_SURFACE_RUNNER_LABEL != '' && vars.ORDAX_SURFACE_PERSISTENT_WORK_ROOT != '' && vars.ORDAX_SURFACE_BUILD_WORK_ROOT != '' && vars.ORDAX_SURFACE_PRODUCER_ENVIRONMENT != '' && 720 || 360 }}
+    timeout-minutes: ${{ (github.event_name == 'workflow_dispatch' || github.event_name == 'push') && github.ref == 'refs/heads/main' && vars.ORDAX_SURFACE_RUNNER_LABEL != '' && vars.ORDAX_SURFACE_PERSISTENT_WORK_ROOT != '' && vars.ORDAX_SURFACE_BUILD_WORK_ROOT != '' && vars.ORDAX_SURFACE_PRODUCER_ENVIRONMENT != '' && 720 || 360 }}
     env:
       ORDAX_SURFACE_PRODUCER_ENVIRONMENT: ${{ vars.ORDAX_SURFACE_PRODUCER_ENVIRONMENT }}
-      ORDAX_SURFACE_PERSISTENT_WORK_ROOT: ${{ github.event_name == 'workflow_dispatch' && github.ref == 'refs/heads/main' && vars.ORDAX_SURFACE_PERSISTENT_WORK_ROOT || '' }}
-      ORDAX_SURFACE_BUILD_WORK_ROOT: ${{ github.event_name == 'workflow_dispatch' && github.ref == 'refs/heads/main' && vars.ORDAX_SURFACE_BUILD_WORK_ROOT || '' }}
+      ORDAX_SURFACE_PERSISTENT_WORK_ROOT: ${{ (github.event_name == 'workflow_dispatch' || github.event_name == 'push') && github.ref == 'refs/heads/main' && vars.ORDAX_SURFACE_RUNNER_LABEL != '' && vars.ORDAX_SURFACE_PERSISTENT_WORK_ROOT || '' }}
+      ORDAX_SURFACE_BUILD_WORK_ROOT: ${{ (github.event_name == 'workflow_dispatch' || github.event_name == 'push') && github.ref == 'refs/heads/main' && vars.ORDAX_SURFACE_RUNNER_LABEL != '' && vars.ORDAX_SURFACE_BUILD_WORK_ROOT || '' }}
     # One actual EROFS producer for one exact source revision across both
     # Creator and Independent Surface workflows; don't compile it twice.
     concurrency:
@@ -198,7 +202,7 @@ jobs:
       artifact_source: ${{ steps.surface-reuse-state.outputs.source }}
     steps:
       - name: Reject Codespace runtime before any source or compiler work
-        if: github.event_name == 'workflow_dispatch'
+        if: ${{ (github.event_name == 'workflow_dispatch' || github.event_name == 'push') && github.ref == 'refs/heads/main' && vars.ORDAX_SURFACE_RUNNER_LABEL != '' }}
         env:
           ORDAX_RUNNER_NAME: ${{ runner.name }}
           ORDAX_RUNNER_ENVIRONMENT: ${{ runner.environment }}
@@ -218,7 +222,10 @@ jobs:
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
         with:
           ref: ${{ github.event.pull_request.head.sha || github.sha }}
-          fetch-depth: 0
+          # Producer only needs immutable source, not the whole Git history.
+          # Artifact reuse independently validates input identity and digests
+          # even if older producer commits are not in this shallow clone.
+          fetch-depth: 1
           persist-credentials: false
 
       - name: Resolve exact Surface artifact fingerprint
