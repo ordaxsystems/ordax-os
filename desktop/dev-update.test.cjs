@@ -38,7 +38,8 @@ test('Electron connects ordax-pull staging to automatic, health-gated idle activ
   assert.match(source,/relaunch:\(\)=>\{\s*app\.relaunch\(\);\s*shutdownReason='verified-native-update';\s*app\.quit\(\)/);
   assert.match(source,/app\.on\('before-quit',event=>\{\s*if\(quitting\)return;/);
   assert.match(source,/if\(shutdownReason==='unclassified'\) shutdownReason='application-quit';\s*log\('Desktop shutdown requested: '\+shutdownReason\)/);
-  assert.match(source,/window\.on\('close',\(\)=>\{\s*if\(!quitting && shutdownReason==='unclassified'\) shutdownReason='window-close'/);
+  // Hidden Windows DEV keeps one Native Owner; only a real quit has a shutdown receipt.
+  assert.match(source,/window\.on\('close',event=>\{\s*if\(!quitting && backgroundLifecycle\?\.close\(event\)\)return;\s*if\(!quitting && shutdownReason==='unclassified'\)shutdownReason='window-close'/);
   assert.match(source,/app\.on\('window-all-closed',\(\)=>\{\s*if\(shutdownReason==='unclassified'\) shutdownReason='all-windows-closed'/);
   assert.match(source,/isReady:\(\)=>!quitting && !devProfile && !staging/);
   assert.match(source,/if\(quitting \|\| staging \|\| !app\.isPackaged\) return/);

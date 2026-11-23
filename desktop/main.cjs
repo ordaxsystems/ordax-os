@@ -1,6 +1,7 @@
 'use strict';
 // Windows Electron host owned by ordax-os/desktop; Native and Surface share this OS commit.
-const { app, BrowserWindow, WebContentsView, ipcMain, session, Menu, shell, dialog, powerMonitor, screen } = require('electron');
+const { app, BrowserWindow, WebContentsView, ipcMain, session, Menu, Tray, shell, dialog, powerMonitor, screen } = require('electron');
+const { createDesktopBackgroundLifecycle } = require('./background-lifecycle.cjs');
 const { createDesktopBrowserHost } = require('./browser-host.cjs');
 const { join, resolve, isAbsolute, basename } = require('node:path');
 const { randomBytes } = require('node:crypto');
@@ -15,7 +16,7 @@ const { readDesktopWindowLayout,desktopMinimumWindowSize,
 const { verifyBundledNativeReceipt } = require('./native-build.cjs');
 const { resolveInstalledPowerHelper } = require('./power-helper.cjs');
 const { isTrustedNativeRequest,isNativeStateRoute } = require('./native-grant-frame.cjs');
-let window=null, runtime=null, stream=null, browserHost=null, initialUpdateTimer=null, updateTimer=null, activationTimer=null, staging=false, idleActivation=null;
+let window=null, runtime=null, stream=null, browserHost=null, backgroundLifecycle=null, nativeSurfaceMounted=false, initialUpdateTimer=null, updateTimer=null, activationTimer=null, staging=false, idleActivation=null;
 let quitting=false,disarmNativeHostExit=null;
 let nativeShutdownRetryTimer=null,nativeShutdownRetryCount=0;
 const nativeBootAbort=new AbortController();
@@ -66,7 +67,7 @@ app.setPath('userData',desktopUserData);
 if (process.platform==='win32') app.setAppUserModelId('dev.ordax.os.desktop');
 const primaryInstance=app.requestSingleInstanceLock();
 if(!primaryInstance)app.quit();
-else app.on('second-instance',()=>{if(window&&!window.isDestroyed()){if(window.isMinimized())window.restore();window.focus();}});
+else app.on('second-instance',()=>{if(backgroundLifecycle?.show())return;if(window&&!window.isDestroyed()){if(window.isMinimized())window.restore();if(!window.isVisible())window.show();window.focus();}});
 function log(message) {
   const line=new Date().toISOString()+' '+String(message)+'\n';
   stream?.write(line);
@@ -543,6 +544,7 @@ function monitorNativeHost(child) {
     isCurrent:current=>runtime?.child===current,
     isStopping:()=>quitting,
     onUnexpectedExit:({code,signal})=>{
+      nativeSurfaceMounted=false;
       log('Native host exited unexpectedly after readiness: '+
         String(signal??code??'unknown'));
       // The OS-owned Product supervisor has no cross-process orphan proof.
@@ -621,6 +623,13 @@ app.on('before-quit',event=>{
       nativeStopConfirmed=stopHost(runtime.child,runtime.template);
       if(nativeStopConfirmed)runtime=null;
       return nativeStopConfirmed;
+    }],
+    ['dispose-background-tray',()=>{
+      // If shutdown is deferred, keep the tray available to reopen the
+      // still-owned Native runtime instead of leaving an invisible process.
+      if(!nativeStopConfirmed)return;
+      nativeSurfaceMounted=false;
+      backgroundLifecycle?.dispose();backgroundLifecycle=null;
     }],
     ['close-log',()=>{
       if(!nativeStopConfirmed)return;
@@ -734,10 +743,34 @@ app.whenReady().then(async()=>{
     if(displayChangeTimer!==null)clearTimeout(displayChangeTimer);
     for(const event of displayEvents)screen.removeListener(event,onDisplayChange);
   });
-  window.on('close',()=>{
-    if(!quitting && shutdownReason==='unclassified') shutdownReason='window-close';
+  window.on('close',event=>{
+    if(!quitting && backgroundLifecycle?.close(event))return;
+    if(!quitting && shutdownReason==='unclassified')shutdownReason='window-close';
     if(!geometry.close())log('Desktop window geometry not saved');
   });
+  // The installed Windows DEV Desktop owns exactly one Native supervisor.
+  // Closing its UI should not kill the MCP/Aura engine; the tray retains the
+  // SAME Electron window and renderer. Explicit Quit still shuts down fully.
+  if(process.platform==='win32' && app.isPackaged && !devProfile){
+    try{
+      const icon=await app.getFileIcon(process.execPath,{size:'small'});
+      backgroundLifecycle=createDesktopBackgroundLifecycle({
+        Tray,Menu,icon,window,log,
+        canContinue:()=>!quitting && nativeSurfaceMounted &&
+          runtime?.child && runtime.child.exitCode===null &&
+          runtime.child.signalCode===null,
+        requestQuit:()=>{
+          shutdownReason='tray-explicit-quit';
+          app.quit();
+        },
+      });
+      log('Windows background lifecycle ready for MCP and Aura');
+    }catch(error){
+      // A missing/invalid OS icon must not create a hidden unmanageable agent.
+      // Preserve ordinary window-close termination instead.
+      log('Desktop tray unavailable; closing window exits: '+error.message);
+    }
+  }
   if(savedWindow.maximized)window.maximize();
   const windowIdle=createDesktopWindowIdleTracker();
   // One source of truth for whether OrdaX itself has been unattended.
@@ -829,7 +862,9 @@ app.whenReady().then(async()=>{
         confirmHealthy(userData,selected.sha);
         log('Desktop Dev candidate committed healthy: '+selected.sha);
       }
+      nativeSurfaceMounted=true;
     } catch(error) {
+      nativeSurfaceMounted=false;
       // Closing Electron is not a failed candidate health check. Retain its
       // verified pending trial instead of writing a false rejection receipt.
       if(nativeBootAbort.signal.aborted || !selected.trial)throw error;
