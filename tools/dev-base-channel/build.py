@@ -11,7 +11,9 @@ import json
 from pathlib import Path
 import re
 import shutil
+import stat
 import sys
+import tempfile
 
 SCHEMA = "prototype-ordax.dev-base-candidate/4"
 REPOSITORY = "ordaxsystems/ordax-os"
@@ -162,6 +164,97 @@ def verify_rootfs_transport(path: Path, content_binding: dict) -> None:
         raise CandidateError(f"Dev Channel rejected compressed rootfs: {exc}") from exc
 
 
+def compress_rootfs_transport(rootfs: Path, destination: Path) -> None:
+    """Write the deterministic gzip transport used by published Base candidates."""
+    with rootfs.open("rb") as source, destination.open("xb") as output:
+        with gzip.GzipFile(
+            filename="", mode="wb", fileobj=output, compresslevel=6, mtime=0,
+        ) as compressed:
+            shutil.copyfileobj(source, compressed, length=1024 * 1024)
+
+
+def _consumer_module():
+    consumer_path = (
+        Path(__file__).resolve().parents[2]
+        / "system/services/base-update/dev_channel.py"
+    )
+    spec = importlib.util.spec_from_file_location(
+        "ordax_dev_base_measurement_consumer", consumer_path
+    )
+    if spec is None or spec.loader is None:
+        raise CandidateError("canonical Dev Channel consumer is unavailable")
+    consumer = importlib.util.module_from_spec(spec)
+    spec.loader.exec_module(consumer)
+    return consumer
+
+
+def _installed_tree_sizes(root: Path) -> tuple[int, int]:
+    """Return logical payload and allocated bytes for an extracted rootfs tree."""
+    logical = 0
+    allocated = 0
+    seen: set[tuple[int, int]] = set()
+    for path in (root, *root.rglob("*")):
+        metadata = path.lstat()
+        identity = (metadata.st_dev, metadata.st_ino)
+        if identity in seen:
+            continue
+        seen.add(identity)
+        if stat.S_ISREG(metadata.st_mode) or stat.S_ISLNK(metadata.st_mode):
+            logical += metadata.st_size
+        blocks = getattr(metadata, "st_blocks", None)
+        allocated += blocks * 512 if blocks is not None else metadata.st_size
+    return logical, allocated
+
+
+def measure_rootfs_transport(
+    *,
+    rootfs_dir: Path,
+    source_commit: str,
+    owner_reuse_receipt: Path | None = None,
+    receipt_path: Path | None = None,
+) -> dict:
+    """Measure real download and staged-install bytes through the canonical consumer."""
+    rootfs = validate_rootfs_source(rootfs_dir, source_commit, owner_reuse_receipt)
+    raw_bytes = rootfs.stat().st_size
+    raw_sha256 = sha256_file(rootfs)
+    consumer = _consumer_module()
+    with tempfile.TemporaryDirectory(prefix="ordax-dev-base-measure-") as temporary:
+        temporary_root = Path(temporary)
+        transport = temporary_root / "rootfs.tar.gz"
+        installed = temporary_root / "installed"
+        installed.mkdir()
+        compress_rootfs_transport(rootfs, transport)
+        expected = {"size": raw_bytes, "sha256": raw_sha256}
+        consumer._validate_rootfs_archive(transport, compressed=True)
+        consumer._extract_compressed_rootfs(transport, installed, expected)
+        consumer._verify_materialized_tree(installed)
+        installed_logical_bytes, installed_allocated_bytes = _installed_tree_sizes(installed)
+        download_bytes = transport.stat().st_size
+
+    measurement = {
+        "$schema": "prototype-ordax.dev-base-storage-measurement/1",
+        "status": "verified-canonical-consumer-materialization",
+        "source_commit": source_commit,
+        "raw_archive_bytes": raw_bytes,
+        "download_bytes": download_bytes,
+        "download_saved_bytes": raw_bytes - download_bytes,
+        "download_saved_percent": round((raw_bytes - download_bytes) * 100 / raw_bytes, 2),
+        "installed_logical_bytes": installed_logical_bytes,
+        "installed_allocated_bytes": installed_allocated_bytes,
+        # The old version remains available for rollback while the download
+        # and unpublished extraction coexist; this is the new-candidate peak.
+        "peak_candidate_bytes_with_rollback_preserved": download_bytes + installed_allocated_bytes,
+        "previous_rollback_slot_included": False,
+    }
+    if receipt_path is not None:
+        receipt_path.parent.mkdir(parents=True, exist_ok=True)
+        receipt_path.write_text(
+            json.dumps(measurement, indent=2, sort_keys=True) + "\n",
+            encoding="utf-8",
+        )
+    return measurement
+
+
 def binding(name: str, path: Path, source_commit: str) -> dict:
     tag = f"ordax-dev-base-{source_commit}"
     return {
@@ -303,11 +396,7 @@ def build(
     shutil.copyfile(initramfs, initramfs_out)
     # Keep the Buildroot tar as the content identity, but publish only its
     # deterministic gzip transport. No second rootfs or tar producer exists.
-    with rootfs.open("rb") as source, rootfs_out.open("xb") as output:
-        with gzip.GzipFile(
-            filename="", mode="wb", fileobj=output, compresslevel=6, mtime=0,
-        ) as compressed:
-            shutil.copyfileobj(source, compressed, length=1024 * 1024)
+    compress_rootfs_transport(rootfs, rootfs_out)
 
     tag = f"ordax-dev-base-{source_commit}"
     descriptor = {
@@ -440,6 +529,11 @@ def main() -> int:
     build_parser.add_argument("--initramfs-dir", type=Path, default=Path("out/initramfs"))
     build_parser.add_argument("--rootfs-dir", type=Path, default=Path("out/dev-rootfs"))
     build_parser.add_argument("--out-dir", type=Path, default=Path("out/dev-base"))
+    measure_parser = sub.add_parser("measure-rootfs")
+    measure_parser.add_argument("--source-commit", required=True)
+    measure_parser.add_argument("--rootfs-dir", type=Path, required=True)
+    measure_parser.add_argument("--owner-reuse-receipt", type=Path)
+    measure_parser.add_argument("--receipt", type=Path, required=True)
     verify_parser = sub.add_parser("verify")
     verify_parser.add_argument("--out-dir", type=Path, default=Path("out/dev-base"))
     args = parser.parse_args()
@@ -467,6 +561,14 @@ def main() -> int:
                 f"saved_percent:{saved_bytes * 100 / raw_bytes:.2f}",
                 flush=True,
             )
+        elif args.command == "measure-rootfs":
+            result = measure_rootfs_transport(
+                rootfs_dir=args.rootfs_dir,
+                source_commit=args.source_commit,
+                owner_reuse_receipt=args.owner_reuse_receipt,
+                receipt_path=args.receipt,
+            )
+            print("DEV_BASE_STORAGE_MEASUREMENT=" + json.dumps(result, sort_keys=True), flush=True)
         else:
             result = verify(args.out_dir)
         print(json.dumps(result, indent=2, sort_keys=True))

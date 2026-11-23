@@ -175,6 +175,32 @@ def write_provenance_fixture(root: Path, source_commit: str = SOURCE):
 
 
 class DevBaseProducerTests(unittest.TestCase):
+    def test_measurement_uses_compressed_download_and_canonical_install_consumer(self):
+        with tempfile.TemporaryDirectory() as temporary:
+            root = Path(temporary)
+            _kernel, _initramfs, rootfs_dir, _kernel_bytes, _initrd = (
+                write_provenance_fixture(root)
+            )
+            receipt = root / "measurements.json"
+
+            measured = builder.measure_rootfs_transport(
+                rootfs_dir=rootfs_dir,
+                source_commit=SOURCE,
+                receipt_path=receipt,
+            )
+
+            raw = (rootfs_dir / "rootfs.tar").stat().st_size
+            self.assertEqual(measured["raw_archive_bytes"], raw)
+            self.assertLess(measured["download_bytes"], raw)
+            self.assertGreater(measured["installed_logical_bytes"], 0)
+            self.assertGreater(measured["installed_allocated_bytes"], 0)
+            self.assertEqual(
+                measured["peak_candidate_bytes_with_rollback_preserved"],
+                measured["download_bytes"] + measured["installed_allocated_bytes"],
+            )
+            self.assertFalse(measured["previous_rollback_slot_included"])
+            self.assertEqual(json.loads(receipt.read_text(encoding="utf-8")), measured)
+
     def test_authenticated_independent_rootfs_is_published_as_verified_gzip(self):
         with tempfile.TemporaryDirectory() as temporary:
             root = Path(temporary)

@@ -479,6 +479,17 @@ jobs:
             --expected-commit "$ORDAX_SOURCE_COMMIT" \
             --reuse-receipt "$RUNNER_TEMP/portable-v2-qemu/metadata/independent-owner-component-reuse.json" \
             --receipt "$RUNNER_TEMP/ordax-independent/dev-channel-rootfs-compatibility.json"
+      - name: Measure compressed DEV download and rollback-safe install footprint
+        if: env.ORDAX_INDEPENDENT_PROFILE == 'owner-development'
+        env:
+          ORDAX_SOURCE_COMMIT: ${{ github.event.pull_request.head.sha || github.sha }}
+        run: |
+          set -euo pipefail
+          python3 tools/dev-base-channel/build.py measure-rootfs \
+            --source-commit "$ORDAX_SOURCE_COMMIT" \
+            --rootfs-dir "$RUNNER_TEMP/ordax-independent" \
+            --owner-reuse-receipt "$RUNNER_TEMP/portable-v2-qemu/metadata/independent-owner-component-reuse.json" \
+            --receipt "$RUNNER_TEMP/ordax-independent/dev-base-storage-measurements.json"
       - name: QEMU real kernel, EROFS and ext4 persistence/recovery
         run: |
           python3 bootstrap/independent-base/qemu_proof.py \
@@ -496,6 +507,7 @@ jobs:
             ${{ runner.temp }}/ordax-independent/kernel-module-parity.json
             ${{ runner.temp }}/ordax-independent/firmware-coverage.json
             ${{ runner.temp }}/ordax-independent/dev-channel-rootfs-compatibility.json
+            ${{ runner.temp }}/ordax-independent/dev-base-storage-measurements.json
             ${{ runner.temp }}/ordax-independent/independent-base.erofs
             ${{ runner.temp }}/ordax-independent/rootfs.cpio.gz
             ${{ runner.temp }}/portable-v2-qemu/kernel/kernel-provenance.json
