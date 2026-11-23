@@ -185,6 +185,18 @@ ao teste de saúde e à verificação de integridade/recuperação da entrega
 instalada, autoriza dizer "sistema atualizado". Até essa evidência,
 apresentar "arquivos preparados / instalação não verificada".
 
+No fluxo explícito "Preparar Git Dev no USB", o sincronizador do Creator
+pode chamar a inspeção física exclusivamente de leitura usando QEMU e
+a Base publicada compatível já transferida para o USB. O resultado é
+**evidência de disco**, não boot: `DISK_STATE_DIFFERS_FROM_STAGED_GIT`
+mostra lado a lado a revisão em `ext4` e o commit Git preparado;
+`DISK_STATE_MATCHES_STAGED_GIT_BOOT_UNVERIFIED` continua sem comprovação
+do sistema efetivamente ativo. Se o QEMU/Base ou o volume não puderem
+ser provados, o Creator mostra `UNVERIFIED`, nunca presume instalação.
+Nenhum caso permite `installed_source_commit` ou `os_activation_verified`
+positivos no recibo do transportador. A tarefa automática de transporte
+não abre QEMU; essa leitura adicional é exclusiva da UI selecionada.
+
 The OS-owned Base channel and the Creator's existing Win32 raw-disk
 lease/readback are the authorities; do not implement a second updater in MCP.
 The `portable_update_windows.go` path is for a different **two-partition**

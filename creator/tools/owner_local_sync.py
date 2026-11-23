@@ -737,6 +737,76 @@ def validate_owner_usb_transport_receipt(receipt: object) -> str:
     return status
 
 
+def inspect_owner_usb_installation(main_repo: Path, receipt: dict,
+                                   serial: str, disk_number: int) -> dict:
+    # Only the explicitly selected Creator GUI route performs this optional
+    # read-only physical check; the periodic task never wakes a QEMU guest.
+    # The OS-owned Base resolver remains the sole artifact authority.
+    unavailable = {"disk_readonly_status": "UNVERIFIED"}
+    try:
+        from owner_usb_git_delivery import checked_volume, discover_trusted_volume
+        if (type(disk_number) is not int or disk_number < 0 or
+                not HEX40.fullmatch(receipt["source_commit"])):
+            return unavailable
+        letter = discover_trusted_volume(serial)
+        if letter is None:
+            return unavailable
+        before = checked_volume(letter)
+        if (before["disk"] != disk_number or
+                str(before["serial"]).upper() != serial.upper()):
+            return unavailable
+        base_commit = receipt.get("base_artifact_commit")
+        if (not isinstance(base_commit, str) or
+                not HEX40.fullmatch(base_commit) or
+                receipt.get("base_status") != "STAGED_NOT_ACTIVATED"):
+            return unavailable
+        base = Path(letter + ":\\") / ".ordax" / "updates" / "owner-base" / base_commit
+        executable = Path(r"C:\Program Files\qemu\qemu-system-x86_64.exe")
+        diagnostic = main_repo / "creator" / "tools" / "owner_dev_usb_installation_evidence.py"
+        if (not base.is_dir() or base.is_symlink() or
+                not executable.is_file() or executable.is_symlink() or
+                not diagnostic.is_file() or diagnostic.is_symlink()):
+            return unavailable
+        result = subprocess.run(
+            [sys.executable, "-B", str(diagnostic),
+             "--verified-base-dir", str(base),
+             "--qemu-bin", str(executable),
+             "--trusted-serial", serial, "--trusted-disk-number", str(disk_number)],
+            stdin=subprocess.DEVNULL, stdout=subprocess.PIPE,
+            stderr=subprocess.PIPE, timeout=145, check=False,
+        )
+        if result.returncode or len(result.stdout) > 8192:
+            return unavailable
+        proof = json.loads(result.stdout.decode("utf-8"))
+        state = proof.get("on_disk_state_commit")
+        if (not isinstance(state, str) or not HEX40.fullmatch(state) or
+                proof.get("$schema") != "ordax.creator.owner-usb-installation-evidence/1" or
+                proof.get("usb_serial") != serial.upper() or
+                proof.get("disk_number") != disk_number or
+                proof.get("staged_git_source_commit") != receipt["source_commit"] or
+                proof.get("physical_usb_write") is not False or
+                proof.get("physical_boot_verified") is not False or
+                proof.get("running_revision_verified") is not False or
+                proof.get("os_activation_verified") is not False or
+                proof.get("installed_source_commit") is not None):
+            return unavailable
+        status = proof.get("status")
+        if status not in ("DISK_STATE_DIFFERS_FROM_STAGED_GIT",
+                          "DISK_STATE_MATCHES_STAGED_GIT_BOOT_UNVERIFIED"):
+            return unavailable
+        if (status == "DISK_STATE_DIFFERS_FROM_STAGED_GIT") is not (
+                state != receipt["source_commit"]):
+            return unavailable
+        if checked_volume(letter) != before:
+            return unavailable
+        return {"disk_readonly_status": status,
+                "on_disk_state_commit": state,
+                "physical_evidence_schema": proof["$schema"]}
+    except (OSError, ValueError, KeyError, UnicodeError,
+            subprocess.SubprocessError):
+        return unavailable
+
+
 def stage_owner_usb_dev(expected_serial: str, *, from_creator_ui: bool = False,
                         expected_disk_number: int | None = None) -> str | dict:
     """Reuse the single cached Git deliverer for the task and the Creator GUI."""
@@ -811,6 +881,8 @@ def stage_owner_usb_dev(expected_serial: str, *, from_creator_ui: bool = False,
         if source_commit(main_repo) != receipt["source_commit"]:
             raise SyncError("canonical OS main changed during Base acquisition")
         receipt.update(evidence)
+        receipt.update(inspect_owner_usb_installation(
+            main_repo, receipt, expected_serial, expected_disk_number))
         return receipt
     return status
 
