@@ -745,7 +745,7 @@
     const unbounded = data.get("unbounded") === "on";
     const localExpiry = String(data.get("valid_until") ?? "").trim();
     const client = mcpAuthority.clients.find(item => item.client_id === clientId);
-    if (!client || !["project-native-terminal","project-native-process","project-blender-control"].includes(profileKey))
+    if (!client || !["project-native-terminal","project-native-process","project-blender-control","project-continuity"].includes(profileKey))
       return;
     let validUntil = null;
     if (!unbounded) {
@@ -768,7 +768,8 @@
     const device = mcpDevices?.find(item => item.device_id === mcpProjectDevice);
     const profileLabel = profileKey === "project-native-terminal"
       ? tx("Terminal do projeto") : profileKey === "project-native-process"
-        ? tx("Processos do projeto") : tx("Blender do projeto");
+        ? tx("Processos do projeto") : profileKey === "project-continuity"
+          ? tx("Continuidade do projeto") : tx("Blender do projeto");
     const expiryLabel = validUntil
       ? new Date(validUntil).toLocaleString(i18n.getLocale()) : tx("Sem expiração");
     if (!window.confirm(
@@ -850,11 +851,12 @@
     const client=mcpAuthority.clients.find(c=>c.client_id===clientId);
     if (!device || !client || deviceId!==mcpAuthorityDevice
         || deviceId!==mcpAuthority.device_id
-        || !["full-computer-control","ordax-surface-control"].includes(profile)
+        || !["full-computer-control","ordax-surface-control","repository-catalog-read"].includes(profile)
         || mcpAuthority.grant_groups.some(g=>g.client_id===clientId
           && g.scope_kind==="device" && g.profile_key===profile)) return;
     const label=profile==="full-computer-control" ? "controle completo do computador"
-      : "controle da Surface";
+      : profile==="repository-catalog-read" ? "leitura do catálogo de repositórios"
+        : "controle da Surface";
     if (!window.confirm(tx("Autorizar")+" "+label+" — "+client.client_name+" / "+
       device.name+"?\n\n"+tx("Somente neste dispositivo DEV. Persistente até revogação, sem herdar privilégios de outros computadores."))) return;
     const revision=++mcpAuthorityRevision;
@@ -1318,7 +1320,8 @@
         group.profile_key === "project-native-terminal" ? tx("Terminal do projeto")
           : group.profile_key === "project-native-process" ? tx("Processos do projeto")
             : group.profile_key === "project-blender-control" ? tx("Blender do projeto")
-              : esc(group.profile_key));
+              : group.profile_key === "project-continuity" ? tx("Continuidade do projeto")
+                : esc(group.profile_key));
       const grantSummary = grantNames.length
         ? `<small class="device-revoke-note">${tx("Autorizações ativas")}: ${grantNames.join(" · ")}</small>`
         : "";
@@ -1337,6 +1340,7 @@
                   <option value="project-native-terminal">${tx("Terminal do projeto")}</option>
                   <option value="project-native-process">${tx("Processos do projeto")}</option>
                   <option value="project-blender-control">${tx("Blender do projeto")}</option>
+                  <option value="project-continuity">${tx("Continuidade do projeto")}</option>
                 </select></label>
               <label class="form-field"><span>${tx("Validade")}</span>
                 <input name="valid_until" type="datetime-local" autocomplete="off"></label>
@@ -1511,11 +1515,13 @@
     }
     const devButtons = device.channel==="development" && device.state==="active"
       ? mcpAuthority.clients.flatMap(client=>
-        ["full-computer-control","ordax-surface-control"].filter(profile=>
+        ["full-computer-control","ordax-surface-control","repository-catalog-read"].filter(profile=>
           !grants.some(g=>g.client_id===client.client_id && g.scope_kind==="device"
             && g.profile_key===profile)).map(profile=>
           action(profile==="full-computer-control"
-            ? "Autorizar controle completo DEV" : "Autorizar controle da Surface DEV",
+            ? "Autorizar controle completo DEV"
+              : profile==="repository-catalog-read" ? "Autorizar catálogo de repositórios DEV"
+                : "Autorizar controle da Surface DEV",
             "shield",{
               disabled:mcpRevoking || mcpCentralSelecting || mcpProjectGrantCreating,
               small:true,

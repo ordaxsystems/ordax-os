@@ -114,6 +114,7 @@
       "/account/preferences/communications",
       "/account/mcp/revoke",
       "/account/mcp/reauthorize",
+      "/account/mcp/device-grants",
       "/account/mcp/project-grants",
       "/account/mcp/central-selections",
       "/account/mcp/project-onboarding/projects",
@@ -915,7 +916,7 @@
     async createMcpProjectGrant(input, signal) {
       const uuid = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/;
       // Exact Product Owner profile keys; project scope, grant and client consent remain server-authoritative.
-      const profiles = new Set(["project-native-terminal", "project-native-process", "project-blender-control"]);
+      const profiles = new Set(["project-native-terminal", "project-native-process", "project-blender-control", "project-continuity"]);
       const owner = sessionView;
       if (owner.status !== "authenticated") throw new Error("public-account-session-required");
       if (!input || Object.keys(input).sort().join(",")
@@ -975,7 +976,7 @@
       if (owner.status!=="authenticated") throw Error("public-account-session-required");
       if (!input || Object.keys(input).sort().join(",")!=="client_id,confirm,device_id,profile_key"
           || !uuid.test(input.device_id) || !uuid.test(input.client_id)
-          || !["full-computer-control","ordax-surface-control"].includes(input.profile_key)
+          || !["full-computer-control","ordax-surface-control","repository-catalog-read"].includes(input.profile_key)
           || input.confirm!=="authorize_device_dev")
         throw Error("mcp-owner-device-dev-grant-invalid");
       const value=await loadJson("/account/mcp/device-grants",signal,
@@ -984,11 +985,20 @@
           || !uuid.test(value.grant_group_id)
           || value.device_id!==input.device_id || value.client_id!==input.client_id
           || value.profile_key!==input.profile_key || value.valid_until!==null
-          || !Number.isSafeInteger(value.capability_count) || value.capability_count<1)
+          || !Number.isSafeInteger(value.capability_count)
+          || value.capability_count<1 || value.capability_count>256
+          || (input.profile_key==="repository-catalog-read" && value.capability_count!==1))
         throw Error("mcp-owner-device-dev-grant-unconfirmed");
       if (owner!==sessionView || sessionView.status!=="authenticated")
         throw Error("public-account-session-changed");
-      return value;
+      // Return only the exact confirmed Owner receipt; never expose backend
+      // fields, capability internals, paths, or tokens to the public UI.
+      return {
+        ok:true,schema:"ordax.owner-device-dev-grant/1",
+        grant_group_id:value.grant_group_id,device_id:input.device_id,
+        client_id:input.client_id,profile_key:input.profile_key,
+        valid_until:null,capability_count:value.capability_count,
+      };
     },
     async reauthorizeMcpGrant(input, signal) {
       const uuid = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/;

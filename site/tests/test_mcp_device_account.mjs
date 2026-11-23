@@ -134,19 +134,23 @@ test("an authenticated, verified empty list is distinct from an unavailable serv
 const authorityStart = source.indexOf("    async readMcpAuthority(deviceId, signal) {");
 const authorityEnd = source.indexOf("\n    },\n    async createMcpProjectGrant(input, signal) {", authorityStart);
 const grantStart = source.indexOf("    async createMcpProjectGrant(input, signal) {");
-const grantEnd = source.indexOf("\n    },\n    async reauthorizeMcpGrant(input, signal) {", grantStart);
+const grantEnd = source.indexOf("\n    },\n    async createMcpDeviceDevGrant(input, signal) {", grantStart);
+const deviceGrantStart = source.indexOf("    async createMcpDeviceDevGrant(input, signal) {");
+const deviceGrantEnd = source.indexOf("\n    },\n    async reauthorizeMcpGrant(input, signal) {", deviceGrantStart);
 const reauthorizeStart = source.indexOf("    async reauthorizeMcpGrant(input, signal) {");
 const reauthorizeEnd = source.indexOf("\n    },\n    async revokeMcpGrant(input, signal) {", reauthorizeStart);
 const revokeStart = source.indexOf("    async revokeMcpGrant(input, signal) {");
 const revokeEnd = source.indexOf("\n    },\n    async readMcpCentralTargets(clientId, signal) {", revokeStart);
 assert.ok(authorityStart > 0 && authorityEnd > authorityStart, "Owner authority read port missing");
 assert.ok(grantStart > 0 && grantEnd > grantStart, "Owner Project grant port missing");
+assert.ok(deviceGrantStart > 0 && deviceGrantEnd > deviceGrantStart, "Owner DEV device grant port missing");
 assert.ok(reauthorizeStart > 0 && reauthorizeEnd > reauthorizeStart, "Owner reauthorization port missing");
 assert.ok(revokeStart > 0 && revokeEnd > revokeStart, "Owner revoke port missing");
 
 function ownerHarness(session, loadJson) {
   const authorityBody = source.slice(authorityStart + "    async readMcpAuthority(deviceId, signal) {".length, authorityEnd);
   const grantBody = source.slice(grantStart + "    async createMcpProjectGrant(input, signal) {".length, grantEnd);
+  const deviceGrantBody = source.slice(deviceGrantStart + "    async createMcpDeviceDevGrant(input, signal) {".length, deviceGrantEnd);
   const reauthorizeBody = source.slice(reauthorizeStart + "    async reauthorizeMcpGrant(input, signal) {".length, reauthorizeEnd);
   const revokeBody = source.slice(revokeStart + "    async revokeMcpGrant(input, signal) {".length, revokeEnd);
   return new Function("loadJson", "initial", `let sessionView=initial;
@@ -154,6 +158,8 @@ function ownerHarness(session, loadJson) {
       authority: async function(deviceId,signal) {${authorityBody}
       },
       grant: async function(input,signal) {${grantBody}
+      },
+      deviceGrant: async function(input,signal) {${deviceGrantBody}
       },
       reauthorize: async function(input,signal) {${reauthorizeBody}
       },
@@ -585,6 +591,14 @@ test("Project grant browser port accepts exact Terminal/Process/Blender scope an
   const processReply={...upstream,profile_key:"project-native-process",valid_until:null};
   assert.equal((await ownerHarness({status:"authenticated"},async()=>processReply).grant(unbounded)).valid_until,null);
 
+  const continuityInput={...input,profile_key:"project-continuity",valid_until:null};
+  const continuityReply={...upstream,profile_key:"project-continuity",valid_until:null};
+  const continuity=await ownerHarness({status:"authenticated"},
+    async()=>continuityReply).grant(continuityInput);
+  assert.equal(continuity.profile_key,"project-continuity");
+  assert.equal(continuity.project_id,project);
+  assert.equal("capabilities" in continuity,false);
+
   // The same scoped Owner endpoint already supports the canonical Blender profile.
   // Do not mint capabilities, local paths or consent in the browser response.
   const blenderInput={...input,profile_key:"project-blender-control"};
@@ -645,6 +659,38 @@ test("Project grant browser port fails closed on response drift and superseded s
   h.change({status:"authenticated"});
   release(reply);
   await assert.rejects(pending,/session-changed/);
+});
+
+test("repository catalog DEV grant keeps exact Owner scope and verified receipt", async () => {
+  const input={device_id:first.device_id,client_id:client,
+    profile_key:"repository-catalog-read",confirm:"authorize_device_dev"};
+  const reply={ok:true,schema:"ordax.owner-device-dev-grant/1",
+    grant_group_id:"77777777-7777-4777-8777-777777777777",
+    device_id:first.device_id,client_id:client,
+    profile_key:"repository-catalog-read",valid_until:null,
+    capability_count:1,capabilities:["not-exposed"]};
+  const calls=[];
+  const h=ownerHarness({status:"authenticated"},async(...args)=>{calls.push(args);return reply});
+  const result=await h.deviceGrant(input);
+  assert.equal(result.profile_key,"repository-catalog-read");
+  assert.equal(calls.length,1);
+  assert.equal(calls[0][0],"/account/mcp/device-grants");
+  assert.equal(calls[0][2].method,"POST");
+  assert.deepEqual(calls[0][2].jsonBody,input);
+  assert.equal("capabilities" in result,false);
+  for(const count of [0,2,5]) {
+    await assert.rejects(ownerHarness({status:"authenticated"},async()=>({
+      ...reply,capability_count:count})).deviceGrant(input),/grant-unconfirmed/);
+  }
+  for(const invalid of [
+    {...input,profile_key:"project-continuity"},
+    {...input,capabilities:["workspace.repository_catalog"]},
+    {...input,confirm:"skip_confirmation"},
+  ]) {
+    const n=calls.length;
+    await assert.rejects(h.deviceGrant(invalid),/grant-invalid/);
+    assert.equal(calls.length,n);
+  }
 });
 
 test("Device profile reauthorization posts only existing grant identity and sanitizes receipt", async () => {
@@ -714,6 +760,7 @@ test("Revoke UI requires exact group and Owner confirmation; no optimistic remov
   assert.match(portal,/await account\.readMcpAuthority\(deviceId\)/);
   assert.match(portal,/mcp-owner-revoke-not-reflected/);
   assert.match(source,/method !== "POST" \|\| !\[/);
+  assert.match(source,/"\/account\/mcp\/device-grants",\s*"\/account\/mcp\/project-grants"/);
   assert.match(source,/"\/account\/mcp\/project-onboarding\/device-binding-intents"/);
   assert.match(source,/"\/account\/mcp\/github\/repository-selections"/);
 });
@@ -888,6 +935,10 @@ test("Project UI keeps Runtime binding separate and exposes Terminal/Process/Ble
   assert.match(portal,/project-native-terminal/);
   assert.match(portal,/project-native-process/);
   assert.match(portal,/project-blender-control/);
+  assert.match(portal,/project-continuity/);
+  assert.match(portal,/Continuidade do projeto/);
+  assert.match(portal,/repository-catalog-read/);
+  assert.match(portal,/Autorizar catálogo de repositórios DEV/);
   assert.match(portal,/!githubConfigured \|\| mcpGithubConnecting/);
   assert.match(portal,/pendingBinding \|\| !bindingEnabled/);
   assert.match(portal,/onboarding_availability\?\.project_device_binding_enabled !== true/);
