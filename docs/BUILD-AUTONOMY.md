@@ -127,6 +127,13 @@ present, canonical and parseable; a cache hit is never permission to skip
 artifact SHA-256, provenance or QEMU/physical release gates. The producer
 environment identity remains pinned and separately checked.
 
+Once a pinned non-Codespace Linux producer is provisioned, changes requiring
+new Surface bytes on canonical main automatically select that producer on push;
+a separate workflow dispatch is no longer required. Public PRs still use
+hosted runners and never select that private producer. Without a configured
+producer, a verified existing EROFS may be consumed, but a cache miss blocks
+new hosted WebKit compilation before source downloads and long builds.
+
 The Owner USB Creator CI uses the same exact Git diff impact decision on PRs
 and on integrated `main` pushes. An exact visual-only source-pin advancement,
 Windows-only Host change or specifically verified workflow routing change

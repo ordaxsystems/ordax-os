@@ -508,13 +508,17 @@ class IndependentSurfaceRuntimeTests(unittest.TestCase):
     def test_public_pr_cannot_select_private_persistent_surface_runner(self):
         workflow = WORKFLOW_PATH.read_text(encoding="utf-8")
         build = workflow.split("  buildroot-surface:", 1)[1].split("\n  portable-qemu:", 1)[0]
-        trusted = "github.event_name == 'workflow_dispatch' && github.ref == 'refs/heads/main'"
+        trusted = "(github.event_name == 'workflow_dispatch' || github.event_name == 'push') && github.ref == 'refs/heads/main' && vars.ORDAX_SURFACE_RUNNER_LABEL != ''"
         self.assertIn("runs-on: ${{ " + trusted + " && vars.ORDAX_SURFACE_RUNNER_LABEL || 'ubuntu-24.04' }}", build)
         self.assertIn("ORDAX_SURFACE_PERSISTENT_WORK_ROOT: ${{ " + trusted + " && vars.ORDAX_SURFACE_PERSISTENT_WORK_ROOT || '' }}", build)
         self.assertIn("ORDAX_SURFACE_BUILD_WORK_ROOT: ${{ " + trusted + " && vars.ORDAX_SURFACE_BUILD_WORK_ROOT || '' }}", build)
-        self.assertIn("timeout-minutes: ${{ " + trusted + " && vars.ORDAX_SURFACE_RUNNER_LABEL != ''", build)
+        self.assertIn("timeout-minutes: ${{ " + trusted + " && vars.ORDAX_SURFACE_PERSISTENT_WORK_ROOT != ''", build)
         self.assertIn("ORDAX_SURFACE_PRODUCER_ENVIRONMENT: ${{ vars.ORDAX_SURFACE_PRODUCER_ENVIRONMENT }}", build)
         self.assertIn("Require persistent producer on verified Surface artifact miss", build)
+        self.assertIn("github.event_name == 'push'", build)
+        self.assertIn("paths: &independent_surface_inputs", workflow)
+        self.assertIn("  push:\n    branches: [main]\n    paths: *independent_surface_inputs", workflow)
+        self.assertIn("github.event_name == 'pull_request'", build)
 
     def test_builder_exposes_opt_in_persistent_workspace_without_changing_ephemeral_default(self):
         source = BUILDER_PATH.read_text(encoding="utf-8")
