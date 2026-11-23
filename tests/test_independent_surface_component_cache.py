@@ -691,6 +691,11 @@ with Path(os.environ["SURFACE_MOCK_CURL_LOG"]).open("a") as log:
                         ["bash", str(R2_SCRIPT), "publish"], cwd=ROOT,
                         env=env, text=True, capture_output=True, check=False,
                     )
+                    if not curl_log.is_file():
+                        self.fail(
+                            f"R2 mocked curl was not reached: exit={proc.returncode}, "
+                            f"stdout={proc.stdout!r}, stderr={proc.stderr!r}"
+                        )
                     requests = curl_log.read_text(encoding="utf-8").splitlines()
                     self.assertEqual(requests.count("PUT"), 3, requests)
                     if race == "0":
@@ -791,6 +796,11 @@ with Path(os.environ["SURFACE_MOCK_CURL_LOG"]).open("a") as log:
                             ["bash", str(R2_SCRIPT), "publish"], cwd=ROOT,
                             env=env, text=True, capture_output=True, check=False,
                         )
+                        if not curl_log.is_file():
+                            self.fail(
+                                f"R2 mocked curl was not reached: exit={result.returncode}, "
+                                f"stdout={result.stdout!r}, stderr={result.stderr!r}"
+                            )
                         requests = curl_log.read_text(encoding="utf-8").splitlines()
                         self.assertIn("GET_BLOB", requests)
                         if corrupt == "1":
