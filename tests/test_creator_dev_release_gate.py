@@ -60,6 +60,9 @@ class CreatorDevReleaseGate(unittest.TestCase):
         self.assertIn("Push-Location $env:ORDAX_CREATOR_NATIVE_SOURCE", text)
         self.assertNotIn("Push-Location tools/creator", text)
         self.assertIn("$sha = $env:ORDAX_CREATOR_SOURCE_COMMIT", text)
+        self.assertIn("main.buildCreatorVersion=$($product.version)", text)
+        self.assertIn("main.buildCreatorSourceCommit=$sha", text)
+        self.assertIn("ordax.creator-product-version/1", text)
         self.assertIn("prototype-ordax.creator-update-channel/1", text)
         self.assertIn("https://github.com/ordaxsystems/ordax-os/releases/download/creator-dev/ordax-creator-dev-windows-amd64.zip", text)
         for path in ("1-Inspect-OrdaXUSB.cmd", "2-Legacy-Protocol-Compatibility.cmd", "ordax-creator-physical-test.exe"):
