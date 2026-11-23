@@ -87,7 +87,7 @@ class NeutralFirmwarePolicyTests(unittest.TestCase):
         with tempfile.TemporaryDirectory() as raw:
             root = self.make_rootfs(Path(raw), with_firmware=False)
             firmware = root / "lib/firmware/vendor"
-            compressed = firmware / "example.bin.zst"
+            compressed = firmware / "missing-example.bin.zst"
             compressed.write_bytes(b"compressed-firmware")
             link = firmware / "example.bin"
             try:
@@ -143,7 +143,7 @@ class NeutralFirmwarePolicyTests(unittest.TestCase):
             self.assertEqual(receipt["selected_firmware_count"], 1)
             self.assertEqual(
                 receipt["files"][0]["source"],
-                "/lib/firmware/vendor/example.bin.zst",
+                "/lib/firmware/vendor/missing-example.bin.zst",
             )
 
     def test_owner_prune_keeps_matrix_firmware_reached_through_directory_alias(self) -> None:
