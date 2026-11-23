@@ -224,7 +224,8 @@ class ReleaseCandidateGateTests(unittest.TestCase):
         self.assertIn("  pull_request:\n", foundation)
         self.assertIn("  push:\n    branches: [main]", foundation)
         self.assertIn("python -m unittest discover -s tests -p 'test_*.py' -v", foundation)
-        self.assertIn("if: steps.impact.outputs.full != 'false'", foundation)
+        self.assertIn("if: steps.impact.outputs.mode == 'full'", foundation)
+        self.assertIn("if: steps.impact.outputs.mode == 'tests'", foundation)
         for workflow, excluded_tests, required_sources in (
             (
                 "full-bootstrap-media-proof.yml",
@@ -267,9 +268,12 @@ class ReleaseCandidateGateTests(unittest.TestCase):
         self.assertIn("  push:\n    branches: [main]", foundation)
         self.assertIn("  pull_request:\n", foundation)
         self.assertIn("python -m unittest discover -s tests -p 'test_*.py' -v", foundation)
-        self.assertIn("if: steps.impact.outputs.full != 'false'", foundation)
-        # Foundation treats every test fixture as executable, not a doc-only skip.
-        self.assertIn("scripts, test fixtures and unknown paths must run full Foundation", foundation)
+        self.assertIn("if: steps.impact.outputs.mode == 'full'", foundation)
+        self.assertIn("if: steps.impact.outputs.mode == 'tests'", foundation)
+        # Source and unclassified paths stay on the conservative full tier.
+        selector = (ROOT.parents[1] / "tools/ci/foundation_impact.py").read_text(encoding="utf-8")
+        self.assertIn('reason="empty-diff-fails-closed"', selector)
+        self.assertIn('reason="source-or-unknown-change"', selector)
         for workflow, tests, producer in (
             (
                 "kernel-lts-candidate.yml",

@@ -46,7 +46,8 @@ class KernelCandidateCIScopeTests(unittest.TestCase):
         self.assertIn("  push:\n    branches: [main]", foundation)
         self.assertIn("  pull_request:\n", foundation)
         self.assertIn("python -m unittest discover -s tests -p 'test_*.py' -v", foundation)
-        self.assertIn("if: steps.impact.outputs.full != 'false'", foundation)
+        self.assertIn("if: steps.impact.outputs.mode == 'full'", foundation)
+        self.assertIn("if: steps.impact.outputs.mode == 'tests'", foundation)
         for workflow, test_paths, source_path in (
             (
                 "kernel-candidate.yml",
