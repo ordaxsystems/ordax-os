@@ -302,9 +302,27 @@ function unpin(userData) {
 // release evidence, emulator and Web bridge may skip a rebuild. This is
 // intentionally an allowlist: unknown additions and mixed changes compile.
 // Do not reuse the Creator/USB impact classifier as a Desktop authority.
+// Windows Electron/NSIS shell files are distributed only through the separately
+// verified Desktop installer. They do not enter the staged Native/Surface Vite
+// graph (system/, contracts and tools/windows-emulator). Do not attempt a Native
+// compilation or restart the shared Aura/MCP engine for these shell-only edits.
+// Keep Native boot, source and toolchain owners deliberately OUT of this set.
+const DESKTOP_ELECTRON_ONLY_FILES = new Set([
+  'desktop/main.cjs',
+  'desktop/background-lifecycle.cjs',
+  'desktop/browser-host.cjs',
+  'desktop/browser-preload.cjs',
+  'desktop/window-layout.cjs',
+  'desktop/native-grant-frame.cjs',
+  'desktop/installer.nsh',
+  'desktop/package.json',
+  'desktop/dev-update.cjs',
+]);
 function isNonRuntimeSourcePath(path) {
   if (typeof path !== 'string' || !path || path.startsWith('/') ||
       path.includes('\\') || path.includes('..')) return false;
+  if (DESKTOP_ELECTRON_ONLY_FILES.has(path) ||
+      /^desktop\/[a-z0-9][a-z0-9_-]*\.test\.cjs$/.test(path)) return true;
   if (path === 'README.md' || path === 'AGENTS.md' ||
       path === 'bootstrap/dev-base/ordax-pull') return true;
   // These external owners never enter the Desktop Native compiler: Supabase
@@ -600,4 +618,6 @@ module.exports = {
   chooseBootVersion, confirmedVersion: verifiedVersion,
   stageMain, shouldAutoActivate, desktopFirstRunComplete, createDesktopIdleActivation, createDesktopWindowIdleTracker, confirmHealthy, retireHealthyPrevious, rejectCandidate, unpin,
   prepareWindowsGitDeletion, removeOwnedCandidate, sweepStaleCandidates, sweepRetiredVersions,
+  // Pure, fail-closed source-impact policy reused by its own regression tests.
+  onlyNonRuntimeChanges,
 };
