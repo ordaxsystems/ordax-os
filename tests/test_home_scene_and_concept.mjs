@@ -1,6 +1,7 @@
 import assert from "node:assert/strict";
 import test from "node:test";
 import { resolveHomeScene } from "../system/services/surface/home-scene.mjs";
+import { homeStatusNeedsAttention } from "../system/surface/ui/home-status.mjs";
 import {
   homeConceptSections,
 } from "../system/surface/ui/home-concept.mjs";
@@ -45,7 +46,28 @@ test("Home overview uses actual Native network, account, storage and Space route
   assert.match(status, /data-launch-app="system" data-app-target="storage"/);
   assert.match(currentSpace, /data-launch-app="account" data-app-target="spaces"/);
   assert.doesNotMatch(status + currentSpace, /data-home-example|data-home-preview-notice/);
-  assert.doesNotMatch(currentSpace, /ordax-home-space-art/);
+  assert.doesNotMatch(currentSpace, /ordax-home-space-art|ordax-home-space-open/);
+  assert.equal((currentSpace.match(/data-app-target="spaces"/g) ?? []).length, 1,
+    "the Space card has exactly one canonical action");
+  assert.match(status, /data-home-status-toggle aria-controls="ordax-home-status-details" aria-expanded="false"/);
+  assert.match(status, /data-home-status-details hidden/);
+  assert.match(status, /data-home-status-value="updates"/);
+});
+
+test("Home health disclosure highlights actual problems and keeps healthy detail optional", () => {
+  const ready = {
+    internet: { state: "success" },
+    account: { state: "success" },
+    sync: { state: "neutral" },
+    storage: { state: "success" },
+    updates: { state: "success" },
+  };
+  const sources = { network: "ready", account: "ready", sync: "ready", storage: "ready", updates: "ready" };
+  assert.equal(homeStatusNeedsAttention(ready, sources), false);
+  assert.equal(homeStatusNeedsAttention({ ...ready, internet: { state: "warning" } }, sources), true);
+  assert.equal(homeStatusNeedsAttention({ ...ready, updates: { state: "pending" } }, sources), true);
+  assert.equal(homeStatusNeedsAttention(ready, { ...sources, account: "unavailable" }), true);
+  assert.equal(homeStatusNeedsAttention(ready, { ...sources, network: "loading" }), false);
 });
 
 test("real windows share one state and Home never invents recent activities", async () => {

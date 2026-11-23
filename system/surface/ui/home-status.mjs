@@ -126,6 +126,13 @@ function updateValue(snapshot, sourceState, translate) {
     : message(translate, "home.status.unavailable", "unavailable");
 }
 
+// Only real failed, unavailable or in-progress services raise the Home attention
+// signal. The same presentation owns the detailed readouts, not a second poll.
+export function homeStatusNeedsAttention(presentation, sourceState) {
+  return Object.values(presentation).some((item) => item.state === "warning" || item.state === "pending")
+    || Object.values(sourceState).some((value) => value === "unavailable");
+}
+
 export function mountHomeStatus(rootValue, {
   networkStatus = null,
   identitySession = null,
@@ -147,6 +154,9 @@ export function mountHomeStatus(rootValue, {
   const windowObject = documentObject.defaultView;
   const connection = section.querySelector("[data-home-status-connection]");
   const note = section.querySelector("[data-home-status-note]");
+  const details = section.querySelector("[data-home-status-details]");
+  const detailsToggle = section.querySelector("[data-home-status-toggle]");
+  if (!details || !detailsToggle) throw new Error("Home status disclosure contract missing");
   const values = new Map(Array.from(section.querySelectorAll("[data-home-status-value]"))
     .map((element) => [element.dataset.homeStatusValue, element]));
   const state = {
@@ -166,6 +176,25 @@ export function mountHomeStatus(rootValue, {
   let destroyed = false;
   let refreshing = false;
   let refreshQueued = false;
+  // A manual choice wins for the lifetime of this Surface mount. Subsequent
+  // provider events must not reopen a panel the user just closed.
+  let userDetailsChoice = null;
+  let detailsExpanded = false;
+  const setDetailsExpanded = (next) => {
+    detailsExpanded = next;
+    if (details.hidden !== !next) details.hidden = !next;
+    const aria = String(next);
+    if (detailsToggle.getAttribute("aria-expanded") !== aria) {
+      detailsToggle.setAttribute("aria-expanded", aria);
+    }
+    const label = localization.translate(next ? "home.status.collapse" : "home.status.expand");
+    if (detailsToggle.textContent !== label) detailsToggle.textContent = label;
+  };
+  const onDetailsToggle = () => {
+    userDetailsChoice = !detailsExpanded;
+    setDetailsExpanded(userDetailsChoice);
+  };
+  detailsToggle.addEventListener("click", onDetailsToggle);
 
   const render = () => {
     if (destroyed) return;
@@ -205,8 +234,10 @@ export function mountHomeStatus(rootValue, {
         : unavailableCount === 0 && loadingCount === 0
           ? "ready"
           : "partial";
+    const attention = homeStatusNeedsAttention(presentation, sourceState);
+    const badgeState = attention ? "attention" : connectionState;
     if (connection) {
-      const messageId = connectionState === "loading"
+      const messageId = attention ? "home.status.connection.attention" : connectionState === "loading"
         ? "home.status.loading"
         : connectionState === "ready"
           ? "home.status.connection.ready"
@@ -215,10 +246,10 @@ export function mountHomeStatus(rootValue, {
             : "home.status.connection.unavailable";
       const nextMessage = translate(messageId);
       if (connection.textContent !== nextMessage) connection.textContent = nextMessage;
-      if (connection.dataset.state !== connectionState) connection.dataset.state = connectionState;
+      if (connection.dataset.state !== badgeState) connection.dataset.state = badgeState;
     }
     if (note) {
-      const messageId = connectionState === "loading"
+      const messageId = attention ? "home.status.note.attention" : connectionState === "loading"
         ? "home.status.note.loading"
         : connectionState === "ready"
           ? "home.status.note.ready"
@@ -228,6 +259,7 @@ export function mountHomeStatus(rootValue, {
       const nextMessage = translate(messageId);
       if (note.textContent !== nextMessage) note.textContent = nextMessage;
     }
+    setDetailsExpanded(userDetailsChoice ?? attention);
   };
 
   const markReadPortsLoading = () => {
@@ -313,6 +345,7 @@ export function mountHomeStatus(rootValue, {
       unsubscribeSync?.();
       unsubscribeUpdates?.();
       unsubscribeLocalization?.();
+      detailsToggle.removeEventListener("click", onDetailsToggle);
       windowObject?.removeEventListener("online", onRefresh);
       windowObject?.removeEventListener("offline", onRefresh);
       windowObject?.removeEventListener("focus", onRefresh);

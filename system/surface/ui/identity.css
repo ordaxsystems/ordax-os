@@ -435,12 +435,12 @@ body { background: var(--md-canvas); font-weight: 400; }
 .meridian-native-workspace .ordax-native-settings svg { width: 1.1875rem; height: 1.1875rem; }
 .meridian-native-workspace .ordax-home-panel {
   grid-template-columns: minmax(0, 1fr) minmax(15rem, .44fr);
-  grid-template-areas: "intro intro" "quick status" "resume status" "running current" "files attention" "ecosystem ecosystem" "session session";
+  grid-template-areas: "intro intro" "quick current" "resume status" "running status" "files attention" "ecosystem ecosystem" "session session";
   align-items: start; gap: 1.125rem; width: min(116rem, 100%);
   padding: clamp(1rem, 1.8cqi, 2rem) clamp(1rem, 2cqi, 2.5rem) var(--md-home-page-bottom);
 }
 .meridian-native-workspace .ordax-home-panel:not(:has([data-home-continuation])) {
-  grid-template-areas: "intro intro" "quick status" "running status" "files attention" "ecosystem ecosystem" "session session";
+  grid-template-areas: "intro intro" "quick current" "running status" "files attention" "ecosystem ecosystem" "session session";
 }
 .meridian-native-workspace .ordax-home-intro { grid-area: intro; display: grid; grid-template-columns: minmax(0, 1fr); grid-template-areas: "heading" "tagline" "search"; align-items: center; gap: .25rem 1rem; min-width: 0; }
 .meridian-native-workspace .ordax-home-intro-heading { grid-area: heading; min-width: 0; }
@@ -457,26 +457,29 @@ body { background: var(--md-canvas); font-weight: 400; }
 .meridian-native-workspace .ordax-home-section-heading > button { display: flex; align-items: center; gap: .375rem; min-height: 1.75rem; padding: .25rem 0; border: 0; background: transparent; color: var(--md-accent); font: inherit; font-size: .6875rem; cursor: pointer; }
 .meridian-native-workspace .ordax-home-widget { min-width: 0; padding: 1rem; border: 1px solid var(--md-border); border-radius: var(--md-radius-large); background: var(--md-surface); }
 .meridian-native-workspace .ordax-home-note { margin: .625rem 0 0; color: var(--md-muted); font-size: .625rem; line-height: 1.5; }
-.meridian-native-workspace .ordax-home-status { grid-area: status; align-self: stretch; }
+.meridian-native-workspace .ordax-home-status { grid-area: status; align-self: start; }
+.meridian-native-workspace .ordax-home-status-tools { display: flex; align-items: center; flex-wrap: wrap; gap: .375rem; }
+.meridian-native-workspace .ordax-home-status-toggle { min-height: 1.875rem; padding: .25rem .5rem; border: 1px solid var(--md-border); border-radius: var(--md-radius-small); background: var(--md-subtle); color: var(--md-ink); font: inherit; font-size: .6875rem; cursor: pointer; }
+.meridian-native-workspace .ordax-home-status-toggle:hover { border-color: var(--md-accent); }
+.meridian-native-workspace .ordax-home-status-toggle:focus-visible { outline: 2px solid var(--md-accent); outline-offset: 2px; }
+.meridian-native-workspace .ordax-home-status-details[hidden] { display: none; }
+.meridian-native-workspace .ordax-home-status-details { padding-top: .375rem; }
 .meridian-native-workspace .ordax-home-status-list { display: grid; }
 .meridian-native-workspace .ordax-home-status-list > button { display: grid; grid-template-columns: 1.875rem minmax(0, 1fr) minmax(0, auto); align-items: center; gap: .5rem; min-height: 2.875rem; padding: .4375rem 0; border: 0; border-bottom: 1px solid var(--md-border); background: transparent; color: var(--md-ink); text-align: start; font-size: .6875rem; cursor: pointer; }
 .meridian-native-workspace .ordax-home-status-list > button:last-child { border-bottom: 0; }
 .meridian-native-workspace .ordax-home-status-list .ordax-rail-icon { width: 1.875rem; height: 1.875rem; padding: .4375rem; border-radius: var(--md-radius-small); background: var(--md-sage-soft); color: var(--md-sage); }
 .meridian-native-workspace .ordax-home-status-list small { max-width: 6.5rem; color: var(--md-muted); font-size: .625rem; text-align: end; overflow-wrap: anywhere; }
 .meridian-native-workspace .ordax-home-status-connection { flex: 0 0 auto; padding: .1875rem .4375rem; border-radius: .375rem; background: var(--md-sage-soft); color: var(--md-sage); font-size: .5625rem; line-height: 1.5; }
-.meridian-native-workspace .ordax-home-status-connection[data-state="loading"], .meridian-native-workspace .ordax-home-status-connection[data-state="partial"], .meridian-native-workspace .ordax-home-status-connection[data-state="unavailable"] { background: var(--md-amber-soft); color: var(--md-amber); }
+.meridian-native-workspace .ordax-home-status-connection[data-state="attention"], .meridian-native-workspace .ordax-home-status-connection[data-state="loading"], .meridian-native-workspace .ordax-home-status-connection[data-state="partial"], .meridian-native-workspace .ordax-home-status-connection[data-state="unavailable"] { background: var(--md-amber-soft); color: var(--md-amber); }
 .meridian-native-workspace .ordax-home-status-list small[data-state="success"] { color: var(--md-sage); }
 .meridian-native-workspace .ordax-home-status-list small[data-state="pending"], .meridian-native-workspace .ordax-home-status-list small[data-state="warning"] { color: var(--md-amber); }
 .meridian-native-workspace .ordax-home-status-list small[data-state="loading"], .meridian-native-workspace .ordax-home-status-list small[data-state="unavailable"] { color: var(--md-muted); }
 .meridian-native-workspace .ordax-home-current-space { grid-area: current; }
-.meridian-native-workspace .ordax-home-space-identity, .meridian-native-workspace .ordax-home-space-open { display: flex; align-items: center; gap: .75rem; width: 100%; min-height: 2.875rem; padding: .625rem; border: 0; border-radius: var(--md-radius-small); background: var(--md-subtle); color: var(--md-ink); text-align: start; cursor: pointer; }
+.meridian-native-workspace .ordax-home-space-identity { display: flex; align-items: center; gap: .75rem; width: 100%; min-height: 2.875rem; padding: .625rem; border: 0; border-radius: var(--md-radius-small); background: var(--md-subtle); color: var(--md-ink); text-align: start; cursor: pointer; }
 .meridian-native-workspace .ordax-home-space-identity > .ordax-rail-icon { width: 2.5rem; height: 2.5rem; padding: .625rem; border-radius: var(--md-radius-small); background: var(--md-sage-soft); color: var(--md-sage); }
 .meridian-native-workspace .ordax-home-space-identity > span:nth-child(2) { display: grid; flex: 1; gap: .25rem; }
 .meridian-native-workspace .ordax-home-space-identity strong { font-size: .8125rem; font-weight: 550; }
 .meridian-native-workspace .ordax-home-space-identity small { color: var(--md-muted); font-size: .6875rem; }
-.meridian-native-workspace .ordax-home-space-open { font-size: .75rem; }
-.meridian-native-workspace .ordax-home-space-open .ordax-rail-icon { width: 1.125rem; height: 1.125rem; }
-.meridian-native-workspace .ordax-home-space-open > span:nth-child(2) { flex: 1; }
 .meridian-native-workspace .ordax-home-actions { grid-area: quick; min-width: 0; padding: 0; border: 0; background: transparent; }
 .meridian-native-workspace .ordax-home-action-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(min(100%, 9rem), 1fr)); gap: .625rem; }
 .meridian-native-workspace .ordax-home-action { display: flex; flex-direction: row; align-items: center; justify-content: flex-start; min-height: 3.25rem; gap: .625rem; padding: .5rem .625rem; border: 1px solid var(--md-border); border-radius: var(--md-radius-small); background: var(--md-surface); font-size: .75rem; line-height: 1.4; font-weight: 450; text-align: start; }
@@ -530,14 +533,14 @@ body { background: var(--md-canvas); font-weight: 400; }
 }
 /* Compact desktop windows keep the same destinations, tools and navigation. */
 @container meridian-native-home (max-width: 66rem) {
-  .meridian-native-workspace .ordax-home-panel { grid-template-columns: repeat(2, minmax(0, 1fr)); grid-template-areas: "intro intro" "quick status" "resume current" "running current" "files attention" "ecosystem ecosystem" "session session"; }
-  .meridian-native-workspace .ordax-home-panel:not(:has([data-home-continuation])) { grid-template-areas: "intro intro" "quick status" "running current" "files attention" "ecosystem ecosystem" "session session"; }
+  .meridian-native-workspace .ordax-home-panel { grid-template-columns: repeat(2, minmax(0, 1fr)); grid-template-areas: "intro intro" "quick current" "resume status" "running status" "files attention" "ecosystem ecosystem" "session session"; }
+  .meridian-native-workspace .ordax-home-panel:not(:has([data-home-continuation])) { grid-template-areas: "intro intro" "quick current" "running status" "files attention" "ecosystem ecosystem" "session session"; }
   .meridian-native-workspace .ordax-home-destination-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); }
   .meridian-native-workspace .ordax-home-panel > .ordax-space:not([data-home-continuation]):not([data-home-pending]) { grid-template-columns: repeat(2, minmax(0, 1fr)); }
 }
 @container meridian-native-home (max-width: 50rem) {
-  .meridian-native-workspace .ordax-home-panel { grid-template-columns: minmax(0, 1fr); grid-template-areas: "intro" "quick" "resume" "running" "status" "current" "attention" "files" "ecosystem" "session"; }
-  .meridian-native-workspace .ordax-home-panel:not(:has([data-home-continuation])) { grid-template-areas: "intro" "quick" "running" "status" "current" "attention" "files" "ecosystem" "session"; }
+  .meridian-native-workspace .ordax-home-panel { grid-template-columns: minmax(0, 1fr); grid-template-areas: "intro" "quick" "resume" "running" "current" "status" "attention" "files" "ecosystem" "session"; }
+  .meridian-native-workspace .ordax-home-panel:not(:has([data-home-continuation])) { grid-template-areas: "intro" "quick" "running" "current" "status" "attention" "files" "ecosystem" "session"; }
 }
 /* At narrow *workspace* widths, keep complete labels and actions readable.
    Use the existing home container: a full-size OS window must not inherit a

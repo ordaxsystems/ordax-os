@@ -202,10 +202,14 @@ test("Native USB keeps the computer shell instead of switching to mobile geometr
   assert.ok(mediumNativeHome, "the Native overview follows the usable workspace width");
   assert.match(mediumNativeHome, /grid-template-columns: minmax\(0, 1fr\)/,
     "compact Desktop windows use a single content column");
-  assert.match(mediumNativeHome, /grid-template-areas: "intro" "quick" "resume" "running" "status" "current"/,
+  assert.match(mediumNativeHome, /grid-template-areas: "intro" "quick" "resume" "running" "current" "status"/,
     "actions, real continuation and open windows precede the system context");
-  assert.match(mediumNativeHome, /grid-template-areas: "intro" "quick" "running" "status" "current"/,
+  assert.match(mediumNativeHome, /grid-template-areas: "intro" "quick" "running" "current" "status"/,
     "without project history the same overview does not reserve a placeholder");
+  assert.match(nativeStyles, /\.ordax-home-panel:not\(:has\(\[data-home-continuation\]\)\) \{\s*grid-template-areas: "intro intro" "quick current" "running status"/,
+    "current Space must have an explicit compact desktop grid area without recent projects");
+  assert.match(nativeStyles, /\.ordax-home-status-details\[hidden\] \{ display: none; \}/,
+    "healthy system details collapse without changing theme tokens");
   assert.match(nativeStyles, /\.ordax-home-running\[hidden\] \{ display: none; \}/,
     "window activity remains invisible until the actual window model has items");
   assert.match(nativeStyles, /\.ordax-home-action \{[^}]*min-height: 3\.25rem/,
