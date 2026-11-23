@@ -190,7 +190,7 @@ class CreatorPhysicalPublisherBoundaryTests(unittest.TestCase):
         self.assertRegex(context_sha, r"^[0-9a-f]{64}$")
         # Two inspected-media Core sources are now governed by the same physical
         # authorization context; adding them never grants write authorization.
-        self.assertEqual(file_count, 31)
+        self.assertEqual(file_count, 35)
 
         if auth["status"] == "authorized":
             self.assertIs(auth["physical_write_allowed"], True)
@@ -230,7 +230,15 @@ class CreatorPhysicalPublisherBoundaryTests(unittest.TestCase):
         self.assertIn("docs/contracts/native-release-assembly.json", governed)
         self.assertIn("docs/contracts/surface-source.json", governed)
         self.assertNotIn("tools/creator/go.mod", governed)
-        self.assertNotIn("system/surface/ui/first-run.mjs", governed)
+        self.assertEqual(
+            {name for name in governed if name.startswith("system/surface/ui/")},
+            {
+                "system/surface/ui/first-run.mjs",
+                "system/surface/ui/local-session-lock.mjs",
+                "system/surface/ui/settings-overview-controls.mjs",
+                "system/surface/ui/system-overview-controls.mjs",
+            },
+        )
         self.assertIn("system/services/preferences/catalog.mjs", governed)
         self.assertNotIn("tools/creator/core/portable_sources.go", governed)
         self.assertNotIn("tools/creator/core/installed_media_inspection.go", governed)

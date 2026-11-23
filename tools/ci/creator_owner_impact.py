@@ -153,7 +153,7 @@ WINDOWS_PRODUCT_SHARED_ADDITIONS = {
 WINDOWS_PRODUCT_PINNED_BLOBS = {
     "docs/evidence/desktop-runtime-windows-candidate-2026-11-14.json": "c2a612880e4e5e96c0db9f3299c83bebd53eb15a",
     "system/adapters/native/desktop-product-runtime-status.mjs": "2e4b3f7aaaea1210cccac346c7f895fe7f576b35",
-    "system/adapters/native/desktop-surface-state-report.mjs": "08ce3a0588383b2fe30997e99a972396887d2246",
+    "system/adapters/native/desktop-surface-state-report.mjs": "3266a6262b02a221b4e176428a2d36a1ca91b41d",
 }
 
 # These already-installed Git-owned source entrypoints are delivered by Pull.
