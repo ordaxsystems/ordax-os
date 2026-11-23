@@ -3,6 +3,7 @@
 // address is NOT evidence that a physical link is connected.
 // This is a read-only host adapter, not a Wi-Fi manager or network fallback.
 import { execFile } from "node:child_process";
+import { homedir } from "node:os";
 import { promisify } from "node:util";
 import { validateNetworkStatusSnapshot } from "../../contracts/network-status.mjs";
 
@@ -70,7 +71,7 @@ export async function readDesktopNetworkStatus({
   if(platform!=="win32")throw new Error("Windows network service requires Windows");
   const {stdout}=await run("powershell.exe",
     ["-NoLogo","-NoProfile","-NonInteractive","-Command",nativeScript],
-    {timeout:7000,windowsHide:true,maxBuffer:32768});
+    {cwd:homedir(),timeout:7000,windowsHide:true,maxBuffer:32768});
   let records;
   try { records=JSON.parse(String(stdout).trim()); }
   catch { throw Error("Windows network status output invalid"); }
