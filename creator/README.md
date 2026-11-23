@@ -79,15 +79,15 @@ A origem histórica ordaxsystems/ordax-creator foi importada de 8a23779346cbe78e
 
 ### Owner DEV Windows USB update preflight (MCP / Creator, no GUI)
 
-The OS-owned \`creator/tools/owner_dev_usb_update_preflight.py\` is a
+The OS-owned `creator/tools/owner_dev_usb_update_preflight.py` is a
 read-only **feasibility gate**, not a second updater. On the authorized
 Windows host, pass the explicit physical disk number and USB serial;
 the script discovers ORDAX-DATA and the compatible Base cache itself,
-verifies the \`ordax-os/main\` Git source and published manifest, and runs
+verifies the `ordax-os/main` Git source and published manifest, and runs
 the already-owned QEMU ext4 COW staging and cold-readback evidence.
 It checks the same physical USB identity before and after the proof.
 
-On this Windows TCG host, the verified guest kernel required \`noapic\` to
+On this Windows TCG host, the verified guest kernel required `noapic` to
 avoid an IO-APIC timer panic. The read-only and COW probes share **one**
 guest-only kernel command line. This setting is never applied to the OrdaX
 installation or firmware boot parameters.
@@ -115,8 +115,37 @@ inactive-slot activation plan, **not** a new GPT updater or a simulated
 success marker.
 
 Example invocation for an already authorized DEV USB:
-\`python creator/tools/owner_dev_usb_update_preflight.py --disk-number 1 --serial <physical-USB-serial>\`
+`python creator/tools/owner_dev_usb_update_preflight.py --disk-number 1 --serial <physical-USB-serial>`
 
-No alternate Base path, QEMU path, shell string or \`--apply\` is accepted.
+No alternate Base path, QEMU path, shell string or `--apply` is accepted.
 If any physical identity, publisher, rootfs or QEMU check fails, this
 operation exits unsuccessfully without touching the USB.
+
+#### Host-local delta handoff (not installed)
+
+For an authorized, three-partition Owner DEV USB, the same preflight accepts
+`--prepare-host-bundle`. It first proves the published Base, cold rootfs
+readback and physical USB absence in QEMU, then creates a compact **local host
+bundle** under `%LOCALAPPDATA%/OrdaX/updates/creator/dev-delta/`.
+It never writes to ORDAX-ESP, ORDAX-LINUX or ORDAX-DATA.
+
+The bundle is immutable by content: `manifest.json` binds the exact
+`ordax-os/main` request, published Base commit, USB serial/disk identity,
+partition 2 byte geometry, every region's old/new SHA-256 and payload offset.
+`delta.bin` contains only changed ext4 sectors. It is built into an isolated
+temporary directory, fsynced, verified, and then renamed into the local cache.
+A cached candidate is reused only after a fresh readback; corruption is an
+error, not a reason to blindly overwrite it. A positive result is strictly
+`prepared-not-authorized`: no raw write, no activation and **no proof of an
+installed OS**.
+
+The OS-owned Base channel and the Creator's existing Win32 raw-disk
+lease/readback are the authorities; do not implement a second updater in MCP.
+The `portable_update_windows.go` path is for a different **two-partition**
+Portable profile and does not authorize writes to this three-partition USB.
+The Win32 raw backend is still gated behind `ordax_raw_backend` for tests;
+the actual Owner DEV incremental writer must consume this bundle under the
+existing disk/volume lock, verify current device identity and all preimage
+hashes, write only proven bounds, flush and read back all postimages. It
+must separately stage/activate the inactive ESP slot using the OS Update
+Engine; this read-only preflight does not claim to accomplish either step.

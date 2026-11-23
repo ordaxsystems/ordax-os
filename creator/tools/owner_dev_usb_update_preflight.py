@@ -86,6 +86,17 @@ def _channel():
     return module
 
 
+def _load_bundle():
+    spec = importlib.util.spec_from_file_location(
+        "ordax_owner_usb_delta_bundle", HERE / "owner_dev_qemu_delta_bundle.py",
+    )
+    if spec is None or spec.loader is None:
+        raise USBUpdatePreflightError("canonical local delta bundle owner unavailable")
+    module = importlib.util.module_from_spec(spec)
+    spec.loader.exec_module(module)
+    return module
+
+
 def _data_volume_letter(before: dict) -> str:
     parts = before["Partitions"]
     letter = parts[2]["Letter"]
@@ -136,7 +147,8 @@ def _base_directory(letter: str, commit: str) -> Path:
     return base
 
 
-def preflight(disk_number: int, serial: str, *, progress=None) -> dict:
+def preflight(disk_number: int, serial: str, *, progress=None,
+              prepare_host_bundle: bool = False) -> dict:
     def report(phase: str) -> None:
         if progress is not None:
             progress(phase)
@@ -182,7 +194,8 @@ def preflight(disk_number: int, serial: str, *, progress=None) -> dict:
         evidence = prove(base, qemu, qemu_img, disk_number=disk_number,
                          serial=serial, requested_commit=source,
                          git_bin=str(GIT_EXE), awk_bin=str(AWK_EXE),
-                         progress=progress)
+                         progress=progress,
+                         prepare_host_bundle=prepare_host_bundle)
     except (ReadonlyProbeError, SnapshotProofError) as exc:
         raise USBUpdatePreflightError("QEMU physical media proof failed: " + str(exc)) from exc
     if (evidence.get("status") != "pass"
@@ -206,6 +219,37 @@ def preflight(disk_number: int, serial: str, *, progress=None) -> dict:
                                 str(evidence.get("cow_delta_plan_sha256", "")))):
         raise USBUpdatePreflightError("QEMU proof did not bind the requested USB/Base")
 
+    if prepare_host_bundle:
+        bundle = evidence.get("host_delta_bundle")
+        if (not isinstance(bundle, dict)
+                or bundle.get("physical_write") is not False
+                or bundle.get("physical_write_authorized") is not False
+                or bundle.get("cow_plan_sha256") != evidence["cow_delta_plan_sha256"]
+                or bundle.get("requested_main_commit") != source
+                or bundle.get("usb_serial") != serial.upper()
+                or bundle.get("region_count") != evidence["cow_modified_regions"]
+                or bundle.get("payload_bytes") != evidence["cow_modified_bytes"]
+                or not re.fullmatch("[0-9a-f]{64}",
+                                    str(bundle.get("manifest_sha256", "")))):
+            raise USBUpdatePreflightError("local delta bundle disagrees with physical QEMU proof")
+        local_appdata = os.environ.get("LOCALAPPDATA", "")
+        if not local_appdata:
+            raise USBUpdatePreflightError("Windows candidate cache root unavailable")
+        local_root = Path(local_appdata) / "OrdaX" / "updates" / "creator" / "dev-delta"
+        candidate_dir = Path(str(bundle["bundle_path"]))
+        if candidate_dir.parent.resolve() != local_root.resolve() or candidate_dir.is_symlink():
+            raise USBUpdatePreflightError("local delta path escapes the Owner cache")
+        bundle_owner = _load_bundle()
+        try:
+            verified = bundle_owner.verify_bundle(candidate_dir)
+        except (bundle_owner.DeltaBundleError, OSError) as exc:
+            raise USBUpdatePreflightError("local delta package readback failed") from exc
+        if (verified.get("cow_plan_sha256") != bundle["cow_plan_sha256"]
+                or verified.get("requested_main_commit") != source
+                or verified.get("target", {}).get("usb_serial") != serial.upper()
+                or bundle_owner._hash_file(candidate_dir / "manifest.json")
+                   != bundle["manifest_sha256"]):
+            raise USBUpdatePreflightError("local delta package provenance disagrees")
     if inventory(disk_number) != before:
         raise USBUpdatePreflightError("USB identity changed after guest proof")
     _verify_data_label(data_letter)
@@ -213,6 +257,8 @@ def preflight(disk_number: int, serial: str, *, progress=None) -> dict:
     return {
         "$schema": SCHEMA,
         "status": "verified-offline-candidate-feasibility",
+        **({"host_delta_bundle": evidence["host_delta_bundle"]}
+           if prepare_host_bundle else {}),
         "disk_number": disk_number, "usb_serial": serial.upper(),
         "physical_size_bytes": before["Size"],
         "linux_partition_number": 2, "linux_volume_letter": letter,
@@ -237,13 +283,16 @@ def main() -> int:
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--disk-number", required=True, type=int)
     parser.add_argument("--serial", required=True)
+    parser.add_argument("--prepare-host-bundle", action="store_true",
+                        help="stage local verified data only; never write physical USB")
     args = parser.parse_args()
     try:
         def report(phase: str) -> None:
             print("ordax-owner-usb-update-preflight: phase=" + phase,
                   file=sys.stderr, flush=True)
 
-        result = preflight(args.disk_number, args.serial, progress=report)
+        result = preflight(args.disk_number, args.serial, progress=report,
+                           prepare_host_bundle=args.prepare_host_bundle)
         print(json.dumps(result, sort_keys=True), flush=True)
         return 0
     except (USBUpdatePreflightError, ReadonlyProbeError, ValueError, OSError,

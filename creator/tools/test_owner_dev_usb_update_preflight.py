@@ -97,6 +97,46 @@ class USBUpdatePreflightTests(unittest.TestCase):
         self.assertFalse(receipt["update_executed"])
         self.assertFalse(receipt["physical_write"])
 
+    def test_optional_local_bundle_is_bound_to_the_exact_guest_proof(self):
+        import os
+        local = Path(self.temp.name)
+        cache = local / "OrdaX" / "updates" / "creator" / "dev-delta"
+        bundle_path = cache / "test-verified-bundle"
+        bundle_path.mkdir(parents=True)
+        (bundle_path / "manifest.json").write_text("canonical", encoding="utf-8")
+        staged = {
+            "bundle_path": str(bundle_path),
+            "requested_main_commit": SOURCE,
+            "usb_serial": SERIAL,
+            "cow_plan_sha256": "b" * 64,
+            "manifest_sha256": "a" * 64,
+            "region_count": 1, "payload_bytes": 65536,
+            "physical_write": False,
+            "physical_write_authorized": False,
+        }
+        guest = {**good_evidence(), "host_delta_bundle": staged}
+        bundle_owner = SimpleNamespace(
+            DeltaBundleError=ValueError,
+            verify_bundle=lambda path: {
+                "cow_plan_sha256": "b" * 64,
+                "requested_main_commit": SOURCE,
+                "target": {"usb_serial": SERIAL},
+            },
+            _hash_file=lambda path: "a" * 64,
+        )
+        with (mock.patch.object(MOD, "prove", return_value=guest),
+              mock.patch.object(MOD, "_load_bundle", return_value=bundle_owner),
+              mock.patch.dict(os.environ, {"LOCALAPPDATA": str(local)})):
+            result = MOD.preflight(1, SERIAL, prepare_host_bundle=True)
+            self.assertEqual(result["host_delta_bundle"], staged)
+            self.assertFalse(result["physical_write"])
+            with mock.patch.object(MOD, "prove", return_value={
+                **guest,
+                "host_delta_bundle": {**staged, "physical_write_authorized": True},
+            }):
+                with self.assertRaisesRegex(MOD.USBUpdatePreflightError, "disagrees"):
+                    MOD.preflight(1, SERIAL, prepare_host_bundle=True)
+
     def test_cached_manifest_uses_exact_publisher_bytes(self):
         (self.base / "dev-base.json").write_bytes(b"modified")
         with mock.patch.object(MOD, "prove") as guest:

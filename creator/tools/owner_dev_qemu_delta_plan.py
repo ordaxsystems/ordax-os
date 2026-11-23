@@ -116,7 +116,7 @@ def _hash_bytes(handle, offset: int, length: int, *, zero: bool = False) -> str:
 def compile_delta(*, qemu_img: Path, overlay: Path, volume: str,
                   disk_number: int, usb_serial: str,
                   target_bytes: int, partition_offset: int,
-                  partition_bytes: int) -> dict:
+                  partition_bytes: int, include_regions: bool = False) -> dict:
     if (type(disk_number) is not int or not 0 <= disk_number <= 999
             or not isinstance(usb_serial, str) or not SERIAL.fullmatch(usb_serial)
             or not isinstance(volume, str) or not VOL.fullmatch(volume)
@@ -171,7 +171,7 @@ def compile_delta(*, qemu_img: Path, overlay: Path, volume: str,
     }
     encoded = json.dumps(digest_input, sort_keys=True,
                          separators=(",", ":")).encode("utf-8")
-    return {
+    receipt = {
         "$schema": SCHEMA,
         "status": "verified-readonly-delta-plan",
         "disk_number": disk_number, "usb_serial": usb_serial.upper(),
@@ -184,5 +184,9 @@ def compile_delta(*, qemu_img: Path, overlay: Path, volume: str,
         "physical_write_authorized": False,
         "apply_executed": False,
         "requires_revalidation_under_writer_lock": True,
-        # Do NOT expose ephemeral overlay offsets as a reusable write grant.
+        # Never expose ephemeral QCOW offsets in the public read-only receipt.
     }
+    if include_regions:
+        # Internal-only temporary handoff; the host bundle omits QCOW offsets.
+        receipt["regions"] = regions
+    return receipt

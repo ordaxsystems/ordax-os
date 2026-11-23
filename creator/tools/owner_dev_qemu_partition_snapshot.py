@@ -10,6 +10,7 @@ import argparse
 import hashlib
 import importlib.util
 import json
+import os
 from pathlib import Path
 import secrets
 import subprocess
@@ -223,7 +224,8 @@ def run_vm(qemu: Path, kernel: Path, ramdisk: Path, image: Path | str,
 def prove(base: Path, qemu: Path, qemu_img: Path, *,
           disk_number: int, serial: str, requested_commit: str,
           git_bin: str = "git", awk_bin: str = "awk",
-          progress: Callable[[str], None] | None = None) -> dict:
+          progress: Callable[[str], None] | None = None,
+          prepare_host_bundle: bool = False) -> dict:
     def report(phase: str) -> None:
         if progress is not None:
             progress(phase)
@@ -309,6 +311,7 @@ def prove(base: Path, qemu: Path, qemu_img: Path, *,
                 target_bytes=original_identity["Size"],
                 partition_offset=original_identity["Partitions"][1]["Offset"],
                 partition_bytes=original_identity["Partitions"][1]["Size"],
+                include_regions=prepare_host_bundle,
             )
         except delta_owner.DeltaPlanError as exc:
             raise SnapshotProofError("canonical sparse COW delta plan failed: " + str(exc)) from exc
@@ -319,10 +322,39 @@ def prove(base: Path, qemu: Path, qemu_img: Path, *,
                 or delta.get("modified_bytes", 0) <= 0):
             raise SnapshotProofError("sparse COW delta plan is not safe to report")
         report("cow-modified-blocks-hashed")
+        bundle_receipt = None
+        if prepare_host_bundle:
+            if physical.inventory(disk_number) != original_identity:
+                raise SnapshotProofError("USB identity changed before local delta handoff")
+            localappdata = os.environ.get("LOCALAPPDATA", "")
+            if not localappdata or not Path(localappdata).is_dir():
+                raise SnapshotProofError("canonical Windows local cache unavailable")
+            report("preparing-host-local-delta")
+            bundle_owner = _load("owner_dev_qemu_delta_bundle.py",
+                                 "ordax_cow_delta_bundle_owner")
+            try:
+                bundle_receipt = bundle_owner.prepare_bundle(
+                    delta=delta, overlay=overlay,
+                    cache_root=Path(localappdata) / "OrdaX" / "updates" / "creator" / "dev-delta",
+                    disk_number=disk_number, serial=serial,
+                    disk_bytes=original_identity["Size"],
+                    partition_offset=original_identity["Partitions"][1]["Offset"],
+                    partition_bytes=original_identity["Partitions"][1]["Size"],
+                    requested_main_commit=requested_commit,
+                    published_base_source_commit=base.name,
+                )
+            except (bundle_owner.DeltaBundleError, OSError) as exc:
+                raise SnapshotProofError("verified local delta bundle failed: " + str(exc)) from exc
+            if (bundle_receipt.get("physical_write_authorized") is not False
+                    or bundle_receipt.get("physical_write") is not False
+                    or bundle_receipt.get("cow_plan_sha256") != delta["plan_sha256"]):
+                raise SnapshotProofError("local delta handoff is not proof-only")
+            report("host-local-delta-verified")
     if physical.inventory(disk_number) != original_identity:
         raise SnapshotProofError("USB changed after proof")
     report("physical-identity-unchanged")
     return {"$schema": SCHEMA, "status": "pass",
+            **({"host_delta_bundle": bundle_receipt} if bundle_receipt else {}),
             "source_commit": base.name,
             "requested_source_commit": requested_commit,
             "disk_number": disk_number, "usb_serial": serial.upper(),
