@@ -1035,12 +1035,30 @@ async function start() {
   // The Native Home and Space switcher share the one authenticated catalog.
   // Boot and reconnect must refresh it even when Account > Spaces was never
   // opened. Only the current signed-in identity can authorize this read.
+  let currentSpacesRefresh = null;
   const refreshCurrentSpaceCatalog = ({ force = false } = {}) => {
-    if (identitySession.getSnapshot().state !== "signed-in"
-      || (!force && spaces.getSnapshot().state === "loading")) return;
-    void spaces.refresh().catch((error) => {
-      console.warn("OrdaX current Spaces catalog refresh remains unavailable", error);
-    });
+    if (identitySession.getSnapshot().state !== "signed-in") return null;
+    // A session transition may start the read before the boot continuation
+    // resumes. Reuse that one in-flight read, including its final result.
+    // Same-subject reconnect explicitly supersedes a stale read.
+    if (!force && ["loading", "ready"].includes(spaces.getSnapshot().state)) {
+      return currentSpacesRefresh;
+    }
+    const pending = spaces.refresh();
+    currentSpacesRefresh = pending;
+    void pending.then(
+      (snapshot) => {
+        if (currentSpacesRefresh === pending) currentSpacesRefresh = null;
+        if (identitySession.getSnapshot().state === "signed-in" && snapshot.state !== "ready") {
+          console.error("OrdaX authenticated Spaces catalog unavailable: " + snapshot.state);
+        }
+      },
+      (error) => {
+        if (currentSpacesRefresh === pending) currentSpacesRefresh = null;
+        console.warn("OrdaX current Spaces catalog refresh remains unavailable", error);
+      },
+    );
+    return pending;
   };
   const unsubscribeSpacesIdentity = identitySession.subscribe((snapshot) => {
     if (snapshot.state === "signed-in") refreshCurrentSpaceCatalog();
@@ -1049,13 +1067,16 @@ async function start() {
     const priorIdentity = identitySession.getSnapshot();
     await identitySession.refresh();
     const currentIdentity = identitySession.getSnapshot();
-    // An identity transition already triggered the subscriber. A same-user
-    // reconnect must refresh an otherwise stale/error/unavailable catalog.
-    if (currentIdentity.state === "signed-in"
-      && priorIdentity.state === "signed-in"
-      && priorIdentity.subjectId === currentIdentity.subjectId) {
-      // A reconnect supersedes any stale pre-offline read for this account.
-      refreshCurrentSpaceCatalog({ force: true });
+    if (currentIdentity.state === "signed-in") {
+      // Resolve the same authenticated catalog even if an earlier identity
+      // observer ran before Spaces was ready. No second read when loading or
+      // ready; a same-user reconnect still supersedes the stale generation.
+      const sameAccount = priorIdentity.state === "signed-in"
+        && priorIdentity.subjectId === currentIdentity.subjectId;
+      await refreshCurrentSpaceCatalog({ force: sameAccount });
+      if (spaces.getSnapshot().state !== "ready") {
+        console.error("OrdaX Spaces remain unavailable after identity refresh: " + spaces.getSnapshot().state);
+      }
     }
     await identityActions.refresh();
     await accountLifecycle.refresh();
