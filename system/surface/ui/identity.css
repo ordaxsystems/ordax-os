@@ -555,13 +555,39 @@ body { background: var(--md-canvas); font-weight: 400; }
   .meridian-native-workspace .ordax-home-panel > .ordax-space:not([data-home-continuation]):not([data-home-pending]) { grid-template-columns: repeat(2, minmax(0, 1fr)); }
 }
 @container meridian-native-home (max-width: 50rem) {
-  .meridian-native-workspace .ordax-home-panel { grid-template-areas: "intro intro" "hero hero" "resume resume" "quick quick" "status current" "files files" "ecosystem ecosystem" "session session"; }
-  .meridian-native-workspace .ordax-home-panel:not(:has([data-home-continuation])) { grid-template-areas: "intro intro" "hero hero" "quick quick" "status current" "files files" "ecosystem ecosystem" "session session"; }
+  /* At compact desktop widths prioritize tools and observed health over artwork. */
+  .meridian-native-workspace .ordax-home-panel { grid-template-areas: "intro intro" "resume resume" "quick quick" "status current" "hero hero" "files files" "ecosystem ecosystem" "session session"; }
+  .meridian-native-workspace .ordax-home-panel:not(:has([data-home-continuation])) { grid-template-areas: "intro intro" "quick quick" "status current" "hero hero" "files files" "ecosystem ecosystem" "session session"; }
+  .meridian-native-workspace .ordax-home-hero { min-height: 12rem; }
+  .meridian-native-workspace .ordax-home-action-grid {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: .5rem;
+  }
+  .meridian-native-workspace .ordax-home-action {
+    display: flex;
+    flex-direction: row;
+    align-items: center;
+    min-height: 3.25rem;
+    gap: .625rem;
+    padding: .375rem .5rem;
+    border: 1px solid var(--md-border);
+    background: var(--md-surface);
+    font-size: .75rem;
+    text-align: start;
+  }
+  .meridian-native-workspace .ordax-home-action .ordax-rail-icon {
+    width: 2.5rem;
+    height: 2.5rem;
+    flex: 0 0 2.5rem;
+    padding: .625rem;
+  }
+  .meridian-native-workspace .ordax-home-status-list > button { font-size: .75rem; }
+  .meridian-native-workspace .ordax-home-status-list small { font-size: .6875rem; }
 }
 /* At narrow *workspace* widths, keep complete labels and actions readable.
    Use the existing home container: a full-size OS window must not inherit a
    phone layout merely because the host screen is small or display-scaled. */
-@container meridian-native-home (max-width: 38rem) {
+@container meridian-native-home (max-width: 46rem) {
   .meridian-native-workspace .ordax-home-panel {
     grid-template-columns: minmax(0, 1fr);
     grid-template-areas: "intro" "resume" "quick" "status" "current" "hero" "files" "ecosystem" "session";
@@ -605,30 +631,6 @@ body { background: var(--md-canvas); font-weight: 400; }
     margin: .375rem 0 .25rem;
     font-size: 1.375rem;
   }
-  .meridian-native-workspace .ordax-home-action-grid {
-    grid-template-columns: repeat(2, minmax(0, 1fr));
-    gap: .5rem;
-  }
-  .meridian-native-workspace .ordax-home-action {
-    display: flex;
-    flex-direction: row;
-    align-items: center;
-    min-height: 3.25rem;
-    gap: .625rem;
-    padding: .375rem .5rem;
-    border: 1px solid var(--md-border);
-    background: var(--md-surface);
-    font-size: .75rem;
-    text-align: start;
-  }
-  .meridian-native-workspace .ordax-home-action .ordax-rail-icon {
-    width: 2.5rem;
-    height: 2.5rem;
-    flex: 0 0 2.5rem;
-    padding: .625rem;
-  }
-  .meridian-native-workspace .ordax-home-status-list > button { font-size: .75rem; }
-  .meridian-native-workspace .ordax-home-status-list small { font-size: .6875rem; }
   .meridian-native-workspace .ordax-home-destination-grid,
   .meridian-native-workspace .ordax-home-panel > .ordax-space,
   .meridian-native-workspace .ordax-home-panel > .ordax-space[data-home-continuation] {
