@@ -1,5 +1,5 @@
 import { mountNativeSidebarFit, sidebarIsExpanded, sidebarItemIsActive } from "./sidebar-layout.mjs";
-import { notifySurfaceRenderObservers } from "./render-observers.mjs";
+import { notifySurfaceRenderObservers, renderWithObserverRecovery } from "./render-observers.mjs";
 import { mountSidebarHints } from "./sidebar-hints.mjs";
 import { assertAppRuntimeCatalog, defaultAppRuntimeCatalog } from "../../apps/runtime-catalog.mjs";
 import { externalAppCopy } from "../../apps/external-app-definition.mjs";
@@ -1315,7 +1315,13 @@ export function mountSurface(
     } else if (isConnectivityOnlyHostUpdate(action, previousState, state)) {
       renderConnectivityOnly();
     } else {
-      render(action, previousLocale, previousActiveWindowId);
+      renderWithObserverRecovery(
+        () => render(action, previousLocale, previousActiveWindowId),
+        (error) => {
+          console.error("OrdaX Surface core render failed after state commit", error);
+          notifyRenderListeners();
+        },
+      );
     }
     if (preferencesChanged) {
       for (const listener of [...preferenceListeners]) listener(state.preferences);

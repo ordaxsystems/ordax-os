@@ -10,3 +10,17 @@ export function notifySurfaceRenderObservers(observers, reportError) {
     catch (error) { reportError(error); }
   }
 }
+
+// A Native state change may already have installed a real window when one
+// core renderer fails. Notify independent controllers before preserving that
+// original failure for the caller; no presentation success is fabricated.
+export function renderWithObserverRecovery(render, onFailure) {
+  if (typeof render !== "function" || typeof onFailure !== "function") {
+    throw new TypeError("Surface render recovery requires both callbacks");
+  }
+  try { return render(); }
+  catch (error) {
+    try { onFailure(error); }
+    finally { throw error; }
+  }
+}
