@@ -158,6 +158,33 @@ Required next gate: OS-owned offline rootfs and inactive ESP staging on
 the actual USB layout, with independent boot, integrity, rollback and
 device-lock evidence. Never substitute a QEMU marker or a raw block copy.
 
+### Critério obrigatório: transporte não equivale a instalação
+
+O Creator Owner DEV apenas copia Git/Base para `ORDAX-DATA`. Um pacote
+com SHA válido, um `owner-git-update-request.txt`, o status `CURRENT`
+do antigo transporte, ou um código de saída zero **não provam** mudança
+da instalação Linux, da Surface, da EFI, nem boot saudável.
+
+Os recibos canônicos de transporte agora usam
+`ordax.owner-usb-git-transport/2`, com estados explícitos
+`GIT_BUNDLE_CURRENT_INSTALL_UNVERIFIED` e
+`GIT_BUNDLE_STAGED_INSTALL_UNVERIFIED`; trazem sempre
+`evidence_type=git-transport-only`, `os_activation_verified=false` e
+`installed_source_commit=null`. Recibos que tentem declarar instalação
+são rejeitados. `CURRENT` isolado não é um estado de OS instalado.
+
+A leitura física opcional `owner_dev_qemu_partition_readonly.py` mostra
+`on_disk_state_commit` do volume ext4 real identificado pelo serial,
+além do Git `main` quando disponível. Essa prova é estritamente somente
+leitura e **não é prova de boot**: `running_revision_verified=false` e
+`physical_boot_verified=false`. Se a revisão no disco divergir da
+entrega, atualizar o pacote não resolveu a instalação.
+
+Somente a confirmação da revisão efetivamente ativa após boot, junto
+ao teste de saúde e à verificação de integridade/recuperação da entrega
+instalada, autoriza dizer "sistema atualizado". Até essa evidência,
+apresentar "arquivos preparados / instalação não verificada".
+
 The OS-owned Base channel and the Creator's existing Win32 raw-disk
 lease/readback are the authorities; do not implement a second updater in MCP.
 The `portable_update_windows.go` path is for a different **two-partition**

@@ -700,6 +700,43 @@ def stage_canonical_base_for_creator(
                 "base_artifact_commit": artifact}
 
 
+def validate_owner_usb_transport_receipt(receipt: object) -> str:
+    from owner_usb_git_delivery import (
+        TRANSPORT_RECEIPT_SCHEMA, TRANSPORT_CURRENT, TRANSPORT_STAGED,
+        DIGEST, MAX_BUNDLE,
+    )
+    if type(receipt) is not dict:
+        raise SyncError("Owner USB transport receipt must be an object")
+    status = receipt.get("status")
+    if status == "SKIP_TRUSTED_USB_NOT_PRESENT":
+        if set(receipt) != {"status"}:
+            raise SyncError("USB absence receipt contains unauthorized claims")
+        return status
+    required = {"$schema", "status", "source_commit", "sha256", "bytes",
+                "native_pin_status", "evidence_type", "os_activation_verified",
+                "installed_source_commit"}
+    if (set(receipt) != required or
+            status not in (TRANSPORT_CURRENT, TRANSPORT_STAGED) or
+            receipt["$schema"] != TRANSPORT_RECEIPT_SCHEMA or
+            receipt["evidence_type"] != "git-transport-only" or
+            receipt["os_activation_verified"] is not False or
+            receipt["installed_source_commit"] is not None or
+            not isinstance(receipt["source_commit"], str) or
+            not HEX40.fullmatch(receipt["source_commit"]) or
+            receipt["native_pin_status"] not in
+            ("NOT_CHECKED", "NOT_STAGED", "CURRENT", "STAGED_NOT_ACTIVATED")):
+        raise SyncError("Owner USB transport cannot attest an installed OS")
+    if status == TRANSPORT_CURRENT:
+        if receipt["sha256"] != "" or receipt["bytes"] != 0:
+            raise SyncError("Owner USB existing bundle receipt is inconsistent")
+    elif (not isinstance(receipt["sha256"], str) or
+          not DIGEST.fullmatch(receipt["sha256"]) or
+          type(receipt["bytes"]) is not int or
+          not 0 < receipt["bytes"] <= MAX_BUNDLE):
+        raise SyncError("Owner USB staged bundle readback is inconsistent")
+    return status
+
+
 def stage_owner_usb_dev(expected_serial: str, *, from_creator_ui: bool = False,
                         expected_disk_number: int | None = None) -> str | dict:
     """Reuse the single cached Git deliverer for the task and the Creator GUI."""
@@ -752,9 +789,7 @@ def stage_owner_usb_dev(expected_serial: str, *, from_creator_ui: bool = False,
         receipt = json.loads(completed.stdout)
     except ValueError as exc:
         raise SyncError("Owner USB Git staging returned no valid receipt") from exc
-    status = receipt.get("status")
-    if status not in ("CURRENT", "STAGED_NOT_ACTIVATED", "SKIP_TRUSTED_USB_NOT_PRESENT"):
-        raise SyncError("Owner USB Git staging returned unknown status")
+    status = validate_owner_usb_transport_receipt(receipt)
     if from_creator_ui:
         if status == "SKIP_TRUSTED_USB_NOT_PRESENT":
             raise SyncError("selected Owner USB disappeared during staging")

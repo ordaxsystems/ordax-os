@@ -263,11 +263,22 @@ func TestOwnerUSBTrustedHotplugRequiresUniqueAuthorizedSerial(t *testing.T) {
     }
 }
 
+func validOwnerTransportReceipt(status, commit string) ownerUSBReceipt {
+    no := false
+    return ownerUSBReceipt{
+        Schema: "ordax.owner-usb-git-transport/2",
+        EvidenceType: "git-transport-only",
+        OSActivationVerified: &no,
+        InstalledSourceCommit: json.RawMessage("null"),
+        Status: status, SourceCommit: commit,
+    }
+}
+
 func TestOwnerUSBUpdateAcceptsOnlyVerifiedStagingReceipts(t *testing.T) {
     commit := strings.Repeat("a", 40)
-    for _, status := range []string{"CURRENT", "STAGED_NOT_ACTIVATED"} {
-        receipt := ownerUSBReceipt{Status: status, SourceCommit: commit}
-        if status == "STAGED_NOT_ACTIVATED" {
+    for _, status := range []string{"GIT_BUNDLE_CURRENT_INSTALL_UNVERIFIED", "GIT_BUNDLE_STAGED_INSTALL_UNVERIFIED"} {
+        receipt := validOwnerTransportReceipt(status, commit)
+        if status == "GIT_BUNDLE_STAGED_INSTALL_UNVERIFIED" {
             receipt.SHA256 = strings.Repeat("b", 64)
             receipt.Bytes = 28163491
         }
@@ -278,20 +289,19 @@ func TestOwnerUSBUpdateAcceptsOnlyVerifiedStagingReceipts(t *testing.T) {
             t.Fatalf("expected verified %s receipt: %+v %v", status, result, err)
         }
     }
-    available := ownerUSBReceipt{
-        Status: "CURRENT", SourceCommit: commit,
-        BaseStatus: "AVAILABLE_NOT_STAGED", BaseArtifactCommit: strings.Repeat("c", 40),
-    }
+    available := validOwnerTransportReceipt("GIT_BUNDLE_CURRENT_INSTALL_UNVERIFIED", commit)
+    available.BaseStatus = "AVAILABLE_NOT_STAGED"
+    available.BaseArtifactCommit = strings.Repeat("c", 40)
     valid, _ := json.Marshal(available)
     if read, err := parseOwnerUSBReceipt(valid); err != nil ||
         read.BaseArtifactCommit != available.BaseArtifactCommit {
         t.Fatalf("canonical remote Base candidate missing: %+v %v", read, err)
     }
-    stagedBase := ownerUSBReceipt{
-        Status: "STAGED_NOT_ACTIVATED", SourceCommit: commit,
-        SHA256: strings.Repeat("b", 64), Bytes: 28163491,
-        BaseStatus: "STAGED_NOT_ACTIVATED", BaseArtifactCommit: strings.Repeat("c", 40),
-    }
+    stagedBase := validOwnerTransportReceipt("GIT_BUNDLE_STAGED_INSTALL_UNVERIFIED", commit)
+    stagedBase.SHA256 = strings.Repeat("b", 64)
+    stagedBase.Bytes = 28163491
+    stagedBase.BaseStatus = "STAGED_NOT_ACTIVATED"
+    stagedBase.BaseArtifactCommit = strings.Repeat("c", 40)
     stagedData, _ := json.Marshal(stagedBase)
     if got, err := parseOwnerUSBReceipt(stagedData); err != nil ||
         got.BaseStatus != "STAGED_NOT_ACTIVATED" {
@@ -319,9 +329,57 @@ func TestOwnerUSBUpdateAcceptsOnlyVerifiedStagingReceipts(t *testing.T) {
     }
 }
 
+func TestOwnerUSBTransportRejectsFakeInstalledRevision(t *testing.T) {
+    sha := strings.Repeat("a", 40)
+    valid := validOwnerTransportReceipt("GIT_BUNDLE_CURRENT_INSTALL_UNVERIFIED", sha)
+    yes := true
+    invalid := []ownerUSBReceipt{}
+    forged := valid
+    forged.OSActivationVerified = &yes
+    invalid = append(invalid, forged)
+    forged = valid
+    encodedCommit, err := json.Marshal(sha)
+    if err != nil { t.Fatal(err) }
+    forged.InstalledSourceCommit = json.RawMessage(encodedCommit)
+    invalid = append(invalid, forged)
+    forged = valid
+    forged.Schema = ""
+    invalid = append(invalid, forged)
+    forged = valid
+    forged.EvidenceType = "os-installation"
+    invalid = append(invalid, forged)
+    forged = valid
+    forged.OSActivationVerified = nil
+    invalid = append(invalid, forged)
+    for _, old := range []string{"CURRENT", "STAGED_NOT_ACTIVATED", "ACTIVATED"} {
+        forged = valid
+        forged.Status = old
+        invalid = append(invalid, forged)
+    }
+    for _, candidate := range invalid {
+        data, err := json.Marshal(candidate)
+        if err != nil { t.Fatal(err) }
+        if _, err := parseOwnerUSBReceipt(data); err == nil {
+            t.Fatalf("forged installation proof or old status accepted: %s", data)
+        }
+    }
+    // A nil RawMessage marshals as explicit JSON null; create a truly
+    // *absent* key to test that the transport receipt fails closed.
+    original, err := json.Marshal(valid)
+    if err != nil { t.Fatal(err) }
+    var fields map[string]json.RawMessage
+    if err := json.Unmarshal(original, &fields); err != nil { t.Fatal(err) }
+    delete(fields, "installed_source_commit")
+    absent, err := json.Marshal(fields)
+    if err != nil { t.Fatal(err) }
+    if _, err := parseOwnerUSBReceipt(absent); err == nil {
+        t.Fatalf("omitted installed-source field passed: %s", absent)
+    }
+}
+
 // A staged source bundle must never be presented as an activated system update.
 func TestOwnerUSBComponentSummaryDoesNotClaimExecutableInstallation(t *testing.T) {
-    for _, result := range []string{"CURRENT", "STAGED_NOT_ACTIVATED"} {
+    for _, result := range []string{"GIT_BUNDLE_CURRENT_INSTALL_UNVERIFIED", "GIT_BUNDLE_STAGED_INSTALL_UNVERIFIED"} {
         view := ownerUSBComponentSummary(ownerUSBUpdateStatus{
             Result: result, SourceCommit: strings.Repeat("a", 40),
         })
@@ -332,7 +390,7 @@ func TestOwnerUSBComponentSummaryDoesNotClaimExecutableInstallation(t *testing.T
         }
     }
     view := ownerUSBComponentSummary(ownerUSBUpdateStatus{
-        Result: "CURRENT", SourceCommit: strings.Repeat("a", 40),
+        Result: "GIT_BUNDLE_CURRENT_INSTALL_UNVERIFIED", SourceCommit: strings.Repeat("a", 40),
         BaseStatus: "AVAILABLE_NOT_STAGED", BaseArtifactCommit: strings.Repeat("c", 40),
     })
     if !strings.Contains(view, "cccccccccccc") || !strings.Contains(view, "Base") ||
@@ -340,7 +398,7 @@ func TestOwnerUSBComponentSummaryDoesNotClaimExecutableInstallation(t *testing.T
         t.Fatalf("available-only Base evidence is missing: %q", view)
     }
     stagedView := ownerUSBComponentSummary(ownerUSBUpdateStatus{
-        Result: "CURRENT", SourceCommit: strings.Repeat("a", 40),
+        Result: "GIT_BUNDLE_CURRENT_INSTALL_UNVERIFIED", SourceCommit: strings.Repeat("a", 40),
         BaseStatus: "STAGED_NOT_ACTIVATED", BaseArtifactCommit: strings.Repeat("c", 40),
     })
     if !strings.Contains(stagedView, "arquivos verificados") ||
@@ -349,7 +407,7 @@ func TestOwnerUSBComponentSummaryDoesNotClaimExecutableInstallation(t *testing.T
     }
     for _, input := range []ownerUSBUpdateStatus{
         {Result: "AVAILABLE", SourceCommit: strings.Repeat("a", 40)},
-        {Result: "CURRENT", SourceCommit: "invalid"},
+        {Result: "GIT_BUNDLE_CURRENT_INSTALL_UNVERIFIED", SourceCommit: "invalid"},
         {Result: ""},
     } {
         if got := ownerUSBComponentSummary(input); got != "" {
@@ -374,11 +432,14 @@ func TestOwnerUSBStagingPresentationNeverClaimsOSActivated(t *testing.T) {
     for _, locale := range []creatorLocale{creatorLocalePTBR, creatorLocaleENUS} {
         current := strings.ToLower(creatorMessageFor(locale, msgUSBUpdateCurrent, nil))
         staged := strings.ToLower(creatorMessageFor(locale, msgUSBUpdateComplete, nil))
+        warning := strings.ToLower(creatorMessageFor(locale, msgUSBUpdateNotActivated, nil))
         if locale == creatorLocalePTBR {
-            if !strings.Contains(current, "não verificado") || !strings.Contains(staged, "não atualizado") {
+            if !strings.Contains(current, "não verificado") || !strings.Contains(staged, "não atualizado") ||
+                !strings.Contains(warning, "instalação não verificada") {
                 t.Fatalf("Portuguese Git staging must not be reported as OS activation: %q / %q", current, staged)
             }
-        } else if !strings.Contains(current, "unverified") || !strings.Contains(staged, "not updated") {
+        } else if !strings.Contains(current, "unverified") || !strings.Contains(staged, "not updated") ||
+            !strings.Contains(warning, "installation not verified") {
             t.Fatalf("English Git staging must not be reported as OS activation: %q / %q", current, staged)
         }
     }

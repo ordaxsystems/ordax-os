@@ -66,6 +66,23 @@ class ReadonlyPhysicalUSBTests(unittest.TestCase):
         for command in ("mkfs", "mke2fs", "tar -x", "dd ", "rm -", "> /mnt"):
             self.assertNotIn(command, script)
 
+    def test_disk_revision_markers_are_not_boot_proof(self):
+        sha = "c1484313055bedb136772b90864b1e7f072e0aae"
+        log = ("ORDAX_DISK_STATE_BEGIN\n" + sha
+               + "\nORDAX_DISK_STATE_END\nORDAX_DISK_GIT_BEGIN\n"
+               + sha + "\nORDAX_DISK_GIT_END\n")
+        self.assertEqual(APP.read_guest_commit(log, "DISK_STATE"), sha)
+        self.assertEqual(APP.read_guest_commit(log, "DISK_GIT"), sha)
+        self.assertIsNone(APP.read_guest_commit(
+            log.replace(sha, "unexpected"), "DISK_STATE"))
+        self.assertIsNone(APP.read_guest_commit(
+            log + "ORDAX_DISK_GIT_BEGIN\n", "DISK_GIT"))
+        self.assertIsNone(APP.read_guest_commit(
+            log.replace(sha, "f" * 40 + "\n" + sha), "DISK_GIT"))
+        guest = APP.guest_script()
+        self.assertIn("/mnt/dev-base/state/ordax/current-commit", guest)
+        self.assertIn("/mnt/dev-base/workspace/ordax/.git/refs/heads/main", guest)
+
     def test_superblock_is_read_only_and_validated(self):
         block = bytearray(2048)
         block[1024 + 56:1024 + 58] = b"\x53\xef"

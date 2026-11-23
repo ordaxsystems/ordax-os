@@ -154,6 +154,25 @@ class DeliveryTests(unittest.TestCase):
         self.assertNotIn("STAGED_NOT_ACTIVATED", output.getvalue())
         self.assertIn("OWNER_USB_GIT_DELIVERY=MAIN_ADVANCED:", error.getvalue())
 
+    def test_git_transfer_receipt_never_claims_os_installed(self):
+        unchanged = APP.transport_receipt(APP.TRANSPORT_CURRENT, self.sha)
+        staged = APP.transport_receipt(
+            APP.TRANSPORT_STAGED, self.sha, sha256="f" * 64, size=42,
+        )
+        for receipt in (unchanged, staged):
+            with self.subTest(status=receipt["status"]):
+                self.assertEqual(receipt["$schema"], APP.TRANSPORT_RECEIPT_SCHEMA)
+                self.assertEqual(receipt["evidence_type"], "git-transport-only")
+                self.assertIs(receipt["os_activation_verified"], False)
+                self.assertIsNone(receipt["installed_source_commit"])
+                self.assertNotIn(receipt["status"], ("CURRENT", "INSTALLED", "ACTIVATED"))
+        for status in ("CURRENT", "STAGED_NOT_ACTIVATED", "ACTIVATED"):
+            with self.subTest(status=status):
+                with self.assertRaises(APP.DeliveryError):
+                    APP.transport_receipt(status, self.sha)
+        with self.assertRaises(APP.DeliveryError):
+            APP.transport_receipt(APP.TRANSPORT_STAGED, self.sha)
+
     def test_bundles_only_exact_main_with_matching_sha(self):
         digest, size = self.make_bundle()
         self.assertGreater(size, 0)

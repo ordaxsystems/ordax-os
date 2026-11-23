@@ -52,6 +52,10 @@ type ownerUSBTransport struct {
     Serial string
 }
 type ownerUSBReceipt struct {
+    Schema string `json:"$schema"`
+    EvidenceType string `json:"evidence_type"`
+    OSActivationVerified *bool `json:"os_activation_verified"`
+    InstalledSourceCommit json.RawMessage `json:"installed_source_commit"`
     Status string `json:"status"`
     SourceCommit string `json:"source_commit"`
     SHA256 string `json:"sha256"`
@@ -267,15 +271,22 @@ func parseOwnerUSBReceipt(data []byte) (ownerUSBReceipt, error) {
     if err := decoder.Decode(&trailing); !errors.Is(err, io.EOF) {
         return ownerUSBReceipt{}, errors.New("Owner USB transport receipt has trailing content")
     }
+    // Require explicit negative evidence; missing/affirmative flags fail.
+    if result.Schema != "ordax.owner-usb-git-transport/2" ||
+        result.EvidenceType != "git-transport-only" ||
+        result.OSActivationVerified == nil || *result.OSActivationVerified ||
+        !bytes.Equal(result.InstalledSourceCommit, []byte("null")) {
+        return ownerUSBReceipt{}, errors.New("USB transport receipt cannot attest OS installation")
+    }
     if !validLowerHexString(result.SourceCommit, 40) {
         return ownerUSBReceipt{}, errors.New("Owner USB transport revision is invalid")
     }
     switch result.Status {
-    case "CURRENT":
+    case "GIT_BUNDLE_CURRENT_INSTALL_UNVERIFIED":
         if result.SHA256 != "" || result.Bytes != 0 {
             return ownerUSBReceipt{}, errors.New("current USB receipt contains invalid claims")
         }
-    case "STAGED_NOT_ACTIVATED":
+    case "GIT_BUNDLE_STAGED_INSTALL_UNVERIFIED":
         if !validLowerHexString(result.SHA256, 64) || result.Bytes <= 0 || result.Bytes > 1_000_000_000 {
             return ownerUSBReceipt{}, errors.New("Owner USB transport readback receipt is invalid")
         }
@@ -527,7 +538,8 @@ func ownerUSBComponentSummary(state ownerUSBUpdateStatus) string {
         if !validLowerHexString(state.SourceCommit,40) {return ""}
         return creatorTValues(msgPortableUSBUpdateEvidence,map[string]string{"commit":state.SourceCommit[:12]})+"\n"+creatorT(msgUSBUpdateNotActivated)
     }
-    if state.Result != "CURRENT" && state.Result != "STAGED_NOT_ACTIVATED" {
+    if state.Result != "GIT_BUNDLE_CURRENT_INSTALL_UNVERIFIED" &&
+        state.Result != "GIT_BUNDLE_STAGED_INSTALL_UNVERIFIED" {
         return ""
     }
     if !validLowerHexString(state.SourceCommit, 40) {
@@ -565,7 +577,7 @@ func renderOwnerUSBUpdateDone() {
     } else {
         if state.Mode=="portable" {
             setCreatorStatus(creatorT(msgPortableUSBUpdateComplete))
-        } else if state.Result == "CURRENT" {
+        } else if state.Result == "GIT_BUNDLE_CURRENT_INSTALL_UNVERIFIED" {
             setCreatorStatus(creatorT(msgUSBUpdateCurrent))
         } else {
             setCreatorStatus(creatorT(msgUSBUpdateComplete))
