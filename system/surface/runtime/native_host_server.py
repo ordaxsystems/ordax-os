@@ -16,6 +16,7 @@ import re
 import secrets
 import stat
 import sys
+import tempfile
 import threading
 import time
 from functools import partial
@@ -552,28 +553,34 @@ def manual_update_request_pending(path: str = UPDATE_MANUAL_REQUEST_FILE) -> boo
     return os.path.isfile(path) and not os.path.islink(path)
 
 
-def queue_manual_update_check(path: str = UPDATE_MANUAL_REQUEST_FILE) -> bool:
-    """Queue the canonical Supervisor's next main check; never run Git here."""
+def manual_update_action(product_mode: str | None, distribution_profile: str, stable_layout: str) -> str:
+    if product_mode == "usb":
+        if distribution_profile == "owner-development":
+            return "check-main"
+        if distribution_profile == "stable-mvp" and stable_layout == "portable-v2":
+            return "check-release"
+    return ""
+
+
+def queue_manual_update_check(action: str, path: str = UPDATE_MANUAL_REQUEST_FILE) -> bool:
+    """Publish a complete request for the Supervisor to consume."""
+    if action not in {"check-main", "check-release"}:
+        raise ValueError("unknown update request action")
     parent = os.path.dirname(path)
     if not os.path.isdir(parent) or os.path.islink(parent):
         raise OSError("Supervisor update run directory unavailable")
-    try:
-        fd = os.open(path, os.O_WRONLY | os.O_CREAT | os.O_EXCL | getattr(os, "O_NOFOLLOW", 0), 0o600)
-    except FileExistsError:
-        if manual_update_request_pending(path):
-            return False
-        raise OSError("unsafe update request path")
+    fd, temporary = tempfile.mkstemp(prefix=".manual-check-", dir=parent)
     try:
         with os.fdopen(fd, "w", encoding="ascii") as handle:
-            handle.write("check-main\n")
-            handle.flush()
-            os.fsync(handle.fileno())
-    except BaseException:
+            handle.write(f"{action}\n")
         try:
-            os.unlink(path)
-        except OSError:
-            pass
-        raise
+            os.link(temporary, path, follow_symlinks=False)
+        except FileExistsError:
+            if manual_update_request_pending(path):
+                return False
+            raise OSError("unsafe or concurrently consumed update request path")
+    finally:
+        os.unlink(temporary)
     return True
 
 
@@ -3781,6 +3788,9 @@ class NativeHostServer(ThreadingHTTPServer):
             if distribution_profile in {"owner-development", "stable-mvp"}
             else "unknown"
         )
+        self.manual_update_action = manual_update_action(
+            self.product_mode, self.distribution_profile, os.environ.get("ORDAX_STABLE_LAYOUT", ""),
+        )
         self.native_install_capability = (
             native_install_capability
             if native_install_capability in {"disabled", "post-mvp-preview"}
@@ -4800,9 +4810,12 @@ class NativeHostHandler(SimpleHTTPRequestHandler):
                 self.server.distribution_profile == "owner-development"
                 and self.server.product_mode == "usb"
             )
-            update_state["manualCheckAvailable"] = owner_usb
-            update_state["manualCheckPending"] = owner_usb and manual_update_request_pending()
-            update_state["manualCheckToken"] = self.server.manual_update_token if owner_usb else ""
+            can_check = bool(self.server.manual_update_action)
+            update_state["manualCheckAvailable"] = can_check
+            update_state["manualCheckPending"] = can_check and (
+                manual_update_request_pending() or update_state.get("status") == "updating"
+            )
+            update_state["manualCheckToken"] = self.server.manual_update_token if can_check else ""
             if owner_usb:
                 update_state["hostPower"] = read_owner_usb_power_receipts()
             self._write_json(status, update_state)
@@ -4960,8 +4973,7 @@ class NativeHostHandler(SimpleHTTPRequestHandler):
             if self.path != UPDATE_CHECK_PATH:
                 self._empty(400)
                 return
-            if (self.server.distribution_profile != "owner-development"
-                    or self.server.product_mode != "usb"):
+            if not self.server.manual_update_action:
                 self._empty(404)
                 return
             if not hmac.compare_digest(
@@ -4971,18 +4983,18 @@ class NativeHostHandler(SimpleHTTPRequestHandler):
                 self._empty(403)
                 return
             body = self._read_json_body(MAX_CONTROL_BODY)
-            if not isinstance(body, dict) or set(body) != {"action"} or body.get("action") != "check-main":
+            if not isinstance(body, dict) or set(body) != {"action"} or body.get("action") != "check":
                 self._empty(400)
                 return
             try:
                 with self.server.manual_update_lock:
-                    queued = queue_manual_update_check()
+                    queued = queue_manual_update_check(self.server.manual_update_action)
             except OSError as exc:
                 print(f"ordax-native-host: update check queue unavailable: {exc}", file=sys.stderr, flush=True)
                 self._empty(503)
                 return
             self._write_json(202, {
-                "schema": "ordax.owner-manual-update-request/1",
+                "schema": "ordax.manual-update-request/1",
                 "state": "queued" if queued else "pending",
             })
             return

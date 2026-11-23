@@ -94,7 +94,7 @@
     "physical_write_authorized": false
   },
   "incremental_update": {
-    "status": "implemented-unpublished-physical-validation-pending",
+    "status": "deferred-windows-adapter-proof-only",
     "core_policy": "creator/core/portable_update.go",
     "core_transaction": "creator/core/portable_update_executor.go",
     "source_of_installation_receipt": "creator/core/portable_installed_receipt.go",
@@ -103,7 +103,6 @@
       "prepare-portable-update",
       "apply-portable-update"
     ],
-    "gui_owner": "creator/cmd/ordax-creator-app/portable_update_windows.go",
     "signed_release_owner": "creator/physicalchannel",
     "trusted_boot_request_owner": "bootstrap/initramfs/portable_init.sh",
     "cold_health_authority": "system/supervisor",

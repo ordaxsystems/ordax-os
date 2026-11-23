@@ -4,6 +4,7 @@
 from __future__ import annotations
 
 import json
+import os
 from pathlib import Path
 import shutil
 import subprocess
@@ -12,6 +13,7 @@ import unittest
 
 ROOT = Path(__file__).resolve().parents[1]
 SOURCE = ROOT / "bootstrap" / "initramfs" / "portable_state.c"
+SUPERVISOR = ROOT / "system" / "supervisor"
 
 OLD = "1" * 40
 OLDER = "0" * 40
@@ -82,6 +84,88 @@ class PortableActivationStateHelperTests(unittest.TestCase):
             capture_output=True,
             check=check,
         )
+
+    def test_supervisor_arms_verified_release_and_waits_for_restart(self):
+        source = SUPERVISOR.read_text(encoding="utf-8")
+        functions = []
+        for name in (
+            "check_stable_portable_update",
+            "is_sha",
+            "portable_prepare_candidate",
+            "portable_rejected_sha",
+            "portable_release_is_verified",
+            "portable_release_schema_supported",
+            "portable_state_helper_ready",
+            "stable_receipt_string",
+        ):
+            marker = f"{name}() {{"
+            body = source.split(marker, 1)[1].split("\n}\n", 1)[0]
+            functions.append(marker + body + "\n}")
+        # Exercise the real shell and C state machine. The release agent
+        # fixture supplies the canonical CLI receipts for preloaded images.
+        shell = "\n".join(functions).replace("/bin/busybox ", "") + """
+        set -eu
+        stable_channel_url() { echo https://example.invalid/release-envelope.json; }
+        utc_now() { echo check-time; }
+        epoch_now() { echo 1; }
+        record_elapsed_seconds() { :; }
+        run_bounded_update_job() { shift 2; "$@"; }
+        set_update_context() { printf '%s %s\\n' "$1" "$2"; }
+        write_update_state() { printf '%s %s %s\\n' "$1" "$2" "$3"; }
+        write_state_value() { printf '%s\\n' "$2" > "$1"; }
+        log() { :; }
+        portable_reboot_now() { exit 90; }
+        check_stable_portable_update "$OLD"
+        check_stable_portable_update "$OLD"
+        """
+
+        state, portable, activation = self.fixture()
+        agent = state / "release-agent"
+        agent.write_text("""#!/bin/sh
+printf '%s\\n' "$1" >> "$CALLS"
+case "$1" in
+    inspect) status=verified ;;
+    verify-portable-v4-exact) status=verified-portable-v4-exact ;;
+    *) exit 90 ;;
+esac
+printf '{\\n  "status": "%s",\\n  "source_commit": "%s",\\n  "manifest_schema": "prototype-ordax.release-manifest/4"\\n}\\n' "$status" "$NEW"
+""", encoding="ascii")
+        agent.chmod(0o700)
+        trust = state / "trust"
+        trust.touch()
+        user_file = portable.parent / "user-file"
+        user_file.write_text("dados pessoais", encoding="utf-8")
+        env = os.environ | {
+            "PRODUCT_MODE": "usb",
+            "STABLE_LAYOUT": "portable-v2",
+            "PORTABLE_RELEASE_MANIFEST_SCHEMA": "4",
+            "PORTABLE_ROOT": str(portable),
+            "PORTABLE_STATE_ROOT": str(state),
+            "PORTABLE_STATE_HELPER": str(self.binary),
+            "STABLE_RELEASE_AGENT": str(agent),
+            "STABLE_TRUST_FILE": str(trust),
+            "STABLE_INSPECT_TIMEOUT": "30",
+            "STABLE_MATERIALIZE_TIMEOUT": "660",
+            "STABLE_INSPECT_RECEIPT": str(state / "inspect.json"),
+            "PORTABLE_VERIFY_RECEIPT": str(state / "verify.json"),
+            "STABLE_HEALTH_REJECTED_FILE": str(state / "rejected"),
+            "STAGED_RELEASE_FILE": str(state / "staged"),
+            "LAST_STAGE_DURATION_FILE": str(state / "duration"),
+            "UPDATE_LOG": str(state / "update.log"),
+            "OLD": OLD,
+            "NEW": NEW,
+            "CALLS": str(state / "calls"),
+        }
+        result = subprocess.run(
+            ["sh", "-c", shell], env=env, text=True, capture_output=True, check=True,
+        )
+        self.assertEqual(result.stdout.count(f"{OLD} candidate-armed signed-release"), 2)
+        self.assertEqual((state / "calls").read_text().splitlines(), ["inspect", "verify-portable-v4-exact"])
+        self.assertEqual((activation / "current").read_text().strip(), OLD)
+        self.assertEqual((activation / "known-good").read_text().strip(), OLDER)
+        self.assertEqual(user_file.read_text(encoding="utf-8"), "dados pessoais")
+        self.assertEqual(self.run_helper("select-boot", state, portable).stdout.strip(), f"candidate {NEW}")
+        self.assertEqual(self.run_helper("select-boot", state, portable).stdout.strip(), f"current {OLD}")
 
     def test_inspection_is_read_only_across_one_shot_rollback(self):
         state, portable, activation = self.fixture()

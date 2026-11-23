@@ -252,7 +252,7 @@ export function createNativeUpdateWatcher(
     },
     async requestCheck() {
       if (stopped || snapshot?.manualCheckAvailable !== true || manualCheckToken.length < 24) {
-        throw new Error("Owner/Development manual update is unavailable");
+        throw new Error("Manual system update is unavailable");
       }
       const response = await windowRef.fetch(UPDATE_CHECK_PATH, {
         method: "POST",
@@ -262,15 +262,15 @@ export function createNativeUpdateWatcher(
           "Content-Type": "application/json",
           "X-OrdaX-Update-Token": manualCheckToken,
         },
-        body: JSON.stringify({ action: "check-main" }),
+        body: JSON.stringify({ action: "check" }),
       });
       if (response.status !== 202) {
-        throw new Error(`Owner/Development manual update request rejected: ${response.status}`);
+        throw new Error(`Manual system update request rejected: ${response.status}`);
       }
       const receipt = await response.json();
-      if (receipt?.schema !== "ordax.owner-manual-update-request/1"
+      if (receipt?.schema !== "ordax.manual-update-request/1"
         || !["queued", "pending"].includes(receipt.state)) {
-        throw new Error("Owner/Development manual update receipt is invalid");
+        throw new Error("Manual system update receipt is invalid");
       }
       return receipt.state;
     },

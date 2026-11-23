@@ -65,7 +65,6 @@ const (
 	idProgress    = 1008
 	idBootHelp    = 1009
 	idLocaleCombo = 1010
-	idUSBUpdate = 1011
 
 	cbAddString    = 0x0143
 	cbResetContent = 0x014B
@@ -105,7 +104,6 @@ var (
 	localeCombo    uintptr
 	refreshButton  uintptr
 	updateButton   uintptr
-	usbUpdateButton uintptr
 	writeButton    uintptr
 	bootHelpButton uintptr
 
@@ -512,7 +510,6 @@ func renderSelectionExperience(state appRefreshState) {
 		setCreatorStatus(creatorT(msgRefreshSearching))
 		setCreatorHint(creatorT(msgRefreshHint))
 		enable(writeButton, false)
-		enable(usbUpdateButton, false)
 		return
 	}
 	setText(bootHelpButton, creatorT(msgActionBootHelp))
@@ -527,15 +524,10 @@ func renderSelectionExperience(state appRefreshState) {
 	if state.Error == "" && state.NoticeID != "" {
 		hint = strings.TrimSpace(hint + " " + creatorT(state.NoticeID))
 	}
-	if !state.PhysicalReady && ownerUSBCanStageSelected(state, selectedTargetIndex()) {
-        hint = strings.TrimSpace(hint + " " + creatorT(msgUSBTransportAvailable))
-    }
 	setCreatorHint(hint)
 
 	busy := writeInProgress() || ownerUSBUpdateInProgress()
 	enable(writeButton, !busy && view.Step == creatorStepReview && view.CanContinue)
-	enable(usbUpdateButton, !busy && creatorUSBUpdateEligible(state, selectedTargetIndex()))
-	setText(usbUpdateButton,creatorT(msgPortableUSBUpdateAction))
 	if view.Step == creatorStepReview && view.PrimaryAction != "" {
 		setText(writeButton, view.PrimaryAction)
 	} else {
@@ -729,10 +721,6 @@ func wndProc(hwnd uintptr, message uint32, wParam, lParam uintptr) uintptr {
 			beginRefresh()
 			return 0
 		}
-		if id == idUSBUpdate && notify == bnClicked {
-			beginCreatorUSBUpdate()
-			return 0
-		}
 		if id == idUpdate && notify == bnClicked {
 			if ownerUSBUpdateInProgress() { return 0 }
 			handleUpdateButton()
@@ -856,7 +844,6 @@ func createMainWindow(startServices bool) {
 	}
 	deviceCombo = createControl("COMBOBOX", "", wsTabStop|wsVScroll|cbsDropDownList|cbsOwnerDrawFixed|cbsHasStrings|wsDisabled, 364, 224, 415, 216, idDeviceCombo)
 	updateButton = createControl("BUTTON", creatorT(msgUpdateControl), wsTabStop|bsOwnerDraw, 365, 630, 128, 43, idUpdate)
-	usbUpdateButton = createControl("BUTTON", creatorT(msgUSBUpdateAction), wsTabStop|bsOwnerDraw|wsDisabled, 855, 553, 255, 43, idUSBUpdate)
 	refreshButton = createControl("BUTTON", creatorT(msgActionReloadUSB), wsTabStop|bsOwnerDraw, 501, 630, 138, 43, idRefresh)
 	writeButton = createControl("BUTTON", creatorT(msgActionCreate), wsTabStop|bsOwnerDraw|wsDisabled, 648, 630, 150, 43, idWrite)
 	bootHelpButton = createControl("BUTTON", creatorT(msgActionBootHelp), wsTabStop|bsOwnerDraw, 855, 610, 255, 43, idBootHelp)

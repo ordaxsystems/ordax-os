@@ -799,7 +799,7 @@ class PhysicalPromotionBoundaryTests(unittest.TestCase):
             )
             self.assertFalse(status["authorized_candidate_materialization_allowed"])
 
-    def test_legacy_embedded_go_and_visual_checkout_cannot_define_physical_consent(self):
+    def test_physical_consent_binds_audited_ui_and_excludes_legacy_creator_sources(self):
         governed = {
             path.relative_to(ROOT).as_posix()
             for path in promotion.authorization_context_files(ROOT)
@@ -812,10 +812,18 @@ class PhysicalPromotionBoundaryTests(unittest.TestCase):
         self.assertIn(".github/workflows/first-physical-usb-payload.yml", governed)
         self.assertTrue(all(
             not path.startswith(("tools/creator/core/", "tools/creator/host/",
-                                "tools/creator/physicalchannel/",
-                                "tools/creator/cmd/", "system/surface/ui/"))
+                                 "tools/creator/physicalchannel/", "tools/creator/cmd/"))
             for path in governed
         ))
+        self.assertEqual(
+            {path for path in governed if path.startswith("system/surface/ui/")},
+            {
+                "system/surface/ui/first-run.mjs",
+                "system/surface/ui/local-session-lock.mjs",
+                "system/surface/ui/settings-overview-controls.mjs",
+                "system/surface/ui/system-overview-controls.mjs",
+            },
+        )
         self.assertNotIn("tools/creator/go.mod", governed)
 
     def test_change_to_surface_source_lock_invalidates_prior_physical_consent(self):

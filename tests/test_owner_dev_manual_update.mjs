@@ -30,7 +30,7 @@ async function createHarness(available) {
           ok: true,
           status: 202,
           async json() {
-            return { schema: "ordax.owner-manual-update-request/1", state: "queued" };
+            return { schema: "ordax.manual-update-request/1", state: "queued" };
           },
         };
       }
@@ -46,7 +46,7 @@ async function createHarness(available) {
   return { watcher, calls };
 }
 
-test("Owner USB requests canonical manual check once using same-origin token", async () => {
+test("Native USB requests canonical manual check once using same-origin token", async () => {
   const { watcher, calls } = await createHarness(true);
   try {
     assert.equal(watcher.getSnapshot().manualCheckAvailable, true);
@@ -57,13 +57,13 @@ test("Owner USB requests canonical manual check once using same-origin token", a
     assert.equal(request[0].options.method, "POST");
     assert.equal(request[0].options.credentials, "same-origin");
     assert.equal(request[0].options.headers["X-OrdaX-Update-Token"], TOKEN);
-    assert.deepEqual(JSON.parse(request[0].options.body), { action: "check-main" });
+    assert.deepEqual(JSON.parse(request[0].options.body), { action: "check" });
   } finally {
     watcher.dispose();
   }
 });
 
-test("Stable or unsupported host cannot dispatch manual update", async () => {
+test("Unsupported host cannot dispatch manual update", async () => {
   const { watcher, calls } = await createHarness(false);
   try {
     assert.equal(watcher.getSnapshot().manualCheckAvailable, false);
