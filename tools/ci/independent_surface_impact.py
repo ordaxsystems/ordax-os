@@ -34,6 +34,7 @@ LIGHT_EXACT = {
     "bootstrap/surface-runtime/README.md",
     "bootstrap/surface-runtime/CUTOVER-CHECKLIST.md",
     "tests/test_independent_surface_runtime.py",
+    "tests/test_ci_two_stage_release_gate.py",
     "tests/test_independent_surface_qemu_binding.py",
     "tests/test_independent_surface_impact.py",
     "tests/test_independent_surface_component_cache.py",
@@ -93,15 +94,30 @@ def classify_paths(paths: Iterable[str]) -> ImpactResult:
     return ImpactResult(bool(reasons), tuple(reasons) or ("contract-only",), changed)
 
 
-def changed_paths_between(base: str, head: str, *, root: Path = ROOT) -> tuple[str, ...]:
+def changed_paths_between(
+    base: str,
+    head: str,
+    *,
+    root: Path = ROOT,
+    use_merge_base: bool = False,
+) -> tuple[str, ...]:
     if SHA40.fullmatch(base or "") is None or SHA40.fullmatch(head or "") is None:
         raise ValueError("base/head must be exact lowercase 40-hex commits")
     if base == "0" * 40:
         raise ValueError("zero base is not classifiable")
     # Git's default quoted paths are not repository filenames; use -z and
     # UTF-8 to preserve accented names and other characters without escapes.
+    command = ["git", "-C", str(root), "diff"]
+    if use_merge_base:
+        # Match GitHub's PR file list when the source branch is behind the
+        # target branch. Commits added to the target after the PR fork are not
+        # part of the PR delta and must not trigger its producer.
+        command.append("--merge-base")
+    command.extend(
+        ["--name-only", "-z", "--no-renames", base, head, "--"]
+    )
     result = subprocess.run(
-        ["git", "-C", str(root), "diff", "--name-only", "-z", "--no-renames", base, head, "--"],
+        command,
         check=True,
         stdout=subprocess.PIPE,
         stderr=subprocess.PIPE,
@@ -123,6 +139,7 @@ def main() -> int:
     parser = argparse.ArgumentParser()
     parser.add_argument("--base", default="")
     parser.add_argument("--head", default="")
+    parser.add_argument("--merge-base", action="store_true")
     parser.add_argument("--force", action="store_true")
     parser.add_argument("--github-output", type=Path)
     args = parser.parse_args()
@@ -131,7 +148,11 @@ def main() -> int:
         result = ImpactResult(True, ("explicit-force",), tuple())
     else:
         try:
-            result = classify_paths(changed_paths_between(args.base, args.head))
+            result = classify_paths(
+                changed_paths_between(
+                    args.base, args.head, use_merge_base=args.merge_base
+                )
+            )
         except Exception as exc:
             result = ImpactResult(True, (f"classification-failed:{type(exc).__name__}",), tuple())
 
