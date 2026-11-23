@@ -564,11 +564,11 @@ body { background: var(--md-canvas); font-weight: 400; }
 @container meridian-native-home (max-width: 38rem) {
   .meridian-native-workspace .ordax-home-panel {
     grid-template-columns: minmax(0, 1fr);
-    grid-template-areas: "intro" "hero" "resume" "quick" "status" "current" "files" "ecosystem" "session";
+    grid-template-areas: "intro" "resume" "quick" "status" "current" "hero" "files" "ecosystem" "session";
     gap: var(--md-space-4);
   }
   .meridian-native-workspace .ordax-home-panel:not(:has([data-home-continuation])) {
-    grid-template-areas: "intro" "hero" "quick" "status" "current" "files" "ecosystem" "session";
+    grid-template-areas: "intro" "quick" "status" "current" "hero" "files" "ecosystem" "session";
   }
   .meridian-native-workspace .ordax-home-intro {
     grid-template-columns: minmax(0, 1fr);
@@ -595,10 +595,40 @@ body { background: var(--md-canvas); font-weight: 400; }
     padding: .625rem .75rem;
     font-size: .75rem;
   }
+  /* On a narrow desktop window, useful destinations and live health precede
+     the decorative welcome card. No destination is removed or duplicated. */
   .meridian-native-workspace .ordax-home-hero {
     min-height: 0;
     padding: var(--md-space-4);
   }
+  .meridian-native-workspace .ordax-home-hero-copy h2 {
+    margin: .375rem 0 .25rem;
+    font-size: 1.375rem;
+  }
+  .meridian-native-workspace .ordax-home-action-grid {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: .5rem;
+  }
+  .meridian-native-workspace .ordax-home-action {
+    display: flex;
+    flex-direction: row;
+    align-items: center;
+    min-height: 3.25rem;
+    gap: .625rem;
+    padding: .375rem .5rem;
+    border: 1px solid var(--md-border);
+    background: var(--md-surface);
+    font-size: .75rem;
+    text-align: start;
+  }
+  .meridian-native-workspace .ordax-home-action .ordax-rail-icon {
+    width: 2.5rem;
+    height: 2.5rem;
+    flex: 0 0 2.5rem;
+    padding: .625rem;
+  }
+  .meridian-native-workspace .ordax-home-status-list > button { font-size: .75rem; }
+  .meridian-native-workspace .ordax-home-status-list small { font-size: .6875rem; }
   .meridian-native-workspace .ordax-home-destination-grid,
   .meridian-native-workspace .ordax-home-panel > .ordax-space,
   .meridian-native-workspace .ordax-home-panel > .ordax-space[data-home-continuation] {

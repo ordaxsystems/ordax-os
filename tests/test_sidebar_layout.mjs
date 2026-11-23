@@ -195,6 +195,16 @@ test("Native USB keeps the computer shell instead of switching to mobile geometr
   assert.equal((nativeStyles.match(/@container\s+meridian-native-home\s*\(/g) ?? []).length, 3, "Native Home responds to the available computer workspace width");
   assert.match(nativeStyles, /@container\s+meridian-native-home\s*\(max-width:\s*66rem\)[\s\S]*?\.ordax-home-panel\s*\{\s*grid-template-columns:\s*repeat\(2,\s*minmax\(0,\s*1fr\)\)/, "medium computer workspaces reflow the existing Home areas");
   assert.match(nativeStyles, /@container\s+meridian-native-home\s*\(max-width:\s*50rem\)[\s\S]*?\.ordax-home-panel\s*\{\s*grid-template-areas:/, "narrow computer workspaces preserve and reorder the same Home areas");
+  const narrowNativeHome = nativeStyles.match(/@container meridian-native-home \(max-width: 38rem\) \{([\s\S]*?)\n\}/)?.[1];
+  assert.ok(narrowNativeHome, "Native compact layout must remain workspace-container based");
+  assert.match(narrowNativeHome, /grid-template-areas: "intro" "resume" "quick" "status" "current" "hero"/,
+    "resume and real system status precede the promotional hero in narrow Desktop windows");
+  assert.match(narrowNativeHome, /grid-template-areas: "intro" "quick" "status" "current" "hero"/,
+    "compact Native Home without continuation still prioritizes actions and health");
+  assert.match(narrowNativeHome, /\.ordax-home-action\s*\{[\s\S]*?min-height:\s*3\.25rem/,
+    "compact quick actions remain at least 44 CSS pixels high with readable labels");
+  assert.match(narrowNativeHome, /\.ordax-home-status-list\s+small\s*\{\s*font-size:\s*\.6875rem/,
+    "health information remains legible at compact workspace width");
   assert.doesNotMatch(nativeStyles, /@media\s*\(max-width:/i, "Native shell geometry never switches according to a mobile viewport breakpoint");
   assert.doesNotMatch(nativeStyles, /meridian-mobile-menu/i, "Native has no mobile-only menu styling");
   assert.doesNotMatch(sharedMeridianStyles, /@container\s+meridian-native-home/i);
