@@ -1,8 +1,9 @@
 name: Creator Development Update Channel
 
-# OS owns public GitHub Release publication; independent Creator owns Go source.
-# PR/main checks have read-only credentials. Only an explicitly dispatched main
-# job may publish the existing rolling legacy-compatible /1 developer assets.
+# OS owns rolling publication of Creator's independently versioned Go app.
+# Creator source changes on main publish the non-destructive app automatically.
+# No OS image is embedded or rebuilt by this channel; PR candidates are read-only.
+# Source-tree freshness prevents delayed jobs from rolling back the current app.
 on:
   push:
     branches: [main]
@@ -11,12 +12,32 @@ on:
       - '.github/actions/resolve-creator-source/**'
       - 'docs/contracts/native-release-assembly.json'
       - 'tests/test_creator_dev_release_gate.py'
+      - 'creator/cmd/**'
+      - 'creator/core/**'
+      - 'creator/host/**'
+      - 'creator/appchannel/**'
+      - 'creator/componentchannel/**'
+      - 'creator/physicalchannel/**'
+      - 'creator/internal/**'
+      - 'creator/update/**'
+      - 'creator/go.mod'
+      - 'creator/version.json'
   pull_request:
     paths:
       - '.github/workflows/creator-dev-channel.yml'
       - '.github/actions/resolve-creator-source/**'
       - 'docs/contracts/native-release-assembly.json'
       - 'tests/test_creator_dev_release_gate.py'
+      - 'creator/cmd/**'
+      - 'creator/core/**'
+      - 'creator/host/**'
+      - 'creator/appchannel/**'
+      - 'creator/componentchannel/**'
+      - 'creator/physicalchannel/**'
+      - 'creator/internal/**'
+      - 'creator/update/**'
+      - 'creator/go.mod'
+      - 'creator/version.json'
   workflow_dispatch:
 
 permissions:
@@ -283,7 +304,7 @@ jobs:
 
   publish-creator-dev:
     needs: build-creator-dev-candidate
-    if: ${{ github.event_name == 'workflow_dispatch' && github.ref == 'refs/heads/main' && github.repository == 'ordaxsystems/ordax-os' }}
+    if: ${{ (github.event_name == 'push' || github.event_name == 'workflow_dispatch') && github.ref == 'refs/heads/main' && github.repository == 'ordaxsystems/ordax-os' }}
     runs-on: windows-latest
     timeout-minutes: 10
     permissions:
@@ -352,7 +373,38 @@ jobs:
           Write-Host 'CREATOR_DEV_LEGACY_V1_COMPATIBILITY=PASS'
           Write-Host 'CREATOR_DEV_OS_PUBLISHER_OWNER=VERIFIED'
 
+      - name: Check current Creator source tree before publishing the rolling release
+        id: creator-freshness
+        shell: pwsh
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          Set-StrictMode -Version Latest
+          $ErrorActionPreference = 'Stop'
+          $repo = 'ordaxsystems/ordax-os'
+          $provenance = Get-Content -LiteralPath 'out/creator-dev-release/creator-dev-source-provenance.json' -Raw | ConvertFrom-Json
+          $latest = (gh api "repos/$repo/git/ref/heads/main" --jq '.object.sha').Trim()
+          if ($LASTEXITCODE -ne 0 -or $latest -cnotmatch '^[0-9a-f]{40}$') {
+            throw 'unable to verify latest OS main during Creator publication'
+          }
+          $rootTree = (gh api "repos/$repo/git/commits/$latest" --jq '.tree.sha').Trim()
+          if ($LASTEXITCODE -ne 0 -or $rootTree -cnotmatch '^[0-9a-f]{40}$') {
+            throw 'unable to verify latest main tree'
+          }
+          $currentCreatorTree = (gh api "repos/$repo/git/trees/$rootTree" --jq '.tree[] | select(.path == "creator" and .type == "tree") | .sha').Trim()
+          if ($LASTEXITCODE -ne 0 -or $currentCreatorTree -cnotmatch '^[0-9a-f]{40}$') {
+            throw 'cannot determine exact canonical Creator source tree'
+          }
+          if ($currentCreatorTree -cne [string]$provenance.creator_source_tree) {
+            'allowed=false' >> $env:GITHUB_OUTPUT
+            Write-Host "CREATOR_PUBLISH=SKIP_SUPERSEDED_SOURCE latest=$latest"
+          } else {
+            'allowed=true' >> $env:GITHUB_OUTPUT
+            Write-Host "CREATOR_PUBLISH=LATEST_CREATOR_TREE source=$latest"
+          }
+
       - name: Publish verified rolling read-only Creator development channel
+        if: steps.creator-freshness.outputs.allowed == 'true'
         shell: pwsh
         env:
           GH_TOKEN: ${{ github.token }}
