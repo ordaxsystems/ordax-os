@@ -1429,10 +1429,19 @@ export function mountSettingsOverviewControls(
     restoreInteractionState(slot, interaction);
   };
 
+  // Report only a changed, actionable mount reason while Settings is active.
+  // A missing slot never authorizes a fake preference view or extra polling.
+  let lastMountFailure = null;
+  const reportMountFailure = (reason) => {
+    if (lifecycle.getActiveAppId() !== "settings" || lastMountFailure === reason) return;
+    lastMountFailure = reason;
+    console.error("OrdaX Settings controller failed to mount: " + reason);
+  };
   const renderView = (force = false) => {
     if (destroyed) return;
     const slot = findSlot();
     if (!slot) {
+      reportMountFailure("extension-slot-missing");
       releaseDeviceControls();
       mountedSlot = null;
       paintPending = false;
@@ -1442,13 +1451,20 @@ export function mountSettingsOverviewControls(
     // Inactive windows retain their controls without background DOM rebuilds.
     // The existing Surface render callback flushes deferred state on focus.
     if (!windowNode || windowNode.hidden || windowNode.dataset.active !== "true") {
+      reportMountFailure("window-not-active");
       paintPending = paintPending || force || slot !== mountedSlot;
       return;
     }
     if (!force && !paintPending && slot === mountedSlot) return;
     mountedSlot = slot;
     paintPending = false;
-    paint(slot);
+    try {
+      paint(slot);
+      lastMountFailure = null;
+    } catch (error) {
+      reportMountFailure("paint-exception:" + (error?.name ?? "Error"));
+      throw error;
+    }
   };
 
   const replaceView = () => renderView(true);
