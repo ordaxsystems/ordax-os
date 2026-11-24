@@ -9,11 +9,7 @@
  --md-home-row-gap:1.125rem;
  --md-home-section-gap:1.25rem;
  --md-home-card-inset:1.5rem;
- --md-home-hero-inset:1.5rem 1.75rem;
  --md-home-heading-size:clamp(1.75rem,3vw,2.625rem);
- --md-home-hero-height:clamp(16.625rem,14vw,35rem);
- --md-home-hero-heading-size:clamp(1.625rem,2.8vw,2.25rem);
- --md-home-hero-overlay:linear-gradient(90deg,color-mix(in srgb,var(--md-art-dark) 79%,transparent) 0%,color-mix(in srgb,var(--md-art-dark) 26%,transparent) 65%,color-mix(in srgb,var(--md-art-dark) 6%,transparent) 100%);
 }
 [data-meridian] {
  /* Shared component vocabulary. */
