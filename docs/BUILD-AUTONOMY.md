@@ -127,12 +127,18 @@ present, canonical and parseable; a cache hit is never permission to skip
 artifact SHA-256, provenance or QEMU/physical release gates. The producer
 environment identity remains pinned and separately checked.
 
-Once a pinned non-Codespace Linux producer is provisioned, changes requiring
-new Surface bytes on canonical main automatically select that producer on push;
-a separate workflow dispatch is no longer required. Public PRs still use
-hosted runners and never select that private producer. Without a configured
-producer, a verified existing EROFS may be consumed, but a cache miss blocks
-new hosted WebKit compilation before source downloads and long builds.
+The canonical producer tries the exact GitHub cache, R2 and a verified artifact
+from a trusted producer run before compiling. The GitHub artifact handoff can
+cross hosted runner image versions. Verification and durable publication use the
+fingerprint recorded by the original producer. The fast cache is populated only
+when its lookup fingerprint matches the verified artifact.
+
+On a miss, the default hosted runner compiles with a bounded build and reuses
+cached downloads and compiler results. Its Buildroot output tree is disposable.
+A configured persistent Linux producer on canonical main retains the verified
+Buildroot output tree per fingerprint and can resume unfinished packages. Public
+PRs use hosted runners. The producer logs compiler cache hit and miss counters
+before and after compilation.
 
 The Owner USB Creator CI uses the same exact Git diff impact decision on PRs
 and on integrated `main` pushes. An exact visual-only source-pin advancement,
