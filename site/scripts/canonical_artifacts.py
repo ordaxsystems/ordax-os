@@ -16,7 +16,7 @@ OWNER = "ordaxsystems/ordax-os"
 SHA40 = re.compile(r"[0-9a-f]{40}\Z")
 INPUTS = {
  "assets/ordax-symbol.png": "system/surface/ui/brand/ordax-symbol.png",
- "assets/ordax-landscape.png": "system/surface/ui/brand/midnight-landscape.png",
+ "assets/ordax-landscape.png": "site/assets/brand/ordax-landscape.png",
  "assets/fonts/inter-latin-wght-normal.woff2": "system/surface/ui/fonts/inter-latin-wght-normal.woff2",
  "assets/fonts/Inter-OFL-1.1.txt": "third_party/licenses/Inter-OFL-1.1.txt",
 }
