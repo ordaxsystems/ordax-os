@@ -140,7 +140,7 @@ jobs:
               'progress': (base / 'physical_progress_windows.go').read_text(encoding='utf-8'),
               'update': (base / 'update_check_windows.go').read_text(encoding='utf-8'),
               'backend': (base / 'backend_resolution_windows.go').read_text(encoding='utf-8'),
-              'split_owner': (base / 'owner_prototype_backend_enabled_windows.go').read_text(encoding='utf-8'),
+              'physical_channel': (base / 'physical_channel_windows.go').read_text(encoding='utf-8'),
               'localization': (base / 'localization.go').read_text(encoding='utf-8'),
               'locale_windows': (base / 'localization_windows.go').read_text(encoding='utf-8'),
               'locale_audit': (base / 'localization_source_audit_test.go').read_text(encoding='utf-8'),
@@ -171,7 +171,7 @@ jobs:
                   'progressPollMillis', 'applyPhysicalProgressSnapshot',
               ],
               'portable': [
-                  'case "legacy-owner":', 'case "portable-public":', 'creatorcore.PlanPortableMedia',
+                  'case "portable-public":', 'creatorcore.PlanPortableMedia',
                   'creatorcore.PlanPortableApplication', 'PortableApplicationPlanCanonicalBytes',
                   '"prepare-portable"', '"apply-portable"', '"--source"',
                   'validatePortablePhysicalPreparation', 'WholeDiskRawImageRequired',
@@ -182,9 +182,9 @@ jobs:
                   'creatorTValues', 'setProgressPercent', 'formatting-data',
               ],
               'update': [
-                  'creator-owner-update.json', 'prototype-ordax.creator-owner-bundle-update/1',
+                  'creator-owner-update.json', contract['owner_update']['manifest_schema'],
                   'OrdaX-Creator-Owner-Prototype.zip', 'AutomaticInAppUpdate bool',
-                  'ownerUpdateIsForward', '/compare/', 'msgUpdateBundleManualBody',
+                  'ownerUpdateRevisionRelation', '/compare/', 'msgUpdateBundleManualBody',
                   'manifest.AutomaticInAppUpdate',
                   'automatic in-app bundle update is not supported by this Creator',
               ],
@@ -202,10 +202,13 @@ jobs:
                   'TestCreatorUserFacingCallsDoNotEmbedCopyLiterals', 'creatorUIStringArgs',
                   'use Creator localization owner',
               ],
-              'backend': ['ownerPrototypePhysicalBackend()', 'return finishRefreshState(result, ownerDirectory)'],
-              'split_owner': [
-                  'windows && ordax_owner_prototype && !ordax_single_exe',
-                  'ordax-creator-physical-test.exe', 'ordax-bootstrap-seed.raw', 'provenance.json',
+              'backend': [
+                  'if physical, ok := resolvePhysicalBackend(); ok {',
+                  'result.PhysicalMode = physical.Mode', 'return finishRefreshState(result, backendDirectory)',
+              ],
+              'physical_channel': [
+                  'physicalTrustBinding()', 'physicalchannel.AcquireCached(nil, "", "", trust, trustSHA)',
+                  'return resolutionFromInstalled(installed), true', 'return physicalBackendResolution{}, false',
               ],
               'release': [
                   'name: Creator Owner Development Git USB',
@@ -253,16 +256,13 @@ jobs:
           assert 'gzip -n -6 -c "$seed" > "$media/ordax-bootstrap-seed.raw.gz"' in release
           assert 'OrdaX-Creator.exe' not in release
           assert 'OrdaX-Creator-Owner-Prototype.zip' not in release
+          assert 'case "legacy-owner":' not in files['portable']
           assert '"prepare"' not in files['portable']
           assert '"apply"' not in files['portable']
           assert 'ordax-bootstrap-seed.raw' not in files['portable']
           assert 'webview' not in files['visuals'].lower()
           assert 'http://' not in files['visuals'].lower() and 'https://' not in files['visuals'].lower()
           assert 'http://' not in files['boot_help'].lower() and 'https://' not in files['boot_help'].lower()
-
-          owner_pos = files['backend'].index('ownerPrototypePhysicalBackend()')
-          dev_pos = files['backend'].index('creatorupdate.Ensure')
-          assert owner_pos < dev_pos
 
           print('CREATOR_UX_BASELINE=PASS')
           print('CREATOR_LOCALIZATION_OWNER=PASS')
