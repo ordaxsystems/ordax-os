@@ -145,9 +145,7 @@ try {
       assert.equal(await evaluate('document.documentElement.scrollWidth<=innerWidth+1'),true,'No horizontal document overflow');
       assert.equal(await evaluate("(()=>{const main=document.querySelector('.central-presentation .os-main');return main.clientHeight>0&&main.scrollWidth<=main.clientWidth+1&&['auto','scroll','hidden'].includes(getComputedStyle(main).overflowY);})()"),true,'Central fits horizontally and retains its bounded content area');
       assert.equal(await evaluate("!document.querySelector('.home-overflow')"),true,'Home overflow button is removed');
-      // The pinned Surface owner now renders a hero and a real Space-context
-      // action instead of the retired, static #meridian-prompt placeholder.
-      assert.equal(await evaluate("!!document.querySelector('.meridian-hero[aria-label] img[alt]') && !!document.querySelector('.meridian-home-space-picker select[aria-label=\"Selecionar Space autorizado\"]') && !!document.querySelector('.meridian-session-strip[aria-label]')"),true,'Meridian hero, authorized Space picker and session state remain available');
+      assert.equal(await evaluate("!!document.querySelector('.meridian-welcome h1') && !!document.querySelector('.meridian-home-space-picker select[aria-label=\"Selecionar Space autorizado\"]') && !!document.querySelector('.meridian-session-strip[aria-label]')"),true,'Meridian greeting, authorized Space picker and session state remain available');
       await click('.meridian-session-strip button');
       await until("!!document.querySelector('.meridian-account-panel')");
       assert.equal(await evaluate("(()=>{const panel=document.querySelector('.meridian-account-panel');return parseFloat(getComputedStyle(panel).paddingLeft)>=18&&panel.scrollWidth<=panel.clientWidth+1;})()"),true,'Account retains readable padding without horizontal overflow');

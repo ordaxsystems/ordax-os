@@ -206,7 +206,7 @@ class SurfaceVisualIdentityTests(unittest.TestCase):
         self.assertIn(hashlib.sha256(data).hexdigest(), provenance)
 
     def test_original_wallpaper_is_pinned_and_shared_without_copying_reference_board(self):
-        wallpaper = (SURFACE / 'brand' / 'midnight-landscape.png').read_bytes()
+        wallpaper = (ROOT / 'site' / 'assets' / 'brand' / 'ordax-landscape.png').read_bytes()
         self.assertEqual(wallpaper[:8], b'\x89PNG\r\n\x1a\n')
         self.assertEqual(hashlib.sha256(wallpaper).hexdigest(),
                          '805969ce2fb30001842a545c2dead4516285bcc4973a8673f66aa3599d2601ce')
@@ -214,6 +214,7 @@ class SurfaceVisualIdentityTests(unittest.TestCase):
         # The pinned historical artwork stays provenance-bound, while
         # Meridian deliberately uses the single canonical field artwork.
         self.assertIn('url("./brand/meridian-field.svg")', css)
+        self.assertFalse((SURFACE / 'brand' / 'midnight-landscape.png').exists())
         self.assertNotIn('url("./brand/midnight-landscape.png")', css)
         # Solid black is the opacity stop in dock mask-image gradients, not a
         # theme color. Keep the no-hardcoded-palette check on actual paint CSS.
