@@ -324,7 +324,7 @@ jobs:
         if: steps.surface-artifact-cache.outputs.cache-hit != 'true' && steps.surface-r2.outputs.hit != 'true' && steps.surface-github-artifact.outputs.hit != 'true'
         run: |
           sudo apt-get install -y --no-install-recommends \
-            build-essential bc perl bison flex gawk cpio unzip rsync file \
+            build-essential bc perl bison flex gawk cpio unzip rsync file ccache \
             wget curl patch git xz-utils
 
       - name: Restore exact Surface compiler cache on durable artifact miss
@@ -367,6 +367,7 @@ jobs:
             --cache "${BR2_DL_DIR:?}"
 
       - name: Build Buildroot/musl Surface runtime on durable artifact miss
+        id: surface-build
         if: steps.surface-artifact-cache.outputs.cache-hit != 'true' && steps.surface-r2.outputs.hit != 'true' && steps.surface-github-artifact.outputs.hit != 'true'
         env:
           ORDAX_SOURCE_COMMIT: ${{ github.event.pull_request.head.sha || github.sha }}
@@ -395,10 +396,17 @@ jobs:
             echo "::error::Surface parallel build jobs must be 1..64" >&2
             exit 1
           fi
+          echo 'Surface compiler cache before Buildroot:'
+          CCACHE_DIR="${BR2_CCACHE_DIR:?}" ccache --show-stats || echo '::warning::Unable to read initial Surface ccache statistics'
           python3 bootstrap/surface-runtime/build.py build \
             --out "$RUNNER_TEMP/ordax-independent-surface" \
             --cache "${BR2_DL_DIR:?}" \
             --jobs "$ORDAX_SURFACE_BUILD_JOBS" "${work_args[@]}"
+
+      - name: Report Surface compiler cache after Buildroot
+        if: ${{ !cancelled() && (steps.surface-build.outcome == 'success' || steps.surface-build.outcome == 'failure') }}
+        run: |
+          CCACHE_DIR="${BR2_CCACHE_DIR:?}" ccache --show-stats || echo '::warning::Unable to read final Surface ccache statistics'
 
       - name: Verify exact Independent Surface EROFS bytes
         run: |
@@ -421,18 +429,26 @@ jobs:
             --source-commit "$ORDAX_SOURCE_COMMIT"
 
       - name: Verify Surface reuse against current integration commit
+        id: verified-surface
         env:
           ORDAX_SOURCE_COMMIT: ${{ github.event.pull_request.head.sha || github.sha }}
         run: |
           reused=false
+          verification_mode=()
           if [ '${{ steps.surface-artifact-cache.outputs.cache-hit }}' = true ] || [ '${{ steps.surface-r2.outputs.hit }}' = true ] || [ '${{ steps.surface-github-artifact.outputs.hit }}' = true ]; then
             reused=true
           fi
+          if [ '${{ steps.surface-github-artifact.outputs.hit }}' = true ]; then
+            verification_mode=(--consumer)
+          fi
+          receipt="$RUNNER_TEMP/independent-surface-component-reuse.json"
           python3 tools/ci/independent_surface_component_cache.py verify \
             --out "$RUNNER_TEMP/ordax-independent-surface" \
             --integration-commit "$ORDAX_SOURCE_COMMIT" \
-            --cache-hit "$reused" \
-            --receipt "$RUNNER_TEMP/independent-surface-component-reuse.json"
+            --cache-hit "$reused" "${verification_mode[@]}" \
+            --receipt "$receipt"
+          fingerprint="$(python3 -c 'import json, sys; print(json.load(open(sys.argv[1]))["input_fingerprint"])' "$receipt")"
+          printf 'fingerprint=%s\n' "$fingerprint" >> "$GITHUB_OUTPUT"
 
       - name: Resolve verified Surface reuse source
         id: surface-reuse-state
@@ -455,7 +471,9 @@ jobs:
           echo "Verified Surface source: $source"
 
       - name: Save verified Independent Surface EROFS component in fast GitHub cache
-        if: steps.surface-artifact-cache.outputs.cache-hit != 'true'
+        # The lookup key belongs to this runner. A GitHub handoff can carry a
+        # different producer image identity and must never be cached under it.
+        if: steps.surface-artifact-cache.outputs.cache-hit != 'true' && steps.verified-surface.outputs.fingerprint == steps.surface-artifact-fingerprint.outputs.fingerprint
         uses: actions/cache/save@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
         with:
           path: ${{ runner.temp }}/ordax-independent-surface
@@ -468,7 +486,7 @@ jobs:
           ORDAX_R2_BUCKET: 'ordax-device-artifacts'
           ORDAX_R2_ACCESS_KEY_ID: ${{ secrets.ORDAX_R2_ACCESS_KEY_ID }}
           ORDAX_R2_SECRET_ACCESS_KEY: ${{ secrets.ORDAX_R2_SECRET_ACCESS_KEY }}
-          ORDAX_SURFACE_FINGERPRINT: ${{ steps.surface-artifact-fingerprint.outputs.fingerprint }}
+          ORDAX_SURFACE_FINGERPRINT: ${{ steps.verified-surface.outputs.fingerprint }}
         run: bash tools/ci/independent_surface_r2.sh publish
       - name: Sanitize reusable Surface download cache
         if: always() && steps.surface-reuse-state.outputs.reused != 'true'

@@ -483,6 +483,17 @@ class IndependentSurfaceComponentCacheTests(unittest.TestCase):
         self.assertIn("git checkout -- bootstrap/surface-runtime/configs/ordax_surface_defconfig", workflow)
         self.assertIn("include-hidden-files: true", workflow)
 
+    def test_hosted_producer_republishes_handoff_using_verified_producer_fingerprint(self):
+        workflow = WORKFLOW.read_text(encoding="utf-8")
+        verify = workflow.split("      - name: Verify Surface reuse against current integration commit\n", 1)[1].split("\n      - name:", 1)[0]
+        self.assertIn("if [ '${{ steps.surface-github-artifact.outputs.hit }}' = true ]; then\n            verification_mode=(--consumer)", verify)
+        self.assertIn('--cache-hit "$reused" "${verification_mode[@]}"', verify)
+        self.assertIn('["input_fingerprint"]', verify)
+        save = workflow.split("      - name: Save verified Independent Surface EROFS component in fast GitHub cache\n", 1)[1].split("\n      - name:", 1)[0]
+        self.assertIn("steps.verified-surface.outputs.fingerprint == steps.surface-artifact-fingerprint.outputs.fingerprint", save)
+        publish = workflow.split("      - name: Ensure verified Surface exists in durable R2 store\n", 1)[1].split("\n      - name:", 1)[0]
+        self.assertIn("ORDAX_SURFACE_FINGERPRINT: ${{ steps.verified-surface.outputs.fingerprint }}", publish)
+
     def test_expensive_surface_build_requires_both_fast_and_durable_miss(self):
         workflow = WORKFLOW.read_text(encoding="utf-8")
         marker = "      - name: Build Buildroot/musl Surface runtime on durable artifact miss\n"
