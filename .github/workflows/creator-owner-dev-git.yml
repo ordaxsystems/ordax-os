@@ -352,7 +352,6 @@ jobs:
       # The Creator consumes only a preverified content-addressed artifact.
       # Compiler/download caches belong exclusively to the Surface producer.
       - name: Consume verified canonical offline Surface runtime
-        id: owner-surface-build
         run: |
           set -euo pipefail
           out="$RUNNER_TEMP/ordax-independent-surface"
@@ -368,27 +367,6 @@ jobs:
             --receipt "$RUNNER_TEMP/owner-surface-cache-inspection.json"
           echo 'OWNER_SURFACE_RUNTIME_SOURCE=verified-content-addressed-cache'
           python3 bootstrap/surface-runtime/build.py verify --out "$out"
-          mkdir -p "$RUNNER_TEMP/owner-dev-surface-runtime"
-          cp -a "$out/." "$RUNNER_TEMP/owner-dev-surface-runtime/"
-          python3 bootstrap/surface-runtime/build.py verify \
-            --out "$RUNNER_TEMP/owner-dev-surface-runtime"
-
-      - name: Save verified Owner Surface EROFS to shared artifact cache
-        if: steps.owner-surface-build.outcome == 'success' && steps.owner-surface-artifact-cache.outputs.cache-hit != 'true'
-        uses: actions/cache/save@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
-        with:
-          path: ${{ runner.temp }}/ordax-independent-surface
-          key: ordax-independent-surface-artifact-v1-${{ runner.os }}-${{ runner.arch }}-${{ steps.owner-surface-fingerprint.outputs.fingerprint }}
-
-      - name: Ensure verified Owner Surface exists in durable R2 store
-        if: steps.owner-surface-build.outcome == 'success' && steps.owner-surface-r2.outputs.hit != 'true'
-        env:
-          ORDAX_R2_ACCOUNT_ID: '42586bf13b61436219d21def299833e4'
-          ORDAX_R2_BUCKET: 'ordax-device-artifacts'
-          ORDAX_R2_ACCESS_KEY_ID: ${{ secrets.ORDAX_R2_ACCESS_KEY_ID }}
-          ORDAX_R2_SECRET_ACCESS_KEY: ${{ secrets.ORDAX_R2_SECRET_ACCESS_KEY }}
-          ORDAX_SURFACE_FINGERPRINT: ${{ steps.owner-surface-fingerprint.outputs.fingerprint }}
-        run: bash tools/ci/independent_surface_r2.sh publish
 
       - name: Prove Owner USB ext4 alias sealing in isolated mount namespace
         timeout-minutes: 3
@@ -727,7 +705,7 @@ jobs:
             "$RUNNER_TEMP/owner-prototype-stage" \
             "$RUNNER_TEMP/owner-creator-cli/ordax-creator" \
             "out/dev-base/rootfs" \
-            "$RUNNER_TEMP/owner-dev-surface-runtime"
+            "$RUNNER_TEMP/ordax-independent-surface"
           echo "$RUNNER_TEMP/owner-prototype-stage" > "$RUNNER_TEMP/owner-prototype-stage-path"
 
       - name: Materialize and verify RAW development seed

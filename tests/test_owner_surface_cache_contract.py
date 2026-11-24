@@ -28,9 +28,10 @@ class OwnerSurfaceCacheContractTests(unittest.TestCase):
         producer = SURFACE.read_text(encoding="utf-8")
         for text in (owner, producer):
             self.assertIn("bash tools/ci/independent_surface_r2.sh restore", text)
-            self.assertIn("bash tools/ci/independent_surface_r2.sh publish", text)
             self.assertIn("secrets.ORDAX_R2_ACCESS_KEY_ID", text)
             self.assertIn("secrets.ORDAX_R2_SECRET_ACCESS_KEY", text)
+        self.assertIn("bash tools/ci/independent_surface_r2.sh publish", producer)
+        self.assertNotIn("bash tools/ci/independent_surface_r2.sh publish", owner)
         self.assertIn("If-None-Match: *", R2.read_text(encoding="utf-8"))
         self.assertIn("independent_surface_component_cache.py verify", R2.read_text(encoding="utf-8"))
 
@@ -44,9 +45,8 @@ class OwnerSurfaceCacheContractTests(unittest.TestCase):
         self.assertNotIn("bootstrap/surface-runtime/prepare_config.py materialize", text)
         self.assertIn("Canonical Surface EROFS missing", text)
         self.assertIn("Never compile WebKit in the Creator consumer", text)
-        self.assertIn("Save verified Owner Surface EROFS to shared artifact cache", text)
-        self.assertIn("Ensure verified Owner Surface exists in durable R2 store", text)
-        self.assertIn('cp -a "$out/." "$RUNNER_TEMP/owner-dev-surface-runtime/"', text)
+        self.assertNotIn("Save verified Owner Surface EROFS to shared artifact cache", text)
+        self.assertNotIn("owner-dev-surface-runtime", text)
         self.assertNotIn("owner-surface-ccache", text)
         self.assertNotIn("owner-surface-downloads", text)
         # The specialist independent-surface-runtime workflow owns the
