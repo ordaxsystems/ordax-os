@@ -15,7 +15,7 @@ TARGETS = {
     "independent-surface-runtime.yml": ("buildroot-surface:", "if: ${{ !cancelled() && needs.contract.result == 'success' && needs.impact.outputs.required == 'true' && (github.event_name != 'pull_request' || !github.event.pull_request.draft) }}"),
     "portable-v2-qemu-boot-proof.yml": ("qemu-portable-v2:", "if: needs.impact.outputs.required == 'true' && (github.event_name != 'pull_request' || !github.event.pull_request.draft)"),
     "independent-base-experiment.yml": ("buildroot-qemu:", "if: " + chr(36) + "{{ github.event_name == 'workflow_dispatch' || (github.event_name == 'pull_request' && !github.event.pull_request.draft) }}"),
-    "independent-portable-v2-integration.yml": ("independent-real-portable-qemu:", "if: " + chr(36) + "{{ github.event_name == 'workflow_dispatch' || (github.event_name == 'pull_request' && !github.event.pull_request.draft) }}"),
+    "independent-portable-v2-integration.yml": ("independent-real-portable-qemu:", "if: " + chr(36) + "{{ github.event_name == 'workflow_dispatch' }}"),
     "native-esp-candidate.yml": ("native-esp:", "if: github.event_name != 'pull_request' || !github.event.pull_request.draft"),
     "kernel-candidate.yml": ("kernel:", "if: github.event_name != 'pull_request' || !github.event.pull_request.draft"),
     "kernel-pinned-environment.yml": ("prove-pinned-environment:", "if: github.event_name != 'pull_request' || !github.event.pull_request.draft"),
@@ -184,10 +184,8 @@ class ReleaseCandidateGateTests(unittest.TestCase):
         self.assertIn("cancel-in-progress: false", concurrency)
         self.assertNotIn("github.event_name == 'pull_request'", concurrency)
         self.assertIn("independent-real-portable-qemu:", text)
-        self.assertIn(
-            "github.event_name == 'workflow_dispatch' || (github.event_name == 'pull_request' && !github.event.pull_request.draft)",
-            text,
-        )
+        self.assertIn("if: ${{ github.event_name == 'workflow_dispatch' }}", text)
+        self.assertNotIn("github.event_name == 'pull_request' && !github.event.pull_request.draft", text)
 
     def test_owner_buildroot_jobs_share_exact_serialization_key(self):
         # Only one heavy producer runs at a time for a PR/ref, but all
