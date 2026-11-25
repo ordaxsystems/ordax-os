@@ -408,11 +408,12 @@ jobs:
           export MAKEFLAGS="BR2_JLEVEL=$jobs"
           mkdir -p "${BR2_CCACHE_DIR:?}"
           if [ -z "${ORDAX_SURFACE_PERSISTENT_WORK_ROOT:-}" ]; then
-            # Grow only when disk has headroom, reserving 32 GiB for Buildroot.
-            # Cap at 8 GiB rather than allowing an unbounded compiler cache.
+            # Preserve 20 GiB of disk headroom for Buildroot while allowing
+            # compiler cache growth beyond the saturated 5 GiB baseline.
+            # The 8 GiB ceiling remains bounded on GitHub-hosted runners.
             free_mib="$(df -Pm "$BR2_CCACHE_DIR" | awk 'NR == 2 {print $4}')"
             used_mib="$(du -sm "$BR2_CCACHE_DIR" | awk '{print $1}')"
-            extra_mib=$(( free_mib - 32768 ))
+            extra_mib=$(( free_mib - 20480 ))
             if [ "$extra_mib" -lt 0 ]; then extra_mib=0; fi
             cache_mib=$(( used_mib + extra_mib ))
             if [ "$cache_mib" -lt 5120 ]; then cache_mib=5120; fi
