@@ -141,9 +141,11 @@ def _base_directory(letter: str, commit: str) -> Path:
                  parent.parent, parent, base):
         if not _real_directory(path):
             raise USBUpdatePreflightError("USB Base cache path is missing or linked")
-    for name in ("dev-base.json", "vmlinuz", "initrd.gz", "rootfs.tar"):
+    for name in ("dev-base.json", "vmlinuz", "initrd.gz"):
         if not _real_regular(base / name):
             raise USBUpdatePreflightError("USB cached Base artifact missing or linked")
+    if not any(_real_regular(base / name) for name in ("rootfs.tar.gz", "rootfs.tar")):
+        raise USBUpdatePreflightError("USB cached Base rootfs transport missing or linked")
     return base
 
 

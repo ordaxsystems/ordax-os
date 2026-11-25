@@ -247,14 +247,15 @@ def prove(base: Path, qemu: Path, qemu_img: Path, *,
         raise SnapshotProofError("USB physical identity changed after read-only proof")
     initial_hash = sample_read_only(volume)
     nonce = secrets.token_hex(8)
-    with tarfile.open(base / "rootfs.tar", "r:") as rootfs:
-        busybox = rootfs.extractfile("bin/busybox").read()
-    busybox_sha = hashlib.sha256(busybox).hexdigest()
     channel = helper.channel_owner()
     manifest = channel.verify_materialized(base, base.name)
+    rootfs_path = base / channel.rootfs_transport_binding(manifest)["name"]
     # Reuse the OS channel's archive member/link/path validation, not a guest
     # tar policy duplicated in the Creator. No guest stage before this passes.
-    channel._validate_rootfs_archive(base / "rootfs.tar")
+    channel.validate_rootfs_archive(rootfs_path, manifest)
+    with channel.open_rootfs_archive(rootfs_path, manifest) as rootfs:
+        busybox = rootfs.extractfile("bin/busybox").read()
+    busybox_sha = hashlib.sha256(busybox).hexdigest()
 
     with tempfile.TemporaryDirectory(prefix="ordax-physical-cow-proof-") as name:
         temp = Path(name)
@@ -262,7 +263,7 @@ def prove(base: Path, qemu: Path, qemu_img: Path, *,
         kernel = temp / "vmlinuz"
         payload = temp / "rootfs.tar"
         helper.copy_verified(base / "vmlinuz", kernel, manifest["kernel"])
-        helper.copy_verified(base / "rootfs.tar", payload, manifest["rootfs"])
+        channel.materialize_rootfs_tar(rootfs_path, manifest, payload)
         if physical.inventory(disk_number) != original_identity:
             raise SnapshotProofError("USB changed before creating overlay")
         report("creating-disposable-cow")

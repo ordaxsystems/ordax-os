@@ -227,7 +227,14 @@ class IndependentOwnerDevelopmentProfileTests(unittest.TestCase):
 
     def test_owner_profile_fails_without_firmware_coverage(self) -> None:
         script = POST_BUILD.read_text(encoding="utf-8")
-        self.assertIn('bootstrap/base/firmware_policy.py" check', script)
+        self.assertIn("firmware_action=check", script)
+        self.assertIn(
+            'if test "$PROFILE" = owner-development; then\n'
+            '        firmware_action=prune\n'
+            '    fi',
+            script,
+        )
+        self.assertIn('bootstrap/base/firmware_policy.py" "$firmware_action"', script)
         self.assertIn('--rootfs "$TARGET_DIR"', script)
         self.assertIn("firmware-coverage.json", script)
         self.assertIn("ORDAX_INDEPENDENT_OWNER", script)

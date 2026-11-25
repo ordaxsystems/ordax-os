@@ -59,7 +59,11 @@ jobs:
           echo 'ORDAX_INDEPENDENT_PORTABLE_V2_QEMU=NOT_YET_PROVEN'
 
   independent-real-portable-qemu:
-    if: ${{ github.event_name == 'workflow_dispatch' || (github.event_name == 'pull_request' && !github.event.pull_request.draft) }}
+    # Pull requests use the path-filtered canonical Portable QEMU workflow as
+    # the sole owner of the signed boot proof. Keep this experimental wrapper
+    # available for explicit profile dispatches without running the same
+    # reusable QEMU pipeline a second time when both PR path sets match.
+    if: ${{ github.event_name == 'workflow_dispatch' }}
     # Reuse the official pipeline, build/sign/release/mount/roll back in real
     # QEMU. The single parameter selects the isolated Buildroot candidate.
     # The portable-v2 default is Buildroot minimal; Stable/MVP is explicit.
