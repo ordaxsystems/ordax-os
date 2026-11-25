@@ -333,7 +333,7 @@ jobs:
         uses: actions/cache/restore@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
         with:
           path: ${{ runner.temp }}/ordax-independent-surface-ccache
-          key: ordax-independent-surface-ccache-v2-${{ runner.os }}-${{ runner.arch }}-${{ hashFiles('bootstrap/surface-runtime/configs/ordax_surface_defconfig', 'bootstrap/independent-base/source.json', 'bootstrap/kernel/source.json') }}-${{ github.run_id }}
+          key: ordax-independent-surface-ccache-v2-${{ runner.os }}-${{ runner.arch }}-${{ hashFiles('bootstrap/surface-runtime/configs/ordax_surface_defconfig', 'bootstrap/independent-base/source.json', 'bootstrap/kernel/source.json') }}-${{ github.run_id }}-${{ github.run_attempt }}
           restore-keys: |
             ordax-independent-surface-ccache-v2-${{ runner.os }}-${{ runner.arch }}-${{ hashFiles('bootstrap/surface-runtime/configs/ordax_surface_defconfig', 'bootstrap/independent-base/source.json', 'bootstrap/kernel/source.json') }}-
             ordax-independent-surface-ccache-v2-${{ runner.os }}-${{ runner.arch }}-
@@ -374,11 +374,8 @@ jobs:
           # BR2_CCACHE_DIR and BR2_DL_DIR are resolved once, identically
           # for preflight and build, by Resolve exact Surface fingerprint.
           # A dedicated runner retains the underlying disk across jobs.
-          ORDAX_SURFACE_BUILD_JOBS: ${{ vars.ORDAX_SURFACE_BUILD_JOBS || '4' }}
-          # Buildroot derives CMake/Ninja parallelism from BR2_JLEVEL, not the
-          # outer make -j flag. MAKEFLAGS carries this command-line override
-          # without changing the checked-in defconfig or artifact fingerprint.
-          MAKEFLAGS: BR2_JLEVEL=${{ vars.ORDAX_SURFACE_BUILD_JOBS || '4' }}
+          ORDAX_SURFACE_BUILD_JOBS: ${{ vars.ORDAX_SURFACE_BUILD_JOBS || '64' }}
+          ORDAX_SURFACE_TRANSIENT_WORK_DIR: ${{ runner.temp }}/ordax-independent-surface-build
         run: |
           set -euo pipefail
           work_args=()
@@ -396,6 +393,35 @@ jobs:
             echo "::error::Surface parallel build jobs must be 1..64" >&2
             exit 1
           fi
+          # Respect the configured ceiling, actual CPU availability and memory.
+          # WebKit/LLVM C++ jobs are memory intensive: reserve 2 GiB for the host
+          # and budget 2.5 GiB per compiler job; do not oversubscribe the runner.
+          cpus="$(nproc)"
+          mem_kib="$(awk '/^MemAvailable:/ {print $2}' /proc/meminfo)"
+          mem_jobs=$(( (mem_kib - 2097152) / 2621440 ))
+          jobs="$ORDAX_SURFACE_BUILD_JOBS"
+          if [ "$cpus" -lt "$jobs" ]; then jobs="$cpus"; fi
+          if [ "$mem_jobs" -lt "$jobs" ]; then jobs="$mem_jobs"; fi
+          if [ "$jobs" -lt 1 ]; then jobs=1; fi
+          export ORDAX_SURFACE_BUILD_JOBS="$jobs"
+          # Buildroot derives CMake/Ninja parallelism from BR2_JLEVEL.
+          export MAKEFLAGS="BR2_JLEVEL=$jobs"
+          mkdir -p "${BR2_CCACHE_DIR:?}"
+          if [ -z "${ORDAX_SURFACE_PERSISTENT_WORK_ROOT:-}" ]; then
+            # Grow only when disk has headroom, reserving 32 GiB for Buildroot.
+            # Cap at 8 GiB rather than allowing an unbounded compiler cache.
+            free_mib="$(df -Pm "$BR2_CCACHE_DIR" | awk 'NR == 2 {print $4}')"
+            used_mib="$(du -sm "$BR2_CCACHE_DIR" | awk '{print $1}')"
+            extra_mib=$(( free_mib - 32768 ))
+            if [ "$extra_mib" -lt 0 ]; then extra_mib=0; fi
+            cache_mib=$(( used_mib + extra_mib ))
+            if [ "$cache_mib" -lt 5120 ]; then cache_mib=5120; fi
+            if [ "$cache_mib" -gt 8192 ]; then cache_mib=8192; fi
+            export CCACHE_MAXSIZE="${cache_mib}M"
+            CCACHE_DIR="$BR2_CCACHE_DIR" ccache --max-size "$CCACHE_MAXSIZE"
+            echo "Surface ccache budget: ${CCACHE_MAXSIZE}; free disk: ${free_mib} MiB"
+          fi
+          echo "Surface parallelism: $jobs jobs, $cpus CPUs, ${mem_kib} KiB available RAM"
           echo 'Surface compiler cache before Buildroot:'
           CCACHE_DIR="${BR2_CCACHE_DIR:?}" ccache --show-stats || echo '::warning::Unable to read initial Surface ccache statistics'
           python3 bootstrap/surface-runtime/build.py build \

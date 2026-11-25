@@ -32,8 +32,8 @@ documentação/UI que não alteram essas entradas **não** invalidam o artefato.
    valida flags/dependências em cada objeto. **Nunca** relaxar a chave exata
    do EROFS nem substituir provas por hits de cache. Para evitar perder seis
    horas de objetos compilados, a chave primária do `ccache` contém o ID da
-   execução; o `restore-keys` restaura o checkpoint mais recente do mesmo
-   perfil, mantendo compatibilidade com o cache v1. Cada execução pode gravar
+   execução e o número da tentativa (`run_id` + `run_attempt`); o `restore-keys` restaura o checkpoint mais recente do mesmo
+   perfil, mantendo compatibilidade com o cache v1. Cada tentativa pode gravar
    um novo checkpoint imutável após um build interrompido com encerramento
    correto dos compiladores. O artefato EROFS final **não** usa run ID.
 5. O QEMU Portable não compila Surface: busca o **mesmo** artefato imutável
@@ -131,8 +131,12 @@ simbólica ou com identidade divergente falha fechada. Nessa configuração,
 GB pelo `actions/cache`. No runner hospedado e descartável, permanecem os
 caches normais e não há promessa de retomada do diretório `O=`.
 
-`ORDAX_SURFACE_BUILD_JOBS` aceita **1 a 64** (padrão 4); aumentar
-paralelismo não dispensa checar RAM. A identidade do produtor deve ser
+O produtor hospedado calcula o paralelismo por CPU disponível e RAM livre,
+reserva 2 GiB e estima 2,5 GiB por compilador; `ORDAX_SURFACE_BUILD_JOBS`
+é um teto opcional de 1 a 64. O ccache hospedado cresce de 5 até 8 GiB
+somente com folga de disco, reservando 32 GiB para a árvore de build.
+O caminho temporário de Buildroot é estável entre tentativas hospedadas,
+mas criado exclusivamente e descartado ao final; não é retomada de O=. A identidade do produtor deve ser
 consumida sem reetiquetar artefatos antigos, e o EROFS permanece condicionado
 a fingerprint, SHA-256, proveniência e validação de QEMU/boot aplicável.
 A falha histórica do WebKit por timeout de 27/10 e o detalhamento das
