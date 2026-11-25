@@ -73,6 +73,37 @@ class IndependentSurfaceImpactTests(unittest.TestCase):
         self.assertFalse(result.required)
         self.assertEqual(result.reasons, ("contract-only",))
 
+    def test_base_transport_and_creator_consumption_do_not_rebuild_surface(self):
+        paths = (
+            ".github/workflows/dev-base-channel.yml",
+            ".github/workflows/independent-base-experiment.yml",
+            ".github/workflows/independent-portable-v2-integration.yml",
+            "bootstrap/base/firmware_policy.py",
+            "bootstrap/independent-base/post-build.sh",
+            "creator/tools/owner_dev_qemu_filesystem_proof.py",
+            "creator/tools/owner_dev_qemu_partition_readonly.py",
+            "creator/tools/owner_dev_qemu_partition_snapshot.py",
+            "creator/tools/owner_dev_usb_update_preflight.py",
+            "creator/tools/owner_usb_git_delivery.py",
+            "creator/tools/test_owner_usb_git_delivery.py",
+            "system/services/base-update/dev_channel.py",
+            "tests/test_base_update_activation_readiness.py",
+            "tests/test_base_update_dev_stage.py",
+            "tests/test_dev_base_channel.py",
+            "tests/test_dev_base_symlink_policy.py",
+            "tests/test_firmware_policy_neutral.py",
+            "tests/test_independent_owner_profile.py",
+            "tests/test_independent_portable_boot_integration.py",
+            "tools/dev-base-channel/build.py",
+            ".github/workflows/creator-owner-dev-git.yml",
+            ".github/workflows/creator-ux-baseline.yml",
+            "tests/test_owner_dev_offline_runtime_release_gate.py",
+            "tests/test_owner_surface_cache_contract.py",
+        )
+        self.assertFalse(self.mod.classify_paths(paths).required)
+        for owner in self.mod.HEAVY_EXACT:
+            self.assertTrue(self.mod.classify_paths((*paths, owner)).required)
+
     def test_b68_surface_workflow_and_test_delta_is_light_across_push_commits(self):
         paths = (
             ".github/workflows/independent-surface-runtime.yml",
