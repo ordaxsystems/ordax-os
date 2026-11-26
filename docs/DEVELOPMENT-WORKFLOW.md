@@ -46,6 +46,13 @@ Plano de execução: (1) remover builds de USB acionados por alterações de sou
 | Integração entre componentes | Concluir o fluxo vertical solicitado; depois executar smoke/E2E específico das interfaces modificadas. Reutilizar artefatos válidos. |
 | Identidade, segurança, trust, dados, disco, boot, update, pagamentos ou promoção | Fazer antes da mutação os preflights realmente exigidos; depois aplicar testes e gates obrigatórios pertinentes. Não dispensar autorização nem integridade. |
 
+### Ciclo de vida de checkouts DEV
+
+- Reutilizar o checkout canônico do owner quando estiver livre. Criar worktree temporária somente por isolamento de trabalho concorrente ou necessidade técnica comprovada; nunca clonar novamente um owner nem usar repositório arquivado como fonte ativa.
+- Quem cria a worktree é responsável por encerrá-la na mesma entrega: verificar o estado local, a integração/publicação da revisão e a ausência de uso concorrente; remover com `git worktree remove` e conferir a ausência da pasta e do registro. Não deixar branches ou candidatos descartáveis como checkpoints operacionais.
+- Se a criação for interrompida, tratar a worktree incompleta antes de criar outra. Não reconstruir o checkout apenas para descartá-lo. Verificar arquivos exclusivos, locks e links/junções; remover somente estruturas comprovadamente descartáveis. Nunca seguir uma junção durante a limpeza nem apagar o destino compartilhado. Usar `git worktree prune --dry-run` antes de limpar registros órfãos e limitar a operação a registros confirmados.
+- Preservar worktrees de outras missões, vínculos do host, dados locais exclusivos, dependências canônicas e processos ativos. Se houver trabalho ainda não integrado, concluir ou publicar pelo owner correto antes de limpar; não reintegrar implementação obsoleta para justificar exclusão. Não criar outro serviço, registro ou rotina paralela de limpeza.
+
 ### Protocolo anti-loop e critério de parada
 
 - **Sem preparação infinita:** uma verificação objetiva de estado/owner deve produzir uma alteração ou identificar um impedimento comprovado. Não reiniciar a mesma auditoria após um resultado sem mudança no source ou no ambiente.
