@@ -44,6 +44,12 @@ class CanonicalDocumentFreshnessTests(unittest.TestCase):
         self.assertNotRegex(index, r"\b[0-9a-f]{40}\b")
         self.assertNotIn("PORTABLE_V3_UPDATE_ACTIVATION_SOURCE=", index)
 
+    def test_launch_policy_does_not_promote_index_to_current_evidence(self):
+        mvp = source("MVP.md")
+        self.assertIn("somente um índice", mvp)
+        self.assertIn("contratos consumidos, artefatos publicados e recibos", mvp)
+        self.assertNotIn("continuam descrevendo **o que existe, está habilitado e foi provado hoje**", mvp)
+
     def test_product_version_uses_its_executable_contract_not_snapshot(self):
         product = source("system/contracts/product-version.mjs")
         contract_data = contract("docs/contracts/update-nomenclature.json")
