@@ -174,15 +174,18 @@ class OfflineOwnerWelcomeGateTests(unittest.TestCase):
         self.assertIn("if: always() &&", producer)
         self.assertNotIn("always() && steps.owner-surface-artifact-cache", workflow)
 
-    def test_owner_visual_source_is_removed_before_expensive_buildroot(self):
+    def test_owner_visual_source_is_cleaned_without_deleting_git_sources_before_buildroot(self):
         workflow = (ROOT / ".github/workflows/creator-owner-dev-git.yml").read_text()
         owner = workflow.split("- name: Build boot initramfs and Git development base", 1)[1]
         owner = owner.split("- name: Create ephemeral prototype trust", 1)[0]
-        removal = owner.index('rm -rf "$target"')
+        cleanup = owner.index('git clean -fd -- "$target"')
+        restore = owner.index('git restore --source=HEAD --worktree -- "$target"')
         clean_before = owner.index('OWNER_SOURCE_CHECKOUT_DIRTY_BEFORE_BUILDROOT')
         buildroot = owner.index("bootstrap/independent-base/build.py build")
         clean_after = owner.index('OWNER_SOURCE_CHECKOUT_DIRTY_AFTER_BUILDROOT')
-        self.assertLess(removal, clean_before)
+        self.assertNotIn('rm -rf "$target"', owner)
+        self.assertLess(cleanup, restore)
+        self.assertLess(restore, clean_before)
         self.assertLess(clean_before, buildroot)
         self.assertLess(buildroot, clean_after)
         self.assertIn("OWNER_ROOTFS_GIT_NOT_EXECUTABLE", owner)
