@@ -18,11 +18,24 @@ const VERSIONS_DIR = 'runtime-versions';
 const DEFAULT_STATE = Object.freeze({
   schema: CHANNEL_SCHEMA, activeSha: null, previousSha: null,
   pendingSha: null, attemptedSha: null, pinnedSha: null, rejectedSha: null,
-  incompatibleSha: null, nonRuntimeMainSha: null,
+  incompatibleSha: null, nonRuntimeMainSha: null, check: null,
 });
 
 function shaOrNull(value) {
   return value === null || (typeof value === 'string' && SHA_RE.test(value));
+}
+const CHECK_PHASES = new Set(['checking','fetching','validating','idle','blocked','error']);
+const CHECK_ERRORS = new Set(['remote-unavailable','stage-failed','diverged','untrusted','conflict','incompatible','rejected','first-run-pending']);
+function validateCheck(value) {
+  if (value == null) return null;
+  if (!value || typeof value !== 'object' || Array.isArray(value) ||
+      typeof value.attemptId !== 'string' || !/^[a-f0-9-]{36}$/.test(value.attemptId) ||
+      !CHECK_PHASES.has(value.phase) || !shaOrNull(value.targetSha) ||
+      typeof value.checkedAt !== 'string' || !Number.isFinite(Date.parse(value.checkedAt)) ||
+      (value.error !== null && !CHECK_ERRORS.has(value.error)))
+    throw Error('Untrusted Desktop Dev check observation');
+  return Object.freeze({attemptId:value.attemptId,phase:value.phase,
+    targetSha:value.targetSha,checkedAt:value.checkedAt,error:value.error});
 }
 function validateState(value) {
   if (!value || typeof value !== 'object' || Array.isArray(value) ||
@@ -52,6 +65,7 @@ function validateState(value) {
     // Receipt for official main whose exact Git diff had no Native runtime
     // inputs. This is NOT an activated version and never replaces activeSha.
     nonRuntimeMainSha: value.nonRuntimeMainSha ?? null,
+    check: validateCheck(value.check),
   });
 }
 function statePath(userData) { return join(userData, STATE_FILENAME); }
@@ -462,7 +476,35 @@ function createDesktopIdleActivation({
   };
 }
 
-async function stageMain({ userData, template, log = () => {}, remote = OFFICIAL_REMOTE, runGit = git, buildCandidate = buildNativeCandidate, cleanupCandidate = removeOwnedCandidate }) {
+// Observations belong to the same atomic transaction journal as active/pending
+// pointers. They are never authority to activate an unverified candidate.
+async function stageMain(options) {
+  const {userData, remote=OFFICIAL_REMOTE}=options;
+  if (remote!==OFFICIAL_REMOTE) throw Error('Untrusted update source');
+  const attemptId=randomUUID();
+  let targetSha=null;
+  const observe=(phase,sha=targetSha,error=null,initial=false)=>{
+    const latest=readState(userData);
+    if (!initial && latest.check?.attemptId!==attemptId) return;
+    targetSha=sha;
+    writeState(userData,{...latest,check:{attemptId,phase,targetSha,
+      checkedAt:new Date().toISOString(),error}});
+  };
+  observe('checking',null,null,true);
+  try {
+    const result=await stageMainCore({...options,observe});
+    const target=result.sha || targetSha;
+    if (result.status==='unavailable') observe('error',target,'remote-unavailable');
+    else if (['diverged','untrusted','conflict','incompatible','rejected'].includes(result.status))
+      observe('blocked',target,result.status);
+    else observe('idle',target);
+    return result;
+  } catch (error) {
+    observe('error',targetSha,'stage-failed');
+    throw error;
+  }
+}
+async function stageMainCore({ userData, template, log = () => {}, remote = OFFICIAL_REMOTE, runGit = git, buildCandidate = buildNativeCandidate, cleanupCandidate = removeOwnedCandidate, observe }) {
   if (remote !== OFFICIAL_REMOTE) throw Error('Untrusted update source');
   // Best-effort orphan maintenance must not prevent a valid state decision.
   try { sweepStaleCandidates(userData,{log}); sweepRetiredVersions(userData,{log}); }
@@ -514,6 +556,7 @@ async function stageMain({ userData, template, log = () => {}, remote = OFFICIAL
   mkdirSync(versions,{recursive:true});
   const existing = await verifiedVersion(userData,remoteSha,template);
   if (!existing) {
+    observe('fetching',remoteSha);
     const staging = join(versions,'.candidate-' + randomUUID());
     try {
       // Partial objects + sparse materialization. Git history is NOT shallow;
@@ -586,6 +629,7 @@ async function stageMain({ userData, template, log = () => {}, remote = OFFICIAL
       // bundle compiled from the identical staged SHA, not hundreds of modules
       // transformed on the first user launch. The staging directory is unique.
       try {
+        observe('validating',remoteSha);
         await buildCandidate(staging,template,{log,userData});
       } catch(error) {
         // An immutable OS commit cannot acquire a different Surface SHA or
@@ -613,6 +657,7 @@ async function stageMain({ userData, template, log = () => {}, remote = OFFICIAL
       }
     }
   }
+  observe('validating',remoteSha);
   if (!await verifiedVersion(userData,remoteSha,template)) return {status:'untrusted'};
   // Re-read state after expensive I/O: another updater may have changed the
   // pointer; do not trample rollback pins or concurrent pending candidates.
