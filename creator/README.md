@@ -19,6 +19,22 @@ no backend de homologação.
 - tools/ — integração e sincronização Owner Development, sem rebuild do kernel.
 - go.mod — módulo github.com/ordaxsystems/ordax-os/creator.
 
+## Preparação local de imagem Owner DEV
+
+O comando ordax-creator prepare-image --owner-dev usa o mesmo Core Go
+PrepareOwnerDevelopmentStorageImage do produto para preparar somente um
+arquivo de imagem com ORDAX-ESP, ORDAX e ORDAX-DATA ajustados à
+capacidade física informada. Exige o SHA-256 exato do seed publicado.
+O recibo PREPARED_SHA256 nesse modo identifica o plano de escrita física,
+não o hash dos bytes esparsos do arquivo.
+
+Essa preparação não grava discos, não formata a partição de dados, não
+instala uma revisão nova do OS e não comprova boot. O initramfs existente
+já executa ordax-grow-ext4 para tentar aumentar o filesystem da partição
+ORDAX após verificar sua saúde; o resultado deve ser comprovado no boot
+físico. Um USB só pode ser declarado instalado após aplicação pelo writer
+privilegiado canônico, leitura de verificação e teste físico.
+
 ## Ponte offline da Base DEV
 
 O produtor canônico system/services/base-update/dev_stage.py com a opção
