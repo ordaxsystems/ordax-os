@@ -6,7 +6,7 @@ Status: CANÔNICO PARA ESCOPO DE LANÇAMENTO
 
 Este arquivo define **o que pertence ao ciclo de lançamento do OrdaX**. Leia-o antes de trabalhar em lançamento, USB, Creator, Native, Surface, apps, Conta, Spaces, Intelligence, Studio, Runtime, Web, Mobile, Platform, distribuição ou monetização.
 
-`docs/CURRENT-STATE.md`, manifests, owners e contratos machine-readable continuam descrevendo **o que existe, está habilitado e foi provado hoje**. Este arquivo define escopo e política; ele não transforma implementação incompleta em `PASS`.
+`docs/CURRENT-STATE.md` é somente um índice para encontrar o código e as autoridades de cada capacidade; **não contém estado comprovado, pins ou recibos atuais**. O que existe, foi habilitado e foi provado deve ser conferido no código executado, contratos consumidos, artefatos publicados e recibos do destino na revisão exata. Este arquivo define escopo e política; não transforma implementação incompleta em `PASS`.
 
 ## 1. Princípio central
 

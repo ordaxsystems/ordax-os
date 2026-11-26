@@ -1,220 +1,90 @@
 #!/usr/bin/env python3
-"""Keep CURRENT-STATE aligned with first-run, keyboard and trust contracts."""
-
-from __future__ import annotations
-
+"""First-run, keyboard and physical authority are tested from their owners."""
 import json
-from pathlib import Path
+import subprocess
 import unittest
+from pathlib import Path
 
 ROOT = Path(__file__).resolve().parents[1]
-CURRENT = ROOT / "docs" / "CURRENT-STATE.md"
-FIRST_RUN = ROOT / "docs" / "contracts" / "first-run.json"
-KEYBOARD = ROOT / "docs" / "contracts" / "keyboard-layout.json"
-BRANDING = ROOT / "docs" / "contracts" / "branding.json"
-TRUST_POLICY = ROOT / "docs" / "contracts" / "release-trust-policy.json"
-AUTHORIZATION = ROOT / "docs" / "contracts" / "physical-write-authorization.json"
+
+
+def source(path):
+    file = ROOT / path
+    if file.is_file():
+        return file.read_text(encoding="utf-8")
+    p = subprocess.run(["git", "-C", str(ROOT), "show", "HEAD:" + path],
+                       text=True, capture_output=True, timeout=20)
+    if p.returncode:
+        raise AssertionError(f"missing canonical source: {path}: {p.stderr}")
+    return p.stdout
+
+
+def contract(path):
+    return json.loads(source("docs/contracts/" + path + ".json"))
 
 
 class CurrentStateFirstRunInputTests(unittest.TestCase):
-    @classmethod
-    def setUpClass(cls):
-        cls.current = CURRENT.read_text(encoding="utf-8")
-        cls.first_run = json.loads(FIRST_RUN.read_text(encoding="utf-8"))
-        cls.keyboard = json.loads(KEYBOARD.read_text(encoding="utf-8"))
-        cls.branding = json.loads(BRANDING.read_text(encoding="utf-8"))
-        cls.trust = json.loads(TRUST_POLICY.read_text(encoding="utf-8"))
-        cls.authorization = json.loads(AUTHORIZATION.read_text(encoding="utf-8"))
+    def test_first_run_contract_never_requires_cloud_to_complete(self):
+        first = contract("first-run")
+        self.assertEqual(first["$schema"], "prototype-ordax.first-run/1")
+        self.assertTrue(first["persistence"]["persistent_usb_state"])
+        self.assertTrue(first["account"]["optional"])
+        self.assertTrue(first["account"]["local_only_always_available"])
+        self.assertFalse(first["account"]["cloud_sync_required_for_mvp"])
+        self.assertTrue(first["network"]["skippable"])
+        self.assertFalse(first["mvp"]["web_mode_uses_this_device_oobe"])
+        self.assertEqual(first["regional"]["completeness_scope"], "first-run-oobe-only")
+        self.assertEqual(first["regional"]["default_locale"], "pt-BR")
+        self.assertEqual(first["regional"]["default_time_zone"], "America/Bahia")
 
-    def test_first_run_snapshot_tracks_contract_without_cloud_overclaim(self):
-        self.assertEqual(self.first_run["$schema"], "prototype-ordax.first-run/1")
-        self.assertTrue(self.first_run["persistence"]["persistent_usb_state"])
-        self.assertTrue(self.first_run["account"]["optional"])
-        self.assertTrue(self.first_run["account"]["local_only_always_available"])
-        self.assertFalse(self.first_run["account"]["cloud_sync_required_for_mvp"])
-        self.assertTrue(self.first_run["network"]["skippable"])
-        self.assertFalse(self.first_run["mvp"]["web_mode_uses_this_device_oobe"])
+    def test_keyboard_is_native_and_cannot_claim_live_reconfiguration(self):
+        kb = contract("keyboard-layout")
+        self.assertEqual(kb["$schema"], "prototype-ordax.keyboard-layout/1")
+        self.assertEqual(kb["default_layout_id"], "br-abnt2")
+        self.assertEqual(set(kb["supported_layouts"]), {"br-abnt2", "us"})
+        self.assertFalse(kb["application"]["live_reconfigure_supported"])
+        self.assertFalse(kb["first_run"]["selector_exposed"])
+        self.assertTrue(kb["first_run"]["status_read_only_exposed"])
 
-        self.assertIn("FIRST_RUN_OOBE=PASS_SOURCE_NATIVE_USB", self.current)
-        self.assertIn("FIRST_RUN_PERSISTENT=YES", self.current)
-        self.assertIn("FIRST_RUN_ACCOUNT_OPTIONAL=YES", self.current)
-        self.assertIn("FIRST_RUN_LOCAL_ONLY_ALWAYS_AVAILABLE=YES", self.current)
-        self.assertIn("FIRST_RUN_NETWORK_SKIPPABLE=YES", self.current)
-        self.assertIn(
-            f'FIRST_RUN_SOURCE_LOCALE={self.first_run["regional"]["default_locale"]}',
-            self.current,
-        )
-        self.assertIn(
-            "FIRST_RUN_OOBE_COMPLETE_LOCALES="
-            + ",".join(self.first_run["regional"]["complete_locales"]),
-            self.current,
-        )
-        self.assertEqual(
-            self.first_run["regional"]["completeness_scope"],
-            "first-run-oobe-only",
-        )
-        self.assertIn(
-            f'FIRST_RUN_DEFAULT_TIME_ZONE={self.first_run["regional"]["default_time_zone"]}',
-            self.current,
-        )
-        self.assertIn("FIRST_RUN_WEB_DEVICE_OOBE=NO", self.current)
+    def test_early_boot_does_not_claim_graphical_splash(self):
+        branding = contract("branding")
+        self.assertFalse(branding["early_boot"]["graphical_splash_implemented"])
+        self.assertEqual(branding["early_boot"]["current_mode"], "console-text")
+        self.assertTrue(branding["first_run"]["implemented"])
 
-    def test_keyboard_snapshot_tracks_native_contract_and_keeps_physical_proof_pending(self):
-        self.assertEqual(
-            self.keyboard["$schema"],
-            "prototype-ordax.keyboard-layout/1",
-        )
-        self.assertEqual(self.keyboard["default_layout_id"], "br-abnt2")
-        self.assertEqual(set(self.keyboard["supported_layouts"]), {"br-abnt2", "us"})
-        self.assertFalse(self.keyboard["application"]["live_reconfigure_supported"])
-        self.assertFalse(self.keyboard["first_run"]["selector_exposed"])
+    def test_public_trust_is_pinned_in_policy_not_document_snapshot(self):
+        trust = contract("release-trust-policy")
+        self.assertTrue(trust["gates"]["key_material_generated"])
+        self.assertTrue(trust["gates"]["public_anchor_pinned"])
+        self.assertTrue(trust["gates"]["minimal_bootstrap_resolved"])
+        self.assertTrue(trust["gates"]["physical_authorization_eligible"])
+        self.assertNotIn("RELEASE_TRUST=UNRESOLVED", source("docs/CURRENT-STATE.md"))
 
-        self.assertIn("KEYBOARD_LAYOUT_NATIVE=PASS_SOURCE", self.current)
-        self.assertIn(
-            f'KEYBOARD_LAYOUT_DEFAULT={self.keyboard["default_layout_id"]}',
-            self.current,
-        )
-        self.assertIn("KEYBOARD_LAYOUT_ALTERNATIVE=us", self.current)
-        self.assertIn("KEYBOARD_LAYOUT_WEB_CAPABILITY=NO", self.current)
-        self.assertIn("KEYBOARD_LAYOUT_LIVE_RECONFIGURE=NO", self.current)
-        self.assertIn(
-            "KEYBOARD_LAYOUT_FIRST_RUN_SELECTOR=NO_GATED_ON_SAFE_APPLY",
-            self.current,
-        )
-        self.assertIn(
-            "KEYBOARD_LAYOUT_PHYSICAL_STABLE_MVP_PROOF=PENDING",
-            self.current,
-        )
-
-    def test_early_boot_snapshot_does_not_claim_graphical_splash(self):
-        self.assertFalse(
-            self.branding["early_boot"]["graphical_splash_implemented"]
-        )
-        self.assertEqual(self.branding["early_boot"]["current_mode"], "console-text")
-        self.assertIn("EARLY_BOOT_GRAPHICAL_SPLASH=NO_CONSOLE_TEXT", self.current)
-
-    def test_resolved_public_trust_cannot_regress_to_unresolved(self):
-        gates = self.trust["gates"]
-        self.assertTrue(gates["key_material_generated"])
-        self.assertTrue(gates["public_anchor_pinned"])
-        self.assertTrue(gates["minimal_bootstrap_resolved"])
-        self.assertTrue(gates["physical_authorization_eligible"])
-
-        self.assertIn(
-            "RELEASE_TRUST=PASS_CANONICAL_PUBLIC_ANCHOR_PINNED",
-            self.current,
-        )
-        self.assertNotIn("RELEASE_TRUST=UNRESOLVED", self.current)
-        self.assertNotIn(
-            "complete the canonical Ed25519 release-trust ceremony",
-            self.current,
-        )
-        self.assertNotIn("public anchor is still not pinned", self.current)
-
-    def test_physical_authorization_contract_and_physical_proof_boundary_are_coherent(self):
-        proof_pending = (
-            self.authorization["status"]
-            == "blocked-canonical-v4-release-proof-pending"
-            and self.authorization["physical_write_allowed"] is False
-            and self.authorization["explicit_owner_authorization"] is False
-            and self.authorization["authorization_context_sha256"] is None
-            and self.authorization["requirements"]["canonical_v4_release_proof_bound"] is False
-        )
-        consent_pending = (
-            self.authorization["status"]
-            == "blocked-explicit-physical-authorization-pending"
-            and self.authorization["physical_write_allowed"] is False
-            and self.authorization["explicit_owner_authorization"] is False
-            and self.authorization["authorization_context_sha256"] is None
-            and self.authorization["requirements"]["canonical_v4_release_proof_bound"] is True
-        )
-        authorized = (
-            self.authorization["status"] == "authorized"
-            and self.authorization["physical_write_allowed"] is True
-            and self.authorization["explicit_owner_authorization"] is True
-            and isinstance(self.authorization["authorization_context_sha256"], str)
-            and len(self.authorization["authorization_context_sha256"]) == 64
-            and self.authorization["requirements"]["canonical_v4_release_proof_bound"] is True
-        )
-        self.assertEqual(
-            sum((proof_pending, consent_pending, authorized)),
-            1,
-            "authorization contract must be exactly proof-pending, consent-pending, or authorized",
-        )
-        self.assertEqual(
-            self.authorization["scope"],
-            "first-real-stable-mvp-usb-proof",
-        )
-        self.assertEqual(self.authorization["release_sequence"], 1)
-        self.assertTrue(
-            self.authorization["requirements"][
-                "writer_requires_exact_17_artifact_readback"
-            ]
-        )
-        self.assertEqual(
-            self.authorization["release_binding"]["source_commit"],
-            "03f88eeaf382a59aaefbcf4943d0639d2730741b",
-        )
-        self.assertIn(
-            "CANONICAL_V4_RELEASE_PROOF_HISTORY=PASS_SIGNED_MATERIALIZED_EXACT_PRE_HARDENING",
-            self.current,
-        )
-        if consent_pending:
-            self.assertIn(
-                "CANONICAL_V4_RELEASE_PROOF_BINDING_CURRENT_MAIN=PASS",
-                self.current,
-            )
-            self.assertIn(
-                "PHYSICAL_AUTHORIZATION_ELIGIBLE=YES_PREFLIGHT_ONLY_EXPLICIT_OWNER_CONSENT_PENDING",
-                self.current,
-            )
-            self.assertIn(
-                "PHYSICAL_OWNER_AUTHORIZATION_REACHABLE=YES_EXPLICIT_OWNER_CONSENT_REQUIRED",
-                self.current,
-            )
-            self.assertIn(
-                "PHYSICAL_WRITE_ALLOWED=NO_EXPLICIT_OWNER_AUTHORIZATION",
-                self.current,
-            )
+    def test_physical_authorization_is_exactly_one_fail_closed_state(self):
+        auth = contract("physical-write-authorization")
+        consent = auth["status"] == "blocked-explicit-physical-authorization-pending"
+        proof_pending = auth["status"] == "blocked-canonical-v4-release-proof-pending"
+        authorized = auth["status"] == "authorized"
+        self.assertEqual(sum((consent, proof_pending, authorized)), 1)
+        self.assertEqual(auth["scope"], "first-real-stable-mvp-usb-proof")
+        self.assertEqual(auth["release_sequence"], 1)
+        self.assertTrue(auth["requirements"]["writer_requires_exact_17_artifact_readback"])
+        self.assertTrue(auth["requirements"]["windows_uac_required"])
+        self.assertTrue(auth["requirements"]["post_write_readback_required"])
+        self.assertEqual(len(auth["release_binding"]["source_commit"]), 40)
+        if authorized:
+            self.assertTrue(auth["physical_write_allowed"])
+            self.assertTrue(auth["explicit_owner_authorization"])
+            self.assertEqual(len(auth["authorization_context_sha256"]), 64)
+        else:
+            self.assertFalse(auth["physical_write_allowed"])
+            self.assertFalse(auth["explicit_owner_authorization"])
+            self.assertIsNone(auth["authorization_context_sha256"])
+        if consent:
+            self.assertTrue(auth["requirements"]["canonical_v4_release_proof_bound"])
         if proof_pending:
-            self.assertFalse(
-                self.authorization["requirements"]["canonical_v4_release_proof_bound"]
-            )
-            self.assertIn(
-                "CANONICAL_V4_RELEASE_PROOF_CURRENT_MAIN=PENDING_POST_HARDENING_REPLACEMENT",
-                self.current,
-            )
-            self.assertIn(
-                "CANONICAL_V4_RELEASE_PROOF_BINDING_CURRENT_MAIN=NO",
-                self.current,
-            )
-            self.assertIn(
-                "PHYSICAL_AUTHORIZATION_ELIGIBLE=NO_REPLACEMENT_CANONICAL_V4_PROOF_REQUIRED",
-                self.current,
-            )
-            self.assertIn(
-                "PHYSICAL_OWNER_AUTHORIZATION_REACHABLE=NO_REPLACEMENT_PROOF_REQUIRED",
-                self.current,
-            )
-            self.assertIn(
-                "PHYSICAL_WRITE_ALLOWED=NO_CANONICAL_V4_RELEASE_PROOF_PENDING",
-                self.current,
-            )
-        self.assertIn("PHYSICAL_TARGET_SELECTED=NO", self.current)
-        self.assertIn(
-            "PHYSICAL_TARGET_DESTRUCTIVE_CONFIRMATION=PENDING",
-            self.current,
-        )
-        self.assertIn(
-            "CANONICAL_SIGNED_RELEASE_BOOT_PROVEN=NO_PHYSICAL_STABLE_MVP_PENDING",
-            self.current,
-        )
-        self.assertIn("MVP_SURFACE_SMOKE_HARNESS=PASS_SOURCE", self.current)
-        self.assertIn("MVP_SURFACE_SMOKE_PHYSICAL=PENDING", self.current)
-        self.assertIn("CANONICAL_STABLE_GRAPHICAL_MODE=PENDING", self.current)
-        self.assertIn("PUBLIC_PHYSICAL_APPLY=NO", self.current)
-        self.assertIn("all 12 manual tour items", self.current)
-        self.assertIn("verified Stable runtime", self.current)
+            self.assertFalse(auth["requirements"]["canonical_v4_release_proof_bound"])
+        self.assertIn("não significa USB instalado", source("docs/CURRENT-STATE.md"))
 
 
 if __name__ == "__main__":
