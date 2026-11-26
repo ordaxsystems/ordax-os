@@ -591,12 +591,10 @@ jobs:
             ORDAX_REPO_BRANCH=main \
             /bin/sh bootstrap/dev-base/ordax-pull \
               --seed-from-local "$GITHUB_WORKSPACE" "$ORDAX_OWNER_SOURCE_COMMIT"
-          # The same verified visual bytes may be reused for subsequent
-          # disposable CI browser tests; no file is committed to OS Git or
-          # copied into the sparse Owner checkout.
-          for part in ui workspace; do
-            cp -a "$RUNNER_TEMP/ordax-verified-surface-ci/system/surface/$part" "system/surface/$part"
-          done
+          # Keep the committed visual source in the clean OS checkout.
+          # The disposable assembly was verified above and is passed directly
+          # to preseed; copying into an existing tracked directory creates
+          # nested untracked files and invalidates the Git source proof.
           test "$(sudo git -C "$rootfs/workspace/ordax" rev-parse HEAD)" = "$ORDAX_OWNER_SOURCE_COMMIT"
           test "$(sudo git -C "$rootfs/workspace/ordax" symbolic-ref --quiet --short HEAD)" = main
           test "$(sudo git -C "$rootfs/workspace/ordax" remote get-url origin)" = 'https://github.com/ordaxsystems/ordax-os.git'
