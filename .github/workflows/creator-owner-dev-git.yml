@@ -625,7 +625,9 @@ jobs:
             --assembled-root "$prepared_source" \
             --rootfs "$rootfs" \
             --os-commit "$ORDAX_OWNER_SOURCE_COMMIT"
-          sudo -E /bin/sh system/services/surface-source/owner-stage.sh ready \
+          # Trace the native fail-closed readiness gate until the precise
+          # post-preseed rejection is resolved; do not bypass verification.
+          sudo -E /bin/sh -x system/services/surface-source/owner-stage.sh ready \
             "$rootfs/workspace/ordax" "$ORDAX_OWNER_SOURCE_COMMIT" \
             "$rootfs/state/ordax/releases/$ORDAX_OWNER_SOURCE_COMMIT"
           # Revalidate source status against the exact staged OS checkout.
