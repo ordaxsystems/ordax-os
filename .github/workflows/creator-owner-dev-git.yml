@@ -637,7 +637,7 @@ jobs:
           test "$runtime_status" = canonical
           test -s "$rootfs/state/ordax/releases/$ORDAX_OWNER_SOURCE_COMMIT/.intelligence-file-hashes"
           test -s "$rootfs/state/ordax/releases/$ORDAX_OWNER_SOURCE_COMMIT/.intelligence-source-sha"
-          sudo -E /bin/sh system/intelligence/owner-stage.sh ready \
+          sudo -E /bin/sh -x system/intelligence/owner-stage.sh ready \
             "$rootfs/workspace/ordax" "$ORDAX_OWNER_SOURCE_COMMIT" \
             "$rootfs/state/ordax/releases/$ORDAX_OWNER_SOURCE_COMMIT"
           echo 'ORDAX_OWNER_FIRST_BOOT_INTELLIGENCE_SAME_COMMIT_READY=YES'
