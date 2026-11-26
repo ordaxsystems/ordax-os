@@ -1,9 +1,12 @@
 package main
 
 import (
+	"crypto/sha256"
+	"encoding/hex"
 	"encoding/json"
 	"flag"
 	"fmt"
+	"io"
 	"os"
 	"path/filepath"
 	"strings"
@@ -14,6 +17,7 @@ import (
 func usage() {
 	fmt.Fprintln(os.Stderr, "usage: ordax-creator <check|verify-payload|stage-tree|plan> --manifest <path> [--payload-root <dir>] [--output-root <dir>]")
 	fmt.Fprintln(os.Stderr, "       ordax-creator prepare-image --seed <regular-file> --out <new-regular-file> --target-bytes <bytes>")
+	fmt.Fprintln(os.Stderr, "       ordax-creator prepare-image --owner-dev --seed <regular-file> --seed-sha256 <64-lower-hex> --out <new-regular-file> --target-bytes <bytes>")
 	fmt.Fprintln(os.Stderr, "       ordax-creator plan-portable --target-bytes <bytes>")
 	fmt.Fprintln(os.Stderr, "       ordax-creator plan-portable-application --plan <portable-media-plan.json>")
 	fmt.Fprintln(os.Stderr, "       ordax-creator plan-portable-media --target-bytes <bytes> --source-commit <40-hex> --bindings <json>")
@@ -38,6 +42,8 @@ func runPrepareImage(args []string) int {
 	seed := fs.String("seed", "", "verified GPT seed regular-file path")
 	out := fs.String("out", "", "new prepared regular-file path")
 	targetBytes := fs.Uint64("target-bytes", 0, "exact target capacity in bytes; must be 512-byte aligned")
+	ownerDev := fs.Bool("owner-dev", false, "prepare the existing three-partition Owner Development layout, not the two-partition seed")
+	seedSHA := fs.String("seed-sha256", "", "required exact lowercase SHA-256 of the trusted seed in Owner Dev mode")
 	if err := fs.Parse(args); err != nil {
 		return 2
 	}
@@ -46,10 +52,49 @@ func runPrepareImage(args []string) int {
 		return 2
 	}
 
-	prepared, err := creatorcore.PreparePhysicalImage(*seed, *out, *targetBytes)
+	if !*ownerDev && *seedSHA != "" {
+		fmt.Fprintln(os.Stderr, "ordax-creator: seed SHA-256 option requires Owner Dev mode")
+		return 2
+	}
+	var prepared creatorcore.PreparedPhysicalImage
+	var err error
+	if *ownerDev {
+		if len(*seedSHA) != 64 || strings.ToLower(*seedSHA) != *seedSHA {
+			fmt.Fprintln(os.Stderr, "ordax-creator: Owner Dev requires lowercase 64-hex seed SHA-256")
+			return 2
+		}
+		if _, err = hex.DecodeString(*seedSHA); err != nil {
+			fmt.Fprintln(os.Stderr, "ordax-creator: invalid Owner Dev seed SHA-256")
+			return 2
+		}
+		info, statErr := os.Lstat(*seed)
+		if statErr != nil || !info.Mode().IsRegular() {
+			fmt.Fprintln(os.Stderr, "ordax-creator: Owner Dev seed must be a regular non-symlink file")
+			return 1
+		}
+		file, openErr := os.Open(*seed)
+		if openErr != nil {
+			fmt.Fprintf(os.Stderr, "ordax-creator: open Owner Dev seed: %v\n", openErr)
+			return 1
+		}
+		digest := sha256.New()
+		_, copyErr := io.Copy(digest, file)
+		closeErr := file.Close()
+		if copyErr != nil || closeErr != nil || hex.EncodeToString(digest.Sum(nil)) != *seedSHA {
+			fmt.Fprintln(os.Stderr, "ordax-creator: Owner Dev seed digest mismatch or read failure")
+			return 1
+		}
+		prepared, err = creatorcore.PrepareOwnerDevelopmentStorageImage(*seed, *out, *targetBytes)
+	} else {
+		prepared, err = creatorcore.PreparePhysicalImage(*seed, *out, *targetBytes)
+	}
 	if err != nil {
 		fmt.Fprintf(os.Stderr, "ordax-creator: prepare image failed: %v\n", err)
 		return 1
+	}
+	if *ownerDev {
+		fmt.Printf("PREPARED_OWNER_DEV_LAYOUT=THREE_PARTITIONS\n")
+		fmt.Printf("PREPARED_HASH_KIND=PHYSICAL_WRITE_PLAN\n")
 	}
 	fmt.Printf("PREPARED_PHYSICAL_IMAGE=YES\n")
 	fmt.Printf("PREPARED_PATH=%s\n", prepared.Path)

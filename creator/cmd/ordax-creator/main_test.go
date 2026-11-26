@@ -111,3 +111,20 @@ func TestRenderNativeBootRejectsSymlinkTemplateAndExistingOutput(t *testing.T) {
 		t.Fatal("pre-existing output directory unexpectedly accepted")
 	}
 }
+
+func TestPrepareOwnerDevRequiresExactSeedDigestWithoutPublishingImage(t *testing.T) {
+	root := t.TempDir()
+	seed := filepath.Join(root, "seed.raw")
+	out := filepath.Join(root, "output.raw")
+	if err := os.WriteFile(seed, []byte("not a valid seed"), 0600); err != nil { t.Fatal(err) }
+	for _, tc := range []struct{name string; args []string}{
+		{"missing", []string{"--owner-dev", "--seed", seed, "--out", out, "--target-bytes", "8053063680"}},
+		{"badhex", []string{"--owner-dev", "--seed", seed, "--seed-sha256", strings.Repeat("g",64), "--out", out, "--target-bytes", "8053063680"}},
+		{"mismatch", []string{"--owner-dev", "--seed", seed, "--seed-sha256", strings.Repeat("0",64), "--out", out, "--target-bytes", "8053063680"}},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			if rc := runPrepareImage(tc.args); rc == 0 { t.Fatal("unsafe seed accepted") }
+			if _, err := os.Lstat(out); !os.IsNotExist(err) { t.Fatal("preparation produced output despite invalid seed") }
+		})
+	}
+}
