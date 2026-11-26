@@ -631,7 +631,8 @@ jobs:
             "$rootfs/workspace/ordax" "$ORDAX_OWNER_SOURCE_COMMIT" \
             "$rootfs/state/ordax/releases/$ORDAX_OWNER_SOURCE_COMMIT"
           # Revalidate source status against the exact staged OS checkout.
-          runtime_status=$(sudo -E /bin/sh system/intelligence/owner-stage.sh status "$rootfs/workspace/ordax" "$ORDAX_OWNER_SOURCE_COMMIT")
+          runtime_status=$(sudo -E /bin/sh -x system/intelligence/owner-stage.sh status "$rootfs/workspace/ordax" "$ORDAX_OWNER_SOURCE_COMMIT")
+          printf 'OWNER_INTELLIGENCE_STATUS=%s EXPECTED=%s\n' "$runtime_status" "$intelligence_status"
           test "$runtime_status" = "$intelligence_status"
           test "$runtime_status" = canonical
           test -s "$rootfs/state/ordax/releases/$ORDAX_OWNER_SOURCE_COMMIT/.intelligence-file-hashes"
