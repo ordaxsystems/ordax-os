@@ -22,7 +22,6 @@ import (
 // existing Windows task invoke tools/owner_usb_git_delivery.py, which owns all
 // physical identity checks, Git provenance, atomic writes and readback.
 type ownerUSBUpdateStatus struct {
-    Mode string
     Active bool
     Result string
     Error string
@@ -95,14 +94,6 @@ func ownerUSBSelectedTarget(state appRefreshState, index int) (physicalTarget, e
 // Independent of the destructive RAW installer. No side effects; the
 // actual writer still revalidates task binding, live serial, disk, GPT,
 // partition identity, version SHA, free space and completed readback.
-func ownerUSBCanStageSelected(state appRefreshState, index int) bool {
-    failed, succeeded := physicalWriteTerminalFlags()
-    if failed || succeeded { return false }
-    if _, _, ok := ownerPrototypeBuildInfo(); !ok { return false }
-    _, err := ownerUSBSelectedTarget(state, index)
-    return err == nil
-}
-
 func ownerUSBTransportFromTask(task ownerUSBTaskInfo, target physicalTarget, executable string) (ownerUSBTransport, error) {
     if (task.State != "Ready" && task.State != "Running") || task.Concurrency != "IgnoreNew" {
         return ownerUSBTransport{}, errors.New("canonical Owner Dev synchronizer is busy or not protected")
@@ -482,65 +473,23 @@ func ownerUSBTransportFailure(err error) error {
     return errors.New("Sincronizador bloqueou a atualização: " + detail)
 }
 
-func beginOwnerUSBUpdate() {
-    if refreshInProgress || writeInProgress() || ownerUSBUpdateInProgress() { return }
-    failed, succeeded := physicalWriteTerminalFlags()
-    if failed || succeeded { return }
-    stateMu.Lock()
-    state := refreshState
-    stateMu.Unlock()
-    target, err := ownerUSBSelectedTarget(state, selectedTargetIndex())
-    if err != nil {
-        messageBox(creatorT(msgUSBUpdateBlocked), windowTitle, mbOK|mbIconWarning)
-        return
-    }
-    if _, _, ok := ownerPrototypeBuildInfo(); !ok {
-        messageBox(creatorT(msgUSBUpdateBlocked), windowTitle, mbOK|mbIconWarning)
-        return
-    }
-    if messageBox(creatorT(msgUSBUpdateConfirm), windowTitle, mbYesNo|mbIconInformation|mbDefButton2) != idYes { return }
-    startOwnerUSBUpdate(target)
-}
-
-// Shared by the explicit button and the trusted hotplug observer. Neither
-// entry point creates an updater or alters the active Linux installation.
 func startOwnerUSBUpdate(target physicalTarget) {
-    startCreatorUSBUpdateTask("owner-git",func()(ownerUSBReceipt,error){
-        return executeOwnerUSBTransport(target)
-    })
-}
-
-// The Portable updater displays physical write progress through the common
-// tracker, but it completes through the USB-update UI lifecycle. Restore the
-// common physical state at that boundary, including on elevation cancellation.
-func clearPortableUSBWriteProgress(mode string) {
-    if mode!="portable" {return}
-    writeMu.Lock()
-    writeState=physicalWriteState{}
-    writeMu.Unlock()
-}
-
-// Only one UI lifecycle and progress observer. The selected physical
-// transport and Core update policy own the actual media operations.
-func startCreatorUSBUpdateTask(mode string, execute func()(ownerUSBReceipt,error)) {
     if refreshInProgress || writeInProgress() || ownerUSBUpdateInProgress() { return }
     failed, succeeded := physicalWriteTerminalFlags()
     if failed || succeeded { return }
     ownerUSBUpdateMu.Lock()
-    ownerUSBUpdateResult = ownerUSBUpdateStatus{Active: true,Mode:mode}
+    ownerUSBUpdateResult = ownerUSBUpdateStatus{Active: true}
     ownerUSBUpdateMu.Unlock()
-    if mode=="portable" {setCreatorStatus(creatorT(msgPortableUSBUpdateWorking))} else {setCreatorStatus(creatorT(msgUSBUpdateWorking))}
+    setCreatorStatus(creatorT(msgUSBUpdateWorking))
     setCreatorHint(creatorT(msgUSBUpdateWorkingHint))
     setProgressActive()
-    enable(usbUpdateButton, false)
     enable(writeButton, false)
     enable(updateButton, false)
     enable(refreshButton, false)
     enable(deviceCombo, false)
     enable(localeCombo, false)
     go func() {
-        receipt,runErr:=execute()
-        clearPortableUSBWriteProgress(mode)
+        receipt,runErr:=executeOwnerUSBTransport(target)
         ownerUSBUpdateMu.Lock()
         ownerUSBUpdateResult.Active=false
         ownerUSBUpdateResult.Error=""
@@ -562,10 +511,6 @@ func startCreatorUSBUpdateTask(mode string, execute func()(ownerUSBReceipt,error
 // The transport receipt attests to a Git bundle in ORDAX-DATA only.
 // It must never imply that the Linux kernel, Base, Surface or boot were updated.
 func ownerUSBComponentSummary(state ownerUSBUpdateStatus) string {
-    if state.Mode=="portable" {
-        if !validLowerHexString(state.SourceCommit,40) {return ""}
-        return creatorTValues(msgPortableUSBUpdateEvidence,map[string]string{"commit":state.SourceCommit[:12]})+"\n"+creatorT(msgUSBUpdateNotActivated)
-    }
     if state.Result != "GIT_BUNDLE_CURRENT_INSTALL_UNVERIFIED" &&
         state.Result != "GIT_BUNDLE_STAGED_INSTALL_UNVERIFIED" {
         return ""
@@ -613,13 +558,11 @@ func renderOwnerUSBUpdateDone() {
     ownerUSBUpdateMu.Unlock()
     if state.Active || (state.Result == "" && state.Error == "") { return }
     if state.Error != "" {
-        if state.Mode=="portable" {setCreatorStatus(creatorT(msgPortableUSBUpdateFailed))} else {setCreatorStatus(creatorT(msgUSBUpdateFailed))}
+        setCreatorStatus(creatorT(msgUSBUpdateFailed))
         setCreatorHint(state.Error)
         setProgressIdle()
     } else {
-        if state.Mode=="portable" {
-            setCreatorStatus(creatorT(msgPortableUSBUpdateComplete))
-        } else if state.Result == "GIT_BUNDLE_CURRENT_INSTALL_UNVERIFIED" {
+        if state.Result == "GIT_BUNDLE_CURRENT_INSTALL_UNVERIFIED" {
             setCreatorStatus(creatorT(msgUSBUpdateCurrent))
         } else {
             setCreatorStatus(creatorT(msgUSBUpdateComplete))
@@ -632,7 +575,6 @@ func renderOwnerUSBUpdateDone() {
     enable(localeCombo, true)
     enable(refreshButton, true)
     enable(deviceCombo, true)
-    enable(usbUpdateButton, false) // Explicit re-selection is required after result.
     enable(writeButton, false)
     renderUpdateUI()
     invalidateGuidedVisual()

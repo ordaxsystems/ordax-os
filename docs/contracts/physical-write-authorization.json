@@ -10,8 +10,8 @@
   "bindings": {
     "minimal_bootstrap_sha256": "d823580d91395139271b7d32d89f6cde049b2795b7c8f50905d46186fd2d2695",
     "release_trust_sha256": "d2836df77a3d5a54ccf64cc5643cfd5c19052efc83f2e3e2666c6d3197fce250",
-    "portable_usb_contract_sha256": "2a3ded489e03b5232dece25821e075b5a805c562cb1f82e360af5d1d8e0b8d12",
-    "creator_portable_media_contract_sha256": "27897e3a90cd0349d8b3ab87707c3855f0b337c238c8c43dffff38d0dcd2a6a0",
+    "portable_usb_contract_sha256": "7106217b1eaf9c1b412ebf60c5e740b1d7cc899d5506c821eb0bf32b91a5158a",
+    "creator_portable_media_contract_sha256": "ddd710cbdb6cafcdedbc3dad9252d1ed3975bc37d29dc07b5a0e7db414f3e77e",
     "canonical_v4_release_proof_sha256": "768e24011afc5cc20dd5f5e2bf8d2462359d2c348b51a6d81135aeca31475049"
   },
   "requirements": {

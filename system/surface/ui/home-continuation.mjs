@@ -232,7 +232,8 @@ export function mountHomeContinuation(
     }
 
     if (section) section.replaceWith(next);
-    else homePanel.insertBefore(next, space);
+    else homePanel.insertBefore(next,
+      homePanel.querySelector?.("[data-home-running-windows]") ?? space);
     section = next;
     renderedSignature = nextSignature;
 

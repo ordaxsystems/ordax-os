@@ -419,7 +419,10 @@ class IndependentSurfaceRuntimeTests(unittest.TestCase):
         self.assertEqual(build_step.count("\n        env:\n"), 1)
         self.assertIn("ORDAX_SOURCE_COMMIT:", build_step)
         self.assertIn("ORDAX_SURFACE_BUILD_JOBS:", build_step)
-        self.assertIn("MAKEFLAGS: BR2_JLEVEL=${{ vars.ORDAX_SURFACE_BUILD_JOBS || '4' }}", build_step)
+        self.assertIn('export MAKEFLAGS="BR2_JLEVEL=$jobs"', build_step)
+        self.assertIn('mem_jobs=$(( (mem_kib - 2097152) / 2621440 ))', build_step)
+        self.assertIn('ORDAX_SURFACE_TRANSIENT_WORK_DIR:', build_step)
+        self.assertIn('CCACHE_MAXSIZE=', build_step)
         self.assertIn("work_args", build_step)
         self.assertIn("ORDAX_SURFACE_BUILD_JOBS", build_step)
         self.assertIn('ORDAX_SURFACE_RESOLVED_BUILD_WORK_ROOT', build_step)
@@ -444,22 +447,20 @@ class IndependentSurfaceRuntimeTests(unittest.TestCase):
         self.assertNotIn("bootstrap/surface-runtime/build.py build", diagnostic)
         self.assertNotIn("actions/runner", diagnostic)
 
-    def test_graphical_cache_miss_never_restarts_webkit_on_disposable_runner(self):
+    def test_free_github_runner_can_build_after_exact_verified_cache_miss(self):
         workflow = WORKFLOW_PATH.read_text(encoding="utf-8")
-        guard = workflow.split(
-            "      - name: Require persistent producer on verified Surface artifact miss", 1
-        )[1].split(
-            "      - name: Install full Surface Buildroot host dependencies on durable artifact miss", 1
-        )[0]
-        self.assertIn("steps.surface-artifact-cache.outputs.cache-hit != 'true'", guard)
-        self.assertIn("steps.surface-r2.outputs.hit != 'true'", guard)
-        self.assertIn('if [ -z "${ORDAX_SURFACE_PERSISTENT_WORK_ROOT:-}" ] || [ -z "${ORDAX_SURFACE_BUILD_WORK_ROOT:-}" ]; then', guard)
-        self.assertIn("Refusing another hosted 330-minute rebuild", guard)
-        self.assertIn("separately sized build workspace", guard)
-        self.assertLess(
-            workflow.index("Require persistent producer on verified Surface artifact miss"),
-            workflow.index("Install full Surface Buildroot host dependencies on durable artifact miss"),
-        )
+        self.assertIn("|| 'ubuntu-24.04'", workflow)
+        self.assertNotIn("Require persistent producer on verified Surface artifact miss", workflow)
+        restore = workflow.index("Restore verified Independent Surface EROFS component")
+        github = workflow.index("Restore verified Independent Surface from canonical GitHub producer artifact")
+        build = workflow.index("Build Buildroot/musl Surface runtime on durable artifact miss")
+        verify = workflow.index("Verify exact Independent Surface EROFS bytes")
+        self.assertLess(restore, github)
+        self.assertLess(github, build)
+        self.assertLess(build, verify)
+        for hit in ("surface-artifact-cache", "surface-r2", "surface-github-artifact"):
+            self.assertIn("steps." + hit + ".outputs.", workflow[build:verify])
+
 
     def test_persistent_graphical_cache_is_same_for_kconfig_and_make_and_not_uploaded(self):
         workflow = WORKFLOW_PATH.read_text(encoding="utf-8")
@@ -505,7 +506,7 @@ class IndependentSurfaceRuntimeTests(unittest.TestCase):
             self.assertIn("env.ORDAX_SURFACE_PERSISTENT_WORK_ROOT == ''", section)
         self.assertIn('find "${BR2_DL_DIR:-$RUNNER_TEMP/ordax-independent-surface-dl}"', workflow)
 
-    def test_public_pr_cannot_select_private_persistent_surface_runner(self):
+    def test_free_hosted_default_and_main_only_private_runner(self):
         workflow = WORKFLOW_PATH.read_text(encoding="utf-8")
         build = workflow.split("  buildroot-surface:", 1)[1].split("\n  portable-qemu:", 1)[0]
         trusted = "(github.event_name == 'workflow_dispatch' || github.event_name == 'push') && github.ref == 'refs/heads/main' && vars.ORDAX_SURFACE_RUNNER_LABEL != ''"
@@ -513,12 +514,9 @@ class IndependentSurfaceRuntimeTests(unittest.TestCase):
         self.assertIn("ORDAX_SURFACE_PERSISTENT_WORK_ROOT: ${{ " + trusted + " && vars.ORDAX_SURFACE_PERSISTENT_WORK_ROOT || '' }}", build)
         self.assertIn("ORDAX_SURFACE_BUILD_WORK_ROOT: ${{ " + trusted + " && vars.ORDAX_SURFACE_BUILD_WORK_ROOT || '' }}", build)
         self.assertIn("timeout-minutes: ${{ " + trusted + " && vars.ORDAX_SURFACE_PERSISTENT_WORK_ROOT != ''", build)
-        self.assertIn("ORDAX_SURFACE_PRODUCER_ENVIRONMENT: ${{ vars.ORDAX_SURFACE_PRODUCER_ENVIRONMENT }}", build)
-        self.assertIn("Require persistent producer on verified Surface artifact miss", build)
-        self.assertIn("github.event_name == 'push'", build)
-        self.assertIn("paths: &independent_surface_inputs", workflow)
+        self.assertNotIn("Require persistent producer on verified Surface artifact miss", build)
         self.assertIn("  push:\n    branches: [main]\n    paths: *independent_surface_inputs", workflow)
-        self.assertIn("github.event_name == 'pull_request'", build)
+
 
     def test_builder_exposes_opt_in_persistent_workspace_without_changing_ephemeral_default(self):
         source = BUILDER_PATH.read_text(encoding="utf-8")

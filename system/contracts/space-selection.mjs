@@ -36,6 +36,15 @@ export function validateSpaceSelectionRecord(value) {
   });
 }
 
+// Wire state is one Native-owned record, never an alternate Spaces catalog.
+export function validateNativeSpaceSelectionEnvelope(value) {
+  if (!value || typeof value !== "object" || Array.isArray(value)
+    || Object.keys(value).join(",") !== "record") {
+    throw new TypeError("Native Space selection envelope is invalid");
+  }
+  return Object.freeze({ record: validateSpaceSelectionRecord(value.record) });
+}
+
 export function validateSpaceSelectionSnapshot(value) {
   if (!value || typeof value !== "object" || Array.isArray(value)) {
     throw new TypeError("Space selection snapshot must be an object");

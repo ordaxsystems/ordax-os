@@ -28,12 +28,40 @@ HEAVY_PREFIXES = (
     "bootstrap/surface-runtime/configs/",
 )
 LIGHT_EXACT = {
+    # Base transport, firmware pruning, and Creator consumption do not change
+    # the Surface builder's exact source/config/kernel inputs. Their own Base,
+    # Creator and Portable integration gates still apply. Unknown paths stay heavy.
+    ".github/workflows/dev-base-channel.yml",
+    ".github/workflows/independent-base-experiment.yml",
+    ".github/workflows/independent-portable-v2-integration.yml",
+    "bootstrap/base/firmware_policy.py",
+    "bootstrap/independent-base/post-build.sh",
+    "creator/tools/owner_dev_qemu_filesystem_proof.py",
+    "creator/tools/owner_dev_qemu_partition_readonly.py",
+    "creator/tools/owner_dev_qemu_partition_snapshot.py",
+    "creator/tools/owner_dev_usb_update_preflight.py",
+    "creator/tools/owner_usb_git_delivery.py",
+    "creator/tools/test_owner_usb_git_delivery.py",
+    "system/services/base-update/dev_channel.py",
+    "tests/test_base_update_activation_readiness.py",
+    "tests/test_base_update_dev_stage.py",
+    "tests/test_dev_base_channel.py",
+    "tests/test_dev_base_symlink_policy.py",
+    "tests/test_firmware_policy_neutral.py",
+    "tests/test_independent_owner_profile.py",
+    "tests/test_independent_portable_boot_integration.py",
+    "tools/dev-base-channel/build.py",
+    ".github/workflows/creator-owner-dev-git.yml",
+    ".github/workflows/creator-ux-baseline.yml",
+    "tests/test_owner_dev_offline_runtime_release_gate.py",
+    "tests/test_owner_surface_cache_contract.py",
     ".github/workflows/independent-surface-runtime.yml",
     ".github/workflows/portable-v2-qemu-boot-proof.yml",
     ".github/workflows/portable-qemu-impact-contract.yml",
     "bootstrap/surface-runtime/README.md",
     "bootstrap/surface-runtime/CUTOVER-CHECKLIST.md",
     "tests/test_independent_surface_runtime.py",
+    "tests/test_ci_two_stage_release_gate.py",
     "tests/test_independent_surface_qemu_binding.py",
     "tests/test_independent_surface_impact.py",
     "tests/test_independent_surface_component_cache.py",
@@ -45,6 +73,14 @@ LIGHT_EXACT = {
     "tests/test_portable_qemu_impact.py",
     "tests/test_ci_git_diff_exact_paths.py",
     "tests/test_creator_owner_impact.py",
+    # Foundation's suite selector, workflow and graph contract only affect CI
+    # selection; they cannot change the produced Surface EROFS bytes.
+    ".github/workflows/foundation.yml",
+    "docs/contracts/build-autonomy.json",
+    "tests/test_build_autonomy_contract.py",
+    "tests/test_foundation_impact.py",
+    "tests/test_kernel_candidate_ci_scope.py",
+    "tools/ci/foundation_impact.py",
     # Other impact policies only choose CI jobs; they do not change Surface EROFS bytes.
     "tools/ci/creator_owner_impact.py",
     "tools/ci/independent_surface_impact.py",
@@ -93,15 +129,30 @@ def classify_paths(paths: Iterable[str]) -> ImpactResult:
     return ImpactResult(bool(reasons), tuple(reasons) or ("contract-only",), changed)
 
 
-def changed_paths_between(base: str, head: str, *, root: Path = ROOT) -> tuple[str, ...]:
+def changed_paths_between(
+    base: str,
+    head: str,
+    *,
+    root: Path = ROOT,
+    use_merge_base: bool = False,
+) -> tuple[str, ...]:
     if SHA40.fullmatch(base or "") is None or SHA40.fullmatch(head or "") is None:
         raise ValueError("base/head must be exact lowercase 40-hex commits")
     if base == "0" * 40:
         raise ValueError("zero base is not classifiable")
     # Git's default quoted paths are not repository filenames; use -z and
     # UTF-8 to preserve accented names and other characters without escapes.
+    command = ["git", "-C", str(root), "diff"]
+    if use_merge_base:
+        # Match GitHub's PR file list when the source branch is behind the
+        # target branch. Commits added to the target after the PR fork are not
+        # part of the PR delta and must not trigger its producer.
+        command.append("--merge-base")
+    command.extend(
+        ["--name-only", "-z", "--no-renames", base, head, "--"]
+    )
     result = subprocess.run(
-        ["git", "-C", str(root), "diff", "--name-only", "-z", "--no-renames", base, head, "--"],
+        command,
         check=True,
         stdout=subprocess.PIPE,
         stderr=subprocess.PIPE,
@@ -123,6 +174,7 @@ def main() -> int:
     parser = argparse.ArgumentParser()
     parser.add_argument("--base", default="")
     parser.add_argument("--head", default="")
+    parser.add_argument("--merge-base", action="store_true")
     parser.add_argument("--force", action="store_true")
     parser.add_argument("--github-output", type=Path)
     args = parser.parse_args()
@@ -131,7 +183,11 @@ def main() -> int:
         result = ImpactResult(True, ("explicit-force",), tuple())
     else:
         try:
-            result = classify_paths(changed_paths_between(args.base, args.head))
+            result = classify_paths(
+                changed_paths_between(
+                    args.base, args.head, use_merge_base=args.merge_base
+                )
+            )
         except Exception as exc:
             result = ImpactResult(True, (f"classification-failed:{type(exc).__name__}",), tuple())
 

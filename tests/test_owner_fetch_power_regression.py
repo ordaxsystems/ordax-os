@@ -47,7 +47,7 @@ class OwnerFetchPowerRegressionTests(unittest.TestCase):
         subprocess.run(["/bin/sh", "-n", str(SUPERVISOR)], check=True)
         script = SUPERVISOR.read_text(encoding="utf-8")
         self.assertIn('trap terminate HUP INT TERM', script)
-        self.assertIn('    cancel_active_git\n    stop_surface', source_function("terminate"))
+        self.assertIn('    cancel_active_update_job\n    stop_surface', source_function("terminate"))
         self.assertIn('record_non_ff_target "$checkout_previous_sha" "$checkout_target_sha"', script)
         self.assertIn('if non_ff_target_blocked "$current" "$remote_sha" &&', script)
         self.assertIn('! automatic_main_reconcile_allowed "$current" "$remote_sha"', script)
@@ -173,11 +173,11 @@ class OwnerFetchPowerRegressionTests(unittest.TestCase):
             mock_git.chmod(0o700)
             shell = "\n".join([
                 "set -eu",
-                portable_shell(("run_bounded_git", "cancel_active_git")),
+                portable_shell(("run_bounded_git", "run_bounded_update_job", "cancel_active_update_job")),
                 f"GIT_BIN={shlex.quote(str(mock_git))}",
                 "GIT_LOW_SPEED_TIME=15",
-                'GIT_JOB_PID=""',
-                'power_quiesce() { cancel_active_git; ' +
+                'UPDATE_JOB_PID=""',
+                'power_quiesce() { cancel_active_update_job; ' +
                 f"printf 'ack\\n' > {shlex.quote(str(completed))}; exit 0; }}",
                 "trap power_quiesce TERM",
                 "run_bounded_git 45 -C /tmp fetch --no-tags origin refs/heads/main",
@@ -228,10 +228,10 @@ class OwnerFetchPowerRegressionTests(unittest.TestCase):
             worker_script.chmod(0o700)
             shell = "\n".join([
                 "set -eu",
-                portable_shell(("run_bounded_git",)),
+                portable_shell(("run_bounded_git", "run_bounded_update_job")),
                 "GIT_BIN=" + shlex.quote(str(worker_script)),
                 'GIT_LOW_SPEED_TIME=15',
-                'GIT_JOB_PID=""',
+                'UPDATE_JOB_PID=""',
                 "if run_bounded_git 2 fetch; then exit 27; fi",
                 "printf 'DEADLINE_EXPIRED\n'",
             ])

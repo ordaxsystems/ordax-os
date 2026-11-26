@@ -61,8 +61,9 @@ class DeliveryTests(unittest.TestCase):
             "$schema": "prototype-ordax.dev-base-candidate/3",
             "source_repository": "ordaxsystems/ordax-os",
             "source_commit": commit,
+            "rootfs": {"name": "rootfs.tar"},
         }), encoding="utf-8")
-        for name in ("vmlinuz", "initrd.gz", "rootfs.tar"):
+        for name in APP.LEGACY_BASE_FILES[1:]:
             (folder / name).write_bytes(b"test-cache")
         import os
         os.utime(folder, (age, age))
@@ -415,8 +416,14 @@ class BaseMediaBridgeTests(unittest.TestCase):
         self.sha = "b" * 40
         self.candidate = root / self.sha
         self.candidate.mkdir()
-        for name in APP.BASE_FILES:
+        for name in APP.BASE_FILES[1:]:
             (self.candidate / name).write_bytes(b"test:" + name.encode())
+        (self.candidate / "dev-base.json").write_text(json.dumps({
+            "$schema": "prototype-ordax.dev-base-candidate/4",
+            "source_repository": "ordaxsystems/ordax-os",
+            "source_commit": self.sha,
+            "rootfs_transport": {"name": "rootfs.tar.gz"},
+        }), encoding="utf-8")
         self.script = root / "dev_channel.py"
         self.script.write_text("# exact OS-owned helper test", encoding="utf-8")
         self.before = {"disk": 1, "serial": "6699E36B"}

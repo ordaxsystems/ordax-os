@@ -2,15 +2,38 @@
 
 **SSOT:** ordaxsystems/ordax-os/main, diretório creator/.
 
-O aplicativo Win32 existente e o Core Go compartilham este módulo. Criar, reparar e atualizar USB usam contratos do OrdaX OS. O OS produz e verifica entregas; o Creator verifica o candidato e o alvo removível, exige consentimento para gravação destrutiva e executa seu adaptador USB com readback. ordax-pull pertence ao OS em execução e não é duplicado no Windows.
+O aplicativo Win32 e o Core Go compartilham este módulo. **Instalar OrdaX**
+usa a mídia oficial assinada para a primeira instalação ou para recriar um USB
+que precisa de recuperação. O Creator verifica a entrega e o alvo removível,
+exige confirmação para recriar o disco e lê de volta os bytes gravados.
+A atualização normal do USB usa o [Supervisor do OrdaX](../docs/RELEASE-CHANNEL.md#atualização-do-usb-portable-v2)
+no sistema em execução. **Atualizar ou Reparar USB** preservando dados no
+Windows é uma evolução posterior. Os testes do adaptador Windows permanecem
+no backend de homologação.
 
 ## Código
 
-- cmd/ordax-creator-app/ — UI Windows e botão Atualizar pendrive.
+- cmd/ordax-creator-app/ — UI Windows de instalação e recuperação.
 - core/, host/, internal/ — plano, validação, seleção de disco e execução segura.
 - appchannel/, componentchannel/, physicalchannel/, update/ — consumidores verificadores existentes.
 - tools/ — integração e sincronização Owner Development, sem rebuild do kernel.
 - go.mod — módulo github.com/ordaxsystems/ordax-os/creator.
+
+## Preparação local de imagem Owner DEV
+
+O comando ordax-creator prepare-image --owner-dev usa o mesmo Core Go
+PrepareOwnerDevelopmentStorageImage do produto para preparar somente um
+arquivo de imagem com ORDAX-ESP, ORDAX e ORDAX-DATA ajustados à
+capacidade física informada. Exige o SHA-256 exato do seed publicado.
+O recibo PREPARED_SHA256 nesse modo identifica o plano de escrita física,
+não o hash dos bytes esparsos do arquivo.
+
+Essa preparação não grava discos, não formata a partição de dados, não
+instala uma revisão nova do OS e não comprova boot. O initramfs existente
+já executa ordax-grow-ext4 para tentar aumentar o filesystem da partição
+ORDAX após verificar sua saúde; o resultado deve ser comprovado no boot
+físico. Um USB só pode ser declarado instalado após aplicação pelo writer
+privilegiado canônico, leitura de verificação e teste físico.
 
 ## Ponte offline da Base DEV
 
@@ -185,8 +208,8 @@ ao teste de saúde e à verificação de integridade/recuperação da entrega
 instalada, autoriza dizer "sistema atualizado". Até essa evidência,
 apresentar "arquivos preparados / instalação não verificada".
 
-No fluxo explícito "Preparar Git Dev no USB", o sincronizador do Creator
-pode chamar a inspeção física exclusivamente de leitura usando QEMU e
+O sincronizador de diagnóstico DEV pode executar a inspeção física
+exclusivamente de leitura usando QEMU e
 a Base publicada compatível já transferida para o USB. O resultado é
 **evidência de disco**, não boot: `DISK_STATE_DIFFERS_FROM_STAGED_GIT`
 mostra lado a lado a revisão em `ext4` e o commit Git preparado;
@@ -194,13 +217,12 @@ mostra lado a lado a revisão em `ext4` e o commit Git preparado;
 do sistema efetivamente ativo. Se o QEMU/Base ou o volume não puderem
 ser provados, o Creator mostra `UNVERIFIED`, nunca presume instalação.
 Nenhum caso permite `installed_source_commit` ou `os_activation_verified`
-positivos no recibo do transportador. A tarefa automática de transporte
-não abre QEMU; essa leitura adicional é exclusiva da UI selecionada.
+positivos no recibo do transportador. A tarefa automática de transporte não executa essa inspeção QEMU.
 
 The OS-owned Base channel and the Creator's existing Win32 raw-disk
 lease/readback are the authorities; do not implement a second updater in MCP.
-The `portable_update_windows.go` path is for a different **two-partition**
-Portable profile and does not authorize writes to this three-partition USB.
+The Portable Windows adapter under `creator/host/windows/` is exercised
+through the tagged test backend against the **two-partition** profile.
 For later checks of an already prepared package, use the same preflight
 with `--reuse-host-bundle` instead of `--prepare-host-bundle`. It verifies
 the latest selected OS source against the package's earlier source using the

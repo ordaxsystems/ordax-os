@@ -8,6 +8,7 @@ authority. Production release signing remains a separate path.
 from __future__ import annotations
 
 import argparse
+import gzip
 import hashlib
 import json
 import os
@@ -22,7 +23,8 @@ import tarfile
 import urllib.error
 import urllib.request
 
-SCHEMA = "prototype-ordax.dev-base-candidate/3"
+SCHEMA = "prototype-ordax.dev-base-candidate/4"
+LEGACY_SCHEMA = "prototype-ordax.dev-base-candidate/3"
 REPOSITORY = "ordaxsystems/ordax-os"
 SHA40_RE = re.compile(r"^[0-9a-f]{40}$")
 SHA256_RE = re.compile(r"^[0-9a-f]{64}$")
@@ -109,9 +111,42 @@ def _validate_binding(value: object, name: str, source_commit: str) -> dict:
     return value
 
 
+def _validate_rootfs_content(value: object) -> dict:
+    if not isinstance(value, dict) or set(value) != {"name", "sha256", "size"}:
+        raise DevBaseChannelError("development Base rootfs content binding is malformed")
+    if value["name"] != "rootfs.tar":
+        raise DevBaseChannelError("development Base rootfs content name is invalid")
+    if not isinstance(value["sha256"], str) or SHA256_RE.fullmatch(value["sha256"]) is None:
+        raise DevBaseChannelError("development Base rootfs content SHA-256 is invalid")
+    size = value["size"]
+    if not isinstance(size, int) or isinstance(size, bool) or size <= 0:
+        raise DevBaseChannelError("development Base rootfs content size is invalid")
+    if size > MAX_ROOTFS_BYTES:
+        raise DevBaseChannelError("development Base rootfs content exceeds size limit")
+    return value
+
+
+def rootfs_transport_binding(manifest: dict) -> dict:
+    """Return the downloaded asset binding for both current and legacy manifests."""
+    if manifest.get("$schema") == SCHEMA:
+        return manifest["rootfs_transport"]
+    return manifest["rootfs"]
+
+
+def rootfs_is_compressed(manifest: dict) -> bool:
+    return manifest.get("$schema") == SCHEMA
+
+
+def rootfs_candidate_files(manifest: dict) -> tuple[str, ...]:
+    return (
+        "dev-base.json", "vmlinuz", "initrd.gz",
+        rootfs_transport_binding(manifest)["name"],
+    )
+
+
 def validate_manifest(value: object, expected_commit: str) -> dict:
     candidate_tag(expected_commit)
-    expected = {
+    common = {
         "$schema",
         "status",
         "source_repository",
@@ -122,11 +157,16 @@ def validate_manifest(value: object, expected_commit: str) -> dict:
         "manual_usb_rewrite_required",
         "kernel",
         "initramfs",
-        "rootfs",
     }
+    if isinstance(value, dict) and value.get("$schema") == LEGACY_SCHEMA:
+        expected = common | {"rootfs"}
+    elif isinstance(value, dict) and value.get("$schema") == SCHEMA:
+        expected = common | {"rootfs", "rootfs_transport"}
+    else:
+        raise DevBaseChannelError("unsupported development Base manifest")
     if not isinstance(value, dict) or set(value) != expected:
         raise DevBaseChannelError("development Base manifest fields are not canonical")
-    if value["$schema"] != SCHEMA or value["status"] != "development-candidate":
+    if value["status"] != "development-candidate":
         raise DevBaseChannelError("unsupported development Base manifest")
     if value["source_repository"] != REPOSITORY:
         raise DevBaseChannelError("development Base repository identity is invalid")
@@ -142,12 +182,18 @@ def validate_manifest(value: object, expected_commit: str) -> dict:
         raise DevBaseChannelError("development Base unexpectedly requires USB rewrite")
     _validate_binding(value["kernel"], "vmlinuz", expected_commit)
     _validate_binding(value["initramfs"], "initrd.gz", expected_commit)
-    _validate_binding(value["rootfs"], "rootfs.tar", expected_commit)
+    if value["$schema"] == LEGACY_SCHEMA:
+        _validate_binding(value["rootfs"], "rootfs.tar", expected_commit)
+        rootfs_content_size = value["rootfs"]["size"]
+    else:
+        _validate_rootfs_content(value["rootfs"])
+        _validate_binding(value["rootfs_transport"], "rootfs.tar.gz", expected_commit)
+        rootfs_content_size = value["rootfs"]["size"]
     if value["kernel"]["size"] > MAX_KERNEL_BYTES:
         raise DevBaseChannelError("development Base kernel exceeds size limit")
     if value["initramfs"]["size"] > MAX_INITRAMFS_BYTES:
         raise DevBaseChannelError("development Base initramfs exceeds size limit")
-    if value["rootfs"]["size"] > MAX_ROOTFS_BYTES:
+    if rootfs_content_size > MAX_ROOTFS_BYTES:
         raise DevBaseChannelError("development Base rootfs exceeds size limit")
     return value
 
@@ -176,7 +222,12 @@ def _fetch_bytes(
             raise DevBaseChannelError(f"development Base download returned HTTP {status}")
         if not isinstance(final_url, str) or not final_url.startswith("https://"):
             raise DevBaseChannelError("development Base download left HTTPS")
-        payload = response.read(max_bytes + 1)
+        try:
+            payload = response.read(max_bytes + 1)
+        except (urllib.error.URLError, TimeoutError, OSError) as exc:
+            raise DevBaseCandidateUnavailable(
+                "development Base manifest download was interrupted"
+            ) from exc
         if len(payload) > max_bytes:
             raise DevBaseChannelError("development Base download exceeds size limit")
         return payload
@@ -236,7 +287,12 @@ def _download_binding_to_path(
         digest = hashlib.sha256()
         total = 0
         while True:
-            chunk = response.read(1024 * 1024)
+            try:
+                chunk = response.read(1024 * 1024)
+            except (urllib.error.URLError, TimeoutError, OSError) as exc:
+                raise DevBaseCandidateUnavailable(
+                    "development Base asset download was interrupted"
+                ) from exc
             if not chunk:
                 break
             total += len(chunk)
@@ -393,14 +449,16 @@ def _validate_symlink_graph(seen: set[str], symlinks: dict[str, str]) -> None:
                 )
 
 
-def _validate_rootfs_archive(path: Path) -> list[tarfile.TarInfo]:
+def _validate_rootfs_archive(
+    path: Path, *, compressed: bool = False,
+) -> list[tarfile.TarInfo]:
     members: list[tarfile.TarInfo] = []
     seen: set[str] = set()
     regular_modes: dict[str, int] = {}
     symlinks: dict[str, str] = {}
     unique_payload_bytes = 0
     try:
-        with tarfile.open(path, "r:") as archive:
+        with tarfile.open(path, "r:gz" if compressed else "r:") as archive:
             for member in archive.getmembers():
                 name = member.name
                 if not _canonical_archive_path(name) or name in seen:
@@ -436,7 +494,7 @@ def _validate_rootfs_archive(path: Path) -> list[tarfile.TarInfo]:
                     raise DevBaseChannelError(
                         f"development rootfs archive contains unsafe member: {name}"
                     )
-    except tarfile.TarError as exc:
+    except (tarfile.TarError, OSError, EOFError, gzip.BadGzipFile) as exc:
         raise DevBaseChannelError("development rootfs archive is invalid") from exc
 
     _validate_symlink_graph(seen, symlinks)
@@ -452,6 +510,147 @@ def _validate_rootfs_archive(path: Path) -> list[tarfile.TarInfo]:
             f"development rootfs archive is missing required directories: {missing_dirs}"
         )
     return members
+
+
+def validate_rootfs_archive(path: Path, manifest: dict) -> list[tarfile.TarInfo]:
+    return _validate_rootfs_archive(path, compressed=rootfs_is_compressed(manifest))
+
+
+def open_rootfs_archive(path: Path, manifest: dict):
+    return tarfile.open(
+        path, "r:gz" if rootfs_is_compressed(manifest) else "r:"
+    )
+
+
+def verify_rootfs_content(path: Path, manifest: dict) -> None:
+    """Verify the uncompressed Buildroot tar identity without staging it on disk."""
+    expected = manifest["rootfs"]
+    opener = gzip.open if rootfs_is_compressed(manifest) else open
+    digest = hashlib.sha256()
+    total = 0
+    try:
+        with opener(path, "rb") as handle:
+            for chunk in iter(lambda: handle.read(1024 * 1024), b""):
+                total += len(chunk)
+                if total > MAX_ROOTFS_BYTES:
+                    raise DevBaseChannelError(
+                        "development Base rootfs content exceeds size limit"
+                    )
+                digest.update(chunk)
+    except DevBaseChannelError:
+        raise
+    except (OSError, EOFError, gzip.BadGzipFile) as exc:
+        raise DevBaseChannelError("development Base rootfs transport is corrupt") from exc
+    if total != expected["size"]:
+        raise DevBaseChannelError("development Base rootfs content size mismatch")
+    if digest.hexdigest() != expected["sha256"]:
+        raise DevBaseChannelError("development Base rootfs content SHA-256 mismatch")
+
+
+class _DigestingReader:
+    def __init__(self, source):
+        self.source = source
+        self.digest = hashlib.sha256()
+        self.total = 0
+
+    def read(self, size: int = -1) -> bytes:
+        chunk = self.source.read(size)
+        if chunk:
+            self.total += len(chunk)
+            if self.total > MAX_ROOTFS_BYTES:
+                raise DevBaseChannelError(
+                    "development Base rootfs content exceeds size limit"
+                )
+            self.digest.update(chunk)
+        return chunk
+
+    def tell(self) -> int:
+        return self.total
+
+
+def _extract_compressed_rootfs(
+    archive_path: Path,
+    destination: Path,
+    expected: dict,
+) -> None:
+    """Stream gzip tar into an unpublished tree and verify before atomic publish."""
+    try:
+        with gzip.open(archive_path, "rb") as source:
+            reader = _DigestingReader(source)
+            with tarfile.open(fileobj=reader, mode="r|") as archive:
+                archive.extractall(destination, filter="data")
+                while reader.read(1024 * 1024):
+                    pass
+    except DevBaseChannelError:
+        raise
+    except (OSError, EOFError, gzip.BadGzipFile, tarfile.TarError) as exc:
+        raise DevBaseChannelError("development Base rootfs transport is corrupt") from exc
+    if reader.total != expected["size"]:
+        raise DevBaseChannelError("development Base rootfs content size mismatch")
+    if reader.digest.hexdigest() != expected["sha256"]:
+        raise DevBaseChannelError("development Base rootfs content SHA-256 mismatch")
+
+
+def materialize_rootfs_tar(
+    source: Path, manifest: dict, destination: Path,
+) -> None:
+    """Create a temporary raw tar only for consumers that require random access."""
+    expected = manifest["rootfs"]
+    digest = hashlib.sha256()
+    total = 0
+    descriptor = -1
+    opener = gzip.open if rootfs_is_compressed(manifest) else open
+    try:
+        with opener(source, "rb") as input_file:
+            descriptor = os.open(
+                destination,
+                os.O_WRONLY | os.O_CREAT | os.O_EXCL
+                | getattr(os, "O_CLOEXEC", 0)
+                | getattr(os, "O_NOFOLLOW", 0)
+                | getattr(os, "O_BINARY", 0),
+                0o600,
+            )
+            while True:
+                chunk = input_file.read(1024 * 1024)
+                if not chunk:
+                    break
+                total += len(chunk)
+                if total > MAX_ROOTFS_BYTES:
+                    raise DevBaseChannelError(
+                        "development Base rootfs content exceeds size limit"
+                    )
+                digest.update(chunk)
+                offset = 0
+                while offset < len(chunk):
+                    written = os.write(descriptor, chunk[offset:])
+                    if written <= 0:
+                        raise DevBaseChannelError(
+                            "development Base rootfs copy made no progress"
+                        )
+                    offset += written
+            os.fsync(descriptor)
+            os.close(descriptor)
+            descriptor = -1
+    except Exception as exc:
+        if descriptor >= 0:
+            os.close(descriptor)
+        try:
+            destination.unlink()
+        except FileNotFoundError:
+            pass
+        if isinstance(exc, DevBaseChannelError):
+            raise
+        if isinstance(exc, (OSError, EOFError, gzip.BadGzipFile)):
+            raise DevBaseChannelError("development Base rootfs transport is corrupt") from exc
+        raise
+    if total != expected["size"] or digest.hexdigest() != expected["sha256"]:
+        destination.unlink()
+        raise DevBaseChannelError("development Base rootfs content differs from manifest")
+    try:
+        _validate_rootfs_archive(destination)
+    except Exception:
+        destination.unlink(missing_ok=True)
+        raise
 
 
 def _verify_materialized_tree(path: Path) -> None:
@@ -526,8 +725,9 @@ def materialize_versioned_rootfs(
     version_root: Path,
 ) -> tuple[Path, bool]:
     manifest = verify_materialized(candidate_path, source_commit)
-    archive_path = candidate_path / manifest["rootfs"]["name"]
-    _validate_rootfs_archive(archive_path)
+    binding = rootfs_transport_binding(manifest)
+    archive_path = candidate_path / binding["name"]
+    _validate_rootfs_archive(archive_path, compressed=rootfs_is_compressed(manifest))
 
     version_root.mkdir(parents=True, exist_ok=True)
     if version_root.is_symlink() or not version_root.is_dir():
@@ -542,9 +742,12 @@ def materialize_versioned_rootfs(
     )
     committed = False
     try:
-        with tarfile.open(archive_path, "r:") as archive:
-            members = _validate_rootfs_archive(archive_path)
-            archive.extractall(temporary, members=members, filter="data")
+        if rootfs_is_compressed(manifest):
+            _extract_compressed_rootfs(archive_path, temporary, manifest["rootfs"])
+        else:
+            with tarfile.open(archive_path, "r:") as archive:
+                members = _validate_rootfs_archive(archive_path)
+                archive.extractall(temporary, members=members, filter="data")
 
         (temporary / ".ordax-base").mkdir(mode=0o700, exist_ok=False)
         _write_synced(
@@ -583,7 +786,7 @@ def verify_materialized(path: Path, expected_commit: str) -> dict:
     except (OSError, UnicodeError, json.JSONDecodeError) as exc:
         raise DevBaseChannelError("materialized development Base manifest is invalid") from exc
 
-    expected_names = {"dev-base.json", "vmlinuz", "initrd.gz", "rootfs.tar"}
+    expected_names = set(rootfs_candidate_files(manifest))
     actual_names = {child.name for child in path.iterdir()}
     if actual_names != expected_names:
         raise DevBaseChannelError("materialized development Base contains unexpected files")
@@ -591,7 +794,6 @@ def verify_materialized(path: Path, expected_commit: str) -> dict:
     for key, max_bytes in (
         ("kernel", MAX_KERNEL_BYTES),
         ("initramfs", MAX_INITRAMFS_BYTES),
-        ("rootfs", MAX_ROOTFS_BYTES),
     ):
         binding = manifest[key]
         asset = path / binding["name"]
@@ -606,6 +808,20 @@ def verify_materialized(path: Path, expected_commit: str) -> dict:
                 digest.update(chunk)
         if metadata.st_size != binding["size"] or digest.hexdigest() != binding["sha256"]:
             raise DevBaseChannelError(f"materialized development Base {key} differs from manifest")
+    rootfs_binding = rootfs_transport_binding(manifest)
+    asset = path / rootfs_binding["name"]
+    metadata = asset.lstat()
+    if stat.S_ISLNK(metadata.st_mode) or not stat.S_ISREG(metadata.st_mode):
+        raise DevBaseChannelError("materialized development Base rootfs is unsafe")
+    if metadata.st_size <= 0 or metadata.st_size > MAX_ROOTFS_BYTES:
+        raise DevBaseChannelError("materialized development Base rootfs size is invalid")
+    digest = hashlib.sha256()
+    with asset.open("rb") as handle:
+        for chunk in iter(lambda: handle.read(1024 * 1024), b""):
+            digest.update(chunk)
+    if metadata.st_size != rootfs_binding["size"] or digest.hexdigest() != rootfs_binding["sha256"]:
+        raise DevBaseChannelError("materialized development Base rootfs differs from manifest")
+    verify_rootfs_content(asset, manifest)
     return manifest
 
 
@@ -886,19 +1102,26 @@ def acquire(
             ("initramfs", MAX_INITRAMFS_BYTES),
             ("rootfs", MAX_ROOTFS_BYTES),
         ):
-            binding = manifest[key]
+            binding = (
+                rootfs_transport_binding(manifest)
+                if key == "rootfs" else manifest[key]
+            )
             destination = temporary / binding["name"]
-            if _reuse_bound_asset(destination_root, target, binding, destination):
-                continue
+            reused_asset = _reuse_bound_asset(
+                destination_root, target, binding, destination,
+            )
+            if not reused_asset:
+                if key == "rootfs":
+                    _download_binding_to_path(
+                        binding, destination, max_bytes, opener=opener,
+                        timeout_seconds=ROOTFS_DOWNLOAD_TIMEOUT_SECONDS,
+                    )
+                else:
+                    payload = _fetch_bytes(binding["url"], max_bytes, opener=opener)
+                    _verify_payload(payload, binding, key)
+                    _write_synced(destination, payload)
             if key == "rootfs":
-                _download_binding_to_path(
-                    binding, destination, max_bytes, opener=opener,
-                    timeout_seconds=ROOTFS_DOWNLOAD_TIMEOUT_SECONDS,
-                )
-            else:
-                payload = _fetch_bytes(binding["url"], max_bytes, opener=opener)
-                _verify_payload(payload, binding, key)
-                _write_synced(destination, payload)
+                verify_rootfs_content(destination, manifest)
         _write_synced(temporary / "dev-base.json", manifest_bytes)
         _fsync_dir(temporary)
         _publish_candidate_directory(temporary, target)
@@ -925,7 +1148,7 @@ def import_verified_candidate(
     This function only enforces immutable bytes, hash readback and atomicity.
     """
     candidate_tag(source_commit)
-    verify_materialized(source, source_commit)
+    manifest = verify_materialized(source, source_commit)
     destination_root.mkdir(parents=True, exist_ok=True)
     if destination_root.is_symlink() or not destination_root.is_dir():
         raise DevBaseChannelError("development Base transport root is unsafe")
@@ -939,7 +1162,7 @@ def import_verified_candidate(
     )
     committed = False
     try:
-        for name in ("vmlinuz", "initrd.gz", "rootfs.tar", "dev-base.json"):
+        for name in rootfs_candidate_files(manifest):
             origin = source / name
             metadata = origin.lstat()
             if not stat.S_ISREG(metadata.st_mode):

@@ -85,6 +85,29 @@
       "manifests"
     ]
   },
+  "ci_selection": {
+    "product_dependency_authority": [
+      "artifact_graph",
+      "target_relationships",
+      "client_build_independence"
+    ],
+    "product_impact_owners": {
+      "surface_erofs": "tools/ci/independent_surface_impact.py",
+      "portable_boot": "tools/ci/portable_qemu_impact.py",
+      "owner_usb": "tools/ci/creator_owner_impact.py"
+    },
+    "unknown_product_paths_run_applicable_full_proof": true,
+    "foundation": {
+      "selector": "tools/ci/foundation_impact.py",
+      "test_only_fast_path_patterns": [
+        "tests/test_*.py",
+        "tests/test_*.mjs"
+      ],
+      "test_only_fast_path_requires_modified_modules_only": true,
+      "added_deleted_or_mixed_changes_run_full": true,
+      "invalid_or_unknown_diffs_run_full": true
+    }
+  },
   "graph_rules": {
     "dependency_cycle_allowed": false,
     "unrelated_rebuild_is_architectural_regression": true,

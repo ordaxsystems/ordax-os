@@ -203,7 +203,7 @@ def stage_brand(stage: Path, brand_dir: Path, expected_sha256: str | None, expec
     if (not isinstance(proofs, list) or len(proofs) != 7
             or {r.get("path") for r in proofs if isinstance(r, dict)} !=
             {"system/surface/ui/brand/ordax-symbol.png",
-             "system/surface/ui/brand/midnight-landscape.png",
+             "site/assets/brand/ordax-landscape.png",
              "system/surface/ui/fonts/inter-latin-wght-normal.woff2",
              "third_party/licenses/Inter-OFL-1.1.txt",
              "system/surface/ui/tokens.css",

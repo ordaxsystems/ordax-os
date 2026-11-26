@@ -1,0 +1,78 @@
+{
+    "$schema":  "ordax.desktop-runtime-candidate-evidence/1",
+    "status":  "unsigned-candidate-physically-offline-proven",
+    "candidate":  {
+                      "schema":  "ordax.desktop-runtime-candidate/1",
+                      "source_repository":  "ordaxsystems/ordax-runtime",
+                      "source_commit":  "e35eb9a4dc358ed7a64c2c11450cdec52aa32fb3",
+                      "profile":  "ordax-desktop",
+                      "platform":  "windows-amd64",
+                      "artifact":  "ordax-product-agent.exe",
+                      "sha256":  "825a89b09fc91f68ac3fb793232c74d40ac4ed919277c462fe0f7cf1729cb5e2",
+                      "size_bytes":  20642776,
+                      "runtime_version":  "0.4.8",
+                      "build_python_version":  "3.12.10",
+                      "python_required_on_device":  false,
+                      "studio_required":  false,
+                      "offline_proof_verified":  true,
+                      "device_execution_proven":  false,
+                      "signature_present":  false,
+                      "signed_distribution_authorized":  false,
+                      "installation_authorized_by_candidate":  false,
+                      "stable_activation_authorized":  false,
+                      "recipe_sha256":  "23a35d66aba235fab0868ab169c6c8625c7bb35c310be085e7e39dde34fd2e5d",
+                      "requirements_sha256":  "ec8e7c0a91787a9660669fa6af50f48666643046797ed7b973d813bff0c4de3c",
+                      "component_package":  {
+                                                "name":  "product-runtime.zip",
+                                                "sha256":  "f7c4a2d5984b6030806ba14bdc17a7ffc1f42daf28d504afb3deeb4120418a46",
+                                                "size":  20644198,
+                                                "manifest_sha256":  "b1aeeb3536a82ad2fd15e8a0f6a581c4cc36e55a16c852ecaa69eed0d6b06589"
+                                            }
+                  },
+    "ci_provenance":  {
+                          "workflow":  "OrdaX Desktop Runtime Component",
+                          "workflow_run_id":  45126863896,
+                          "artifact_id":  14796595036,
+                          "artifact_name":  "ordax-desktop-runtime-candidate-e35eb9a4dc358ed7a64c2c11450cdec52aa32fb3",
+                          "artifact_digest_sha256":  "21795f614e0abae998013572ee7c09461bcd3b7b10de3c7aa5a3cea3a3d8b50b",
+                          "head_sha":  "e35eb9a4dc358ed7a64c2c11450cdec52aa32fb3"
+                      },
+    "physical_offline_proof":  {
+                                   "device":  "OrdaX Desktop / DESKTOP-4UFL03B",
+                                   "os":  "Windows 10 Pro x64",
+                                   "source_commit":  "e35eb9a4dc358ed7a64c2c11450cdec52aa32fb3",
+                                   "executable_sha256":  "825a89b09fc91f68ac3fb793232c74d40ac4ed919277c462fe0f7cf1729cb5e2",
+                                   "exit_code":  0,
+                                   "passed":  true,
+                                   "python_on_path":  false,
+                                   "checkout_required":  false,
+                                   "studio_required":  false,
+                                   "device_credential_used":  false,
+                                   "network_used":  false,
+                                   "action":  "--self-test",
+                                   "remote_action_proven":  false,
+                                   "product_slot_activated":  false,
+                                   "foreign_profile_failed_closed":  true,
+                                   "unbound_desktop_failed_closed":  true,
+                                   "verified_actions":  [
+                                                            "agent.status",
+                                                            "computer.access_status",
+                                                            "ordax.surface.open",
+                                                            "ordax.surface.status"
+                                                        ],
+                                   "evidence_origin":  "physical-ordax-mcp-canonical-workflow-45126863896-isolated-self-test"
+                               },
+    "canonical_source_lock_promoted":  false,
+    "trust_policy":  "docs/contracts/runtime-component-trust-policy.json",
+    "trust_status":  "operator-ceremony-pending",
+    "component_publish_allowed":  false,
+    "production_component_slot_activation_allowed":  false,
+    "remaining_gates":  [
+                            "external-component-trust-custody-and-recovery-ceremony",
+                            "public-only-handoff-reverification-and-anchor-promotion",
+                            "source-lock-and-signed-windows-component-promotion"
+                        ],
+    "local_verification_at_utc":  "2026-11-23T06:55:32.049Z",
+    "current_remote_action_attested":  false,
+    "owner_challenge_state":  "not_part_of_offline_candidate_proof"
+}

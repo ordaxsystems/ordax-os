@@ -57,7 +57,7 @@ FETCH_RETRY_FILE=$STATE_DIR/native-state/git-fetch-retry
 FETCH_FAILURE_RECEIPT=$STATE_DIR/native-state/git-fetch-last.tsv
 NON_FF_BLOCKED_FILE=$STATE_DIR/native-state/git-non-ff-target
 CHECKOUT_RETRY_FILE=$STATE_DIR/native-state/git-checkout-retry
-OWNER_MANUAL_CHECK_REQUEST=$UPDATE_RUN_DIR/manual-check-request
+MANUAL_CHECK_REQUEST=$UPDATE_RUN_DIR/manual-check-request
 HEALTH_FILE=$UPDATE_RUN_DIR/healthy-sha
 SURFACE_HEALTH_STATE_FILE=$UPDATE_RUN_DIR/surface-health-state
 SURFACE_HEARTBEAT_FILE=$UPDATE_RUN_DIR/surface-heartbeat.json
@@ -69,6 +69,11 @@ PRODUCT_MODE=${ORDAX_PRODUCT_MODE:-}
 SOURCE_SHA_HINT=${ORDAX_SOURCE_SHA:-}
 STABLE_ROOT=${ORDAX_STABLE_ROOT:-/ordax}
 STABLE_LAYOUT=${ORDAX_STABLE_LAYOUT:-legacy-tree}
+MANUAL_CHECK_ACTION=
+case "$DISTRIBUTION_PROFILE:$PRODUCT_MODE:$STABLE_LAYOUT" in
+    owner-development:usb:*) MANUAL_CHECK_ACTION=check-main ;;
+    stable-mvp:usb:portable-v2) MANUAL_CHECK_ACTION=check-release ;;
+esac
 PORTABLE_BOOT_SLOT=${ORDAX_BOOT_SLOT:-}
 PORTABLE_RELEASE_MANIFEST_SCHEMA=${ORDAX_RELEASE_MANIFEST_SCHEMA:-}
 PORTABLE_ROOT=${ORDAX_PORTABLE_ROOT:-/ordax-data/.ordax}
@@ -104,7 +109,7 @@ UPDATE_TRANSPORT=""
 UPDATE_ATTEMPT_ID=""
 UPDATE_ERROR=""
 CHECKOUT_ERROR=""
-GIT_JOB_PID=""
+UPDATE_JOB_PID=""
 SURFACE_PID=""
 SURFACE_STARTED_AT=0
 SURFACE_STALE_RECOVERY_ARMED=1
@@ -252,15 +257,15 @@ esac
 GIT_TERMINAL_PROMPT=0
 export GIT_TERMINAL_PROMPT
 
-# Each Git command owns a distinct session/process group. The shell waits for
-# that group as a background job so TERM interrupts wait immediately, rather
-# than deferring Guardian power-quiesce until a 45-second network timeout.
-run_bounded_git() {
-    timeout_seconds=$1
-    shift
+# Update commands own an isolated session so Guardian quiesce can cancel
+# the worker and its watchdog together.
+run_bounded_update_job() {
+    heartbeat_during_job=$1
+    timeout_seconds=$2
+    shift 2
     # BusyBox timeout forks a detached watchdog that may outlive an aborted
     # fetch, retain writable FDs and block the ext4 power seal. Keep both the
-    # Git worker AND its bounded watchdog in one session we can always reap.
+    # update worker AND its bounded watchdog in one session we can always reap.
     /bin/busybox setsid /bin/sh -c '
         deadline=$1
         shift
@@ -281,26 +286,41 @@ run_bounded_git() {
         kill "$watchdog_pid" 2>/dev/null || true
         wait "$watchdog_pid" 2>/dev/null || true
         exit "$worker_rc"
-    ' ordax-git "$timeout_seconds" "$GIT_BIN" \
-        -c http.lowSpeedLimit=1 \
-        -c "http.lowSpeedTime=$GIT_LOW_SPEED_TIME" "$@" &
-    GIT_JOB_PID=$!
-    git_job_rc=0
-    wait "$GIT_JOB_PID" || git_job_rc=$?
-    GIT_JOB_PID=""
-    return "$git_job_rc"
+    ' ordax-update-job "$timeout_seconds" "$@" &
+    UPDATE_JOB_PID=$!
+    if [ "$heartbeat_during_job" = yes ]; then
+        while kill -0 "$UPDATE_JOB_PID" 2>/dev/null; do
+            if ! supervisor_heartbeat; then
+                cancel_active_update_job
+                return 1
+            fi
+            /bin/busybox sleep 1
+        done
+    fi
+    update_job_rc=0
+    wait "$UPDATE_JOB_PID" || update_job_rc=$?
+    UPDATE_JOB_PID=""
+    return "$update_job_rc"
 }
 
-cancel_active_git() {
-    active_git_pid=${GIT_JOB_PID:-}
-    case "$active_git_pid" in ''|*[!0-9]*) return 0 ;; esac
-    # Process-group signalling reaches Git, its children and the bounded watchdog.
+run_bounded_git() {
+    timeout_seconds=$1
+    shift
+    run_bounded_update_job no "$timeout_seconds" "$GIT_BIN" \
+        -c http.lowSpeedLimit=1 \
+        -c "http.lowSpeedTime=$GIT_LOW_SPEED_TIME" "$@"
+}
+
+cancel_active_update_job() {
+    active_update_pid=${UPDATE_JOB_PID:-}
+    case "$active_update_pid" in ''|*[!0-9]*) return 0 ;; esac
+    # Process-group signalling reaches the update worker, its children and the bounded watchdog.
     # This group was created by setsid, never by the Guardian or the Surface.
-    kill -TERM "-$active_git_pid" 2>/dev/null || true
+    kill -TERM "-$active_update_pid" 2>/dev/null || true
     /bin/busybox sleep 1
-    kill -KILL "-$active_git_pid" 2>/dev/null || true
-    wait "$active_git_pid" 2>/dev/null || true
-    GIT_JOB_PID=""
+    kill -KILL "-$active_update_pid" 2>/dev/null || true
+    wait "$active_update_pid" 2>/dev/null || true
+    UPDATE_JOB_PID=""
 }
 
 # Only typed, allowlisted diagnostics cross the volatile /run boundary.
@@ -877,7 +897,7 @@ apply_remote_checkout() {
             "$PULL_BIN" >>"$UPDATE_LOG" 2>&1; then
         checkout_pull_phase=$(read_state_value "$PULL_RESULT_FILE")
         case "$checkout_pull_phase" in
-            preflight|remote-discovery|handoff-validation|handoff-metadata-gitdir|handoff-metadata-head|handoff-metadata-origin|handoff-metadata-branch|handoff-metadata-entrypoint|handoff-metadata-unknown|handoff-ref-mismatch|handoff-commit-unavailable|remote-fetch|candidate-objects|isolated-checkout|remote-clone|atomic-switch|candidate-validation|state-commit|helper-refresh)
+            preflight|remote-discovery|remote-discovery-dns|remote-discovery-tls|remote-discovery-timeout|remote-discovery-connectivity|remote-discovery-auth|handoff-validation|handoff-metadata-gitdir|handoff-metadata-head|handoff-metadata-origin|handoff-metadata-branch|handoff-metadata-entrypoint|handoff-metadata-unknown|handoff-ref-mismatch|handoff-commit-unavailable|remote-fetch|candidate-objects|isolated-checkout|remote-clone|atomic-switch|candidate-validation|state-commit|helper-refresh)
                 CHECKOUT_ERROR="pull-$checkout_pull_phase-failed"
                 ;;
             *)
@@ -1625,7 +1645,7 @@ recover_reload_with_surface_restart() {
 
 terminate() {
     trap - EXIT HUP INT TERM
-    cancel_active_git
+    cancel_active_update_job
     stop_surface
     temporary=$SUPERVISOR_POWER_QUIESCED_FILE.tmp.$
     printf '%s\n' "$$" >"$temporary" || exit 1
@@ -2401,9 +2421,11 @@ portable_release_is_verified() {
     case "$manifest_schema" in
         prototype-ordax.release-manifest/3)
             portable_verify_subcommand=verify-portable-v3-exact
+            portable_verify_status=verified-portable-v3-exact
             ;;
         prototype-ordax.release-manifest/4)
             portable_verify_subcommand=verify-portable-v4-exact
+            portable_verify_status=verified-portable-v4-exact
             ;;
         *)
             return 1
@@ -2411,7 +2433,7 @@ portable_release_is_verified() {
     esac
 
     rm -f "$PORTABLE_VERIFY_RECEIPT"
-    if ! /bin/busybox timeout -k 5 "$STABLE_ACTIVATION_TIMEOUT" \
+    if ! run_bounded_update_job yes "$STABLE_MATERIALIZE_TIMEOUT" \
         "$STABLE_RELEASE_AGENT" "$portable_verify_subcommand" \
         --trust "$STABLE_TRUST_FILE" \
         --root "$PORTABLE_ROOT" \
@@ -2425,7 +2447,7 @@ portable_release_is_verified() {
     verify_status=$(stable_receipt_string "$PORTABLE_VERIFY_RECEIPT" status || true)
     verify_sha=$(stable_receipt_string "$PORTABLE_VERIFY_RECEIPT" source_commit || true)
     rm -f "$PORTABLE_VERIFY_RECEIPT"
-    [ "$verify_status" = "verified" ] && [ "$verify_sha" = "$expected_sha" ]
+    [ "$verify_status" = "$portable_verify_status" ] && [ "$verify_sha" = "$expected_sha" ]
 }
 
 portable_materialize_release() {
@@ -2449,7 +2471,7 @@ portable_materialize_release() {
     esac
 
     rm -f "$PORTABLE_MATERIALIZE_RECEIPT"
-    if ! /bin/busybox timeout -k 5 "$STABLE_MATERIALIZE_TIMEOUT" \
+    if ! run_bounded_update_job yes "$STABLE_MATERIALIZE_TIMEOUT" \
         "$STABLE_RELEASE_AGENT" "$portable_materialize_subcommand" \
         --envelope-url "$channel_url" \
         --trust "$STABLE_TRUST_FILE" \
@@ -2466,8 +2488,7 @@ portable_materialize_release() {
     materialized_sha=$(stable_receipt_string "$PORTABLE_MATERIALIZE_RECEIPT" source_commit || true)
     rm -f "$PORTABLE_MATERIALIZE_RECEIPT"
     [ "$materialize_status" = "$portable_materialize_status" ] &&
-        [ "$materialized_sha" = "$expected_sha" ] &&
-        portable_release_is_verified "$expected_sha" "$manifest_schema"
+        [ "$materialized_sha" = "$expected_sha" ]
 }
 
 portable_prepare_candidate() {
@@ -2564,14 +2585,43 @@ check_stable_portable_update() {
         write_update_state "$current" disabled signed-release
         return 0
     fi
+    # The ext4 transaction is authoritative, including after a Supervisor
+    # restart. Leave the armed candidate and its fallback alone until boot.
+    if ! activation_state=$("$PORTABLE_STATE_HELPER" inspect "$PORTABLE_STATE_ROOT" "$PORTABLE_ROOT" 2>>"$UPDATE_LOG"); then
+        set_update_context blocked "" "" "portable-activation-state-invalid"
+        write_update_state "$current" disabled signed-release
+        return 0
+    fi
+    case "$activation_state" in
+        *'"phase":"armed"'*)
+            armed_sha=$("$PORTABLE_STATE_HELPER" "$PORTABLE_STATE_ROOT" candidate 2>>"$UPDATE_LOG" || true)
+            if is_sha "$armed_sha" && [ "$armed_sha" != "$current" ]; then
+                set_update_context restart-required "$armed_sha" "" ""
+                write_update_state "$current" candidate-armed signed-release
+            else
+                set_update_context blocked "" "" "portable-activation-state-invalid"
+                write_update_state "$current" disabled signed-release
+            fi
+            return 0
+            ;;
+        *'"phase":"idle"'*|*'"phase":"orphan-advisory"'*) ;;
+        *)
+            set_update_context blocked "" "" "portable-activation-state-invalid"
+            write_update_state "$current" disabled signed-release
+            return 0
+            ;;
+    esac
+
     if ! channel_url=$(stable_channel_url); then
         set_update_context blocked "" "" "stable-release-channel-invalid"
         write_update_state "$current" disabled signed-release
         return 0
     fi
 
+    set_update_context checking "" "" ""
+    write_update_state "$current" updating signed-release
     rm -f "$STABLE_INSPECT_RECEIPT"
-    if ! /bin/busybox timeout -k 5 "$STABLE_INSPECT_TIMEOUT" \
+    if ! run_bounded_update_job yes "$STABLE_INSPECT_TIMEOUT" \
         "$STABLE_RELEASE_AGENT" inspect \
         --envelope-url "$channel_url" \
         --trust "$STABLE_TRUST_FILE" \
@@ -2625,10 +2675,11 @@ check_stable_portable_update() {
 
     attempt_id=$(utc_now)
     stage_started=$(epoch_now)
-    set_update_context materializing "$remote_sha" "$attempt_id" ""
+    set_update_context fetching "$remote_sha" "$attempt_id" ""
     write_update_state "$current" updating signed-release
 
-    if ! portable_release_is_verified "$remote_sha" "$remote_manifest_schema"; then
+    if [ ! -d "$PORTABLE_ROOT/releases/$remote_sha" ] ||
+       ! portable_release_is_verified "$remote_sha" "$remote_manifest_schema"; then
         if ! portable_materialize_release "$remote_sha" "$remote_manifest_schema" "$channel_url"; then
             record_elapsed_seconds "$stage_started" "$LAST_STAGE_DURATION_FILE"
             set_update_context error "$remote_sha" "$attempt_id" "portable-release-materialize-failed"
@@ -2637,6 +2688,8 @@ check_stable_portable_update() {
         fi
     fi
 
+    set_update_context validating "$remote_sha" "$attempt_id" ""
+    write_update_state "$current" updating signed-release
     if ! portable_prepare_candidate "$remote_sha"; then
         record_elapsed_seconds "$stage_started" "$LAST_STAGE_DURATION_FILE"
         set_update_context error "$remote_sha" "$attempt_id" "portable-activation-prepare-failed"
@@ -2648,7 +2701,7 @@ check_stable_portable_update() {
     record_elapsed_seconds "$stage_started" "$LAST_STAGE_DURATION_FILE"
     set_update_context restart-required "$remote_sha" "$attempt_id" ""
     write_update_state "$current" candidate-armed signed-release
-    portable_reboot_now "Portable Stable/MVP candidate armed for one-shot boot: $current -> $remote_sha"
+    log "Portable candidate verified and armed for the next restart: $current -> $remote_sha"
 }
 
 handle_portable_candidate_boot() {
@@ -3249,7 +3302,13 @@ if [ "$DISTRIBUTION_PROFILE" = "stable-mvp" ]; then
 else
     log "starting shared OrdaX Surface with Owner/Development Git hot-update supervisor"
 fi
-start_surface || fail_closed "surface entrypoint could not be started"
+if ! start_surface; then
+    if [ "$DISTRIBUTION_PROFILE" = "stable-mvp" ] && [ "$STABLE_LAYOUT" = "portable-v2" ] &&
+       [ "$PORTABLE_BOOT_SLOT" = "candidate" ]; then
+        handle_portable_candidate_boot "$initial_sha"
+    fi
+    fail_closed "surface entrypoint could not be started"
+fi
 # Reconcile a receipt from a previously committed, verified current release.
 # Candidate/known-good slots never become current merely from exFAT metadata.
 if [ "$DISTRIBUTION_PROFILE" = "stable-mvp" ] &&
@@ -3327,12 +3386,11 @@ fi
 record_owner_poll_boot_stage poll-loop-entered
 while :; do
     supervisor_heartbeat || fail_closed "supervisor liveness checkpoint could not be published"
-    # Owner/Dev button wakes the existing Supervisor promptly. No second
-    # process, Git owner or automatic-update toggle is introduced.
-    if [ "$DISTRIBUTION_PROFILE" = "owner-development" ]; then
+    # The same queue wakes the Supervisor for DEV Git and Portable releases.
+    if [ -n "$MANUAL_CHECK_ACTION" ]; then
         poll_waited=0
         while [ "$poll_waited" -lt "$UPDATE_INTERVAL" ]; do
-            [ -f "$OWNER_MANUAL_CHECK_REQUEST" ] && break
+            [ -f "$MANUAL_CHECK_REQUEST" ] && break
             /bin/busybox sleep 1
             poll_waited=$((poll_waited + 1))
         done
@@ -3340,17 +3398,17 @@ while :; do
         /bin/busybox sleep "$UPDATE_INTERVAL"
     fi
     OWNER_MANUAL_CHECK=0
-    if [ "$DISTRIBUTION_PROFILE" = "owner-development" ] &&
-       [ -f "$OWNER_MANUAL_CHECK_REQUEST" ]; then
-        if [ ! -L "$OWNER_MANUAL_CHECK_REQUEST" ] &&
-           [ "$(/bin/busybox cat "$OWNER_MANUAL_CHECK_REQUEST" 2>/dev/null || true)" = "check-main" ]; then
-            /bin/busybox rm -f "$OWNER_MANUAL_CHECK_REQUEST"
-            OWNER_MANUAL_CHECK=1
-            log "Owner/Development manual main check requested; using canonical Supervisor"
+    if [ -n "$MANUAL_CHECK_ACTION" ] && [ -f "$MANUAL_CHECK_REQUEST" ]; then
+        if [ ! -L "$MANUAL_CHECK_REQUEST" ] &&
+           [ "$(/bin/busybox cat "$MANUAL_CHECK_REQUEST" 2>/dev/null || true)" = "$MANUAL_CHECK_ACTION" ]; then
+            if [ "$DISTRIBUTION_PROFILE" = "owner-development" ]; then
+                OWNER_MANUAL_CHECK=1
+            fi
+            log "Manual update check requested: $MANUAL_CHECK_ACTION"
         else
-            log "ignoring invalid owner manual update request"
-            /bin/busybox rm -f "$OWNER_MANUAL_CHECK_REQUEST"
+            log "ignoring invalid manual update request"
         fi
+        /bin/busybox rm -f "$MANUAL_CHECK_REQUEST"
     fi
 
     if [ "$OWNER_INITIAL_HEALTH_PENDING" -eq 0 ] &&

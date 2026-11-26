@@ -16,6 +16,7 @@ import re
 import secrets
 import stat
 import sys
+import tempfile
 import threading
 import time
 from functools import partial
@@ -108,6 +109,8 @@ HEALTH_PATH = "/__ordax/native/health"
 SURFACE_HEARTBEAT_PATH = "/__ordax/native/surface-heartbeat"
 CLIENT_DIAGNOSTIC_PATH = "/__ordax/native/client-diagnostic"
 PREFERENCES_PATH = "/__ordax/native/preferences"
+SPACE_SELECTION_PATH = "/__ordax/native/space-selection"
+MAX_SPACE_SELECTION_BODY = 1024
 KEYBOARD_LAYOUT_PATH = "/__ordax/native/keyboard-layout"
 KEYBOARD_LAYOUT_APPLY_PATH = "/__ordax/native/keyboard-layout/apply"
 KEYBOARD_SESSION_RESTART_REQUEST = "/run/ordax-surface/keyboard-session-restart-request"
@@ -182,6 +185,7 @@ UPDATE_STATE_FILE = "/run/ordax-update/state.json"
 OWNER_USB_POWER_RECEIPTS = "/srv/ordax-power-receipts"
 HEALTH_STATE_FILE = "/run/ordax-update/healthy-sha"
 PREFERENCES_FILE = "/var/lib/ordax/preferences.json"
+SPACE_SELECTION_FILE = "/var/lib/ordax/space-selection.json"
 KEYBOARD_LAYOUT_FILE = "/var/lib/ordax/keyboard-layout"
 FIRST_RUN_FILE = "/var/lib/ordax/first-run.json"
 FIRST_RUN_CURSOR_FILE = "/var/lib/ordax/first-run-cursor.json"
@@ -552,28 +556,34 @@ def manual_update_request_pending(path: str = UPDATE_MANUAL_REQUEST_FILE) -> boo
     return os.path.isfile(path) and not os.path.islink(path)
 
 
-def queue_manual_update_check(path: str = UPDATE_MANUAL_REQUEST_FILE) -> bool:
-    """Queue the canonical Supervisor's next main check; never run Git here."""
+def manual_update_action(product_mode: str | None, distribution_profile: str, stable_layout: str) -> str:
+    if product_mode == "usb":
+        if distribution_profile == "owner-development":
+            return "check-main"
+        if distribution_profile == "stable-mvp" and stable_layout == "portable-v2":
+            return "check-release"
+    return ""
+
+
+def queue_manual_update_check(action: str, path: str = UPDATE_MANUAL_REQUEST_FILE) -> bool:
+    """Publish a complete request for the Supervisor to consume."""
+    if action not in {"check-main", "check-release"}:
+        raise ValueError("unknown update request action")
     parent = os.path.dirname(path)
     if not os.path.isdir(parent) or os.path.islink(parent):
         raise OSError("Supervisor update run directory unavailable")
-    try:
-        fd = os.open(path, os.O_WRONLY | os.O_CREAT | os.O_EXCL | getattr(os, "O_NOFOLLOW", 0), 0o600)
-    except FileExistsError:
-        if manual_update_request_pending(path):
-            return False
-        raise OSError("unsafe update request path")
+    fd, temporary = tempfile.mkstemp(prefix=".manual-check-", dir=parent)
     try:
         with os.fdopen(fd, "w", encoding="ascii") as handle:
-            handle.write("check-main\n")
-            handle.flush()
-            os.fsync(handle.fileno())
-    except BaseException:
+            handle.write(f"{action}\n")
         try:
-            os.unlink(path)
-        except OSError:
-            pass
-        raise
+            os.link(temporary, path, follow_symlinks=False)
+        except FileExistsError:
+            if manual_update_request_pending(path):
+                return False
+            raise OSError("unsafe or concurrently consumed update request path")
+    finally:
+        os.unlink(temporary)
     return True
 
 
@@ -798,24 +808,24 @@ def read_preferences() -> dict:
     return payload if valid_preference_record(payload) else {}
 
 
-def write_preferences(preferences: dict) -> None:
-    if not valid_preference_record(preferences):
-        raise ValueError("invalid preference record")
-    directory = os.path.dirname(PREFERENCES_FILE)
+def _write_private_native_json(file_path: str, payload: dict) -> None:
+    """One atomic Native JSON writer, used by Preferences and Space selection."""
+    directory = os.path.dirname(file_path)
     os.makedirs(directory, mode=0o700, exist_ok=True)
-    temporary = f"{PREFERENCES_FILE}.tmp.{os.getpid()}.{threading.get_ident()}"
+    if os.path.islink(file_path):
+        raise ValueError("Native state destination cannot be a symlink")
+    temporary = f"{file_path}.tmp.{os.getpid()}.{secrets.token_hex(8)}"
     try:
-        with open(temporary, "w", encoding="utf-8") as handle:
-            # Preferences are device-local user data; do not depend on umask.
+        with open(temporary, "x", encoding="utf-8") as handle:
             os.fchmod(handle.fileno(), 0o600)
-            json.dump(preferences, handle, separators=(",", ":"), sort_keys=True, allow_nan=False)
+            json.dump(payload, handle, separators=(",", ":"), sort_keys=True, allow_nan=False)
             handle.write("\n")
             handle.flush()
             os.fsync(handle.fileno())
-        os.replace(temporary, PREFERENCES_FILE)
+        if os.path.islink(file_path):
+            raise ValueError("Native state destination changed to a symlink")
+        os.replace(temporary, file_path)
     finally:
-        # On a failed replace, keep the last durable record and remove only
-        # this writer's uncommitted candidate. Never touch the destination.
         try:
             os.unlink(temporary)
         except FileNotFoundError:
@@ -828,6 +838,54 @@ def write_preferences(preferences: dict) -> None:
         os.fsync(directory_fd)
     finally:
         os.close(directory_fd)
+
+
+def write_preferences(preferences: dict) -> None:
+    if not valid_preference_record(preferences):
+        raise ValueError("invalid preference record")
+    _write_private_native_json(PREFERENCES_FILE, preferences)
+
+
+def validate_native_space_selection(value: object) -> dict:
+    """The Native host persists a choice, never membership or credentials."""
+    if not isinstance(value, dict) or set(value) != {"record"}:
+        raise ValueError("Native Space selection envelope is invalid")
+    record = value["record"]
+    if record is None:
+        return {"record": None}
+    if not isinstance(record, dict) or set(record) != {"schema", "subjectId", "selectedSpaceId"}:
+        raise ValueError("Native Space selection record fields are invalid")
+    if record["schema"] != "ordax.space-selection-record/1":
+        raise ValueError("Native Space selection record schema is invalid")
+    output = {"schema": "ordax.space-selection-record/1"}
+    for key in ("subjectId", "selectedSpaceId"):
+        ident = record[key]
+        if not isinstance(ident, str) or "\x00" in ident:
+            raise ValueError("Native Space selection id is invalid")
+        ident = ident.strip()
+        if not ident or len(ident) > 160:
+            raise ValueError("Native Space selection id is out of bounds")
+        output[key] = ident
+    return {"record": output}
+
+
+def read_space_selection() -> dict:
+    try:
+        info = os.lstat(SPACE_SELECTION_FILE)
+    except FileNotFoundError:
+        return {"record": None}
+    if not stat.S_ISREG(info.st_mode) or stat.S_ISLNK(info.st_mode) or info.st_size > 1024:
+        raise ValueError("Native Space selection file is unsafe")
+    try:
+        with open(SPACE_SELECTION_FILE, "r", encoding="utf-8") as handle:
+            return validate_native_space_selection(json.load(handle))
+    except (OSError, UnicodeError, json.JSONDecodeError) as exc:
+        raise ValueError("Native Space selection state is unreadable") from exc
+
+
+def write_space_selection(value: dict) -> None:
+    record = validate_native_space_selection(value)
+    _write_private_native_json(SPACE_SELECTION_FILE, record)
 
 
 def read_keyboard_layout_id() -> str:
@@ -3781,6 +3839,9 @@ class NativeHostServer(ThreadingHTTPServer):
             if distribution_profile in {"owner-development", "stable-mvp"}
             else "unknown"
         )
+        self.manual_update_action = manual_update_action(
+            self.product_mode, self.distribution_profile, os.environ.get("ORDAX_STABLE_LAYOUT", ""),
+        )
         self.native_install_capability = (
             native_install_capability
             if native_install_capability in {"disabled", "post-mvp-preview"}
@@ -4800,15 +4861,25 @@ class NativeHostHandler(SimpleHTTPRequestHandler):
                 self.server.distribution_profile == "owner-development"
                 and self.server.product_mode == "usb"
             )
-            update_state["manualCheckAvailable"] = owner_usb
-            update_state["manualCheckPending"] = owner_usb and manual_update_request_pending()
-            update_state["manualCheckToken"] = self.server.manual_update_token if owner_usb else ""
+            can_check = bool(self.server.manual_update_action)
+            update_state["manualCheckAvailable"] = can_check
+            update_state["manualCheckPending"] = can_check and (
+                manual_update_request_pending() or update_state.get("status") == "updating"
+            )
+            update_state["manualCheckToken"] = self.server.manual_update_token if can_check else ""
             if owner_usb:
                 update_state["hostPower"] = read_owner_usb_power_receipts()
             self._write_json(status, update_state)
             return
         if self.path == PREFERENCES_PATH:
             self._write_json(200, read_preferences())
+            return
+        if self.path == SPACE_SELECTION_PATH:
+            try:
+                self._write_json(200, read_space_selection())
+            except (OSError, ValueError) as exc:
+                print(f"ordax-native-host: could not read Space selection: {exc}", file=sys.stderr, flush=True)
+                self._empty(500)
             return
         if parsed_path == KEYBOARD_LAYOUT_PATH:
             self._write_json(200, keyboard_layout_snapshot())
@@ -4960,8 +5031,7 @@ class NativeHostHandler(SimpleHTTPRequestHandler):
             if self.path != UPDATE_CHECK_PATH:
                 self._empty(400)
                 return
-            if (self.server.distribution_profile != "owner-development"
-                    or self.server.product_mode != "usb"):
+            if not self.server.manual_update_action:
                 self._empty(404)
                 return
             if not hmac.compare_digest(
@@ -4971,18 +5041,18 @@ class NativeHostHandler(SimpleHTTPRequestHandler):
                 self._empty(403)
                 return
             body = self._read_json_body(MAX_CONTROL_BODY)
-            if not isinstance(body, dict) or set(body) != {"action"} or body.get("action") != "check-main":
+            if not isinstance(body, dict) or set(body) != {"action"} or body.get("action") != "check":
                 self._empty(400)
                 return
             try:
                 with self.server.manual_update_lock:
-                    queued = queue_manual_update_check()
+                    queued = queue_manual_update_check(self.server.manual_update_action)
             except OSError as exc:
                 print(f"ordax-native-host: update check queue unavailable: {exc}", file=sys.stderr, flush=True)
                 self._empty(503)
                 return
             self._write_json(202, {
-                "schema": "ordax.owner-manual-update-request/1",
+                "schema": "ordax.manual-update-request/1",
                 "state": "queued" if queued else "pending",
             })
             return
@@ -5725,6 +5795,23 @@ class NativeHostHandler(SimpleHTTPRequestHandler):
             self._empty(204)
             return
 
+        if self.path == SPACE_SELECTION_PATH:
+            payload = self._read_json_body(MAX_SPACE_SELECTION_BODY)
+            if payload is None:
+                self._empty(400)
+                return
+            try:
+                normalized = validate_native_space_selection(payload)
+                write_space_selection(normalized)
+            except ValueError:
+                self._empty(400)
+                return
+            except OSError as exc:
+                print(f"ordax-native-host: could not persist Space selection: {exc}", file=sys.stderr, flush=True)
+                self._empty(500)
+                return
+            self._write_json(200, normalized)
+            return
         if self.path == PREFERENCES_PATH:
             payload = self._read_json_body(MAX_PREFERENCE_BODY)
             if payload is None or not valid_preference_record(payload):

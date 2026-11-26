@@ -7,7 +7,18 @@ import { SIDEBAR_ENGLISH_MESSAGES } from "../system/services/i18n/catalog/sideba
 import { MERIDIAN_RAIL_DESTINATIONS } from "../system/services/surface/meridian-navigation.mjs";
 import { getSurfaceWindowTitle } from "../system/services/surface/destination-catalog.mjs";
 import { listSurfaceShortcutAppIds } from "../system/services/surface/shortcut-catalog.mjs";
-import { syncDesktopSidebarToggle } from "../system/surface/ui/desktop-shell.mjs";
+import { syncDesktopSidebarToggle, getNativeAppGlyphMarkup } from "../system/surface/ui/desktop-shell.mjs";
+
+test("running Native app windows reuse shell icon authority without a private ICONS reference", async () => {
+  for (const appId of ["settings", "system", "account", "store", "apps"]) {
+    assert.match(getNativeAppGlyphMarkup(appId), /<svg\b/, appId);
+  }
+  assert.equal(getNativeAppGlyphMarkup("unknown-installed-app"), "");
+  assert.equal(getNativeAppGlyphMarkup("constructor"), "");
+  const native = await readFile(new URL("../system/surface/ui/surface.mjs", import.meta.url), "utf8");
+  assert.doesNotMatch(native, /\bICONS\s*\[/);
+  assert.match(native, /getNativeAppGlyphMarkup\(app\.id\)/);
+});
 
 test("sidebar slots preserve the same brand, home, navigation, account and auxiliary order", () => {
   assert.deepEqual(SIDEBAR_LAYOUT.map(slot => slot.key), ["brand", "home", "navigation", "account", "auxiliary"]);
@@ -190,25 +201,34 @@ test("Native USB keeps the computer shell instead of switching to mobile geometr
     "surface.css", "first-run.css", "workspace-areas.css", "system.css", "local-session-lock.css",
     "space-switcher.css",
   ].map(file => readFile(new URL(`../system/surface/ui/${file}`, import.meta.url), "utf8")));
+  assert.equal((nativeStyles.match(/\{/g) ?? []).length, (nativeStyles.match(/\}/g) ?? []).length,
+    "every Native CSS block must close before taskbar, sidebar and window rules");
+  assert.doesNotMatch(nativeStyles, /\.ordax-home-intro\s*\{\s*\.ordax-home-intro\s*\{/,
+    "Native compact typography must not create a nested duplicate selector");
   assert.doesNotMatch(nativeStyles, /@media\s*\(max-width:\s*(?:760|600|560|420)px/i, "Native must not switch to a phone layout at narrow viewport widths");
   assert.doesNotMatch(nativeStyles, /@media\s*\(max-width:\s*760px\)[\s\S]*?\.ordax-home-panel\s*\{[^}]*flex-direction:\s*column/i, "Native Home keeps its desktop information layout");
   assert.equal((nativeStyles.match(/@container\s+meridian-native-home\s*\(/g) ?? []).length, 3, "Native Home responds to the available computer workspace width");
   assert.match(nativeStyles, /@container\s+meridian-native-home\s*\(max-width:\s*66rem\)[\s\S]*?\.ordax-home-panel\s*\{\s*grid-template-columns:\s*repeat\(2,\s*minmax\(0,\s*1fr\)\)/, "medium computer workspaces reflow the existing Home areas");
-  assert.match(nativeStyles, /@container\s+meridian-native-home\s*\(max-width:\s*50rem\)[\s\S]*?\.ordax-home-panel\s*\{\s*grid-template-areas:/, "narrow computer workspaces preserve and reorder the same Home areas");
   const mediumNativeHome = nativeStyles.match(/@container meridian-native-home \(max-width: 50rem\) \{([\s\S]*?)\n\}/)?.[1];
-  assert.ok(mediumNativeHome, "Native compact action layout must be activated by the real workspace width");
-  assert.match(mediumNativeHome, /grid-template-areas: "intro intro" "quick quick" "status current" "hero hero"/,
-    "medium-width Desktop shows actions and observed health before artwork");
-  const narrowNativeHome = nativeStyles.match(/@container meridian-native-home \(max-width: 46rem\) \{([\s\S]*?)\n\}/)?.[1];
-  assert.ok(narrowNativeHome, "Native compact layout must remain workspace-container based");
-  assert.match(narrowNativeHome, /grid-template-areas: "intro" "resume" "quick" "status" "current" "hero"/,
-    "resume and real system status precede the promotional hero in narrow Desktop windows");
-  assert.match(narrowNativeHome, /grid-template-areas: "intro" "quick" "status" "current" "hero"/,
-    "compact Native Home without continuation still prioritizes actions and health");
-  assert.match(mediumNativeHome, /\.ordax-home-action\s*\{[\s\S]*?min-height:\s*3\.25rem/,
-    "compact quick actions remain at least 44 CSS pixels high with readable labels");
-  assert.match(mediumNativeHome, /\.ordax-home-status-list\s+small\s*\{\s*font-size:\s*\.6875rem/,
-    "health information remains legible at compact workspace width");
+  assert.ok(mediumNativeHome, "the Native overview follows the usable workspace width");
+  assert.match(mediumNativeHome, /grid-template-columns: minmax\(0, 1fr\)/,
+    "compact Desktop windows use a single content column");
+  assert.match(mediumNativeHome, /grid-template-areas: "intro" "quick" "resume" "running" "current" "status"/,
+    "actions, real continuation and open windows precede the system context");
+  assert.match(mediumNativeHome, /grid-template-areas: "intro" "quick" "running" "current" "status"/,
+    "without project history the same overview does not reserve a placeholder");
+  assert.match(nativeStyles, /\.ordax-home-panel:not\(:has\(\[data-home-continuation\]\)\) \{\s*grid-template-areas: "intro intro" "quick current" "running status"/,
+    "current Space must have an explicit compact desktop grid area without recent projects");
+  assert.match(nativeStyles, /\.ordax-home-action \.ordax-network-symbol-wifi,[\s\S]*?\.ordax-home-status-list \.ordax-network-symbol-wifi \{ display: block; \}/,
+    "Home network controls reuse the tray icon without inheriting its signal-only hiding");
+  assert.match(nativeStyles, /\.ordax-home-status-details\[hidden\] \{ display: none; \}/,
+    "healthy system details collapse without changing theme tokens");
+  assert.match(nativeStyles, /\.ordax-home-running\[hidden\] \{ display: none; \}/,
+    "window activity remains invisible until the actual window model has items");
+  assert.match(nativeStyles, /\.ordax-home-action \{[^}]*min-height: 3\.25rem/,
+    "existing actions have readable desktop hit targets");
+  assert.doesNotMatch(nativeStyles, /ordax-home-hero|ordax-home-space-art/,
+    "the promotional hero and decorative Space scene are retired, not hidden");
   assert.doesNotMatch(nativeStyles, /@media\s*\(max-width:/i, "Native shell geometry never switches according to a mobile viewport breakpoint");
   assert.doesNotMatch(nativeStyles, /meridian-mobile-menu/i, "Native has no mobile-only menu styling");
   assert.doesNotMatch(sharedMeridianStyles, /@container\s+meridian-native-home/i);

@@ -249,7 +249,6 @@ func renderWriteProgress() {
 	}
 	enable(refreshButton, false)
 	enable(updateButton, false)
-	enable(usbUpdateButton, false)
 	enable(writeButton, false)
 	enable(deviceCombo, false)
 	enable(localeCombo, false)
@@ -294,7 +293,6 @@ func renderWriteDone() {
 	enable(writeButton, true)
 	enable(bootHelpButton, true)
 	renderUpdateUI()
-	enable(usbUpdateButton, false) // Re-select only after refreshed discovery.
 	if state.Success {
 		enable(updateButton, false)
 	}

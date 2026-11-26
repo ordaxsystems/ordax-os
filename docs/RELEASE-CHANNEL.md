@@ -99,6 +99,23 @@ ORDAX_OWNER_SIGNED_STAGE_ROOT=/mnt/disposable/owner-signed-preview \
   sh system/services/update/owner-signed-preview.sh stage <exact-signed-40hex-sha>
 ```
 
+### Atualização do USB Portable v2
+
+Em **Sistema → Atualizações → Atualizar sistema**, a Surface solicita uma
+verificação ao Supervisor. O Supervisor inspeciona o canal oficial e baixa os
+EROFS vinculados ao commit do manifesto assinado. Instalações DEV continuam
+usando o mesmo Supervisor com `ordax-pull` e a `main`.
+
+No Portable v2 a entrega verificada fica armada até a próxima reinicialização.
+O boot testa a candidata uma vez. O Supervisor confirma a nova versão quando
+a Surface da revisão exata responde ao teste de saúde. Em caso de falha, o
+OrdaX retorna à versão anterior. As imagens ficam em `ORDAX-DATA/.ordax`, com
+o estado de ativação dentro da imagem ext4 persistente. O processo preserva
+as partições, as configurações e os arquivos pessoais.
+
+A publicação do canal Stable e a homologação física continuam sujeitas aos
+gates em [PROMOTION-GATES.md](PROMOTION-GATES.md).
+
 ### Native portable activation inspection (read-only; no new update owner)
 
 The canonical `ordax-portable-state inspect <state-root> <portable-root>`

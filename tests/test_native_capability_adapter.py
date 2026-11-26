@@ -208,7 +208,7 @@ class NativeCapabilityAdapterTests(unittest.TestCase):
             'currentIdentity.state === "signed-in"',
             'priorIdentity.state === "signed-in"',
             "priorIdentity.subjectId === currentIdentity.subjectId",
-            "refreshCurrentSpaceCatalog({ force: true });",
+            "await refreshCurrentSpaceCatalog({ force: sameAccount });",
             "await identityActions.refresh();",
             "await accountLifecycle.refresh();",
             "await accountSync.refresh();",

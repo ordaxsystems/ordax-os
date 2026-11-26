@@ -69,7 +69,7 @@ class OfflineOwnerWelcomeGateTests(unittest.TestCase):
         self.assertLess(stage, media)
         self.assertIn('bash tools/creator/owner_dev_stage.sh', workflow)
         self.assertIn('export ORDAX_DEV_GEOMETRY_OUT="$RUNNER_TEMP/owner-dev-physical-media.json"', workflow)
-        self.assertIn('"$RUNNER_TEMP/owner-dev-surface-runtime"', workflow)
+        self.assertIn('"$RUNNER_TEMP/ordax-independent-surface"', workflow[stage:media])
         self.assertLess(overlay, seeded)
         self.assertLess(seeded, capabilities)
         self.assertLess(capabilities, geometry)
@@ -148,9 +148,10 @@ class OfflineOwnerWelcomeGateTests(unittest.TestCase):
         self.assertNotIn('if [ "$cached_commit" = "$ORDAX_OWNER_SOURCE_COMMIT" ]; then', workflow)
         self.assertIn("verified-content-addressed-cache", workflow)
         self.assertIn("independent_surface_r2.sh restore", workflow)
-        self.assertIn("independent_surface_r2.sh publish", workflow)
+        self.assertNotIn("independent_surface_r2.sh publish", workflow)
         self.assertIn("Surface consumer", (ROOT / "tools/creator/verify_owner_dev_offline_runtime.py").read_text())
-        self.assertIn('cp -a "$out/." "$RUNNER_TEMP/owner-dev-surface-runtime/"', workflow)
+        self.assertNotIn("owner-dev-surface-runtime", workflow)
+        self.assertEqual(workflow[consume:native].count("bootstrap/surface-runtime/build.py verify"), 1)
         self.assertIn("Canonical Surface EROFS missing", workflow)
         self.assertNotIn("bootstrap/surface-runtime/build.py build", workflow)
         self.assertIn("bootstrap/surface-runtime/build.py verify", workflow)
@@ -173,15 +174,18 @@ class OfflineOwnerWelcomeGateTests(unittest.TestCase):
         self.assertIn("if: always() &&", producer)
         self.assertNotIn("always() && steps.owner-surface-artifact-cache", workflow)
 
-    def test_owner_visual_source_is_removed_before_expensive_buildroot(self):
+    def test_owner_visual_source_is_cleaned_without_deleting_git_sources_before_buildroot(self):
         workflow = (ROOT / ".github/workflows/creator-owner-dev-git.yml").read_text()
         owner = workflow.split("- name: Build boot initramfs and Git development base", 1)[1]
         owner = owner.split("- name: Create ephemeral prototype trust", 1)[0]
-        removal = owner.index('rm -rf "$target"')
+        cleanup = owner.index('git clean -fd -- "$target"')
+        restore = owner.index('git restore --source=HEAD --worktree -- "$target"')
         clean_before = owner.index('OWNER_SOURCE_CHECKOUT_DIRTY_BEFORE_BUILDROOT')
         buildroot = owner.index("bootstrap/independent-base/build.py build")
         clean_after = owner.index('OWNER_SOURCE_CHECKOUT_DIRTY_AFTER_BUILDROOT')
-        self.assertLess(removal, clean_before)
+        self.assertNotIn('rm -rf "$target"', owner)
+        self.assertLess(cleanup, restore)
+        self.assertLess(restore, clean_before)
         self.assertLess(clean_before, buildroot)
         self.assertLess(buildroot, clean_after)
         self.assertIn("OWNER_ROOTFS_GIT_NOT_EXECUTABLE", owner)

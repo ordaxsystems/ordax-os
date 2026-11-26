@@ -68,6 +68,7 @@ test('canonical Native sync persistence uses only the trusted Electron state gra
   for(const path of [
     '/__ordax/native/first-run',
     '/__ordax/native/preferences',
+    '/__ordax/native/space-selection',
     '/__ordax/native/first-run-cursor',
     '/__ordax/native/sync-checkpoint',
     '/__ordax/native/sync-state',

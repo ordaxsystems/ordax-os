@@ -2,90 +2,77 @@ import {
   SPACE_SELECTION_STORE_SCHEMA,
   assertSpaceSelectionStore,
   validateSpaceSelectionRecord,
+  validateNativeSpaceSelectionEnvelope,
 } from "../../contracts/space-selection.mjs";
 
-const STORAGE_KEY = "ordax.native.space-selection.v1";
+const SPACE_SELECTION_ENDPOINT = "/__ordax/native/space-selection";
 
-function resolveStorage(windowRef) {
-  try {
-    const storage = windowRef?.localStorage;
-    if (
-      storage
-      && typeof storage.getItem === "function"
-      && typeof storage.setItem === "function"
-      && typeof storage.removeItem === "function"
-    ) {
-      return storage;
-    }
-  } catch {
-    // Native browser policy may deny storage; memory fallback stays available.
+// A Native app must not bind a selected Space to localStorage: the loopback
+// port is ephemeral, so each healthy Desktop restart changes the web origin.
+// The existing Native host owns this device-local record with the same
+// Electron-granted state authorization as preferences and First Run.
+export async function createNativeSpaceSelectionStore(windowRef = globalThis.window) {
+  if (!windowRef || typeof windowRef.fetch !== "function") {
+    throw new TypeError("Native Space selection store requires window.fetch");
   }
-  return null;
-}
-
-export function createNativeSpaceSelectionStore(windowRef = globalThis.window) {
-  const storage = resolveStorage(windowRef);
-  let storageOperational = storage !== null;
   let memory = null;
+  let durableAvailable = false;
+  try {
+    const result = await windowRef.fetch(SPACE_SELECTION_ENDPOINT, {
+      method: "GET", cache: "no-store", credentials: "same-origin",
+    });
+    if (!result.ok) throw new Error("Native Space selection receipt unavailable");
+    memory = validateNativeSpaceSelectionEnvelope(await result.json()).record;
+    durableAvailable = true;
+  } catch {
+    // The offline Surface must boot even when the optional local receipt
+    // cannot be verified. This session starts unselected, never authorized.
+    memory = null;
+  }
 
-  const load = () => {
-    if (!storage || !storageOperational) return memory;
-    let raw;
-    try {
-      raw = storage.getItem(STORAGE_KEY);
-    } catch {
-      storageOperational = false;
-      return memory;
-    }
-    if (raw === null) {
-      memory = null;
-      return null;
-    }
-    try {
-      memory = validateSpaceSelectionRecord(JSON.parse(raw));
-      return memory;
-    } catch {
-      memory = null;
-      try {
-        storage.removeItem(STORAGE_KEY);
-      } catch {
-        storageOperational = false;
+  let writeQueue = Promise.resolve();
+  const enqueue = (record) => {
+    if (!durableAvailable) return false;
+    const envelope = validateNativeSpaceSelectionEnvelope({ record });
+    const write = writeQueue.then(async () => {
+      const result = await windowRef.fetch(SPACE_SELECTION_ENDPOINT, {
+        method: "POST", cache: "no-store", credentials: "same-origin",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(envelope),
+      });
+      if (!result.ok) throw new Error("Native Space selection persistence rejected");
+      const confirmed = validateNativeSpaceSelectionEnvelope(await result.json());
+      if (confirmed.record?.subjectId !== envelope.record?.subjectId
+          || confirmed.record?.selectedSpaceId !== envelope.record?.selectedSpaceId) {
+        throw new Error("Native Space selection persistence receipt mismatched");
       }
-      return null;
-    }
+      return true;
+    });
+    // A rejected write does not poison later explicit selections. Report the
+    // failure; an in-memory selection is not claimed to be durable.
+    writeQueue = write.catch((error) => {
+      console.warn("Native Space selection persistence remains unavailable", error);
+      return false;
+    });
+    return true;
   };
 
-  const store = {
+  const store = Object.freeze({
     schema: SPACE_SELECTION_STORE_SCHEMA,
-    load,
+    load() { return memory; },
     save(record) {
-      const validated = validateSpaceSelectionRecord(record);
-      if (validated === null) {
-        throw new TypeError("Space selection store cannot save an empty record");
-      }
-      memory = validated;
-      if (!storage || !storageOperational) return false;
-      try {
-        storage.setItem(STORAGE_KEY, JSON.stringify(validated));
-        return true;
-      } catch {
-        storageOperational = false;
-        return false;
-      }
+      const valid = validateSpaceSelectionRecord(record);
+      if (valid === null) throw new TypeError("Space selection requires a record");
+      memory = valid;
+      return enqueue(valid);
     },
     clear() {
       memory = null;
-      if (!storage || !storageOperational) return false;
-      try {
-        storage.removeItem(STORAGE_KEY);
-        return true;
-      } catch {
-        storageOperational = false;
-        return false;
-      }
+      return enqueue(null);
     },
-  };
-
+    // Read-only confirmation for supervised persistence tests and diagnostics.
+    settled() { return writeQueue; },
+  });
   assertSpaceSelectionStore(store);
-  return Object.freeze(store);
+  return store;
 }

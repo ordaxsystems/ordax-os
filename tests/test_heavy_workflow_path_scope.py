@@ -1,3 +1,4 @@
+import json
 from pathlib import Path
 import unittest
 
@@ -44,6 +45,14 @@ class HeavyWorkflowPathScopeTests(unittest.TestCase):
 
         surface = (WORKFLOW_DIR / "surface-web-candidate.yml").read_text(encoding="utf-8")
         self.assertEqual(surface.count("      - 'system/composition/native/**'"), 2)
+
+    def test_native_adapter_contract_does_not_trigger_surface_web_candidate(self):
+        graph = json.loads(
+            (ROOT / "docs" / "contracts" / "build-autonomy.json").read_text(encoding="utf-8")
+        )["artifact_graph"]
+        self.assertFalse(graph["mode_adapter_change_rebuilds_unrelated_modes"])
+        surface = (WORKFLOW_DIR / "surface-web-candidate.yml").read_text(encoding="utf-8")
+        self.assertNotIn("tests/test_native_capability_adapter.py", surface)
 
     def test_local_ai_engine_candidate_does_not_rebuild_for_disposable_composition(self):
         text = (WORKFLOW_DIR / "local-ai-runtime-candidate.yml").read_text(encoding="utf-8")

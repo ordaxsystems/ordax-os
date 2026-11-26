@@ -12,10 +12,10 @@ ROOT = Path(__file__).resolve().parents[1] / ".github" / "workflows"
 TARGETS = {
     "creator-owner-dev-git.yml": ("build-and-publish:", "if: needs.impact.outputs.required == 'true' && (github.event_name != 'pull_request' || !github.event.pull_request.draft)"),
     "creator-payload-candidate.yml": ("creator-payload:", "if: needs.creator-payload-contract.outputs.required == 'true' && (github.event_name != 'pull_request' || !github.event.pull_request.draft)"),
-    "independent-surface-runtime.yml": ("buildroot-surface:", "if: ${{ !cancelled() && needs.contract.result == 'success' && needs.impact.outputs.required == 'true' && (github.event_name == 'pull_request' || (github.event_name == 'push' && vars.ORDAX_SURFACE_RUNNER_LABEL == '') || needs.producer-availability.result == 'success') && (github.event_name != 'pull_request' || !github.event.pull_request.draft) }}"),
+    "independent-surface-runtime.yml": ("buildroot-surface:", "if: ${{ !cancelled() && needs.contract.result == 'success' && needs.impact.outputs.required == 'true' && (github.event_name != 'pull_request' || !github.event.pull_request.draft) }}"),
     "portable-v2-qemu-boot-proof.yml": ("qemu-portable-v2:", "if: needs.impact.outputs.required == 'true' && (github.event_name != 'pull_request' || !github.event.pull_request.draft)"),
     "independent-base-experiment.yml": ("buildroot-qemu:", "if: " + chr(36) + "{{ github.event_name == 'workflow_dispatch' || (github.event_name == 'pull_request' && !github.event.pull_request.draft) }}"),
-    "independent-portable-v2-integration.yml": ("independent-real-portable-qemu:", "if: " + chr(36) + "{{ github.event_name == 'workflow_dispatch' || (github.event_name == 'pull_request' && !github.event.pull_request.draft) }}"),
+    "independent-portable-v2-integration.yml": ("independent-real-portable-qemu:", "if: " + chr(36) + "{{ github.event_name == 'workflow_dispatch' }}"),
     "native-esp-candidate.yml": ("native-esp:", "if: github.event_name != 'pull_request' || !github.event.pull_request.draft"),
     "kernel-candidate.yml": ("kernel:", "if: github.event_name != 'pull_request' || !github.event.pull_request.draft"),
     "kernel-pinned-environment.yml": ("prove-pinned-environment:", "if: github.event_name != 'pull_request' || !github.event.pull_request.draft"),
@@ -184,10 +184,8 @@ class ReleaseCandidateGateTests(unittest.TestCase):
         self.assertIn("cancel-in-progress: false", concurrency)
         self.assertNotIn("github.event_name == 'pull_request'", concurrency)
         self.assertIn("independent-real-portable-qemu:", text)
-        self.assertIn(
-            "github.event_name == 'workflow_dispatch' || (github.event_name == 'pull_request' && !github.event.pull_request.draft)",
-            text,
-        )
+        self.assertIn("if: ${{ github.event_name == 'workflow_dispatch' }}", text)
+        self.assertNotIn("github.event_name == 'pull_request' && !github.event.pull_request.draft", text)
 
     def test_owner_buildroot_jobs_share_exact_serialization_key(self):
         # Only one heavy producer runs at a time for a PR/ref, but all
@@ -224,7 +222,8 @@ class ReleaseCandidateGateTests(unittest.TestCase):
         self.assertIn("  pull_request:\n", foundation)
         self.assertIn("  push:\n    branches: [main]", foundation)
         self.assertIn("python -m unittest discover -s tests -p 'test_*.py' -v", foundation)
-        self.assertIn("if: steps.impact.outputs.full != 'false'", foundation)
+        self.assertIn("if: steps.impact.outputs.mode == 'full'", foundation)
+        self.assertIn("if: steps.impact.outputs.mode == 'tests'", foundation)
         for workflow, excluded_tests, required_sources in (
             (
                 "full-bootstrap-media-proof.yml",
@@ -267,9 +266,12 @@ class ReleaseCandidateGateTests(unittest.TestCase):
         self.assertIn("  push:\n    branches: [main]", foundation)
         self.assertIn("  pull_request:\n", foundation)
         self.assertIn("python -m unittest discover -s tests -p 'test_*.py' -v", foundation)
-        self.assertIn("if: steps.impact.outputs.full != 'false'", foundation)
-        # Foundation treats every test fixture as executable, not a doc-only skip.
-        self.assertIn("scripts, test fixtures and unknown paths must run full Foundation", foundation)
+        self.assertIn("if: steps.impact.outputs.mode == 'full'", foundation)
+        self.assertIn("if: steps.impact.outputs.mode == 'tests'", foundation)
+        # Source and unclassified paths stay on the conservative full tier.
+        selector = (ROOT.parents[1] / "tools/ci/foundation_impact.py").read_text(encoding="utf-8")
+        self.assertIn('reason="empty-diff-fails-closed"', selector)
+        self.assertIn('reason="source-or-unknown-change"', selector)
         for workflow, tests, producer in (
             (
                 "kernel-lts-candidate.yml",
@@ -302,35 +304,21 @@ class ReleaseCandidateGateTests(unittest.TestCase):
                 self.assertIn("github.event.pull_request.draft", source)
                 self.assertIn("actions/checkout@", source)
 
-    def test_surface_compilation_requires_non_codespace_producer_on_dispatch(self):
+    def test_surface_compilation_accepts_free_github_runner_without_private_producer(self):
         workflow = (ROOT / "independent-surface-runtime.yml").read_text(encoding="utf-8")
         build = workflow.split("  buildroot-surface:", 1)[1].split("\n  portable-qemu:", 1)[0]
-        preflight = workflow.split("  producer-availability:", 1)[1].split(
-            "\n  buildroot-surface:", 1
-        )[0]
-        self.assertIn("needs: [contract, impact, producer-availability]", build)
-        self.assertIn("needs.producer-availability.result == 'success'", build)
+        self.assertIn("needs: [contract, impact]", build)
         self.assertIn("needs.contract.result == 'success'", build)
         self.assertIn("needs.impact.outputs.required == 'true'", build)
-        self.assertIn("Reject Codespace runtime before any source or compiler work", build)
-        self.assertLess(
-            build.index("Reject Codespace runtime before any source or compiler work"),
-            build.index("Checkout exact source"),
-        )
-        for variable in (
-            "ORDAX_SURFACE_RUNNER_LABEL",
-            "ORDAX_SURFACE_PRODUCER_ENVIRONMENT",
-            "ORDAX_SURFACE_PERSISTENT_WORK_ROOT",
-            "ORDAX_SURFACE_BUILD_WORK_ROOT",
-        ):
-            self.assertIn("vars." + variable, preflight)
-        self.assertIn("Codespace disallowed", preflight)
-        self.assertIn("github.event_name == 'push'", preflight)
+        self.assertIn("|| 'ubuntu-24.04'", build)
+        self.assertNotIn("producer-availability:", workflow)
+        self.assertNotIn("needs.producer-availability.result", workflow)
+        self.assertNotIn("Require persistent producer on verified Surface artifact miss", build)
+        self.assertIn("Restore verified Independent Surface EROFS component", build)
+        self.assertIn("Build Buildroot/musl Surface runtime on durable artifact miss", build)
+        self.assertIn("Verify exact Independent Surface EROFS bytes", build)
         self.assertIn("push:\n    branches: [main]\n    paths: *independent_surface_inputs", workflow)
-        self.assertIn("vars.ORDAX_SURFACE_RUNNER_LABEL != ''", preflight)
-        self.assertIn("vars.ORDAX_SURFACE_RUNNER_LABEL == ''", build)
-        self.assertIn("github.event_name == 'pull_request'", build)
-        self.assertNotIn("bootstrap/surface-runtime/build.py build", preflight)
+
 
     def test_no_heavy_test_waiver_for_release(self):
         for filename, (_, guard) in TARGETS.items():

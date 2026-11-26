@@ -28,6 +28,7 @@ function isTrustedNativeRequest({
 const NATIVE_STATE_ROUTES=Object.freeze([
   '/__ordax/native/first-run',
   '/__ordax/native/preferences',
+  '/__ordax/native/space-selection',
   '/__ordax/native/first-run-cursor',
   '/__ordax/native/sync-state',
   '/__ordax/native/sync-checkpoint',

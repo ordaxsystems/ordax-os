@@ -11,38 +11,38 @@ documentação/UI que não alteram essas entradas **não** invalidam o artefato.
 
 1. O job `build-and-publish` de `creator-owner-dev-git.yml` e o
    `buildroot-surface` de `independent-surface-runtime.yml` partilham a
-   concorrência `ordax-surface-producer-<pr-number-or-ref>`. Um constrói/pública o
-   artefato verificado; o segundo só começa após terminar e pode reutilizar
-   o mesmo resultado. Não cancelar o produtor que já está compilando.
+   concorrência `ordax-surface-producer-<pr-number-or-ref>`. O job
+   `buildroot-surface` é o único produtor e publicador da EROFS verificada.
+   O Creator pode reutilizar esse resultado para materializar a mídia.
 2. Ordem canônica: cache GitHub de **artefato completo por fingerprint**,
-   armazenamento R2 **imutável** por fingerprint + SHA-256, e apenas após ambos
-   não terem o artefato, compilação Buildroot. O único transporte R2 é
-   `tools/ci/independent_surface_r2.sh` com `restore` e `publish`.
-   Credenciais vêm exclusivamente dos Secrets; a ausência de credenciais
-   utiliza o fallback GitHub/cache/build sem afirmar R2 verificado.
+   armazenamento R2 **imutável** por fingerprint + SHA-256 e artefato de uma
+   execução canônica do produtor. Só o produtor compila após falha de reúso.
+   O transporte R2 usa `tools/ci/independent_surface_r2.sh`. Sem credenciais
+   R2, o cache e os artefatos do GitHub continuam disponíveis.
 3. Ambos os jobs operam em `$RUNNER_TEMP/ordax-independent-surface`.
    Após construir, restaura-se o `ordax_surface_defconfig` original, emite-se
    o manifesto com `record`, verifica-se fingerprint, SHA-256, proveniência
    e commit corrente com `verify` **antes** de publicar qualquer arquivo.
-   No Creator, a cópia para `owner-dev-surface-runtime` acontece depois da
-   verificação, e seu próprio `build.py verify` é reexecutado.
-4. `ccache` é cache **de objetos**, distinto do cache de artefato. Ambos os
-   jobs podem recuperar objetos de uma chave anterior do mesmo OS/arquitetura
+   O Creator verifica o resultado restaurado na própria pasta e o fornece
+   diretamente à montagem da mídia. A cópia gravada na mídia continua
+   verificada pelo montador, inclusive quando o commit de integração é outro.
+4. `ccache` é cache **de objetos**, distinto do cache de artefato. O produtor
+   pode recuperar objetos de uma chave anterior do mesmo OS/arquitetura
    com `restore-keys` quando o `defconfig` muda; o compilador/ccache
    valida flags/dependências em cada objeto. **Nunca** relaxar a chave exata
    do EROFS nem substituir provas por hits de cache. Para evitar perder seis
    horas de objetos compilados, a chave primária do `ccache` contém o ID da
-   execução; o `restore-keys` restaura o checkpoint mais recente do mesmo
-   perfil, mantendo compatibilidade com o cache v1. Cada execução pode gravar
+   execução e o número da tentativa (`run_id` + `run_attempt`); o `restore-keys` restaura o checkpoint mais recente do mesmo
+   perfil, mantendo compatibilidade com o cache v1. Cada tentativa pode gravar
    um novo checkpoint imutável após um build interrompido com encerramento
    correto dos compiladores. O artefato EROFS final **não** usa run ID.
 5. O QEMU Portable não compila Surface: busca o **mesmo** artefato imutável
-   pelo fingerprint canônico no cache GitHub ou R2, verifica manifesto,
+   pelo fingerprint canônico no cache GitHub, no R2 ou no artefato do produtor,
+   verifica manifesto,
    SHA-256, proveniência e ABI com `independent_surface_component_cache.py` e
    `bootstrap/surface-runtime/build.py verify`, e então copia os bytes já
-   validados para o slot QEMU. Um miss em ambos os armazenamentos **falha
-   imediatamente e sem compilação**; a ação correta é executar o produtor
-   independente/Creator, não criar outro produtor. O modo
+   validados para o slot QEMU. Se todas as fontes estiverem indisponíveis,
+   o job termina antes da montagem. O modo
    `surface_source=independent` continua consumindo o artefato validado
    no mesmo workflow, sem build.
 6. O Owner exige sempre a prova de dois boots gráficos *offline* do mesmo
@@ -56,14 +56,10 @@ documentação/UI que não alteram essas entradas **não** invalidam o artefato.
 
 ## Evidência e diagnóstico
 
-Os dois workflows declaram cache/R2 hit ou miss, origem do EROFS e recibos de
-validação; o pacote Owner deve conservar proveniência e SHA-256 da imagem
-original mesmo quando integra um novo commit de OS. A causa de compilação dupla
-observada antes desta correção era: o Creator verificava o artefato restaurado,
-mas compilava num diretório separado quando havia *miss* e não gravava a imagem
-no cache comum nem no R2. O produtor independente também podia iniciar uma
-compilação simultânea; além disso, a chave exata do `ccache` impedia recuperar
-objetos válidos após mudar o `defconfig`. Este contrato corrige as três falhas.
+Os workflows registram a origem da EROFS e os recibos de validação. O pacote
+Owner conserva a proveniência e o SHA-256 originais mesmo quando integra
+um novo commit do OS. Quando as imagens Ubuntu do produtor e do consumidor
+diferem, o artefato do GitHub usa o fingerprint do produtor gravado no recibo.
 
 **Limite de execução:** a concorrência é por PR/ref, incluindo revisões sucessivas;
 a reutilização de bytes entre commits é regida exclusivamente pelo fingerprint. Se GitHub/R2 não
@@ -94,18 +90,18 @@ Ambos reservam 30 minutos para encerramento controlado e verificações.
 A mudança de limite **não** substitui a retomada. Um resultado parcial do
 WebKit só é aproveitável quando o mesmo diretório `O=` permanece em disco,
 o fingerprint nativo e o Kconfig selado conferem, o `flock` é exclusivo e
-nenhum manifesto ou artefato incompleto é aceito. Não é permitido tratar o
-limite de 720 minutos como prova de sucesso, nem executar novo build caro em
-runner descartável apenas porque o anterior chegou a 330 minutos.
+nenhum manifesto ou artefato incompleto é aceito. Um timeout ou artefato
+incompleto não é prova de sucesso.
 
-**Bloqueio causal de miss em runner descartável:** com cache GitHub e R2 sem
-EROFs válido para o fingerprint atual, o workflow falha *antes* de instalar
-dependências gráficas ou compilar WebKit, caso não exista o workspace persistente
-configurado. Esse guard impede repetir a tentativa que encerrou em `330m`
-no runner hospedado. A compilação nova requer o produtor Linux x86_64
-self-hosted confiável, persistência do `O=` e ambiente pinado; a publicação
-somente ocorre depois da verificação de EROFS e recibos. Sem isso, o gate
-permanece vermelho e os consumidores Creator/QEMU não fabricam um artefato.
+**GitHub gratuito, repositório público:** sem configuração de produtor
+privado, o workflow usa o runner hospedado `ubuntu-24.04`. O cache exato
+GitHub, o R2 opcional e o artefato do produtor canônico são consultados
+antes de compilar. Um miss permite a compilação no próprio GitHub Actions,
+sem exigir runner self-hosted ou variáveis de infraestrutura. O limite físico
+de disco/RAM e a duração máxima do runner gratuito continuam reais; se
+o build falhar, nenhum EROFS é publicado como válido. Apenas artefatos
+com fingerprint, SHA-256, proveniência e verificação aprovados são publicados
+e consumidos por Creator e QEMU. Um runner persistente continua opcional.
 
 
 ## Operação de CI: gating e retomada sem duplicar produtores
@@ -131,8 +127,12 @@ simbólica ou com identidade divergente falha fechada. Nessa configuração,
 GB pelo `actions/cache`. No runner hospedado e descartável, permanecem os
 caches normais e não há promessa de retomada do diretório `O=`.
 
-`ORDAX_SURFACE_BUILD_JOBS` aceita **1 a 64** (padrão 4); aumentar
-paralelismo não dispensa checar RAM. A identidade do produtor deve ser
+O produtor hospedado calcula o paralelismo por CPU disponível e RAM livre,
+reserva 2 GiB e estima 2,5 GiB por compilador; `ORDAX_SURFACE_BUILD_JOBS`
+é um teto opcional de 1 a 64. O ccache hospedado cresce de 5 até 8 GiB
+somente com folga de disco, reservando 32 GiB para a árvore de build.
+O caminho temporário de Buildroot é estável entre tentativas hospedadas,
+mas criado exclusivamente e descartado ao final; não é retomada de O=. A identidade do produtor deve ser
 consumida sem reetiquetar artefatos antigos, e o EROFS permanece condicionado
 a fingerprint, SHA-256, proveniência e validação de QEMU/boot aplicável.
 A falha histórica do WebKit por timeout de 27/10 e o detalhamento das

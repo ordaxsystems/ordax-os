@@ -110,7 +110,6 @@ class OwnerPowerReceiptsNativeTests(unittest.TestCase):
         text = SERVER.read_text(encoding="utf-8")
         self.assertIn('OWNER_USB_POWER_RECEIPTS = "/srv/ordax-power-receipts"', text)
         self.assertIn('if owner_usb:\n                update_state["hostPower"] = read_owner_usb_power_receipts()', text)
-        self.assertIn('update_state["manualCheckAvailable"] = owner_usb', text)
 
 
 if __name__ == "__main__":

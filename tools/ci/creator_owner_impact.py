@@ -153,7 +153,6 @@ WINDOWS_PRODUCT_SHARED_ADDITIONS = {
 WINDOWS_PRODUCT_PINNED_BLOBS = {
     "docs/evidence/desktop-runtime-windows-candidate-2026-11-14.json": "c2a612880e4e5e96c0db9f3299c83bebd53eb15a",
     "system/adapters/native/desktop-product-runtime-status.mjs": "2e4b3f7aaaea1210cccac346c7f895fe7f576b35",
-    "system/adapters/native/desktop-surface-state-report.mjs": "08ce3a0588383b2fe30997e99a972396887d2246",
 }
 
 # These already-installed Git-owned source entrypoints are delivered by Pull.
@@ -178,7 +177,17 @@ PULL_REVIEW_ONLY_PATHS = PULL_HELPER_SOURCE_PATHS | frozenset({
 # Keep the exemption exact: boot, Base, Supervisor and helper changes remain gated.
 PULL_SOURCE_ONLY_PATHS = frozenset({
     "system/surface/runtime/native_host_server.py",
+    "system/adapters/native/desktop-surface-state-report.mjs",
 })
+# The OS Desktop DEV supervisor alone consumes this source-addressed
+# Windows executable selection and its evidence. Neither is embedded in the
+# USB/EROFS media. This is an impact decision, not Runtime trust validation:
+# boot, Stable source locks, signed component policy and USB producers remain
+# fail-closed in their existing owners.
+DESKTOP_DEV_RUNTIME_PIN = "docs/contracts/desktop-runtime-dev-candidate.json"
+DESKTOP_DEV_RUNTIME_EVIDENCE = re.compile(
+    r"docs/evidence/desktop-runtime-windows-candidate-[0-9a-f]{40}\.json\Z"
+)
 
 PUSH_EXCLUDES = ("!system/adapters/desktop/**", "!system/surface/ui/**", "!system/surface/workspace/**")
 PR_REMOVED = ("docs/contracts/surface-source.json", "system/surface/ui/**", "system/surface/workspace/**")
@@ -608,6 +617,8 @@ def classify(base, head, *, root=ROOT, event="push", media_only=False):
                 if not verified_windows_product_blob(head, path, root=root):
                     return True, "windows-product-untrusted-blob:" + path
             elif path in PULL_SOURCE_ONLY_PATHS:
+                continue
+            elif path == DESKTOP_DEV_RUNTIME_PIN or DESKTOP_DEV_RUNTIME_EVIDENCE.fullmatch(path):
                 continue
             elif path.startswith(("docs/", "00-PLANOS-PRIORITARIOS/")) and path.endswith(".md"):
                 continue

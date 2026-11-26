@@ -128,8 +128,9 @@ jobs:
       - name: Classify whether Surface EROFS bytes can change
         id: impact
         env:
-          ORDAX_IMPACT_BASE: ${{ github.event.pull_request.base.sha || '' }}
+          ORDAX_IMPACT_BASE: ${{ github.event.pull_request.base.sha || github.event.before || '' }}
           ORDAX_IMPACT_HEAD: ${{ github.event.pull_request.head.sha || github.sha }}
+          ORDAX_IMPACT_USE_MERGE_BASE: ${{ github.event_name == 'pull_request' }}
           ORDAX_FORCE_SURFACE_BUILD: ${{ inputs.force_build || false }}
         run: |
           set -euo pipefail
@@ -137,55 +138,28 @@ jobs:
           if [ "$ORDAX_FORCE_SURFACE_BUILD" = true ]; then
             force=(--force)
           fi
+          merge_base=()
+          if [ "$ORDAX_IMPACT_USE_MERGE_BASE" = true ]; then
+            merge_base=(--merge-base)
+          fi
           python3 tools/ci/independent_surface_impact.py \
             --base "$ORDAX_IMPACT_BASE" \
             --head "$ORDAX_IMPACT_HEAD" \
+            "${merge_base[@]}" \
             "${force[@]}" \
             --github-output "$GITHUB_OUTPUT"
 
-  producer-availability:
-    name: Non-Codespace Linux producer configuration
-    needs: [contract, impact]
-    if: needs.impact.outputs.required == 'true' && github.ref == 'refs/heads/main' && (github.event_name == 'workflow_dispatch' || (github.event_name == 'push' && vars.ORDAX_SURFACE_RUNNER_LABEL != ''))
-    runs-on: ubuntu-24.04
-    timeout-minutes: 3
-    steps:
-      - name: Require explicit non-Codespace producer configuration
-        env:
-          ORDAX_SURFACE_LABEL: ${{ vars.ORDAX_SURFACE_RUNNER_LABEL }}
-          ORDAX_SURFACE_ENVIRONMENT: ${{ vars.ORDAX_SURFACE_PRODUCER_ENVIRONMENT }}
-          ORDAX_SURFACE_CACHE_ROOT: ${{ vars.ORDAX_SURFACE_PERSISTENT_WORK_ROOT }}
-          ORDAX_SURFACE_BUILD_ROOT: ${{ vars.ORDAX_SURFACE_BUILD_WORK_ROOT }}
-        run: |
-          set -euo pipefail
-          for config in ORDAX_SURFACE_LABEL ORDAX_SURFACE_ENVIRONMENT ORDAX_SURFACE_CACHE_ROOT ORDAX_SURFACE_BUILD_ROOT; do
-            if [ -z "${!config}" ]; then
-              echo "::error title=Surface producer not configured::Missing $config; refusing to queue a potentially offline Linux producer."
-              exit 1
-            fi
-            case "${!config,,}" in
-              *codespace*)
-                echo "::error title=Codespace disallowed::The Surface producer configuration $config references Codespaces."
-                exit 1
-                ;;
-            esac
-          done
-          # No GitHub runner inventory API here: GITHUB_TOKEN does not carry
-          # Administration:read. The selected Linux runner itself verifies its
-          # runtime, capacity and disk identity before any expensive build.
-          echo 'ORDAX_SURFACE_PRODUCER_CONFIG=NON_CODESPACE_NOT_YET_RUNTIME_ATTESTED'
 
   buildroot-surface:
-    needs: [contract, impact, producer-availability]
-    if: ${{ !cancelled() && needs.contract.result == 'success' && needs.impact.outputs.required == 'true' && (github.event_name == 'pull_request' || (github.event_name == 'push' && vars.ORDAX_SURFACE_RUNNER_LABEL == '') || needs.producer-availability.result == 'success') && (github.event_name != 'pull_request' || !github.event.pull_request.draft) }}
+    needs: [contract, impact]
+    if: ${{ !cancelled() && needs.contract.result == 'success' && needs.impact.outputs.required == 'true' && (github.event_name != 'pull_request' || !github.event.pull_request.draft) }}
     # This repository is public: PRs must not reach a private, persistent runner.
     # Only canonical main (push or explicit dispatch) may select the trusted
     # dedicated Linux producer; public PRs always remain on hosted runners.
     # Never register a personal workstation as a repo-level public PR runner.
     runs-on: ${{ (github.event_name == 'workflow_dispatch' || github.event_name == 'push') && github.ref == 'refs/heads/main' && vars.ORDAX_SURFACE_RUNNER_LABEL != '' && vars.ORDAX_SURFACE_RUNNER_LABEL || 'ubuntu-24.04' }}
-    # Longer budget requires an explicit trusted runner, durable compiler/download
-    # cache, pinned producer identity and a separately sized Buildroot workspace.
-    # Preflight rejects hosted runners, undersized scratch and mixed storage roots.
+    # Default is the free GitHub-hosted Linux runner. Private producer is optional.
+    # An explicitly configured persistent producer may have a longer time budget.
     timeout-minutes: ${{ (github.event_name == 'workflow_dispatch' || github.event_name == 'push') && github.ref == 'refs/heads/main' && vars.ORDAX_SURFACE_RUNNER_LABEL != '' && vars.ORDAX_SURFACE_PERSISTENT_WORK_ROOT != '' && vars.ORDAX_SURFACE_BUILD_WORK_ROOT != '' && vars.ORDAX_SURFACE_PRODUCER_ENVIRONMENT != '' && 720 || 360 }}
     env:
       ORDAX_SURFACE_PRODUCER_ENVIRONMENT: ${{ vars.ORDAX_SURFACE_PRODUCER_ENVIRONMENT }}
@@ -201,23 +175,6 @@ jobs:
       artifact_reused: ${{ steps.surface-reuse-state.outputs.reused }}
       artifact_source: ${{ steps.surface-reuse-state.outputs.source }}
     steps:
-      - name: Reject Codespace runtime before any source or compiler work
-        if: ${{ (github.event_name == 'workflow_dispatch' || github.event_name == 'push') && github.ref == 'refs/heads/main' && vars.ORDAX_SURFACE_RUNNER_LABEL != '' }}
-        env:
-          ORDAX_RUNNER_NAME: ${{ runner.name }}
-          ORDAX_RUNNER_ENVIRONMENT: ${{ runner.environment }}
-        run: |
-          set -euo pipefail
-          if [ "$ORDAX_RUNNER_ENVIRONMENT" != self-hosted ]; then
-            echo '::error::Trusted Surface production requires an authorized self-hosted Linux runner.'
-            exit 1
-          fi
-          case "${ORDAX_RUNNER_NAME,,}" in
-            *codespace*)
-              echo '::error::Codespace execution is prohibited for this Surface producer.'
-              exit 1
-              ;;
-          esac
       - name: Checkout exact source
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
         with:
@@ -239,8 +196,7 @@ jobs:
           set -euo pipefail
           if [ -n "${ORDAX_SURFACE_PRODUCER_ENVIRONMENT:-}" ]; then
             # Exact producer identity is also needed by hosted read-only consumers.
-            # It never authorizes compilation: a cache miss still requires an
-            # independently verified persistent self-hosted workspace below.
+            # A pinned producer identity still requires exact artifact verification.
             export ORDAX_COMPONENT_CACHE_ENVIRONMENT="$ORDAX_SURFACE_PRODUCER_ENVIRONMENT"
           else
             test -n "${ImageOS:-}"
@@ -359,15 +315,6 @@ jobs:
             "$RUNNER_TEMP/ordax-independent-surface" "$ORDAX_SOURCE_COMMIT" \
             "$ORDAX_PRODUCER_BRANCH" "$GITHUB_OUTPUT"
 
-      - name: Require persistent producer on verified Surface artifact miss
-        if: steps.surface-artifact-cache.outputs.cache-hit != 'true' && steps.surface-r2.outputs.hit != 'true' && steps.surface-github-artifact.outputs.hit != 'true'
-        run: |
-          set -euo pipefail
-          if [ -z "${ORDAX_SURFACE_PERSISTENT_WORK_ROOT:-}" ] || [ -z "${ORDAX_SURFACE_BUILD_WORK_ROOT:-}" ]; then
-            echo "::error title=Surface EROFS requires trusted producer storage::No verified EROFS is available in the exact GitHub cache or R2. Refusing another hosted 330-minute rebuild. Configure the pinned Linux self-hosted producer with durable compiler/download cache and a separately sized build workspace before attempting the same WebKit build." >&2
-            exit 1
-          fi
-
       - name: Install Surface verification dependencies
         run: |
           sudo apt-get update
@@ -377,7 +324,7 @@ jobs:
         if: steps.surface-artifact-cache.outputs.cache-hit != 'true' && steps.surface-r2.outputs.hit != 'true' && steps.surface-github-artifact.outputs.hit != 'true'
         run: |
           sudo apt-get install -y --no-install-recommends \
-            build-essential bc perl bison flex gawk cpio unzip rsync file \
+            build-essential bc perl bison flex gawk cpio unzip rsync file ccache \
             wget curl patch git xz-utils
 
       - name: Restore exact Surface compiler cache on durable artifact miss
@@ -386,7 +333,7 @@ jobs:
         uses: actions/cache/restore@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
         with:
           path: ${{ runner.temp }}/ordax-independent-surface-ccache
-          key: ordax-independent-surface-ccache-v2-${{ runner.os }}-${{ runner.arch }}-${{ hashFiles('bootstrap/surface-runtime/configs/ordax_surface_defconfig', 'bootstrap/independent-base/source.json', 'bootstrap/kernel/source.json') }}-${{ github.run_id }}
+          key: ordax-independent-surface-ccache-v2-${{ runner.os }}-${{ runner.arch }}-${{ hashFiles('bootstrap/surface-runtime/configs/ordax_surface_defconfig', 'bootstrap/independent-base/source.json', 'bootstrap/kernel/source.json') }}-${{ github.run_id }}-${{ github.run_attempt }}
           restore-keys: |
             ordax-independent-surface-ccache-v2-${{ runner.os }}-${{ runner.arch }}-${{ hashFiles('bootstrap/surface-runtime/configs/ordax_surface_defconfig', 'bootstrap/independent-base/source.json', 'bootstrap/kernel/source.json') }}-
             ordax-independent-surface-ccache-v2-${{ runner.os }}-${{ runner.arch }}-
@@ -420,17 +367,15 @@ jobs:
             --cache "${BR2_DL_DIR:?}"
 
       - name: Build Buildroot/musl Surface runtime on durable artifact miss
+        id: surface-build
         if: steps.surface-artifact-cache.outputs.cache-hit != 'true' && steps.surface-r2.outputs.hit != 'true' && steps.surface-github-artifact.outputs.hit != 'true'
         env:
           ORDAX_SOURCE_COMMIT: ${{ github.event.pull_request.head.sha || github.sha }}
           # BR2_CCACHE_DIR and BR2_DL_DIR are resolved once, identically
           # for preflight and build, by Resolve exact Surface fingerprint.
           # A dedicated runner retains the underlying disk across jobs.
-          ORDAX_SURFACE_BUILD_JOBS: ${{ vars.ORDAX_SURFACE_BUILD_JOBS || '4' }}
-          # Buildroot derives CMake/Ninja parallelism from BR2_JLEVEL, not the
-          # outer make -j flag. MAKEFLAGS carries this command-line override
-          # without changing the checked-in defconfig or artifact fingerprint.
-          MAKEFLAGS: BR2_JLEVEL=${{ vars.ORDAX_SURFACE_BUILD_JOBS || '4' }}
+          ORDAX_SURFACE_BUILD_JOBS: ${{ vars.ORDAX_SURFACE_BUILD_JOBS || '64' }}
+          ORDAX_SURFACE_TRANSIENT_WORK_DIR: ${{ runner.temp }}/ordax-independent-surface-build
         run: |
           set -euo pipefail
           work_args=()
@@ -448,10 +393,47 @@ jobs:
             echo "::error::Surface parallel build jobs must be 1..64" >&2
             exit 1
           fi
+          # Respect the configured ceiling, actual CPU availability and memory.
+          # WebKit/LLVM C++ jobs are memory intensive: reserve 2 GiB for the host
+          # and budget 2.5 GiB per compiler job; do not oversubscribe the runner.
+          cpus="$(nproc)"
+          mem_kib="$(awk '/^MemAvailable:/ {print $2}' /proc/meminfo)"
+          mem_jobs=$(( (mem_kib - 2097152) / 2621440 ))
+          jobs="$ORDAX_SURFACE_BUILD_JOBS"
+          if [ "$cpus" -lt "$jobs" ]; then jobs="$cpus"; fi
+          if [ "$mem_jobs" -lt "$jobs" ]; then jobs="$mem_jobs"; fi
+          if [ "$jobs" -lt 1 ]; then jobs=1; fi
+          export ORDAX_SURFACE_BUILD_JOBS="$jobs"
+          # Buildroot derives CMake/Ninja parallelism from BR2_JLEVEL.
+          export MAKEFLAGS="BR2_JLEVEL=$jobs"
+          mkdir -p "${BR2_CCACHE_DIR:?}"
+          if [ -z "${ORDAX_SURFACE_PERSISTENT_WORK_ROOT:-}" ]; then
+            # Preserve 20 GiB of disk headroom for Buildroot while allowing
+            # compiler cache growth beyond the saturated 5 GiB baseline.
+            # The 8 GiB ceiling remains bounded on GitHub-hosted runners.
+            free_mib="$(df -Pm "$BR2_CCACHE_DIR" | awk 'NR == 2 {print $4}')"
+            used_mib="$(du -sm "$BR2_CCACHE_DIR" | awk '{print $1}')"
+            extra_mib=$(( free_mib - 20480 ))
+            if [ "$extra_mib" -lt 0 ]; then extra_mib=0; fi
+            cache_mib=$(( used_mib + extra_mib ))
+            if [ "$cache_mib" -lt 5120 ]; then cache_mib=5120; fi
+            if [ "$cache_mib" -gt 8192 ]; then cache_mib=8192; fi
+            export CCACHE_MAXSIZE="${cache_mib}M"
+            CCACHE_DIR="$BR2_CCACHE_DIR" ccache --max-size "$CCACHE_MAXSIZE"
+            echo "Surface ccache budget: ${CCACHE_MAXSIZE}; free disk: ${free_mib} MiB"
+          fi
+          echo "Surface parallelism: $jobs jobs, $cpus CPUs, ${mem_kib} KiB available RAM"
+          echo 'Surface compiler cache before Buildroot:'
+          CCACHE_DIR="${BR2_CCACHE_DIR:?}" ccache --show-stats || echo '::warning::Unable to read initial Surface ccache statistics'
           python3 bootstrap/surface-runtime/build.py build \
             --out "$RUNNER_TEMP/ordax-independent-surface" \
             --cache "${BR2_DL_DIR:?}" \
             --jobs "$ORDAX_SURFACE_BUILD_JOBS" "${work_args[@]}"
+
+      - name: Report Surface compiler cache after Buildroot
+        if: ${{ !cancelled() && (steps.surface-build.outcome == 'success' || steps.surface-build.outcome == 'failure') }}
+        run: |
+          CCACHE_DIR="${BR2_CCACHE_DIR:?}" ccache --show-stats || echo '::warning::Unable to read final Surface ccache statistics'
 
       - name: Verify exact Independent Surface EROFS bytes
         run: |
@@ -474,18 +456,27 @@ jobs:
             --source-commit "$ORDAX_SOURCE_COMMIT"
 
       - name: Verify Surface reuse against current integration commit
+        id: verified-surface
         env:
           ORDAX_SOURCE_COMMIT: ${{ github.event.pull_request.head.sha || github.sha }}
         run: |
+          set -euo pipefail
           reused=false
+          verification_mode=()
           if [ '${{ steps.surface-artifact-cache.outputs.cache-hit }}' = true ] || [ '${{ steps.surface-r2.outputs.hit }}' = true ] || [ '${{ steps.surface-github-artifact.outputs.hit }}' = true ]; then
             reused=true
           fi
+          if [ '${{ steps.surface-github-artifact.outputs.hit }}' = true ]; then
+            verification_mode=(--consumer)
+          fi
+          receipt="$RUNNER_TEMP/independent-surface-component-reuse.json"
           python3 tools/ci/independent_surface_component_cache.py verify \
             --out "$RUNNER_TEMP/ordax-independent-surface" \
             --integration-commit "$ORDAX_SOURCE_COMMIT" \
-            --cache-hit "$reused" \
-            --receipt "$RUNNER_TEMP/independent-surface-component-reuse.json"
+            --cache-hit "$reused" "${verification_mode[@]}" \
+            --receipt "$receipt"
+          fingerprint="$(python3 -c 'import json, sys; print(json.load(open(sys.argv[1]))["input_fingerprint"])' "$receipt")"
+          printf 'fingerprint=%s\n' "$fingerprint" >> "$GITHUB_OUTPUT"
 
       - name: Resolve verified Surface reuse source
         id: surface-reuse-state
@@ -508,7 +499,9 @@ jobs:
           echo "Verified Surface source: $source"
 
       - name: Save verified Independent Surface EROFS component in fast GitHub cache
-        if: steps.surface-artifact-cache.outputs.cache-hit != 'true'
+        # The lookup key belongs to this runner. A GitHub handoff can carry a
+        # different producer image identity and must never be cached under it.
+        if: steps.surface-artifact-cache.outputs.cache-hit != 'true' && steps.verified-surface.outputs.fingerprint == steps.surface-artifact-fingerprint.outputs.fingerprint
         uses: actions/cache/save@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
         with:
           path: ${{ runner.temp }}/ordax-independent-surface
@@ -521,7 +514,7 @@ jobs:
           ORDAX_R2_BUCKET: 'ordax-device-artifacts'
           ORDAX_R2_ACCESS_KEY_ID: ${{ secrets.ORDAX_R2_ACCESS_KEY_ID }}
           ORDAX_R2_SECRET_ACCESS_KEY: ${{ secrets.ORDAX_R2_SECRET_ACCESS_KEY }}
-          ORDAX_SURFACE_FINGERPRINT: ${{ steps.surface-artifact-fingerprint.outputs.fingerprint }}
+          ORDAX_SURFACE_FINGERPRINT: ${{ steps.verified-surface.outputs.fingerprint }}
         run: bash tools/ci/independent_surface_r2.sh publish
       - name: Sanitize reusable Surface download cache
         if: always() && steps.surface-reuse-state.outputs.reused != 'true'

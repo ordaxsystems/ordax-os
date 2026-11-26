@@ -182,7 +182,11 @@ if test "$PROFILE" = owner-development || test "$PROFILE" = stable-mvp; then
     # A module payload without matching firmware is not a valid Owner base.
     # Generate one external receipt for CI/evidence, then embed those exact
     # verified bytes into the immutable target. Never generate two receipts.
-    "$ORDAX_HOST_PYTHON" "$ROOT/bootstrap/base/firmware_policy.py" check \
+    firmware_action=check
+    if test "$PROFILE" = owner-development; then
+        firmware_action=prune
+    fi
+    "$ORDAX_HOST_PYTHON" "$ROOT/bootstrap/base/firmware_policy.py" "$firmware_action" \
         --rootfs "$TARGET_DIR" \
         --receipt "$ORDAX_FIRMWARE_COVERAGE_RECEIPT" \
         --log-prefix "$HARDWARE_RECEIPT_PREFIX"

@@ -27,6 +27,7 @@ import observationPolicy from "../../system/adapters/desktop/observation-grant.c
 const { OBSERVATION_ROUTES, createDesktopObservationGrantMiddleware }=observationPolicy;
 import { createInitialFirstRunState, validateFirstRunState } from "../../system/contracts/first-run-state-store.mjs";
 import { validatePreferenceRecord } from "../../system/contracts/preference-store.mjs";
+import { validateNativeSpaceSelectionEnvelope } from "../../system/contracts/space-selection.mjs";
 import { FIRST_RUN_CURSOR_SCHEMA, validateFirstRunCursor } from "../../system/contracts/first-run-cursor.mjs";
 import { createEmulatorAccountGateway } from "./account-gateway.mjs";
 
@@ -58,12 +59,26 @@ export function createEmulatorNativeHost({
     }
   };
   const initialCursor = () => ({ schema: FIRST_RUN_CURSOR_SCHEMA, step: "welcome" });
-  const defaults = () => ({ firstRun: createInitialFirstRunState(), preferences: validatePreferenceRecord({}), cursor: initialCursor() });
+  const emptySelection = () => validateNativeSpaceSelectionEnvelope({ record: null });
+  const defaults = () => ({
+    firstRun: createInitialFirstRunState(),
+    preferences: validatePreferenceRecord({}),
+    cursor: initialCursor(),
+    spaceSelection: emptySelection(),
+  });
   const load = async () => {
     try {
       if (!await regularOrMissing()) return defaults();
       const saved = JSON.parse(await readFile(file, "utf8"));
-      return { firstRun: validateFirstRunState(saved.firstRun), preferences: validatePreferenceRecord(saved.preferences), cursor: validateFirstRunCursor(saved.cursor) };
+      return {
+        firstRun: validateFirstRunState(saved.firstRun),
+        preferences: validatePreferenceRecord(saved.preferences),
+        cursor: validateFirstRunCursor(saved.cursor),
+        // Existing Native records had no Space selection. Missing is
+        // unselected, never permission to select the first catalog item.
+        spaceSelection: saved.spaceSelection === undefined
+          ? emptySelection() : validateNativeSpaceSelectionEnvelope(saved.spaceSelection),
+      };
     } catch (error) {
       throw new Error("Saved development state is unreadable", { cause: error });
     }
@@ -112,6 +127,7 @@ export function createEmulatorNativeHost({
   const routes = new Map([
     ["/__ordax/native/first-run", ["firstRun", validateFirstRunState]],
     ["/__ordax/native/preferences", ["preferences", validatePreferenceRecord]],
+    ["/__ordax/native/space-selection", ["spaceSelection", validateNativeSpaceSelectionEnvelope]],
     ["/__ordax/native/first-run-cursor", ["cursor", validateFirstRunCursor]],
   ]);
   return async function middleware(request, response, next) {

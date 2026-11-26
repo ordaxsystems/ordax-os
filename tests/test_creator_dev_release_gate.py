@@ -31,6 +31,17 @@ class CreatorDevReleaseGate(unittest.TestCase):
         self.assertNotIn("contents: write", candidate)
         self.assertIn("actions/upload-artifact@", candidate)
 
+    def test_candidate_exports_only_the_existing_unprivileged_creator_cli(self):
+        candidate = self.workflow.split("  build-creator-dev-candidate:\n", 1)[1].split("\n  publish-creator-dev:", 1)[0]
+        self.assertIn("./cmd/ordax-creator", candidate)
+        self.assertIn("Owner DEV image preparer CLI build failed", candidate)
+        self.assertIn("ordax-owner-dev-image-cli-${{ github.sha }}", candidate)
+        self.assertIn("out/creator-dev-cli/ordax-creator.exe", candidate)
+        self.assertNotIn("ordax_raw_backend", candidate)
+        publisher = self.workflow.split("\n  publish-creator-dev:\n", 1)[1]
+        self.assertNotIn("out/creator-dev-cli", publisher)
+        self.assertNotIn("ordax-owner-dev-image-cli", publisher)
+
     def test_publisher_requires_os_main_and_separate_credentials(self):
         publisher = self.workflow.split("\n  publish-creator-dev:\n", 1)[1]
         self.assertIn("needs: build-creator-dev-candidate", publisher)

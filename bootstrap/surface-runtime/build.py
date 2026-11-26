@@ -667,7 +667,24 @@ def build(out_dir: Path, cache_dir: Path, jobs: int, *, persistent_work_dir: Pat
     lock_fd = None
     try:
         if transient:
-            work = Path(tempfile.mkdtemp(prefix="ordax-independent-surface-"))
+            # Hosted CI supplies a stable, disposable path across attempts so
+            # absolute compiler flags do not defeat ccache. It is never resumed.
+            transient_root = os.environ.get("ORDAX_SURFACE_TRANSIENT_WORK_DIR")
+            if transient_root:
+                candidate = Path(transient_root)
+                if not candidate.is_absolute() or any(
+                    part.is_symlink() for part in (candidate, *candidate.parents)
+                ):
+                    raise SurfaceBuildError("transient Surface workspace path is unsafe")
+                candidate = candidate.resolve()
+                if any(candidate == root or candidate in root.parents or root in candidate.parents
+                       for root in (out_dir, cache_dir, ROOT)):
+                    raise SurfaceBuildError("transient Surface workspace must be separate from source, artifacts and cache")
+                # Exclusive creation: never reuse or delete somebody else's tree.
+                candidate.mkdir(mode=0o700, exist_ok=False)
+                work = candidate
+            else:
+                work = Path(tempfile.mkdtemp(prefix="ordax-independent-surface-"))
         else:
             if work.is_symlink() or (work.exists() and not work.is_dir()):
                 raise SurfaceBuildError("persistent Surface workspace path is unsafe")

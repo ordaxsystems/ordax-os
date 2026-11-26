@@ -88,7 +88,7 @@ func initializeCreatorControls() {
     creatorFontRegular = creatorFont(-17, 400)
     creatorFontSmall = creatorFont(-14, 400)
     creatorUIBrush, _, _ = procCreateSolidBrush.Call(creatorColorFor("panel", colorBtnFace))
-    for _, control := range []uintptr{localeCombo, deviceCombo, updateButton, usbUpdateButton, refreshButton, writeButton, bootHelpButton} {
+    for _, control := range []uintptr{localeCombo, deviceCombo, updateButton, refreshButton, writeButton, bootHelpButton} {
         if control != 0 && creatorFontRegular != 0 {
             send(control, wmSetFont, creatorFontRegular, 1)
         }
@@ -127,7 +127,6 @@ func layoutCreatorControls(width, height int32) {
     placeCreatorControl(updateButton, mainRight-434, bottom, 128, 43)
     placeCreatorControl(refreshButton, mainRight-298, bottom, 138, 43)
     placeCreatorControl(writeButton, mainRight-151, bottom, 150, 43)
-    placeCreatorControl(usbUpdateButton, sidebar+25, height-133, 255, 43)
     placeCreatorControl(bootHelpButton, sidebar+25, height-80, 255, 43)
     invalidateGuidedVisual()
 }

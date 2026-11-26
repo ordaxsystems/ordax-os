@@ -59,6 +59,9 @@ const OVERVIEW_UPDATE_STATUS_MESSAGE_IDS = Object.freeze({
   running: "system.overview.update.status.running",
   applied: "system.overview.update.status.applied",
   updating: "system.overview.update.status.updating",
+  "candidate-armed": "system.updates.phase.restartRequired",
+  "stage-error": "system.overview.update.status.pullError",
+  "activation-error": "system.overview.update.status.pullError",
   "network-error": "system.overview.update.status.networkError",
   "remote-error": "system.overview.update.status.remoteError",
   "pull-error": "system.overview.update.status.pullError",
@@ -102,6 +105,7 @@ const UPDATE_PHASE_MESSAGE_IDS = Object.freeze({
   fetching: "system.updates.phase.fetching",
   validating: "system.updates.phase.validating",
   activating: "system.updates.phase.activating",
+  "restart-required": "system.updates.phase.restartRequired",
   "health-wait": "system.updates.phase.healthWait",
   rollback: "system.updates.phase.rollback",
   blocked: "system.updates.phase.blocked",
@@ -765,16 +769,17 @@ export function mountSystemOverviewControls(
       );
       action.type = "button";
       action.dataset.systemManualUpdate = "";
-      action.disabled = manualUpdatePending || updateSnapshot.manualCheckPending;
+      action.disabled = manualUpdatePending || updateSnapshot.manualCheckPending ||
+        updateSnapshot.phase === "restart-required";
       heading.append(headingCopy, action);
     } else {
       heading.append(headingCopy);
     }
     section.append(heading);
-    if (updateSnapshot?.manualCheckAvailable === true) {
+    if (updateSnapshot?.phase === "restart-required") {
       section.append(node(
         documentObject, "p", "ordax-system-section-copy",
-        t("system.updates.manual.description"),
+        t("system.updates.manual.restartDetail"),
       ));
     }
     if (manualUpdateMessageId) {
@@ -1762,6 +1767,7 @@ export function mountSystemOverviewControls(
     const manualUpdate = event.target.closest("[data-system-manual-update]");
     if (manualUpdate && root.contains(manualUpdate)) {
       if (!manualUpdatePending && !updateSnapshot?.manualCheckPending &&
+          updateSnapshot?.phase !== "restart-required" &&
           updateSnapshot?.manualCheckAvailable === true &&
           typeof updatePort?.requestCheck === "function") {
         manualUpdatePending = true;

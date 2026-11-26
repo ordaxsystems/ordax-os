@@ -433,31 +433,27 @@ class IndependentSurfaceComponentCacheTests(unittest.TestCase):
         self.assertIn("/blobs/sha256/${digest}", script)
         self.assertNotIn("r2.dev", script)
 
-    def test_durable_surface_miss_fails_before_host_dependency_install(self):
-        # Hosted workers must never enter a costly build without a resumable
-        # producer. The failure is authoritative, not an upload-artifact error.
+    def test_free_runner_builds_only_after_verified_cache_artifact_and_r2_miss(self):
         workflow = WORKFLOW.read_text(encoding="utf-8")
-        fingerprint = workflow.index("      - name: Resolve exact Surface artifact fingerprint")
-        cache = workflow.index("      - name: Restore verified Independent Surface EROFS component")
-        r2 = workflow.index("      - name: Restore verified Independent Surface EROFS from durable R2 store")
-        guard = workflow.index("      - name: Require persistent producer on verified Surface artifact miss")
-        install = workflow.index("      - name: Install Surface verification dependencies")
-        build = workflow.index("      - name: Build Buildroot/musl Surface runtime on durable artifact miss")
-        self.assertLess(fingerprint, cache)
-        self.assertLess(cache, r2)
-        self.assertLess(r2, guard)
-        self.assertLess(guard, install)
-        self.assertLess(install, build)
-        guard_block = workflow[guard:install]
-        self.assertIn("steps.surface-artifact-cache.outputs.cache-hit != 'true'", guard_block)
-        self.assertIn("steps.surface-r2.outputs.hit != 'true'", guard_block)
-        self.assertIn("ORDAX_SURFACE_PERSISTENT_WORK_ROOT", guard_block)
-        self.assertIn("exit 1", guard_block)
+        steps = [
+            "Resolve exact Surface artifact fingerprint",
+            "Restore verified Independent Surface EROFS component",
+            "Restore verified Independent Surface EROFS from durable R2 store",
+            "Restore verified Independent Surface from canonical GitHub producer artifact",
+            "Install Surface verification dependencies",
+            "Build Buildroot/musl Surface runtime on durable artifact miss",
+            "Verify exact Independent Surface EROFS bytes",
+        ]
+        locations = [workflow.index("      - name: " + name) for name in steps]
+        self.assertEqual(locations, sorted(locations))
+        self.assertNotIn("Require persistent producer on verified Surface artifact miss", workflow)
+        build = workflow[locations[-2]:locations[-1]]
+        for hit in ("surface-artifact-cache", "surface-r2", "surface-github-artifact"):
+            self.assertIn("steps." + hit + ".outputs.", build)
         evidence = workflow[workflow.index("      - name: Upload candidate evidence"):]
-        self.assertIn(
-            "if: always() && steps.surface-reuse-state.outputs.source != ''",
-            evidence.split("      - name: Create manual-only", 1)[0],
-        )
+        self.assertIn("if: always() && steps.surface-reuse-state.outputs.source != ''",
+                      evidence.split("      - name: Create manual-only", 1)[0])
+
 
     def test_durable_cache_root_rejects_runner_temp_descendants(self):
         # A nested path under RUNNER_TEMP is disposable even when absolute.
@@ -486,6 +482,17 @@ class IndependentSurfaceComponentCacheTests(unittest.TestCase):
         self.assertIn("Restore immutable Surface source defconfig before cache identity record", workflow)
         self.assertIn("git checkout -- bootstrap/surface-runtime/configs/ordax_surface_defconfig", workflow)
         self.assertIn("include-hidden-files: true", workflow)
+
+    def test_hosted_producer_republishes_handoff_using_verified_producer_fingerprint(self):
+        workflow = WORKFLOW.read_text(encoding="utf-8")
+        verify = workflow.split("      - name: Verify Surface reuse against current integration commit\n", 1)[1].split("\n      - name:", 1)[0]
+        self.assertIn("if [ '${{ steps.surface-github-artifact.outputs.hit }}' = true ]; then\n            verification_mode=(--consumer)", verify)
+        self.assertIn('--cache-hit "$reused" "${verification_mode[@]}"', verify)
+        self.assertIn('["input_fingerprint"]', verify)
+        save = workflow.split("      - name: Save verified Independent Surface EROFS component in fast GitHub cache\n", 1)[1].split("\n      - name:", 1)[0]
+        self.assertIn("steps.verified-surface.outputs.fingerprint == steps.surface-artifact-fingerprint.outputs.fingerprint", save)
+        publish = workflow.split("      - name: Ensure verified Surface exists in durable R2 store\n", 1)[1].split("\n      - name:", 1)[0]
+        self.assertIn("ORDAX_SURFACE_FINGERPRINT: ${{ steps.verified-surface.outputs.fingerprint }}", publish)
 
     def test_expensive_surface_build_requires_both_fast_and_durable_miss(self):
         workflow = WORKFLOW.read_text(encoding="utf-8")
@@ -832,7 +839,10 @@ with Path(os.environ["SURFACE_MOCK_CURL_LOG"]).open("a") as log:
         self.assertIn('event=push -f per_page=100', script)
         self.assertIn('event=workflow_dispatch -f per_page=100', script)
         self.assertNotIn('event=pull_request', script)
-        self.assertIn('item.get("status") != "completed" or item.get("conclusion") != "success"', script)
+        self.assertIn('failed_qemu = main_push and status == "completed" and conclusion == "failure"', script)
+        self.assertIn('job.get("name") == "buildroot-surface"', script)
+        self.assertIn('job.get("conclusion") == "success"', script)
+        self.assertIn('independent_surface_component_cache.py verify', script)
         self.assertIn('(item.get("head_repository") or {}).get("full_name") != repo', script)
         self.assertNotIn('item.get("head_branch") != branch', script)
         self.assertNotIn('merge-base', script)

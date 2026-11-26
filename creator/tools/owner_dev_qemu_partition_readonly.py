@@ -182,7 +182,9 @@ def probe(base: Path, qemu: Path, *, disk_number: int, serial: str,
             published_manifest != (base / "dev-base.json").read_bytes()):
         raise ReadonlyProbeError("Base does not match compatible published Git authority")
     try:
-        with tarfile.open(base / "rootfs.tar", "r:") as archive:
+        rootfs_path = base / channel.rootfs_transport_binding(manifest)["name"]
+        channel.validate_rootfs_archive(rootfs_path, manifest)
+        with channel.open_rootfs_archive(rootfs_path, manifest) as archive:
             busybox = archive.extractfile("bin/busybox").read()
     except (KeyError, AttributeError, OSError, tarfile.TarError) as exc:
         raise ReadonlyProbeError("canonical Base BusyBox could not be read") from exc

@@ -1,4 +1,5 @@
 import { mountNativeSidebarFit, sidebarIsExpanded, sidebarItemIsActive } from "./sidebar-layout.mjs";
+import { notifySurfaceRenderObservers, renderWithObserverRecovery } from "./render-observers.mjs";
 import { mountSidebarHints } from "./sidebar-hints.mjs";
 import { assertAppRuntimeCatalog, defaultAppRuntimeCatalog } from "../../apps/runtime-catalog.mjs";
 import { externalAppCopy } from "../../apps/external-app-definition.mjs";
@@ -24,6 +25,7 @@ import { COLOR_PALETTE_PREFERENCE_ID } from "../../services/preferences/color-pa
 import { DISPLAY_SCALE_PREFERENCE_ID } from "../../services/preferences/display.mjs";
 import {
   createDesktopShellMarkup,
+  getNativeAppGlyphMarkup,
   mountDesktopClock,
   syncDesktopShellLocalization,
   syncDesktopPresentationToggle,
@@ -768,6 +770,49 @@ export function mountSurface(
     if (matched !== wanted.size) renderWindows();
   };
 
+  // Share the active-area state with the dock; no second window registry.
+  const renderHomeWindows = (area) => {
+    const section = root.querySelector("[data-home-running-windows]");
+    const list = root.querySelector("[data-home-running-list]");
+    if (!section || !list) return;
+    const open = area.windows.filter((item) => catalog.get(item.appId)).slice(0, 4);
+    syncHidden(section, open.length === 0);
+    const previous = new Map(Array.from(list.children).map((node) => [node.dataset.openWindow, node]));
+    for (const [index, window] of open.entries()) {
+      const app = catalog.get(window.appId);
+      const title = appTitle(localization, app);
+      let button = previous.get(window.id);
+      if (!button) {
+        button = element("button", "ordax-home-running-item");
+        button.type = "button";
+        button.dataset.openWindow = window.id;
+        button.dataset.homeOpenWindow = "true";
+        const copy = element("span", "ordax-home-running-copy");
+        copy.append(element("strong"), element("small"));
+        button.append(element("span", "ordax-rail-icon"), copy);
+      }
+      const icon = button.querySelector(".ordax-rail-icon");
+      const glyph = getNativeAppGlyphMarkup(app.id);
+      if (glyph) {
+        if (icon.innerHTML !== glyph) icon.innerHTML = glyph;
+      } else syncText(icon, app.monogram);
+      syncText(button.querySelector("strong"), title);
+      syncText(button.querySelector("small"), localization.translate(
+        window.minimized ? "home.windows.minimized"
+          : area.activeWindowId === window.id ? "home.windows.active" : "home.windows.open",
+      ));
+      syncDataset(button, "active", area.activeWindowId === window.id && !window.minimized);
+      syncAttribute(button, "aria-label", localization.translate(
+        window.minimized ? "surface.dock.restore" : "surface.dock.focus", { app: title },
+      ));
+      placeChildAt(list, button, index);
+    }
+    const retained = new Set(open.map((item) => item.id));
+    for (const child of Array.from(list.children)) {
+      if (!retained.has(child.dataset.openWindow)) child.remove();
+    }
+  };
+
   const renderDock = () => {
     const area = getActiveArea(state);
     const retained = new Set();
@@ -841,8 +886,9 @@ export function mountSurface(
         button.prepend(icon);
       }
       // Preserve the icon subtree on ordinary focus/window state changes.
-      if (ICONS[app.id]) {
-        if (icon.innerHTML !== ICONS[app.id]) icon.innerHTML = ICONS[app.id];
+      const glyph = getNativeAppGlyphMarkup(app.id);
+      if (glyph) {
+        if (icon.innerHTML !== glyph) icon.innerHTML = glyph;
       } else if (icon.textContent !== app.monogram) {
         icon.textContent = app.monogram;
       }
@@ -871,6 +917,7 @@ export function mountSurface(
     for (const child of Array.from(runningApps.children)) {
       if (child.dataset?.openWindow && !retained.has(child)) child.remove();
     }
+    renderHomeWindows(area);
     updateDockOverflow();
   };
 
@@ -1119,7 +1166,9 @@ export function mountSurface(
   };
 
   const notifyRenderListeners = () => {
-    for (const listener of [...renderListeners]) listener();
+    notifySurfaceRenderObservers(renderListeners, (error) => {
+      console.error("OrdaX Surface observer failed during a verified render", error);
+    });
   };
 
   const renderSidebarModeOnly = () => {
@@ -1269,7 +1318,13 @@ export function mountSurface(
     } else if (isConnectivityOnlyHostUpdate(action, previousState, state)) {
       renderConnectivityOnly();
     } else {
-      render(action, previousLocale, previousActiveWindowId);
+      renderWithObserverRecovery(
+        () => render(action, previousLocale, previousActiveWindowId),
+        (error) => {
+          console.error("OrdaX Surface core render failed after state commit", error);
+          notifyRenderListeners();
+        },
+      );
     }
     if (preferencesChanged) {
       for (const listener of [...preferenceListeners]) listener(state.preferences);
@@ -1502,7 +1557,8 @@ export function mountSurface(
     if (runningButton) {
       const windowId = runningButton.dataset.openWindow;
       const area = getActiveArea(state);
-      const active = area.activeWindowId === windowId
+      const active = !runningButton.hasAttribute("data-home-open-window")
+        && area.activeWindowId === windowId
         && area.windows.some((item) => item.id === windowId && !item.minimized);
       dispatch({ type: active ? "window.minimize" : "window.focus", windowId });
       focusActiveWindowOrWorkspace();

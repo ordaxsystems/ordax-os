@@ -813,9 +813,18 @@ class PhysicalPromotionBoundaryTests(unittest.TestCase):
         self.assertTrue(all(
             not path.startswith(("tools/creator/core/", "tools/creator/host/",
                                 "tools/creator/physicalchannel/",
-                                "tools/creator/cmd/", "system/surface/ui/"))
+                                "tools/creator/cmd/"))
             for path in governed
         ))
+        self.assertEqual(
+            {path for path in governed if path.startswith("system/surface/ui/")},
+            {
+                "system/surface/ui/first-run.mjs",
+                "system/surface/ui/local-session-lock.mjs",
+                "system/surface/ui/settings-overview-controls.mjs",
+                "system/surface/ui/system-overview-controls.mjs",
+            },
+        )
         self.assertNotIn("tools/creator/go.mod", governed)
 
     def test_change_to_surface_source_lock_invalidates_prior_physical_consent(self):

@@ -209,3 +209,25 @@ test("OS native update provider uses the canonical Desktop journal",async()=>{
   assert.ok(nativeHost.includes("readDesktopUpdateStatus(directory,{renderedSourceSha})"));
   assert.ok(nativeHost.includes("process.env.ORDAX_DESKTOP_RENDERED_SOURCE_SHA"));
 });
+
+
+test("preparation and failure are projected without promoting the candidate SHA", () => {
+  const journal={activeSha:a,pendingSha:null,attemptedSha:null,pinnedSha:null,rejectedSha:null};
+  const check={attemptId:"aaaaaaaa-aaaa-4aaa-aaaa-aaaaaaaaaaaa",targetSha:b,
+    checkedAt:"2026-11-26T08:20:00Z",error:null};
+  for(const phase of ["checking","fetching","validating"]){
+    const status=projectDesktopUpdateState({...journal,check:{...check,phase}},{renderedSourceSha:a});
+    assert.equal(status.status,"updating");
+    assert.equal(status.phase,phase);
+    assert.equal(status.sourceSha,a);
+    assert.equal(status.targetSha,b);
+    assert.equal(status.lastAppliedSha,a);
+    assert.equal(status.checkedAt,check.checkedAt);
+  }
+  const failed=projectDesktopUpdateState({...journal,check:{...check,phase:"error",error:"stage-failed"}},{renderedSourceSha:a});
+  assert.equal(failed.phase,"error");
+  assert.match(failed.lastError,/Falha na preparacao/);
+  assert.equal(failed.sourceSha,a);
+  assert.equal(projectDesktopUpdateState({...journal,pendingSha:b,check:{...check,phase:"validating"}},{renderedSourceSha:a}).phase,"activating");
+  assert.throws(()=>projectDesktopUpdateState({...journal,check:{...check,phase:"invented"}},{renderedSourceSha:a}),/untrusted/);
+});

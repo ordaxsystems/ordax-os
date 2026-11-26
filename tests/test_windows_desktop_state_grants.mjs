@@ -6,6 +6,7 @@ import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { createEmulatorNativeHost } from "../tools/windows-emulator/native-host.mjs";
 import { createNativePreferenceStore } from "../system/adapters/native/preferences.mjs";
+import { createNativeSpaceSelectionStore } from "../system/adapters/native/space-selection.mjs";
 import { createNativeFirstRunStateStore } from "../system/adapters/native/first-run-state.mjs";
 import { createInitialFirstRunState } from "../system/contracts/first-run-state-store.mjs";
 import { createSystemTermsAcceptance } from "../system/contracts/system-terms.mjs";
@@ -14,6 +15,7 @@ const GRANT="d".repeat(64);
 const STATE_ROUTES=[
   "/__ordax/native/first-run",
   "/__ordax/native/preferences",
+  "/__ordax/native/space-selection",
   "/__ordax/native/first-run-cursor",
 ];
 
@@ -253,5 +255,52 @@ test("Windows Native state commits recheck PIN after a partially streamed author
       if(h)await h.close();
       await rm(dir,{recursive:true,force:true});
     }
+  }
+});
+
+test("Native Space selection survives an Electron host restart with a new loopback port", async () => {
+  const dir = await mkdtemp(join(tmpdir(), "ordax-native-space-selection-"));
+  let host;
+  const selection = {
+    schema: "ordax.space-selection-record/1",
+    subjectId: "user-1",
+    selectedSpaceId: "space-1",
+  };
+  try {
+    host = await startHost(dir);
+    const firstOrigin = host.origin;
+    const store = await createNativeSpaceSelectionStore({
+      fetch: (path, options) => host.trusted(path, options),
+    });
+    assert.equal(store.load(), null);
+    assert.equal(store.save(selection), true);
+    assert.equal(await store.settled(), true);
+    const persisted = JSON.parse(await readFile(join(dir, "native-state.json"), "utf8"));
+    assert.deepEqual(persisted.spaceSelection.record, selection);
+    assert.equal((await host.direct("/__ordax/native/space-selection")).status, 401);
+    assert.equal((await host.trusted("/__ordax/native/space-selection", {
+      method: "POST",
+      headers: { "Content-Type": "application/json", Origin: "https://invalid.example" },
+      body: JSON.stringify({ record: null }),
+    })).status, 403);
+    await host.close(); host = null;
+
+    host = await startHost(dir);
+    assert.notEqual(host.origin, firstOrigin,
+      "a fresh host must serve the same Native selection independently of its origin");
+    const afterRestart = await createNativeSpaceSelectionStore({
+      fetch: (path, options) => host.trusted(path, options),
+    });
+    assert.deepEqual(afterRestart.load(), selection);
+    assert.equal(afterRestart.clear(), true);
+    assert.equal(await afterRestart.settled(), true);
+    assert.equal((await createNativeSpaceSelectionStore({
+      fetch: (path, options) => host.trusted(path, options),
+    })).load(), null);
+    assert.deepEqual(JSON.parse(await readFile(join(dir, "native-state.json"), "utf8")).spaceSelection,
+      { record: null });
+  } finally {
+    if (host) await host.close();
+    await rm(dir, { recursive: true, force: true });
   }
 });

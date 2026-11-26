@@ -246,55 +246,59 @@ test("catalog outage hides selected Space without destroying same-account recove
   assert.equal(runtime.getSnapshot().state, "selected");
 });
 
-test("Native Space selection store rejects corrupt persisted state", () => {
-  const values = new Map();
-  const storage = {
-    getItem(key) { return values.has(key) ? values.get(key) : null; },
-    setItem(key, value) { values.set(key, value); },
-    removeItem(key) { values.delete(key); },
-  };
-  const store = createNativeSpaceSelectionStore({ localStorage: storage });
-  assert.equal(store.load(), null);
-
-  store.save({
-    schema: SPACE_SELECTION_RECORD_SCHEMA,
-    subjectId: "user-1",
-    selectedSpaceId: "space-developer",
-  });
-  assert.equal(store.load().selectedSpaceId, "space-developer");
-
-  values.set("ordax.native.space-selection.v1", '{"schema":"wrong"}');
-  assert.equal(store.load(), null);
-  assert.equal(values.has("ordax.native.space-selection.v1"), false);
-});
-
-
-test("Native Space selection store falls back to session memory when storage becomes unavailable", () => {
-  let failWrites = true;
-  const values = new Map();
-  const storage = {
-    getItem(key) { return values.has(key) ? values.get(key) : null; },
-    setItem(key, value) {
-      if (failWrites) throw new Error("storage denied");
-      values.set(key, value);
+test("Native Space selection store uses only the authenticated host receipt", async () => {
+  let localStorageTouched = false;
+  const fetchCalls = [];
+  let envelope = { record: null };
+  const windowRef = {
+    get localStorage() {
+      localStorageTouched = true;
+      throw Error("ephemeral port storage cannot own Space selection");
     },
-    removeItem(key) { values.delete(key); },
+    async fetch(path, options) {
+      fetchCalls.push([path, options.method]);
+      assert.equal(path, "/__ordax/native/space-selection");
+      assert.equal(options.credentials, "same-origin");
+      if (options.method === "GET") return { ok: true, json: async () => envelope };
+      const candidate = JSON.parse(options.body);
+      envelope = candidate;
+      return { ok: true, json: async () => envelope };
+    },
   };
-  const store = createNativeSpaceSelectionStore({ localStorage: storage });
+  const initial = await createNativeSpaceSelectionStore(windowRef);
+  assert.equal(initial.load(), null);
   const record = {
     schema: SPACE_SELECTION_RECORD_SCHEMA,
     subjectId: "user-1",
     selectedSpaceId: "space-developer",
   };
+  assert.equal(initial.save(record), true);
+  assert.equal(await initial.settled(), true);
+  assert.deepEqual(initial.load(), record);
+  // A fresh Surface instance uses the Native host, regardless of its port.
+  const restarted = await createNativeSpaceSelectionStore(windowRef);
+  assert.deepEqual(restarted.load(), record);
+  restarted.clear();
+  assert.equal(await restarted.settled(), true);
+  assert.equal((await createNativeSpaceSelectionStore(windowRef)).load(), null);
+  assert.equal(localStorageTouched, false);
+  assert.deepEqual(fetchCalls.map(([, method]) => method),
+    ["GET", "POST", "GET", "POST", "GET"]);
+});
 
-  assert.equal(store.save(record), false);
-  assert.equal(store.load().selectedSpaceId, "space-developer");
-  assert.equal(values.size, 0);
-
-  store.clear();
-  assert.equal(store.load(), null);
-
-  failWrites = false;
-  assert.equal(store.save(record), false);
-  assert.equal(store.load().selectedSpaceId, "space-developer");
+test("Native Space selection fails closed on missing or corrupt host receipts", async () => {
+  const failed = await createNativeSpaceSelectionStore({
+    async fetch() { return { ok: false, status: 401 }; },
+  });
+  assert.equal(failed.load(), null);
+  assert.equal(failed.save({
+    schema: SPACE_SELECTION_RECORD_SCHEMA,
+    subjectId: "user-1",
+    selectedSpaceId: "space-developer",
+  }), false);
+  assert.equal(failed.load().selectedSpaceId, "space-developer",
+    "a valid explicit selection can remain in memory, never falsely durable");
+  assert.equal((await createNativeSpaceSelectionStore({
+    async fetch() { return { ok: true, json: async () => ({ record: { schema: "wrong" } }) }; },
+  })).load(), null);
 });

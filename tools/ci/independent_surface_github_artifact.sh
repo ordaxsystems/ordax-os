@@ -42,25 +42,55 @@ for item in items:
         continue
     if (item.get("head_repository") or {}).get("full_name") != repo:
         continue
-    if item.get("status") != "completed" or item.get("conclusion") != "success":
+    status, conclusion = item.get("status"), item.get("conclusion")
+    # The Surface build uploads its verified EROFS before the independent QEMU
+    # job finishes. Do not make a Creator consumer wait for that unrelated job.
+    # An in-progress run is eligible only for a trusted canonical main push;
+    # the actual artifact still requires exact fingerprint and SHA verification.
+    finished = status == "completed" and conclusion == "success"
+    main_push = event == "push" and item.get("head_branch") == "main"
+    published_main = main_push and status == "in_progress" and conclusion is None
+    # The independent QEMU job may fail after the producer has uploaded a
+    # verified EROFS. Permit that run only after proving buildroot-surface
+    # itself succeeded, then validate the exact artifact bytes.
+    failed_qemu = main_push and status == "completed" and conclusion == "failure"
+    if not (finished or published_main or failed_qemu):
         continue
     run_id = item.get("id")
     if type(run_id) is int and run_id > 0:
-        candidates.append((item.get("head_branch") == preferred_branch, run_id, sha))
+        candidates.append((item.get("head_branch") == preferred_branch, run_id, sha, failed_qemu))
 
 # Prefer caller's branch when available, but permit a trusted owner-dispatch
 # producer from another branch after squash/merge. Acceptance is decided only
 # by the content-addressed verifier below against current inputs/environment.
 for preferred in (True, False):
-    for same_branch, run_id, sha in candidates:
+    for same_branch, run_id, sha, failed_qemu in candidates:
         if same_branch is preferred:
-            print(run_id, sha)
+            print(run_id, sha, "check-build-job" if failed_qemu else "trusted-run")
 PY
 # Use the canonical input list, not a second copy of the fingerprint policy.
 python3 tools/ci/independent_surface_component_cache.py list-inputs > "$scratch/inputs"
 mapfile -t producer_inputs < "$scratch/inputs"
 test "${#producer_inputs[@]}" -gt 0
-while read -r run_id producer_sha; do
+while read -r run_id producer_sha trust_kind; do
+  if [ "$trust_kind" = check-build-job ]; then
+    gh api --method GET "repos/$repo/actions/runs/$run_id/jobs" -f per_page=100 > "$scratch/producer-jobs.json"
+    if ! python3 - "$scratch/producer-jobs.json" <<'PY'
+import json
+from pathlib import Path
+import sys
+
+jobs = json.loads(Path(sys.argv[1]).read_text(encoding="utf-8"))["jobs"]
+matching = [job for job in jobs if job.get("name") == "buildroot-surface"
+            and job.get("status") == "completed"
+            and job.get("conclusion") == "success"]
+sys.exit(0 if len(matching) == 1 else 1)
+PY
+    then
+      echo "Skipping producer $run_id: Surface build job not approved"
+      continue
+    fi
+  fi
   # A known producer whose build inputs differ cannot supply the current
   # EROFS. Skip before artifact listing/download. Unknown Git history
   # (e.g. squashed branch) still gets the original content verification.

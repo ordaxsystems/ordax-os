@@ -105,7 +105,7 @@
     "surface_runtime_store": "content-addressed-sha256",
     "surface_runtime_view": "ephemeral-overlayfs",
     "surface_runtime_persistent_upper": false,
-    "portable_update_activation_mode": "signed-v3-materialize-arm-reboot-cold-health",
+    "portable_update_activation_mode": "signed-one-shot-next-reboot-cold-health",
     "portable_update_reboot_required": true,
     "local_ai_runtime_source": "signed-release-manifest-v4",
     "local_ai_runtime_store": "content-addressed-sha256",
