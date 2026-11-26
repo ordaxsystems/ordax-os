@@ -1372,7 +1372,7 @@ class DevelopmentGitFlowTest(unittest.TestCase):
         )
         self.assertEqual((self.state / "previous-commit").read_text().strip(), old_sha)
 
-    def test_interrupted_atomic_swap_restores_last_checkout_before_remote_access(self) -> None:
+    def test_legacy_interrupted_swap_preserves_checkout_without_reactivation(self) -> None:
         self._script(PULL)
         old_sha = self.commit_v1
         new_sha = self._commit_runtime("runtime-v2")
@@ -1394,14 +1394,12 @@ class DevelopmentGitFlowTest(unittest.TestCase):
             offline_remote.rename(self.remote)
 
         self.assertNotEqual(result.returncode, 0)
-        self.assertIn("atualizacao anterior foi interrompida", result.stderr)
-        self.assertIn(f"versao local {old_sha} restaurada", result.stderr)
-        self.assertIn(f"atualizacao falhou; usando versao local {old_sha}", result.stderr)
-        self.assertTrue(self.worktree.is_dir())
-        self.assertFalse(retired.exists())
-        self.assertFalse((self.state / "pull-transaction.tsv").exists())
+        self.assertIn("checkout ativo ausente; dados antigos preservados sem reativacao", result.stderr)
+        self.assertFalse(self.worktree.exists())
+        self.assertTrue(retired.is_dir())
+        self.assertTrue((self.state / "pull-transaction.tsv").exists())
         self.assertEqual(
-            self._run(["git", "-C", str(self.worktree), "rev-parse", "HEAD"]).stdout.strip(),
+            self._run(["git", "-C", str(retired), "rev-parse", "HEAD"]).stdout.strip(),
             old_sha,
         )
         self.assertEqual((self.state / "current-commit").read_text().strip(), old_sha)
@@ -1422,7 +1420,7 @@ class DevelopmentGitFlowTest(unittest.TestCase):
         self.assertIn("stale update lock reclaimed", recovered.stderr)
         self.assertFalse(lock_dir.exists())
 
-    def test_interrupted_swap_restores_retired_known_good_before_remote_work(self) -> None:
+    def test_abandoned_legacy_retired_tree_blocks_clone_without_data_loss(self) -> None:
         self._script(PULL)
         retired = self.worktree.parent / ".ordax-retired.4242"
         staging = self.worktree.parent / ".ordax-staging.4242"
@@ -1430,13 +1428,14 @@ class DevelopmentGitFlowTest(unittest.TestCase):
         staging.mkdir(parents=True)
         (staging / "partial").write_text("incomplete\n", encoding="utf-8")
 
-        recovered = self._script(PULL)
-        self.assertIn("recovered interrupted checkout transaction", recovered.stderr)
-        self.assertTrue(self.worktree.is_dir())
-        self.assertFalse(retired.exists())
-        self.assertFalse(staging.exists())
+        blocked = self._script(PULL, check=False)
+        self.assertNotEqual(blocked.returncode, 0)
+        self.assertIn("retired checkout without current transaction; preserved and blocked", blocked.stderr)
+        self.assertFalse(self.worktree.exists())
+        self.assertTrue(retired.is_dir())
+        self.assertTrue(staging.is_dir())
         self.assertEqual(
-            self._run(["git", "-C", str(self.worktree), "rev-parse", "HEAD"]).stdout.strip(),
+            self._run(["git", "-C", str(retired), "rev-parse", "HEAD"]).stdout.strip(),
             self.commit_v1,
         )
 
