@@ -42,7 +42,14 @@ for item in items:
         continue
     if (item.get("head_repository") or {}).get("full_name") != repo:
         continue
-    if item.get("status") != "completed" or item.get("conclusion") != "success":
+    status, conclusion = item.get("status"), item.get("conclusion")
+    # The Surface build uploads its verified EROFS before the independent QEMU
+    # job finishes. Do not make a Creator consumer wait for that unrelated job.
+    # An in-progress run is eligible only for a trusted canonical main push;
+    # the actual artifact still requires exact fingerprint and SHA verification.
+    finished = status == "completed" and conclusion == "success"
+    published_main = event == "push" and item.get("head_branch") == "main" and status == "in_progress" and conclusion is None
+    if not (finished or published_main):
         continue
     run_id = item.get("id")
     if type(run_id) is int and run_id > 0:
