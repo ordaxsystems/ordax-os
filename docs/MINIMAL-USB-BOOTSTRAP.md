@@ -1,3 +1,26 @@
+> **Active-code audit — 26 November 2026 (Owner DEV, not Stable):**
+>
+> - The runnable Owner DEV bootstrap is `bootstrap/initramfs/root/init` plus
+>   `bootstrap/dev-base/ordax-pull` and `system/supervisor`. A Wi-Fi link
+>   does not prove Git HTTPS, candidate acquisition or boot activation.
+> - A raw `ordax-bootstrap-seed.raw.gz` flashed directly by Rufus is the
+>   **two-partition bootstrap input**, *not* a Creator-prepared full-capacity
+>   USB. It does not add `ORDAX-DATA` or resize the target-specific GPT.
+>   Do not publish or label raw seed flashing as a completed Creator install.
+> - Owner DEV Creator's currently implemented three-partition physical
+>   planner is `creator/core/PlanOwnerDevelopmentStorage`; the separate
+>   two-partition `PlanPortableTargetStorage` is a future architecture
+>   until its physical writer and boot handoff are verified. Do **not**
+>   quietly substitute an unimplemented target profile into a USB release.
+> - The canonical Pull uses atomic checkout exchange with a transaction
+>   witness. Obsolete two-rename checkout recovery is **not** a fallback:
+>   retired trees without a current transaction are preserved and blocked,
+>   never auto-reactivated. Explicit maintenance may inspect them offline.
+> - Validate on physical notebook before asserting the Pull works: capture
+>   `ordax-diagnose`, source SHA, Git failure category, free space, Pull
+>   result and Supervisor health. No boot/kernel rebuild is necessary for
+>   documentation and script-only diagnostic changes.
+>
 # Minimal USB Bootstrap
 
 Status: CANONICAL FOR PROTOTYPE
