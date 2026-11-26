@@ -1041,3 +1041,25 @@ test('candidate cleanup refuses unexpected real node_modules tree before recursi
   assert.equal(readFileSync(join(unexpected,'keep'),'utf8'),
     'candidate source is not an external junction');
 });
+
+
+test('pull publishes checking and failure without changing the activated SHA', async t=>{
+  const userData=mkdtempSync(join(tmpdir(),'ordax-check-observation-'));
+  t.after(()=>rmSync(userData,{recursive:true,force:true}));
+  const active='a'.repeat(40);
+  writeState(userData,{...readState(userData),activeSha:active});
+  const result=await stageMain({userData,template:userData,runGit:async ()=>{
+    const state=readState(userData);
+    assert.equal(state.check.phase,'checking');
+    assert.equal(state.activeSha,active);
+    assert.equal(state.pendingSha,null);
+    return {ok:false,stdout:''};
+  }});
+  assert.equal(result.status,'unavailable');
+  const state=readState(userData);
+  assert.equal(state.activeSha,active);
+  assert.equal(state.pendingSha,null);
+  assert.equal(state.check.phase,'error');
+  assert.equal(state.check.error,'remote-unavailable');
+  assert.ok(Number.isFinite(Date.parse(state.check.checkedAt)));
+});
